@@ -1,4 +1,4 @@
-name: Backup live Cloudflare Worker
+name: Backup live Cloudflare Worker (redacted)
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   backup:
-    name: Download source and settings
+    name: Download and redact live Worker
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
@@ -41,17 +41,64 @@ jobs:
           auth_header="Authorization: Bearer $API_TOKEN"
 
           curl --fail --silent --show-error --retry 3 --retry-all-errors             -H "$auth_header" "$api" --output backup/worker.js
-
-          curl --fail --silent --show-error --retry 3 --retry-all-errors             -H "$auth_header" "$api/settings" --output backup/settings.json
+          curl --fail --silent --show-error --retry 3 --retry-all-errors             -H "$auth_header" "$api/settings" --output backup/settings.raw.json
 
           test -s backup/worker.js
-          test -s backup/settings.json
-          sha256sum backup/worker.js backup/settings.json > backup/SHA256SUMS.txt
+          test -s backup/settings.raw.json
 
-      - name: Upload private backup artifact
+      - name: Redact settings before artifact upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const input = JSON.parse(fs.readFileSync("backup/settings.raw.json", "utf8"));
+          const sensitiveKey = /(secret|token|password|api[_-]?key|credential|private)/i;
+
+          function sanitize(value, key = "", inheritedSensitive = false) {
+            if (Array.isArray(value)) {
+              return value.map((item) => sanitize(item, key, inheritedSensitive));
+            }
+            if (value && typeof value === "object") {
+              const objectName = String(value.name || value.key || "");
+              const objectSensitive =
+                inheritedSensitive ||
+                sensitiveKey.test(key) ||
+                sensitiveKey.test(objectName) ||
+                /secret/i.test(String(value.type || ""));
+              return Object.fromEntries(
+                Object.entries(value).map(([childKey, childValue]) => {
+                  if (objectSensitive && !["name", "key", "type"].includes(childKey)) {
+                    return [childKey, "[REDACTED]"];
+                  }
+                  return [childKey, sanitize(childValue, childKey, objectSensitive)];
+                })
+              );
+            }
+            return inheritedSensitive || sensitiveKey.test(key) ? "[REDACTED]" : value;
+          }
+
+          const output = JSON.stringify(sanitize(input), null, 2) + "\n";
+          fs.writeFileSync("backup/settings.redacted.json", output);
+          NODE
+          rm backup/settings.raw.json
+          test -s backup/settings.redacted.json
+
+          if grep -Eiq '(gsk_|sk-[A-Za-z0-9_-]{12,}|ghp_|github_pat_|hf_[A-Za-z0-9_-]{12,}|Bearer[[:space:]]+[A-Za-z0-9._-]{12,})'             backup/worker.js backup/settings.redacted.json; then
+            echo "Potential credential material detected in backup output." >&2
+            exit 1
+          fi
+
+      - name: Create checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum backup/worker.js backup/settings.redacted.json > backup/SHA256SUMS.txt
+
+      - name: Upload private redacted backup artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cloudflare-worker-backup
+          name: cloudflare-worker-backup-redacted
           path: backup/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 14

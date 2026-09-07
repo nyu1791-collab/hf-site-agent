@@ -289,12 +289,20 @@ function tavilyFreeCreditLimit(env) {
   return asInt(env.TAVILY_FREE_CREDIT_LIMIT, 1500, 0, 1500);
 }
 __name(tavilyFreeCreditLimit, "tavilyFreeCreditLimit");
+function tavilyConfigMissing(env) {
+  const missing = [];
+  if (!env.TAVILY_API_KEY) missing.push("TAVILY_API_KEY");
+  if (!env.TAVILY_QUOTA) missing.push("TAVILY_QUOTA");
+  return missing;
+}
+__name(tavilyConfigMissing, "tavilyConfigMissing");
 function tavilySearchEnabled(env) {
-  return Boolean(env.TAVILY_API_KEY && env.TAVILY_QUOTA);
+  return tavilyConfigMissing(env).length === 0;
 }
 __name(tavilySearchEnabled, "tavilySearchEnabled");
 async function reserveTavilyCredits(env, allowPaidResearch) {
-  if (!tavilySearchEnabled(env)) throw new HttpError(503, "Web\u691C\u7D22\u306F\u307E\u3060\u6709\u52B9\u5316\u3055\u308C\u3066\u3044\u307E\u305B\u3093\u3002Cloudflare\u306ESecret\u306B TAVILY_API_KEY \u3092\u767B\u9332\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+  const missing = tavilyConfigMissing(env);
+  if (missing.length) throw new HttpError(503, "Web search is not configured. Missing: " + missing.join(", ") + ".");
   const month = tavilyMonthKey();
   const freeCreditLimit = tavilyFreeCreditLimit(env);
   const stub = env.TAVILY_QUOTA.get(env.TAVILY_QUOTA.idFromName(month));
@@ -354,7 +362,7 @@ var COMMANDER_SQUADS = Object.freeze({
   deepseek: Object.freeze({ lead: "DeepSeek", purpose: "\u72EC\u7ACB\u3057\u305F\u6280\u8853\u5206\u6790\u3001\u53CD\u5BFE\u610F\u898B\u3001\u5B9F\u88C5\u30EC\u30D3\u30E5\u30FC", roles: ["analyst", "reviewer", "auditor"] })
 });
 var SPECIALIST_REGISTRY = Object.freeze({
-  web_research: Object.freeze({ squad: "qwen", requires: ["TAVILY_API_KEY"], action: "\u5FC5\u8981\u6642\u3060\u3051\u6700\u65B0\u306E\u516C\u958B\u60C5\u5831\u3092\u53D6\u5F97", paid: "approval_required" }),
+  web_research: Object.freeze({ squad: "qwen", requires: ["TAVILY_API_KEY", "TAVILY_QUOTA"], action: "\u5FC5\u8981\u6642\u3060\u3051\u6700\u65B0\u306E\u516C\u958B\u60C5\u5831\u3092\u53D6\u5F97", paid: "approval_required" }),
   code_review: Object.freeze({ squad: "deepseek", requires: ["HF_TOKEN", "HF_DEEPSEEK_MODEL"], action: "\u72EC\u7ACB\u3057\u305F\u30B3\u30FC\u30C9\u30FB\u8A2D\u8A08\u30EC\u30D3\u30E5\u30FC", paid: "disabled_until_explicitly_enabled" }),
   vision_review: Object.freeze({ squad: "deepseek", requires: ["HF_TOKEN", "HF_VISION_MODEL"], action: "\u753B\u9762\u30FB\u753B\u50CF\u306E\u54C1\u8CEA\u78BA\u8A8D", paid: "approval_required" }),
   image_generation: Object.freeze({ squad: "qwen", requires: ["HF_TOKEN", "HF_IMAGE_MODEL"], action: "\u753B\u50CF\u7D20\u6750\u306E\u751F\u6210", paid: "always_approval_required" }),
@@ -790,7 +798,7 @@ var index_default = {
         ok: true,
         service: "groq-github-site-agent",
         version: "2026-09-07",
-        research: { enabled: tavilySearchEnabled(env), sourcesPerRequest: 10, searchDepth: "advanced", creditsPerSearch: 2, freeCreditLimit: tavilyFreeCreditLimit(env) },
+        research: { enabled: tavilySearchEnabled(env), missing: tavilyConfigMissing(env), sourcesPerRequest: 10, searchDepth: "advanced", creditsPerSearch: 2, freeCreditLimit: tavilyFreeCreditLimit(env) },
         commander: { version: COMMANDER_VERSION, maxParallelModelCalls: MAX_PARALLEL_MODEL_CALLS, state: "ready_for_specialists" }
       }, 200, headers);
     }
