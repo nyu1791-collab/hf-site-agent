@@ -124,15 +124,22 @@ jobs:
           set -euo pipefail
           api="https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/scripts/$WORKER_NAME?bindings_inherit=strict"
           metadata="$(cat "$METADATA_FILE")"
-          response="$(curl --fail --silent --show-error --retry 3 --retry-all-errors \
+          response_file="$RUNNER_TEMP/worker-upload-response.json"
+          http_status="$(curl --silent --show-error --retry 3 --retry-all-errors \
             --connect-timeout 10 --max-time 90 \
             -X PUT \
             -H "Authorization: Bearer $API_TOKEN" \
             -F "metadata=$metadata;type=application/json" \
             -F "worker.js=@worker/index.js;type=application/javascript" \
+            -o "$response_file" -w "%{http_code}" \
             "$api")"
-          printf '%s' "$response" | jq -e '.success == true' >/dev/null
-          version="$(printf '%s' "$response" | jq -r '.result.id // .result.version_id // "accepted"')"
+          if [[ "$http_status" != 2* ]]; then
+            echo "Cloudflare rejected the Worker upload (HTTP $http_status)." >&2
+            jq -c '{success, errors, messages}' "$response_file" >&2 || true
+            exit 1
+          fi
+          jq -e '.success == true' "$response_file" >/dev/null
+          version="$(jq -r '.result.id // .result.version_id // "accepted"' "$response_file")"
           echo "Cloudflare accepted the new Worker version: $version"
 
       - name: Verify public health after deployment
