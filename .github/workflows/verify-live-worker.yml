@@ -7,6 +7,9 @@ on:
       - "worker/index.js"
       - ".github/workflows/verify-live-worker.yml"
       - ".github/workflows/sync-worker-admin-password.yml"
+      - "hf-space/app.js"
+      - "hf-space/index.html"
+      - ".github/workflows/sync-hf-space.yml"
   push:
     branches:
       - main
@@ -14,6 +17,9 @@ on:
       - "worker/index.js"
       - ".github/workflows/verify-live-worker.yml"
       - ".github/workflows/sync-worker-admin-password.yml"
+      - "hf-space/app.js"
+      - "hf-space/index.html"
+      - ".github/workflows/sync-hf-space.yml"
 
 permissions:
   contents: read
@@ -59,6 +65,29 @@ jobs:
             throw new Error("Admin-secret migration must not expose secrets at job scope.");
           }
           console.log("Admin-secret migration workflow safety check passed.");
+          NODE
+
+      - name: Check Hugging Face frontend safety contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check hf-space/app.js
+          node <<'NODE'
+          const fs = require("node:fs");
+          const app = fs.readFileSync("hf-space/app.js", "utf8");
+          const page = fs.readFileSync("hf-space/index.html", "utf8");
+          const checkboxCheck = app.indexOf('if (!$("confirmed").checked)');
+          const publishFlag = app.indexOf("confirmPublish: true");
+          if (checkboxCheck < 0 || publishFlag < checkboxCheck) {
+            throw new Error("HF publish confirmation must follow the checked review box.");
+          }
+          if (app.includes("allowPaidResearch") || app.includes("approve-paid") || page.includes("paid-approval")) {
+            throw new Error("Paid-search controls must remain removed from the HF frontend.");
+          }
+          if (!page.includes("課金検索は実行しません")) {
+            throw new Error("HF frontend must clearly state that paid search is disabled.");
+          }
+          console.log("Hugging Face frontend safety contract passed.");
           NODE
 
       - name: Check quota guard source

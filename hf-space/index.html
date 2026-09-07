@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Web Site Agent</title><link rel="stylesheet" href="./style.css"></head>
+<body><main>
+<p class="eyebrow">GROQ × GITHUB</p><h1>AI Web Site Agent</h1><p class="lead">コードを生成して確認してから、指定リポジトリへ保存します。</p>
+<label for="instruction">作りたいサイト</label><textarea id="instruction" rows="8" placeholder="例：ゲーム攻略サイトのトップページ。黒と紫、スマホ優先、カード3枚とFAQを入れて。"></textarea>
+<label class="research-option"><input id="research" type="checkbox"> 最新情報をWeb検索して反映する（高精度・最大10件）</label><p class="note">検索は必要な時だけ実行します。無料枠終了後は自動停止し、課金検索は実行しません。</p>
+<label for="password">操作パスワード</label><input id="password" type="password" autocomplete="current-password" placeholder="Cloudflareに登録した操作パスワード"><p class="note">パスワードは保存しません。</p>
+<section class="commander-panel"><h2>司令部</h2><p>Qwen部隊・DeepSeek部隊・専門AIの準備状況を確認できます。</p><button id="check-commander" class="secondary">部隊の準備状況を確認</button><div id="commander-status" class="commander-status" hidden></div></section>
+<button id="generate">コードを生成</button><p id="status" role="status" aria-live="polite"></p><section id="result" hidden><h2 id="site-title"></h2><p id="site-summary"></p><div id="files"></div><label class="confirm"><input id="confirmed" type="checkbox"> コード内容を確認した。指定GitHubへPushしてよい</label><button id="publish" class="secondary">GitHubへPush</button></section>
+</main><script src="./config.js"></script><script src="./app.js"></script></body></html>
+
