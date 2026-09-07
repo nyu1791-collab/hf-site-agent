@@ -1,11 +1,16 @@
-name: Verify live Worker health
+name: Verify live Worker and source
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "worker/index.js"
+      - ".github/workflows/verify-live-worker.yml"
   push:
     branches:
       - main
     paths:
+      - "worker/index.js"
       - ".github/workflows/verify-live-worker.yml"
 
 permissions:
@@ -16,13 +21,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
+      - name: Check Worker source syntax
+        uses: actions/checkout@v4
+
+      - name: Run Node syntax check
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check worker/index.js
+
       - name: Check public health endpoint
         shell: bash
         run: |
           set -euo pipefail
-          response="$(curl --fail --silent --show-error --retry 2 --retry-all-errors \
-            --connect-timeout 10 --max-time 20 \
-            https://groq-github-site-agent.n-yu1791.workers.dev/health)"
+          response="$(curl --fail --silent --show-error --retry 2 --retry-all-errors             --connect-timeout 10 --max-time 20             https://groq-github-site-agent.n-yu1791.workers.dev/health)"
           printf '%s' "$response" | jq -e '
             .ok == true and
             .service == "groq-github-site-agent" and
