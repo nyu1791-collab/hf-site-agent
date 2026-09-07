@@ -193,3 +193,37 @@ jobs:
           done
           echo "Post-deploy health verification failed." >&2
           exit 1
+
+      - name: Verify authenticated content-plan safety gates
+        env:
+          ADMIN_PASSWORD: ${{ secrets.WORKER_ADMIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ADMIN_PASSWORD"
+          response="$(curl --fail --silent --show-error \
+            --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 20 \
+            -H 'Origin: https://yu-179191-groq-github-site-agent.hf.space' \
+            -H 'content-type: application/json' \
+            -H "x-admin-password: $ADMIN_PASSWORD" \
+            --data '{"goal":"deployment smoke test"}' \
+            https://groq-github-site-agent.n-yu1791.workers.dev/command/content-plan)"
+          printf '%s' "$response" | jq -e '
+            (.requestId | type == "string" and length > 0) and
+            .content.controls.maxSources == 10 and
+            .content.controls.paidSearch == "disabled" and
+            .content.controls.youtubeUpload == "not_connected" and
+            .content.controls.publicPublish == "explicit_confirmation_required" and
+            .content.pipeline.paidOperations == "disabled" and
+            .content.pipeline.noPaidSearchByDefault == true and
+            .content.pipeline.noPublicPublishByDefault == true and
+            ([.content.steps[] |
+              select(
+                .stage == "publish" and
+                .execution == "explicit_approval_required"
+              )
+            ] | length == 1)
+          ' >/dev/null
+          echo "Authenticated content-plan safety gates passed."
+
