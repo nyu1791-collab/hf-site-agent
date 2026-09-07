@@ -337,7 +337,7 @@ var TavilyQuota = class {
     const url = new URL(request.url);
     if (request.method !== "POST" || url.pathname !== "/reserve") return new Response("Not found.", { status: 404 });
     const input = await request.json().catch(() => ({}));
-    const month = /^\\d{4}-\\d{2}$/.test(String(input?.month || "")) ? String(input.month) : "";
+    const month = /^\d{4}-\d{2}$/.test(String(input?.month || "")) ? String(input.month) : "";
     const freeCreditLimit = asInt(input?.freeCreditLimit, 1500, 0, 1500);
     const credits = asInt(input?.credits, 2, 1, 2);
     if (!month) return sendJson({ error: "Invalid month." }, 400);
