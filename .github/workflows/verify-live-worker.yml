@@ -104,6 +104,32 @@ jobs:
           }
           console.log("Quota guard source check passed.");
           NODE
+
+      - name: Check external timeout and log safety source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync("worker/index.js", "utf8");
+          const required = [
+            "signal: AbortSignal.timeout(TAVILY_TIMEOUT_MS)",
+            "signal: AbortSignal.timeout(GROQ_TIMEOUT_MS)",
+            "signal: init.signal || AbortSignal.timeout(GITHUB_TIMEOUT_MS)",
+            "providerMessagesLogged: false"
+          ];
+          for (const marker of required) {
+            if (!source.includes(marker)) throw new Error(`Missing resilience marker: ${marker}`);
+          }
+          if (source.includes('log("request_failed", { requestId: id, path: url.pathname, status, message })')) {
+            throw new Error("Provider or internal error text must not be written to request logs.");
+          }
+          if (!source.includes('log("request_failed", { requestId: id, path: url.pathname, status, category })')) {
+            throw new Error("Redacted request failure logging is missing.");
+          }
+          console.log("External timeout and log safety source check passed.");
+          NODE
+
       - name: Check public health endpoint
         shell: bash
         run: |
