@@ -1,0 +1,57 @@
+name: Backup live Cloudflare Worker
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/backup-live-worker.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-live-cloudflare-worker
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Download source and settings
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      WORKER_NAME: groq-github-site-agent
+    steps:
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ACCOUNT_ID"
+          test -n "$API_TOKEN"
+
+      - name: Download live Worker source and settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p backup
+          api="https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/scripts/$WORKER_NAME"
+          auth_header="Authorization: Bearer $API_TOKEN"
+
+          curl --fail --silent --show-error --retry 3 --retry-all-errors             -H "$auth_header" "$api" --output backup/worker.js
+
+          curl --fail --silent --show-error --retry 3 --retry-all-errors             -H "$auth_header" "$api/settings" --output backup/settings.json
+
+          test -s backup/worker.js
+          test -s backup/settings.json
+          sha256sum backup/worker.js backup/settings.json > backup/SHA256SUMS.txt
+
+      - name: Upload private backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflare-worker-backup
+          path: backup/
+          if-no-files-found: error
+          retention-days: 30
