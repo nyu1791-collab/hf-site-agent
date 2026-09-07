@@ -13,6 +13,9 @@ var DEFAULT_ORIGINS = /* @__PURE__ */ new Set([
 ]);
 var MAX_INSTRUCTION_CHARS = 5e3;
 var MAX_TOTAL_FILE_CHARS = 65e3;
+var TAVILY_TIMEOUT_MS = 15e3;
+var GROQ_TIMEOUT_MS = 3e4;
+var GITHUB_TIMEOUT_MS = 2e4;
 var COMMANDER_VERSION = "1.0";
 var CONTENT_PIPELINE_VERSION = "1.0";
 var MAX_CONTENT_SOURCES = 10;
@@ -48,6 +51,10 @@ function asInt(value, fallback, min, max) {
   return Math.min(Math.max(Math.floor(number), min), max);
 }
 __name(asInt, "asInt");
+function isTimeoutError(cause) {
+  return cause?.name === "TimeoutError" || cause?.name === "AbortError";
+}
+__name(isTimeoutError, "isTimeoutError");
 function configuredOrigins(env) {
   const extra = [env.ALLOWED_ORIGIN, env.ALLOWED_ORIGINS].filter(Boolean).flatMap((value) => String(value).split(",")).map((value) => value.trim()).filter((value) => value.startsWith("https://"));
   return /* @__PURE__ */ new Set([...DEFAULT_ORIGINS, ...extra]);
@@ -328,7 +335,18 @@ async function tavilySearch(query, env, id) {
   const cleanQuery = cleanText(query, 300);
   if (cleanQuery.length < 3) throw new HttpError(400, "検索語は3〜300文字で入力してください。");
   const quota = await reserveTavilyCredits(env);
-  const response = await fetch("https://api.tavily.com/search", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + env.TAVILY_API_KEY }, body: JSON.stringify({ query: cleanQuery, topic: "general", search_depth: "advanced", max_results: 10, include_answer: false, include_raw_content: false, include_images: false }) });
+  let response;
+  try {
+    response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer " + env.TAVILY_API_KEY },
+      body: JSON.stringify({ query: cleanQuery, topic: "general", search_depth: "advanced", max_results: 10, include_answer: false, include_raw_content: false, include_images: false }),
+      signal: AbortSignal.timeout(TAVILY_TIMEOUT_MS)
+    });
+  } catch (cause) {
+    const timedOut = isTimeoutError(cause);
+    throw new HttpError(timedOut ? 504 : 502, timedOut ? "Tavily検索が時間内に応答しませんでした。" : "Tavily検索に接続できませんでした。");
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new HttpError(502, "Tavily検索に失敗しました。");
   const results = Array.isArray(data?.results) ? data.results.slice(0, 10).map((item) => ({ title: cleanText(item?.title, 180), url: String(item?.url || "").slice(0, 1200), content: cleanText(item?.content, 900) })).filter((item) => item.title || item.url || item.content) : [];
@@ -633,16 +651,18 @@ async function groqCompletionRequest(body, env, lane) {
       response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${env.GROQ_API_KEY}` },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(GROQ_TIMEOUT_MS)
       });
-    } catch {
+    } catch (cause) {
+      const timedOut = isTimeoutError(cause);
       if (attempt < retries && maxWaitSeconds > 0) {
         const waitSeconds = Math.min(maxWaitSeconds, Math.max(1, 2 ** attempt));
-        log("groq_network_backoff", { lane, attempt: attempt + 1, waitSeconds });
+        log(timedOut ? "groq_timeout_backoff" : "groq_network_backoff", { lane, attempt: attempt + 1, waitSeconds });
         await sleep(waitSeconds * 1e3);
         continue;
       }
-      throw new HttpError(502, "Groqへの接続に失敗しました。");
+      throw new HttpError(timedOut ? 504 : 502, timedOut ? "Groqが時間内に応答しませんでした。" : "Groqへの接続に失敗しました。");
     }
     const data = await response.json().catch(() => ({}));
     if (response.ok) return data;
@@ -661,7 +681,7 @@ async function groqCompletionRequest(body, env, lane) {
       }
       throw new HttpError(429, `Groqの無料枠が混雑しています。${waitSeconds || 30}秒後に再実行してください。`, { retryAfterSeconds: waitSeconds || 30 });
     }
-    throw new HttpError(502, `Groq error: ${providerMessage}`);
+    throw new HttpError(502, `Groq APIがエラーを返しました (HTTP ${response.status})`);
   }
 }
 __name(groqCompletionRequest, "groqCompletionRequest");
@@ -782,17 +802,24 @@ function branchPath(branch) {
 }
 __name(branchPath, "branchPath");
 async function github(env, path, init = {}) {
-  const response = await fetch(`https://api.github.com/repos/${SAFE_REPOSITORY}${path}`, {
-    ...init,
-    headers: {
-      accept: "application/vnd.github+json",
-      authorization: `Bearer ${env.GITHUB_TOKEN}`,
-      "x-github-api-version": "2022-11-28",
-      ...init.headers || {}
-    }
-  });
+  let response;
+  try {
+    response = await fetch(`https://api.github.com/repos/${SAFE_REPOSITORY}${path}`, {
+      ...init,
+      signal: init.signal || AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+      headers: {
+        accept: "application/vnd.github+json",
+        authorization: `Bearer ${env.GITHUB_TOKEN}`,
+        "x-github-api-version": "2022-11-28",
+        ...init.headers || {}
+      }
+    });
+  } catch (cause) {
+    const timedOut = isTimeoutError(cause);
+    throw new HttpError(timedOut ? 504 : 502, timedOut ? "GitHub APIが時間内に応答しませんでした。" : "GitHub APIに接続できませんでした。");
+  }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new HttpError(502, `GitHub error: ${data?.message || response.status}`);
+  if (!response.ok) throw new HttpError(502, `GitHub APIがエラーを返しました (HTTP ${response.status})`);
   return data;
 }
 __name(github, "github");
@@ -897,10 +924,11 @@ var index_default = {
       return sendJson({
         ok: true,
         service: "groq-github-site-agent",
-        version: "2026-09-08",
+        version: "2026-09-08.1",
         research: { enabled: tavilySearchEnabled(env), missing: tavilyConfigMissing(env), sourcesPerRequest: 10, searchDepth: "advanced", creditsPerSearch: 2, freeCreditLimit: tavilyFreeCreditLimit(env) },
         commander: { version: COMMANDER_VERSION, maxParallelModelCalls: MAX_PARALLEL_MODEL_CALLS, state: "ready_for_specialists" },
-        contentPipeline: { version: CONTENT_PIPELINE_VERSION, maxSources: MAX_CONTENT_SOURCES, state: "draft_and_approval_gated", paidOperations: "disabled", youtubeUpload: "not_connected", publishRequiresExplicitConfirmation: true }
+        contentPipeline: { version: CONTENT_PIPELINE_VERSION, maxSources: MAX_CONTENT_SOURCES, state: "draft_and_approval_gated", paidOperations: "disabled", youtubeUpload: "not_connected", publishRequiresExplicitConfirmation: true },
+        resilience: { externalTimeouts: true, tavilyTimeoutMs: TAVILY_TIMEOUT_MS, groqTimeoutMs: GROQ_TIMEOUT_MS, githubTimeoutMs: GITHUB_TIMEOUT_MS, providerMessagesLogged: false }
       }, 200, headers);
     }
     const cors = corsHeaders(request, env);
@@ -955,7 +983,8 @@ var index_default = {
       const status = cause instanceof HttpError ? cause.status : 500;
       const message = cause instanceof Error ? cause.message : "Unexpected error.";
       const details = cause instanceof HttpError ? cause.details : {};
-      log("request_failed", { requestId: id, path: url.pathname, status, message });
+      const category = status >= 500 ? "server_or_upstream" : "request";
+      log("request_failed", { requestId: id, path: url.pathname, status, category });
       return fail(message, status, id, cors, details);
     }
   }
