@@ -38,10 +38,18 @@ jobs:
             "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/scripts/$WORKER_NAME" \
             --output worker/live-worker.multipart
 
-          awk 'BEGIN { inpart=0 }
-            /^Content-Disposition: form-data; name="index.js"\\r?$/ { inpart=1; getline; next }
-            /^--[0-9a-f]+--\\r?$/ { inpart=0 }
-            inpart { sub(/\\r$/, ""); print }' worker/live-worker.multipart > worker/index.js
+          # Cloudflare returns multipart text. Normalize CRLF first, then retain only index.js.
+          tr -d '\r' < worker/live-worker.multipart | awk '
+            /^Content-Disposition: form-data; name="index.js"$/ {
+              inpart = 1
+              getline
+              next
+            }
+            /^--[0-9a-f]+--$/ {
+              if (inpart) exit
+            }
+            inpart { print }
+          ' > worker/index.js
 
           test -s worker/index.js
           node --check worker/index.js
@@ -51,7 +59,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git add worker/index.js worker/live-worker.multipart
+          git add worker/index.js
           if git diff --cached --quiet; then
             echo "Worker source already matches the latest snapshot."
             exit 0
