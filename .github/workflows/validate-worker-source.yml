@@ -1,0 +1,35 @@
+name: Validate Worker source
+
+on:
+  pull_request:
+    paths:
+      - "worker/index.js"
+      - ".github/workflows/validate-worker-source.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check JavaScript syntax
+        run: node --check worker/index.js
+      - name: Check public health contract
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const source = fs.readFileSync("worker/index.js", "utf8");
+          const root = source.indexOf('request.method === "GET" && url.pathname === "/"');
+          const health = source.indexOf('request.method === "GET" && url.pathname === "/health"');
+          const corsGuard = source.indexOf('if (!cors) {');
+          if (root < 0 || health < 0 || corsGuard < 0 || root > corsGuard || health > corsGuard) {
+            throw new Error("Expected public root/health routes before the CORS guard.");
+          }
+          if (!source.includes('url.pathname === "/generate"') || !source.includes("await authenticate(request, env)")) {
+            throw new Error("Expected authenticated generation route was not found.");
+          }
+          NODE
