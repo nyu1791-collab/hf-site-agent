@@ -56,6 +56,20 @@ jobs:
           ' >/dev/null
           echo "Health check passed."
 
+      - name: Check approval-gated content pipeline source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync("worker/index.js", "utf8");
+          if (source.includes("allowPaidResearch")) throw new Error("Paid Tavily authorization path must remain removed.");
+          if (!source.includes("/command/content-plan")) throw new Error("Content plan route is missing.");
+          if (!source.includes('paidOperations: "disabled"')) throw new Error("Paid operations are not disabled in the pipeline.");
+          console.log("Approval-gated content pipeline source check passed.");
+          NODE
+
+
       - name: Check authenticated commander status
         env:
           ADMIN_PASSWORD: ${{ secrets.WORKER_ADMIN_PASSWORD }}
