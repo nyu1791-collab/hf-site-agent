@@ -1,0 +1,107 @@
+name: Sync Hugging Face Space frontend safely
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "hf-space/app.js"
+      - "hf-space/index.html"
+      - ".github/workflows/sync-hf-space.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-hf-space-frontend
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SPACE_REPO: yu-179191/groq-github-site-agent
+      SPACE_HOST: https://yu-179191-groq-github-site-agent.static.hf.space
+
+    steps:
+      - name: Check out reviewed frontend source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate frontend safety contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check hf-space/app.js
+          node <<'NODE'
+          const fs = require("node:fs");
+          const app = fs.readFileSync("hf-space/app.js", "utf8");
+          const page = fs.readFileSync("hf-space/index.html", "utf8");
+          if (!app.includes("confirmPublish: true")) throw new Error("Explicit publish confirmation flag is missing.");
+          if (app.includes("allowPaidResearch") || app.includes("approve-paid")) throw new Error("Paid-search UI path must remain removed.");
+          if (!page.includes("課金検索は実行しません") || page.includes("paid-approval")) throw new Error("Paid-search UI notice is unsafe.");
+          NODE
+
+      - name: Sync only reviewed frontend files
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$HF_TOKEN"
+          target="$RUNNER_TEMP/hf-space-repo"
+          askpass="$RUNNER_TEMP/hf-askpass.sh"
+          cat > "$askpass" <<'SH'
+          #!/usr/bin/env sh
+          case "$1" in
+            *Username*) printf '%s\n' '__token__' ;;
+            *Password*) printf '%s\n' "$HF_TOKEN" ;;
+            *) printf '\n' ;;
+          esac
+          SH
+          chmod 700 "$askpass"
+          trap 'rm -f "$askpass"' EXIT
+          GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+            git clone --depth 1 "https://huggingface.co/spaces/$SPACE_REPO" "$target"
+          install -m 0644 hf-space/app.js "$target/app.js"
+          install -m 0644 hf-space/index.html "$target/index.html"
+          git -C "$target" diff --check
+          if git -C "$target" diff --quiet -- app.js index.html; then
+            echo "Hugging Face frontend is already synchronized."
+          else
+            git -C "$target" config user.name "hf-site-agent automation"
+            git -C "$target" config user.email "actions@users.noreply.github.com"
+            git -C "$target" add app.js index.html
+            git -C "$target" commit -m "fix: align UI with publish and free-search safety gates"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git -C "$target" push origin HEAD:main
+            echo "Reviewed frontend files synchronized."
+          fi
+
+      - name: Verify Hugging Face source and public host
+        shell: bash
+        run: |
+          set -euo pipefail
+          raw_base="https://huggingface.co/spaces/$SPACE_REPO/raw/main"
+          for attempt in $(seq 1 30); do
+            raw_app="$(curl --location --fail --silent --show-error --connect-timeout 10 --max-time 20 "$raw_base/app.js?sha=$GITHUB_SHA" || true)"
+            raw_page="$(curl --location --fail --silent --show-error --connect-timeout 10 --max-time 20 "$raw_base/index.html?sha=$GITHUB_SHA" || true)"
+            host_app="$(curl --location --fail --silent --show-error --connect-timeout 10 --max-time 20 "$SPACE_HOST/app.js?sha=$GITHUB_SHA" || true)"
+            host_page="$(curl --location --fail --silent --show-error --connect-timeout 10 --max-time 20 "$SPACE_HOST/?sha=$GITHUB_SHA" || true)"
+            if grep -Fq 'confirmPublish: true' <<<"$raw_app" &&
+               grep -Fq 'confirmPublish: true' <<<"$host_app" &&
+               ! grep -Fq 'allowPaidResearch' <<<"$raw_app" &&
+               ! grep -Fq 'allowPaidResearch' <<<"$host_app" &&
+               grep -Fq '課金検索は実行しません' <<<"$raw_page" &&
+               grep -Fq '課金検索は実行しません' <<<"$host_page" &&
+               ! grep -Fq 'paid-approval' <<<"$raw_page" &&
+               ! grep -Fq 'paid-approval' <<<"$host_page"; then
+              echo "Hugging Face frontend safety contract is live."
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Hugging Face frontend did not converge to the reviewed safety contract." >&2
+          exit 1
