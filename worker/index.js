@@ -363,11 +363,11 @@ var COMMANDER_SQUADS = Object.freeze({
   deepseek: Object.freeze({ lead: "DeepSeek", purpose: "\u72EC\u7ACB\u3057\u305F\u6280\u8853\u5206\u6790\u3001\u53CD\u5BFE\u610F\u898B\u3001\u5B9F\u88C5\u30EC\u30D3\u30E5\u30FC", roles: ["analyst", "reviewer", "auditor"] })
 });
 var SPECIALIST_REGISTRY = Object.freeze({
-  web_research: Object.freeze({ squad: "qwen", requires: ["TAVILY_API_KEY", "TAVILY_QUOTA"], action: "\u5FC5\u8981\u6642\u3060\u3051\u6700\u65B0\u306E\u516C\u958B\u60C5\u5831\u3092\u53D6\u5F97", paid: "approval_required" }),
-  code_review: Object.freeze({ squad: "deepseek", requires: ["HF_TOKEN", "HF_DEEPSEEK_MODEL"], action: "\u72EC\u7ACB\u3057\u305F\u30B3\u30FC\u30C9\u30FB\u8A2D\u8A08\u30EC\u30D3\u30E5\u30FC", paid: "disabled_until_explicitly_enabled" }),
-  vision_review: Object.freeze({ squad: "deepseek", requires: ["HF_TOKEN", "HF_VISION_MODEL"], action: "\u753B\u9762\u30FB\u753B\u50CF\u306E\u54C1\u8CEA\u78BA\u8A8D", paid: "approval_required" }),
-  image_generation: Object.freeze({ squad: "qwen", requires: ["HF_TOKEN", "HF_IMAGE_MODEL"], action: "\u753B\u50CF\u7D20\u6750\u306E\u751F\u6210", paid: "always_approval_required" }),
-  video_generation: Object.freeze({ squad: "qwen", requires: ["HF_TOKEN", "HF_VIDEO_MODEL"], action: "\u77ED\u3044\u30D7\u30EC\u30D3\u30E5\u30FC\u52D5\u753B\u306E\u751F\u6210", paid: "always_approval_required" })
+  web_research: Object.freeze({ squad: "qwen", requires: ["TAVILY_API_KEY", "TAVILY_QUOTA"], action: "\u5FC5\u8981\u6642\u3060\u3051\u6700\u65B0\u306E\u516C\u958B\u60C5\u5831\u3092\u53D6\u5F97", paid: "approval_required", implementation: "wired" }),
+  code_review: Object.freeze({ squad: "deepseek", requires: ["HF_TOKEN", "HF_DEEPSEEK_MODEL"], action: "\u72EC\u7ACB\u3057\u305F\u30B3\u30FC\u30C9\u30FB\u8A2D\u8A08\u30EC\u30D3\u30E5\u30FC", paid: "disabled_until_explicitly_enabled", implementation: "planned" }),
+  vision_review: Object.freeze({ squad: "deepseek", requires: ["HF_TOKEN", "HF_VISION_MODEL"], action: "\u753B\u9762\u30FB\u753B\u50CF\u306E\u54C1\u8CEA\u78BA\u8A8D", paid: "approval_required", implementation: "planned" }),
+  image_generation: Object.freeze({ squad: "qwen", requires: ["HF_TOKEN", "HF_IMAGE_MODEL"], action: "\u753B\u50CF\u7D20\u6750\u306E\u751F\u6210", paid: "always_approval_required", implementation: "planned" }),
+  video_generation: Object.freeze({ squad: "qwen", requires: ["HF_TOKEN", "HF_VIDEO_MODEL"], action: "\u77ED\u3044\u30D7\u30EC\u30D3\u30E5\u30FC\u52D5\u753B\u306E\u751F\u6210", paid: "always_approval_required", implementation: "planned" })
 });
 function missionMode(value, goal) {
   const requested = String(value || "").toLowerCase();
@@ -383,7 +383,14 @@ function missionMode(value, goal) {
 __name(missionMode, "missionMode");
 function specialistStatus(env, definition) {
   const missing = definition.requires.filter((name) => !env[name]);
-  return { squad: definition.squad, action: definition.action, state: missing.length ? "awaiting_configuration" : "standby", missing };
+  const state = missing.length ? "awaiting_configuration" : definition.implementation === "wired" ? "standby" : "planned";
+  return {
+    squad: definition.squad,
+    action: definition.action,
+    implementation: definition.implementation,
+    state,
+    missing
+  };
 }
 __name(specialistStatus, "specialistStatus");
 function commanderStatus(env) {
