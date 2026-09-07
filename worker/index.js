@@ -14,6 +14,16 @@ var DEFAULT_ORIGINS = /* @__PURE__ */ new Set([
 var MAX_INSTRUCTION_CHARS = 5e3;
 var MAX_TOTAL_FILE_CHARS = 65e3;
 var COMMANDER_VERSION = "1.0";
+var CONTENT_PIPELINE_VERSION = "1.0";
+var MAX_CONTENT_SOURCES = 10;
+var CONTENT_PIPELINE = Object.freeze([
+  Object.freeze({ id: "research", lead: "qwen", specialist: "web_research", action: "最新の公開情報を最大10件まで収集", paid: "disabled_after_free_limit" }),
+  Object.freeze({ id: "outline", lead: "qwen", specialist: null, action: "記事・動画の構成案を作成", paid: "none" }),
+  Object.freeze({ id: "review", lead: "deepseek", specialist: "code_review", action: "内容・安全性・根拠を独立レビュー", paid: "disabled_until_configured" }),
+  Object.freeze({ id: "image", lead: "qwen", specialist: "image_generation", action: "画像素材を生成または選定", paid: "disabled_until_explicitly_enabled" }),
+  Object.freeze({ id: "youtube_draft", lead: "qwen", specialist: null, action: "YouTubeタイトル・説明・タグ・公開設定の下書きを作成", paid: "none" }),
+  Object.freeze({ id: "publish", lead: "owner", specialist: null, action: "最終承認後だけ外部公開", paid: "approval_required" })
+]);
 var MAX_QWEN_CALLS_PER_MISSION = 2;
 var MAX_EXTERNAL_MODEL_CALLS_PER_MISSION = 1;
 var MAX_PARALLEL_MODEL_CALLS = 1;
@@ -301,29 +311,29 @@ function tavilySearchEnabled(env) {
   return tavilyConfigMissing(env).length === 0;
 }
 __name(tavilySearchEnabled, "tavilySearchEnabled");
-async function reserveTavilyCredits(env, allowPaidResearch) {
+async function reserveTavilyCredits(env) {
   const missing = tavilyConfigMissing(env);
   if (missing.length) throw new HttpError(503, "Web search is not configured. Missing: " + missing.join(", ") + ".");
   const month = tavilyMonthKey();
   const freeCreditLimit = tavilyFreeCreditLimit(env);
   const stub = env.TAVILY_QUOTA.get(env.TAVILY_QUOTA.idFromName(month));
-  const response = await stub.fetch("https://quota.internal/reserve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ month, freeCreditLimit, credits: 2, allowPaidResearch: allowPaidResearch === true }) });
+  const response = await stub.fetch("https://quota.internal/reserve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ month, freeCreditLimit, credits: 2 }) });
   const data = await response.json().catch(() => ({}));
-  if (response.status === 402 && data?.approvalRequired) throw new HttpError(402, "Tavily\u306E\u7121\u6599\u30AF\u30EC\u30B8\u30C3\u30C8\u3092\u4F7F\u3044\u5207\u308A\u307E\u3057\u305F\u3002\u6709\u6599\u691C\u7D22\u306F\u505C\u6B62\u4E2D\u3067\u3059\u3002", { approvalRequired: true, month });
-  if (!response.ok || !Number.isFinite(Number(data?.totalCreditsUsed))) throw new HttpError(503, "\u691C\u7D22\u56DE\u6570\u306E\u78BA\u8A8D\u306B\u5931\u6557\u3057\u305F\u305F\u3081\u3001\u5B89\u5168\u306E\u305F\u3081Web\u691C\u7D22\u3092\u5B9F\u884C\u3057\u307E\u305B\u3093\u3067\u3057\u305F\u3002");
-  return { month, freeCreditsUsed: Number(data.freeCreditsUsed), paidCreditsUsed: Number(data.paidCreditsUsed), paid: data.paid === true };
+  if (response.status === 402 && data?.approvalRequired) throw new HttpError(402, "Tavilyの無料クレジットを使い切りました。有料検索は実行しません。", { paidDisabled: true, month });
+  if (!response.ok || !Number.isFinite(Number(data?.totalCreditsUsed))) throw new HttpError(503, "検索回数の確認に失敗したため、安全のためWeb検索を実行しませんでした。");
+  return { month, freeCreditsUsed: Number(data.freeCreditsUsed), paidCreditsUsed: 0, paid: false };
 }
 __name(reserveTavilyCredits, "reserveTavilyCredits");
-async function tavilySearch(query, env, id, allowPaidResearch = false) {
+async function tavilySearch(query, env, id) {
   const cleanQuery = cleanText(query, 300);
-  if (cleanQuery.length < 3) throw new HttpError(400, "\u691C\u7D22\u8A9E\u306F3\u301C300\u6587\u5B57\u3067\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-  const quota = await reserveTavilyCredits(env, allowPaidResearch);
+  if (cleanQuery.length < 3) throw new HttpError(400, "検索語は3〜300文字で入力してください。");
+  const quota = await reserveTavilyCredits(env);
   const response = await fetch("https://api.tavily.com/search", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + env.TAVILY_API_KEY }, body: JSON.stringify({ query: cleanQuery, topic: "general", search_depth: "advanced", max_results: 10, include_answer: false, include_raw_content: false, include_images: false }) });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new HttpError(502, "Tavily\u691C\u7D22\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002");
+  if (!response.ok) throw new HttpError(502, "Tavily検索に失敗しました。");
   const results = Array.isArray(data?.results) ? data.results.slice(0, 10).map((item) => ({ title: cleanText(item?.title, 180), url: String(item?.url || "").slice(0, 1200), content: cleanText(item?.content, 900) })).filter((item) => item.title || item.url || item.content) : [];
-  log(quota.paid ? "tavily_paid_search_completed" : "tavily_free_search_completed", { requestId: id, month: quota.month, freeCreditsUsed: quota.freeCreditsUsed, paidCreditsUsed: quota.paidCreditsUsed, resultCount: results.length });
-  return { query: cleanQuery, results, quota };
+  log("tavily_free_search_completed", { requestId: id, month: quota.month, freeCreditsUsed: quota.freeCreditsUsed, paidCreditsUsed: 0, resultCount: results.length });
+  return { query: cleanQuery, results, quota: { ...quota, paid: false, paidCreditsUsed: 0 } };
 }
 __name(tavilySearch, "tavilySearch");
 var TavilyQuota = class {
@@ -350,10 +360,7 @@ var TavilyQuota = class {
         await storage.put(freeKey, nextFree);
         return { allowed: true, paid: false, freeCreditsUsed: nextFree, paidCreditsUsed, totalCreditsUsed: nextFree + paidCreditsUsed };
       }
-      if (input?.allowPaidResearch !== true) return { allowed: false, approvalRequired: true, freeCreditsUsed, paidCreditsUsed, totalCreditsUsed: freeCreditsUsed + paidCreditsUsed };
-      const nextPaid = paidCreditsUsed + credits;
-      await storage.put(paidKey, nextPaid);
-      return { allowed: true, paid: true, freeCreditsUsed, paidCreditsUsed: nextPaid, totalCreditsUsed: freeCreditsUsed + nextPaid };
+      return { allowed: false, approvalRequired: true, paidDisabled: true, freeCreditsUsed, paidCreditsUsed, totalCreditsUsed: freeCreditsUsed + paidCreditsUsed };
     });
     return sendJson(result, result.allowed ? 200 : 402);
   }
@@ -393,6 +400,63 @@ function specialistStatus(env, definition) {
   };
 }
 __name(specialistStatus, "specialistStatus");
+function contentPipelineStatus(env) {
+  const stages = CONTENT_PIPELINE.map((stage) => {
+    const definition = stage.specialist ? SPECIALIST_REGISTRY[stage.specialist] : null;
+    if (!definition) {
+      return {
+        ...stage,
+        implementation: stage.id === "outline" ? "internal" : stage.id === "publish" ? "approval_gate" : "draft_only",
+        state: stage.id === "publish" ? "awaiting_owner_approval" : stage.id === "youtube_draft" ? "draft_only" : "ready",
+        missing: []
+      };
+    }
+    const status = specialistStatus(env, definition);
+    return { ...stage, ...status };
+  });
+  const blocked = stages.filter((stage) => stage.state === "awaiting_configuration" || stage.state === "planned");
+  const approval = stages.filter((stage) => stage.paid === "approval_required");
+  return {
+    version: CONTENT_PIPELINE_VERSION,
+    state: blocked.length ? "awaiting_specialist_configuration" : "draft_and_approval_gated",
+    maxSources: MAX_CONTENT_SOURCES,
+    paidOperations: "disabled",
+    noPaidSearchByDefault: true,
+    noPublicPublishByDefault: true,
+    stages,
+    blockedStages: blocked.map((stage) => stage.id),
+    approvalStages: approval.map((stage) => stage.id)
+  };
+}
+__name(contentPipelineStatus, "contentPipelineStatus");
+function createContentPlan(goal, env, id) {
+  const normalizedGoal = cleanText(goal, 1200);
+  if (normalizedGoal.length < 3) throw new HttpError(400, "目的は3文字以上で入力してください。");
+  const pipeline = contentPipelineStatus(env);
+  return {
+    planId: id,
+    goal: normalizedGoal,
+    state: pipeline.state,
+    pipeline,
+    steps: [
+      { stage: "research", action: "必要な場合のみTavily無料枠で最大10件を収集", execution: "free_only", paid: "disabled" },
+      { stage: "outline", action: "Qwenで構成・台本の下書きを作成", execution: "internal" },
+      { stage: "review", action: "DeepSeek担当の独立レビュー", execution: "planned_until_configured" },
+      { stage: "image", action: "画像生成または素材選定", execution: "disabled_until_configured" },
+      { stage: "youtube_draft", action: "タイトル・説明・タグ・公開設定を検証", execution: "draft_only" },
+      { stage: "publish", action: "YouTube公開", execution: "explicit_approval_required" }
+    ],
+    waitingFor: pipeline.blockedStages,
+    controls: {
+      maxSources: MAX_CONTENT_SOURCES,
+      paidSearch: "disabled",
+      mediaGeneration: "disabled_until_explicitly_enabled",
+      youtubeUpload: "not_connected",
+      publicPublish: "explicit_confirmation_required"
+    }
+  };
+}
+__name(createContentPlan, "createContentPlan");
 function commanderStatus(env) {
   const specialists = Object.fromEntries(Object.entries(SPECIALIST_REGISTRY).map(([name, definition]) => [name, specialistStatus(env, definition)]));
   return {
@@ -408,7 +472,8 @@ function commanderStatus(env) {
       unknownProviderCostDefaultsToStopped: true
     },
     squads: COMMANDER_SQUADS,
-    specialists
+    specialists,
+    contentPipeline: contentPipelineStatus(env)
   };
 }
 __name(commanderStatus, "commanderStatus");
@@ -645,7 +710,7 @@ async function runAgent(goal, mode, env, id, options = {}) {
     if (name === "create_plan") return { type: "plan", summary: cleanText(args.summary, 1e3), steps: (args.steps || []).slice(0, 10).map((x) => cleanText(x, 300)), risks: (args.risks || []).slice(0, 8).map((x) => cleanText(x, 300)), nextAction: cleanText(args.next_action, 500), agent: { state: "completed", steps: step } };
     if (name === "respond") return { type: "answer", title: cleanText(args.title, 120), answer: cleanText(args.answer, 4e3), nextActions: (args.next_actions || []).slice(0, 8).map((x) => cleanText(x, 300)), agent: { state: "completed", steps: step } };
     if (name === "search_web" && step === 1) {
-      const result = await tavilySearch(args.query, env, id, options.allowPaidResearch === true);
+      const result = await tavilySearch(args.query, env, id);
       messages.push(message, { role: "tool", tool_call_id: call.id, name, content: JSON.stringify(result) });
       continue;
     }
@@ -688,7 +753,7 @@ async function generateSite(instruction, env, id, options = {}) {
     throw new HttpError(400, "\u30B5\u30A4\u30C8\u306E\u8AAC\u660E\u306F10\u301C5000\u6587\u5B57\u3067\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
   }
   try {
-    const research = options.research === true ? await tavilySearch(goal, env, id, options.allowPaidResearch === true) : null;
+    const research = options.research === true ? await tavilySearch(goal, env, id) : null;
     const researchContext = research?.results?.length ? "\n\n\u6700\u65B0\u306E\u516C\u958B\u60C5\u5831\uFF08\u4FE1\u983C\u5EA6\u3092\u78BA\u8A8D\u3057\u3066\u53CD\u6620\u3059\u308B\u3053\u3068\uFF09\uFF1A\n" + research.results.map((item, index) => index + 1 + ". " + item.title + "\n" + item.content + "\n" + item.url).join("\n\n") : "";
     const specification = await askGroq(goal + researchContext, env);
     const candidate = renderSite(specification);
@@ -834,7 +899,8 @@ var index_default = {
         service: "groq-github-site-agent",
         version: "2026-09-07",
         research: { enabled: tavilySearchEnabled(env), missing: tavilyConfigMissing(env), sourcesPerRequest: 10, searchDepth: "advanced", creditsPerSearch: 2, freeCreditLimit: tavilyFreeCreditLimit(env) },
-        commander: { version: COMMANDER_VERSION, maxParallelModelCalls: MAX_PARALLEL_MODEL_CALLS, state: "ready_for_specialists" }
+        commander: { version: COMMANDER_VERSION, maxParallelModelCalls: MAX_PARALLEL_MODEL_CALLS, state: "ready_for_specialists" },
+        contentPipeline: { version: CONTENT_PIPELINE_VERSION, maxSources: MAX_CONTENT_SOURCES, state: "draft_and_approval_gated", paidOperations: "disabled", youtubeUpload: "not_connected", publishRequiresExplicitConfirmation: true }
       }, 200, headers);
     }
     const cors = corsHeaders(request, env);
@@ -853,14 +919,17 @@ var index_default = {
       if (url.pathname === "/command/plan") {
         return sendJson({ mission: createMissionPlan(payload.goal, payload.mode || "auto", env, id), requestId: id }, 200, cors);
       }
+      if (url.pathname === "/command/content-plan") {
+        return sendJson({ content: createContentPlan(payload.goal, env, id), requestId: id }, 200, cors);
+      }
       if (url.pathname === "/agent") {
         const mission = createMissionPlan(payload.goal, payload.mode || "auto", env, id);
-        const result = await runAgent(payload.goal, mission.mode, env, id, { allowPaidResearch: payload.allowPaidResearch === true });
+        const result = await runAgent(payload.goal, mission.mode, env, id, {});
         return sendJson({ mission, ...result, requestId: id }, 200, cors);
       }
       if (url.pathname === "/generate" || url.pathname === "/run") {
         const mission = createMissionPlan(payload.instruction, payload.research === true ? "research" : "website", env, id);
-        const result = await generateSite(payload.instruction, env, id, { research: payload.research === true, allowPaidResearch: payload.allowPaidResearch === true });
+        const result = await generateSite(payload.instruction, env, id, { research: payload.research === true });
         const body = url.pathname === "/run" ? { status: "awaiting_approval", mission, ...result, requestId: id } : { site: result.site, report: result.report, agent: result.agent, mission, research: result.research, requestId: id };
         return sendJson(body, 200, cors);
       }
