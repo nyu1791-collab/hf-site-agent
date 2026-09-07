@@ -84,7 +84,7 @@ jobs:
           rm backup/settings.raw.json
           test -s backup/settings.redacted.json
 
-          if grep -Eiq '(gsk_[A-Za-z0-9_-]{12,}|sk-[A-Za-z0-9_-]{12,}|ghp_[A-Za-z0-9_-]{12,}|github_pat_[A-Za-z0-9_-]{12,}|hf_[A-Za-z0-9_-]{12,}|Bearer[[:space:]]+[A-Za-z0-9._-]{12,})'             backup/worker.js backup/settings.redacted.json; then
+          if grep -Eq '(gsk_[A-Za-z0-9_-]{12,}|sk-[A-Za-z0-9_-]{12,}|ghp_[A-Za-z0-9_-]{12,}|github_pat_[A-Za-z0-9_-]{12,}|hf_[A-Za-z0-9_-]{12,}|Bearer[[:space:]]+[A-Za-z0-9._-]{12,})'             backup/worker.js backup/settings.redacted.json; then
             echo "Potential credential material detected in backup output." >&2
             exit 1
           fi
