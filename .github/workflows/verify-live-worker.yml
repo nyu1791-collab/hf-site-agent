@@ -1,0 +1,31 @@
+name: Verify live Worker health
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/verify-live-worker.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check public health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 20 \
+            https://groq-github-site-agent.n-yu1791.workers.dev/health)"
+          printf '%s' "$response" | jq -e '
+            .ok == true and
+            .service == "groq-github-site-agent" and
+            .research.sourcesPerRequest == 10
+          ' >/dev/null
+          echo "Health check passed."
