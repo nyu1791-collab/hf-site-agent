@@ -6,12 +6,14 @@ on:
     paths:
       - "worker/index.js"
       - ".github/workflows/verify-live-worker.yml"
+      - ".github/workflows/sync-worker-admin-password.yml"
   push:
     branches:
       - main
     paths:
       - "worker/index.js"
       - ".github/workflows/verify-live-worker.yml"
+      - ".github/workflows/sync-worker-admin-password.yml"
 
 permissions:
   contents: read
@@ -29,6 +31,35 @@ jobs:
         run: |
           set -euo pipefail
           node --check worker/index.js
+
+      - name: Check admin-secret migration workflow safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync(".github/workflows/sync-worker-admin-password.yml", "utf8");
+          if (!source.includes("on:\n  workflow_dispatch:\n")) {
+            throw new Error("Admin-secret migration must remain manually dispatchable.");
+          }
+          if (/^  push:\s*$/m.test(source)) {
+            throw new Error("Admin-secret migration must not run automatically on code pushes.");
+          }
+          if (!source.includes("uses: actions/checkout@v6")) {
+            throw new Error("Admin-secret migration checkout action must use the Node 24 runtime.");
+          }
+          if (!source.includes("inputs.confirm == 'MIGRATE'") || !source.includes("github.ref == 'refs/heads/main'")) {
+            throw new Error("Admin-secret migration requires the main-branch MIGRATE confirmation gate.");
+          }
+          if (!source.includes("persist-credentials: false")) {
+            throw new Error("Admin-secret migration checkout credentials must not persist.");
+          }
+          const jobHeader = source.slice(0, source.indexOf("\n    steps:"));
+          if (jobHeader.includes("secrets.")) {
+            throw new Error("Admin-secret migration must not expose secrets at job scope.");
+          }
+          console.log("Admin-secret migration workflow safety check passed.");
+          NODE
 
       - name: Check quota guard source
         shell: bash
