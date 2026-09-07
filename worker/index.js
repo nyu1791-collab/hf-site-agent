@@ -17,6 +17,7 @@ var COMMANDER_VERSION = "1.0";
 var MAX_QWEN_CALLS_PER_MISSION = 2;
 var MAX_EXTERNAL_MODEL_CALLS_PER_MISSION = 1;
 var MAX_PARALLEL_MODEL_CALLS = 1;
+var ADMIN_PASSWORD_BINDING = "WORKER_ADMIN_PASSWORD";
 var HttpError = class extends Error {
   static {
     __name(this, "HttpError");
@@ -90,7 +91,7 @@ async function sameSecret(input, expected) {
 }
 __name(sameSecret, "sameSecret");
 function requireConfig(env) {
-  if (!env.GROQ_API_KEY || !env.GITHUB_TOKEN || !env.ADMIN_PASSWORD) {
+  if (!env.GROQ_API_KEY || !env.GITHUB_TOKEN || !(env[ADMIN_PASSWORD_BINDING] || env.ADMIN_PASSWORD)) {
     throw new HttpError(503, "Worker\u306E\u30B7\u30FC\u30AF\u30EC\u30C3\u30C8\u8A2D\u5B9A\u304C\u4E0D\u8DB3\u3057\u3066\u3044\u307E\u3059\u3002");
   }
   if (env.GITHUB_REPOSITORY !== SAFE_REPOSITORY) {
@@ -543,29 +544,67 @@ function agentSystemPrompt(env) {
   ].join(" ");
 }
 __name(agentSystemPrompt, "agentSystemPrompt");
+function retryDelaySeconds(response, message, attempt) {
+  const retryAfterHeader = Number(response?.headers?.get("retry-after"));
+  if (Number.isFinite(retryAfterHeader) && retryAfterHeader > 0) return Math.ceil(retryAfterHeader);
+  const hinted = retryAfterSeconds(message);
+  if (hinted > 0) return hinted;
+  return Math.max(1, 2 ** attempt);
+}
+__name(retryDelaySeconds, "retryDelaySeconds");
+async function groqCompletionRequest(body, env, lane) {
+  const retries = asInt(env.MAX_RATE_LIMIT_RETRIES, 1, 0, 3);
+  const maxWaitSeconds = asInt(env.MAX_AUTOMATIC_RETRY_SECONDS, 3, 0, 15);
+  for (let attempt = 0; ; attempt += 1) {
+    let response;
+    try {
+      response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${env.GROQ_API_KEY}` },
+        body: JSON.stringify(body)
+      });
+    } catch {
+      if (attempt < retries && maxWaitSeconds > 0) {
+        const waitSeconds = Math.min(maxWaitSeconds, Math.max(1, 2 ** attempt));
+        log("groq_network_backoff", { lane, attempt: attempt + 1, waitSeconds });
+        await sleep(waitSeconds * 1e3);
+        continue;
+      }
+      throw new HttpError(502, "Groqへの接続に失敗しました。");
+    }
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) return data;
+    const providerMessage = data?.error?.message || String(response.status);
+    if (response.status === 429) {
+      const waitSeconds = retryDelaySeconds(response, providerMessage, attempt);
+      if (attempt < retries && waitSeconds <= maxWaitSeconds) {
+        const jitteredWait = Math.min(maxWaitSeconds, waitSeconds + Math.random());
+        log("groq_rate_limit_backoff", {
+          lane,
+          attempt: attempt + 1,
+          waitSeconds: Number(jitteredWait.toFixed(2))
+        });
+        await sleep(jitteredWait * 1e3);
+        continue;
+      }
+      throw new HttpError(429, `Groqの無料枠が混雑しています。${waitSeconds || 30}秒後に再実行してください。`, { retryAfterSeconds: waitSeconds || 30 });
+    }
+    throw new HttpError(502, `Groq error: ${providerMessage}`);
+  }
+}
+__name(groqCompletionRequest, "groqCompletionRequest");
 async function groqAgentCompletion(messages, env, mode) {
   const reasoning = mode === "coding" || mode === "repository" ? "default" : "none";
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${env.GROQ_API_KEY}` },
-    body: JSON.stringify({
-      model: groqModel(env),
-      temperature: reasoning === "default" ? 0.6 : 0.7,
-      top_p: reasoning === "default" ? 0.95 : 0.8,
-      reasoning_effort: reasoning,
-      max_completion_tokens: asInt(env.AGENT_OUTPUT_TOKENS, 420, 250, 700),
-      messages,
-      tools: availableAgentTools(env),
-      tool_choice: "auto"
-    })
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = data?.error?.message || String(response.status);
-    const seconds = retryAfterSeconds(message);
-    if (response.status === 429) throw new HttpError(429, `Groq\u7121\u6599\u67A0\u306E\u5F85\u6A5F\u4E2D\u3067\u3059\u3002${seconds || 30}\u79D2\u5F8C\u306B\u518D\u5B9F\u884C\u3057\u3066\u304F\u3060\u3055\u3044\u3002`, { retryAfterSeconds: seconds || 30 });
-    throw new HttpError(502, `Groq error: ${message}`);
-  }
+  const data = await groqCompletionRequest({
+    model: groqModel(env),
+    temperature: reasoning === "default" ? 0.6 : 0.7,
+    top_p: reasoning === "default" ? 0.95 : 0.8,
+    reasoning_effort: reasoning,
+    max_completion_tokens: asInt(env.AGENT_OUTPUT_TOKENS, 420, 250, 700),
+    messages,
+    tools: availableAgentTools(env),
+    tool_choice: "auto"
+  }, env, "agent");
   return data?.choices?.[0]?.message || {};
 }
 __name(groqAgentCompletion, "groqAgentCompletion");
@@ -623,7 +662,7 @@ function sleep(milliseconds) {
 }
 __name(sleep, "sleep");
 async function askGroq(instruction, env) {
-  const body = JSON.stringify({
+  const data = await groqCompletionRequest({
     model: groqModel(env),
     temperature: 0.2,
     max_completion_tokens: asInt(env.MAX_OUTPUT_TOKENS, 400, 250, 500),
@@ -631,28 +670,8 @@ async function askGroq(instruction, env) {
       { role: "system", content: systemPrompt() },
       { role: "user", content: instruction }
     ]
-  });
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${env.GROQ_API_KEY}` },
-      body
-    });
-    const data = await response.json().catch(() => ({}));
-    if (response.ok) return parseSpec(data?.choices?.[0]?.message?.content, instruction);
-    const providerMessage = data?.error?.message || String(response.status);
-    const waitSeconds = retryAfterSeconds(providerMessage);
-    if (response.status === 429 && attempt === 0 && waitSeconds > 0 && waitSeconds <= 30) {
-      log("groq_rate_limit_wait", { waitSeconds });
-      await sleep(waitSeconds * 1e3);
-      continue;
-    }
-    if (response.status === 429) {
-      throw new HttpError(429, `Groq\u7121\u6599\u67A0\u306E\u5F85\u6A5F\u4E2D\u3067\u3059\u3002${waitSeconds || 30}\u79D2\u5F8C\u306B\u3001\u751F\u6210\u30921\u56DE\u3060\u3051\u5B9F\u884C\u3057\u3066\u304F\u3060\u3055\u3044\u3002`, { retryAfterSeconds: waitSeconds || 30 });
-    }
-    throw new HttpError(502, `Groq error: ${providerMessage}`);
-  }
-  throw new HttpError(429, "Groq\u7121\u6599\u67A0\u306E\u518D\u8A66\u884C\u304C\u5B8C\u4E86\u3057\u307E\u305B\u3093\u3067\u3057\u305F\u300230\u79D2\u5F8C\u306B\u518D\u5EA6\u5B9F\u884C\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+  }, env, "site");
+  return parseSpec(data?.choices?.[0]?.message?.content, instruction);
 }
 __name(askGroq, "askGroq");
 async function generateSite(instruction, env, id, options = {}) {
@@ -784,7 +803,8 @@ async function readPayload(request) {
 __name(readPayload, "readPayload");
 async function authenticate(request, env) {
   requireConfig(env);
-  const authenticated = await sameSecret(request.headers.get("x-admin-password"), env.ADMIN_PASSWORD);
+  const expectedPassword = env[ADMIN_PASSWORD_BINDING] || env.ADMIN_PASSWORD;
+  const authenticated = await sameSecret(request.headers.get("x-admin-password"), expectedPassword);
   if (!authenticated) throw new HttpError(401, "\u64CD\u4F5C\u30D1\u30B9\u30EF\u30FC\u30C9\u304C\u9055\u3044\u307E\u3059\u3002");
 }
 __name(authenticate, "authenticate");
