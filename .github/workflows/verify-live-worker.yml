@@ -48,6 +48,16 @@ jobs:
           if (!source.includes("uses: actions/checkout@v6")) {
             throw new Error("Admin-secret migration checkout action must use the Node 24 runtime.");
           }
+          if (!source.includes("inputs.confirm == 'MIGRATE'") || !source.includes("github.ref == 'refs/heads/main'")) {
+            throw new Error("Admin-secret migration requires the main-branch MIGRATE confirmation gate.");
+          }
+          if (!source.includes("persist-credentials: false")) {
+            throw new Error("Admin-secret migration checkout credentials must not persist.");
+          }
+          const jobHeader = source.slice(0, source.indexOf("\n    steps:"));
+          if (jobHeader.includes("secrets.")) {
+            throw new Error("Admin-secret migration must not expose secrets at job scope.");
+          }
           console.log("Admin-secret migration workflow safety check passed.");
           NODE
 
