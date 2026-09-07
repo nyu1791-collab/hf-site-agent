@@ -78,8 +78,27 @@ jobs:
           if (!durableObject) {
             throw new Error("TAVILY_QUOTA Durable Object binding is missing; deployment aborted.");
           }
+          const plainBindings = bindings
+            .filter(
+              (binding) =>
+                binding?.type === "plain_text" &&
+                binding?.name !== "ADMIN_PASSWORD" &&
+                binding?.name !== "WORKER_ADMIN_PASSWORD"
+            )
+            .map((binding) => ({
+              type: "plain_text",
+              name: binding.name,
+              text: binding.text
+            }));
+          if (plainBindings.some((binding) => typeof binding.name !== "string" || typeof binding.text !== "string")) {
+            throw new Error("A live plaintext binding is missing a safe value; deployment aborted.");
+          }
           const keepBindings = [
-            ...new Set(bindings.map((binding) => binding?.type).filter(Boolean))
+            ...new Set(
+              bindings
+                .map((binding) => binding?.type)
+                .filter((type) => type && type !== "plain_text")
+            )
           ];
           if (!keepBindings.includes("durable_object_namespace")) {
             throw new Error("Durable Object binding type is missing; deployment aborted.");
@@ -91,6 +110,7 @@ jobs:
             compatibility_flags: Array.isArray(settings.compatibility_flags)
               ? settings.compatibility_flags
               : [],
+            bindings: plainBindings,
             keep_bindings: keepBindings,
             annotations: {
               "workers/message": "GitHub " + shortSha + "; preserve live bindings",
