@@ -96,7 +96,7 @@ jobs:
           sha256sum backup/worker.js backup/settings.redacted.json > backup/SHA256SUMS.txt
 
       - name: Upload private redacted backup artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cloudflare-worker-backup-redacted
           path: backup/
