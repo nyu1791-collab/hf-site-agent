@@ -897,7 +897,7 @@ var index_default = {
       return sendJson({
         ok: true,
         service: "groq-github-site-agent",
-        version: "2026-09-07",
+        version: "2026-09-08",
         research: { enabled: tavilySearchEnabled(env), missing: tavilyConfigMissing(env), sourcesPerRequest: 10, searchDepth: "advanced", creditsPerSearch: 2, freeCreditLimit: tavilyFreeCreditLimit(env) },
         commander: { version: COMMANDER_VERSION, maxParallelModelCalls: MAX_PARALLEL_MODEL_CALLS, state: "ready_for_specialists" },
         contentPipeline: { version: CONTENT_PIPELINE_VERSION, maxSources: MAX_CONTENT_SOURCES, state: "draft_and_approval_gated", paidOperations: "disabled", youtubeUpload: "not_connected", publishRequiresExplicitConfirmation: true }
@@ -943,6 +943,9 @@ var index_default = {
         return sendJson({ ...draft, report, requestId: id }, 200, cors);
       }
       if (url.pathname === "/publish") {
+        if (payload.confirmPublish !== true) {
+          throw new HttpError(428, "公開には明示確認が必要です。confirmPublish を true にして再実行してください。");
+        }
         const { site, report } = verifySite(payload.site, env);
         const result = await publish(site, env, id);
         return sendJson({ ...result, report, requestId: id }, 200, cors);

@@ -173,6 +173,7 @@ jobs:
             if printf '%s' "$health" | jq -e '
               .ok == true and
               .service == "groq-github-site-agent" and
+              .version == "2026-09-08" and
               .research.sourcesPerRequest == 10 and
               (.research.missing | type == "array")
             ' >/dev/null 2>&1; then
@@ -227,3 +228,30 @@ jobs:
           ' >/dev/null
           echo "Authenticated content-plan safety gates passed."
 
+      - name: Verify publish rejects missing explicit confirmation
+        env:
+          ADMIN_PASSWORD: ${{ secrets.WORKER_ADMIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ADMIN_PASSWORD"
+          response_file="$(mktemp)"
+          status="$(curl --silent --show-error \
+            --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 20 \
+            -o "$response_file" -w '%{http_code}' \
+            -H 'Origin: https://yu-179191-groq-github-site-agent.hf.space' \
+            -H 'content-type: application/json' \
+            -H "x-admin-password: $ADMIN_PASSWORD" \
+            --data '{"site":{"title":"deployment-smoke-test","files":[]}}' \
+            https://groq-github-site-agent.n-yu1791.workers.dev/publish)"
+          if [[ "$status" != "428" ]]; then
+            echo "Publish endpoint accepted or misclassified a request without explicit confirmation (HTTP $status)." >&2
+            jq -c '{error, requestId}' "$response_file" >&2 || true
+            exit 1
+          fi
+          jq -e '
+            (.error | type == "string" and contains("明示確認")) and
+            (.requestId | type == "string" and length > 0)
+          ' "$response_file" >/dev/null
+          echo "Publish confirmation gate rejected the unconfirmed request without repository writes."
