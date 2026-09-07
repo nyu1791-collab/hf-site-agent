@@ -6,12 +6,14 @@ on:
     paths:
       - "worker/index.js"
       - ".github/workflows/verify-live-worker.yml"
+      - ".github/workflows/sync-worker-admin-password.yml"
   push:
     branches:
       - main
     paths:
       - "worker/index.js"
       - ".github/workflows/verify-live-worker.yml"
+      - ".github/workflows/sync-worker-admin-password.yml"
 
 permissions:
   contents: read
@@ -29,6 +31,25 @@ jobs:
         run: |
           set -euo pipefail
           node --check worker/index.js
+
+      - name: Check admin-secret migration workflow safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync(".github/workflows/sync-worker-admin-password.yml", "utf8");
+          if (!source.includes("on:\n  workflow_dispatch:\n\npermissions:")) {
+            throw new Error("Admin-secret migration must remain manually dispatchable.");
+          }
+          if (/^  push:\s*$/m.test(source)) {
+            throw new Error("Admin-secret migration must not run automatically on code pushes.");
+          }
+          if (!source.includes("uses: actions/checkout@v6")) {
+            throw new Error("Admin-secret migration checkout action must use the Node 24 runtime.");
+          }
+          console.log("Admin-secret migration workflow safety check passed.");
+          NODE
 
       - name: Check quota guard source
         shell: bash
