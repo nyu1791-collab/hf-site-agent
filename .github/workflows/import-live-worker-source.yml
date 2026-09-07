@@ -1,0 +1,62 @@
+name: Import live Worker source
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/import-live-worker-source.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: import-live-cloudflare-worker-source
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      WORKER_NAME: groq-github-site-agent
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download and extract current Worker source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ACCOUNT_ID"
+          test -n "$API_TOKEN"
+          mkdir -p worker
+          curl --fail --silent --show-error --retry 3 --retry-all-errors \
+            -H "Authorization: Bearer $API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/scripts/$WORKER_NAME" \
+            --output worker/live-worker.multipart
+
+          awk 'BEGIN { inpart=0 }
+            /^Content-Disposition: form-data; name="index.js"\\r?$/ { inpart=1; getline; next }
+            /^--[0-9a-f]+--\\r?$/ { inpart=0 }
+            inpart { sub(/\\r$/, ""); print }' worker/live-worker.multipart > worker/index.js
+
+          test -s worker/index.js
+          node --check worker/index.js
+          ! grep -Eq '(ghp_|github_pat_|gsk_|sk-)[A-Za-z0-9_-]{12,}' worker/index.js
+
+      - name: Commit source snapshot when changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add worker/index.js worker/live-worker.multipart
+          if git diff --cached --quiet; then
+            echo "Worker source already matches the latest snapshot."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: snapshot live Cloudflare Worker source"
+          git push
