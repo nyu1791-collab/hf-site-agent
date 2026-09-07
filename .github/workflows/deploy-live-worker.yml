@@ -21,8 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+      ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       WORKER_NAME: groq-github-site-agent
 
     steps:
@@ -60,7 +60,7 @@ jobs:
       - name: Build binding-preserving upload metadata
         shell: bash
         env:
-          SETTINGS_FILE: \${{ runner.temp }}/worker-settings.json
+          SETTINGS_FILE: ${{ runner.temp }}/worker-settings.json
         run: |
           set -euo pipefail
           metadata="$(node "$SETTINGS_FILE" <<'NODE'
@@ -118,7 +118,7 @@ jobs:
       - name: Upload and deploy new version
         shell: bash
         env:
-          METADATA_FILE: \${{ runner.temp }}/worker-upload-metadata.json
+          METADATA_FILE: ${{ runner.temp }}/worker-upload-metadata.json
         run: |
           set -euo pipefail
           api="https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/scripts/$WORKER_NAME?bindings_inherit=strict"
