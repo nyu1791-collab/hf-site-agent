@@ -64,9 +64,9 @@ jobs:
           SETTINGS_FILE: ${{ runner.temp }}/worker-settings.json
         run: |
           set -euo pipefail
-          metadata="$(node "$SETTINGS_FILE" <<'NODE'
+          metadata="$(node - "$SETTINGS_FILE" <<'NODE'
           const fs = require("node:fs");
-          const settingsFile = process.argv[1];
+          const settingsFile = process.argv[2];
           const payload = JSON.parse(fs.readFileSync(settingsFile, "utf8"));
           const settings = payload?.result;
           const bindings = Array.isArray(settings?.bindings) ? settings.bindings : [];
