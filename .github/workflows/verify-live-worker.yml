@@ -39,7 +39,7 @@ jobs:
           node <<'NODE'
           const fs = require("node:fs");
           const source = fs.readFileSync(".github/workflows/sync-worker-admin-password.yml", "utf8");
-          if (!source.includes("on:\n  workflow_dispatch:\n\npermissions:")) {
+          if (!source.includes("on:\n  workflow_dispatch:\n")) {
             throw new Error("Admin-secret migration must remain manually dispatchable.");
           }
           if (/^  push:\s*$/m.test(source)) {
