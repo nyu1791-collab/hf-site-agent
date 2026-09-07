@@ -1,0 +1,167 @@
+name: Deploy live Cloudflare Worker safely
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "worker/index.js"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-live-cloudflare-worker
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Upload verified Worker without changing bindings
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+      WORKER_NAME: groq-github-site-agent
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Validate source syntax and required Durable Object export
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check worker/index.js
+          grep -q 'TavilyQuota' worker/index.js
+
+      - name: Load current live settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ACCOUNT_ID"
+          test -n "$API_TOKEN"
+          api="https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/scripts/$WORKER_NAME"
+          response="$(curl --fail --silent --show-error --retry 3 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $API_TOKEN" \
+            "$api/settings")"
+          printf '%s' "$response" | jq -e '
+            .success == true and
+            (.result.compatibility_date | type == "string") and
+            (.result.bindings | type == "array")
+          ' >/dev/null
+          settings_file="$RUNNER_TEMP/worker-settings.json"
+          printf '%s' "$response" > "$settings_file"
+          chmod 600 "$settings_file"
+          echo "Live settings loaded; secret values remain on the runner and are not printed."
+
+      - name: Build binding-preserving upload metadata
+        shell: bash
+        env:
+          SETTINGS_FILE: \${{ runner.temp }}/worker-settings.json
+        run: |
+          set -euo pipefail
+          metadata="$(node "$SETTINGS_FILE" <<'NODE'
+          const fs = require("node:fs");
+          const settingsFile = process.argv[1];
+          const payload = JSON.parse(fs.readFileSync(settingsFile, "utf8"));
+          const settings = payload?.result;
+          const bindings = Array.isArray(settings?.bindings) ? settings.bindings : [];
+          const durableObject = bindings.find(
+            (binding) =>
+              binding?.name === "TAVILY_QUOTA" &&
+              binding?.type === "durable_object_namespace"
+          );
+          if (!durableObject) {
+            throw new Error("TAVILY_QUOTA Durable Object binding is missing; deployment aborted.");
+          }
+          const keepBindings = [
+            ...new Set(bindings.map((binding) => binding?.type).filter(Boolean))
+          ];
+          if (!keepBindings.includes("durable_object_namespace")) {
+            throw new Error("Durable Object binding type is missing; deployment aborted.");
+          }
+          const shortSha = process.env.GITHUB_SHA.slice(0, 12);
+          const metadata = {
+            main_module: "worker.js",
+            compatibility_date: settings.compatibility_date,
+            compatibility_flags: Array.isArray(settings.compatibility_flags)
+              ? settings.compatibility_flags
+              : [],
+            keep_bindings: keepBindings,
+            annotations: {
+              "workers/message": "GitHub " + shortSha + "; preserve live bindings",
+              "workers/tag": "github-" + shortSha
+            }
+          };
+          if (typeof settings.usage_model === "string") metadata.usage_model = settings.usage_model;
+          if (typeof settings.logpush === "boolean") metadata.logpush = settings.logpush;
+          if (Array.isArray(settings.tail_consumers) && settings.tail_consumers.length) {
+            metadata.tail_consumers = settings.tail_consumers;
+          }
+          if (settings.placement && Object.keys(settings.placement).length) {
+            metadata.placement = settings.placement;
+          }
+          process.stdout.write(JSON.stringify(metadata));
+          NODE
+          )"
+          printf '%s' "$metadata" | jq -e '
+            .main_module == "worker.js" and
+            (.keep_bindings | index("durable_object_namespace") != null)
+          ' >/dev/null
+          printf '%s' "$metadata" > "$RUNNER_TEMP/worker-upload-metadata.json"
+          chmod 600 "$RUNNER_TEMP/worker-upload-metadata.json"
+          echo "Upload metadata prepared with the live binding types and strict inheritance."
+
+      - name: Upload and deploy new version
+        shell: bash
+        env:
+          METADATA_FILE: \${{ runner.temp }}/worker-upload-metadata.json
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/scripts/$WORKER_NAME?bindings_inherit=strict"
+          metadata="$(cat "$METADATA_FILE")"
+          response="$(curl --fail --silent --show-error --retry 3 --retry-all-errors \
+            --connect-timeout 10 --max-time 90 \
+            -X PUT \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -F "metadata=$metadata;type=application/json" \
+            -F "worker.js=@worker/index.js;type=application/javascript" \
+            "$api")"
+          printf '%s' "$response" | jq -e '.success == true' >/dev/null
+          version="$(printf '%s' "$response" | jq -r '.result.id // .result.version_id // "accepted"')"
+          echo "Cloudflare accepted the new Worker version: $version"
+
+      - name: Verify public health after deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_url="https://groq-github-site-agent.n-yu1791.workers.dev/health"
+          for attempt in $(seq 1 10); do
+            health="$(curl --fail --silent --show-error --retry 2 --retry-all-errors \
+              --connect-timeout 10 --max-time 20 "$health_url" || true)"
+            if printf '%s' "$health" | jq -e '
+              .ok == true and
+              .service == "groq-github-site-agent" and
+              .research.sourcesPerRequest == 10 and
+              (.research.missing | type == "array")
+            ' >/dev/null 2>&1; then
+              printf '%s' "$health" | jq -c '{
+                ok,
+                service,
+                version,
+                research: {
+                  enabled,
+                  missing,
+                  sourcesPerRequest
+                },
+                commander
+              }'
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Post-deploy health verification failed." >&2
+          exit 1
