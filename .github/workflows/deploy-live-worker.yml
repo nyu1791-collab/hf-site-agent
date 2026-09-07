@@ -130,7 +130,7 @@ jobs:
             -X PUT \
             -H "Authorization: Bearer $API_TOKEN" \
             -F "metadata=<$METADATA_FILE;type=application/json" \
-            -F "worker.js=@worker/index.js;type=application/javascript" \
+            -F "worker.js=@worker/index.js;filename=worker.js;type=application/javascript" \
             -o "$response_file" -w "%{http_code}" \
             "$api")"
           if [[ "$http_status" != 2* ]]; then
