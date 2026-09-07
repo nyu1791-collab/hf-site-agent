@@ -785,6 +785,14 @@ var index_default = {
     const id = requestId();
     const url = new URL(request.url);
     const headers = corsHeaders(request, env) || {};
+    if (request.method === "GET" && url.pathname === "/") {
+      return sendJson({
+        ok: true,
+        service: "groq-github-site-agent",
+        message: "Backend API is running. Use the Hugging Face Space for the web interface.",
+        health: "/health"
+      }, 200, headers);
+    }
     if (request.method === "GET" && url.pathname === "/health") {
       return sendJson({
         ok: true,
@@ -850,4 +858,3 @@ export {
   index_default as default
 };
 //# sourceMappingURL=index.js.map
-
