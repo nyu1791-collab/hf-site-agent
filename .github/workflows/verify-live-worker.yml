@@ -30,6 +30,21 @@ jobs:
           set -euo pipefail
           node --check worker/index.js
 
+      - name: Check quota guard source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync("worker/index.js", "utf8");
+          const expected = String.raw\`const month = /^\\d{4}-\\d{2}$/.test\`;
+          const broken = String.raw\`const month = /^\\\\d{4}-\\\\d{2}$/.test\`;
+          if (!source.includes(expected) || source.includes(broken)) {
+            throw new Error("Tavily quota month validation is malformed.");
+          }
+          console.log("Quota guard source check passed.");
+          NODE
+
       - name: Check public health endpoint
         shell: bash
         run: |
