@@ -173,9 +173,14 @@ jobs:
             if printf '%s' "$health" | jq -e '
               .ok == true and
               .service == "groq-github-site-agent" and
-              .version == "2026-09-08" and
+              .version == "2026-09-08.1" and
               .research.sourcesPerRequest == 10 and
-              (.research.missing | type == "array")
+              (.research.missing | type == "array") and
+              .resilience.externalTimeouts == true and
+              .resilience.tavilyTimeoutMs == 15000 and
+              .resilience.groqTimeoutMs == 30000 and
+              .resilience.githubTimeoutMs == 20000 and
+              .resilience.providerMessagesLogged == false
             ' >/dev/null 2>&1; then
               printf '%s' "$health" | jq -c '{
                 ok,
