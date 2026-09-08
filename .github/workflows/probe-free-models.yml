@@ -1,13 +1,7 @@
 name: Probe exact OpenRouter free endpoints
 
 on:
-  # This probe is manually runnable; this single push trigger validates the fixed secret path.
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/probe-free-models.yml"
 
 permissions:
   contents: read
