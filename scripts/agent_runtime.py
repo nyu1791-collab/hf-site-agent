@@ -282,10 +282,10 @@ class AgentRegistry:
                     raise ContractError(f"parent agent is missing: {spec.agent_id}")
                 if spec.agent_id not in parent.allowed_children:
                     raise PermissionError(f"parent does not allow child: {parent.agent_id} -> {spec.agent_id}")
-                # Qwen and DeepSeek are both upper-command agents in the
-                # existing design.  They are still connected by an explicit
-                # parent edge (Qwen -> DeepSeek), so equal rank is valid; only
-                # an upward edge is forbidden.
+                # Qwen and DeepSeek are sibling upper-command agents
+                # under ChatGPT Work.  Equal rank is valid; only direct
+                # parent-to-child dispatch is permitted and upward/peer edges
+                # are rejected.
                 if spec.rank < parent.rank:
                     raise ContractError(f"child rank may not be above parent: {parent.agent_id} -> {spec.agent_id}")
             if len(set(spec.allowed_children)) != len(spec.allowed_children):
