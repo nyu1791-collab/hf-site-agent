@@ -469,7 +469,7 @@
       },
       "free_available": false,
       "rate_limit": "catalog-or-endpoint-dependent",
-      "status": "FREE_ENDPOINT_UNAVAILABLE",
+      "status": "FREE_AUTHENTICATION_FAILED",
       "last_verified": "2026-09-08",
       "source": "exact_api_probe",
       "probe": {
@@ -482,7 +482,8 @@
         "credits_unchanged": false,
         "paid_fallback": false,
         "provider_allow_fallbacks": false,
-        "reason": "HTTP 401 from OpenRouter; no FREE_ACTIVE promotion"
+        "reason": "HTTP 401 from OpenRouter; configured API secret was not accepted; no FREE_ACTIVE promotion.",
+        "status": "FREE_AUTHENTICATION_FAILED"
       }
     },
     "minimax/minimax-m3:free": {
@@ -507,7 +508,7 @@
       },
       "free_available": false,
       "rate_limit": "catalog-or-endpoint-dependent",
-      "status": "FREE_ENDPOINT_UNAVAILABLE",
+      "status": "FREE_AUTHENTICATION_FAILED",
       "last_verified": "2026-09-08",
       "source": "exact_api_probe",
       "probe": {
@@ -520,7 +521,8 @@
         "credits_unchanged": false,
         "paid_fallback": false,
         "provider_allow_fallbacks": false,
-        "reason": "HTTP 401 from OpenRouter; no FREE_ACTIVE promotion"
+        "reason": "HTTP 401 from OpenRouter; configured API secret was not accepted; no FREE_ACTIVE promotion.",
+        "status": "FREE_AUTHENTICATION_FAILED"
       }
     },
     "deepseek/deepseek-v4-flash:free": {
@@ -545,7 +547,7 @@
       },
       "free_available": false,
       "rate_limit": "catalog-or-endpoint-dependent",
-      "status": "FREE_ENDPOINT_UNAVAILABLE",
+      "status": "FREE_AUTHENTICATION_FAILED",
       "last_verified": "2026-09-08",
       "source": "exact_api_probe",
       "probe": {
@@ -558,7 +560,8 @@
         "credits_unchanged": false,
         "paid_fallback": false,
         "provider_allow_fallbacks": false,
-        "reason": "HTTP 401 from OpenRouter; no FREE_ACTIVE promotion"
+        "reason": "HTTP 401 from OpenRouter; configured API secret was not accepted; no FREE_ACTIVE promotion.",
+        "status": "FREE_AUTHENTICATION_FAILED"
       }
     },
     "nvidia/nemotron-3-ultra-550b-a55b:free": {
@@ -654,12 +657,13 @@
     "last_run_url": "https://github.com/nyu1791-collab/hf-site-agent/actions/runs/34238571354",
     "last_run_at": "2026-09-08T14:29:31Z",
     "catalog_individual_page_inconsistency": true,
-    "exact_free_endpoints": "FREE_ENDPOINT_UNAVAILABLE",
+    "exact_free_endpoints": "FREE_AUTHENTICATION_FAILED",
     "promotion_rule": "FREE_ACTIVE requires exact response model, usage.cost=0, unchanged credits, and no paid fallback",
     "last_result": {
       "status": "COMPLETED_WITH_BLOCKS",
-      "reason": "All three exact free-ID requests returned HTTP 401; credits could not be checked with the configured secret.",
-      "model_calls": 3,
+      "reason": "Both one-shot probe runs returned HTTP 401 for all three exact IDs; credits could not be checked with the configured secret.",
+      "model_calls_per_run": 3,
+      "runs": 2,
       "retries": 0,
       "paid_fallback": false
     }
