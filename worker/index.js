@@ -496,10 +496,22 @@ function contentPipelineStatus(env) {
   };
 }
 __name(contentPipelineStatus, "contentPipelineStatus");
-function createContentPlan(goal, env, id) {
+async function createContentPlan(goal, env, id, options = {}) {
   const normalizedGoal = cleanText(goal, 1200);
   if (normalizedGoal.length < 3) throw new HttpError(400, "目的は3文字以上で入力してください。");
   const pipeline = contentPipelineStatus(env);
+  let research = null;
+  if (options.research === true) {
+    if (!tavilySearchEnabled(env)) {
+      throw new HttpError(412, "引用検索は現在設定されていません。無料検索を使う場合だけ設定を確認してください。");
+    }
+    research = await tavilySearch(normalizedGoal, env, id);
+  }
+  const citations = research ? research.results.map((item) => ({
+    title: item.title,
+    url: item.url,
+    snippet: item.content
+  })).filter((item) => item.title || item.url || item.snippet) : [];
   return {
     planId: id,
     goal: normalizedGoal,
@@ -510,10 +522,27 @@ function createContentPlan(goal, env, id) {
       { stage: "outline", action: "Qwenで構成・台本の下書きを作成", execution: "internal" },
       { stage: "review", action: "DeepSeek担当の独立レビュー", execution: "planned_until_configured" },
       { stage: "image", action: "画像生成または素材選定", execution: "disabled_until_configured" },
-      { stage: "youtube_draft", action: "タイトル・説明・タグ・公開設定を検証", execution: "draft_only" },
-      { stage: "publish", action: "YouTube公開", execution: "explicit_approval_required" }
+      { stage: "youtube_draft", action: "公開候補のタイトル・説明・タグを検証（投稿は未接続）", execution: "draft_only" },
+      { stage: "publish", action: "外部公開は所有者の明示承認後だけ", execution: "explicit_approval_required" }
     ],
     waitingFor: pipeline.blockedStages,
+    research: research ? {
+      query: research.query,
+      sourceCount: citations.length,
+      freeOnly: true,
+      paid: false
+    } : {
+      requested: false,
+      freeOnly: true,
+      paid: false
+    },
+    citations,
+    citationPolicy: {
+      maxSources: MAX_CONTENT_SOURCES,
+      urls: "http_or_https_only",
+      snippets: "sanitized",
+      paidSearch: "disabled"
+    },
     controls: {
       maxSources: MAX_CONTENT_SOURCES,
       paidSearch: "disabled",
@@ -1132,7 +1161,7 @@ var index_default = {
         return sendJson({ mission: createMissionPlan(payload.goal, payload.mode || "auto", env, id), requestId: id }, 200, cors);
       }
       if (url.pathname === "/command/content-plan") {
-        return sendJson({ content: createContentPlan(payload.goal, env, id), requestId: id }, 200, cors);
+        return sendJson({ content: await createContentPlan(payload.goal, env, id, { research: payload.research === true }), requestId: id }, 200, cors);
       }
       if (url.pathname === "/command/review") {
         const source = typeof payload.text === "string" ? payload.text : payload.site ? JSON.stringify(payload.site) : String(payload.goal || "");
