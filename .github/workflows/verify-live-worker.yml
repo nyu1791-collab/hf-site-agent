@@ -13,6 +13,8 @@ on:
       - ".github/workflows/connect-hf-inference.yml"
       - "worker/ai-ops-audit.mjs"
       - "docs/AI_COMMANDER_OPERATING_RULES.md"
+      - "scripts/provider_smoke.py"
+      - ".github/workflows/check-openai-compatible-provider.yml"
   push:
     branches:
       - main
@@ -26,6 +28,8 @@ on:
       - ".github/workflows/connect-hf-inference.yml"
       - "worker/ai-ops-audit.mjs"
       - "docs/AI_COMMANDER_OPERATING_RULES.md"
+      - "scripts/provider_smoke.py"
+      - ".github/workflows/check-openai-compatible-provider.yml"
 
 permissions:
   contents: read
@@ -166,6 +170,45 @@ jobs:
           grep -q 'url.pathname === "/command/review"' worker/index.js
           grep -q 'HF_INFERENCE_ENABLED=true' worker/index.js
           node --check worker/index.js
+
+      - name: Check provider adapter and smoke workflow safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/provider_smoke.py
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("scripts/provider_smoke.py").read_text(encoding="utf-8")
+          workflow = Path(".github/workflows/check-openai-compatible-provider.yml").read_text(encoding="utf-8")
+          for marker in [
+              "PROVIDER_BASE_URLS",
+              "OpenAI(",
+              "max_retries=0",
+              'REQUEST_TEXT = "Reply with OK."',
+              "status == 402",
+              "AI_TIMEOUT_MS",
+              "AI_MAX_RETRIES",
+              "max_tokens=1",
+          ]:
+              if marker not in source:
+                  raise SystemExit(f"provider smoke test is missing: {marker}")
+          for marker in [
+              "workflow_dispatch:",
+              "inputs.confirm == 'CHECK'",
+              "github.ref == 'refs/heads/main'",
+              "actions/setup-python@v6",
+              'openai>=1.0,<2',
+              "secrets.AI_API_KEY",
+              "no automatic fallback",
+          ]:
+              if marker not in workflow:
+                  raise SystemExit(f"provider workflow is missing: {marker}")
+          for forbidden in ["print(response", "message.content", "print(api_key", "print(os.getenv"]:
+              if forbidden in source:
+                  raise SystemExit(f"provider smoke test may expose response or secret data: {forbidden}")
+          print("Provider adapter and smoke workflow safety contract passed.")
+          PY
 
       - name: Check log redaction and external timeout guards
         shell: bash
