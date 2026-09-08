@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       provider:
-        description: Provider to test; no automatic fallback is performed
+        description: "Provider to test; no fallback. See docs/SETUP_FLOW.md for the key setup."
         required: true
         type: choice
         options:
