@@ -18,6 +18,7 @@ on:
       - ".github/workflows/design-council.yml"
       - "scripts/design_council.py"
       - "docs/PRODUCT_DISCOVERY.md"
+      - "docs/SETUP_FLOW.md"
   push:
     branches:
       - main
@@ -36,6 +37,7 @@ on:
       - ".github/workflows/design-council.yml"
       - "scripts/design_council.py"
       - "docs/PRODUCT_DISCOVERY.md"
+      - "docs/SETUP_FLOW.md"
 
 permissions:
   contents: read
@@ -194,6 +196,43 @@ jobs:
           }
           if (!source.includes("workflow_dispatch:")) throw new Error("Space sync must remain manually dispatchable.");
           console.log("Hugging Face Space write-token safety contract passed.");
+          NODE
+
+      - name: Check preset and workflow documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const docs = fs.readFileSync("docs/SETUP_FLOW.md", "utf8");
+          const inference = fs.readFileSync(".github/workflows/connect-hf-inference.yml", "utf8");
+          const space = fs.readFileSync(".github/workflows/sync-hf-space.yml", "utf8");
+          const provider = fs.readFileSync(".github/workflows/check-openai-compatible-provider.yml", "utf8");
+          const council = fs.readFileSync(".github/workflows/design-council.yml", "utf8");
+          for (const marker of [
+            "Preset: **Inference**",
+            "Preset: **Write**",
+            "HF_TOKEN",
+            "HF_SPACE_WRITE_TOKEN",
+            "AI_API_KEY",
+            "confirm=CONNECT",
+            "confirm=SYNC",
+            "confirm=DESIGN",
+            "openrouter/free",
+            "YouTube投稿"
+          ]) {
+            if (!docs.includes(marker)) throw new Error("Setup flow documentation is missing: " + marker);
+          }
+          for (const [source, markers] of [
+            [inference, ["Inference preset", "inputs.confirm"]],
+            [space, ["HF_SPACE_WRITE_TOKEN", "Write preset", "inputs.confirm"]],
+            [provider, ["docs/SETUP_FLOW.md", "openrouter/free"]],
+            [council, ["openrouter/free", "DESIGN"]]
+          ]) {
+            for (const marker of markers) if (!source.includes(marker)) throw new Error("Workflow preset guidance is missing: " + marker);
+          }
+          if (space.includes("secrets.HF_TOKEN")) throw new Error("Inference token must not be reused for Space writes.");
+          console.log("Preset and workflow documentation contract passed.");
           NODE
 
       - name: Check Hugging Face review integration
