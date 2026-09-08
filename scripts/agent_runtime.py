@@ -184,14 +184,14 @@ class AgentSpec:
 def default_agent_specs() -> tuple[AgentSpec, ...]:
     """The current chain, plus bounded specialist/worker slots.
 
-    Qwen and DeepSeek are independent upper commanders invoked in bounded
+    GLM and DeepSeek are independent upper commanders invoked in bounded
     parallel by the sole commander.  Specialist commands are still issued only
     after commander approval; the registry does not create a peer-to-peer or
     promotion route.
     """
 
     specialist_roles = ("research", "product", "content", "video", "code", "qa", "metrics")
-    qwen_roles = {"research", "product", "content"}
+    general_roles = {"research", "product", "content"}
     tool_map: dict[str, tuple[str, ...]] = {
         "research": ("public_web_read", "artifact_read", "artifact_write", "trace"),
         "product": ("artifact_read", "artifact_write", "trace"),
@@ -205,9 +205,9 @@ def default_agent_specs() -> tuple[AgentSpec, ...]:
         AgentSpec(
             "chatgpt-work", None, AgentRank.COMMANDER, "commander",
             "全体Missionの解釈・承認・統合・最終実行判断",
-            # Qwen and DeepSeek receive independent work from the sole
+            # GLM and DeepSeek receive independent work from the sole
             # commander.  They never dispatch to one another.
-            allowed_children=("qwen-planner", "deepseek-critic"),
+            allowed_children=("glm-general-commander", "deepseek-engineering-commander"),
             allowed_tools=("approval", "github_read", "github_write", "artifact_read", "artifact_write", "queue", "trace"),
             working_directory="artifacts/commander", context_budget=8_000, token_budget=8_000,
             time_budget_ms=300_000, max_children=2, max_parallel=2, max_depth=MAX_DEPTH,
@@ -216,20 +216,20 @@ def default_agent_specs() -> tuple[AgentSpec, ...]:
             allowed_child_roles=("upper_commander",),
         ),
         AgentSpec(
-            "qwen-planner", "chatgpt-work", AgentRank.UPPER_COMMANDER, "upper_commander",
+            "glm-general-commander", "chatgpt-work", AgentRank.UPPER_COMMANDER, "upper_commander",
             "需要・製品・コンテンツ側のMissionを独立に分解し、専門指揮へ命令する",
             allowed_children=("research-specialist", "product-specialist", "content-specialist"),
-            allowed_tools=("model:openrouter-free", "artifact_read", "artifact_write", "trace"),
+            allowed_tools=("model:role-registry", "artifact_read", "artifact_write", "trace"),
             working_directory="artifacts/planner", context_budget=6_000, token_budget=320,
             time_budget_ms=12_000, max_children=3, max_parallel=3, max_depth=MAX_DEPTH,
             permissions=("propose", "decompose", "draft"), report_schema="report-envelope-v1",
             may_spawn_children=True, allowed_child_roles=("specialist_commander",),
         ),
         AgentSpec(
-            "deepseek-critic", "chatgpt-work", AgentRank.UPPER_COMMANDER, "upper_commander",
+            "deepseek-engineering-commander", "chatgpt-work", AgentRank.UPPER_COMMANDER, "upper_commander",
             "技術・品質・自動化側の独立レビューと専門指揮Agent向け作業指示",
             allowed_children=("video-specialist", "code-specialist", "qa-specialist", "metrics-specialist"),
-            allowed_tools=("model:openrouter-free", "artifact_read", "artifact_write", "trace"),
+            allowed_tools=("model:role-registry", "artifact_read", "artifact_write", "trace"),
             working_directory="artifacts/critic", context_budget=6_000, token_budget=320,
             time_budget_ms=12_000, max_children=4, max_parallel=4, max_depth=MAX_DEPTH,
             permissions=("review", "decompose", "draft"), report_schema="report-envelope-v1",
@@ -238,7 +238,7 @@ def default_agent_specs() -> tuple[AgentSpec, ...]:
     ]
     for role in specialist_roles:
         child = f"{role}-worker"
-        parent_id = "qwen-planner" if role in qwen_roles else "deepseek-critic"
+        parent_id = "glm-general-commander" if role in general_roles else "deepseek-engineering-commander"
         specs.append(
             AgentSpec(
                 f"{role}-specialist", parent_id, AgentRank.SPECIALIST_COMMANDER, "specialist_commander",
@@ -282,7 +282,7 @@ class AgentRegistry:
                     raise ContractError(f"parent agent is missing: {spec.agent_id}")
                 if spec.agent_id not in parent.allowed_children:
                     raise PermissionError(f"parent does not allow child: {parent.agent_id} -> {spec.agent_id}")
-                # Qwen and DeepSeek are sibling upper-command agents
+                # GLM and DeepSeek are sibling upper-command agents
                 # under ChatGPT Work.  Equal rank is valid; only direct
                 # parent-to-child dispatch is permitted and upward/peer edges
                 # are rejected.
