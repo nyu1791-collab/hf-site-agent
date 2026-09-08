@@ -147,6 +147,9 @@ def _probe_one(model_id: str, api_key: str) -> dict[str, Any]:
     if status == 429:
         result["status"] = "FREE_RATE_LIMITED"
         return result
+    if status in {401, 403}:
+        result["status"] = "FREE_AUTHENTICATION_FAILED"
+        return result
     if status == 404:
         result["status"] = "MODEL_NOT_FOUND"
         return result
