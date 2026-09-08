@@ -15,6 +15,9 @@ on:
       - "docs/AI_COMMANDER_OPERATING_RULES.md"
       - "scripts/provider_smoke.py"
       - ".github/workflows/check-openai-compatible-provider.yml"
+      - ".github/workflows/design-council.yml"
+      - "scripts/design_council.py"
+      - "docs/PRODUCT_DISCOVERY.md"
   push:
     branches:
       - main
@@ -30,6 +33,9 @@ on:
       - "docs/AI_COMMANDER_OPERATING_RULES.md"
       - "scripts/provider_smoke.py"
       - ".github/workflows/check-openai-compatible-provider.yml"
+      - ".github/workflows/design-council.yml"
+      - "scripts/design_council.py"
+      - "docs/PRODUCT_DISCOVERY.md"
 
 permissions:
   contents: read
@@ -213,6 +219,51 @@ jobs:
                   raise SystemExit(f"provider smoke test may expose response or secret data: {forbidden}")
           print("Provider adapter and smoke workflow safety contract passed.")
           PY
+
+      - name: Check read-only design council safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/design_council.py
+          node <<'NODE'
+          const fs = require("node:fs");
+          const script = fs.readFileSync("scripts/design_council.py", "utf8");
+          const workflow = fs.readFileSync(".github/workflows/design-council.yml", "utf8");
+          const docs = fs.readFileSync("docs/PRODUCT_DISCOVERY.md", "utf8");
+          for (const marker of [
+            "OpenAI(",
+            "max_retries=0",
+            "timeout=15.0",
+            "max_tokens=500",
+            "status == 402",
+            "no automatic fallback",
+            "redact(raw)"
+          ]) {
+            if (!script.includes(marker)) throw new Error("Design council script is missing: " + marker);
+          }
+          for (const marker of [
+            "workflow_dispatch:",
+            "inputs:",
+            "inputs.confirm",
+            "DESIGN",
+            "secrets.AI_API_KEY",
+            "openrouter/free",
+            "persist-credentials: false",
+            "permissions:\n  contents: read"
+          ]) {
+            if (!workflow.includes(marker)) throw new Error("Design council workflow is missing: " + marker);
+          }
+          for (const forbidden of ["permissions: write", "wrangler deploy", "github-token:"]) {
+            if (workflow.includes(forbidden)) throw new Error("Design council must remain read-only: " + forbidden);
+          }
+          for (const forbidden of ["print(api_key", "print(os.environ", "print(response)"]) {
+            if (script.includes(forbidden)) throw new Error("Design council may expose secret/provider data: " + forbidden);
+          }
+          if (!docs.includes("YouTube投稿") || !docs.includes("端末内")) {
+            throw new Error("Product discovery rules must keep YouTube disabled and metrics local-first.");
+          }
+          console.log("Read-only design council safety contract passed.");
+          NODE
 
       - name: Check log redaction and external timeout guards
         shell: bash
