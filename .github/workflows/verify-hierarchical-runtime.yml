@@ -45,7 +45,6 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-          cache: "pip"
       - name: Compile deterministic runtime
         run: python -m py_compile scripts/agent_runtime.py scripts/validate_hierarchy.py tests/test_agent_runtime.py
       - name: Validate JSON schemas and fixtures
@@ -71,4 +70,3 @@ jobs:
           assert "github_write" not in registry.get("research-specialist").allowed_tools
           print(registry.tree())
           PY
-
