@@ -95,8 +95,13 @@ class FreeModelPreflightTests(unittest.TestCase):
         from scripts.model_registry import load_registry
 
         registry = copy.deepcopy(load_registry())
-        registry["roles"]["ROLE_GENERAL_COMMANDER"]["active"] = True
-        registry["roles"]["ROLE_ENGINEERING_COMMANDER"]["active"] = True
+        for role_name, model_id in (
+            ("ROLE_GENERAL_COMMANDER", "z-ai/glm-5.3-flash:free"),
+            ("ROLE_ENGINEERING_COMMANDER", "deepseek/deepseek-v4-flash:free"),
+        ):
+            registry["roles"][role_name]["active"] = True
+            registry["models"][model_id]["free_available"] = True
+            registry["models"][model_id]["status"] = "FREE_ACTIVE"
         return registry
 
     def _env(self, output_file):
@@ -109,8 +114,8 @@ class FreeModelPreflightTests(unittest.TestCase):
 
     def test_resolves_same_role_zero_priced_models_and_writes_outputs(self):
         entries = [
-            {"id": "z-ai/glm-5.3-flash:free", "pricing": {"prompt": "0", "completion": "0"}},
-            {"id": "deepseek/deepseek-v4-flash:free", "pricing": {"prompt": "0", "completion": "0"}},
+            {"id": "z-ai/glm-5.3-flash:free", "pricing": {"prompt": "0", "completion": "0"}, "supported_parameters": ["tools", "tool_choice", "structured_outputs"]},
+            {"id": "deepseek/deepseek-v4-flash:free", "pricing": {"prompt": "0", "completion": "0"}, "supported_parameters": ["tools", "tool_choice", "structured_outputs"]},
         ]
         with tempfile.TemporaryDirectory() as directory:
             output_file = Path(directory) / "github_output"
