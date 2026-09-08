@@ -352,7 +352,7 @@ jobs:
           const workflow = fs.readFileSync(".github/workflows/agent-delegation.yml", "utf8");
           const docs = fs.readFileSync("docs/SETUP_FLOW.md", "utf8");
           for (const marker of [
-            "planner_then_critic",
+            "planner_critic_with_downstream_handoff",
             "MAX_TOKENS_PER_CALL = 320",
             "TIMEOUT_SECONDS = 12.0",
             "max_retries=0",
