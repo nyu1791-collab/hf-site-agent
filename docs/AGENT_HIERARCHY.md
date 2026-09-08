@@ -25,7 +25,7 @@ Plannerは作業を実行せず、`read_only_draft`として返します。
 
 ### Critic（DeepSeek）
 
-- Planner案への反対意見と抜け漏れを指摘
+- 同じMissionに対する反対意見と抜け漏れを独立に指摘
 - 需要の根拠、失敗条件、費用、保守性、検証方法を確認
 - 作業指示と受け入れテストを修正
 - 採用候補の成果物ドラフトを改善
@@ -44,8 +44,8 @@ Criticも作業を実行せず、司令部へのレビュー結果として返�
 
 ## 実行フロー
 
-1. `DELEGATE`でPlanner→Criticを実行する。
-2. `commander_packet.json`をActions成果物として受け取る。
+1. `DELEGATE`でQwen PlannerとDeepSeek Criticを並列実行する。
+2. `commander_packet.json`をActions成果物として受け取り、ChatGPT Workが2つのReportをFan-Inする。
 3. 司令部が提案、批評、作業指示、成果物、根拠、危険フラグを検査する。
 4. 採用するタスクだけを`COMMANDER_APPROVE`でSpecialistに渡す。
 5. Specialistの成果物を司令部が再検査する。

@@ -1,10 +1,10 @@
-name: Run bounded planner and critic with commander handoff
+name: Run parallel Qwen and DeepSeek commanders with commander handoff
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: Type DELEGATE to create a planner/critic handoff packet
+        description: Type DELEGATE to create a parallel planner/critic handoff packet
         required: true
         type: string
       brief:
@@ -78,7 +78,7 @@ jobs:
               exit 1
             fi
           done
-          echo "Read-only planner/critic gate validated for main."
+          echo "Read-only parallel planner/critic gate validated for main."
 
       - name: Check out reviewed delegation script
         uses: actions/checkout@v6
@@ -96,7 +96,7 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check --no-input --no-cache-dir "openai>=1.0,<2"
 
-      - name: Run planner then critic and build commander packet
+      - name: Run Qwen and DeepSeek in parallel and build commander packet
         env:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           DELEGATION_BRIEF: ${{ inputs.brief }}
