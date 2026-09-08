@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0",
+  "project_id": "demo-short-01",
+  "rights": {
+    "source_type": "owned",
+    "permission_status": "verified",
+    "attribution": []
+  },
+  "format": {
+    "orientation": "9:16",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "target_duration_seconds": 30
+  },
+  "segments": [
+    {
+      "start_seconds": 0,
+      "end_seconds": 2,
+      "role": "hook",
+      "text": "最初に結論を伝える",
+      "source_hashes": []
+    },
+    {
+      "start_seconds": 2,
+      "end_seconds": 6,
+      "role": "problem",
+      "text": "視聴者の困りごと",
+      "source_hashes": []
+    },
+    {
+      "start_seconds": 6,
+      "end_seconds": 18,
+      "role": "evidence",
+      "text": "自作素材で実演する",
+      "source_hashes": []
+    },
+    {
+      "start_seconds": 18,
+      "end_seconds": 26,
+      "role": "payoff",
+      "text": "例外と結果",
+      "source_hashes": []
+    },
+    {
+      "start_seconds": 26,
+      "end_seconds": 30,
+      "role": "cta",
+      "text": "次の行動を示す",
+      "source_hashes": []
+    }
+  ],
+  "captions": {
+    "language": "ja",
+    "max_lines": 2,
+    "max_chars_per_line": 16,
+    "safe_area_percent": {
+      "top": 12,
+      "bottom": 18,
+      "left": 6,
+      "right": 6
+    }
+  },
+  "originality": {
+    "source_hashes": [],
+    "transformations": [
+      "独自ナレーション",
+      "自作実演",
+      "字幕・SE編集"
+    ],
+    "similarity_check": "flag_only"
+  },
+  "cost": {
+    "provider_tier": "free",
+    "estimated_cost_jpy": 0,
+    "max_budget_jpy": 300,
+    "paid_approved": false,
+    "stop_if_estimate_exceeds": true
+  },
+  "approval": {
+    "required": true,
+    "approved": true,
+    "render_allowed": true
+  },
+  "provenance": {
+    "created_by": "commander-approved-draft",
+    "created_at": "2026-09-08T00:00:00Z",
+    "toolchain": [
+      "whisper",
+      "ffmpeg"
+    ]
+  }
+}
