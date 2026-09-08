@@ -195,8 +195,12 @@ jobs:
                   raise SystemExit(f"provider smoke test is missing: {marker}")
           for marker in [
               "workflow_dispatch:",
-              "inputs.confirm == 'CHECK'",
-              "github.ref == 'refs/heads/main'",
+              "event_name == 'workflow_dispatch'",
+              "github.event.inputs.confirm",
+              "github.event.inputs.provider",
+              "github.event.inputs.model",
+              'if [[ "$REF_NAME" != "main" ]]; then',
+              'if [[ "$CONFIRM" != "CHECK" ]]; then',
               "actions/setup-python@v6",
               'openai>=1.0,<2',
               "secrets.AI_API_KEY",
