@@ -45,7 +45,7 @@ def main() -> None:
     if not api_key:
         fail("AI_API_KEY secret is not configured.")
     base_url = os.environ.get("AI_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
-    model = os.environ.get("AI_MODEL", "openrouter/free").strip()
+    model = os.environ.get("AI_MODEL", "").strip()
     brief = os.environ.get("DESIGN_BRIEF", "").strip()
     context = os.environ.get("DESIGN_CONTEXT", "").strip()
 
@@ -57,8 +57,8 @@ def main() -> None:
         fail("Model ID contains unsupported characters.")
     if base_url != "https://openrouter.ai/api/v1":
         fail("Design council is restricted to the configured OpenRouter endpoint.")
-    if model != "openrouter/free" and not model.endswith(":free"):
-        fail("Design council accepts only an OpenRouter free model.")
+    if model == "openrouter/free" or not model.endswith(":free"):
+        fail("Design council requires an explicit role-approved free model; generic openrouter/free is disabled.")
 
     system_prompt = (
         "あなたはAI製品の設計レビュー担当です。これは読み取り専用の設計会議です。"
