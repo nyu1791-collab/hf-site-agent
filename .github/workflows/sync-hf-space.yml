@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: Type SYNC to run a manual Space sync
+        description: "Type SYNC after adding HF_SPACE_WRITE_TOKEN created with the Hugging Face Write preset"
         required: false
         default: ""
         type: string
