@@ -21,7 +21,8 @@ from typing import Any
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 try:
-    from scripts.model_registry import load_registry, role_candidates\n    from scripts.agent_runtime import (
+    from scripts.model_registry import load_registry, role_candidates
+    from scripts.agent_runtime import (
         AgentRegistry,
         ReportEnvelope,
         make_command,
@@ -30,7 +31,8 @@ try:
         stable_id,
     )
 except ModuleNotFoundError:  # pragma: no cover - when invoked from scripts/
-    from model_registry import load_registry, role_candidates\n    from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
+    from model_registry import load_registry, role_candidates
+    from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 
 MAX_BRIEF = 3000
 MAX_CONTEXT = 6000
@@ -45,7 +47,8 @@ MAX_FIELD_CHARS = 1200
 BASE_URL = "https://openrouter.ai/api/v1"
 MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,160}$")
 FREE_MODEL_RE = re.compile(r"^[A-Za-z0-9._/-]+:free$")
-ROLE_GENERAL = "ROLE_GENERAL_COMMANDER"\nROLE_ENGINEERING = "ROLE_ENGINEERING_COMMANDER"
+ROLE_GENERAL = "ROLE_GENERAL_COMMANDER"
+ROLE_ENGINEERING = "ROLE_ENGINEERING_COMMANDER"
 SECRET_PATTERNS = (
     re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]{12,}"),
     re.compile(r"(?i)(?:sk|gsk|hf|sk-or-v1)[_-][A-Za-z0-9_-]{12,}"),
