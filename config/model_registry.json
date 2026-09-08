@@ -469,9 +469,21 @@
       },
       "free_available": false,
       "rate_limit": "catalog-or-endpoint-dependent",
-      "status": "FREE_CATALOG_ONLY",
+      "status": "FREE_ENDPOINT_UNAVAILABLE",
       "last_verified": "2026-09-08",
-      "source": "individual_page_pending_api_probe"
+      "source": "exact_api_probe",
+      "probe": {
+        "run_url": "https://github.com/nyu1791-collab/hf-site-agent/actions/runs/34238571354",
+        "request_count": 1,
+        "retry_count": 0,
+        "response_model": null,
+        "usage_cost": null,
+        "credits_checked": false,
+        "credits_unchanged": false,
+        "paid_fallback": false,
+        "provider_allow_fallbacks": false,
+        "reason": "HTTP 401 from OpenRouter; no FREE_ACTIVE promotion"
+      }
     },
     "minimax/minimax-m3:free": {
       "display_name": "MiniMax M3 (requested free endpoint)",
@@ -495,9 +507,21 @@
       },
       "free_available": false,
       "rate_limit": "catalog-or-endpoint-dependent",
-      "status": "FREE_CATALOG_ONLY",
+      "status": "FREE_ENDPOINT_UNAVAILABLE",
       "last_verified": "2026-09-08",
-      "source": "individual_page_pending_api_probe"
+      "source": "exact_api_probe",
+      "probe": {
+        "run_url": "https://github.com/nyu1791-collab/hf-site-agent/actions/runs/34238571354",
+        "request_count": 1,
+        "retry_count": 0,
+        "response_model": null,
+        "usage_cost": null,
+        "credits_checked": false,
+        "credits_unchanged": false,
+        "paid_fallback": false,
+        "provider_allow_fallbacks": false,
+        "reason": "HTTP 401 from OpenRouter; no FREE_ACTIVE promotion"
+      }
     },
     "deepseek/deepseek-v4-flash:free": {
       "display_name": "DeepSeek V4 Flash 0423 (requested free endpoint)",
@@ -521,9 +545,21 @@
       },
       "free_available": false,
       "rate_limit": "catalog-or-endpoint-dependent",
-      "status": "FREE_CATALOG_ONLY",
+      "status": "FREE_ENDPOINT_UNAVAILABLE",
       "last_verified": "2026-09-08",
-      "source": "individual_page_pending_api_probe"
+      "source": "exact_api_probe",
+      "probe": {
+        "run_url": "https://github.com/nyu1791-collab/hf-site-agent/actions/runs/34238571354",
+        "request_count": 1,
+        "retry_count": 0,
+        "response_model": null,
+        "usage_cost": null,
+        "credits_checked": false,
+        "credits_unchanged": false,
+        "paid_fallback": false,
+        "provider_allow_fallbacks": false,
+        "reason": "HTTP 401 from OpenRouter; no FREE_ACTIVE promotion"
+      }
     },
     "nvidia/nemotron-3-ultra-550b-a55b:free": {
       "display_name": "NVIDIA Nemotron 3 Ultra (free catalog candidate)",
@@ -613,5 +649,12 @@
       "status": "deprecated",
       "reason": "old fixed model"
     }
-  ]
+  ],
+  "probe_policy": {
+    "last_run_url": "https://github.com/nyu1791-collab/hf-site-agent/actions/runs/34238571354",
+    "last_run_at": "2026-09-08T14:29:31Z",
+    "catalog_individual_page_inconsistency": true,
+    "exact_free_endpoints": "FREE_ENDPOINT_UNAVAILABLE",
+    "promotion_rule": "FREE_ACTIVE requires exact response model, usage.cost=0, unchanged credits, and no paid fallback"
+  }
 }
