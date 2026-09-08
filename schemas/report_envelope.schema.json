@@ -5,33 +5,150 @@
   "description": "A compressed child-to-parent report. Runtime validation checks ownership and budgets against its command.",
   "type": "object",
   "required": [
-    "mission_id", "command_id", "parent_command_id", "agent_id", "parent_agent_id",
-    "rank", "status", "summary", "result", "artifacts", "evidence", "warnings",
-    "errors", "children_used", "duration_ms", "tokens_used", "cache_hit", "tools_used",
-    "source_version", "created_at"
+    "mission_id",
+    "command_id",
+    "parent_command_id",
+    "agent_id",
+    "parent_agent_id",
+    "rank",
+    "status",
+    "summary",
+    "result",
+    "artifacts",
+    "evidence",
+    "warnings",
+    "errors",
+    "children_used",
+    "duration_ms",
+    "tokens_used",
+    "cache_hit",
+    "tools_used",
+    "source_version",
+    "created_at"
   ],
   "properties": {
-    "mission_id": {"type": "string", "minLength": 1, "maxLength": 128},
-    "command_id": {"type": "string", "minLength": 1, "maxLength": 128},
-    "parent_command_id": {"type": ["string", "null"], "maxLength": 128},
-    "agent_id": {"type": "string", "minLength": 1, "maxLength": 128},
-    "parent_agent_id": {"type": "string", "minLength": 1, "maxLength": 128},
-    "rank": {"type": "integer", "minimum": 0, "maximum": 3},
-    "status": {"enum": ["completed", "completed_with_warnings", "blocked", "failed", "cancelled"]},
-    "summary": {"type": "string", "maxLength": 2000},
-    "result": {"type": "object"},
-    "artifacts": {"type": "array", "maxItems": 32, "items": {"type": "string", "maxLength": 160}},
-    "evidence": {"type": "array", "maxItems": 32, "items": {"type": "string", "maxLength": 400}},
-    "warnings": {"type": "array", "maxItems": 32, "items": {"type": "string", "maxLength": 400}},
-    "errors": {"type": "array", "maxItems": 32, "items": {"type": "string", "maxLength": 400}},
-    "children_used": {"type": "array", "maxItems": 32, "items": {"type": "string", "maxLength": 128}},
-    "duration_ms": {"type": "integer", "minimum": 0},
-    "tokens_used": {"type": "integer", "minimum": 0},
-    "cache_hit": {"type": "boolean"},
-    "tools_used": {"type": "array", "maxItems": 32, "items": {"type": "string", "maxLength": 100}},
-    "source_version": {"type": "string", "minLength": 1, "maxLength": 120},
-    "created_at": {"type": "string", "minLength": 1, "maxLength": 80}
+    "mission_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "command_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "parent_command_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "parent_agent_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "rank": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "completed_with_warnings",
+        "blocked",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "result": {
+      "type": "object"
+    },
+    "artifacts": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "maxLength": 160
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "maxLength": 400
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "maxLength": 400
+      }
+    },
+    "errors": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "maxLength": 400
+      }
+    },
+    "children_used": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tokens_used": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cache_hit": {
+      "type": "boolean"
+    },
+    "tools_used": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "maxLength": 100
+      }
+    },
+    "source_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "free_requests_used": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    }
   },
   "additionalProperties": true
 }
-

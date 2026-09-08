@@ -21,6 +21,8 @@ from typing import Any
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 try:
+    from scripts.model_registry import load_registry, role_candidates, role_config
+    from scripts.free_quota import FreeQuotaBlocked, FreeUsageLedger, is_explicit_free_model
     from scripts.agent_runtime import (
         AgentRegistry,
         ReportEnvelope,
@@ -30,6 +32,8 @@ try:
         stable_id,
     )
 except ModuleNotFoundError:  # pragma: no cover - when invoked from scripts/
+    from model_registry import load_registry, role_candidates, role_config
+    from free_quota import FreeQuotaBlocked, FreeUsageLedger, is_explicit_free_model
     from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 
 MAX_BRIEF = 3000
@@ -45,7 +49,8 @@ MAX_FIELD_CHARS = 1200
 BASE_URL = "https://openrouter.ai/api/v1"
 MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,160}$")
 FREE_MODEL_RE = re.compile(r"^[A-Za-z0-9._/-]+:free$")
-MODEL_FAMILY_BY_ROLE = {"planner": "qwen/", "critic": "deepseek/"}
+ROLE_GENERAL = "ROLE_GENERAL_COMMANDER"
+ROLE_ENGINEERING = "ROLE_ENGINEERING_COMMANDER"
 SECRET_PATTERNS = (
     re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]{12,}"),
     re.compile(r"(?i)(?:sk|gsk|hf|sk-or-v1)[_-][A-Za-z0-9_-]{12,}"),
@@ -175,6 +180,13 @@ def _call_once(model: str, system_prompt: str, user_prompt: str) -> dict[str, An
                 "OpenRouter credentials or permission were rejected.",
                 status=status,
             ) from exc
+        if status == 429:
+            raise AgentCallError(
+                "free_endpoint_429",
+                "OpenRouter free endpoint rate limit reached; the request was not retried.",
+                status=429,
+                retryable=False,
+            ) from exc
         if status in RETRYABLE_STATUS_CODES:
             raise AgentCallError(
                 "transient_provider_error",
@@ -238,11 +250,35 @@ def _annotate_call(label: str, result: dict[str, Any]) -> dict[str, Any]:
 
 
 def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+    if not is_explicit_free_model(model):
+        return {
+            "ok": False,
+            "status": "blocked",
+            "error_code": "non_free_model_blocked",
+            "error": "Only an explicit :free endpoint may be called.",
+            "provider_status": None,
+            "attempts": 0,
+            "valid": False,
+        }
+    ledger = FreeUsageLedger()
+    mission_id = os.environ.get("MISSION_ID", "MISSION-UNASSIGNED")
+    agent_id = os.environ.get("AGENT_ID", model)
     attempts = 0
     while attempts < MAX_CALL_ATTEMPTS:
         attempts += 1
+        request_id = hashlib.sha256(
+            f"{mission_id}|{agent_id}|{model}|{attempts}|{system_prompt}|{user_prompt}".encode("utf-8")
+        ).hexdigest()[:32]
         try:
+            ledger.before_request(
+                request_id=request_id,
+                mission_id=mission_id,
+                agent_id=agent_id,
+                model=model,
+                retry=attempts - 1,
+            )
             response = _call_once(model, system_prompt, user_prompt)
+            ledger.record_response(request_id, success=True, http_status=200, retry=attempts - 1)
             return {
                 "ok": True,
                 "status": "completed",
@@ -251,12 +287,27 @@ def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, An
                 "provider_status": 200,
                 "valid": False,
             }
+        except FreeQuotaBlocked as exc:
+            return {
+                "ok": False,
+                "status": exc.status.lower(),
+                "error_code": "free_quota_paused",
+                "error": redact(exc.reason),
+                "provider_status": None,
+                "attempts": attempts - 1,
+                "valid": False,
+            }
         except AgentCallError as exc:
+            ledger.record_response(request_id, success=False, http_status=exc.status, retry=attempts - 1)
             if exc.retryable and attempts < MAX_CALL_ATTEMPTS:
                 continue
             return {
                 "ok": False,
-                "status": "blocked" if exc.code in {"missing_secret", "free_credit_unavailable"} else "failed",
+                "status": "blocked" if exc.code in {
+                    "missing_secret",
+                    "free_credit_unavailable",
+                    "free_endpoint_429",
+                } else "failed",
                 "error_code": exc.code,
                 "error": redact(exc.message),
                 "provider_status": exc.status,
@@ -470,7 +521,7 @@ def build_hierarchy_handoff(
         command_id=f"{mission_id}-C01",
         parent_command_id=None,
         parent_agent_id="chatgpt-work",
-        child_agent_id="qwen-planner",
+        child_agent_id="glm-general-commander",
         mission=brief,
         objective="需要・製品・コンテンツ案を独立に分解し、専門指揮へ渡せる下書きを作る",
         constraints=base_constraints,
@@ -478,7 +529,7 @@ def build_hierarchy_handoff(
         expected_output={"schema": "commander-proposal-v1", "model": planner_model},
         token_budget=MAX_TOKENS_PER_CALL,
         time_budget_ms=int(TIMEOUT_SECONDS * 1000),
-        tool_scope=("model:openrouter-free", "artifact_read", "artifact_write", "trace"),
+        tool_scope=("model:role-registry", "artifact_read", "artifact_write", "trace"),
         done_when=("JSON proposal is valid", "commander approval remains required"),
         depth=1,
         inputs={"brief_ref": brief_ref},
@@ -491,7 +542,7 @@ def build_hierarchy_handoff(
         command_id=f"{mission_id}-C02",
         parent_command_id=None,
         parent_agent_id="chatgpt-work",
-        child_agent_id="deepseek-critic",
+        child_agent_id="deepseek-engineering-commander",
         mission=brief,
         objective="技術・品質・自動化・需要検証の反対意見を独立に整理する",
         constraints=base_constraints,
@@ -499,7 +550,7 @@ def build_hierarchy_handoff(
         expected_output={"schema": "commander-critique-v1", "model": critic_model},
         token_budget=MAX_TOKENS_PER_CALL,
         time_budget_ms=int(TIMEOUT_SECONDS * 1000),
-        tool_scope=("model:openrouter-free", "artifact_read", "artifact_write", "trace"),
+        tool_scope=("model:role-registry", "artifact_read", "artifact_write", "trace"),
         done_when=("JSON critique is valid", "commander approval remains required"),
         depth=1,
         inputs={"brief_ref": brief_ref},
@@ -515,13 +566,13 @@ def build_hierarchy_handoff(
             "structured report returned",
             "commander approval remains required",
         )
-        parent_agent_id = child.parent_agent_id or "deepseek-critic"
+        parent_agent_id = child.parent_agent_id or "deepseek-engineering-commander"
         command_id = f"{mission_id}-T{index:02d}"
         command = make_command(
             registry,
             mission_id=mission_id,
             command_id=command_id,
-            parent_command_id=critic_command.command_id if parent_agent_id == "deepseek-critic" else planner_command.command_id,
+            parent_command_id=critic_command.command_id if parent_agent_id == "deepseek-engineering-commander" else planner_command.command_id,
             parent_agent_id=parent_agent_id,
             child_agent_id=child_agent_id,
             mission=brief,
@@ -609,15 +660,15 @@ def build_hierarchy_handoff(
     planner_report = make_commander_report(
         planner_command,
         planner_call,
-        "qwen-planner",
-        "Qwenの独立提案を司令部向けに受領",
+        "glm-general-commander",
+        "総合作戦司令官の独立提案を司令部向けに受領",
         planner,
     )
     critic_report = make_commander_report(
         critic_command,
         critic_call,
-        "deepseek-critic",
-        "DeepSeekの独立批評を司令部向けに受領",
+        "deepseek-engineering-commander",
+        "技術・開発司令官の独立批評を司令部向けに受領",
         critic,
     )
     planner_report.validate(planner_command, registry)
@@ -712,24 +763,38 @@ def main() -> int:
 
     brief = validate_input(os.environ.get("DELEGATION_BRIEF", ""), MAX_BRIEF, "Delegation brief", required=True)
     context = validate_input(os.environ.get("DELEGATION_CONTEXT", ""), MAX_CONTEXT, "Delegation context")
-    planner_model = os.environ.get("PLANNER_MODEL", "qwen/qwen3-32b:free").strip()
-    critic_model = os.environ.get("CRITIC_MODEL", "deepseek/deepseek-chat-v3-0324:free").strip()
-
-    for role, label, model in (
-        ("planner", "Planner model", planner_model),
-        ("critic", "Critic model", critic_model),
+    # Legacy env names are accepted only as deprecated aliases.  Model IDs must
+    # already be present in the role registry and must be explicitly free.
+    planner_model = os.environ.get("GENERAL_COMMANDER_MODEL", os.environ.get("PLANNER_MODEL", "")).strip()
+    critic_model = os.environ.get("ENGINEERING_COMMANDER_MODEL", os.environ.get("CRITIC_MODEL", "")).strip()
+    try:
+        registry = load_registry(os.environ.get("MODEL_REGISTRY_PATH") or None)
+    except Exception:
+        fail("Model registry is invalid or unavailable.")
+    for role_name, label, model in (
+        (ROLE_GENERAL, "General commander model", planner_model),
+        (ROLE_ENGINEERING, "Engineering commander model", critic_model),
     ):
-        if (
-            not MODEL_RE.fullmatch(model)
-            or not FREE_MODEL_RE.fullmatch(model)
-            or not model.startswith(MODEL_FAMILY_BY_ROLE[role])
-        ):
-            fail(f"{label} must be a same-family OpenRouter free model ID.")
+        if not MODEL_RE.fullmatch(model) or not FREE_MODEL_RE.fullmatch(model):
+            fail(f"{label} must be an explicitly free model ID.")
         if len(model) > MAX_MODEL_CHARS:
             fail(f"{label} is too long.")
+        if role_config(registry, role_name).get("active") is not True:
+            fail(f"{label} role is inactive pending commander approval.")
+        if not role_candidates(registry, role_name, model):
+            fail(f"{label} is not an approved candidate for its role.")
 
+    mission_id_for_budget = os.environ.get(
+        "MISSION_ID",
+        stable_id("MISSION", {"brief": brief, "context": context}),
+    )
+    os.environ["MISSION_ID"] = mission_id_for_budget
+    try:
+        FreeUsageLedger().reserve(mission_id_for_budget, 2)
+    except FreeQuotaBlocked as exc:
+        fail(f"Free quota reservation blocked: {exc.reason}")
     planner_system = (
-        "あなたはQwen系の主任プランナーです。これは司令部へ渡す読み取り専用の設計会議です。"
+        "あなたは総合・作戦司令官です。これは司令部へ渡す読み取り専用の設計会議です。"
         "利用者価値、需要仮説、実装の小さな単位を整理し、下位専門AIへ渡せる指示案と成果物ドラフトを作ってください。"
         "あなた自身も下位AIも、実装、GitHub変更、デプロイ、公開、YouTube投稿、決済、有料検索、秘密値操作を実行できません。"
         "全ての作業指示に、目的、入力、成果物、受け入れテスト、リスクを含め、requires_commander_approval=true、"
@@ -749,7 +814,7 @@ def main() -> int:
         + "無料モデル、明示承認、外部公開・決済未接続を前提に、司令部が採用判断できる案を出してください。"
     )
     critic_system = (
-        "あなたはDeepSeek系の独立主任レビュアーです。Qwenとは独立に、同じMissionの弱点と実装案を検討してください。"
+        "あなたは技術・開発司令官です。総合作戦司令官とは独立に、同じMissionの弱点と実装案を検討してください。"
         "技術・品質・自動化・需要検証の反対意見、失敗条件、受け入れテスト、削るべき点を明示してください。"
         "実装、GitHub変更、デプロイ、公開、YouTube投稿、決済、有料検索、秘密値操作は実行禁止です。"
         "指示案は必ずexecution_mode=read_only_draft、requires_commander_approval=true、execution_allowed=falseとし、"
@@ -767,7 +832,7 @@ def main() -> int:
         + "\nEND_BRIEF\nBEGIN_CONTEXT\n"
         + (context or "(なし)")
         + "\nEND_CONTEXT\n"
-        + "Qwenの出力は参照せず、独立した反対意見と専門Task案を作ってください。司令部の最終権限、無料・安全・需要検証を守ってください。"
+        + "総合作戦司令官の出力は参照せず、独立した反対意見と専門Task案を作ってください。司令部の最終権限、無料・安全・需要検証を守ってください。"
     )
     planner_call, critic_call = run_parallel_commanders(
         planner_model,
@@ -777,6 +842,10 @@ def main() -> int:
         critic_system,
         critic_prompt,
     )
+    try:
+        FreeUsageLedger().release(mission_id_for_budget)
+    except Exception:
+        pass
     planner = (
         planner_call.get("response", {})
         if planner_call.get("ok") is True and planner_call.get("valid") is True
@@ -790,10 +859,10 @@ def main() -> int:
 
     planner_orders = normalize_work_orders(planner)
     attach_critic_reviews(planner_orders, critic)
-    orders = _namespace_orders(planner_orders, "qwen")
+    orders = _namespace_orders(planner_orders, "general")
     critic_orders = _namespace_orders(
         normalize_work_orders({"work_orders": critic.get("delegated_instructions", [])}),
-        "deepseek",
+        "engineering",
     )
     existing_ids = {item["id"] for item in orders}
     for item in critic_orders:

@@ -1,0 +1,35 @@
+name: Read-only model registry watch
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout reviewed registry
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Check public catalog without model calls
+        env:
+          MODEL_REGISTRY_PATH: config/model_registry.json
+          MODEL_WATCH_OUTPUT: artifacts/model_watch.json
+        run: python scripts/model_watch.py
+      - name: Upload read-only drift report
+        uses: actions/upload-artifact@v6
+        with:
+          name: model-registry-watch
+          path: artifacts/model_watch.json
+          if-no-files-found: error
+          retention-days: 14

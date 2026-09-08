@@ -1,10 +1,10 @@
-name: Run parallel Qwen and DeepSeek commanders with commander handoff
+name: Run role-scoped commander handoff
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: Type DELEGATE to create a parallel planner/critic handoff packet
+        description: Type DELEGATE to create a bounded commander handoff packet
         required: true
         type: string
       brief:
@@ -16,15 +16,15 @@ on:
         required: false
         default: ""
         type: string
-      planner_model:
-        description: "Free Qwen planner model; default qwen/qwen3-32b:free"
-        required: true
-        default: qwen/qwen3-32b:free
+      general_model:
+        description: Optional ROLE_GENERAL_COMMANDER model override; blank uses the registry
+        required: false
+        default: ""
         type: string
-      critic_model:
-        description: "Free DeepSeek critic model; default deepseek/deepseek-chat-v3-0324:free"
-        required: true
-        default: deepseek/deepseek-chat-v3-0324:free
+      engineering_model:
+        description: Optional ROLE_ENGINEERING_COMMANDER model override; blank uses the registry
+        required: false
+        default: ""
         type: string
 
 permissions:
@@ -46,8 +46,8 @@ jobs:
           CONFIRM: ${{ inputs.confirm }}
           DELEGATION_BRIEF: ${{ inputs.brief }}
           DELEGATION_CONTEXT: ${{ inputs.context }}
-          PLANNER_MODEL: ${{ inputs.planner_model }}
-          CRITIC_MODEL: ${{ inputs.critic_model }}
+          GENERAL_MODEL: ${{ inputs.general_model }}
+          ENGINEERING_MODEL: ${{ inputs.engineering_model }}
         shell: bash
         run: |
           set -euo pipefail
@@ -68,19 +68,15 @@ jobs:
             echo "Delegation context must be at most 6000 characters." >&2
             exit 1
           fi
-          for model in "$PLANNER_MODEL" "$CRITIC_MODEL"; do
-            if [[ -z "$model" || ${#model} -gt 160 || ! "$model" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
-              echo "Model IDs must be non-empty and contain only provider-safe characters." >&2
-              exit 1
-            fi
-            if [[ "$model" != "openrouter/free" && "$model" != *":free" ]]; then
-              echo "Only OpenRouter free models are accepted; no paid fallback is allowed." >&2
+          for model in "$GENERAL_MODEL" "$ENGINEERING_MODEL"; do
+            if [[ -n "$model" && ( ${#model} -gt 160 || ! "$model" =~ ^[A-Za-z0-9._:/-]+$ ) ]]; then
+              echo "Model overrides must use provider-safe characters." >&2
               exit 1
             fi
           done
-          echo "Read-only parallel planner/critic gate validated for main."
+          echo "Read-only role-scoped commander gate validated for main."
 
-      - name: Check out reviewed delegation script
+      - name: Check out reviewed delegation sources
         uses: actions/checkout@v6
         with:
           persist-credentials: false
@@ -96,21 +92,60 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check --no-input --no-cache-dir "openai>=1.0,<2"
 
-      - name: Run Qwen and DeepSeek in parallel and build commander packet
+      - name: Read-only role model preflight
+        id: model_preflight
+        env:
+          GENERAL_COMMANDER_MODEL: ${{ inputs.general_model }}
+          ENGINEERING_COMMANDER_MODEL: ${{ inputs.engineering_model }}
+          MODEL_REGISTRY_PATH: config/model_registry.json
+          COMMANDER_PACKET_PATH: artifacts/commander_packet.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/preflight_openrouter_models.py
+
+      - name: Run role-scoped commanders in parallel
+        if: ${{ steps.model_preflight.outputs.ready == 'true' }}
         env:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           DELEGATION_BRIEF: ${{ inputs.brief }}
           DELEGATION_CONTEXT: ${{ inputs.context }}
-          PLANNER_MODEL: ${{ inputs.planner_model }}
-          CRITIC_MODEL: ${{ inputs.critic_model }}
+          GENERAL_COMMANDER_MODEL: ${{ steps.model_preflight.outputs.general_model }}
+          ENGINEERING_COMMANDER_MODEL: ${{ steps.model_preflight.outputs.engineering_model }}
+          MODEL_REGISTRY_PATH: config/model_registry.json
           COMMANDER_PACKET_PATH: artifacts/commander_packet.json
         shell: bash
         run: |
           set -euo pipefail
           python scripts/agent_delegation.py
 
+      - name: Validate commander handoff packet
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f artifacts/commander_packet.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          packet = json.loads(Path("artifacts/commander_packet.json").read_text(encoding="utf-8"))
+          if packet.get("status") not in {"blocked", "ready", "awaiting_commander_approval", "completed_with_warnings"}:
+              raise SystemExit("unexpected commander packet status")
+          if packet.get("execution_allowed") not in {False, True}:
+              raise SystemExit("execution_allowed must be boolean")
+          if packet.get("paid_fallback") is True:
+              raise SystemExit("paid fallback must remain disabled")
+          calls = packet.get("model_calls", 0)
+          if not isinstance(calls, int) or calls < 0 or calls > 2:
+              raise SystemExit("model call budget is invalid")
+          if "AI_API_KEY" in json.dumps(packet, ensure_ascii=False):
+              raise SystemExit("secret-shaped key leaked into commander packet")
+          print("Commander packet contract passed.")
+          PY
+
       - name: Upload commander handoff artifact
-        if: success()
+        if: ${{ always() }}
         uses: actions/upload-artifact@v6
         with:
           name: commander-handoff

@@ -6,6 +6,14 @@ on:
       - "scripts/agent_runtime.py"
       - "scripts/validate_hierarchy.py"
       - "scripts/preflight_openrouter_models.py"
+      - "tests/test_model_registry.py"
+      - "config/model_registry.json"
+      - "scripts/model_registry.py"
+      - "docs/MODEL_REGISTRY.md"
+      - "scripts/model_watch.py"
+      - "tests/test_free_quota.py"
+      - "scripts/probe_free_models.py"
+      - "scripts/free_quota.py"
       - "scripts/agent_delegation.py"
       - "schemas/command_envelope.schema.json"
       - "schemas/report_envelope.schema.json"
@@ -19,6 +27,10 @@ on:
     branches: [main]
     paths:
       - "scripts/agent_delegation.py"
+      - "scripts/model_registry.py"
+      - "scripts/model_watch.py"
+      - "config/model_registry.json"
+      - "tests/test_model_registry.py"
       - "tests/test_agent_delegation.py"
       - "docs/COMMANDER_RELIABILITY.md"
       - "scripts/agent_runtime.py"
@@ -55,7 +67,7 @@ jobs:
       - name: Install bounded OpenAI-compatible client
         run: python -m pip install --disable-pip-version-check --no-input "openai>=1.0,<2"
       - name: Compile deterministic runtime
-        run: python -m py_compile scripts/agent_runtime.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py scripts/agent_delegation.py tests/test_agent_runtime.py tests/test_agent_delegation.py
+        run: python -m py_compile scripts/agent_runtime.py scripts/model_registry.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py scripts/agent_delegation.py scripts/agent_executor.py scripts/free_quota.py scripts/probe_free_models.py scripts/model_watch.py tests/test_free_quota.py tests/test_agent_runtime.py tests/test_agent_delegation.py tests/test_model_registry.py
       - name: Validate JSON schemas and fixtures
         run: |
           python -m json.tool schemas/command_envelope.schema.json >/dev/null
@@ -71,10 +83,10 @@ jobs:
           from scripts.agent_runtime import AgentRegistry
 
           registry = AgentRegistry()
-          assert registry.can_dispatch("chatgpt-work", "qwen-planner")
-          assert registry.can_dispatch("chatgpt-work", "deepseek-critic")
-          assert not registry.can_dispatch("qwen-planner", "deepseek-critic")
-          assert not registry.can_dispatch("content-specialist", "qwen-planner")
+          assert registry.can_dispatch("chatgpt-work", "glm-general-commander")
+          assert registry.can_dispatch("chatgpt-work", "deepseek-engineering-commander")
+          assert not registry.can_dispatch("glm-general-commander", "deepseek-engineering-commander")
+          assert not registry.can_dispatch("content-specialist", "glm-general-commander")
           assert not registry.get("content-worker").may_spawn_children
           assert "github_write" not in registry.get("research-specialist").allowed_tools
           print(registry.tree())

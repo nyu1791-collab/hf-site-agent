@@ -184,14 +184,14 @@ class AgentSpec:
 def default_agent_specs() -> tuple[AgentSpec, ...]:
     """The current chain, plus bounded specialist/worker slots.
 
-    Qwen and DeepSeek are independent upper commanders invoked in bounded
+    GLM and DeepSeek are independent upper commanders invoked in bounded
     parallel by the sole commander.  Specialist commands are still issued only
     after commander approval; the registry does not create a peer-to-peer or
     promotion route.
     """
 
     specialist_roles = ("research", "product", "content", "video", "code", "qa", "metrics")
-    qwen_roles = {"research", "product", "content"}
+    general_roles = {"research", "product", "content"}
     tool_map: dict[str, tuple[str, ...]] = {
         "research": ("public_web_read", "artifact_read", "artifact_write", "trace"),
         "product": ("artifact_read", "artifact_write", "trace"),
@@ -205,9 +205,9 @@ def default_agent_specs() -> tuple[AgentSpec, ...]:
         AgentSpec(
             "chatgpt-work", None, AgentRank.COMMANDER, "commander",
             "全体Missionの解釈・承認・統合・最終実行判断",
-            # Qwen and DeepSeek receive independent work from the sole
+            # GLM and DeepSeek receive independent work from the sole
             # commander.  They never dispatch to one another.
-            allowed_children=("qwen-planner", "deepseek-critic"),
+            allowed_children=("glm-general-commander", "deepseek-engineering-commander"),
             allowed_tools=("approval", "github_read", "github_write", "artifact_read", "artifact_write", "queue", "trace"),
             working_directory="artifacts/commander", context_budget=8_000, token_budget=8_000,
             time_budget_ms=300_000, max_children=2, max_parallel=2, max_depth=MAX_DEPTH,
@@ -216,20 +216,20 @@ def default_agent_specs() -> tuple[AgentSpec, ...]:
             allowed_child_roles=("upper_commander",),
         ),
         AgentSpec(
-            "qwen-planner", "chatgpt-work", AgentRank.UPPER_COMMANDER, "upper_commander",
+            "glm-general-commander", "chatgpt-work", AgentRank.UPPER_COMMANDER, "upper_commander",
             "需要・製品・コンテンツ側のMissionを独立に分解し、専門指揮へ命令する",
             allowed_children=("research-specialist", "product-specialist", "content-specialist"),
-            allowed_tools=("model:openrouter-free", "artifact_read", "artifact_write", "trace"),
+            allowed_tools=("model:role-registry", "artifact_read", "artifact_write", "trace"),
             working_directory="artifacts/planner", context_budget=6_000, token_budget=320,
             time_budget_ms=12_000, max_children=3, max_parallel=3, max_depth=MAX_DEPTH,
             permissions=("propose", "decompose", "draft"), report_schema="report-envelope-v1",
             may_spawn_children=True, allowed_child_roles=("specialist_commander",),
         ),
         AgentSpec(
-            "deepseek-critic", "chatgpt-work", AgentRank.UPPER_COMMANDER, "upper_commander",
+            "deepseek-engineering-commander", "chatgpt-work", AgentRank.UPPER_COMMANDER, "upper_commander",
             "技術・品質・自動化側の独立レビューと専門指揮Agent向け作業指示",
             allowed_children=("video-specialist", "code-specialist", "qa-specialist", "metrics-specialist"),
-            allowed_tools=("model:openrouter-free", "artifact_read", "artifact_write", "trace"),
+            allowed_tools=("model:role-registry", "artifact_read", "artifact_write", "trace"),
             working_directory="artifacts/critic", context_budget=6_000, token_budget=320,
             time_budget_ms=12_000, max_children=4, max_parallel=4, max_depth=MAX_DEPTH,
             permissions=("review", "decompose", "draft"), report_schema="report-envelope-v1",
@@ -238,7 +238,7 @@ def default_agent_specs() -> tuple[AgentSpec, ...]:
     ]
     for role in specialist_roles:
         child = f"{role}-worker"
-        parent_id = "qwen-planner" if role in qwen_roles else "deepseek-critic"
+        parent_id = "glm-general-commander" if role in general_roles else "deepseek-engineering-commander"
         specs.append(
             AgentSpec(
                 f"{role}-specialist", parent_id, AgentRank.SPECIALIST_COMMANDER, "specialist_commander",
@@ -282,7 +282,7 @@ class AgentRegistry:
                     raise ContractError(f"parent agent is missing: {spec.agent_id}")
                 if spec.agent_id not in parent.allowed_children:
                     raise PermissionError(f"parent does not allow child: {parent.agent_id} -> {spec.agent_id}")
-                # Qwen and DeepSeek are sibling upper-command agents
+                # GLM and DeepSeek are sibling upper-command agents
                 # under ChatGPT Work.  Equal rank is valid; only direct
                 # parent-to-child dispatch is permitted and upward/peer edges
                 # are rejected.
@@ -378,6 +378,7 @@ class CommandEnvelope:
     max_depth: int = MAX_DEPTH
     done_when: tuple[str, ...] = ()
     permissions: tuple[str, ...] = ()
+    estimated_free_requests: int = 0
     idempotency_key: str | None = None
     created_at: str = field(default_factory=now_iso)
     status: str = "queued"
@@ -414,6 +415,8 @@ class CommandEnvelope:
             raise ContractError("unknown command status")
         if self.priority < -100 or self.priority > 100:
             raise ContractError("priority is outside bounds")
+        if self.estimated_free_requests < 0 or self.estimated_free_requests > 1_000:
+            raise BudgetError("estimated_free_requests is outside bounds")
         safe_json(dict(self.inputs), limit=MAX_JSON_CHARS)
         safe_json(dict(self.expected_output), limit=MAX_JSON_CHARS)
 
@@ -451,6 +454,7 @@ class ReportEnvelope:
     children_used: tuple[str, ...] = ()
     duration_ms: int = 0
     tokens_used: int = 0
+    free_requests_used: int = 0
     cache_hit: bool = False
     tools_used: tuple[str, ...] = ()
     source_version: str = "agent-runtime-v1"
@@ -472,6 +476,8 @@ class ReportEnvelope:
             raise BudgetError("report duration exceeds command budget")
         if not 0 <= self.tokens_used <= command.token_budget:
             raise BudgetError("report tokens exceed command budget")
+        if self.free_requests_used < 0 or self.free_requests_used > command.estimated_free_requests + 1:
+            raise BudgetError("report free request count exceeds command estimate")
         if len(self.summary) > MAX_TEXT:
             raise ContractError("report summary is too long")
         safe_json(dict(self.result), limit=MAX_JSON_CHARS)
@@ -937,7 +943,7 @@ class CommandRuntime:
         return report
 
 
-def make_command(registry: AgentRegistry, *, mission_id: str, command_id: str, parent_command_id: str | None, parent_agent_id: str, child_agent_id: str, mission: str, objective: str, constraints: Sequence[str], input_refs: Sequence[str], expected_output: Mapping[str, Any], token_budget: int, time_budget_ms: int, tool_scope: Sequence[str], done_when: Sequence[str], depth: int, inputs: Mapping[str, Any] | None = None, depends_on: Sequence[str] = (), parallel_group: str | None = None, priority: int = 0) -> CommandEnvelope:
+def make_command(registry: AgentRegistry, *, mission_id: str, command_id: str, parent_command_id: str | None, parent_agent_id: str, child_agent_id: str, mission: str, objective: str, constraints: Sequence[str], input_refs: Sequence[str], expected_output: Mapping[str, Any], token_budget: int, time_budget_ms: int, tool_scope: Sequence[str], done_when: Sequence[str], depth: int, inputs: Mapping[str, Any] | None = None, depends_on: Sequence[str] = (), parallel_group: str | None = None, priority: int = 0, estimated_free_requests: int = 0) -> CommandEnvelope:
     child = registry.get(child_agent_id)
     command = CommandEnvelope(
         mission_id=mission_id, command_id=command_id, parent_command_id=parent_command_id,
@@ -949,7 +955,7 @@ def make_command(registry: AgentRegistry, *, mission_id: str, command_id: str, p
         allowed_child_roles=child.allowed_child_roles, depends_on=_tuple_strings(depends_on, 16, 128),
         parallel_group=safe_text(parallel_group, 80) or None, priority=priority, depth=depth,
         max_depth=min(MAX_DEPTH, child.max_depth), done_when=_tuple_strings(done_when, 16, 400),
-        permissions=child.permissions, idempotency_key=command_id,
+        permissions=child.permissions, estimated_free_requests=estimated_free_requests, idempotency_key=command_id,
     )
     command.validate(registry)
     return command

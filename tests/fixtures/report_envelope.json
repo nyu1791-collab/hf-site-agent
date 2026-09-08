@@ -3,7 +3,7 @@
   "command_id": "MISSION-FIXTURE-T01",
   "parent_command_id": "MISSION-FIXTURE-C01",
   "agent_id": "content-specialist",
-  "parent_agent_id": "qwen-planner",
+  "parent_agent_id": "glm-general-commander",
   "rank": 2,
   "status": "completed",
   "summary": "テンプレート下書きと根拠参照を作成しました",

@@ -14,7 +14,7 @@ ChatGPT/Codexが担当します。
 - 成果物の安全性、根拠、受け入れ条件の検査
 - PR、デプロイ、公開、秘密値変更などの最終判断
 
-### Planner（Qwen）
+### Planner（GLM）
 
 - 需要仮説、利用者価値、MVPを提案
 - 調査、企画、文章、コード案、QA、指標分析などの作業単位へ分解
@@ -44,7 +44,7 @@ Criticも作業を実行せず、司令部へのレビュー結果として返�
 
 ## 実行フロー
 
-1. `DELEGATE`でQwen PlannerとDeepSeek Criticを並列実行する。
+1. `DELEGATE`でGLM General CommanderとDeepSeek Engineering Commanderを並列実行する。
 2. `commander_packet.json`をActions成果物として受け取り、ChatGPT Workが2つのReportをFan-Inする。
 3. 司令部が提案、批評、作業指示、成果物、根拠、危険フラグを検査する。
 4. 採用するタスクだけを`COMMANDER_APPROVE`でSpecialistに渡す。
@@ -81,3 +81,6 @@ YouTube等の公開情報は、現在の人気を断定するためではなく�
 - Tavilyの課金検索、決済、広告出稿、YouTube投稿は実行しない。
 - 秘密値、Durable Object、既存バインディングを変更しない。
 - ログにはプロンプト全文、トークン、パスワード、生成ソース全文を出さない。
+
+
+モデルの候補・無料判定・旧モデル隔離は [`docs/MODEL_REGISTRY.md`](MODEL_REGISTRY.md) と `config/model_registry.json` を参照する。司令官ロールは明示承認まで inactive であり、有料モデルや `openrouter/free` へ自動フォールバックしない。
