@@ -107,7 +107,11 @@ jobs:
             'name":"HF_INFERENCE_ENABLED"',
             "free-credit-only review lane",
             "Hugging Face free credits are exhausted",
-            "workers/scripts/$WORKER_NAME/secrets"
+            "workers/scripts/$WORKER_NAME/secrets",
+            "Verify Hugging Face token inference permission before Cloudflare changes",
+            "Make calls to Inference Providers",
+            "no Cloudflare secret was changed",
+            "(.inference | {provider,freeCreditOnly,codeReview})"
           ]) {
             if (!source.includes(required)) throw new Error(`HF connection workflow is missing: ${required}`);
           }
@@ -118,6 +122,14 @@ jobs:
           }
           if (source.includes("echo \"$HF_TOKEN_VALUE\"")) {
             throw new Error("HF token must never be printed.");
+          }
+          const preflight = source.indexOf("Verify Hugging Face token inference permission before Cloudflare changes");
+          const store = source.indexOf("Store encrypted Hugging Face token");
+          if (preflight < 0 || store < 0 || preflight > store) {
+            throw new Error("HF token permission preflight must run before Cloudflare secret writes.");
+          }
+          if (!source.includes("(.inference | {provider,freeCreditOnly,codeReview})")) {
+            throw new Error("Health output must project nested inference fields correctly.");
           }
           console.log("Hugging Face connection workflow safety contract passed.");
           NODE
