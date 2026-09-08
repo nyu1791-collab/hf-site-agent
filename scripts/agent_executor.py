@@ -50,7 +50,7 @@ MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,160}$")
 FREE_MODEL_RE = re.compile(r"^(?:openrouter/free|[A-Za-z0-9._/-]+:free)$")
 SECRET_PATTERNS = (
     re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]{12,}"),
-    re.compile(r"(?i)(?:sk|gsk|hf|sk-or-v1)-[A-Za-z0-9_-]{12,}"),
+    re.compile(r"(?i)(?:sk|gsk|hf|sk-or-v1)[_-][A-Za-z0-9_-]{12,}"),
     re.compile(
         r"(?i)\b(?:AI_API_KEY|GROQ_API_KEY|HF_TOKEN|HF_SPACE_WRITE_TOKEN|"
         r"GITHUB_TOKEN|WORKER_ADMIN_PASSWORD|CLOUDFLARE_API_TOKEN)\b"
