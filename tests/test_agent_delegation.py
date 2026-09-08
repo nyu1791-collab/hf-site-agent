@@ -11,7 +11,7 @@ from scripts import preflight_openrouter_models as preflight
 
 class CommanderDelegationTests(unittest.TestCase):
     def test_parallel_calls_keep_partial_success(self):
-        planner_payload = {"summary": "案", "work_orders": []}
+        planner_payload = {"summary": "案", "work_orders": [], "requires_commander_approval": True}
         results = {
             "qwen-model": {
                 "ok": True,
@@ -73,7 +73,7 @@ class CommanderDelegationTests(unittest.TestCase):
         self.assertFalse(critic["ok"])
 
     def test_transient_error_has_one_bounded_retry(self):
-        payload = {"verdict": "ok", "tests": []}
+        payload = {"verdict": "ok", "tests": [], "requires_commander_approval": True}
         with patch.object(
             agent_delegation,
             "_call_once",
@@ -110,6 +110,27 @@ class FreeModelPreflightTests(unittest.TestCase):
             self.assertIn("planner_model=qwen/fresh:free\n", output)
             self.assertIn("critic_model=deepseek/fresh:free\n", output)
             self.assertFalse(packet_file.exists())
+
+    def test_rejects_cross_family_requested_model_even_when_free(self):
+        entries = [
+            {"id": "qwen/fresh:free", "pricing": {"prompt": "0", "completion": "0"}},
+            {"id": "deepseek/fresh:free", "pricing": {"prompt": "0", "completion": "0"}},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            output_file = Path(directory) / "github_output"
+            packet_file = Path(directory) / "packet.json"
+            env = {
+                "PLANNER_MODEL": "deepseek/fresh:free",
+                "CRITIC_MODEL": "deepseek/fresh:free",
+                "GITHUB_OUTPUT": str(output_file),
+                "COMMANDER_PACKET_PATH": "packet.json",
+            }
+            with contextlib.chdir(directory), patch.dict(os.environ, env, clear=False), patch.object(preflight, "_catalog", return_value=entries):
+                self.assertEqual(preflight.main(), 0)
+            packet = __import__("json").loads(packet_file.read_text(encoding="utf-8"))
+            self.assertEqual(packet["status"], "blocked")
+            self.assertEqual(packet["details"]["planner"], "requested_model_wrong_family_or_generic")
+            self.assertEqual(packet["model_calls"], 0)
 
     def test_blocks_without_free_family_candidate_and_writes_valid_json(self):
         entries = [
