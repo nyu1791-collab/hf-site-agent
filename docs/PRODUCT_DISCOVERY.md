@@ -66,3 +66,15 @@ GitHub Actionsの [Design council safely](https://github.com/nyu1791-collab/hf-s
 採用タスクは `COMMANDER_APPROVE` の明示ゲートを通した [Specialist Workflow](https://github.com/nyu1791-collab/hf-site-agent/actions/workflows/agent-execution.yml) に1件ずつ渡します。Specialistは調査、企画、動画構成、文章、コード案、QA、指標分析の成果物を返しますが、リポジトリ変更や公開は行いません。成果物はハッシュ付きのJSONとして司令部が受け取り、司令部が検査してからPR化します。
 
 この構造により、AI同士で広い案を出しながら、実装・公開・課金の権限を一か所に集約できます。YouTubeの人気傾向は企画仮説として分析できますが、投稿や自動公開はまだ行いません。
+
+
+## OSSを使った動画企画の検証
+
+既存OSSをそのまま製品に埋め込まず、設計パターンを検証用に利用します。テーマから脚本・素材・字幕・QAへ分けることで、どの工程に価値があるかを個別に測定できます。
+
+- content Specialist: 日本語フック、台本、字幕分割の下書き。
+- video Specialist: 9:16のタイムライン、字幕安全領域、SE位置の下書き。
+- qa Specialist: 権利マニフェスト、入力ハッシュ、文字化け、音声、類似度フラグの検査。
+- metrics Specialist: 完成時間、再利用率、レビュー完了率の整理。
+
+動画計画の入力契約は schemas/media_pipeline_plan.schema.json です。権利未確認の素材、出典のない転載、費用上限を超える処理は承認不可とします。公開前のレンダリングであっても、司令部の明示承認を必須にします。
