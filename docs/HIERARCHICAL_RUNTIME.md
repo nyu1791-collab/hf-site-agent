@@ -18,8 +18,8 @@
 
 ```mermaid
 flowchart TD
-  C[ChatGPT Work / Codex\n最高司令・承認] --> Q[GLM Planner\n上級指揮]
-  C --> D[DeepSeek Critic\n上級指揮]
+  C[ChatGPT Work / Codex\n最高司令・承認] --> Q[GLM General Commander\n上級指揮]
+  C --> D[DeepSeek Engineering Commander\n上級指揮]
   Q --> S1[専門指揮\n需要・製品・コンテンツ]
   D --> S2[専門指揮\n技術・品質・自動化]
   S1 --> W[実働 Worker\n通常コード・参照処理]
