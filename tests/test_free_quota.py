@@ -52,25 +52,43 @@ class FreeQuotaTests(unittest.TestCase):
             clock = [datetime(2026, 1, 1, tzinfo=timezone.utc)]
             now = lambda: clock[0]
             ledger = FreeUsageLedger(Path(directory) / "ledger.json", now=now, hard_stop=3, daily_cap=4, max_rpm=15)
-            ledger.reserve("MISSION-1", 3)
+            ledger.reserve("MISSION-1", 1)
+            result = ledger.before_request(
+                request_id="REQ-429",
+                mission_id="MISSION-1",
+                agent_id="worker",
+                model="example/model:free",
+            )
+            self.assertTrue(result["allowed"])
+            ledger.mark_429("REQ-429")
+            with self.assertRaises(FreeQuotaBlocked) as blocked:
+                ledger.before_request(
+                    request_id="REQ-2",
+                    mission_id="MISSION-1",
+                    agent_id="worker",
+                    model="example/model:free",
+                )
+            self.assertEqual(blocked.exception.reason, "free_endpoint_429")
+
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = FreeUsageLedger(Path(directory) / "ledger.json", hard_stop=3, daily_cap=4, max_rpm=15)
+            ledger.reserve("MISSION-2", 3)
             for index in range(3):
                 result = ledger.before_request(
                     request_id=f"REQ-{index}",
-                    mission_id="MISSION-1",
+                    mission_id="MISSION-2",
                     agent_id="worker",
                     model="example/model:free",
                 )
                 self.assertTrue(result["allowed"])
-                if index == 0:
-                    ledger.mark_429(f"REQ-{index}")
             with self.assertRaises(FreeQuotaBlocked) as blocked:
                 ledger.before_request(
                     request_id="REQ-3",
-                    mission_id="MISSION-1",
+                    mission_id="MISSION-2",
                     agent_id="worker",
                     model="example/model:free",
                 )
-            self.assertIn(blocked.exception.reason, {"free_endpoint_429", "free_daily_safety_limit"})
+            self.assertEqual(blocked.exception.reason, "free_daily_safety_limit")
             self.assertEqual(ledger.summary()["status"], "PAUSED_FREE_QUOTA")
 
     def test_shared_rpm_limit(self):
