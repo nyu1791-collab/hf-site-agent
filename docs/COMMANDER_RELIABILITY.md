@@ -15,7 +15,7 @@ ChatGPT Workを最高司令部に固定し、QwenとDeepSeekを同格の上級�
 ## 対策
 
 1. Read-only preflightでOpenRouter公開カタログだけを確認する。
-2. 指定IDを優先し、消えていれば同じ系統かつ価格0・free suffixの候補だけを決定的に選ぶ。paid、generic fallback、別系統への置換はしない。
+2. 指定IDを優先し、役割ごとの系統（Planner=Qwen、Critic=DeepSeek）を固定する。消えていれば同じ系統かつ価格0・free suffixの候補だけを決定的に選ぶ。paid、generic fallback、別系統への置換はしない。
 3. 候補がなければモデル呼び出しを0回でblockedにする。402や課金フォールバックも停止する。
 4. Qwen/DeepSeekを同時に最大2回まで呼び、タイムアウト・接続・429・5xxだけを1回再試行する。
 5. JSON形式、司令Agent必須フィールド、execution_allowed=false、requires_commander_approval=trueを通常コードで検証する。
