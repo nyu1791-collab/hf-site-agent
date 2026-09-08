@@ -1,0 +1,23 @@
+{
+  "mission_id": "MISSION-FIXTURE",
+  "command_id": "MISSION-FIXTURE-T01",
+  "parent_command_id": "MISSION-FIXTURE-C01",
+  "agent_id": "content-specialist",
+  "parent_agent_id": "qwen-planner",
+  "rank": 2,
+  "status": "completed",
+  "summary": "テンプレート下書きと根拠参照を作成しました",
+  "result": {"template_count": 1, "requires_commander_approval": true},
+  "artifacts": ["artifact-content-fixture"],
+  "evidence": ["artifact-research-fixture"],
+  "warnings": [],
+  "errors": [],
+  "children_used": [],
+  "duration_ms": 42,
+  "tokens_used": 120,
+  "cache_hit": false,
+  "tools_used": ["artifact_read", "artifact_write", "trace"],
+  "source_version": "agent-runtime-v1",
+  "created_at": "2026-09-08T00:00:01Z"
+}
+
