@@ -31,10 +31,27 @@ concurrency:
 
 jobs:
   smoke:
-    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Validate manual gate
+        env:
+          CONFIRM: ${{ github.event.inputs.confirm }}
+          REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$REF_NAME" != "main" ]]; then
+            echo "This smoke test is allowed only from main." >&2
+            exit 2
+          fi
+          if [[ "$CONFIRM" != "CHECK" ]]; then
+            echo "Type CHECK to run one bounded smoke test." >&2
+            exit 2
+          fi
+          echo "Manual gate validated for main."
+
       - name: Check out the reviewed smoke test
         uses: actions/checkout@v6
         with:
@@ -53,8 +70,8 @@ jobs:
 
       - name: Run one bounded provider smoke test
         env:
-          AI_PROVIDER: ${{ inputs.provider }}
-          AI_MODEL: ${{ inputs.model }}
+          AI_PROVIDER: ${{ github.event.inputs.provider }}
+          AI_MODEL: ${{ github.event.inputs.model }}
           AI_TIMEOUT_MS: "15000"
           AI_MAX_RETRIES: "1"
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
