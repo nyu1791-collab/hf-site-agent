@@ -143,7 +143,7 @@ class FreeModelPreflightTests(unittest.TestCase):
             output_file = Path(directory) / "github_output"
             packet_file = Path(directory) / "packet.json"
             env["GITHUB_OUTPUT"] = str(output_file)
-            env["COMMANDER_PACKET_PATH"] = str(packet_file)
+            env["COMMANDER_PACKET_PATH"] = "packet.json"
             with contextlib.chdir(directory), patch.dict(os.environ, env, clear=True), patch.object(
                 preflight, "_catalog", return_value=entries
             ), patch.object(preflight, "load_registry", return_value=self._active_registry()):
@@ -162,7 +162,7 @@ class FreeModelPreflightTests(unittest.TestCase):
             output_file = Path(directory) / "github_output"
             packet_file = Path(directory) / "packet.json"
             env = self._env(output_file)
-            env["COMMANDER_PACKET_PATH"] = str(packet_file)
+            env["COMMANDER_PACKET_PATH"] = "packet.json"
             with contextlib.chdir(directory), patch.dict(os.environ, env, clear=True), patch.object(
                 preflight, "_catalog", return_value=entries
             ), patch.object(preflight, "load_registry", return_value=self._active_registry()):
