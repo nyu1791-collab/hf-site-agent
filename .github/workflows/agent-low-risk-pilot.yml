@@ -16,7 +16,6 @@ concurrency:
 
 jobs:
   delegation:
-    if: ${{ startsWith(github.event.head_commit.message, 'mission: run low-risk pilot') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -25,8 +24,27 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate commander-approved mission envelope
+      - name: Gate the approved mission to main
+        id: gate
         shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+
+          event = json.loads(open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8").read())
+          ref_name = os.environ.get("GITHUB_REF_NAME", "")
+          message = ((event.get("head_commit") or {}).get("message") or "").strip()
+          should_run = ref_name == "main" and os.environ.get("GITHUB_EVENT_NAME") == "push" and message.startswith("mission: run low-risk pilot")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"run={'true' if should_run else 'false'}\\n")
+          print("Approved pilot gate: " + ("run" if should_run else "ignore"))
+          PY
+
+      - name: Validate commander-approved mission envelope
+        if: ${{ steps.gate.outputs.run == 'true' }}
+shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -71,7 +89,8 @@ jobs:
           PY
 
       - name: Export approved mission inputs
-        id: mission
+        if: ${{ steps.gate.outputs.run == 'true' }}
+id: mission
         shell: bash
         run: |
           set -euo pipefail
@@ -90,18 +109,21 @@ jobs:
           PY
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        if: ${{ steps.gate.outputs.run == 'true' }}
+uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Install bounded OpenAI-compatible client
-        shell: bash
+        if: ${{ steps.gate.outputs.run == 'true' }}
+shell: bash
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check --no-input --no-cache-dir "openai>=1.0,<2"
 
       - name: Run Qwen and DeepSeek in parallel
-        env:
+        if: ${{ steps.gate.outputs.run == 'true' }}
+env:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           DELEGATION_BRIEF: ${{ steps.mission.outputs.brief }}
           DELEGATION_CONTEXT: ${{ steps.mission.outputs.context }}
@@ -114,7 +136,7 @@ jobs:
           python scripts/agent_delegation.py
 
       - name: Upload commander handoff artifact
-        if: success()
+        if: ${{ steps.gate.outputs.run == 'true' && success() }}
         uses: actions/upload-artifact@v6
         with:
           name: commander-handoff-low-risk-pilot
