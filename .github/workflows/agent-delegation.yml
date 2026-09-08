@@ -1,0 +1,109 @@
+name: Run bounded Chinese-AI delegation safely
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type DELEGATE to run a two-agent read-only design discussion
+        required: true
+        type: string
+      brief:
+        description: Delegation brief (no secrets; maximum 3000 characters)
+        required: true
+        type: string
+      context:
+        description: Optional constraints and product context (maximum 6000 characters)
+        required: false
+        default: ""
+        type: string
+      planner_model:
+        description: "Free Qwen planner model; default qwen/qwen3-32b:free"
+        required: true
+        default: qwen/qwen3-32b:free
+        type: string
+      critic_model:
+        description: "Free DeepSeek critic model; default deepseek/deepseek-chat-v3-0324:free"
+        required: true
+        default: deepseek/deepseek-chat-v3-0324:free
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bounded-ai-delegation
+  cancel-in-progress: false
+
+jobs:
+  delegation:
+    if: \${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate explicit read-only gate
+        env:
+          REF_NAME: \${{ github.ref_name }}
+          CONFIRM: \${{ inputs.confirm }}
+          DELEGATION_BRIEF: \${{ inputs.brief }}
+          DELEGATION_CONTEXT: \${{ inputs.context }}
+          PLANNER_MODEL: \${{ inputs.planner_model }}
+          CRITIC_MODEL: \${{ inputs.critic_model }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CONFIRM="$(printf '%s' "$CONFIRM" | tr -d '[:space:]')"
+          if [[ "$REF_NAME" != "main" ]]; then
+            echo "Delegation is allowed only from main." >&2
+            exit 1
+          fi
+          if [[ "$CONFIRM" != "DELEGATE" ]]; then
+            echo "Type DELEGATE to run the bounded delegation lane." >&2
+            exit 1
+          fi
+          if [[ -z "$DELEGATION_BRIEF" || \${#DELEGATION_BRIEF} -gt 3000 ]]; then
+            echo "Delegation brief must be 1-3000 characters." >&2
+            exit 1
+          fi
+          if [[ \${#DELEGATION_CONTEXT} -gt 6000 ]]; then
+            echo "Delegation context must be at most 6000 characters." >&2
+            exit 1
+          fi
+          for model in "$PLANNER_MODEL" "$CRITIC_MODEL"; do
+            if [[ -z "$model" || \${#model} -gt 160 || ! "$model" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
+              echo "Model IDs must be non-empty and contain only provider-safe characters." >&2
+              exit 1
+            fi
+            if [[ "$model" != "openrouter/free" && "$model" != *":free" ]]; then
+              echo "Only OpenRouter free models are accepted; no paid fallback is allowed." >&2
+              exit 1
+            fi
+          done
+          echo "Read-only planner/critic gate validated for main."
+
+      - name: Check out reviewed delegation script
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install bounded OpenAI-compatible client
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input --no-cache-dir "openai>=1.0,<2"
+
+      - name: Run planner then critic
+        env:
+          AI_API_KEY: \${{ secrets.AI_API_KEY }}
+          DELEGATION_BRIEF: \${{ inputs.brief }}
+          DELEGATION_CONTEXT: \${{ inputs.context }}
+          PLANNER_MODEL: \${{ inputs.planner_model }}
+          CRITIC_MODEL: \${{ inputs.critic_model }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/agent_delegation.py
