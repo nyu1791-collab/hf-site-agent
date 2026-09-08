@@ -10,6 +10,7 @@ on:
       - "hf-space/app.js"
       - "hf-space/index.html"
       - ".github/workflows/sync-hf-space.yml"
+      - ".github/workflows/connect-hf-inference.yml"
   push:
     branches:
       - main
@@ -20,6 +21,7 @@ on:
       - "hf-space/app.js"
       - "hf-space/index.html"
       - ".github/workflows/sync-hf-space.yml"
+      - ".github/workflows/connect-hf-inference.yml"
 
 permissions:
   contents: read
@@ -65,6 +67,34 @@ jobs:
             throw new Error("Admin-secret migration must not expose secrets at job scope.");
           }
           console.log("Admin-secret migration workflow safety check passed.");
+          NODE
+
+      - name: Check Hugging Face connection workflow safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync(".github/workflows/connect-hf-inference.yml", "utf8");
+          for (const required of [
+            "secrets.HF_TOKEN",
+            'name:"HF_TOKEN"',
+            'name":"HF_INFERENCE_ENABLED"',
+            "free-credit-only review lane",
+            "Hugging Face free credits are exhausted",
+            "workers/scripts/$WORKER_NAME/secrets"
+          ]) {
+            if (!source.includes(required)) throw new Error(`HF connection workflow is missing: ${required}`);
+          }
+          if (!source.includes("github.event_name == 'workflow_dispatch'") ||
+              !source.includes("inputs.confirm == 'CONNECT'") ||
+              !source.includes("github.ref == 'refs/heads/main'")) {
+            throw new Error("HF connection workflow must require explicit main-branch CONNECT dispatch.");
+          }
+          if (source.includes("echo \"$HF_TOKEN_VALUE\"")) {
+            throw new Error("HF token must never be printed.");
+          }
+          console.log("Hugging Face connection workflow safety contract passed.");
           NODE
 
       - name: Check Hugging Face frontend safety contract
