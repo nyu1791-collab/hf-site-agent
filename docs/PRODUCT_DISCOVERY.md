@@ -23,7 +23,7 @@ GitHub Actionsの [Design council safely](https://github.com/nyu1791-collab/hf-s
 
 ## 低コスト分担の運用
 
-設計課題が大きい場合は、[中国AI分担Workflow](https://github.com/nyu1791-collab/hf-site-agent/actions/workflows/agent-delegation.yml)を使います。Qwen系をplanner、DeepSeek系をcriticとして順番に1回ずつ呼び、司令部は2つの短い結果を検証して採用判断をします。
+設計課題が大きい場合は、[中国AI分担Workflow](https://github.com/nyu1791-collab/hf-site-agent/actions/workflows/agent-delegation.yml)を使います。Qwen系をplanner、DeepSeek系をcriticとして独立・並列に1回ずつ呼び、司令部が2つの短い結果をFan-Inして検証・採用判断をします。
 
 - planner: `qwen/qwen3-32b:free`（要件分解・最小案）
 - critic: `deepseek/deepseek-chat-v3-0324:free`（反対意見・リスク・受け入れテスト）
