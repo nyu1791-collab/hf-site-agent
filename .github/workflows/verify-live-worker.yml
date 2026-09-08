@@ -375,6 +375,8 @@ jobs:
             "TIMEOUT_SECONDS = 12.0",
             "max_retries=0",
             "FREE_MODEL_RE",
+            "load_registry",
+            "role_candidates",
             "status == 402",
             "redact(",
             '"paid_search": "disabled"'
@@ -384,8 +386,10 @@ jobs:
           for (const marker of [
             "workflow_dispatch:",
             "DELEGATE",
-            "qwen/qwen3-32b:free",
-            "deepseek/deepseek-chat-v3-0324:free",
+            "ROLE_GENERAL_COMMANDER",
+            "ROLE_ENGINEERING_COMMANDER",
+            "general_model",
+            "engineering_model",
             "secrets.AI_API_KEY",
             "permissions:\n  contents: read",
             "persist-credentials: false",
@@ -395,8 +399,8 @@ jobs:
           }
           for (const marker of [
             "confirm=DELEGATE",
-            "qwen/qwen3-32b:free",
-            "deepseek/deepseek-chat-v3-0324:free",
+            "ROLE_GENERAL_COMMANDER",
+            "ROLE_ENGINEERING_COMMANDER",
             "有料検索はこの自動保守では実行しません",
             "YouTube"
           ]) {
