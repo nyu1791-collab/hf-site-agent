@@ -183,12 +183,9 @@ jobs:
                 ok,
                 service,
                 version,
-                research: {
-                  enabled,
-                  missing,
-                  sourcesPerRequest
-                },
-                commander
+                research: .research,
+                inference: .inference,
+                commander: .commander
               }'
               exit 0
             fi
