@@ -393,7 +393,7 @@ jobs:
             "secrets.AI_API_KEY",
             "permissions:\n  contents: read",
             "persist-credentials: false",
-            "no paid fallback"
+            "paid_fallback"
           ]) {
             if (!workflow.includes(marker)) throw new Error("Delegation workflow is missing: " + marker);
           }
