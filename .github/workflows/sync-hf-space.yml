@@ -2,6 +2,12 @@ name: Sync Hugging Face Space frontend safely
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type SYNC to run a manual Space sync
+        required: false
+        default: ""
+        type: string
   push:
     branches:
       - main
@@ -45,9 +51,34 @@ jobs:
           if (!page.includes("課金検索は実行しません") || page.includes("paid-approval")) throw new Error("Paid-search UI notice is unsafe.");
           NODE
 
-      - name: Sync only reviewed frontend files
+      - name: Check Space write-token gate
+        id: gate
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          CONFIRM: ${{ inputs.confirm }}
+          HF_SPACE_WRITE_TOKEN: ${{ secrets.HF_SPACE_WRITE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "push" && -z "$HF_SPACE_WRITE_TOKEN" ]]; then
+            echo "::notice::HF_SPACE_WRITE_TOKEN is not configured; automatic Space sync is safely skipped."
+            echo "should_sync=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "$CONFIRM" != "SYNC" ]]; then
+            echo "Manual Space sync requires confirm=SYNC." >&2
+            exit 1
+          fi
+          if [[ -z "$HF_SPACE_WRITE_TOKEN" ]]; then
+            echo "HF_SPACE_WRITE_TOKEN is required for Space writes; the inference-only HF_TOKEN is not used." >&2
+            exit 1
+          fi
+          echo "should_sync=true" >> "$GITHUB_OUTPUT"
+          echo "Space write-token gate validated."
+
+      - name: Sync only reviewed frontend files
+        if: steps.gate.outputs.should_sync == 'true'
+        env:
+          HF_TOKEN: ${{ secrets.HF_SPACE_WRITE_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -81,6 +112,7 @@ jobs:
           fi
 
       - name: Verify Hugging Face source and public host
+        if: steps.gate.outputs.should_sync == 'true'
         shell: bash
         run: |
           set -euo pipefail
