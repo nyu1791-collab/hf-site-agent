@@ -44,7 +44,8 @@ MAX_LIST_ITEMS = 8
 MAX_FIELD_CHARS = 1200
 BASE_URL = "https://openrouter.ai/api/v1"
 MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,160}$")
-FREE_MODEL_RE = re.compile(r"^(?:openrouter/free|[A-Za-z0-9._/-]+:free)$")
+FREE_MODEL_RE = re.compile(r"^[A-Za-z0-9._/-]+:free$")
+MODEL_FAMILY_BY_ROLE = {"planner": "qwen/", "critic": "deepseek/"}
 SECRET_PATTERNS = (
     re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]{12,}"),
     re.compile(r"(?i)(?:sk|gsk|hf|sk-or-v1)[_-][A-Za-z0-9_-]{12,}"),
@@ -205,6 +206,8 @@ def _validate_model_payload(label: str, payload: dict[str, Any]) -> tuple[bool, 
         return False, "output_missing_commander_fields"
     if payload.get("execution_allowed") is True or payload.get("requires_commander_approval") is False:
         return False, "output_requested_unauthorized_execution"
+    if payload.get("requires_commander_approval") is not True:
+        return False, "output_missing_commander_approval"
     return True, ""
 
 
@@ -712,9 +715,16 @@ def main() -> int:
     planner_model = os.environ.get("PLANNER_MODEL", "qwen/qwen3-32b:free").strip()
     critic_model = os.environ.get("CRITIC_MODEL", "deepseek/deepseek-chat-v3-0324:free").strip()
 
-    for label, model in (("Planner model", planner_model), ("Critic model", critic_model)):
-        if not MODEL_RE.fullmatch(model) or not FREE_MODEL_RE.fullmatch(model):
-            fail(f"{label} must be an OpenRouter free model ID.")
+    for role, label, model in (
+        ("planner", "Planner model", planner_model),
+        ("critic", "Critic model", critic_model),
+    ):
+        if (
+            not MODEL_RE.fullmatch(model)
+            or not FREE_MODEL_RE.fullmatch(model)
+            or not model.startswith(MODEL_FAMILY_BY_ROLE[role])
+        ):
+            fail(f"{label} must be a same-family OpenRouter free model ID.")
         if len(model) > MAX_MODEL_CHARS:
             fail(f"{label} is too long.")
 
