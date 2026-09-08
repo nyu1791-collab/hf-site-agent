@@ -18,6 +18,9 @@ on:
   push:
     branches: [main]
     paths:
+      - "scripts/agent_delegation.py"
+      - "tests/test_agent_delegation.py"
+      - "docs/COMMANDER_RELIABILITY.md"
       - "scripts/agent_runtime.py"
       - "scripts/validate_hierarchy.py"
       - "scripts/preflight_openrouter_models.py"
@@ -49,6 +52,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - name: Install bounded OpenAI-compatible client
+        run: python -m pip install --disable-pip-version-check --no-input "openai>=1.0,<2"
       - name: Compile deterministic runtime
         run: python -m py_compile scripts/agent_runtime.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py scripts/agent_delegation.py tests/test_agent_runtime.py tests/test_agent_delegation.py
       - name: Validate JSON schemas and fixtures
