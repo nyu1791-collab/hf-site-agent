@@ -18,7 +18,7 @@ on:
           - siliconflow
           - openrouter
       model:
-        description: "Exact provider model ID (recommended OpenRouter free smoke: openrouter/free)"
+        description: "Exact provider model ID; recommended free smoke: openrouter/free"
         required: true
         type: string
 
