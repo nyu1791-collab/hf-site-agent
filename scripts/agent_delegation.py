@@ -68,6 +68,26 @@ ROLE_TO_SPECIALIST = {
 # Kept as a source marker for the existing read-only verification workflow;
 # the emitted packet now uses the explicit parallel mode below.
 LEGACY_MODE_MARKER = "planner_critic_with_downstream_handoff"
+MAX_CALL_ATTEMPTS = 2
+RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+
+
+class AgentCallError(RuntimeError):
+    """A redacted, bounded failure from one commander call."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        status: int | None = None,
+        retryable: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status = status
+        self.retryable = retryable
 
 
 def redact(value: str) -> str:
@@ -97,25 +117,25 @@ def validate_input(value: str, limit: int, label: str, required: bool = False) -
 def parse_agent_output(response: Any) -> dict[str, Any]:
     choices = getattr(response, "choices", None) or []
     if not choices:
-        fail("Agent returned no choices.")
+        raise AgentCallError("empty_response", "Agent returned no choices.")
     message = getattr(choices[0], "message", None)
     raw = getattr(message, "content", "") if message is not None else ""
     safe = redact(str(raw or ""))[:MAX_OUTPUT_CHARS]
     if not safe:
-        fail("Agent returned an empty response.")
+        raise AgentCallError("empty_response", "Agent returned an empty response.")
     candidate = safe.strip()
     if candidate.startswith("```") and candidate.endswith("```"):
         candidate = re.sub(r"^```(?:json)?\s*|\s*```$", "", candidate, flags=re.IGNORECASE)
     try:
         parsed = json.loads(candidate)
     except (TypeError, ValueError, json.JSONDecodeError):
-        return {"text": safe, "format": "text"}
+        raise AgentCallError("invalid_json", "Agent returned non-JSON output.")
     if not isinstance(parsed, dict):
-        return {"text": safe, "format": "text"}
+        raise AgentCallError("invalid_schema", "Agent output must be a JSON object.")
     return parsed
 
 
-def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+def _call_once(model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
     try:
         client = OpenAI(
             api_key=os.environ["AI_API_KEY"],
@@ -134,24 +154,121 @@ def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, An
             stream=False,
         )
         return parse_agent_output(response)
-    except KeyError:
-        fail("AI_API_KEY secret is not configured.")
-    except APITimeoutError:
-        fail("Delegated agent timed out.", 408)
-    except APIConnectionError:
-        fail("Delegated agent connection failed.")
+    except KeyError as exc:
+        raise AgentCallError("missing_secret", "AI_API_KEY secret is not configured.") from exc
+    except APITimeoutError as exc:
+        raise AgentCallError("timeout", "Delegated agent timed out.", status=408, retryable=True) from exc
+    except APIConnectionError as exc:
+        raise AgentCallError("connection_error", "Delegated agent connection failed.", retryable=True) from exc
     except APIStatusError as exc:
         status = getattr(exc, "status_code", None)
         if status == 402:
-            fail("OpenRouter free credit is unavailable; no paid fallback was attempted.", 402)
+            raise AgentCallError(
+                "free_credit_unavailable",
+                "OpenRouter free credit is unavailable; no paid fallback was attempted.",
+                status=402,
+            ) from exc
         if status in (401, 403):
-            fail("OpenRouter credentials or permission were rejected.", status)
-        if status == 429:
-            fail("OpenRouter rate limit reached; no automatic fallback was attempted.", 429)
-        fail("OpenRouter returned a non-success response.", status if isinstance(status, int) else None)
-    except Exception:
-        fail("Delegated agent request failed without exposing provider details.")
+            raise AgentCallError(
+                "provider_auth_rejected",
+                "OpenRouter credentials or permission were rejected.",
+                status=status,
+            ) from exc
+        if status in RETRYABLE_STATUS_CODES:
+            raise AgentCallError(
+                "transient_provider_error",
+                "OpenRouter returned a transient response.",
+                status=status,
+                retryable=True,
+            ) from exc
+        if status == 404:
+            raise AgentCallError("model_not_found", "Requested model was not found.", status=404) from exc
+        raise AgentCallError(
+            "provider_error",
+            "OpenRouter returned a non-success response.",
+            status=status if isinstance(status, int) else None,
+        ) from exc
+    except AgentCallError:
+        raise
+    except Exception as exc:
+        raise AgentCallError("request_failed", "Delegated agent request failed without exposing provider details.") from exc
 
+
+def _validate_model_payload(label: str, payload: dict[str, Any]) -> tuple[bool, str]:
+    if not isinstance(payload, dict):
+        return False, "output_not_object"
+    if label == "planner":
+        required = ("summary", "steps", "work_orders", "artifact", "demand_signal")
+    else:
+        required = ("verdict", "objections", "changes", "tests", "demand_signal")
+    if not any(key in payload for key in required):
+        return False, "output_missing_commander_fields"
+    if payload.get("execution_allowed") is True or payload.get("requires_commander_approval") is False:
+        return False, "output_requested_unauthorized_execution"
+    return True, ""
+
+
+def _annotate_call(label: str, result: dict[str, Any]) -> dict[str, Any]:
+    if result.get("ok") is not True:
+        return result
+    payload = result.get("response")
+    if not isinstance(payload, dict):
+        return {
+            **result,
+            "ok": False,
+            "status": "failed",
+            "error_code": "output_not_object",
+            "error": "Agent output was not a JSON object.",
+            "valid": False,
+        }
+    valid, reason = _validate_model_payload(label, payload)
+    if not valid:
+        return {
+            **result,
+            "ok": False,
+            "status": "failed",
+            "error_code": reason,
+            "error": "Agent output failed the commander schema check.",
+            "valid": False,
+        }
+    return {**result, "valid": True}
+
+
+def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+    attempts = 0
+    while attempts < MAX_CALL_ATTEMPTS:
+        attempts += 1
+        try:
+            response = _call_once(model, system_prompt, user_prompt)
+            return {
+                "ok": True,
+                "status": "completed",
+                "response": response,
+                "attempts": attempts,
+                "provider_status": 200,
+                "valid": False,
+            }
+        except AgentCallError as exc:
+            if exc.retryable and attempts < MAX_CALL_ATTEMPTS:
+                continue
+            return {
+                "ok": False,
+                "status": "blocked" if exc.code in {"missing_secret", "free_credit_unavailable"} else "failed",
+                "error_code": exc.code,
+                "error": redact(exc.message),
+                "provider_status": exc.status,
+                "attempts": attempts,
+                "valid": False,
+            }
+    return {
+        "ok": False,
+        "status": "failed",
+        "error_code": "attempt_budget_exhausted",
+        "error": "Commander attempt budget exhausted.",
+        "provider_status": None,
+        "attempts": attempts,
+        "valid": False,
+    }
 
 def safe_text(value: Any, limit: int = MAX_FIELD_CHARS) -> str:
     if isinstance(value, str):
