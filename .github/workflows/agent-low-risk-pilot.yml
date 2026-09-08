@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   delegation:
-    if: \${{ startsWith(github.event.head_commit.message, 'mission: run low-risk pilot') }}
+    if: ${{ startsWith(github.event.head_commit.message, 'mission: run low-risk pilot') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -102,11 +102,11 @@ jobs:
 
       - name: Run Qwen and DeepSeek in parallel
         env:
-          AI_API_KEY: \${{ secrets.AI_API_KEY }}
-          DELEGATION_BRIEF: \${{ steps.mission.outputs.brief }}
-          DELEGATION_CONTEXT: \${{ steps.mission.outputs.context }}
-          PLANNER_MODEL: \${{ steps.mission.outputs.planner_model }}
-          CRITIC_MODEL: \${{ steps.mission.outputs.critic_model }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          DELEGATION_BRIEF: ${{ steps.mission.outputs.brief }}
+          DELEGATION_CONTEXT: ${{ steps.mission.outputs.context }}
+          PLANNER_MODEL: ${{ steps.mission.outputs.planner_model }}
+          CRITIC_MODEL: ${{ steps.mission.outputs.critic_model }}
           COMMANDER_PACKET_PATH: artifacts/commander_packet.json
         shell: bash
         run: |
