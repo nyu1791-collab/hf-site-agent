@@ -42,7 +42,7 @@ jobs:
               and message.startswith("mission: run low-risk pilot")
           )
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"run={'true' if should_run else 'false'}\\n")
+              output.write(f"run={'true' if should_run else 'false'}\n")
           print("Approved pilot gate: " + ("run" if should_run else "ignore"))
           PY
 
@@ -87,7 +87,7 @@ jobs:
               value = mission.get(key)
               if not isinstance(value, str) or not value.strip():
                   raise SystemExit(f"mission field {key!r} is empty")
-              if "\\n" in value or "\\r" in value:
+              if "\n" in value or "\\r" in value:
                   raise SystemExit(f"mission field {key!r} contains a newline")
           print("ChatGPT-approved low-risk mission envelope validated.")
           PY
@@ -107,9 +107,9 @@ jobs:
           with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
               for key in ("brief", "context", "planner_model", "critic_model"):
                   value = mission[key]
-                  if "\\n" in value or "\\r" in value:
+                  if "\n" in value or "\\r" in value:
                       raise SystemExit(f"newline is not allowed in {key}")
-                  output.write(f"{key}={value}\\n")
+                  output.write(f"{key}={value}\n")
           PY
 
       - name: Set up Python
