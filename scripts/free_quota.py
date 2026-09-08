@@ -297,7 +297,18 @@ class FreeUsageLedger:
             if count + 1 >= self.hard_stop:
                 state["circuit_breaker"] = "OPEN"
                 state["breaker_reason"] = "free_daily_safety_limit"
-            return {"allowed": True, "entry": dict(entry), "summary": self.summary()}
+            return {
+                "allowed": True,
+                "entry": dict(entry),
+                "summary": {
+                    "date_utc": utc_day(now),
+                    "free_requests_today": count + 1,
+                    "daily_cap": self.daily_cap,
+                    "hard_stop": self.hard_stop,
+                    "zone": classify_zone(count + 1),
+                    "circuit_breaker": state.get("circuit_breaker", "CLOSED"),
+                },
+            }
 
     def record_response(self, request_id: str, *, success: bool, http_status: int | None, retry: int = 0) -> dict[str, Any]:
         with self._locked_state(write=True) as state:
