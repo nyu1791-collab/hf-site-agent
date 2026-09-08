@@ -11,6 +11,8 @@ on:
       - "hf-space/index.html"
       - ".github/workflows/sync-hf-space.yml"
       - ".github/workflows/connect-hf-inference.yml"
+      - "worker/ai-ops-audit.mjs"
+      - "docs/AI_COMMANDER_OPERATING_RULES.md"
   push:
     branches:
       - main
@@ -22,6 +24,8 @@ on:
       - "hf-space/index.html"
       - ".github/workflows/sync-hf-space.yml"
       - ".github/workflows/connect-hf-inference.yml"
+      - "worker/ai-ops-audit.mjs"
+      - "docs/AI_COMMANDER_OPERATING_RULES.md"
 
 permissions:
   contents: read
@@ -39,6 +43,27 @@ jobs:
         run: |
           set -euo pipefail
           node --check worker/index.js
+
+      - name: Check read-only AI operations audit script
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check worker/ai-ops-audit.mjs
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync("worker/ai-ops-audit.mjs", "utf8");
+          for (const marker of [
+            "async function fetchJson",
+            "ADMIN_PASSWORD",
+            "秘密値そのものは出力しません"
+          ]) {
+            if (!source.includes(marker)) throw new Error(`Audit script is missing: ${marker}`);
+          }
+          if (source.includes("console.log(process.env.")) {
+            throw new Error("Audit script must not print environment secrets.");
+          }
+          console.log("Read-only AI operations audit script check passed.");
+          NODE
 
       - name: Check admin-secret migration workflow safety
         shell: bash
