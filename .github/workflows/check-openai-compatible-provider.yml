@@ -42,6 +42,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # GitHub dispatch text inputs can retain invisible whitespace from mobile keyboards.
+          CONFIRM="$(printf '%s' "$CONFIRM" | tr -d '[:space:]')"
           if [[ "$REF_NAME" != "main" ]]; then
             echo "This smoke test is allowed only from main." >&2
             exit 2
