@@ -292,6 +292,7 @@ def main() -> int:
     context = clean(os.environ.get("TASK_CONTEXT", ""), MAX_CONTEXT)
     acceptance = clean(os.environ.get("TASK_ACCEPTANCE", ""), MAX_ACCEPTANCE)
     model = os.environ.get("AI_MODEL", "").strip()
+    parent_agent_id = bounded_identifier(os.environ.get("PARENT_AGENT_ID", ""), "glm-general-commander")
     if not instruction:
         fail("Task instruction is required.")
     if not MODEL_RE.fullmatch(model) or not FREE_MODEL_RE.fullmatch(model):
