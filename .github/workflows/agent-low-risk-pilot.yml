@@ -125,8 +125,19 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check --no-input --no-cache-dir "openai>=1.0,<2"
 
-      - name: Run Qwen and DeepSeek in parallel
+      - name: Preflight requested models against live free catalog
         if: ${{ steps.gate.outputs.run == 'true' }}
+        id: model_preflight
+        env:
+          PLANNER_MODEL: ${{ steps.mission.outputs.planner_model }}
+          CRITIC_MODEL: ${{ steps.mission.outputs.critic_model }}
+          COMMANDER_PACKET_PATH: artifacts/commander_packet.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/preflight_openrouter_models.py
+      - name: Run Qwen and DeepSeek in parallel
+        if: ${{ steps.gate.outputs.run == 'true' && steps.model_preflight.outputs.ready == 'true' }}
         env:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           DELEGATION_BRIEF: ${{ steps.mission.outputs.brief }}
