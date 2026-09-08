@@ -11,6 +11,9 @@ on:
       - "scripts/model_registry.py"
       - "docs/MODEL_REGISTRY.md"
       - "scripts/model_watch.py"
+      - "tests/test_free_quota.py"
+      - "scripts/probe_free_models.py"
+      - "scripts/free_quota.py"
       - "scripts/agent_delegation.py"
       - "schemas/command_envelope.schema.json"
       - "schemas/report_envelope.schema.json"
@@ -64,7 +67,7 @@ jobs:
       - name: Install bounded OpenAI-compatible client
         run: python -m pip install --disable-pip-version-check --no-input "openai>=1.0,<2"
       - name: Compile deterministic runtime
-        run: python -m py_compile scripts/agent_runtime.py scripts/model_registry.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py scripts/agent_delegation.py scripts/agent_executor.py scripts/model_watch.py tests/test_agent_runtime.py tests/test_agent_delegation.py tests/test_model_registry.py
+        run: python -m py_compile scripts/agent_runtime.py scripts/model_registry.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py scripts/agent_delegation.py scripts/agent_executor.py scripts/free_quota.py scripts/probe_free_models.py scripts/model_watch.py tests/test_free_quota.py tests/test_agent_runtime.py tests/test_agent_delegation.py tests/test_model_registry.py
       - name: Validate JSON schemas and fixtures
         run: |
           python -m json.tool schemas/command_envelope.schema.json >/dev/null
