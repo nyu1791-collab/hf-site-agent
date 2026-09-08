@@ -36,7 +36,11 @@ jobs:
           event = json.loads(open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8").read())
           ref_name = os.environ.get("GITHUB_REF_NAME", "")
           message = ((event.get("head_commit") or {}).get("message") or "").strip()
-          should_run = ref_name == "main" and os.environ.get("GITHUB_EVENT_NAME") == "push" and message.startswith("mission: run low-risk pilot")
+          should_run = (
+              ref_name == "main"
+              and os.environ.get("GITHUB_EVENT_NAME") == "push"
+              and message.startswith("mission: run low-risk pilot")
+          )
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"run={'true' if should_run else 'false'}\\n")
           print("Approved pilot gate: " + ("run" if should_run else "ignore"))
@@ -44,7 +48,7 @@ jobs:
 
       - name: Validate commander-approved mission envelope
         if: ${{ steps.gate.outputs.run == 'true' }}
-shell: bash
+        shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -83,14 +87,14 @@ shell: bash
               value = mission.get(key)
               if not isinstance(value, str) or not value.strip():
                   raise SystemExit(f"mission field {key!r} is empty")
-              if "\n" in value or "\r" in value:
+              if "\\n" in value or "\\r" in value:
                   raise SystemExit(f"mission field {key!r} contains a newline")
           print("ChatGPT-approved low-risk mission envelope validated.")
           PY
 
       - name: Export approved mission inputs
         if: ${{ steps.gate.outputs.run == 'true' }}
-id: mission
+        id: mission
         shell: bash
         run: |
           set -euo pipefail
@@ -103,27 +107,27 @@ id: mission
           with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
               for key in ("brief", "context", "planner_model", "critic_model"):
                   value = mission[key]
-                  if "\n" in value or "\r" in value:
+                  if "\\n" in value or "\\r" in value:
                       raise SystemExit(f"newline is not allowed in {key}")
-                  output.write(f"{key}={value}\n")
+                  output.write(f"{key}={value}\\n")
           PY
 
       - name: Set up Python
         if: ${{ steps.gate.outputs.run == 'true' }}
-uses: actions/setup-python@v6
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Install bounded OpenAI-compatible client
         if: ${{ steps.gate.outputs.run == 'true' }}
-shell: bash
+        shell: bash
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check --no-input --no-cache-dir "openai>=1.0,<2"
 
       - name: Run Qwen and DeepSeek in parallel
         if: ${{ steps.gate.outputs.run == 'true' }}
-env:
+        env:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           DELEGATION_BRIEF: ${{ steps.mission.outputs.brief }}
           DELEGATION_CONTEXT: ${{ steps.mission.outputs.context }}
