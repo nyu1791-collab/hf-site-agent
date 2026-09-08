@@ -21,9 +21,11 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 try:
     from scripts.model_registry import load_registry, role_candidates, role_config
+    from scripts.free_quota import FreeQuotaBlocked, FreeUsageLedger, is_explicit_free_model
     from scripts.agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 except ModuleNotFoundError:  # pragma: no cover - when invoked from scripts/
     from model_registry import load_registry, role_candidates, role_config
+    from free_quota import FreeQuotaBlocked, FreeUsageLedger, is_explicit_free_model
     from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 
 
@@ -126,6 +128,23 @@ def parse_output(response: Any) -> dict[str, Any]:
 
 
 def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+    if not is_explicit_free_model(model):
+        fail("Only an explicit :free endpoint may be called.")
+    ledger = FreeUsageLedger()
+    mission_id = os.environ.get("MISSION_ID", "MISSION-UNASSIGNED")
+    agent_id = os.environ.get("AGENT_ID", "specialist-worker")
+    request_id = hashlib.sha256(
+        f"{mission_id}|{agent_id}|{model}|{system_prompt}|{user_prompt}".encode("utf-8")
+    ).hexdigest()[:32]
+    try:
+        ledger.before_request(
+            request_id=request_id,
+            mission_id=mission_id,
+            agent_id=agent_id,
+            model=model,
+        )
+    except FreeQuotaBlocked as exc:
+        fail(f"Free quota blocked: {exc.reason}")
     try:
         client = OpenAI(
             api_key=os.environ["AI_API_KEY"],
@@ -143,23 +162,30 @@ def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, An
             max_tokens=MAX_TOKENS,
             stream=False,
         )
+        ledger.record_response(request_id, success=True, http_status=200)
         return parse_output(response)
     except KeyError:
+        ledger.record_response(request_id, success=False, http_status=None)
         fail("AI_API_KEY secret is not configured.")
     except APITimeoutError:
+        ledger.record_response(request_id, success=False, http_status=408)
         fail("Specialist agent timed out.", 408)
     except APIConnectionError:
+        ledger.record_response(request_id, success=False, http_status=None)
         fail("Specialist agent connection failed.")
     except APIStatusError as exc:
         status = getattr(exc, "status_code", None)
+        ledger.record_response(request_id, success=False, http_status=status if isinstance(status, int) else None)
         if status == 402:
             fail("OpenRouter free credit is unavailable; no paid fallback was attempted.", 402)
         if status in (401, 403):
             fail("OpenRouter credentials or permission were rejected.", status)
         if status == 429:
-            fail("OpenRouter rate limit reached; no automatic fallback was attempted.", 429)
+            ledger.mark_429(request_id)
+            fail("OpenRouter free endpoint rate limit reached; no automatic retry was attempted.", 429)
         fail("OpenRouter returned a non-success response.", status if isinstance(status, int) else None)
     except Exception:
+        ledger.record_response(request_id, success=False, http_status=None)
         fail("Specialist agent request failed without exposing provider details.")
 
 
