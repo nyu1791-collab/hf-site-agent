@@ -148,6 +148,17 @@ def resolve_role_model(
     role = role_config(registry, role_name)
     models = registry.get("models", {})
     listed = _listed_model_map(entries)
+    if role.get("active") is not True:
+        return {
+            "role": role_name,
+            "status": "blocked",
+            "reason": "role_inactive_requires_commander_approval",
+            "requested_model": requested_model or "",
+            "candidates": role_candidates(registry, role_name, requested_model),
+            "model": "",
+            "paid_fallback": False,
+            "execution_allowed": False,
+        }
     candidates = role_candidates(registry, role_name, requested_model)
     if requested_model and not candidates:
         return {
