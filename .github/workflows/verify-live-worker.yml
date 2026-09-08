@@ -55,7 +55,7 @@ jobs:
           for (const marker of [
             "async function fetchJson",
             "ADMIN_PASSWORD",
-            "secrets are never printed"
+            "秘密値そのものは出力しません"
           ]) {
             if (!source.includes(marker)) throw new Error(`Audit script is missing: ${marker}`);
           }
