@@ -1,0 +1,123 @@
+name: Run ChatGPT-approved low-risk pilot
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - missions/approved/low-risk-pilot.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chatgpt-approved-low-risk-pilot
+  cancel-in-progress: false
+
+jobs:
+  delegation:
+    if: \${{ startsWith(github.event.head_commit.message, 'mission: run low-risk pilot') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the approved main revision
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate commander-approved mission envelope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          mission = json.loads(Path("missions/approved/low-risk-pilot.json").read_text(encoding="utf-8"))
+          expected = {
+              "mission_id": "MISSION-LOWRISK-001",
+              "status": "approved",
+              "approved_by": "chatgpt-work",
+              "confirm": "DELEGATE",
+              "risk": "low",
+              "external_search": False,
+              "execution_allowed": False,
+              "paid_fallback": False,
+              "max_model_calls": 2,
+              "max_tokens_per_call": 320,
+              "timeout_seconds": 12,
+          }
+          for key, value in expected.items():
+              if mission.get(key) != value:
+                  raise SystemExit(f"mission field {key!r} is not approved")
+          required_prohibitions = {
+              "external_search",
+              "repository_write",
+              "secret_change",
+              "deploy",
+              "publish",
+              "payment",
+              "youtube",
+          }
+          if set(mission.get("prohibited_operations", [])) != required_prohibitions:
+              raise SystemExit("mission prohibition set is not exact")
+          for key in ("brief", "context", "planner_model", "critic_model"):
+              value = mission.get(key)
+              if not isinstance(value, str) or not value.strip():
+                  raise SystemExit(f"mission field {key!r} is empty")
+              if "\n" in value or "\r" in value:
+                  raise SystemExit(f"mission field {key!r} contains a newline")
+          print("ChatGPT-approved low-risk mission envelope validated.")
+          PY
+
+      - name: Export approved mission inputs
+        id: mission
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          mission = json.loads(Path("missions/approved/low-risk-pilot.json").read_text(encoding="utf-8"))
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              for key in ("brief", "context", "planner_model", "critic_model"):
+                  value = mission[key]
+                  if "\n" in value or "\r" in value:
+                      raise SystemExit(f"newline is not allowed in {key}")
+                  output.write(f"{key}={value}\n")
+          PY
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install bounded OpenAI-compatible client
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input --no-cache-dir "openai>=1.0,<2"
+
+      - name: Run Qwen and DeepSeek in parallel
+        env:
+          AI_API_KEY: \${{ secrets.AI_API_KEY }}
+          DELEGATION_BRIEF: \${{ steps.mission.outputs.brief }}
+          DELEGATION_CONTEXT: \${{ steps.mission.outputs.context }}
+          PLANNER_MODEL: \${{ steps.mission.outputs.planner_model }}
+          CRITIC_MODEL: \${{ steps.mission.outputs.critic_model }}
+          COMMANDER_PACKET_PATH: artifacts/commander_packet.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/agent_delegation.py
+
+      - name: Upload commander handoff artifact
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: commander-handoff-low-risk-pilot
+          path: artifacts/commander_packet.json
+          if-no-files-found: error
+          retention-days: 7
