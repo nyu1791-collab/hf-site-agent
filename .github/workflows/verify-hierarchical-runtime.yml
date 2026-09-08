@@ -24,6 +24,10 @@ on:
     branches: [main]
     paths:
       - "scripts/agent_delegation.py"
+      - "scripts/model_registry.py"
+      - "scripts/model_watch.py"
+      - "config/model_registry.json"
+      - "tests/test_model_registry.py"
       - "tests/test_agent_delegation.py"
       - "docs/COMMANDER_RELIABILITY.md"
       - "scripts/agent_runtime.py"
