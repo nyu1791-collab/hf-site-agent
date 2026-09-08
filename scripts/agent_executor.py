@@ -20,9 +20,11 @@ from typing import Any
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 try:
-    from scripts.model_registry import load_registry, role_candidates, role_config\n    from scripts.agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
+    from scripts.model_registry import load_registry, role_candidates, role_config
+    from scripts.agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 except ModuleNotFoundError:  # pragma: no cover - when invoked from scripts/
-    from model_registry import load_registry, role_candidates, role_config\n    from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
+    from model_registry import load_registry, role_candidates, role_config
+    from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 
 
 ROLE_TO_SPECIALIST = {
