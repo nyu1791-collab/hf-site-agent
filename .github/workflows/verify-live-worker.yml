@@ -90,6 +90,16 @@ jobs:
           console.log("Hugging Face frontend safety contract passed.");
           NODE
 
+      - name: Check Hugging Face review integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'https://router.huggingface.co/v1/chat/completions' worker/index.js
+          grep -q 'async function deepseekReview' worker/index.js
+          grep -q 'url.pathname === "/command/review"' worker/index.js
+          grep -q 'HF_INFERENCE_ENABLED=true' worker/index.js
+          node --check worker/index.js
+
       - name: Check quota guard source
         shell: bash
         run: |

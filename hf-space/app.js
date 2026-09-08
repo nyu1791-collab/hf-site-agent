@@ -1,4 +1,5 @@
 let generatedSite = null;
+let latestReview = null;
 const config = window.SITE_AGENT_CONFIG || {};
 const $ = id => document.getElementById(id);
 function status(message) { $("status").textContent = message; }
@@ -34,6 +35,25 @@ async function generate() {
   } finally { button.disabled = false; }
 }
 $("generate").addEventListener("click", () => generate());
+
+$("review").addEventListener("click", async () => {
+  const button = $("review");
+  try {
+    if (!generatedSite) throw new Error("先にコードを生成してください。");
+    button.disabled = true;
+    status("DeepSeekでレビュー中…");
+    const source = generatedSite.files.map(file => file.path + "\n" + file.content).join("\n\n");
+    const data = await call("/command/review", { text: source });
+    latestReview = data.review;
+    $("review-output").textContent = latestReview.review;
+    $("review-output").hidden = false;
+    status("DeepSeekレビューが完了しました。内容を確認してからPushしてください。");
+  } catch (error) {
+    status("レビューできませんでした: " + error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
 $("publish").addEventListener("click", async () => {
   const button = $("publish");
   try {

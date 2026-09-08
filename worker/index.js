@@ -27,6 +27,11 @@ var CONTENT_PIPELINE = Object.freeze([
 var MAX_QWEN_CALLS_PER_MISSION = 2;
 var MAX_EXTERNAL_MODEL_CALLS_PER_MISSION = 1;
 var MAX_PARALLEL_MODEL_CALLS = 1;
+var HF_ROUTER_URL = "https://router.huggingface.co/v1/chat/completions";
+var HF_DEFAULT_MODEL = "deepseek-ai/DeepSeek-V4-Flash-0731:cheapest";
+var HF_MAX_INPUT_CHARS = 12e3;
+var HF_MAX_OUTPUT_TOKENS = 700;
+var HF_INFERENCE_TIMEOUT_MS = 12e3;
 var ADMIN_PASSWORD_BINDING = "WORKER_ADMIN_PASSWORD";
 var HttpError = class extends Error {
   static {
@@ -371,7 +376,7 @@ var COMMANDER_SQUADS = Object.freeze({
 });
 var SPECIALIST_REGISTRY = Object.freeze({
   web_research: Object.freeze({ squad: "qwen", requires: ["TAVILY_API_KEY", "TAVILY_QUOTA"], action: "\u5FC5\u8981\u6642\u3060\u3051\u6700\u65B0\u306E\u516C\u958B\u60C5\u5831\u3092\u53D6\u5F97", paid: "approval_required", implementation: "wired" }),
-  code_review: Object.freeze({ squad: "deepseek", requires: ["HF_TOKEN", "HF_DEEPSEEK_MODEL"], action: "\u72EC\u7ACB\u3057\u305F\u30B3\u30FC\u30C9\u30FB\u8A2D\u8A08\u30EC\u30D3\u30E5\u30FC", paid: "disabled_until_explicitly_enabled", implementation: "planned" }),
+  code_review: Object.freeze({ squad: "deepseek", requires: ["HF_INFERENCE_ENABLED", "HF_TOKEN"], action: "Hugging Face Router DeepSeek review", paid: "free_credit_only", implementation: "wired" }),
   vision_review: Object.freeze({ squad: "deepseek", requires: ["HF_TOKEN", "HF_VISION_MODEL"], action: "\u753B\u9762\u30FB\u753B\u50CF\u306E\u54C1\u8CEA\u78BA\u8A8D", paid: "approval_required", implementation: "planned" }),
   image_generation: Object.freeze({ squad: "qwen", requires: ["HF_TOKEN", "HF_IMAGE_MODEL"], action: "\u753B\u50CF\u7D20\u6750\u306E\u751F\u6210", paid: "always_approval_required", implementation: "planned" }),
   video_generation: Object.freeze({ squad: "qwen", requires: ["HF_TOKEN", "HF_VIDEO_MODEL"], action: "\u77ED\u3044\u30D7\u30EC\u30D3\u30E5\u30FC\u52D5\u753B\u306E\u751F\u6210", paid: "always_approval_required", implementation: "planned" })
@@ -665,6 +670,94 @@ async function groqCompletionRequest(body, env, lane) {
   }
 }
 __name(groqCompletionRequest, "groqCompletionRequest");
+function hfInferenceEnabled(env) {
+  return String(env.HF_INFERENCE_ENABLED || "").trim().toLowerCase() === "true";
+}
+__name(hfInferenceEnabled, "hfInferenceEnabled");
+function hfInferenceModel(env) {
+  const model = String(env.HF_DEEPSEEK_MODEL || HF_DEFAULT_MODEL).trim();
+  if (!/^[A-Za-z0-9._:/-]{3,160}$/.test(model)) throw new HttpError(503, "DeepSeek model configuration is invalid.");
+  return model;
+}
+__name(hfInferenceModel, "hfInferenceModel");
+function hfInferenceConfig(env) {
+  const missing = [];
+  if (!hfInferenceEnabled(env)) missing.push("HF_INFERENCE_ENABLED=true");
+  if (!env.HF_TOKEN) missing.push("HF_TOKEN");
+  return { missing, enabled: missing.length === 0, model: hfInferenceModel(env) };
+}
+__name(hfInferenceConfig, "hfInferenceConfig");
+function hfRetryDelaySeconds(response, attempt) {
+  const retryAfter = Number(response?.headers?.get("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) return Math.ceil(retryAfter);
+  return Math.max(1, 2 ** attempt);
+}
+__name(hfRetryDelaySeconds, "hfRetryDelaySeconds");
+async function hfCompletionRequest(body, env, lane) {
+  const config = hfInferenceConfig(env);
+  if (!config.enabled) {
+    throw new HttpError(503, "DeepSeek review is not connected. Add HF_INFERENCE_ENABLED=true and HF_TOKEN in Cloudflare.", { missing: config.missing });
+  }
+  const retries = asInt(env.HF_MAX_RETRIES, 1, 0, 2);
+  const maxWaitSeconds = asInt(env.HF_MAX_RETRY_SECONDS, 4, 0, 10);
+  const timeoutMs = asInt(env.HF_TIMEOUT_MS, HF_INFERENCE_TIMEOUT_MS, 3000, 30000);
+  for (let attempt = 0; ; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort("timeout"), timeoutMs);
+    let response;
+    try {
+      response = await fetch(HF_ROUTER_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: "Bearer " + env.HF_TOKEN },
+        body: JSON.stringify({ ...body, model: config.model, stream: false }),
+        signal: controller.signal
+      });
+    } catch {
+      if (attempt < retries && maxWaitSeconds > 0) {
+        const waitSeconds = Math.min(maxWaitSeconds, Math.max(1, 2 ** attempt));
+        log("hf_network_backoff", { lane, attempt: attempt + 1, waitSeconds });
+        await sleep(waitSeconds * 1e3);
+        continue;
+      }
+      throw new HttpError(502, "Hugging Face connection timed out or failed.");
+    } finally {
+      clearTimeout(timer);
+    }
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) return data;
+    const providerCode = cleanText(data?.error?.code || data?.error?.type || String(response.status), 80);
+    if ((response.status === 429 || response.status >= 500) && attempt < retries) {
+      const waitSeconds = hfRetryDelaySeconds(response, attempt);
+      if (waitSeconds <= maxWaitSeconds) {
+        log("hf_retry", { lane, attempt: attempt + 1, status: response.status, providerCode, waitSeconds });
+        await sleep(waitSeconds * 1e3);
+        continue;
+      }
+    }
+    if (response.status === 401 || response.status === 403) throw new HttpError(502, "Check the Hugging Face token permissions.");
+    if (response.status === 402) throw new HttpError(402, "Hugging Face free credits are exhausted; the request was stopped without purchasing credits.", { paidDisabled: true });
+    if (response.status === 429) throw new HttpError(429, "DeepSeek review is busy. Wait briefly and retry.", { retryAfterSeconds: hfRetryDelaySeconds(response, attempt) });
+    throw new HttpError(502, "DeepSeek review failed.", { providerStatus: response.status, providerCode });
+  }
+}
+__name(hfCompletionRequest, "hfCompletionRequest");
+async function deepseekReview(text, env, id) {
+  const input = cleanText(text, HF_MAX_INPUT_CHARS);
+  if (input.length < 20) throw new HttpError(400, "Review input must be at least 20 characters.");
+  const data = await hfCompletionRequest({
+    temperature: 0.1,
+    max_tokens: HF_MAX_OUTPUT_TOKENS,
+    messages: [
+      { role: "system", content: "You are an independent code and design reviewer. In Japanese, provide severity, evidence, and concrete fixes concisely. Never guess or output secrets." },
+      { role: "user", content: input }
+    ]
+  }, env, "code_review");
+  const review = cleanText(modelText(data?.choices?.[0]?.message?.content), 6e3);
+  if (!review) throw new HttpError(502, "DeepSeek returned no usable review.");
+  log("hf_review_completed", { requestId: id, model: hfInferenceModel(env), outputCharacters: review.length });
+  return { model: hfInferenceModel(env), review };
+}
+__name(deepseekReview, "deepseekReview");
 async function groqAgentCompletion(messages, env, mode) {
   const reasoning = mode === "coding" || mode === "repository" ? "default" : "none";
   const data = await groqCompletionRequest({
@@ -899,6 +992,7 @@ var index_default = {
         service: "groq-github-site-agent",
         version: "2026-09-08",
         research: { enabled: tavilySearchEnabled(env), missing: tavilyConfigMissing(env), sourcesPerRequest: 10, searchDepth: "advanced", creditsPerSearch: 2, freeCreditLimit: tavilyFreeCreditLimit(env) },
+        inference: { provider: "huggingface-router", codeReview: hfInferenceConfig(env), freeCreditOnly: true },
         commander: { version: COMMANDER_VERSION, maxParallelModelCalls: MAX_PARALLEL_MODEL_CALLS, state: "ready_for_specialists" },
         contentPipeline: { version: CONTENT_PIPELINE_VERSION, maxSources: MAX_CONTENT_SOURCES, state: "draft_and_approval_gated", paidOperations: "disabled", youtubeUpload: "not_connected", publishRequiresExplicitConfirmation: true }
       }, 200, headers);
@@ -921,6 +1015,11 @@ var index_default = {
       }
       if (url.pathname === "/command/content-plan") {
         return sendJson({ content: createContentPlan(payload.goal, env, id), requestId: id }, 200, cors);
+      }
+      if (url.pathname === "/command/review") {
+        const source = typeof payload.text === "string" ? payload.text : payload.site ? JSON.stringify(payload.site) : String(payload.goal || "");
+        const review = await deepseekReview(source, env, id);
+        return sendJson({ review, requestId: id }, 200, cors);
       }
       if (url.pathname === "/agent") {
         const mission = createMissionPlan(payload.goal, payload.mode || "auto", env, id);
