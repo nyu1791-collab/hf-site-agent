@@ -142,13 +142,39 @@ jobs:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           DELEGATION_BRIEF: ${{ steps.mission.outputs.brief }}
           DELEGATION_CONTEXT: ${{ steps.mission.outputs.context }}
-          PLANNER_MODEL: ${{ steps.mission.outputs.planner_model }}
-          CRITIC_MODEL: ${{ steps.mission.outputs.critic_model }}
+          PLANNER_MODEL: ${{ steps.model_preflight.outputs.planner_model }}
+          CRITIC_MODEL: ${{ steps.model_preflight.outputs.critic_model }}
           COMMANDER_PACKET_PATH: artifacts/commander_packet.json
         shell: bash
         run: |
           set -euo pipefail
           python scripts/agent_delegation.py
+
+      - name: Validate commander handoff packet
+        if: ${{ steps.gate.outputs.run == 'true' && success() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          packet = json.loads(Path("artifacts/commander_packet.json").read_text(encoding="utf-8"))
+          if packet.get("status") not in {"blocked", "awaiting_commander_approval", "completed_with_warnings"}:
+              raise SystemExit("unexpected commander packet status")
+          if packet.get("execution_allowed") is True:
+              raise SystemExit("commander packet cannot authorize execution")
+          if packet.get("paid_fallback") is True:
+              raise SystemExit("paid fallback must remain disabled")
+          calls = packet.get("model_calls")
+          if calls is None:
+              calls = packet.get("budget", {}).get("calls", 0)
+          if not isinstance(calls, int) or calls < 0 or calls > 2:
+              raise SystemExit("model call budget is invalid")
+          if "AI_API_KEY" in json.dumps(packet, ensure_ascii=False):
+              raise SystemExit("secret-shaped key leaked into commander packet")
+          print("Commander packet contract passed.")
+          PY
 
       - name: Upload commander handoff artifact
         if: ${{ steps.gate.outputs.run == 'true' && success() }}
