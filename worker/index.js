@@ -85,8 +85,28 @@ function fail(message, status, id, headers = {}, details = {}) {
   return sendJson({ error: message, requestId: id, ...details }, status, headers);
 }
 __name(fail, "fail");
+function redactLogText(value, max = 240) {
+  return String(value ?? "").replace(/Bearer\\s+[A-Za-z0-9._-]+/ig, "Bearer [redacted]").replace(/\\b(?:hf|gsk|ghp|github_pat)_[A-Za-z0-9_-]{8,}\\b/ig, "[redacted]").replace(/\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b/g, "[redacted-email]").replace(/[\\u0000-\\u001f\\u007f]/g, " ").replace(/\\s+/g, " ").trim().slice(0, max);
+}
+__name(redactLogText, "redactLogText");
+function safeLogData(value, depth = 0) {
+  if (depth > 2) return "[truncated]";
+  if (typeof value === "string") return redactLogText(value);
+  if (typeof value === "number" || typeof value === "boolean" || value === null) return value;
+  if (Array.isArray(value)) return value.slice(0, 12).map((item) => safeLogData(item, depth + 1));
+  if (value && typeof value === "object") {
+    const output = {};
+    for (const [key, item] of Object.entries(value).slice(0, 24)) {
+      if (/token|password|authorization|secret|api[_-]?key|prompt|instruction|content|body|text|message/i.test(key)) output[key] = "[redacted]";
+      else output[key] = safeLogData(item, depth + 1);
+    }
+    return output;
+  }
+  return "[redacted]";
+}
+__name(safeLogData, "safeLogData");
 function log(event, data = {}) {
-  console.log(JSON.stringify({ event, ...data }));
+  console.log(JSON.stringify({ event: redactLogText(event, 80), ...safeLogData(data) }));
 }
 __name(log, "log");
 async function sameSecret(input, expected) {
@@ -333,7 +353,13 @@ async function tavilySearch(query, env, id) {
   const cleanQuery = cleanText(query, 300);
   if (cleanQuery.length < 3) throw new HttpError(400, "検索語は3〜300文字で入力してください。");
   const quota = await reserveTavilyCredits(env);
-  const response = await fetch("https://api.tavily.com/search", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + env.TAVILY_API_KEY }, body: JSON.stringify({ query: cleanQuery, topic: "general", search_depth: "advanced", max_results: 10, include_answer: false, include_raw_content: false, include_images: false }) });
+  let response;
+  try {
+    response = await fetchWithTimeout("https://api.tavily.com/search", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + env.TAVILY_API_KEY }, body: JSON.stringify({ query: cleanQuery, topic: "general", search_depth: "advanced", max_results: 10, include_answer: false, include_raw_content: false, include_images: false }) }, asInt(env.TAVILY_TIMEOUT_MS, 12000, 3000, 30000));
+  } catch (error) {
+    if (error?.code === "TIMEOUT") throw new HttpError(504, "Tavily検索がタイムアウトしました。", { retryable: true });
+    throw new HttpError(502, "Tavily検索への接続に失敗しました。");
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new HttpError(502, "Tavily検索に失敗しました。");
   const results = Array.isArray(data?.results) ? data.results.slice(0, 10).map((item) => ({ title: cleanText(item?.title, 180), url: String(item?.url || "").slice(0, 1200), content: cleanText(item?.content, 900) })).filter((item) => item.title || item.url || item.content) : [];
@@ -632,21 +658,23 @@ __name(retryDelaySeconds, "retryDelaySeconds");
 async function groqCompletionRequest(body, env, lane) {
   const retries = asInt(env.MAX_RATE_LIMIT_RETRIES, 1, 0, 3);
   const maxWaitSeconds = asInt(env.MAX_AUTOMATIC_RETRY_SECONDS, 3, 0, 15);
+  const timeoutMs = asInt(env.GROQ_TIMEOUT_MS, 20000, 3000, 30000);
   for (let attempt = 0; ; attempt += 1) {
     let response;
     try {
-      response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      response = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${env.GROQ_API_KEY}` },
         body: JSON.stringify(body)
-      });
-    } catch {
+      }, timeoutMs);
+    } catch (error) {
       if (attempt < retries && maxWaitSeconds > 0) {
         const waitSeconds = Math.min(maxWaitSeconds, Math.max(1, 2 ** attempt));
-        log("groq_network_backoff", { lane, attempt: attempt + 1, waitSeconds });
+        log(error?.code === "TIMEOUT" ? "groq_timeout_backoff" : "groq_network_backoff", { lane, attempt: attempt + 1, waitSeconds });
         await sleep(waitSeconds * 1e3);
         continue;
       }
+      if (error?.code === "TIMEOUT") throw new HttpError(504, "Groqへの接続がタイムアウトしました。", { retryable: true });
       throw new HttpError(502, "Groqへの接続に失敗しました。");
     }
     const data = await response.json().catch(() => ({}));
@@ -826,6 +854,23 @@ function sleep(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 __name(sleep, "sleep");
+async function fetchWithTimeout(input, init = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort("timeout"), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      const timeoutError = new Error("External request timed out.");
+      timeoutError.code = "TIMEOUT";
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+__name(fetchWithTimeout, "fetchWithTimeout");
 async function askGroq(instruction, env) {
   const data = await groqCompletionRequest({
     model: groqModel(env),
@@ -875,15 +920,21 @@ function branchPath(branch) {
 }
 __name(branchPath, "branchPath");
 async function github(env, path, init = {}) {
-  const response = await fetch(`https://api.github.com/repos/${SAFE_REPOSITORY}${path}`, {
-    ...init,
-    headers: {
-      accept: "application/vnd.github+json",
-      authorization: `Bearer ${env.GITHUB_TOKEN}`,
-      "x-github-api-version": "2022-11-28",
-      ...init.headers || {}
-    }
-  });
+  let response;
+  try {
+    response = await fetchWithTimeout(`https://api.github.com/repos/${SAFE_REPOSITORY}${path}`, {
+      ...init,
+      headers: {
+        accept: "application/vnd.github+json",
+        authorization: `Bearer ${env.GITHUB_TOKEN}`,
+        "x-github-api-version": "2022-11-28",
+        ...init.headers || {}
+      }
+    }, asInt(env.GITHUB_TIMEOUT_MS, 12000, 3000, 30000));
+  } catch (error) {
+    if (error?.code === "TIMEOUT") throw new HttpError(504, "GitHubへの接続がタイムアウトしました。", { retryable: true });
+    throw new HttpError(502, "GitHubへの接続に失敗しました。");
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new HttpError(502, `GitHub error: ${data?.message || response.status}`);
   return data;
