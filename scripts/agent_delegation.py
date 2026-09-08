@@ -45,7 +45,7 @@ MAX_FIELD_CHARS = 1200
 BASE_URL = "https://openrouter.ai/api/v1"
 MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,160}$")
 FREE_MODEL_RE = re.compile(r"^[A-Za-z0-9._/-]+:free$")
-MODEL_FAMILY_BY_ROLE = {"planner": "qwen/", "critic": "deepseek/"}
+ROLE_GENERAL = "ROLE_GENERAL_COMMANDER"\nROLE_ENGINEERING = "ROLE_ENGINEERING_COMMANDER"
 SECRET_PATTERNS = (
     re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]{12,}"),
     re.compile(r"(?i)(?:sk|gsk|hf|sk-or-v1)[_-][A-Za-z0-9_-]{12,}"),
