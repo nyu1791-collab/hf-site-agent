@@ -17,8 +17,10 @@ on:
       - ".github/workflows/check-openai-compatible-provider.yml"
       - ".github/workflows/design-council.yml"
       - ".github/workflows/agent-delegation.yml"
+      - ".github/workflows/agent-execution.yml"
       - "scripts/design_council.py"
       - "scripts/agent_delegation.py"
+      - "scripts/agent_executor.py"
       - "docs/PRODUCT_DISCOVERY.md"
       - "docs/SETUP_FLOW.md"
   push:
@@ -38,8 +40,10 @@ on:
       - ".github/workflows/check-openai-compatible-provider.yml"
       - ".github/workflows/design-council.yml"
       - ".github/workflows/agent-delegation.yml"
+      - ".github/workflows/agent-execution.yml"
       - "scripts/design_council.py"
       - "scripts/agent_delegation.py"
+      - "scripts/agent_executor.py"
       - "docs/PRODUCT_DISCOVERY.md"
       - "docs/SETUP_FLOW.md"
 
@@ -395,6 +399,66 @@ jobs:
             if (script.includes(forbidden)) throw new Error("Delegation may expose secret data: " + forbidden);
           }
           console.log("Bounded Chinese-AI delegation safety contract passed.");
+          NODE
+
+      - name: Check commander handoff and specialist execution safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          needle='$'
+          needle="${needle}{{"
+          for workflow in .github/workflows/agent-delegation.yml .github/workflows/agent-execution.yml; do
+            if grep -Fq "$needle" "$workflow"; then
+              echo "Workflow contains an escaped GitHub expression: $workflow" >&2
+              exit 1
+            fi
+          done
+          python3 -m py_compile scripts/agent_executor.py
+          node <<'NODE'
+          const fs = require("node:fs");
+          const delegation = fs.readFileSync("scripts/agent_delegation.py", "utf8");
+          const executor = fs.readFileSync("scripts/agent_executor.py", "utf8");
+          const delegationWorkflow = fs.readFileSync(".github/workflows/agent-delegation.yml", "utf8");
+          const executionWorkflow = fs.readFileSync(".github/workflows/agent-execution.yml", "utf8");
+          const docs = fs.readFileSync("docs/SETUP_FLOW.md", "utf8");
+          const escapedExpression = "$" + "{{";
+          if (delegationWorkflow.includes(escapedExpression) || executionWorkflow.includes(escapedExpression)) {
+            throw new Error("Workflow contains an escaped GitHub expression.");
+          }
+          for (const marker of [
+            "planner_critic_with_downstream_handoff",
+            "COMMANDER_PACKET_PATH",
+            "execution_allowed",
+            "requires_commander_approval",
+            "artifact"
+          ]) {
+            if (!delegation.includes(marker)) throw new Error("Delegation handoff is missing: " + marker);
+          }
+          for (const marker of [
+            "commander_approved_specialist_draft",
+            "AGENT_PACKET_PATH",
+            "execution_allowed",
+            "next_tasks",
+            "max_retries=0"
+          ]) {
+            if (!executor.includes(marker)) throw new Error("Specialist agent contract is missing: " + marker);
+          }
+          for (const marker of [
+            "COMMANDER_APPROVE",
+            "scripts/agent_executor.py",
+            "upload-artifact@v6",
+            "permissions:\n  contents: read",
+            "persist-credentials: false"
+          ]) {
+            if (!executionWorkflow.includes(marker)) throw new Error("Commander workflow is missing: " + marker);
+          }
+          for (const forbidden of ["permissions: write", "actions: write", "secrets.HF_TOKEN", "wrangler deploy"]) {
+            if (executionWorkflow.includes(forbidden)) throw new Error("Specialist workflow must remain bounded: " + forbidden);
+          }
+          if (!docs.includes("COMMANDER_APPROVE") || !docs.includes("司令部")) {
+            throw new Error("Commander handoff documentation is missing.");
+          }
+          console.log("Commander handoff and specialist execution safety contract passed.");
           NODE
 
       - name: Check log redaction and external timeout guards

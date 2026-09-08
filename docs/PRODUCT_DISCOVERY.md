@@ -57,3 +57,12 @@ GitHub Actionsの [Design council safely](https://github.com/nyu1791-collab/hf-s
 - 利用者が解決したい業務と、現在の代替手段。
 
 数字は小規模な実利用で確認し、価格・プラン・決済はその後に設計します。
+
+
+## エージェント化と成果物の受け渡し
+
+外部AIは評論だけでなく、次の専門AIへ渡す指示案、成果物ドラフト、受け入れテスト、リスクを作成します。Plannerは需要仮説と作業分解を担当し、Criticは反対意見と失敗条件を確認します。司令部は両方の結果を受け取り、採用するタスクだけを選びます。
+
+採用タスクは `COMMANDER_APPROVE` の明示ゲートを通した [Specialist Workflow](https://github.com/nyu1791-collab/hf-site-agent/actions/workflows/agent-execution.yml) に1件ずつ渡します。Specialistは調査、企画、動画構成、文章、コード案、QA、指標分析の成果物を返しますが、リポジトリ変更や公開は行いません。成果物はハッシュ付きのJSONとして司令部が受け取り、司令部が検査してからPR化します。
+
+この構造により、AI同士で広い案を出しながら、実装・公開・課金の権限を一か所に集約できます。YouTubeの人気傾向は企画仮説として分析できますが、投稿や自動公開はまだ行いません。

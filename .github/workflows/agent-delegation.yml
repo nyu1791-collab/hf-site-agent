@@ -1,10 +1,10 @@
-name: Run bounded Chinese-AI delegation safely
+name: Run bounded planner and critic with commander handoff
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: Type DELEGATE to run a two-agent read-only design discussion
+        description: Type DELEGATE to create a planner/critic handoff packet
         required: true
         type: string
       brief:
@@ -36,18 +36,18 @@ concurrency:
 
 jobs:
   delegation:
-    if: \${{ github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Validate explicit read-only gate
         env:
-          REF_NAME: \${{ github.ref_name }}
-          CONFIRM: \${{ inputs.confirm }}
-          DELEGATION_BRIEF: \${{ inputs.brief }}
-          DELEGATION_CONTEXT: \${{ inputs.context }}
-          PLANNER_MODEL: \${{ inputs.planner_model }}
-          CRITIC_MODEL: \${{ inputs.critic_model }}
+          REF_NAME: ${{ github.ref_name }}
+          CONFIRM: ${{ inputs.confirm }}
+          DELEGATION_BRIEF: ${{ inputs.brief }}
+          DELEGATION_CONTEXT: ${{ inputs.context }}
+          PLANNER_MODEL: ${{ inputs.planner_model }}
+          CRITIC_MODEL: ${{ inputs.critic_model }}
         shell: bash
         run: |
           set -euo pipefail
@@ -60,16 +60,16 @@ jobs:
             echo "Type DELEGATE to run the bounded delegation lane." >&2
             exit 1
           fi
-          if [[ -z "$DELEGATION_BRIEF" || \${#DELEGATION_BRIEF} -gt 3000 ]]; then
+          if [[ -z "$DELEGATION_BRIEF" || ${#DELEGATION_BRIEF} -gt 3000 ]]; then
             echo "Delegation brief must be 1-3000 characters." >&2
             exit 1
           fi
-          if [[ \${#DELEGATION_CONTEXT} -gt 6000 ]]; then
+          if [[ ${#DELEGATION_CONTEXT} -gt 6000 ]]; then
             echo "Delegation context must be at most 6000 characters." >&2
             exit 1
           fi
           for model in "$PLANNER_MODEL" "$CRITIC_MODEL"; do
-            if [[ -z "$model" || \${#model} -gt 160 || ! "$model" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
+            if [[ -z "$model" || ${#model} -gt 160 || ! "$model" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
               echo "Model IDs must be non-empty and contain only provider-safe characters." >&2
               exit 1
             fi
@@ -96,14 +96,24 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check --no-input --no-cache-dir "openai>=1.0,<2"
 
-      - name: Run planner then critic
+      - name: Run planner then critic and build commander packet
         env:
-          AI_API_KEY: \${{ secrets.AI_API_KEY }}
-          DELEGATION_BRIEF: \${{ inputs.brief }}
-          DELEGATION_CONTEXT: \${{ inputs.context }}
-          PLANNER_MODEL: \${{ inputs.planner_model }}
-          CRITIC_MODEL: \${{ inputs.critic_model }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          DELEGATION_BRIEF: ${{ inputs.brief }}
+          DELEGATION_CONTEXT: ${{ inputs.context }}
+          PLANNER_MODEL: ${{ inputs.planner_model }}
+          CRITIC_MODEL: ${{ inputs.critic_model }}
+          COMMANDER_PACKET_PATH: artifacts/commander_packet.json
         shell: bash
         run: |
           set -euo pipefail
           python scripts/agent_delegation.py
+
+      - name: Upload commander handoff artifact
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: commander-handoff
+          path: artifacts/commander_packet.json
+          if-no-files-found: error
+          retention-days: 7
