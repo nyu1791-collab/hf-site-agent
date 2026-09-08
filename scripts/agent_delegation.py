@@ -759,13 +759,23 @@ def main() -> int:
         + "\nEND_CONTEXT\n"
         + "Qwenの出力は参照せず、独立した反対意見と専門Task案を作ってください。司令部の最終権限、無料・安全・需要検証を守ってください。"
     )
-    planner, critic = run_parallel_commanders(
+    planner_call, critic_call = run_parallel_commanders(
         planner_model,
         planner_system,
         planner_prompt,
         critic_model,
         critic_system,
         critic_prompt,
+    )
+    planner = (
+        planner_call.get("response", {})
+        if planner_call.get("ok") is True and planner_call.get("valid") is True
+        else {}
+    )
+    critic = (
+        critic_call.get("response", {})
+        if critic_call.get("ok") is True and critic_call.get("valid") is True
+        else {}
     )
 
     planner_orders = normalize_work_orders(planner)
@@ -781,6 +791,18 @@ def main() -> int:
             item["status"] = "critic_proposed"
             orders.append(item)
     artifact = build_artifact(planner, critic, orders)
+    successful_calls = sum(
+        call.get("ok") is True and call.get("valid") is True
+        for call in (planner_call, critic_call)
+    )
+    if successful_calls == 2:
+        packet_status = "awaiting_commander_approval"
+    elif successful_calls == 1:
+        packet_status = "completed_with_warnings"
+    else:
+        packet_status = "blocked"
+        artifact["status"] = "blocked_before_model_output"
+
     hierarchy_handoff = build_hierarchy_handoff(
         brief,
         context,
@@ -789,11 +811,28 @@ def main() -> int:
         planner,
         critic,
         orders,
+        planner_call,
+        critic_call,
     )
 
+    commander_results = {}
+    for label, call in (("planner", planner_call), ("critic", critic_call)):
+        commander_results[label] = {
+            key: call.get(key)
+            for key in ("ok", "status", "error_code", "error", "provider_status", "attempts", "valid")
+            if key in call
+        }
+    actual_model_calls = sum(call.get("attempts", 0) > 0 for call in (planner_call, critic_call))
+    total_attempts = sum(call.get("attempts", 0) for call in (planner_call, critic_call))
+    packet_errors = [
+        call.get("error")
+        for call in (planner_call, critic_call)
+        if call.get("error")
+    ]
+
     packet: dict[str, Any] = {
-        "ok": True,
-        "status": "awaiting_commander_approval",
+        "ok": successful_calls > 0,
+        "status": packet_status,
         "mode": "parallel_upper_commanders_with_downstream_handoff",
         "mission_id": hierarchy_handoff["mission_id"],
         "context_projection": hierarchy_handoff["context_projection"],
@@ -801,6 +840,11 @@ def main() -> int:
         "commands": hierarchy_handoff["commands"],
         "reports": hierarchy_handoff["reports"],
         "commander_fan_in": hierarchy_handoff["commander_fan_in"],
+        "commander_results": commander_results,
+        "errors": packet_errors,
+        "model_calls": actual_model_calls,
+        "execution_allowed": False,
+        "paid_fallback": False,
         "authority": {
             "commander": "final_decision_and_execution",
             "subagents": ["parallel_propose", "decompose", "draft", "review"],
@@ -819,12 +863,18 @@ def main() -> int:
         "artifact": artifact,
         "handoff": {
             "recipient": "司令部",
-            "next_action": "成果物と作業指示を検査し、採用したものだけを個別に承認する",
+            "next_action": (
+                "成果物と作業指示を検査し、採用したものだけを個別に承認する"
+                if successful_calls
+                else "無料モデルまたは一時障害を司令部が確認してから再承認する"
+            ),
             "execution_allowed": False,
         },
         "budget": {
             "provider": "openrouter",
             "calls": 2,
+            "attempts_total": total_attempts,
+            "max_attempts_per_call": MAX_CALL_ATTEMPTS,
             "max_tokens_per_call": MAX_TOKENS_PER_CALL,
             "timeout_seconds": TIMEOUT_SECONDS,
             "parallel_upper_commanders": True,
