@@ -100,6 +100,32 @@ jobs:
           grep -q 'HF_INFERENCE_ENABLED=true' worker/index.js
           node --check worker/index.js
 
+      - name: Check log redaction and external timeout guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync("worker/index.js", "utf8");
+          for (const required of [
+            "function redactLogText",
+            "function safeLogData",
+            "async function fetchWithTimeout",
+            "GROQ_TIMEOUT_MS",
+            "TAVILY_TIMEOUT_MS",
+            "GITHUB_TIMEOUT_MS"
+          ]) {
+            if (!source.includes(required)) throw new Error(`Missing safety guard: ${required}`);
+          }
+          if (source.includes("console.log(JSON.stringify({ event, ...data }))")) {
+            throw new Error("Raw structured logging must not bypass redaction.");
+          }
+          if (!source.includes("safeLogData(data)")) {
+            throw new Error("The log helper must sanitize event data.");
+          }
+          console.log("Log redaction and external timeout guards passed.");
+          NODE
+
       - name: Check quota guard source
         shell: bash
         run: |
