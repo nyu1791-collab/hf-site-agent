@@ -36,6 +36,37 @@ class ModelRegistryTests(unittest.TestCase):
             self.assertEqual(result["reason"], "role_inactive_requires_commander_approval")
             self.assertFalse(result["paid_fallback"])
 
+    def test_provider_commander_and_worker_roles_start_unresolved_and_inactive(self):
+        expected = {
+            "ROLE_GOOGLE_GENERAL_COMMANDER": "google",
+            "ROLE_NVIDIA_ENGINEERING_COMMANDER": "nvidia",
+            "ROLE_GROQ_RAPID_EXECUTION_COMMANDER": "groq",
+            "ROLE_OPENROUTER_WORKER": "openrouter",
+        }
+        for role_name, provider_id in expected.items():
+            role = self.registry["roles"][role_name]
+            self.assertEqual(role["provider_id"], provider_id)
+            self.assertEqual(role["primary_model"], None)
+            self.assertEqual(role["candidate_models"], [])
+            self.assertFalse(role["active"])
+            self.assertEqual(role_candidates(self.registry, role_name), [])
+        self.assertTrue(self.registry["roles"]["ROLE_OPENROUTER_WORKER"]["worker_only"])
+        self.assertFalse(self.registry["roles"]["ROLE_OPENROUTER_WORKER"]["generic_router_allowed"])
+
+    def test_provider_role_rejects_catalog_metadata_from_another_provider(self):
+        registry = copy.deepcopy(self.registry)
+        role = registry["roles"]["ROLE_GOOGLE_GENERAL_COMMANDER"]
+        role["active"] = True
+        role["approved"] = True
+        role["candidate_models"] = ["z-ai/glm-5.3-flash:free"]
+        result = resolve_role_model(
+            registry,
+            [free_entry("z-ai/glm-5.3-flash:free")],
+            "ROLE_GOOGLE_GENERAL_COMMANDER",
+        )
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["reason"], "no_current_zero_priced_role_candidate")
+
     def _active_registry(self):
         registry = copy.deepcopy(self.registry)
         for role_name, model_id in (

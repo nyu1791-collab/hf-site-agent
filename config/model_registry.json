@@ -25,6 +25,187 @@
     "catalog_inconsistency_logged": true
   },
   "roles": {
+    "ROLE_GOOGLE_GENERAL_COMMANDER": {
+      "agent_id": "google-general-commander",
+      "provider_id": "google",
+      "rank": "upper_commander",
+      "mission": "Research、Planning、長文書・PDF・画像・動画・音声理解、情報統合、Mission分解の指揮",
+      "capability_tags": [
+        "general",
+        "research",
+        "planning",
+        "long_context",
+        "multimodal",
+        "synthesis",
+        "structured_output"
+      ],
+      "required_features": [
+        "tool_calling",
+        "structured_output",
+        "multimodal"
+      ],
+      "primary_model": null,
+      "fallback_models": [],
+      "candidate_models": [],
+      "allowed_provider_routes": [
+        "google"
+      ],
+      "requires_explicit_approval": true,
+      "active": false,
+      "status": "UNVERIFIED",
+      "free_status": "UNVERIFIED",
+      "activation_requires": [
+        "official_catalog_or_account_check",
+        "exact_endpoint_probe",
+        "commander_contract_test",
+        "explicit_commander_approval"
+      ],
+      "reason": "Google model ID is intentionally unresolved until the current official provider catalog and endpoint probe confirm it."
+    },
+    "ROLE_NVIDIA_ENGINEERING_COMMANDER": {
+      "agent_id": "nvidia-engineering-commander",
+      "provider_id": "nvidia",
+      "rank": "upper_commander",
+      "mission": "Repository解析、Coding、Debug、Tests、Backend、Frontend、Infrastructure、Tool利用の指揮",
+      "capability_tags": [
+        "engineering",
+        "repository",
+        "coding",
+        "debug",
+        "testing",
+        "infrastructure",
+        "structured_output"
+      ],
+      "required_features": [
+        "tool_calling",
+        "structured_output"
+      ],
+      "primary_model": null,
+      "fallback_models": [],
+      "candidate_models": [],
+      "allowed_provider_routes": [
+        "nvidia"
+      ],
+      "requires_explicit_approval": true,
+      "active": false,
+      "status": "UNVERIFIED",
+      "free_status": "UNVERIFIED",
+      "activation_requires": [
+        "official_catalog_or_account_check",
+        "exact_endpoint_probe",
+        "commander_contract_test",
+        "explicit_commander_approval"
+      ],
+      "reason": "NVIDIA model ID is intentionally unresolved until the current official NIM catalog and endpoint probe confirm it."
+    },
+    "ROLE_GROQ_RAPID_EXECUTION_COMMANDER": {
+      "agent_id": "groq-rapid-commander",
+      "provider_id": "groq",
+      "rank": "upper_commander",
+      "mission": "高速要約、分類、抽出、JSON変換、ログ一次判定、軽量Review、大量前処理の指揮",
+      "capability_tags": [
+        "rapid_execution",
+        "summary",
+        "classification",
+        "extraction",
+        "batch",
+        "structured_output"
+      ],
+      "required_features": [
+        "tool_calling",
+        "structured_output"
+      ],
+      "primary_model": null,
+      "fallback_models": [],
+      "candidate_models": [],
+      "allowed_provider_routes": [
+        "groq"
+      ],
+      "requires_explicit_approval": true,
+      "active": false,
+      "status": "UNVERIFIED",
+      "free_status": "UNVERIFIED",
+      "activation_requires": [
+        "official_free_plan_or_account_check",
+        "exact_endpoint_probe",
+        "commander_contract_test",
+        "explicit_commander_approval"
+      ],
+      "reason": "Groq model ID is intentionally unresolved until the current official API catalog, headers, and endpoint probe confirm it."
+    },
+    "ROLE_GOOGLE_SPECIALIST": {
+      "agent_id": null,
+      "provider_id": "google",
+      "rank": "specialist_commander",
+      "mission": "Google Commander配下の承認済みResearch/Data/Media/Planning Task",
+      "capability_tags": ["specialist", "research", "data", "media", "planning"],
+      "required_features": ["structured_output"],
+      "primary_model": null,
+      "fallback_models": [],
+      "candidate_models": [],
+      "allowed_provider_routes": ["google"],
+      "requires_explicit_approval": true,
+      "active": false,
+      "status": "UNVERIFIED",
+      "free_status": "UNVERIFIED"
+    },
+    "ROLE_NVIDIA_SPECIALIST": {
+      "agent_id": null,
+      "provider_id": "nvidia",
+      "rank": "specialist_commander",
+      "mission": "NVIDIA Commander配下の承認済みRepository/Coding/Test/Debug Task",
+      "capability_tags": ["specialist", "repository", "coding", "testing", "debug"],
+      "required_features": ["structured_output"],
+      "primary_model": null,
+      "fallback_models": [],
+      "candidate_models": [],
+      "allowed_provider_routes": ["nvidia"],
+      "requires_explicit_approval": true,
+      "active": false,
+      "status": "UNVERIFIED",
+      "free_status": "UNVERIFIED"
+    },
+    "ROLE_GROQ_SPECIALIST": {
+      "agent_id": null,
+      "provider_id": "groq",
+      "rank": "specialist_commander",
+      "mission": "Groq Commander配下の承認済み大量要約・分類・抽出・一次Review Task",
+      "capability_tags": ["specialist", "rapid_execution", "batch", "classification"],
+      "required_features": ["structured_output"],
+      "primary_model": null,
+      "fallback_models": [],
+      "candidate_models": [],
+      "allowed_provider_routes": ["groq"],
+      "requires_explicit_approval": true,
+      "active": false,
+      "status": "UNVERIFIED",
+      "free_status": "UNVERIFIED"
+    },
+    "ROLE_OPENROUTER_WORKER": {
+      "agent_id": null,
+      "provider_id": "openrouter",
+      "rank": "worker",
+      "mission": "各Specialistから委任された低リスク・限定範囲の実働Worker",
+      "capability_tags": ["worker", "summary", "classification", "coding_assist", "review"],
+      "required_features": ["structured_output"],
+      "primary_model": null,
+      "fallback_models": [],
+      "candidate_models": [],
+      "allowed_provider_routes": ["openrouter"],
+      "generic_router_allowed": false,
+      "worker_only": true,
+      "requires_explicit_approval": true,
+      "active": false,
+      "status": "UNVERIFIED",
+      "free_status": "UNVERIFIED",
+      "activation_requires": [
+        "current_catalog_check",
+        "exact_free_endpoint_probe",
+        "role_worker_test",
+        "explicit_commander_approval"
+      ],
+      "reason": "Worker model IDs are selected dynamically from the current OpenRouter catalog; no fixed free ID is active."
+    },
     "ROLE_GENERAL_COMMANDER": {
       "agent_id": "glm-general-commander",
       "rank": "upper_commander",
@@ -50,6 +231,8 @@
       ],
       "requires_explicit_approval": true,
       "active": false,
+      "legacy_status": "LEGACY_DISABLED",
+      "routing_enabled": false,
       "reason": "FREE_ENDPOINT_UNAVAILABLE (HTTP 401) from the one-shot exact-ID probe; keep role inactive and do not substitute a paid model."
     },
     "ROLE_ENGINEERING_COMMANDER": {
@@ -77,6 +260,8 @@
       ],
       "requires_explicit_approval": true,
       "active": false,
+      "legacy_status": "LEGACY_DISABLED",
+      "routing_enabled": false,
       "reason": "FREE_ENDPOINT_UNAVAILABLE (HTTP 401) from the one-shot exact-ID probe; keep role inactive and do not substitute a paid model."
     },
     "ROLE_RESERVE_COMMANDER": {
@@ -102,6 +287,8 @@
       ],
       "requires_explicit_approval": true,
       "active": false,
+      "legacy_status": "LEGACY_DISABLED",
+      "routing_enabled": false,
       "reason": "FREE_ENDPOINT_UNAVAILABLE (HTTP 401) from the one-shot exact-ID probe; keep reserve inactive until revalidated."
     },
     "ROLE_RESEARCH_AGENT": {

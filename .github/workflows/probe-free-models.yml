@@ -2,12 +2,18 @@ name: Probe exact OpenRouter free endpoints
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type PROBE_FREE_WORKERS to run at most one exact probe per worker role
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   probe:
+    if: ${{ github.ref_name == 'main' && github.event.inputs.confirm == 'PROBE_FREE_WORKERS' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -19,31 +25,32 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Send one exact-ID request per model
+      - name: Discover and send bounded exact worker probes
         env:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
-          FREE_PROBE_OUTPUT: artifacts/free_model_probe.json
-        run: python scripts/probe_free_models.py
+          FREE_WORKER_PROBE_OUTPUT: artifacts/free_worker_probe.json
+        run: python scripts/probe_free_workers.py --network
       - name: Validate public probe report
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          report = json.loads(Path("artifacts/free_model_probe.json").read_text(encoding="utf-8"))
+          report = json.loads(Path("artifacts/free_worker_probe.json").read_text(encoding="utf-8"))
           assert report["provider_allow_fallbacks"] is False
           assert report["models_parameter_sent"] is False
           assert report["web_search"] is False
           assert report["paid_fallback"] is False
           assert report["retries"] == 0
-          assert report["model_calls"] in {0, 3}
+          assert 0 <= report["model_calls"] <= 4
           for item in report["results"]:
               assert item["request_count"] == 1
               assert item["retry_count"] == 0
-              assert item["fallback_used"] is False or item["status"] == "MODEL_MISMATCH"
+              assert item["fallback_used"] is False
+              assert item["status"] != "MODEL_MISMATCH" or item["response_model"] != item["requested_model"]
           print(json.dumps({
               "status": report["status"],
               "model_calls": report["model_calls"],
-              "catalog_inconsistency": report["catalog_inconsistency"],
+              "selected_probe_models": report["selected_probe_models"],
               "credits_checked": report["credits_checked"],
               "credits_unchanged": report["credits_unchanged"],
               "results": [
@@ -62,6 +69,6 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: exact-free-model-probe
-          path: artifacts/free_model_probe.json
+          path: artifacts/free_worker_probe.json
           if-no-files-found: error
           retention-days: 14

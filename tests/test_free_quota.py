@@ -24,14 +24,14 @@ class FreeQuotaTests(unittest.TestCase):
             first = ledger.before_request(
                 request_id="REQ-1",
                 mission_id="MISSION-1",
-                agent_id="glm-general-commander",
+                agent_id="google-general-commander",
                 model="example/model:free",
             )
             self.assertTrue(first["allowed"])
             duplicate = ledger.before_request(
                 request_id="REQ-1",
                 mission_id="MISSION-1",
-                agent_id="glm-general-commander",
+                agent_id="google-general-commander",
                 model="example/model:free",
             )
             self.assertFalse(duplicate["allowed"])
@@ -40,7 +40,7 @@ class FreeQuotaTests(unittest.TestCase):
             second = ledger.before_request(
                 request_id="REQ-2",
                 mission_id="MISSION-1",
-                agent_id="deepseek-engineering-commander",
+                agent_id="nvidia-engineering-commander",
                 model="example/model:free",
                 retry=1,
             )

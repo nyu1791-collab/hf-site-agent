@@ -521,7 +521,7 @@ def build_hierarchy_handoff(
         command_id=f"{mission_id}-C01",
         parent_command_id=None,
         parent_agent_id="chatgpt-work",
-        child_agent_id="glm-general-commander",
+        child_agent_id="google-general-commander",
         mission=brief,
         objective="需要・製品・コンテンツ案を独立に分解し、専門指揮へ渡せる下書きを作る",
         constraints=base_constraints,
@@ -542,7 +542,7 @@ def build_hierarchy_handoff(
         command_id=f"{mission_id}-C02",
         parent_command_id=None,
         parent_agent_id="chatgpt-work",
-        child_agent_id="deepseek-engineering-commander",
+        child_agent_id="nvidia-engineering-commander",
         mission=brief,
         objective="技術・品質・自動化・需要検証の反対意見を独立に整理する",
         constraints=base_constraints,
@@ -566,13 +566,13 @@ def build_hierarchy_handoff(
             "structured report returned",
             "commander approval remains required",
         )
-        parent_agent_id = child.parent_agent_id or "deepseek-engineering-commander"
+        parent_agent_id = child.parent_agent_id or "nvidia-engineering-commander"
         command_id = f"{mission_id}-T{index:02d}"
         command = make_command(
             registry,
             mission_id=mission_id,
             command_id=command_id,
-            parent_command_id=critic_command.command_id if parent_agent_id == "deepseek-engineering-commander" else planner_command.command_id,
+            parent_command_id=critic_command.command_id if parent_agent_id == "nvidia-engineering-commander" else planner_command.command_id,
             parent_agent_id=parent_agent_id,
             child_agent_id=child_agent_id,
             mission=brief,
@@ -660,14 +660,14 @@ def build_hierarchy_handoff(
     planner_report = make_commander_report(
         planner_command,
         planner_call,
-        "glm-general-commander",
+        "google-general-commander",
         "総合作戦司令官の独立提案を司令部向けに受領",
         planner,
     )
     critic_report = make_commander_report(
         critic_command,
         critic_call,
-        "deepseek-engineering-commander",
+        "nvidia-engineering-commander",
         "技術・開発司令官の独立批評を司令部向けに受領",
         critic,
     )
@@ -771,6 +771,11 @@ def main() -> int:
         registry = load_registry(os.environ.get("MODEL_REGISTRY_PATH") or None)
     except Exception:
         fail("Model registry is invalid or unavailable.")
+    if any(
+        role_config(registry, role_name).get("legacy_status") == "LEGACY_DISABLED"
+        for role_name in (ROLE_GENERAL, ROLE_ENGINEERING)
+    ):
+        fail("Legacy commander lane is disabled; use provider commander routing.")
     for role_name, label, model in (
         (ROLE_GENERAL, "General commander model", planner_model),
         (ROLE_ENGINEERING, "Engineering commander model", critic_model),

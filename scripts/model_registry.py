@@ -15,6 +15,7 @@ from typing import Any, Mapping, Sequence
 DEFAULT_REGISTRY_PATH = Path(__file__).resolve().parents[1] / "config" / "model_registry.json"
 ZERO_PRICES = {"0", "0.0", "0.00"}
 GENERIC_FREE_IDS = {"openrouter/free"}
+KNOWN_PROVIDER_IDS = {"google", "nvidia", "groq", "openrouter"}
 REQUIRED_MODEL_FIELDS = {
     "provider",
     "model_generation",
@@ -61,16 +62,39 @@ def validate_registry(registry: Mapping[str, Any]) -> None:
         for key in ("primary_model", "fallback_models", "requires_explicit_approval", "active"):
             if key not in role:
                 raise RegistryError(f"role field missing: {role_name}.{key}")
-        model_ids = [role.get("primary_model"), *(role.get("fallback_models") or [])]
+        provider_id = role.get("provider_id")
+        if provider_id is not None and provider_id not in KNOWN_PROVIDER_IDS:
+            raise RegistryError(f"unknown role provider: {role_name} -> {provider_id}")
+        if not isinstance(role.get("fallback_models"), list):
+            raise RegistryError(f"fallback_models must be a list: {role_name}")
+        candidate_models = role.get("candidate_models")
+        if candidate_models is not None and not isinstance(candidate_models, list):
+            raise RegistryError(f"candidate_models must be a list: {role_name}")
+        model_ids = [
+            role.get("primary_model"),
+            *(role.get("fallback_models") or []),
+            *((candidate_models or [])),
+        ]
         for model_id in model_ids:
             if model_id is None:
                 continue
+            if not isinstance(model_id, str) or not model_id.strip():
+                raise RegistryError(f"invalid role model candidate: {role_name}")
             if model_id in GENERIC_FREE_IDS:
                 raise RegistryError("generic free router cannot be a role candidate")
             if model_id not in models:
                 raise RegistryError(f"role references unknown model: {role_name} -> {model_id}")
-        if role.get("active") is True and role.get("requires_explicit_approval") is not False:
-            raise RegistryError(f"active role lacks explicit approval policy: {role_name}")
+        routes = role.get("allowed_provider_routes")
+        if routes is not None:
+            if not isinstance(routes, list) or not routes:
+                raise RegistryError(f"role provider routes are missing: {role_name}")
+            if provider_id is not None and provider_id not in routes:
+                raise RegistryError(f"role provider is outside its allowed routes: {role_name}")
+            if any(route not in KNOWN_PROVIDER_IDS for route in routes):
+                raise RegistryError(f"unknown role provider route: {role_name}")
+        if role.get("active") is True and role.get("requires_explicit_approval") is True:
+            if role.get("approved") is not True:
+                raise RegistryError(f"active role lacks explicit approval record: {role_name}")
     for model_id, model in models.items():
         if not isinstance(model, Mapping):
             raise RegistryError(f"model is not an object: {model_id}")
@@ -104,7 +128,11 @@ def role_candidates(
     requested_model: str | None = None,
 ) -> list[str]:
     role = role_config(registry, role_name)
-    allowed = [role.get("primary_model"), *(role.get("fallback_models") or [])]
+    allowed = [
+        role.get("primary_model"),
+        *(role.get("fallback_models") or []),
+        *((role.get("candidate_models") or [])),
+    ]
     allowed = [str(item) for item in allowed if item]
     if requested_model:
         requested = str(requested_model).strip()
@@ -202,6 +230,10 @@ def resolve_role_model(
         catalog_entry = listed[model_id]
         metadata = models.get(model_id, {})
         if not isinstance(metadata, Mapping):
+            continue
+        expected_provider = role.get("provider_id")
+        model_provider = metadata.get("provider_id", metadata.get("provider"))
+        if expected_provider is not None and model_provider != expected_provider:
             continue
         if not allow_paid and not _zero_priced(catalog_entry):
             continue

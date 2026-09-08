@@ -1,37 +1,49 @@
-# Role-based model registry
+# Role-based Model Registry
 
-\`config/model_registry.json\` centralizes model metadata and role mapping. Code selects a role first, then an exact primary or same-role free fallback; model IDs are not scattered through prompts or workflows.
+`config/model_registry.json` はRoleとModelを分離した台帳です。Model IDをPrompt、Workflow、Runtimeへ大量に直書きせず、`provider_id → model_binding_role → 現行Catalog/Probe` の順で解決します。
 
-## Current commander slots
+## 現行Role
 
-| Role | Commander ID | Exact primary slot | Current status |
+| Role | Agent | Provider | 初期状態 |
 |---|---|---|---|
-| \`ROLE_GENERAL_COMMANDER\` | \`glm-general-commander\` | \`z-ai/glm-5.3-flash:free\` | \`FREE_CATALOG_ONLY\`; inactive until the one-shot API probe passes |
-| \`ROLE_ENGINEERING_COMMANDER\` | \`deepseek-engineering-commander\` | \`deepseek/deepseek-v4-flash:free\` | \`FREE_CATALOG_ONLY\`; inactive until the one-shot API probe passes |
-| \`ROLE_RESERVE_COMMANDER\` | \`minimax-reserve-commander\` | \`minimax/minimax-m3:free\` | \`FREE_CATALOG_ONLY\`; never started automatically |
+| `ROLE_GOOGLE_GENERAL_COMMANDER` | `google-general-commander` | Google | `UNVERIFIED`, inactive |
+| `ROLE_NVIDIA_ENGINEERING_COMMANDER` | `nvidia-engineering-commander` | NVIDIA | `UNVERIFIED`, inactive |
+| `ROLE_GROQ_RAPID_EXECUTION_COMMANDER` | `groq-rapid-commander` | Groq | `UNVERIFIED`, inactive |
+| `ROLE_GOOGLE_SPECIALIST` | Google specialists | Google | `UNVERIFIED`, inactive |
+| `ROLE_NVIDIA_SPECIALIST` | NVIDIA specialists | NVIDIA | `UNVERIFIED`, inactive |
+| `ROLE_GROQ_SPECIALIST` | Groq specialists | Groq | `UNVERIFIED`, inactive |
+| `ROLE_OPENROUTER_WORKER` | 各 `<role>-worker` | OpenRouter | `UNVERIFIED`, inactive |
 
-The live catalog currently shows the ordinary paid records for GLM, DeepSeek V4 Flash, and MiniMax M3 while the exact \`:free\` IDs are not listed. The registry records this as an API/catalog inconsistency instead of silently substituting the paid IDs. Direct endpoint verification is performed by \`scripts/probe_free_models.py\`: exactly one request per requested ID, no \`models\` array, no retries, \`provider.allow_fallbacks=false\`, minimal output, usage cost, and redacted credits before/after comparison.
+Google、NVIDIA、GroqのCommander Model IDは、現行公式Catalog、価格・Quota、能力、実Endpoint Probeが揃うまで空欄です。Gemini、DeepSeek、GPT-OSS等の名称だけからID、価格、Free状態を推測して登録しません。旧固定Roleは `LEGACY_DISABLED` として互換検査用に隔離され、新Routingから参照されません。
 
-Free candidates are resolved only when the endpoint probe reports \`FREE_ACTIVE\`, the exact response model matches, \`usage.cost=0\`, credits are unchanged, and the role's required tool/structured-output features pass. Until then, ordinary runs stay blocked and make zero model calls.
+## Free Workerの選定
 
-## Free quota protection
+`scripts/probe_free_workers.py` は既定ではDry Runです。Catalog・Credits・Model Endpointへ接続するには、承認済みの手動Actionsから明示的に `--network` を付けます。そのうえで次の順に動きます。
 
-- \`FREE_ONLY_MODE=true\`, paid model/fallback/web-search/auto-top-up are false.
-- Daily local ledger: 1000 requests; hard stop at 900, preserving 100 emergency requests.
-- Zones: GREEN 0–799, YELLOW 800–849, ORANGE 850–899, RED 900+.
-- One shared limiter is capped at 15 requests/minute (below the 20 RPM provider limit).
-- Mission reservations are checked before fan-out; each request is counted before sending.
-- A free 429 opens the circuit and returns \`queued_free_quota\`; it is never retried.
-- At a new UTC date, one probe is required before reopening.
-- \`openrouter/free\` is not a commander candidate.
+1. 現行OpenRouter Catalogを読み取る。
+2. `GENERAL_WORKER`、`CODING_WORKER`、`REVIEW_WORKER`、`FAST_WORKER`ごとに、正確な `:free` suffix、入力・出力価格0、必要Context、Tool/Structured Output、Role能力を確認する。
+3. 各Role最大1候補、全体最大4件だけをProbeする。
+4. 応答Modelが要求IDと一致し、`usage.cost=0`、Credits前後不変、`provider.allow_fallbacks=false`、Retry 0を満たす場合だけ `FREE_ACTIVE` とする。
+5. Catalog掲載だけ、個別ページのFree表記、Model mismatch、429、401/403、Cost不明、Credits不明は実行可能候補にしない。
 
-## Safety rules
+`openrouter/free` は動的RouterなのでCommander、重大判断、Deploy判断、最終Reviewには使いません。低リスクWorkerでも、現在のRole条件とProbeを満たした記録が必要です。
 
-- \`allow_paid_models\` and \`allow_paid_fallback\` are false.
-- Cross-role fallback is disabled; only same-role free reserve candidates may be considered.
-- Legacy IDs (old Qwen, old DeepSeek, GPT-4o, Gemini 1.5 Flash, and similar) stay in the \`legacy\` quarantine list and cannot be selected.
-- \`scripts/preflight_openrouter_models.py\` performs a read-only check and emits a blocked packet when a role is inactive, a model is stale, a paid candidate is requested, or no same-role free candidate is available.
-- \`scripts/model_registry.py\` provides a read-only watcher. It does not change active roles or secrets.
-- \`scripts/probe_free_models.py\` never logs the API key, credit balances, or provider response bodies.
+## Provider別ポリシー
 
-Model activation, provider changes, paid use, or production swaps remain decisions of \`chatgpt-work\` and require a separate reviewed change. Monitoring uses only the public [OpenRouter model catalog](https://openrouter.ai/api/v1/models).
+Provider台帳は [`config/provider_registry.json`](../config/provider_registry.json) で管理します。Google/NVIDIA/Groqは `COMMANDER_PROVIDER`、OpenRouterは `WORKER_PROVIDER` です。全Providerで初期値は `enabled=false`、`probe_status=NOT_RUN`、Paid Model/Fallback/Auto top-up=falseです。
+
+OpenRouterだけに既存の1000 requests/day、900 Hard Stop、15 RPM、429停止、UTC日替わりの1回Probeを適用します。Google、NVIDIA、Groqへ900回ルールを流用しません。Quota APIがないProviderは無制限として扱わず、Quota不明で停止します。GroqについてはProbe応答のRate Limit Headerを許可されたQuota項目だけ記録します。
+
+## 有効化条件
+
+Provider/Roleの `active=true` は自動変更しません。少なくとも次を満たし、ChatGPT Workが明示承認した場合だけ切替候補になります。
+
+- Provider Authが成功。
+- 指定Modelが現行Catalogまたは公式Account情報で存在。
+- Context、Multimodal、Tool Calling、Structured Output、Code能力がRole条件を満たす。
+- Retry 0の最小Probeが成功し、応答Modelと指定IDが一致。
+- Freeの場合は価格0、Usage Cost 0、Credits不変、Paid Fallbackなし。
+- Quota、Rate Limit、Health、Circuitが安全状態。
+- Commander契約、専門Mission、Worker契約を検証し、20〜50件の比較結果を保存。
+
+Probeはレジストリを直接変更しません。成功しても `FREE_ACTIVE` の昇格、Production swap、公開、決済は別承認です。

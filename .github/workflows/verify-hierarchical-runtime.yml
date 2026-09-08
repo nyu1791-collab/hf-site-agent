@@ -15,10 +15,30 @@ on:
       - "scripts/probe_free_models.py"
       - "scripts/free_quota.py"
       - "scripts/agent_delegation.py"
+      - "scripts/agent_executor.py"
+      - "tests/test_agent_executor.py"
       - "schemas/command_envelope.schema.json"
       - "schemas/report_envelope.schema.json"
       - "tests/test_agent_runtime.py"
       - "tests/test_agent_delegation.py"
+      - "scripts/audit_secret_safety.py"
+      - "tests/test_secret_safety.py"
+      - "config/provider_registry.json"
+      - "scripts/provider_registry.py"
+      - "scripts/provider_adapters.py"
+      - "tests/test_provider_registry.py"
+      - "tests/test_provider_adapters.py"
+      - "scripts/provider_controls.py"
+      - "tests/test_provider_controls.py"
+      - "scripts/worker_selection.py"
+      - "tests/test_worker_selection.py"
+      - "scripts/commander_routing.py"
+      - "tests/test_commander_routing.py"
+      - "scripts/probe_providers.py"
+      - "tests/test_probe_providers.py"
+      - "scripts/probe_free_workers.py"
+      - "tests/test_probe_free_workers.py"
+      - "tests/test_mission_matrix.py"
       - "tests/fixtures/command_envelope.json"
       - "tests/fixtures/report_envelope.json"
       - "docs/HIERARCHICAL_RUNTIME.md"
@@ -27,6 +47,8 @@ on:
     branches: [main]
     paths:
       - "scripts/agent_delegation.py"
+      - "scripts/agent_executor.py"
+      - "tests/test_agent_executor.py"
       - "scripts/model_registry.py"
       - "scripts/model_watch.py"
       - "config/model_registry.json"
@@ -41,6 +63,24 @@ on:
       - "tests/test_agent_runtime.py"
       - "tests/fixtures/command_envelope.json"
       - "tests/fixtures/report_envelope.json"
+      - "scripts/audit_secret_safety.py"
+      - "tests/test_secret_safety.py"
+      - "config/provider_registry.json"
+      - "scripts/provider_registry.py"
+      - "scripts/provider_adapters.py"
+      - "tests/test_provider_registry.py"
+      - "tests/test_provider_adapters.py"
+      - "scripts/provider_controls.py"
+      - "tests/test_provider_controls.py"
+      - "scripts/worker_selection.py"
+      - "tests/test_worker_selection.py"
+      - "scripts/commander_routing.py"
+      - "tests/test_commander_routing.py"
+      - "scripts/probe_providers.py"
+      - "tests/test_probe_providers.py"
+      - "scripts/probe_free_workers.py"
+      - "tests/test_probe_free_workers.py"
+      - "tests/test_mission_matrix.py"
       - "docs/HIERARCHICAL_RUNTIME.md"
       - ".github/workflows/verify-hierarchical-runtime.yml"
 
@@ -67,27 +107,37 @@ jobs:
       - name: Install bounded OpenAI-compatible client
         run: python -m pip install --disable-pip-version-check --no-input "openai>=1.0,<2"
       - name: Compile deterministic runtime
-        run: python -m py_compile scripts/agent_runtime.py scripts/model_registry.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py scripts/agent_delegation.py scripts/agent_executor.py scripts/free_quota.py scripts/probe_free_models.py scripts/model_watch.py tests/test_free_quota.py tests/test_agent_runtime.py tests/test_agent_delegation.py tests/test_model_registry.py
+        run: python -m py_compile scripts/agent_runtime.py scripts/model_registry.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py scripts/agent_delegation.py scripts/agent_executor.py scripts/free_quota.py scripts/probe_free_models.py scripts/probe_free_workers.py scripts/model_watch.py scripts/audit_secret_safety.py scripts/provider_registry.py scripts/provider_adapters.py scripts/provider_controls.py scripts/worker_selection.py scripts/commander_routing.py scripts/probe_providers.py tests/test_free_quota.py tests/test_agent_runtime.py tests/test_agent_delegation.py tests/test_agent_executor.py tests/test_model_registry.py tests/test_secret_safety.py tests/test_provider_registry.py tests/test_provider_adapters.py tests/test_provider_controls.py tests/test_worker_selection.py tests/test_commander_routing.py tests/test_probe_providers.py tests/test_probe_free_workers.py tests/test_mission_matrix.py
       - name: Validate JSON schemas and fixtures
         run: |
           python -m json.tool schemas/command_envelope.schema.json >/dev/null
           python -m json.tool schemas/report_envelope.schema.json >/dev/null
+          python -m json.tool config/provider_registry.json >/dev/null
+          python - <<'PY'
+          from scripts.provider_registry import load_provider_registry
+          load_provider_registry()
+          print("provider registry ok")
+          PY
           python scripts/validate_hierarchy.py \
             --command tests/fixtures/command_envelope.json \
             --report tests/fixtures/report_envelope.json
       - name: Run runtime tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Audit repository for secret literals
+        run: python scripts/audit_secret_safety.py --root .
       - name: Assert chain of command and least privilege
         run: |
           python - <<'PY'
           from scripts.agent_runtime import AgentRegistry
 
           registry = AgentRegistry()
-          assert registry.can_dispatch("chatgpt-work", "glm-general-commander")
-          assert registry.can_dispatch("chatgpt-work", "deepseek-engineering-commander")
-          assert not registry.can_dispatch("glm-general-commander", "deepseek-engineering-commander")
-          assert not registry.can_dispatch("content-specialist", "glm-general-commander")
+          assert registry.can_dispatch("chatgpt-work", "google-general-commander")
+          assert registry.can_dispatch("chatgpt-work", "nvidia-engineering-commander")
+          assert registry.can_dispatch("chatgpt-work", "groq-rapid-commander")
+          assert not registry.can_dispatch("google-general-commander", "nvidia-engineering-commander")
+          assert not registry.can_dispatch("content-specialist", "google-general-commander")
           assert not registry.get("content-worker").may_spawn_children
+          assert registry.get("content-worker").provider_id == "openrouter"
           assert "github_write" not in registry.get("research-specialist").allowed_tools
           print(registry.tree())
           PY

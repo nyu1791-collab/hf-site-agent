@@ -1,86 +1,53 @@
-# AIエージェント階層と司令部ゲート
+# Agent Hierarchy
 
-このプロジェクトでは、外部AIを単なる評論役ではなく、提案・タスク分解・成果物作成を行う専門エージェントとして使います。ただし、実行権限は分離し、最後の採用判断と実行許可は司令部だけが持ちます。
+## 指揮系統
 
-## 役割
+唯一のRootは `chatgpt-work` です。RootがMissionを解釈し、適任の直属CommanderへCommandを発行します。Commanderは許可されたSpecialistだけを生成し、Specialistは同じTaskのOpenRouter Workerだけを限定的に生成します。WorkerからRoot、別Commander、同格Agentへの直接報告・委任はありません。
 
-### 司令部
+| Agent | Provider | 生成可能な直接の子 | 初期状態 |
+|---|---|---|---|
+| `chatgpt-work` | ChatGPT Work | Google / NVIDIA / Groq Commander | 承認主体 |
+| `google-general-commander` | Google | Research / Data / Media / Planning系 | inactive |
+| `nvidia-engineering-commander` | NVIDIA | Repository / Coding / Test / Debug系 | inactive |
+| `groq-rapid-commander` | Groq | Summary / Classifier / JSON / Log系 | inactive |
+| `<role>-specialist` | 親Commanderと同じProvider | 自分のWorker 1系統 | inactive |
+| `<role>-worker` | OpenRouter | なし | inactive |
 
-ChatGPT/Codexが担当します。
+AgentSpecの `parent_agent_id` は直接の親だけを示します。`owner_agent_id` は各Taskに必須で、同じWorkerへ複数Commanderが同時に命令することを禁止します。ChildのToolとPermissionは親のScope内に限定し、Workerには `artifact_read`、`artifact_write`、`trace` だけを与えます。
 
-- 要求の解釈と優先順位付け
-- プランナーと批評役の出力確認
-- 下位タスクの採用・修正・却下
-- 成果物の安全性、根拠、受け入れ条件の検査
-- PR、デプロイ、公開、秘密値変更などの最終判断
+## Routing原則
 
-### Planner（GLM）
+- Research、Planning、Long Context、MultimodalはGoogle。
+- Repository、Coding、Debug、Test、InfrastructureはNVIDIA。
+- 大量要約、分類、抽出、JSON変換、Log一次判定はGroq。
+- 軽量実働WorkerはSpecialist経由でOpenRouter。
+- 重複排除、Sort、Hash、JSON/Schema、Quota、Retry、Queue、CacheはPython。
 
-- 需要仮説、利用者価値、MVPを提案
-- 調査、企画、文章、コード案、QA、指標分析などの作業単位へ分解
-- 各作業の入力、成果物、受け入れテスト、リスクを定義
-- 下位専門AIへ渡す指示案を作成
+同じTaskを3部隊へ送る多数決は行いません。必要な独立検証だけをPrimary＋Verifierの2経路に限定します。失敗した下位Agentは上位モデルへ自動昇格せず、`blocked` または `failed` を親へ返します。
 
-Plannerは作業を実行せず、`read_only_draft`として返します。
+## AgentSpecの安全条件
 
-### Critic（DeepSeek）
+- `active=false`、`requires_explicit_approval=true` を初期値とする。
+- `allowed_children` 以外の子を生成しない。
+- `may_spawn_children=false` のWorkerはSpawnしない。
+- `max_children`、`max_parallel`、`max_depth` は有限値にする。
+- `provider_id` と `model_binding_role` はRegistry解決用で、Model IDをソースへ直書きしない。
+- CommandはRead-only DraftまたはDry Runから開始し、公開・決済・Deploy・Secret/Binding変更は別承認とする。
 
-- 同じMissionに対する反対意見と抜け漏れを独立に指摘
-- 需要の根拠、失敗条件、費用、保守性、検証方法を確認
-- 作業指示と受け入れテストを修正
-- 採用候補の成果物ドラフトを改善
+## 状態と復旧
 
-Criticも作業を実行せず、司令部へのレビュー結果として返します。
+Command状態は `queued → running → completed / completed_with_warnings / blocked / failed / cancelled` です。Runningの取消は一時的に `cancelling` を経由します。Mission取消はそのMissionと祖先・子孫だけへ伝播し、Sibling・別Mission・保存済みArtifact・Checkpointを変更しません。
 
-### Specialist agent
+Idempotency台帳には `mission_id`、`command_id`、`idempotency_key`、`operation_type`、`payload_hash` を保存します。Timeout・Connection Error後の副作用Operationは再送せず、同じKeyでPayloadが変われば `IDEMPOTENCY_CONFLICT` で拒否します。
 
-司令部が選んだ一件のタスクだけを担当します。役割は `research`、`product`、`content`、`video`、`code`、`qa`、`metrics` から選びます。
+## 承認ゲート
 
-- 指定されたタスクの成果物ドラフトを作る
-- 根拠、不確実性、リスク、受け入れテストを整理
-- 必要なら次の下位タスクを提案
+1. 基盤テスト（Cancellation、Idempotency、Secret監査、Schema）を通す。
+2. ProviderごとにAuth、Model、最小Probe、Quota、Healthを確認する。
+3. Commander契約テストとWorker契約テストをRead-onlyで実施する。
+4. 20〜50件の実Mission比較を行い、JSON率、Tool成功、Latency、Token、429、Cost、指示遵守を記録する。
+5. ChatGPT Workが採用Roleと切替範囲を明示承認する。
+6. 小さなPR、全Regression、Worker/health、Actionsを確認する。
 
-成果物は `agent_task_packet.json` として返し、次の下位タスクも常に司令部承認待ちです。リポジトリ変更、デプロイ、公開、決済、課金検索、YouTube投稿、秘密値操作はできません。
+完了状態は自動的に本番確定へ進まず、`AWAITING_USER_FINAL_APPROVAL` で停止します。
 
-## 実行フロー
-
-1. `DELEGATE`でGLM General CommanderとDeepSeek Engineering Commanderを並列実行する。
-2. `commander_packet.json`をActions成果物として受け取り、ChatGPT Workが2つのReportをFan-Inする。
-3. 司令部が提案、批評、作業指示、成果物、根拠、危険フラグを検査する。
-4. 採用するタスクだけを`COMMANDER_APPROVE`でSpecialistに渡す。
-5. Specialistの成果物を司令部が再検査する。
-6. 採用したコード案だけを司令部がPR化し、Actionsで検証する。
-7. 公開、課金、外部書込みが必要な場合は、別の明示承認を要求する。
-
-## 権限境界
-
-```text
-Planner / Critic / Specialist
-  └─ 提案・分解・下書き・レビューのみ
-       ↓ 司令部の検査
-司令部（ChatGPT/Codex）
-  └─ 採用、PR、検証、実行許可を判断
-       ↓ 別の明示承認
-外部書込み・公開・課金
-```
-
-`execution_allowed`は下位エージェントでは常に`false`です。`requires_commander_approval`が`true`でない指示は採用しません。成果物にはハッシュを付け、途中で内容が変わっていないか確認します。
-
-## 需要調査と動画企画
-
-YouTube等の公開情報は、現在の人気を断定するためではなく、仮説検証の材料として扱います。再生数だけでなく、公開日、視聴維持率が推定できる情報、コメントの課題、継続シリーズ化、検索意図などを比較します。
-
-動画案では、テーマ、冒頭数秒、問題提起、実演、結論、次回導線、尺、タイトル、サムネイル、再利用単位を分けて検討します。調査と企画は可能ですが、YouTubeへの投稿や自動公開は行いません。
-
-## 費用と安全性
-
-- PlannerとCriticはOpenRouterの無料モデルだけを使う。
-- 各会議は2回、各320 tokens以内、12秒、リトライ0、フォールバックなし。
-- Specialistは1回、500 tokens以内、15秒、リトライ0、フォールバックなし。
-- 402、429、タイムアウト時は停止する。
-- Tavilyの課金検索、決済、広告出稿、YouTube投稿は実行しない。
-- 秘密値、Durable Object、既存バインディングを変更しない。
-- ログにはプロンプト全文、トークン、パスワード、生成ソース全文を出さない。
-
-
-モデルの候補・無料判定・旧モデル隔離は [`docs/MODEL_REGISTRY.md`](MODEL_REGISTRY.md) と `config/model_registry.json` を参照する。司令官ロールは明示承認まで inactive であり、有料モデルや `openrouter/free` へ自動フォールバックしない。
