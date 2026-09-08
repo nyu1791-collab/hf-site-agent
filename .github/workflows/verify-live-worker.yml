@@ -26,7 +26,7 @@ on:
       - "docs/MEDIA_PIPELINE.md"
       - "schemas/commander_packet.schema.json"
       - "schemas/agent_task_packet.schema.json"
-        - "schemas/media_pipeline_plan.schema.json"
+      - "schemas/media_pipeline_plan.schema.json"
       - "scripts/validate_agent_packets.py"
       - "tests/fixtures/commander_packet.example.json"
       - "tests/fixtures/agent_task_packet.example.json"
