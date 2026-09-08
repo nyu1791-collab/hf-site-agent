@@ -20,7 +20,7 @@ Hugging Faceのトークン作成画面で次を選びます。
 推論接続Workflowの入力:
 
 1. Branch: `main`
-2. `confirm`: `CONNECT`
+2. `confirm=CONNECT`
 3. 実行
 
 ## 2. Hugging Face Space書込み用（HF_SPACE_WRITE_TOKEN）
@@ -41,7 +41,7 @@ HF画面で別トークンを作成します。
 Space同期Workflowの入力:
 
 1. Branch: `main`
-2. `confirm`: `SYNC`
+2. `confirm=SYNC`
 3. 実行
 4. `Hugging Face frontend safety contract is live.` を確認
 
@@ -58,7 +58,7 @@ OpenRouterのAPIキーはHugging Faceのプリセットではありません。G
 設計会議Workflowの入力:
 
 1. Branch: `main`
-2. `confirm`: `DESIGN`
+2. `confirm=DESIGN`
 3. `brief`: 今回検討したい機能を3000文字以内
 4. `context`: 制約を6000文字以内（任意）
 5. Model: `openrouter/free`
