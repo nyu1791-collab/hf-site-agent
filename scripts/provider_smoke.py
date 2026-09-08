@@ -46,6 +46,8 @@ def valid_model(value: str) -> bool:
 def classify_status(status: int | None) -> str:
     if status == 402:
         return "paid_or_credit_required"
+    if status == 404:
+        return "model_not_found_or_unavailable"
     if status in (401, 403):
         return "authentication_or_permission_failed"
     if status == 429:
