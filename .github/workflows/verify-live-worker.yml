@@ -178,19 +178,33 @@ jobs:
           ' >/dev/null
           echo "Content plan safety-gate runtime check passed."
 
-      - name: Check authenticated commander status
+      - name: Check authenticated commander status after deployment
+        if: github.event_name == 'push'
         env:
           ADMIN_PASSWORD: ${{ secrets.WORKER_ADMIN_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
           test -n "$ADMIN_PASSWORD"
-          response="$(curl --fail --silent --show-error --retry 2 --retry-all-errors             --connect-timeout 10 --max-time 20             -H 'Origin: https://yu-179191-groq-github-site-agent.hf.space'             -H 'content-type: application/json'             -H "x-admin-password: $ADMIN_PASSWORD"             --data '{}'             https://groq-github-site-agent.n-yu1791.workers.dev/command/status)"
-          printf '%s' "$response" | jq -e '
-            .commander.specialists.web_research.implementation == "wired" and
-            .commander.specialists.code_review.implementation == "planned" and
-            .commander.specialists.vision_review.implementation == "planned" and
-            .commander.specialists.image_generation.implementation == "planned" and
-            .commander.specialists.video_generation.implementation == "planned"
-          ' >/dev/null
-          echo "Commander status check passed."
+          for attempt in $(seq 1 20); do
+            response="$(curl --fail --silent --show-error --retry 2 --retry-all-errors \
+              --connect-timeout 10 --max-time 20 \
+              -H 'Origin: https://yu-179191-groq-github-site-agent.hf.space' \
+              -H 'content-type: application/json' \
+              -H "x-admin-password: $ADMIN_PASSWORD" \
+              --data '{}' \
+              https://groq-github-site-agent.n-yu1791.workers.dev/command/status || true)"
+            if printf '%s' "$response" | jq -e '
+              .commander.specialists.web_research.implementation == "wired" and
+              .commander.specialists.code_review.implementation == "wired" and
+              .commander.specialists.vision_review.implementation == "planned" and
+              .commander.specialists.image_generation.implementation == "planned" and
+              .commander.specialists.video_generation.implementation == "planned"
+            ' >/dev/null 2>&1; then
+              echo "Commander status check passed on the deployed Worker."
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Deployed Worker did not expose the Hugging Face review integration." >&2
+          exit 1
