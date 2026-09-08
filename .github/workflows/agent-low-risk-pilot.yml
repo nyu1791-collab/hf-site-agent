@@ -83,7 +83,7 @@ jobs:
           }
           if set(mission.get("prohibited_operations", [])) != required_prohibitions:
               raise SystemExit("mission prohibition set is not exact")
-          for key in ("brief", "context", "planner_model", "critic_model"):
+          for key in ("brief", "context", "general_model", "engineering_model"):
               value = mission.get(key)
               if not isinstance(value, str) or not value.strip():
                   raise SystemExit(f"mission field {key!r} is empty")
@@ -105,7 +105,7 @@ jobs:
 
           mission = json.loads(Path("missions/approved/low-risk-pilot.json").read_text(encoding="utf-8"))
           with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
-              for key in ("brief", "context", "planner_model", "critic_model"):
+              for key in ("brief", "context", "general_model", "engineering_model"):
                   value = mission[key]
                   if "\n" in value or "\r" in value:
                       raise SystemExit(f"newline is not allowed in {key}")
@@ -129,21 +129,23 @@ jobs:
         if: ${{ steps.gate.outputs.run == 'true' }}
         id: model_preflight
         env:
-          PLANNER_MODEL: ${{ steps.mission.outputs.planner_model }}
-          CRITIC_MODEL: ${{ steps.mission.outputs.critic_model }}
+          GENERAL_COMMANDER_MODEL: ${{ steps.mission.outputs.general_model }}
+          ENGINEERING_COMMANDER_MODEL: ${{ steps.mission.outputs.engineering_model }}
+          MODEL_REGISTRY_PATH: config/model_registry.json
           COMMANDER_PACKET_PATH: artifacts/commander_packet.json
         shell: bash
         run: |
           set -euo pipefail
           python scripts/preflight_openrouter_models.py
-      - name: Run Qwen and DeepSeek in parallel
+      - name: Run role-scoped commanders in parallel
         if: ${{ steps.gate.outputs.run == 'true' && steps.model_preflight.outputs.ready == 'true' }}
         env:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           DELEGATION_BRIEF: ${{ steps.mission.outputs.brief }}
           DELEGATION_CONTEXT: ${{ steps.mission.outputs.context }}
-          PLANNER_MODEL: ${{ steps.model_preflight.outputs.planner_model }}
-          CRITIC_MODEL: ${{ steps.model_preflight.outputs.critic_model }}
+          GENERAL_COMMANDER_MODEL: ${{ steps.model_preflight.outputs.general_model }}
+          ENGINEERING_COMMANDER_MODEL: ${{ steps.model_preflight.outputs.engineering_model }}
+          MODEL_REGISTRY_PATH: config/model_registry.json
           COMMANDER_PACKET_PATH: artifacts/commander_packet.json
         shell: bash
         run: |
