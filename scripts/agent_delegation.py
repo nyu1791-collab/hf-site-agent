@@ -502,7 +502,7 @@ def build_hierarchy_handoff(
         expected_output={"schema": "commander-critique-v1", "model": critic_model},
         token_budget=MAX_TOKENS_PER_CALL,
         time_budget_ms=int(TIMEOUT_SECONDS * 1000),
-        tool_scope=("model:openrouter-free", "artifact_read", "artifact_write", "trace"),
+        tool_scope=("model:role-registry", "artifact_read", "artifact_write", "trace"),
         done_when=("JSON critique is valid", "commander approval remains required"),
         depth=1,
         inputs={"brief_ref": brief_ref},
@@ -518,13 +518,13 @@ def build_hierarchy_handoff(
             "structured report returned",
             "commander approval remains required",
         )
-        parent_agent_id = child.parent_agent_id or "deepseek-critic"
+        parent_agent_id = child.parent_agent_id or "deepseek-engineering-commander"
         command_id = f"{mission_id}-T{index:02d}"
         command = make_command(
             registry,
             mission_id=mission_id,
             command_id=command_id,
-            parent_command_id=critic_command.command_id if parent_agent_id == "deepseek-critic" else planner_command.command_id,
+            parent_command_id=critic_command.command_id if parent_agent_id == "deepseek-engineering-commander" else planner_command.command_id,
             parent_agent_id=parent_agent_id,
             child_agent_id=child_agent_id,
             mission=brief,
@@ -612,14 +612,14 @@ def build_hierarchy_handoff(
     planner_report = make_commander_report(
         planner_command,
         planner_call,
-        "qwen-planner",
+        "glm-general-commander",
         "総合作戦司令官の独立提案を司令部向けに受領",
         planner,
     )
     critic_report = make_commander_report(
         critic_command,
         critic_call,
-        "deepseek-critic",
+        "deepseek-engineering-commander",
         "技術・開発司令官の独立批評を司令部向けに受領",
         critic,
     )
@@ -799,7 +799,7 @@ def main() -> int:
     orders = _namespace_orders(planner_orders, "general")
     critic_orders = _namespace_orders(
         normalize_work_orders({"work_orders": critic.get("delegated_instructions", [])}),
-        "deepseek",
+        "engineering",
     )
     existing_ids = {item["id"] for item in orders}
     for item in critic_orders:
