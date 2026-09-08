@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: Type CONNECT to sync the existing HF_TOKEN secret and verify one free review
+        description: "Type CONNECT; HF_TOKEN must use the Hugging Face Inference preset; then verify one free review"
         required: true
         type: string
 
