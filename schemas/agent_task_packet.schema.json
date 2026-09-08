@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/hf-site-agent/agent-task-packet.schema.json",
+  "title": "Specialist agent task packet",
+  "type": "object",
+  "required": [
+    "ok",
+    "status",
+    "mode",
+    "task",
+    "artifact",
+    "next_tasks",
+    "authority",
+    "budget",
+    "packet_sha256"
+  ],
+  "properties": {
+    "ok": {
+      "const": true
+    },
+    "status": {
+      "const": "awaiting_commander_approval"
+    },
+    "mode": {
+      "const": "commander_approved_specialist_draft"
+    },
+    "task": {
+      "type": "object",
+      "required": [
+        "id",
+        "role",
+        "instruction"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "research",
+            "product",
+            "content",
+            "video",
+            "code",
+            "qa",
+            "metrics",
+            "specialist"
+          ]
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5000
+        },
+        "acceptance": {
+          "type": "string",
+          "maxLength": 3000
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": [
+        "type",
+        "title",
+        "content",
+        "status"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 6000
+        },
+        "status": {
+          "const": "draft_awaiting_commander_review"
+        }
+      }
+    },
+    "next_tasks": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "$ref": "#/$defs/next_task"
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "commander",
+        "agent_scope",
+        "execution_allowed",
+        "required_confirmation"
+      ],
+      "properties": {
+        "commander": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_scope": {
+          "const": "draft_only"
+        },
+        "execution_allowed": {
+          "const": false
+        },
+        "required_confirmation": {
+          "const": "COMMANDER_APPROVE"
+        },
+        "prohibited": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "required": [
+        "provider",
+        "calls",
+        "max_tokens",
+        "timeout_seconds",
+        "automatic_fallback"
+      ],
+      "properties": {
+        "provider": {
+          "const": "openrouter"
+        },
+        "calls": {
+          "const": 1
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 800
+        },
+        "timeout_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 30
+        },
+        "automatic_fallback": {
+          "const": false
+        }
+      }
+    },
+    "packet_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "next_task": {
+      "type": "object",
+      "required": [
+        "id",
+        "role",
+        "instruction",
+        "execution_mode",
+        "requires_commander_approval",
+        "execution_allowed"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 900
+        },
+        "deliverable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acceptance_tests": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string"
+          }
+        },
+        "execution_mode": {
+          "const": "read_only_draft"
+        },
+        "requires_commander_approval": {
+          "const": true
+        },
+        "execution_allowed": {
+          "const": false
+        },
+        "safety_flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}
