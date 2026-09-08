@@ -14,10 +14,23 @@ import json
 import os
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
+
+try:
+    from scripts.agent_runtime import (
+        AgentRegistry,
+        ReportEnvelope,
+        make_command,
+        project_context,
+        stable_hash,
+        stable_id,
+    )
+except ModuleNotFoundError:  # pragma: no cover - when invoked from scripts/
+    from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 
 MAX_BRIEF = 3000
 MAX_CONTEXT = 6000
@@ -40,6 +53,18 @@ SECRET_PATTERNS = (
         r"GITHUB_TOKEN|WORKER_ADMIN_PASSWORD|CLOUDFLARE_API_TOKEN)\b"
     ),
 )
+
+ROLE_TO_SPECIALIST = {
+    "research": "research-specialist",
+    "product": "product-specialist",
+    "content": "content-specialist",
+    "video": "video-specialist",
+    "code": "code-specialist",
+    "qa": "qa-specialist",
+    "metrics": "metrics-specialist",
+    "specialist": "product-specialist",
+    "specialist_commander": "product-specialist",
+}
 
 
 def redact(value: str) -> str:
@@ -267,6 +292,213 @@ def build_artifact(planner: dict[str, Any], critic: dict[str, Any], orders: list
     return artifact
 
 
+def _specialist_for_role(role: Any) -> str:
+    """Map model-proposed labels to the finite registry; never spawn by label."""
+    key = safe_text(role, 120).lower().replace("-", "_")
+    if key in ROLE_TO_SPECIALIST:
+        return ROLE_TO_SPECIALIST[key]
+    for role_name, agent_id in ROLE_TO_SPECIALIST.items():
+        if role_name in key:
+            return agent_id
+    return "product-specialist"
+
+
+def _namespace_orders(orders: list[dict[str, Any]], prefix: str) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for order in orders:
+        value = dict(order)
+        old_id = safe_text(value.get("id") or "task", 50)
+        value["id"] = safe_text(f"{prefix}-{old_id}", 80)
+        value["source_agent"] = prefix
+        result.append(value)
+    return result
+
+
+def build_hierarchy_handoff(
+    brief: str,
+    context: str,
+    planner_model: str,
+    critic_model: str,
+    planner: dict[str, Any],
+    critic: dict[str, Any],
+    orders: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Attach bounded command/report envelopes to the model proposals.
+
+    The two upper commanders are sibling children of ChatGPT Work.  Their
+    model calls can therefore run in parallel; only the commander performs
+    fan-in and decides which specialist commands are accepted.
+    """
+    registry = AgentRegistry()
+    mission_id = stable_id("MISSION", {"brief": brief, "context": context})
+    brief_payload = {"brief": brief, "context": context}
+    brief_ref = f"brief-{stable_hash(brief_payload)[:24]}"
+    base_constraints = (
+        "read_only_draft",
+        "commander_approval_required",
+        "no_secret_or_binding_change",
+        "no_publication_or_payment",
+    )
+    planner_command = make_command(
+        registry,
+        mission_id=mission_id,
+        command_id=f"{mission_id}-C01",
+        parent_command_id=None,
+        parent_agent_id="chatgpt-work",
+        child_agent_id="qwen-planner",
+        mission=brief,
+        objective="需要・製品・コンテンツ案を独立に分解し、専門指揮へ渡せる下書きを作る",
+        constraints=base_constraints,
+        input_refs=(brief_ref,),
+        expected_output={"schema": "commander-proposal-v1", "model": planner_model},
+        token_budget=MAX_TOKENS_PER_CALL,
+        time_budget_ms=int(TIMEOUT_SECONDS * 1000),
+        tool_scope=("model:openrouter-free", "artifact_read", "artifact_write", "trace"),
+        done_when=("JSON proposal is valid", "commander approval remains required"),
+        depth=1,
+        inputs={"brief_ref": brief_ref},
+        parallel_group="upper-commanders",
+        priority=10,
+    )
+    critic_command = make_command(
+        registry,
+        mission_id=mission_id,
+        command_id=f"{mission_id}-C02",
+        parent_command_id=None,
+        parent_agent_id="chatgpt-work",
+        child_agent_id="deepseek-critic",
+        mission=brief,
+        objective="技術・品質・自動化・需要検証の反対意見を独立に整理する",
+        constraints=base_constraints,
+        input_refs=(brief_ref,),
+        expected_output={"schema": "commander-critique-v1", "model": critic_model},
+        token_budget=MAX_TOKENS_PER_CALL,
+        time_budget_ms=int(TIMEOUT_SECONDS * 1000),
+        tool_scope=("model:openrouter-free", "artifact_read", "artifact_write", "trace"),
+        done_when=("JSON critique is valid", "commander approval remains required"),
+        depth=1,
+        inputs={"brief_ref": brief_ref},
+        parallel_group="upper-commanders",
+        priority=10,
+    )
+    commands = [planner_command, critic_command]
+    enriched_orders: list[dict[str, Any]] = []
+    for index, order in enumerate(orders, start=1):
+        child_agent_id = _specialist_for_role(order.get("role"))
+        child = registry.get(child_agent_id)
+        acceptance = tuple(safe_list(order.get("acceptance_tests"), item_limit=400)) or (
+            "structured report returned",
+            "commander approval remains required",
+        )
+        parent_agent_id = child.parent_agent_id or "deepseek-critic"
+        command_id = f"{mission_id}-T{index:02d}"
+        command = make_command(
+            registry,
+            mission_id=mission_id,
+            command_id=command_id,
+            parent_command_id=critic_command.command_id if parent_agent_id == "deepseek-critic" else planner_command.command_id,
+            parent_agent_id=parent_agent_id,
+            child_agent_id=child_agent_id,
+            mission=brief,
+            objective=safe_text(order.get("instruction") or order.get("deliverable") or "専門Taskの下書き", 1_800),
+            constraints=base_constraints,
+            input_refs=(brief_ref,),
+            expected_output={
+                "schema": "report-envelope-v1",
+                "deliverable": safe_text(order.get("deliverable") or "提案メモ", 300),
+            },
+            token_budget=child.token_budget,
+            time_budget_ms=child.time_budget_ms,
+            tool_scope=child.allowed_tools,
+            done_when=acceptance,
+            depth=2,
+            inputs={
+                "work_order_id": safe_text(order.get("id"), 80),
+                "inputs": safe_list(order.get("inputs"), item_limit=300),
+            },
+            parallel_group=f"specialists-{mission_id}",
+            priority=max(-100, min(100, 100 - index)),
+        )
+        value = dict(order)
+        value.update(
+            {
+                "mission_id": mission_id,
+                "command_id": command.command_id,
+                "parent_command_id": command.parent_command_id,
+                "parent_agent_id": command.parent_agent_id,
+                "agent_id": command.child_agent_id,
+                "execution_allowed": False,
+            }
+        )
+        enriched_orders.append(value)
+        commands.append(command)
+
+    context_projection = project_context(
+        brief,
+        base_constraints,
+        {
+            "source_context": safe_text(context, 1_800),
+            "planner_model": planner_model,
+            "critic_model": critic_model,
+            "approval_required": True,
+        },
+        (brief_ref,),
+        "commander-packet-v2",
+        budget=5_000,
+    )
+    planner_report = ReportEnvelope(
+        mission_id=mission_id,
+        command_id=planner_command.command_id,
+        parent_command_id=None,
+        agent_id="qwen-planner",
+        parent_agent_id="chatgpt-work",
+        rank=planner_command.rank,
+        status="completed",
+        summary="Qwenの独立提案を司令部向けに受領",
+        result={"proposal_format": planner.get("format", "json"), "work_order_count": len(enriched_orders)},
+        artifacts=("commander-packet",),
+        evidence=("qwen-response-received",),
+        warnings=("司令部の明示承認まで実行不可",),
+        tools_used=planner_command.tool_scope,
+    )
+    critic_report = ReportEnvelope(
+        mission_id=mission_id,
+        command_id=critic_command.command_id,
+        parent_command_id=None,
+        agent_id="deepseek-critic",
+        parent_agent_id="chatgpt-work",
+        rank=critic_command.rank,
+        status="completed",
+        summary="DeepSeekの独立批評を司令部向けに受領",
+        result={"critique_format": critic.get("format", "json"), "work_order_count": len(enriched_orders)},
+        artifacts=("commander-packet",),
+        evidence=("deepseek-response-received",),
+        warnings=("司令部の明示承認まで実行不可",),
+        tools_used=critic_command.tool_scope,
+    )
+    planner_report.validate(planner_command, registry)
+    critic_report.validate(critic_command, registry)
+    return {
+        "mission_id": mission_id,
+        "context_projection": context_projection,
+        "hierarchy": {
+            "root": "chatgpt-work",
+            "tree": registry.tree(),
+            "agents": [spec.to_dict() for spec in registry.all()],
+        },
+        "commands": [command.to_dict() for command in commands],
+        "reports": [planner_report.to_dict(), critic_report.to_dict()],
+        "commander_fan_in": {
+            "parent_agent_id": "chatgpt-work",
+            "parallel_group": "upper-commanders",
+            "child_command_ids": [planner_command.command_id, critic_command.command_id],
+            "decision_owner": "chatgpt-work",
+            "execution_allowed": False,
+        },
+        "delegated_instructions": enriched_orders,
+    }
+
+
 def write_packet(packet: dict[str, Any]) -> str:
     encoded = json.dumps(packet, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
@@ -278,6 +510,41 @@ def write_packet(packet: dict[str, Any]) -> str:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({**packet, "packet_sha256": digest}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return digest
+
+
+def run_parallel_commanders(
+    planner_model: str,
+    planner_system: str,
+    planner_prompt: str,
+    critic_model: str,
+    critic_system: str,
+    critic_prompt: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Run the two sibling commander calls concurrently.
+
+    Both calls are independently bounded free-model requests.  A failure is
+    returned to the caller as one generic error; no peer agent is allowed to
+    retry, escalate, or call another model on its own.
+    """
+    jobs = {
+        "planner": (planner_model, planner_system, planner_prompt),
+        "critic": (critic_model, critic_system, critic_prompt),
+    }
+    results: dict[str, dict[str, Any]] = {}
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="upper-commander") as pool:
+        futures = {
+            pool.submit(call_agent, model, system, prompt): label
+            for label, (model, system, prompt) in jobs.items()
+        }
+        for future in as_completed(futures):
+            label = futures[future]
+            try:
+                results[label] = future.result()
+            except SystemExit:
+                raise
+            except Exception:
+                fail(f"{label.capitalize()} commander failed without exposing provider details.")
+    return results["planner"], results["critic"]
 
 
 def main() -> int:
@@ -316,11 +583,9 @@ def main() -> int:
         + "\nEND_CONTEXT\n"
         + "無料モデル、明示承認、外部公開・決済未接続を前提に、司令部が採用判断できる案を出してください。"
     )
-    planner = call_agent(planner_model, planner_system, planner_prompt)
-
     critic_system = (
-        "あなたはDeepSeek系の主任レビュアーです。直前のプランナー案を批評し、下位専門AIへ渡す指示案を改善してください。"
-        "提案の弱点、反対意見、失敗条件、需要検証、受け入れテスト、削るべき点を明示してください。"
+        "あなたはDeepSeek系の独立主任レビュアーです。Qwenとは独立に、同じMissionの弱点と実装案を検討してください。"
+        "技術・品質・自動化・需要検証の反対意見、失敗条件、受け入れテスト、削るべき点を明示してください。"
         "実装、GitHub変更、デプロイ、公開、YouTube投稿、決済、有料検索、秘密値操作は実行禁止です。"
         "指示案は必ずexecution_mode=read_only_draft、requires_commander_approval=true、execution_allowed=falseとし、"
         "司令部が検査してから実行できる状態に留めてください。JSONのみ: {\"verdict\":\"...\","
@@ -331,36 +596,59 @@ def main() -> int:
         "\"deliverable\":\"...\",\"acceptance_tests\":[\"...\"]}],"
         "\"artifact_revision\":{\"type\":\"...\",\"title\":\"...\",\"content\":\"...\"}}"
     )
-    plan_json = json.dumps(planner, ensure_ascii=False, separators=(",", ":"))[:MAX_PLAN_CHARS]
     critic_prompt = (
         "BEGIN_BRIEF\n"
         + brief
-        + "\nEND_BRIEF\nBEGIN_PLANNER_OUTPUT\n"
-        + plan_json
-        + "\nEND_PLANNER_OUTPUT\nBEGIN_CONTEXT\n"
+        + "\nEND_BRIEF\nBEGIN_CONTEXT\n"
         + (context or "(なし)")
         + "\nEND_CONTEXT\n"
-        + "計画を鵜呑みにせず、司令部の最終権限、無料・安全・需要検証の観点で批評し、改善した作業指示案を返してください。"
+        + "Qwenの出力は参照せず、独立した反対意見と専門Task案を作ってください。司令部の最終権限、無料・安全・需要検証を守ってください。"
     )
-    critic = call_agent(critic_model, critic_system, critic_prompt)
+    planner, critic = run_parallel_commanders(
+        planner_model,
+        planner_system,
+        planner_prompt,
+        critic_model,
+        critic_system,
+        critic_prompt,
+    )
 
-    orders = normalize_work_orders(planner)
-    attach_critic_reviews(orders, critic)
-    critic_orders = normalize_work_orders({"work_orders": critic.get("delegated_instructions", [])})
+    planner_orders = normalize_work_orders(planner)
+    attach_critic_reviews(planner_orders, critic)
+    orders = _namespace_orders(planner_orders, "qwen")
+    critic_orders = _namespace_orders(
+        normalize_work_orders({"work_orders": critic.get("delegated_instructions", [])}),
+        "deepseek",
+    )
     existing_ids = {item["id"] for item in orders}
     for item in critic_orders:
         if item["id"] not in existing_ids and len(orders) < MAX_WORK_ORDERS:
             item["status"] = "critic_proposed"
             orders.append(item)
     artifact = build_artifact(planner, critic, orders)
+    hierarchy_handoff = build_hierarchy_handoff(
+        brief,
+        context,
+        planner_model,
+        critic_model,
+        planner,
+        critic,
+        orders,
+    )
 
     packet: dict[str, Any] = {
         "ok": True,
         "status": "awaiting_commander_approval",
-        "mode": "planner_critic_with_downstream_handoff",
+        "mode": "parallel_upper_commanders_with_downstream_handoff",
+        "mission_id": hierarchy_handoff["mission_id"],
+        "context_projection": hierarchy_handoff["context_projection"],
+        "hierarchy": hierarchy_handoff["hierarchy"],
+        "commands": hierarchy_handoff["commands"],
+        "reports": hierarchy_handoff["reports"],
+        "commander_fan_in": hierarchy_handoff["commander_fan_in"],
         "authority": {
             "commander": "final_decision_and_execution",
-            "subagents": ["propose", "decompose", "draft", "review"],
+            "subagents": ["parallel_propose", "decompose", "draft", "review"],
             "subagents_cannot": [
                 "repository_write",
                 "deploy_or_publish",
@@ -372,7 +660,7 @@ def main() -> int:
         },
         "proposal": bounded_object(planner),
         "critique": bounded_object(critic),
-        "delegated_instructions": orders,
+        "delegated_instructions": hierarchy_handoff["delegated_instructions"],
         "artifact": artifact,
         "handoff": {
             "recipient": "司令部",
@@ -384,6 +672,8 @@ def main() -> int:
             "calls": 2,
             "max_tokens_per_call": MAX_TOKENS_PER_CALL,
             "timeout_seconds": TIMEOUT_SECONDS,
+            "parallel_upper_commanders": True,
+            "max_parallel": 2,
             "automatic_fallback": False,
             "paid_search": "disabled",
         },
@@ -410,3 +700,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
