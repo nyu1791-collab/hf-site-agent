@@ -66,13 +66,13 @@ class HierarchicalRuntimeTests(unittest.TestCase):
     def test_tree_and_downward_only_dispatch(self):
         tree = self.registry.tree()
         self.assertIn("chatgpt-work", tree)
-        self.assertIn("qwen-planner", tree)
-        self.assertIn("deepseek-critic", tree)
+        self.assertIn("glm-general-commander", tree)
+        self.assertIn("deepseek-engineering-commander", tree)
         command = command_for(
             self.registry,
             command_id="MISSION-TEST-C02",
             parent_agent_id="chatgpt-work",
-            child_agent_id="deepseek-critic",
+            child_agent_id="deepseek-engineering-commander",
             depth=1,
         )
         self.assertEqual(command.role, "upper_commander")
@@ -81,7 +81,7 @@ class HierarchicalRuntimeTests(unittest.TestCase):
                 self.registry,
                 command_id="MISSION-TEST-BAD",
                 parent_agent_id="content-specialist",
-                child_agent_id="qwen-planner",
+                child_agent_id="glm-general-commander",
                 depth=1,
             )
 
@@ -91,21 +91,21 @@ class HierarchicalRuntimeTests(unittest.TestCase):
             command_for(
                 self.registry,
                 command_id="MISSION-TEST-T01",
-                parent_agent_id="deepseek-critic",
+                parent_agent_id="deepseek-engineering-commander",
                 child_agent_id="video-specialist",
                 group="research-batch",
             ),
             command_for(
                 self.registry,
                 command_id="MISSION-TEST-T02",
-                parent_agent_id="deepseek-critic",
+                parent_agent_id="deepseek-engineering-commander",
                 child_agent_id="code-specialist",
                 group="research-batch",
             ),
             command_for(
                 self.registry,
                 command_id="MISSION-TEST-T03",
-                parent_agent_id="deepseek-critic",
+                parent_agent_id="deepseek-engineering-commander",
                 child_agent_id="metrics-specialist",
                 group="research-batch",
             ),
@@ -132,7 +132,7 @@ class HierarchicalRuntimeTests(unittest.TestCase):
             self.registry,
             command_id="MISSION-TEST-C01",
             parent_agent_id="chatgpt-work",
-            child_agent_id="deepseek-critic",
+            child_agent_id="deepseek-engineering-commander",
             depth=1,
         )
         aggregate = runtime.fan_in(parent, reports)
@@ -146,7 +146,7 @@ class HierarchicalRuntimeTests(unittest.TestCase):
         command = command_for(
             self.registry,
             command_id="MISSION-TEST-IDEMPOTENT",
-            parent_agent_id="qwen-planner",
+            parent_agent_id="glm-general-commander",
             child_agent_id="product-specialist",
         )
         calls = 0
@@ -167,7 +167,7 @@ class HierarchicalRuntimeTests(unittest.TestCase):
         blocked = command_for(
             self.registry,
             command_id="MISSION-CANCEL-T01",
-            parent_agent_id="deepseek-critic",
+            parent_agent_id="deepseek-engineering-commander",
             child_agent_id="qa-specialist",
         )
         blocked = type(blocked)(**{**blocked.to_dict(), "mission_id": "MISSION-CANCEL"})
