@@ -173,6 +173,29 @@ jobs:
           console.log("Hugging Face frontend safety contract passed.");
           NODE
 
+      - name: Check Hugging Face Space write-token safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync(".github/workflows/sync-hf-space.yml", "utf8");
+          for (const marker of [
+            "HF_SPACE_WRITE_TOKEN",
+            "steps.gate.outputs.should_sync == 'true'",
+            "confirm=SYNC",
+            "automatic Space sync is safely skipped",
+            "persist-credentials: false"
+          ]) {
+            if (!source.includes(marker)) throw new Error("Space sync gate is missing: " + marker);
+          }
+          if (source.includes("secrets.HF_TOKEN")) {
+            throw new Error("Inference-only HF_TOKEN must not be used for Space writes.");
+          }
+          if (!source.includes("workflow_dispatch:")) throw new Error("Space sync must remain manually dispatchable.");
+          console.log("Hugging Face Space write-token safety contract passed.");
+          NODE
+
       - name: Check Hugging Face review integration
         shell: bash
         run: |
