@@ -98,3 +98,16 @@ OpenRouterのAPIキーはHugging Faceのプリセットではありません。G
 7. 生成・計画・レビュー・更新再利用・承認Pushの回数を端末内で確認。
 
 課金検索、有料フォールバック、YouTube投稿はこのフローにありません。
+
+
+## 7. 司令部承認型の専門AI
+
+PlannerとCriticは、提案だけでなく、下位専門AIへ渡す作業指示案と成果物ドラフトを作ります。結果はActions成果物の `commander_packet.json` として保存され、状態は常に `awaiting_commander_approval` です。
+
+1. 司令部がPlanner、Critic、作業指示、根拠、危険フラグを確認する。
+2. 採用するタスクを1件だけ選び、[司令部承認型Specialist Workflow](https://github.com/nyu1791-collab/hf-site-agent/actions/workflows/agent-execution.yml)を開く。
+3. Branchは `main`、確認文字列は `COMMANDER_APPROVE`、タスクID・役割・承認済み指示・受け入れ条件を入力する。
+4. Specialistは成果物ドラフトと次の作業候補を返すが、実行権限は持たない。
+5. 司令部が成果物を再検査し、採用したコードだけをPR化する。
+
+Specialistの役割は `research`、`product`、`content`、`video`、`code`、`qa`、`metrics` です。下位AIが作る指示にも `requires_commander_approval=true` と `execution_allowed=false` が付くため、勝手な連鎖実行は起きません。リポジトリ書込み、デプロイ、公開、秘密値変更、決済、課金検索、YouTube投稿は司令部の別承認なしには実行できません。
