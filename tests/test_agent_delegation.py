@@ -84,7 +84,7 @@ class CommanderDelegationTests(unittest.TestCase):
                 payload,
             ],
         ):
-            result = agent_delegation.call_agent("engineering-model", "system", "prompt")
+            result = agent_delegation.call_agent("engineering-model:free", "system", "prompt")
         self.assertTrue(result["ok"])
         self.assertEqual(result["attempts"], 2)
         self.assertEqual(result["response"], payload)
