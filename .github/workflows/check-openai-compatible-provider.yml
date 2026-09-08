@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       provider:
-        description: Provider to test; no automatic fallback is performed
+        description: "Provider to test; no automatic fallback. See docs/SETUP_FLOW.md for the key setup."
         required: true
         type: choice
         options:
@@ -18,7 +18,7 @@ on:
           - siliconflow
           - openrouter
       model:
-        description: "Exact provider model ID (recommended OpenRouter free smoke: openrouter/free)"
+        description: "Exact provider model ID; recommended free smoke: openrouter/free"
         required: true
         type: string
 
