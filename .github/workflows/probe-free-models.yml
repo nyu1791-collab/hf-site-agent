@@ -1,0 +1,73 @@
+name: Probe exact OpenRouter free endpoints
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/model-registry-hierarchy
+    paths:
+      - "scripts/probe_free_models.py"
+      - ".github/workflows/probe-free-models.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout reviewed probe
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Send one exact-ID request per model
+        env:
+          AI_API_KEY: \${{ secrets.AI_API_KEY }}
+          FREE_PROBE_OUTPUT: artifacts/free_model_probe.json
+        run: python scripts/probe_free_models.py
+      - name: Validate public probe report
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/free_model_probe.json").read_text(encoding="utf-8"))
+          assert report["provider_allow_fallbacks"] is False
+          assert report["models_parameter_sent"] is False
+          assert report["web_search"] is False
+          assert report["paid_fallback"] is False
+          assert report["retries"] == 0
+          assert report["model_calls"] in {0, 3}
+          for item in report["results"]:
+              assert item["request_count"] == 1
+              assert item["retry_count"] == 0
+              assert item["fallback_used"] is False or item["status"] == "MODEL_MISMATCH"
+          print(json.dumps({
+              "status": report["status"],
+              "model_calls": report["model_calls"],
+              "catalog_inconsistency": report["catalog_inconsistency"],
+              "credits_checked": report["credits_checked"],
+              "credits_unchanged": report["credits_unchanged"],
+              "results": [
+                  {
+                      "model": item["requested_model"],
+                      "status": item["status"],
+                      "http_status": item["http_status"],
+                      "response_model": item["response_model"],
+                      "usage_cost": item["usage_cost"],
+                  }
+                  for item in report["results"]
+              ],
+          }, ensure_ascii=False))
+          PY
+      - name: Upload redacted probe evidence
+        uses: actions/upload-artifact@v6
+        with:
+          name: exact-free-model-probe
+          path: artifacts/free_model_probe.json
+          if-no-files-found: error
+          retention-days: 14
