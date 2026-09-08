@@ -21,7 +21,7 @@ from typing import Any
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 try:
-    from scripts.agent_runtime import (
+    from scripts.model_registry import load_registry, role_candidates\n    from scripts.agent_runtime import (
         AgentRegistry,
         ReportEnvelope,
         make_command,
@@ -30,7 +30,7 @@ try:
         stable_id,
     )
 except ModuleNotFoundError:  # pragma: no cover - when invoked from scripts/
-    from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
+    from model_registry import load_registry, role_candidates\n    from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 
 MAX_BRIEF = 3000
 MAX_CONTEXT = 6000
@@ -470,7 +470,7 @@ def build_hierarchy_handoff(
         command_id=f"{mission_id}-C01",
         parent_command_id=None,
         parent_agent_id="chatgpt-work",
-        child_agent_id="qwen-planner",
+        child_agent_id="glm-general-commander",
         mission=brief,
         objective="需要・製品・コンテンツ案を独立に分解し、専門指揮へ渡せる下書きを作る",
         constraints=base_constraints,
@@ -478,7 +478,7 @@ def build_hierarchy_handoff(
         expected_output={"schema": "commander-proposal-v1", "model": planner_model},
         token_budget=MAX_TOKENS_PER_CALL,
         time_budget_ms=int(TIMEOUT_SECONDS * 1000),
-        tool_scope=("model:openrouter-free", "artifact_read", "artifact_write", "trace"),
+        tool_scope=("model:role-registry", "artifact_read", "artifact_write", "trace"),
         done_when=("JSON proposal is valid", "commander approval remains required"),
         depth=1,
         inputs={"brief_ref": brief_ref},
@@ -491,7 +491,7 @@ def build_hierarchy_handoff(
         command_id=f"{mission_id}-C02",
         parent_command_id=None,
         parent_agent_id="chatgpt-work",
-        child_agent_id="deepseek-critic",
+        child_agent_id="deepseek-engineering-commander",
         mission=brief,
         objective="技術・品質・自動化・需要検証の反対意見を独立に整理する",
         constraints=base_constraints,
@@ -610,14 +610,14 @@ def build_hierarchy_handoff(
         planner_command,
         planner_call,
         "qwen-planner",
-        "Qwenの独立提案を司令部向けに受領",
+        "総合作戦司令官の独立提案を司令部向けに受領",
         planner,
     )
     critic_report = make_commander_report(
         critic_command,
         critic_call,
         "deepseek-critic",
-        "DeepSeekの独立批評を司令部向けに受領",
+        "技術・開発司令官の独立批評を司令部向けに受領",
         critic,
     )
     planner_report.validate(planner_command, registry)
@@ -712,24 +712,27 @@ def main() -> int:
 
     brief = validate_input(os.environ.get("DELEGATION_BRIEF", ""), MAX_BRIEF, "Delegation brief", required=True)
     context = validate_input(os.environ.get("DELEGATION_CONTEXT", ""), MAX_CONTEXT, "Delegation context")
-    planner_model = os.environ.get("PLANNER_MODEL", "qwen/qwen3-32b:free").strip()
-    critic_model = os.environ.get("CRITIC_MODEL", "deepseek/deepseek-chat-v3-0324:free").strip()
-
-    for role, label, model in (
-        ("planner", "Planner model", planner_model),
-        ("critic", "Critic model", critic_model),
+    # Legacy env names are accepted only as deprecated aliases.  Model IDs must
+    # already be present in the role registry and must be explicitly free.
+    planner_model = os.environ.get("GENERAL_COMMANDER_MODEL", os.environ.get("PLANNER_MODEL", "")).strip()
+    critic_model = os.environ.get("ENGINEERING_COMMANDER_MODEL", os.environ.get("CRITIC_MODEL", "")).strip()
+    try:
+        registry = load_registry(os.environ.get("MODEL_REGISTRY_PATH") or None)
+    except Exception:
+        fail("Model registry is invalid or unavailable.")
+    for role_name, label, model in (
+        (ROLE_GENERAL, "General commander model", planner_model),
+        (ROLE_ENGINEERING, "Engineering commander model", critic_model),
     ):
-        if (
-            not MODEL_RE.fullmatch(model)
-            or not FREE_MODEL_RE.fullmatch(model)
-            or not model.startswith(MODEL_FAMILY_BY_ROLE[role])
-        ):
-            fail(f"{label} must be a same-family OpenRouter free model ID.")
+        if not MODEL_RE.fullmatch(model) or not FREE_MODEL_RE.fullmatch(model):
+            fail(f"{label} must be an explicitly free model ID.")
         if len(model) > MAX_MODEL_CHARS:
             fail(f"{label} is too long.")
+        if not role_candidates(registry, role_name, model):
+            fail(f"{label} is not an approved candidate for its role.")
 
     planner_system = (
-        "あなたはQwen系の主任プランナーです。これは司令部へ渡す読み取り専用の設計会議です。"
+        "あなたは総合・作戦司令官です。これは司令部へ渡す読み取り専用の設計会議です。"
         "利用者価値、需要仮説、実装の小さな単位を整理し、下位専門AIへ渡せる指示案と成果物ドラフトを作ってください。"
         "あなた自身も下位AIも、実装、GitHub変更、デプロイ、公開、YouTube投稿、決済、有料検索、秘密値操作を実行できません。"
         "全ての作業指示に、目的、入力、成果物、受け入れテスト、リスクを含め、requires_commander_approval=true、"
@@ -749,7 +752,7 @@ def main() -> int:
         + "無料モデル、明示承認、外部公開・決済未接続を前提に、司令部が採用判断できる案を出してください。"
     )
     critic_system = (
-        "あなたはDeepSeek系の独立主任レビュアーです。Qwenとは独立に、同じMissionの弱点と実装案を検討してください。"
+        "あなたは技術・開発司令官です。総合作戦司令官とは独立に、同じMissionの弱点と実装案を検討してください。"
         "技術・品質・自動化・需要検証の反対意見、失敗条件、受け入れテスト、削るべき点を明示してください。"
         "実装、GitHub変更、デプロイ、公開、YouTube投稿、決済、有料検索、秘密値操作は実行禁止です。"
         "指示案は必ずexecution_mode=read_only_draft、requires_commander_approval=true、execution_allowed=falseとし、"
@@ -767,7 +770,7 @@ def main() -> int:
         + "\nEND_BRIEF\nBEGIN_CONTEXT\n"
         + (context or "(なし)")
         + "\nEND_CONTEXT\n"
-        + "Qwenの出力は参照せず、独立した反対意見と専門Task案を作ってください。司令部の最終権限、無料・安全・需要検証を守ってください。"
+        + "総合作戦司令官の出力は参照せず、独立した反対意見と専門Task案を作ってください。司令部の最終権限、無料・安全・需要検証を守ってください。"
     )
     planner_call, critic_call = run_parallel_commanders(
         planner_model,
@@ -790,7 +793,7 @@ def main() -> int:
 
     planner_orders = normalize_work_orders(planner)
     attach_critic_reviews(planner_orders, critic)
-    orders = _namespace_orders(planner_orders, "qwen")
+    orders = _namespace_orders(planner_orders, "general")
     critic_orders = _namespace_orders(
         normalize_work_orders({"work_orders": critic.get("delegated_instructions", [])}),
         "deepseek",
