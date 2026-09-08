@@ -442,6 +442,8 @@ def build_hierarchy_handoff(
     planner: dict[str, Any],
     critic: dict[str, Any],
     orders: list[dict[str, Any]],
+    planner_call: dict[str, Any] | None = None,
+    critic_call: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Attach bounded command/report envelopes to the model proposals.
 
@@ -566,35 +568,54 @@ def build_hierarchy_handoff(
         "commander-packet-v2",
         budget=5_000,
     )
-    planner_report = ReportEnvelope(
-        mission_id=mission_id,
-        command_id=planner_command.command_id,
-        parent_command_id=None,
-        agent_id="qwen-planner",
-        parent_agent_id="chatgpt-work",
-        rank=planner_command.rank,
-        status="completed",
-        summary="Qwenの独立提案を司令部向けに受領",
-        result={"proposal_format": planner.get("format", "json"), "work_order_count": len(enriched_orders)},
-        artifacts=("commander-packet",),
-        evidence=("qwen-response-received",),
-        warnings=("司令部の明示承認まで実行不可",),
-        tools_used=planner_command.tool_scope,
+    def make_commander_report(
+        command: Any,
+        call: dict[str, Any] | None,
+        agent_label: str,
+        summary: str,
+        response: dict[str, Any],
+    ) -> ReportEnvelope:
+        call = call or {}
+        successful = call.get("ok") is True and call.get("valid") is True
+        status = "completed" if successful else ("blocked" if call.get("status") == "blocked" else "failed")
+        errors = () if successful else (safe_text(call.get("error") or "commander did not return a valid proposal", 500),)
+        warnings = ("司令部の明示承認まで実行不可",)
+        return ReportEnvelope(
+            mission_id=mission_id,
+            command_id=command.command_id,
+            parent_command_id=None,
+            agent_id=agent_label,
+            parent_agent_id="chatgpt-work",
+            rank=command.rank,
+            status=status,
+            summary=summary if successful else f"{agent_label}の結果を受領できず、親へ状態を報告",
+            result={
+                "proposal_format": response.get("format", "json") if successful else "unavailable",
+                "work_order_count": len(enriched_orders) if successful else 0,
+                "attempts": call.get("attempts", 0),
+                "provider_status": call.get("provider_status"),
+                "error_code": call.get("error_code"),
+            },
+            artifacts=("commander-packet",),
+            evidence=(f"{agent_label}-response-received",) if successful else (),
+            warnings=warnings,
+            errors=errors,
+            tools_used=command.tool_scope,
+        )
+
+    planner_report = make_commander_report(
+        planner_command,
+        planner_call,
+        "qwen-planner",
+        "Qwenの独立提案を司令部向けに受領",
+        planner,
     )
-    critic_report = ReportEnvelope(
-        mission_id=mission_id,
-        command_id=critic_command.command_id,
-        parent_command_id=None,
-        agent_id="deepseek-critic",
-        parent_agent_id="chatgpt-work",
-        rank=critic_command.rank,
-        status="completed",
-        summary="DeepSeekの独立批評を司令部向けに受領",
-        result={"critique_format": critic.get("format", "json"), "work_order_count": len(enriched_orders)},
-        artifacts=("commander-packet",),
-        evidence=("deepseek-response-received",),
-        warnings=("司令部の明示承認まで実行不可",),
-        tools_used=critic_command.tool_scope,
+    critic_report = make_commander_report(
+        critic_command,
+        critic_call,
+        "deepseek-critic",
+        "DeepSeekの独立批評を司令部向けに受領",
+        critic,
     )
     planner_report.validate(planner_command, registry)
     critic_report.validate(critic_command, registry)
