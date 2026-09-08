@@ -184,9 +184,10 @@ class AgentSpec:
 def default_agent_specs() -> tuple[AgentSpec, ...]:
     """The current chain, plus bounded specialist/worker slots.
 
-    Qwen currently plans first and DeepSeek critiques second.  Specialist
-    commands are still issued only after commander approval; the registry does
-    not create a peer-to-peer or promotion route.
+    Qwen and DeepSeek are independent upper commanders invoked in bounded
+    parallel by the sole commander.  Specialist commands are still issued only
+    after commander approval; the registry does not create a peer-to-peer or
+    promotion route.
     """
 
     specialist_roles = ("research", "product", "content", "video", "code", "qa", "metrics")
