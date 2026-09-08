@@ -86,8 +86,10 @@ jobs:
           ]) {
             if (!source.includes(required)) throw new Error(`HF connection workflow is missing: ${required}`);
           }
-          if (!source.includes("github.event_name == 'push'")) {
-            throw new Error("HF connection workflow must be restricted to the main push or explicit dispatch.");
+          if (!source.includes("github.event_name == 'workflow_dispatch'") ||
+              !source.includes("inputs.confirm == 'CONNECT'") ||
+              !source.includes("github.ref == 'refs/heads/main'")) {
+            throw new Error("HF connection workflow must require explicit main-branch CONNECT dispatch.");
           }
           if (source.includes("echo \"$HF_TOKEN_VALUE\"")) {
             throw new Error("HF token must never be printed.");
