@@ -1,0 +1,140 @@
+name: Run one commander-approved specialist agent safely
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type COMMANDER_APPROVE only after reviewing the handoff packet
+        required: true
+        type: string
+      task_id:
+        description: Stable task ID from the approved handoff packet
+        required: true
+        type: string
+      role:
+        description: Specialist role for this one draft-only task
+        required: true
+        type: choice
+        options:
+          - research
+          - product
+          - content
+          - video
+          - code
+          - qa
+          - metrics
+      instruction:
+        description: Commander-approved task instruction (no secrets; maximum 5000 characters)
+        required: true
+        type: string
+      context:
+        description: Optional approved context (maximum 6000 characters)
+        required: false
+        default: ""
+        type: string
+      acceptance:
+        description: Optional acceptance tests (maximum 3000 characters)
+        required: false
+        default: ""
+        type: string
+      model:
+        description: "Free model ID; use qwen/qwen3-32b:free or deepseek/deepseek-chat-v3-0324:free"
+        required: true
+        default: qwen/qwen3-32b:free
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: commander-approved-agent-task
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate commander approval and draft-only scope
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          CONFIRM: ${{ inputs.confirm }}
+          TASK_ID: ${{ inputs.task_id }}
+          TASK_INSTRUCTION: ${{ inputs.instruction }}
+          TASK_CONTEXT: ${{ inputs.context }}
+          TASK_ACCEPTANCE: ${{ inputs.acceptance }}
+          AI_MODEL: ${{ inputs.model }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CONFIRM="$(printf '%s' "$CONFIRM" | tr -d '[:space:]')"
+          if [[ "$REF_NAME" != "main" ]]; then
+            echo "Commander-approved tasks are allowed only from main." >&2
+            exit 1
+          fi
+          if [[ "$CONFIRM" != "COMMANDER_APPROVE" ]]; then
+            echo "Type COMMANDER_APPROVE only after the commander reviews the packet." >&2
+            exit 1
+          fi
+          if [[ -z "$TASK_ID" || ${#TASK_ID} -gt 100 || "$TASK_ID" =~ [[:space:]] ]]; then
+            echo "Task ID is empty, too long, or contains whitespace." >&2
+            exit 1
+          fi
+          if [[ -z "$TASK_INSTRUCTION" || ${#TASK_INSTRUCTION} -gt 5000 ]]; then
+            echo "Task instruction must be 1-5000 characters." >&2
+            exit 1
+          fi
+          if [[ ${#TASK_CONTEXT} -gt 6000 || ${#TASK_ACCEPTANCE} -gt 3000 ]]; then
+            echo "Task context or acceptance tests exceed the allowed size." >&2
+            exit 1
+          fi
+          if [[ -z "$AI_MODEL" || ${#AI_MODEL} -gt 160 || ! "$AI_MODEL" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
+            echo "Model ID must be non-empty and contain only provider-safe characters." >&2
+            exit 1
+          fi
+          if [[ "$AI_MODEL" != "openrouter/free" && "$AI_MODEL" != *":free" ]]; then
+            echo "Only OpenRouter free models are accepted; no paid fallback is allowed." >&2
+            exit 1
+          fi
+          echo "Commander approval validated; specialist remains draft-only."
+
+      - name: Check out reviewed specialist script
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install bounded OpenAI-compatible client
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input --no-cache-dir "openai>=1.0,<2"
+
+      - name: Run one specialist draft
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_MODEL: ${{ inputs.model }}
+          TASK_ID: ${{ inputs.task_id }}
+          TASK_ROLE: ${{ inputs.role }}
+          TASK_INSTRUCTION: ${{ inputs.instruction }}
+          TASK_CONTEXT: ${{ inputs.context }}
+          TASK_ACCEPTANCE: ${{ inputs.acceptance }}
+          AGENT_PACKET_PATH: artifacts/agent_task_packet.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/agent_executor.py
+
+      - name: Upload specialist artifact for commander review
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: agent-task-${{ inputs.task_id }}
+          path: artifacts/agent_task_packet.json
+          if-no-files-found: error
+          retention-days: 7
