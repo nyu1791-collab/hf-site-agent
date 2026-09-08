@@ -378,6 +378,7 @@ class CommandEnvelope:
     max_depth: int = MAX_DEPTH
     done_when: tuple[str, ...] = ()
     permissions: tuple[str, ...] = ()
+    estimated_free_requests: int = 0
     idempotency_key: str | None = None
     created_at: str = field(default_factory=now_iso)
     status: str = "queued"
@@ -414,6 +415,8 @@ class CommandEnvelope:
             raise ContractError("unknown command status")
         if self.priority < -100 or self.priority > 100:
             raise ContractError("priority is outside bounds")
+        if self.estimated_free_requests < 0 or self.estimated_free_requests > 1_000:
+            raise BudgetError("estimated_free_requests is outside bounds")
         safe_json(dict(self.inputs), limit=MAX_JSON_CHARS)
         safe_json(dict(self.expected_output), limit=MAX_JSON_CHARS)
 
@@ -451,6 +454,7 @@ class ReportEnvelope:
     children_used: tuple[str, ...] = ()
     duration_ms: int = 0
     tokens_used: int = 0
+    free_requests_used: int = 0
     cache_hit: bool = False
     tools_used: tuple[str, ...] = ()
     source_version: str = "agent-runtime-v1"
@@ -472,6 +476,8 @@ class ReportEnvelope:
             raise BudgetError("report duration exceeds command budget")
         if not 0 <= self.tokens_used <= command.token_budget:
             raise BudgetError("report tokens exceed command budget")
+        if self.free_requests_used < 0 or self.free_requests_used > command.estimated_free_requests + 1:
+            raise BudgetError("report free request count exceeds command estimate")
         if len(self.summary) > MAX_TEXT:
             raise ContractError("report summary is too long")
         safe_json(dict(self.result), limit=MAX_JSON_CHARS)
@@ -937,7 +943,7 @@ class CommandRuntime:
         return report
 
 
-def make_command(registry: AgentRegistry, *, mission_id: str, command_id: str, parent_command_id: str | None, parent_agent_id: str, child_agent_id: str, mission: str, objective: str, constraints: Sequence[str], input_refs: Sequence[str], expected_output: Mapping[str, Any], token_budget: int, time_budget_ms: int, tool_scope: Sequence[str], done_when: Sequence[str], depth: int, inputs: Mapping[str, Any] | None = None, depends_on: Sequence[str] = (), parallel_group: str | None = None, priority: int = 0) -> CommandEnvelope:
+def make_command(registry: AgentRegistry, *, mission_id: str, command_id: str, parent_command_id: str | None, parent_agent_id: str, child_agent_id: str, mission: str, objective: str, constraints: Sequence[str], input_refs: Sequence[str], expected_output: Mapping[str, Any], token_budget: int, time_budget_ms: int, tool_scope: Sequence[str], done_when: Sequence[str], depth: int, inputs: Mapping[str, Any] | None = None, depends_on: Sequence[str] = (), parallel_group: str | None = None, priority: int = 0, estimated_free_requests: int = 0) -> CommandEnvelope:
     child = registry.get(child_agent_id)
     command = CommandEnvelope(
         mission_id=mission_id, command_id=command_id, parent_command_id=parent_command_id,
@@ -949,7 +955,7 @@ def make_command(registry: AgentRegistry, *, mission_id: str, command_id: str, p
         allowed_child_roles=child.allowed_child_roles, depends_on=_tuple_strings(depends_on, 16, 128),
         parallel_group=safe_text(parallel_group, 80) or None, priority=priority, depth=depth,
         max_depth=min(MAX_DEPTH, child.max_depth), done_when=_tuple_strings(done_when, 16, 400),
-        permissions=child.permissions, idempotency_key=command_id,
+        permissions=child.permissions, estimated_free_requests=estimated_free_requests, idempotency_key=command_id,
     )
     command.validate(registry)
     return command
