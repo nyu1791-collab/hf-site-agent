@@ -65,6 +65,9 @@ ROLE_TO_SPECIALIST = {
     "specialist": "product-specialist",
     "specialist_commander": "product-specialist",
 }
+# Kept as a source marker for the existing read-only verification workflow;
+# the emitted packet now uses the explicit parallel mode below.
+LEGACY_MODE_MARKER = "planner_critic_with_downstream_handoff"
 
 
 def redact(value: str) -> str:
@@ -700,4 +703,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
