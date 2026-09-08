@@ -22,6 +22,7 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 try:
     from scripts.model_registry import load_registry, role_candidates, role_config
+    from scripts.free_quota import FreeQuotaBlocked, FreeUsageLedger, is_explicit_free_model
     from scripts.agent_runtime import (
         AgentRegistry,
         ReportEnvelope,
@@ -32,6 +33,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - when invoked from scripts/
     from model_registry import load_registry, role_candidates, role_config
+    from free_quota import FreeQuotaBlocked, FreeUsageLedger, is_explicit_free_model
     from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 
 MAX_BRIEF = 3000
@@ -178,6 +180,13 @@ def _call_once(model: str, system_prompt: str, user_prompt: str) -> dict[str, An
                 "OpenRouter credentials or permission were rejected.",
                 status=status,
             ) from exc
+        if status == 429:
+            raise AgentCallError(
+                "free_endpoint_429",
+                "OpenRouter free endpoint rate limit reached; the request was not retried.",
+                status=429,
+                retryable=False,
+            ) from exc
         if status in RETRYABLE_STATUS_CODES:
             raise AgentCallError(
                 "transient_provider_error",
@@ -241,11 +250,35 @@ def _annotate_call(label: str, result: dict[str, Any]) -> dict[str, Any]:
 
 
 def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+    if not is_explicit_free_model(model):
+        return {
+            "ok": False,
+            "status": "blocked",
+            "error_code": "non_free_model_blocked",
+            "error": "Only an explicit :free endpoint may be called.",
+            "provider_status": None,
+            "attempts": 0,
+            "valid": False,
+        }
+    ledger = FreeUsageLedger()
+    mission_id = os.environ.get("MISSION_ID", "MISSION-UNASSIGNED")
+    agent_id = os.environ.get("AGENT_ID", model)
     attempts = 0
     while attempts < MAX_CALL_ATTEMPTS:
         attempts += 1
+        request_id = hashlib.sha256(
+            f"{mission_id}|{agent_id}|{model}|{attempts}|{system_prompt}|{user_prompt}".encode("utf-8")
+        ).hexdigest()[:32]
         try:
+            ledger.before_request(
+                request_id=request_id,
+                mission_id=mission_id,
+                agent_id=agent_id,
+                model=model,
+                retry=attempts - 1,
+            )
             response = _call_once(model, system_prompt, user_prompt)
+            ledger.record_response(request_id, success=True, http_status=200, retry=attempts - 1)
             return {
                 "ok": True,
                 "status": "completed",
@@ -254,12 +287,27 @@ def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, An
                 "provider_status": 200,
                 "valid": False,
             }
+        except FreeQuotaBlocked as exc:
+            return {
+                "ok": False,
+                "status": exc.status.lower(),
+                "error_code": "free_quota_paused",
+                "error": redact(exc.reason),
+                "provider_status": None,
+                "attempts": attempts - 1,
+                "valid": False,
+            }
         except AgentCallError as exc:
+            ledger.record_response(request_id, success=False, http_status=exc.status, retry=attempts - 1)
             if exc.retryable and attempts < MAX_CALL_ATTEMPTS:
                 continue
             return {
                 "ok": False,
-                "status": "blocked" if exc.code in {"missing_secret", "free_credit_unavailable"} else "failed",
+                "status": "blocked" if exc.code in {
+                    "missing_secret",
+                    "free_credit_unavailable",
+                    "free_endpoint_429",
+                } else "failed",
                 "error_code": exc.code,
                 "error": redact(exc.message),
                 "provider_status": exc.status,
