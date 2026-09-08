@@ -195,7 +195,7 @@ jobs:
                   raise SystemExit(f"provider smoke test is missing: {marker}")
           for marker in [
               "workflow_dispatch:",
-              "if: ${{ github.event_name == 'workflow_dispatch' }}",
+              "event_name == 'workflow_dispatch'",
               "github.event.inputs.confirm",
               "github.event.inputs.provider",
               "github.event.inputs.model",
