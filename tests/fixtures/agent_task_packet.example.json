@@ -1,0 +1,63 @@
+{
+  "ok": true,
+  "status": "awaiting_commander_approval",
+  "mode": "commander_approved_specialist_draft",
+  "task": {
+    "id": "video-01",
+    "role": "video",
+    "instruction": "日本向けShortsの30秒構成案を作る",
+    "acceptance": "権利・字幕・費用ゲートを含む"
+  },
+  "artifact": {
+    "type": "video_draft",
+    "title": "30秒構成案",
+    "content": "フック、課題、実演、反転、行動を分ける",
+    "status": "draft_awaiting_commander_review"
+  },
+  "findings": [
+    "字幕を短文にする"
+  ],
+  "risks": [
+    "視聴データ未確認"
+  ],
+  "tests": [
+    "JSON契約を検証する"
+  ],
+  "next_tasks": [
+    {
+      "id": "video-01-next-01",
+      "role": "qa",
+      "instruction": "字幕と権利ゲートを検査する",
+      "deliverable": "QA項目",
+      "acceptance_tests": [
+        "pending素材を拒否"
+      ],
+      "execution_mode": "read_only_draft",
+      "requires_commander_approval": true,
+      "execution_allowed": false,
+      "safety_flags": []
+    }
+  ],
+  "authority": {
+    "commander": "final_decision_and_execution",
+    "agent_scope": "draft_only",
+    "execution_allowed": false,
+    "required_confirmation": "COMMANDER_APPROVE",
+    "prohibited": [
+      "repository_write",
+      "deploy_or_publish",
+      "secret_or_binding_change",
+      "payment_or_paid_search",
+      "YouTube_upload"
+    ]
+  },
+  "budget": {
+    "provider": "openrouter",
+    "calls": 1,
+    "max_tokens": 500,
+    "timeout_seconds": 15,
+    "automatic_fallback": false,
+    "paid_search": "disabled"
+  },
+  "packet_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+}
