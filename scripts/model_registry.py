@@ -213,6 +213,7 @@ def resolve_role_model(
             "candidate_paid_requires_approval",
             "FREE_CATALOG_ONLY",
             "FREE_ENDPOINT_UNAVAILABLE",
+            "FREE_AUTHENTICATION_FAILED",
             "FREE_RATE_LIMITED",
             "MODEL_NOT_FOUND",
         } and not allow_paid:
