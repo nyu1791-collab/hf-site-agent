@@ -175,7 +175,9 @@ jobs:
               .service == "groq-github-site-agent" and
               .version == "2026-09-08" and
               .research.sourcesPerRequest == 10 and
-              (.research.missing | type == "array")
+              (.research.missing | type == "array") and
+              .inference.provider == "huggingface-router" and
+              (.inference.codeReview.missing | type == "array")
             ' >/dev/null 2>&1; then
               printf '%s' "$health" | jq -c '{
                 ok,
