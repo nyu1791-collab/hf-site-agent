@@ -115,6 +115,10 @@ def role_candidates(
 
 
 def _zero_priced(entry: Mapping[str, Any]) -> bool:
+    # A zero-priced ordinary model is not a free endpoint.  The exact :free
+    # suffix is part of the safety contract and must be checked independently.
+    if not str(entry.get("id", "")).strip().endswith(":free"):
+        return False
     pricing = entry.get("pricing")
     if not isinstance(pricing, Mapping):
         return False
@@ -122,6 +126,28 @@ def _zero_priced(entry: Mapping[str, Any]) -> bool:
         str(pricing.get("prompt", "")).strip() in ZERO_PRICES
         and str(pricing.get("completion", "")).strip() in ZERO_PRICES
     )
+
+
+def _supports_required_features(
+    role: Mapping[str, Any],
+    catalog_entry: Mapping[str, Any],
+    metadata: Mapping[str, Any],
+) -> bool:
+    required = set(role.get("required_features") or [])
+    params = set(catalog_entry.get("supported_parameters") or [])
+    if "tool_calling" in required and not {"tools", "tool_choice"} <= params:
+        return False
+    if "structured_output" in required and not ({"structured_outputs", "response_format"} & params):
+        return False
+    if "multimodal" in required:
+        modality = str(catalog_entry.get("architecture", {}).get("modality", ""))
+        if "image" not in modality and metadata.get("multimodal") is not True:
+            return False
+    context = catalog_entry.get("context_length")
+    required_context = role.get("minimum_context_length")
+    if required_context and isinstance(context, int) and context < int(required_context):
+        return False
+    return True
 
 
 def _listed_model_map(entries: Sequence[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
@@ -181,7 +207,17 @@ def resolve_role_model(
             continue
         if metadata.get("free_available") is not True and not allow_paid:
             continue
-        if metadata.get("status") in {"deprecated", "disabled", "candidate_paid_requires_approval"} and not allow_paid:
+        if metadata.get("status") in {
+            "deprecated",
+            "disabled",
+            "candidate_paid_requires_approval",
+            "FREE_CATALOG_ONLY",
+            "FREE_ENDPOINT_UNAVAILABLE",
+            "FREE_RATE_LIMITED",
+            "MODEL_NOT_FOUND",
+        } and not allow_paid:
+            continue
+        if not _supports_required_features(role, catalog_entry, metadata):
             continue
         return {
             "role": role_name,
