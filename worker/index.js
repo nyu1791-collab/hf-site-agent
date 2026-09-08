@@ -956,24 +956,46 @@ function branchPath(branch) {
 }
 __name(branchPath, "branchPath");
 async function github(env, path, init = {}) {
-  let response;
-  try {
-    response = await fetchWithTimeout(`https://api.github.com/repos/${SAFE_REPOSITORY}${path}`, {
-      ...init,
-      headers: {
-        accept: "application/vnd.github+json",
-        authorization: `Bearer ${env.GITHUB_TOKEN}`,
-        "x-github-api-version": "2022-11-28",
-        ...init.headers || {}
+  const method = String(init.method || "GET").toUpperCase();
+  const retryableMethod = method === "GET" || method === "HEAD";
+  const maxRetries = retryableMethod ? asInt(env.GITHUB_MAX_RETRIES, 1, 0, 2) : 0;
+  const maxRetrySeconds = asInt(env.GITHUB_MAX_RETRY_SECONDS, 3, 0, 5);
+  const timeoutMs = asInt(env.GITHUB_TIMEOUT_MS, 12000, 3000, 30000);
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    let response;
+    try {
+      response = await fetchWithTimeout(`https://api.github.com/repos/${SAFE_REPOSITORY}${path}`, {
+        ...init,
+        headers: {
+          accept: "application/vnd.github+json",
+          authorization: `Bearer ${env.GITHUB_TOKEN}`,
+          "x-github-api-version": "2022-11-28",
+          ...init.headers || {}
+        }
+      }, timeoutMs);
+    } catch (error) {
+      if (retryableMethod && attempt < maxRetries && error?.code === "TIMEOUT") {
+        const waitSeconds = Math.min(maxRetrySeconds, 2 ** attempt);
+        log("github_retry", { path, method, reason: "timeout", attempt: attempt + 1, waitSeconds });
+        if (waitSeconds > 0) await sleep(waitSeconds * 1000);
+        continue;
       }
-    }, asInt(env.GITHUB_TIMEOUT_MS, 12000, 3000, 30000));
-  } catch (error) {
-    if (error?.code === "TIMEOUT") throw new HttpError(504, "GitHubへの接続がタイムアウトしました。", { retryable: true });
-    throw new HttpError(502, "GitHubへの接続に失敗しました。");
+      if (error?.code === "TIMEOUT") throw new HttpError(504, "GitHubへの接続がタイムアウトしました。", { retryable: true });
+      throw new HttpError(502, "GitHubへの接続に失敗しました。");
+    }
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) return data;
+    const transient = response.status === 429 || response.status >= 500;
+    if (retryableMethod && transient && attempt < maxRetries) {
+      const retryAfter = Number(response.headers.get("retry-after"));
+      const waitSeconds = Number.isFinite(retryAfter) && retryAfter >= 0 ? Math.min(retryAfter, maxRetrySeconds) : Math.min(maxRetrySeconds, 2 ** attempt);
+      log("github_retry", { path, method, status: response.status, attempt: attempt + 1, waitSeconds });
+      if (waitSeconds > 0) await sleep(waitSeconds * 1000);
+      continue;
+    }
+    throw new HttpError(502, "GitHub側で処理に失敗しました。しばらく待って再実行してください。", { providerStatus: response.status, providerCode: data?.documentation_url ? "documentation_available" : "provider_error" });
   }
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new HttpError(502, "GitHub側で処理に失敗しました。しばらく待って再実行してください。", { providerStatus: response.status, providerCode: data?.documentation_url ? "documentation_available" : "provider_error" });
-  return data;
+  throw new HttpError(502, "GitHub側で処理に失敗しました。しばらく待って再実行してください。");
 }
 __name(github, "github");
 async function getBranchSha(env, branch) {
