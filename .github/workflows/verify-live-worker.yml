@@ -78,8 +78,8 @@ jobs:
           const source = fs.readFileSync(".github/workflows/connect-hf-inference.yml", "utf8");
           for (const required of [
             "secrets.HF_TOKEN",
-            "name:"HF_TOKEN"",
-            "name:"HF_INFERENCE_ENABLED"",
+            'name:"HF_TOKEN"',
+            'name:"HF_INFERENCE_ENABLED"',
             "free-credit-only review lane",
             "Hugging Face free credits are exhausted",
             "workers/scripts/$WORKER_NAME/secrets"
