@@ -1,13 +1,8 @@
 name: Probe exact OpenRouter free endpoints
 
 on:
+  # This probe is deliberately manual: one run performs one request per exact ID.
   workflow_dispatch:
-  push:
-    branches:
-      - codex/model-registry-hierarchy
-    paths:
-      - "scripts/probe_free_models.py"
-      - ".github/workflows/probe-free-models.yml"
 
 permissions:
   contents: read
