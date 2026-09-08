@@ -784,6 +784,15 @@ def main() -> int:
         if not role_candidates(registry, role_name, model):
             fail(f"{label} is not an approved candidate for its role.")
 
+    mission_id_for_budget = os.environ.get(
+        "MISSION_ID",
+        stable_id("MISSION", {"brief": brief, "context": context}),
+    )
+    os.environ["MISSION_ID"] = mission_id_for_budget
+    try:
+        FreeUsageLedger().reserve(mission_id_for_budget, 2)
+    except FreeQuotaBlocked as exc:
+        fail(f"Free quota reservation blocked: {exc.reason}")
     planner_system = (
         "あなたは総合・作戦司令官です。これは司令部へ渡す読み取り専用の設計会議です。"
         "利用者価値、需要仮説、実装の小さな単位を整理し、下位専門AIへ渡せる指示案と成果物ドラフトを作ってください。"
@@ -833,6 +842,10 @@ def main() -> int:
         critic_system,
         critic_prompt,
     )
+    try:
+        FreeUsageLedger().release(mission_id_for_budget)
+    except Exception:
+        pass
     planner = (
         planner_call.get("response", {})
         if planner_call.get("ok") is True and planner_call.get("valid") is True
