@@ -68,15 +68,16 @@ OpenRouterのAPIキーはHugging Faceのプリセットではありません。G
 
 ## 4. 中国AI分担会議（planner → critic）
 
-設計課題を中国系の無料モデルへ分担させる読み取り専用Workflowです。Qwen系plannerが最小案を作り、DeepSeek系criticが同じ案を反対検証します。司令部が結果を確認してから、採用する変更だけをPRにします。
+設計課題を役割別の無料モデルへ分担させる読み取り専用Workflowです。ROLE_GENERAL_COMMANDERが総合作戦案を作り、ROLE_ENGINEERING_COMMANDERが技術・品質を反対検証します。司令部が結果を確認してから、採用する変更だけをPRにします。
 
 - [中国AI分担Workflow](https://github.com/nyu1791-collab/hf-site-agent/actions/workflows/agent-delegation.yml)
 - Branch: `main`
 - `confirm=DELEGATE`
 - Brief: 3000文字以内（秘密値を書かない）
 - Context: 6000文字以内（任意）
-- Planner model: `qwen/qwen3-32b:free`
-- Critic model: `deepseek/deepseek-chat-v3-0324:free`
+- General commander model: `config/model_registry.json`のROLE_GENERAL_COMMANDER候補
+- Engineering commander model: `config/model_registry.json`のROLE_ENGINEERING_COMMANDER候補
+- 両ロールは無料・同役割・カタログ掲載・価格0を再確認できるまでinactiveで、無料候補がない場合はmodel_calls=0で停止
 
 1回の実行は2回の短いAPI呼び出し（各最大320 tokens、タイムアウト12秒、リトライ0）だけです。自動フォールバック、リポジトリ変更、デプロイ、公開、YouTube、決済、有料検索は行いません。402・429・タイムアウト時は停止します。
 
@@ -92,7 +93,7 @@ OpenRouterのAPIキーはHugging Faceのプリセットではありません。G
 1. 業種テンプレートを選択。
 2. 必要なら「引用付きコンテンツ計画」で無料検索を明示選択。
 3. コードを生成。
-4. DeepSeekレビューを実行。
+4. ROLE_ENGINEERING_COMMANDERの技術レビューを実行。
 5. 内容を確認し、チェックを入れてからPush。
 6. 次回は「前回内容を再利用」で更新。
 7. 生成・計画・レビュー・更新再利用・承認Pushの回数を端末内で確認。
