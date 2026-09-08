@@ -2,7 +2,7 @@
   "mission_id": "MISSION-FIXTURE",
   "command_id": "MISSION-FIXTURE-T01",
   "parent_command_id": "MISSION-FIXTURE-C01",
-  "parent_agent_id": "qwen-planner",
+  "parent_agent_id": "glm-general-commander",
   "child_agent_id": "content-specialist",
   "owner_agent_id": "content-specialist",
   "rank": 2,
