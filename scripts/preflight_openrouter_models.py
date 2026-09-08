@@ -140,15 +140,19 @@ def _resolve_model(
     role: str,
     requested: str,
 ) -> tuple[str, str, list[str]]:
+    prefix = FAMILY_PREFIXES[role]
     by_id = {
         model_id: entry
         for entry in entries
         for model_id in [_safe_model_id(entry.get("id"))]
         if model_id
     }
-    if requested and requested in by_id and _is_zero_priced(by_id[requested]):
-        return requested, "requested_ready", _family_candidates(entries, role)
     candidates = _family_candidates(entries, role)
+    requested_is_family_free = requested.startswith(prefix) and requested.endswith(":free")
+    if not requested_is_family_free:
+        return "", "requested_model_wrong_family_or_generic", candidates
+    if requested in by_id and _is_zero_priced(by_id[requested]):
+        return requested, "requested_ready", candidates
     if candidates:
         return candidates[0], "family_candidate_selected", candidates
     if requested not in by_id:
