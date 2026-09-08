@@ -123,9 +123,9 @@ class FreeModelPreflightTests(unittest.TestCase):
                 "PLANNER_MODEL": "qwen/expired:free",
                 "CRITIC_MODEL": "deepseek/expired:free",
                 "GITHUB_OUTPUT": str(output_file),
-                "COMMANDER_PACKET_PATH": str(packet_file),
+                "COMMANDER_PACKET_PATH": "packet.json",
             }
-            with patch.dict(os.environ, env, clear=False), patch.object(preflight, "_catalog", return_value=entries):
+            with contextlib.chdir(directory), patch.dict(os.environ, env, clear=False), patch.object(preflight, "_catalog", return_value=entries):
                 self.assertEqual(preflight.main(), 0)
             output = output_file.read_text(encoding="utf-8")
             self.assertIn("ready=false\n", output)
