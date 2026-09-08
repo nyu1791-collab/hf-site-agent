@@ -22,7 +22,7 @@ jobs:
           python-version: "3.12"
       - name: Send one exact-ID request per model
         env:
-          AI_API_KEY: \${{ secrets.AI_API_KEY }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
           FREE_PROBE_OUTPUT: artifacts/free_model_probe.json
         run: python scripts/probe_free_models.py
       - name: Validate public probe report
