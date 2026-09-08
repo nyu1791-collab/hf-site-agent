@@ -1,0 +1,60 @@
+{
+  "ok": true,
+  "status": "awaiting_commander_approval",
+  "mode": "planner_critic_with_downstream_handoff",
+  "authority": {
+    "commander": "final_decision_and_execution",
+    "execution_allowed": false,
+    "required_confirmation": "COMMANDER_APPROVE",
+    "subagents_cannot": [
+      "repository_write",
+      "deploy_or_publish",
+      "secret_or_binding_change",
+      "payment_or_paid_search",
+      "YouTube_upload"
+    ]
+  },
+  "proposal": {
+    "summary": "需要仮説とMVPの下書き"
+  },
+  "critique": {
+    "verdict": "根拠を確認してから採用"
+  },
+  "delegated_instructions": [
+    {
+      "id": "research-01",
+      "role": "research",
+      "instruction": "無料枠で需要の根拠を整理する",
+      "inputs": [
+        "公開情報"
+      ],
+      "deliverable": "出典付き仮説",
+      "acceptance_tests": [
+        "URLと日付がある"
+      ],
+      "execution_mode": "read_only_draft",
+      "requires_commander_approval": true,
+      "execution_allowed": false,
+      "safety_flags": []
+    }
+  ],
+  "artifact": {
+    "type": "design_draft",
+    "title": "司令部レビュー用",
+    "content": "権利と費用を確認してから小さく検証する",
+    "status": "draft_awaiting_commander_review"
+  },
+  "handoff": {
+    "recipient": "司令部",
+    "execution_allowed": false
+  },
+  "budget": {
+    "provider": "openrouter",
+    "calls": 2,
+    "max_tokens_per_call": 320,
+    "timeout_seconds": 12,
+    "automatic_fallback": false,
+    "paid_search": "disabled"
+  },
+  "packet_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+}

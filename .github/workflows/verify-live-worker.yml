@@ -22,6 +22,15 @@ on:
       - "scripts/agent_delegation.py"
       - "scripts/agent_executor.py"
       - "docs/PRODUCT_DISCOVERY.md"
+      - "docs/OSS_OPTIMIZATION_PLAN.md"
+      - "docs/MEDIA_PIPELINE.md"
+      - "schemas/commander_packet.schema.json"
+      - "schemas/agent_task_packet.schema.json"
+      - "schemas/media_pipeline_plan.schema.json"
+      - "scripts/validate_agent_packets.py"
+      - "tests/fixtures/commander_packet.example.json"
+      - "tests/fixtures/agent_task_packet.example.json"
+      - "tests/fixtures/media_pipeline_plan.example.json"
       - "docs/SETUP_FLOW.md"
   push:
     branches:
@@ -45,6 +54,15 @@ on:
       - "scripts/agent_delegation.py"
       - "scripts/agent_executor.py"
       - "docs/PRODUCT_DISCOVERY.md"
+      - "docs/OSS_OPTIMIZATION_PLAN.md"
+      - "docs/MEDIA_PIPELINE.md"
+      - "schemas/commander_packet.schema.json"
+      - "schemas/agent_task_packet.schema.json"
+      - "schemas/media_pipeline_plan.schema.json"
+      - "scripts/validate_agent_packets.py"
+      - "tests/fixtures/commander_packet.example.json"
+      - "tests/fixtures/agent_task_packet.example.json"
+      - "tests/fixtures/media_pipeline_plan.example.json"
       - "docs/SETUP_FLOW.md"
 
 permissions:
@@ -600,3 +618,42 @@ jobs:
           done
           echo "Deployed Worker did not expose the Hugging Face review integration." >&2
           exit 1
+
+
+      - name: Check OSS-informed typed packet contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/validate_agent_packets.py
+          python3 scripts/validate_agent_packets.py \
+            --schema schemas/commander_packet.schema.json \
+            --schema schemas/agent_task_packet.schema.json \
+            --schema schemas/media_pipeline_plan.schema.json \
+            --commander tests/fixtures/commander_packet.example.json \
+            --agent tests/fixtures/agent_task_packet.example.json \
+            --media tests/fixtures/media_pipeline_plan.example.json
+          node <<'NODE'
+          const fs = require("node:fs");
+          const oss = fs.readFileSync("docs/OSS_OPTIMIZATION_PLAN.md", "utf8");
+          const media = fs.readFileSync("docs/MEDIA_PIPELINE.md", "utf8");
+          for (const marker of [
+            "MoneyPrinterTurbo",
+            "smolagents",
+            "Pydantic",
+            "FFmpeg",
+            "権利マニフェスト",
+            "月数百円"
+          ]) {
+            if (!oss.includes(marker)) throw new Error("OSS plan is missing: " + marker);
+          }
+          for (const marker of [
+            "Rights manifest",
+            "Whisper",
+            "yt-dlp",
+            "9:16",
+            "YouTube投稿"
+          ]) {
+            if (!media.includes(marker)) throw new Error("Media pipeline plan is missing: " + marker);
+          }
+          console.log("OSS-informed typed packet and media design contract passed.");
+          NODE
