@@ -17,7 +17,7 @@ on:
         default: ""
         type: string
       model:
-        description: Free OpenRouter model ID (default is the free router)
+        description: "Free OpenRouter model ID; use openrouter/free unless a free model is verified"
         required: true
         default: openrouter/free
         type: string
