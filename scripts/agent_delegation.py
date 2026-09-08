@@ -21,7 +21,7 @@ from typing import Any
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 try:
-    from scripts.model_registry import load_registry, role_candidates
+    from scripts.model_registry import load_registry, role_candidates, role_config
     from scripts.agent_runtime import (
         AgentRegistry,
         ReportEnvelope,
@@ -31,7 +31,7 @@ try:
         stable_id,
     )
 except ModuleNotFoundError:  # pragma: no cover - when invoked from scripts/
-    from model_registry import load_registry, role_candidates
+    from model_registry import load_registry, role_candidates, role_config
     from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 
 MAX_BRIEF = 3000
@@ -731,6 +731,8 @@ def main() -> int:
             fail(f"{label} must be an explicitly free model ID.")
         if len(model) > MAX_MODEL_CHARS:
             fail(f"{label} is too long.")
+        if role_config(registry, role_name).get("active") is not True:
+            fail(f"{label} role is inactive pending commander approval.")
         if not role_candidates(registry, role_name, model):
             fail(f"{label} is not an approved candidate for its role.")
 
