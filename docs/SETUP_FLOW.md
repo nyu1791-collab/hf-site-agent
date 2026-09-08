@@ -111,3 +111,16 @@ PlannerとCriticは、提案だけでなく、下位専門AIへ渡す作業指�
 5. 司令部が成果物を再検査し、採用したコードだけをPR化する。
 
 Specialistの役割は `research`、`product`、`content`、`video`、`code`、`qa`、`metrics` です。下位AIが作る指示にも `requires_commander_approval=true` と `execution_allowed=false` が付くため、勝手な連鎖実行は起きません。リポジトリ書込み、デプロイ、公開、秘密値変更、決済、課金検索、YouTube投稿は司令部の別承認なしには実行できません。
+
+
+## 8. OSS構造と動画計画
+
+既存OSSの構造を取り入れた設計方針は [OSS_OPTIMIZATION_PLAN.md](OSS_OPTIMIZATION_PLAN.md)、将来のColab用動画パイプラインは [MEDIA_PIPELINE.md](MEDIA_PIPELINE.md) にまとめています。
+
+- MoneyPrinterTurboの段階分離を参考にし、テーマ・脚本・素材・字幕・QAを別工程にする。
+- smolagentsの考え方を参考にし、調査とQAは構造化した作業指示、コード案は下書きだけにする。
+- Pydantic互換のJSON Schemaを正本にし、契約違反・秘密値らしき出力・承認前の実行をActionsで止める。
+- FFmpeg/MoviePyとWhisperは本番Workerではなく、利用者が開始したColab等でのみ使う。
+- 権利確認・独自性確認・司令部承認が揃わない素材はレンダリング・公開しない。
+
+この文書の手順で実行する外部AIは提案と成果物作成を担当します。YouTube投稿、決済、自動チャージ、課金検索は別承認なしには実行しません。
