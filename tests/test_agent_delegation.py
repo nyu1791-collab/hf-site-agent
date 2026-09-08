@@ -109,8 +109,8 @@ class FreeModelPreflightTests(unittest.TestCase):
 
     def test_resolves_same_role_zero_priced_models_and_writes_outputs(self):
         entries = [
-            {"id": "thinkingmachines/inkling:free", "pricing": {"prompt": "0", "completion": "0"}},
-            {"id": "poolside/laguna-s-2.1:free", "pricing": {"prompt": "0", "completion": "0"}},
+            {"id": "z-ai/glm-5.3-flash:free", "pricing": {"prompt": "0", "completion": "0"}},
+            {"id": "deepseek/deepseek-v4-flash:free", "pricing": {"prompt": "0", "completion": "0"}},
         ]
         with tempfile.TemporaryDirectory() as directory:
             output_file = Path(directory) / "github_output"
@@ -121,8 +121,8 @@ class FreeModelPreflightTests(unittest.TestCase):
                 self.assertEqual(preflight.main(), 0)
             output = output_file.read_text(encoding="utf-8")
             self.assertIn("ready=true\n", output)
-            self.assertIn("general_model=thinkingmachines/inkling:free\n", output)
-            self.assertIn("engineering_model=poolside/laguna-s-2.1:free\n", output)
+            self.assertIn("general_model=z-ai/glm-5.3-flash:free\n", output)
+            self.assertIn("engineering_model=deepseek/deepseek-v4-flash:free\n", output)
             packet = json.loads(packet_file.read_text(encoding="utf-8"))
             self.assertFalse(packet["execution_allowed"])
             self.assertEqual(packet["model_calls"], 0)
@@ -133,7 +133,7 @@ class FreeModelPreflightTests(unittest.TestCase):
             {"id": "poolside/laguna-s-2.1:free", "pricing": {"prompt": "0", "completion": "0"}},
         ]
         env = self._env(Path("github_output"))
-        env["GENERAL_COMMANDER_MODEL"] = "poolside/laguna-s-2.1:free"
+        env["GENERAL_COMMANDER_MODEL"] = "deepseek/deepseek-v4-flash:free"
         with tempfile.TemporaryDirectory() as directory:
             output_file = Path(directory) / "github_output"
             env["GITHUB_OUTPUT"] = str(output_file)
