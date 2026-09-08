@@ -1,4 +1,6 @@
 import contextlib
+import copy
+import json
 import os
 import tempfile
 import unittest
@@ -13,7 +15,7 @@ class CommanderDelegationTests(unittest.TestCase):
     def test_parallel_calls_keep_partial_success(self):
         planner_payload = {"summary": "案", "work_orders": [], "requires_commander_approval": True}
         results = {
-            "qwen-model": {
+            "general-model": {
                 "ok": True,
                 "status": "completed",
                 "response": planner_payload,
@@ -21,7 +23,7 @@ class CommanderDelegationTests(unittest.TestCase):
                 "provider_status": 200,
                 "valid": False,
             },
-            "deepseek-model": {
+            "engineering-model": {
                 "ok": False,
                 "status": "failed",
                 "error_code": "model_not_found",
@@ -37,10 +39,10 @@ class CommanderDelegationTests(unittest.TestCase):
 
         with patch.object(agent_delegation, "call_agent", side_effect=fake_call):
             planner, critic = agent_delegation.run_parallel_commanders(
-                "qwen-model",
+                "general-model",
                 "system",
                 "prompt",
-                "deepseek-model",
+                "engineering-model",
                 "system",
                 "prompt",
             )
@@ -61,10 +63,10 @@ class CommanderDelegationTests(unittest.TestCase):
         }
         with patch.object(agent_delegation, "call_agent", return_value=result):
             planner, critic = agent_delegation.run_parallel_commanders(
-                "qwen-model",
+                "general-model",
                 "system",
                 "prompt",
-                "deepseek-model",
+                "engineering-model",
                 "system",
                 "prompt",
             )
@@ -82,75 +84,82 @@ class CommanderDelegationTests(unittest.TestCase):
                 payload,
             ],
         ):
-            result = agent_delegation.call_agent("deepseek-model", "system", "prompt")
+            result = agent_delegation.call_agent("engineering-model", "system", "prompt")
         self.assertTrue(result["ok"])
         self.assertEqual(result["attempts"], 2)
         self.assertEqual(result["response"], payload)
 
 
 class FreeModelPreflightTests(unittest.TestCase):
-    def test_resolves_same_family_zero_priced_models_and_writes_outputs(self):
+    def _active_registry(self):
+        from scripts.model_registry import load_registry
+
+        registry = copy.deepcopy(load_registry())
+        registry["roles"]["ROLE_GENERAL_COMMANDER"]["active"] = True
+        registry["roles"]["ROLE_ENGINEERING_COMMANDER"]["active"] = True
+        return registry
+
+    def _env(self, output_file):
+        return {
+            "GENERAL_COMMANDER_MODEL": "",
+            "ENGINEERING_COMMANDER_MODEL": "",
+            "GITHUB_OUTPUT": str(output_file),
+            "COMMANDER_PACKET_PATH": "packet.json",
+        }
+
+    def test_resolves_same_role_zero_priced_models_and_writes_outputs(self):
         entries = [
-            {"id": "qwen/fresh:free", "pricing": {"prompt": "0", "completion": "0"}},
-            {"id": "deepseek/fresh:free", "pricing": {"prompt": "0", "completion": "0"}},
+            {"id": "thinkingmachines/inkling:free", "pricing": {"prompt": "0", "completion": "0"}},
+            {"id": "poolside/laguna-s-2.1:free", "pricing": {"prompt": "0", "completion": "0"}},
         ]
         with tempfile.TemporaryDirectory() as directory:
             output_file = Path(directory) / "github_output"
             packet_file = Path(directory) / "packet.json"
-            env = {
-                "PLANNER_MODEL": "qwen/expired:free",
-                "CRITIC_MODEL": "deepseek/expired:free",
-                "GITHUB_OUTPUT": str(output_file),
-                "COMMANDER_PACKET_PATH": "packet.json",
-            }
-            with contextlib.chdir(directory), patch.dict(os.environ, env, clear=False), patch.object(preflight, "_catalog", return_value=entries):
+            with contextlib.chdir(directory), patch.dict(os.environ, self._env(output_file), clear=True), patch.object(
+                preflight, "_catalog", return_value=entries
+            ), patch.object(preflight, "load_registry", return_value=self._active_registry()):
                 self.assertEqual(preflight.main(), 0)
             output = output_file.read_text(encoding="utf-8")
             self.assertIn("ready=true\n", output)
-            self.assertIn("planner_model=qwen/fresh:free\n", output)
-            self.assertIn("critic_model=deepseek/fresh:free\n", output)
-            self.assertFalse(packet_file.exists())
-
-    def test_rejects_cross_family_requested_model_even_when_free(self):
-        entries = [
-            {"id": "qwen/fresh:free", "pricing": {"prompt": "0", "completion": "0"}},
-            {"id": "deepseek/fresh:free", "pricing": {"prompt": "0", "completion": "0"}},
-        ]
-        with tempfile.TemporaryDirectory() as directory:
-            output_file = Path(directory) / "github_output"
-            packet_file = Path(directory) / "packet.json"
-            env = {
-                "PLANNER_MODEL": "deepseek/fresh:free",
-                "CRITIC_MODEL": "deepseek/fresh:free",
-                "GITHUB_OUTPUT": str(output_file),
-                "COMMANDER_PACKET_PATH": "packet.json",
-            }
-            with contextlib.chdir(directory), patch.dict(os.environ, env, clear=False), patch.object(preflight, "_catalog", return_value=entries):
-                self.assertEqual(preflight.main(), 0)
-            packet = __import__("json").loads(packet_file.read_text(encoding="utf-8"))
-            self.assertEqual(packet["status"], "blocked")
-            self.assertEqual(packet["details"]["planner"], "requested_model_wrong_family_or_generic")
+            self.assertIn("general_model=thinkingmachines/inkling:free\n", output)
+            self.assertIn("engineering_model=poolside/laguna-s-2.1:free\n", output)
+            packet = json.loads(packet_file.read_text(encoding="utf-8"))
+            self.assertFalse(packet["execution_allowed"])
             self.assertEqual(packet["model_calls"], 0)
 
-    def test_blocks_without_free_family_candidate_and_writes_valid_json(self):
+    def test_rejects_cross_role_requested_model_even_when_free(self):
         entries = [
-            {"id": "qwen/paid", "pricing": {"prompt": "0.1", "completion": "0.2"}},
-            {"id": "deepseek/paid", "pricing": {"prompt": "0.1", "completion": "0.2"}},
+            {"id": "thinkingmachines/inkling:free", "pricing": {"prompt": "0", "completion": "0"}},
+            {"id": "poolside/laguna-s-2.1:free", "pricing": {"prompt": "0", "completion": "0"}},
+        ]
+        env = self._env(Path("github_output"))
+        env["GENERAL_COMMANDER_MODEL"] = "poolside/laguna-s-2.1:free"
+        with tempfile.TemporaryDirectory() as directory:
+            output_file = Path(directory) / "github_output"
+            env["GITHUB_OUTPUT"] = str(output_file)
+            with contextlib.chdir(directory), patch.dict(os.environ, env, clear=True), patch.object(
+                preflight, "_catalog", return_value=entries
+            ), patch.object(preflight, "load_registry", return_value=self._active_registry()):
+                self.assertEqual(preflight.main(), 0)
+            packet = json.loads(Path("packet.json").read_text(encoding="utf-8"))
+            self.assertEqual(packet["status"], "blocked")
+            self.assertEqual(packet["details"]["ROLE_GENERAL_COMMANDER"]["reason"], "requested_model_not_allowed_for_role")
+            self.assertEqual(packet["model_calls"], 0)
+
+    def test_blocks_without_free_role_candidate_and_writes_valid_json(self):
+        entries = [
+            {"id": "z-ai/glm-5.3-flash", "pricing": {"prompt": "0.1", "completion": "0.2"}},
+            {"id": "deepseek/deepseek-v4-flash-0731", "pricing": {"prompt": "0.1", "completion": "0.2"}},
         ]
         with tempfile.TemporaryDirectory() as directory:
             output_file = Path(directory) / "github_output"
-            packet_file = Path(directory) / "packet.json"
-            env = {
-                "PLANNER_MODEL": "qwen/expired:free",
-                "CRITIC_MODEL": "deepseek/expired:free",
-                "GITHUB_OUTPUT": str(output_file),
-                "COMMANDER_PACKET_PATH": "packet.json",
-            }
-            with contextlib.chdir(directory), patch.dict(os.environ, env, clear=False), patch.object(preflight, "_catalog", return_value=entries):
+            with contextlib.chdir(directory), patch.dict(os.environ, self._env(output_file), clear=True), patch.object(
+                preflight, "_catalog", return_value=entries
+            ), patch.object(preflight, "load_registry", return_value=self._active_registry()):
                 self.assertEqual(preflight.main(), 0)
             output = output_file.read_text(encoding="utf-8")
             self.assertIn("ready=false\n", output)
-            packet = __import__("json").loads(packet_file.read_text(encoding="utf-8"))
+            packet = json.loads(Path("packet.json").read_text(encoding="utf-8"))
             self.assertEqual(packet["status"], "blocked")
             self.assertEqual(packet["model_calls"], 0)
             self.assertFalse(packet["execution_allowed"])
