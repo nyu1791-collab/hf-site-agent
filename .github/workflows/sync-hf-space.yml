@@ -1,5 +1,7 @@
 name: Sync Hugging Face Space frontend safely
 
+# A reviewed frontend sync is allowed here once HF_SPACE_WRITE_TOKEN is present.
+
 on:
   workflow_dispatch:
     inputs:
