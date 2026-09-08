@@ -1,0 +1,74 @@
+name: Verify hierarchical command runtime
+
+on:
+  pull_request:
+    paths:
+      - "scripts/agent_runtime.py"
+      - "scripts/validate_hierarchy.py"
+      - "schemas/command_envelope.schema.json"
+      - "schemas/report_envelope.schema.json"
+      - "tests/test_agent_runtime.py"
+      - "tests/fixtures/command_envelope.json"
+      - "tests/fixtures/report_envelope.json"
+      - "docs/HIERARCHICAL_RUNTIME.md"
+      - ".github/workflows/verify-hierarchical-runtime.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/agent_runtime.py"
+      - "scripts/validate_hierarchy.py"
+      - "schemas/command_envelope.schema.json"
+      - "schemas/report_envelope.schema.json"
+      - "tests/test_agent_runtime.py"
+      - "tests/fixtures/command_envelope.json"
+      - "tests/fixtures/report_envelope.json"
+      - "docs/HIERARCHICAL_RUNTIME.md"
+      - ".github/workflows/verify-hierarchical-runtime.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hierarchical-runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  runtime-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source without write credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Compile deterministic runtime
+        run: python -m py_compile scripts/agent_runtime.py scripts/validate_hierarchy.py tests/test_agent_runtime.py
+      - name: Validate JSON schemas and fixtures
+        run: |
+          python -m json.tool schemas/command_envelope.schema.json >/dev/null
+          python -m json.tool schemas/report_envelope.schema.json >/dev/null
+          python scripts/validate_hierarchy.py \
+            --command tests/fixtures/command_envelope.json \
+            --report tests/fixtures/report_envelope.json
+      - name: Run runtime tests
+        run: python -m unittest discover -s tests -p 'test_agent_runtime.py' -v
+      - name: Assert chain of command and least privilege
+        run: |
+          python - <<'PY'
+          from scripts.agent_runtime import AgentRegistry
+
+          registry = AgentRegistry()
+          assert registry.can_dispatch("chatgpt-work", "qwen-planner")
+          assert registry.can_dispatch("chatgpt-work", "deepseek-critic")
+          assert not registry.can_dispatch("qwen-planner", "deepseek-critic")
+          assert not registry.can_dispatch("content-specialist", "qwen-planner")
+          assert not registry.get("content-worker").may_spawn_children
+          assert "github_write" not in registry.get("research-specialist").allowed_tools
+          print(registry.tree())
+          PY
+
