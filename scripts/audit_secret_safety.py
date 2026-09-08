@@ -25,7 +25,11 @@ SECRET_ASSIGNMENT = re.compile(
     r"\b\s*[:=]\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s,;}]+))"
 )
 SECRET_TOKEN = re.compile(
-    r"(?i)(?<![A-Za-z0-9])(?:bearer\s+|(?:sk|gsk|ghp|github_pat|sk-or-v1)[_-]|hf_)[A-Za-z0-9._~+/=-]{12,}"
+    r"(?<![A-Za-z0-9])(?:"
+    r"[Bb]earer\s+[A-Za-z0-9._~+/=-]{12,}"
+    r"|(?:sk|gsk|ghp|github_pat|sk-or-v1)[_-][A-Za-z0-9._~+/=-]{12,}"
+    r"|hf_[A-Za-z0-9]{12,}"
+    r")"
 )
 SECRET_OUTPUT = re.compile(r"(?i)\b(?:echo|printf|print|console\.(?:log|error))\b.*\$\{\{\s*secrets\.")
 PLAIN_TEXT = re.compile(r"(?i)[\"'](?:type|kind)[\"']\s*:\s*[\"']plain[_-]?text[\"']")

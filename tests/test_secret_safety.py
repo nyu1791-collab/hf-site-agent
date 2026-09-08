@@ -50,6 +50,18 @@ class SecretSafetyTests(unittest.TestCase):
             findings = audit_secret_safety.scan_paths(Path(directory))
             self.assertEqual({finding.kind for finding in findings}, {"secret_output"})
 
+    def test_provider_names_and_error_labels_are_not_secret_tokens(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "safe.js"
+            path.write_text(
+                "const env = HF_INFERENCE_API_KEY;\n"
+                "const pattern = 'hf_[A-Za-z0-9_-]{12,}';\n"
+                "log('hf_network_error');\n"
+                "log('hf_review_unavailable');\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(audit_secret_safety.scan_paths(Path(directory)), [])
+
 
 if __name__ == "__main__":
     unittest.main()
