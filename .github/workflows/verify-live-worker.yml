@@ -405,7 +405,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          needle='$'
+          needle='\'
+          needle="${needle}$"
           needle="${needle}{{"
           for workflow in .github/workflows/agent-delegation.yml .github/workflows/agent-execution.yml; do
             if grep -Fq "$needle" "$workflow"; then
@@ -421,7 +422,7 @@ jobs:
           const delegationWorkflow = fs.readFileSync(".github/workflows/agent-delegation.yml", "utf8");
           const executionWorkflow = fs.readFileSync(".github/workflows/agent-execution.yml", "utf8");
           const docs = fs.readFileSync("docs/SETUP_FLOW.md", "utf8");
-          const escapedExpression = "$" + "{{";
+          const escapedExpression = "\\" + "$" + "{{";
           if (delegationWorkflow.includes(escapedExpression) || executionWorkflow.includes(escapedExpression)) {
             throw new Error("Workflow contains an escaped GitHub expression.");
           }
