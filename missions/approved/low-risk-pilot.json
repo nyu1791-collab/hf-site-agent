@@ -6,8 +6,6 @@
   "risk": "low",
   "brief": "架空の朝の習慣アプリの紹介ページと30秒説明動画について、低リスクな改善案を3つ作る。実在サービス・公開・決済・コード変更は扱わない。",
   "context": "外部検索なし。日本語。各案に目的、入力、成果物、受け入れテスト、リスクを付ける。司令部承認前は実行不可。",
-  "planner_model": "qwen/qwen3-30b-a3b:free",
-  "critic_model": "deepseek/deepseek-v4-flash:free",
   "external_search": false,
   "execution_allowed": false,
   "paid_fallback": false,
@@ -22,5 +20,8 @@
     "publish",
     "payment",
     "youtube"
-  ]
+  ],
+  "general_model": "z-ai/glm-5.3-flash",
+  "engineering_model": "deepseek/deepseek-v4-flash-0731",
+  "model_policy": "registry_primary_candidates_observed_paid_requires_approval"
 }
