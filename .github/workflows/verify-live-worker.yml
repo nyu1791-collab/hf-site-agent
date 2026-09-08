@@ -16,7 +16,9 @@ on:
       - "scripts/provider_smoke.py"
       - ".github/workflows/check-openai-compatible-provider.yml"
       - ".github/workflows/design-council.yml"
+      - ".github/workflows/agent-delegation.yml"
       - "scripts/design_council.py"
+      - "scripts/agent_delegation.py"
       - "docs/PRODUCT_DISCOVERY.md"
       - "docs/SETUP_FLOW.md"
   push:
@@ -35,7 +37,9 @@ on:
       - "scripts/provider_smoke.py"
       - ".github/workflows/check-openai-compatible-provider.yml"
       - ".github/workflows/design-council.yml"
+      - ".github/workflows/agent-delegation.yml"
       - "scripts/design_council.py"
+      - "scripts/agent_delegation.py"
       - "docs/PRODUCT_DISCOVERY.md"
       - "docs/SETUP_FLOW.md"
 
@@ -331,6 +335,66 @@ jobs:
             throw new Error("Product discovery rules must keep YouTube disabled and metrics local-first.");
           }
           console.log("Read-only design council safety contract passed.");
+          NODE
+
+      - name: Check bounded Chinese-AI delegation safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/agent_delegation.py
+          node <<'NODE'
+          const fs = require("node:fs");
+          const script = fs.readFileSync("scripts/agent_delegation.py", "utf8");
+          const workflow = fs.readFileSync(".github/workflows/agent-delegation.yml", "utf8");
+          const docs = fs.readFileSync("docs/SETUP_FLOW.md", "utf8");
+          for (const marker of [
+            "planner_then_critic",
+            "MAX_TOKENS_PER_CALL = 320",
+            "TIMEOUT_SECONDS = 12.0",
+            "max_retries=0",
+            "FREE_MODEL_RE",
+            "status == 402",
+            "redact(",
+            '"paid_search": "disabled"'
+          ]) {
+            if (!script.includes(marker)) throw new Error("Delegation script is missing: " + marker);
+          }
+          for (const marker of [
+            "workflow_dispatch:",
+            "DELEGATE",
+            "qwen/qwen3-32b:free",
+            "deepseek/deepseek-chat-v3-0324:free",
+            "secrets.AI_API_KEY",
+            "permissions:\n  contents: read",
+            "persist-credentials: false",
+            "no paid fallback"
+          ]) {
+            if (!workflow.includes(marker)) throw new Error("Delegation workflow is missing: " + marker);
+          }
+          for (const marker of [
+            "confirm=DELEGATE",
+            "qwen/qwen3-32b:free",
+            "deepseek/deepseek-chat-v3-0324:free",
+            "有料検索はこの自動保守では実行しません",
+            "YouTube"
+          ]) {
+            if (!docs.includes(marker)) throw new Error("Delegation setup docs are missing: " + marker);
+          }
+          for (const forbidden of [
+            "permissions: write",
+            "wrangler deploy",
+            "secrets.HF_TOKEN"
+          ]) {
+            if (workflow.includes(forbidden)) throw new Error("Delegation must remain read-only: " + forbidden);
+          }
+          for (const forbidden of [
+            "print(api_key",
+            "print(os.environ",
+            "print(response)"
+          ]) {
+            if (script.includes(forbidden)) throw new Error("Delegation may expose secret data: " + forbidden);
+          }
+          console.log("Bounded Chinese-AI delegation safety contract passed.");
           NODE
 
       - name: Check log redaction and external timeout guards

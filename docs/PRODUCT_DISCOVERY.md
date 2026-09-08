@@ -21,6 +21,18 @@ GitHub Actionsの [Design council safely](https://github.com/nyu1791-collab/hf-s
 - YouTube、決済、有料検索、秘密値を扱わない。
 - 回答を司令部が検証し、採用した変更だけを小さなPRにする。
 
+## 低コスト分担の運用
+
+設計課題が大きい場合は、[中国AI分担Workflow](https://github.com/nyu1791-collab/hf-site-agent/actions/workflows/agent-delegation.yml)を使います。Qwen系をplanner、DeepSeek系をcriticとして順番に1回ずつ呼び、司令部は2つの短い結果を検証して採用判断をします。
+
+- planner: `qwen/qwen3-32b:free`（要件分解・最小案）
+- critic: `deepseek/deepseek-chat-v3-0324:free`（反対意見・リスク・受け入れテスト）
+- 入力: main、`confirm=DELEGATE`、短いbrief/context
+- 制限: 各最大320 tokens、タイムアウト12秒、リトライ0、フォールバックなし
+- 外部AIは読み取り専用で、GitHub・Cloudflare・Hugging Face・YouTube・決済へ書き込みません。
+
+この方式はChatGPTへ長い中間文を渡さずに済みますが、API呼び出し自体が無料になるわけではありません。無料モデルを指定し、要約・呼び出し回数・上限を固定して総量を抑えます。Tavilyは無料枠・最大10件の明示検索だけを使い、有料検索は承認待ちにします。
+
 ## 需要仮説
 
 最初の検証対象は、次の3つです。
