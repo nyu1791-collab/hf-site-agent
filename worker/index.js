@@ -798,7 +798,7 @@ async function hfCompletionRequest(body, env, lane) {
         continue;
       }
     }
-    if (response.status === 401 || response.status === 403) throw new HttpError(502, "Check the Hugging Face token permissions.");
+    if (response.status === 401 || response.status === 403) throw new HttpError(502, "Hugging Face tokenにInference Providers権限がありません。Fine-grained tokenで「Make calls to Inference Providers」を有効にしてから再実行してください。", { providerStatus: response.status, providerCode });
     if (response.status === 402) throw new HttpError(402, "Hugging Face free credits are exhausted; the request was stopped without purchasing credits.", { paidDisabled: true });
     if (response.status === 429) throw new HttpError(429, "DeepSeek review is busy. Wait briefly and retry.", { retryAfterSeconds: hfRetryDelaySeconds(response, attempt) });
     throw new HttpError(502, "DeepSeek review failed.", { providerStatus: response.status, providerCode });

@@ -39,6 +39,39 @@ jobs:
           test -n "$ADMIN_PASSWORD"
           echo "Connection prerequisites are present; secret values are not printed."
 
+      - name: Verify Hugging Face token inference permission before Cloudflare changes
+        env:
+          HF_TOKEN_VALUE: ${{ secrets.HF_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="$RUNNER_TEMP/hf-inference-preflight.json"
+          status="$(curl --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            -o "$response_file" -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer $HF_TOKEN_VALUE" \
+            -H "Content-Type: application/json" \
+            --data '{"model":"deepseek-ai/DeepSeek-V4-Flash-0731:cheapest","messages":[{"role":"user","content":"Reply with OK."}],"temperature":0,"max_tokens":1,"stream":false}' \
+            "https://router.huggingface.co/v1/chat/completions")"
+          case "$status" in
+            2*)
+              echo "Hugging Face token inference permission verified; no token value was printed."
+              ;;
+            401|403)
+              echo "HF_TOKEN cannot call Inference Providers. Create a fine-grained token with 'Make calls to Inference Providers' enabled, replace the GitHub HF_TOKEN secret, and run this workflow again." >&2
+              exit 1
+              ;;
+            402)
+              echo "Hugging Face free credits are exhausted; no Cloudflare secret was changed." >&2
+              exit 1
+              ;;
+            *)
+              echo "Hugging Face token preflight failed (HTTP $status); no Cloudflare secret was changed." >&2
+              exit 1
+              ;;
+          esac
+
       - name: Store encrypted Hugging Face token
         env:
           ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -105,7 +138,7 @@ jobs:
               .inference.codeReview.enabled == true and
               (.inference.codeReview.missing | length == 0)
             ' >/dev/null 2>&1; then
-              printf '%s' "$health" | jq -c '{ok,version,inference:{provider,freeCreditOnly,codeReview}}'
+              printf '%s' "$health" | jq -c '{ok,version,inference:(.inference | {provider,freeCreditOnly,codeReview})}'
               exit 0
             fi
             sleep 2
@@ -133,7 +166,7 @@ jobs:
             exit 1
           fi
           if [[ "$status" != "2"* ]]; then
-            echo "Hugging Face review smoke test failed (HTTP $status)." >&2
+            echo "Hugging Face review failed (HTTP $status). For 401/403, replace HF_TOKEN with a fine-grained token that has Inference Providers permission." >&2
             jq -c '{error, requestId}' "$response_file" >&2 || true
             exit 1
           fi
