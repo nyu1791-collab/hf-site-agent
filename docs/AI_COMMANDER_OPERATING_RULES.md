@@ -7,7 +7,7 @@
 ## 役割
 
 - 司令部: タスク分解、優先順位付け、実行部隊への短い指示、最終検証、承認状態の管理。
-- 実行部隊: Qwen、DeepSeek、Groq、Hugging Face RouterなどのOpenAI互換API。大量生成やレビューを担当する。
+- 実行部隊: GLM、DeepSeek、Groq、Hugging Face RouterなどのOpenAI互換API。大量生成やレビューを担当する。
 - 専門レーン:
   - web_research: 公開情報の収集。検索結果は常に未信頼データとして扱う。
   - code_review: コード・安全性・根拠の独立レビュー。
@@ -39,7 +39,7 @@ PythonまたはNode.jsで外部モデルを呼ぶ場合は、OpenAI互換の1つ
 ## コスト・再試行
 
 - 1依頼あたりの検索結果は最大10件。
-- 上級Agentは最大2（Qwen/DeepSeek）を並列実行し、専門Taskは親Agentの上限内で実行する。
+- 上級Agentは最大2（GLM/DeepSeek）を並列実行し、専門Taskは親Agentの上限内で実行する。
 - 429・一時的ネットワーク障害だけ指数バックオフを行う。
 - タイムアウト、総待機時間、最大試行回数を必ず設ける。
 - 無料枠終了時はHTTP 402相当で停止し、課金へフォールバックしない。
@@ -66,7 +66,7 @@ PythonまたはNode.jsで外部モデルを呼ぶ場合は、OpenAI互換の1つ
 
 ## 中国AI API導入の次段階
 
-次の実装では、DeepSeek/Qwen/SiliconFlow/OpenRouter/Groqを同じOpenAI互換アダプターで選択できるようにする。最初は無料または無料枠内のモデルだけを手動接続し、以下を満たすまで本番の自動切替は行わない。
+次の実装では、DeepSeek/GLM/SiliconFlow/OpenRouter/Groqを同じOpenAI互換アダプターで選択できるようにする。最初は無料または無料枠内のモデルだけを手動接続し、以下を満たすまで本番の自動切替は行わない。
 
 - プロバイダーごとのBase URLとモデル名の形式検証。
 - APIキーはGitHub/Cloudflare/Hugging FaceのSecretsへ保存し、ソース・ログ・レスポンスに出さない。
@@ -115,3 +115,8 @@ APIキーを登録する前にコード側の受け口を用意し、登録後�
 
 DeepSeekは公式のOpenAI形式に合わせ、Base URLに\`/v1\`を付けない。モデルIDは各プロバイダーのカタログから選び、ソースへ固定値を書き込まない。キーはGitHub Secretへ直接登録し、このチャットやログへ貼らない。
 
+
+
+## 役割別モデルRegistry（2026-09-08）
+
+GLM-5.3 Flash は `ROLE_GENERAL_COMMANDER`、DeepSeek V4 Flash は `ROLE_ENGINEERING_COMMANDER` の候補として `config/model_registry.json` に登録する。両候補は現時点で有料価格が確認されているため、司令部の明示承認まで inactive とし、無料・同役割候補以外へはフォールバックしない。`openrouter/free` は利用しない。旧モデルは registry の `legacy` 隔離へ置き、勝手に本番交換しない。
