@@ -68,6 +68,26 @@ ROLE_TO_SPECIALIST = {
 # Kept as a source marker for the existing read-only verification workflow;
 # the emitted packet now uses the explicit parallel mode below.
 LEGACY_MODE_MARKER = "planner_critic_with_downstream_handoff"
+MAX_CALL_ATTEMPTS = 2
+RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+
+
+class AgentCallError(RuntimeError):
+    """A redacted, bounded failure from one commander call."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        status: int | None = None,
+        retryable: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status = status
+        self.retryable = retryable
 
 
 def redact(value: str) -> str:
@@ -97,25 +117,25 @@ def validate_input(value: str, limit: int, label: str, required: bool = False) -
 def parse_agent_output(response: Any) -> dict[str, Any]:
     choices = getattr(response, "choices", None) or []
     if not choices:
-        fail("Agent returned no choices.")
+        raise AgentCallError("empty_response", "Agent returned no choices.")
     message = getattr(choices[0], "message", None)
     raw = getattr(message, "content", "") if message is not None else ""
     safe = redact(str(raw or ""))[:MAX_OUTPUT_CHARS]
     if not safe:
-        fail("Agent returned an empty response.")
+        raise AgentCallError("empty_response", "Agent returned an empty response.")
     candidate = safe.strip()
     if candidate.startswith("```") and candidate.endswith("```"):
         candidate = re.sub(r"^```(?:json)?\s*|\s*```$", "", candidate, flags=re.IGNORECASE)
     try:
         parsed = json.loads(candidate)
     except (TypeError, ValueError, json.JSONDecodeError):
-        return {"text": safe, "format": "text"}
+        raise AgentCallError("invalid_json", "Agent returned non-JSON output.")
     if not isinstance(parsed, dict):
-        return {"text": safe, "format": "text"}
+        raise AgentCallError("invalid_schema", "Agent output must be a JSON object.")
     return parsed
 
 
-def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+def _call_once(model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
     try:
         client = OpenAI(
             api_key=os.environ["AI_API_KEY"],
@@ -134,24 +154,121 @@ def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, An
             stream=False,
         )
         return parse_agent_output(response)
-    except KeyError:
-        fail("AI_API_KEY secret is not configured.")
-    except APITimeoutError:
-        fail("Delegated agent timed out.", 408)
-    except APIConnectionError:
-        fail("Delegated agent connection failed.")
+    except KeyError as exc:
+        raise AgentCallError("missing_secret", "AI_API_KEY secret is not configured.") from exc
+    except APITimeoutError as exc:
+        raise AgentCallError("timeout", "Delegated agent timed out.", status=408, retryable=True) from exc
+    except APIConnectionError as exc:
+        raise AgentCallError("connection_error", "Delegated agent connection failed.", retryable=True) from exc
     except APIStatusError as exc:
         status = getattr(exc, "status_code", None)
         if status == 402:
-            fail("OpenRouter free credit is unavailable; no paid fallback was attempted.", 402)
+            raise AgentCallError(
+                "free_credit_unavailable",
+                "OpenRouter free credit is unavailable; no paid fallback was attempted.",
+                status=402,
+            ) from exc
         if status in (401, 403):
-            fail("OpenRouter credentials or permission were rejected.", status)
-        if status == 429:
-            fail("OpenRouter rate limit reached; no automatic fallback was attempted.", 429)
-        fail("OpenRouter returned a non-success response.", status if isinstance(status, int) else None)
-    except Exception:
-        fail("Delegated agent request failed without exposing provider details.")
+            raise AgentCallError(
+                "provider_auth_rejected",
+                "OpenRouter credentials or permission were rejected.",
+                status=status,
+            ) from exc
+        if status in RETRYABLE_STATUS_CODES:
+            raise AgentCallError(
+                "transient_provider_error",
+                "OpenRouter returned a transient response.",
+                status=status,
+                retryable=True,
+            ) from exc
+        if status == 404:
+            raise AgentCallError("model_not_found", "Requested model was not found.", status=404) from exc
+        raise AgentCallError(
+            "provider_error",
+            "OpenRouter returned a non-success response.",
+            status=status if isinstance(status, int) else None,
+        ) from exc
+    except AgentCallError:
+        raise
+    except Exception as exc:
+        raise AgentCallError("request_failed", "Delegated agent request failed without exposing provider details.") from exc
 
+
+def _validate_model_payload(label: str, payload: dict[str, Any]) -> tuple[bool, str]:
+    if not isinstance(payload, dict):
+        return False, "output_not_object"
+    if label == "planner":
+        required = ("summary", "steps", "work_orders", "artifact", "demand_signal")
+    else:
+        required = ("verdict", "objections", "changes", "tests", "demand_signal")
+    if not any(key in payload for key in required):
+        return False, "output_missing_commander_fields"
+    if payload.get("execution_allowed") is True or payload.get("requires_commander_approval") is False:
+        return False, "output_requested_unauthorized_execution"
+    return True, ""
+
+
+def _annotate_call(label: str, result: dict[str, Any]) -> dict[str, Any]:
+    if result.get("ok") is not True:
+        return result
+    payload = result.get("response")
+    if not isinstance(payload, dict):
+        return {
+            **result,
+            "ok": False,
+            "status": "failed",
+            "error_code": "output_not_object",
+            "error": "Agent output was not a JSON object.",
+            "valid": False,
+        }
+    valid, reason = _validate_model_payload(label, payload)
+    if not valid:
+        return {
+            **result,
+            "ok": False,
+            "status": "failed",
+            "error_code": reason,
+            "error": "Agent output failed the commander schema check.",
+            "valid": False,
+        }
+    return {**result, "valid": True}
+
+
+def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+    attempts = 0
+    while attempts < MAX_CALL_ATTEMPTS:
+        attempts += 1
+        try:
+            response = _call_once(model, system_prompt, user_prompt)
+            return {
+                "ok": True,
+                "status": "completed",
+                "response": response,
+                "attempts": attempts,
+                "provider_status": 200,
+                "valid": False,
+            }
+        except AgentCallError as exc:
+            if exc.retryable and attempts < MAX_CALL_ATTEMPTS:
+                continue
+            return {
+                "ok": False,
+                "status": "blocked" if exc.code in {"missing_secret", "free_credit_unavailable"} else "failed",
+                "error_code": exc.code,
+                "error": redact(exc.message),
+                "provider_status": exc.status,
+                "attempts": attempts,
+                "valid": False,
+            }
+    return {
+        "ok": False,
+        "status": "failed",
+        "error_code": "attempt_budget_exhausted",
+        "error": "Commander attempt budget exhausted.",
+        "provider_status": None,
+        "attempts": attempts,
+        "valid": False,
+    }
 
 def safe_text(value: Any, limit: int = MAX_FIELD_CHARS) -> str:
     if isinstance(value, str):
@@ -325,6 +442,8 @@ def build_hierarchy_handoff(
     planner: dict[str, Any],
     critic: dict[str, Any],
     orders: list[dict[str, Any]],
+    planner_call: dict[str, Any] | None = None,
+    critic_call: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Attach bounded command/report envelopes to the model proposals.
 
@@ -449,35 +568,54 @@ def build_hierarchy_handoff(
         "commander-packet-v2",
         budget=5_000,
     )
-    planner_report = ReportEnvelope(
-        mission_id=mission_id,
-        command_id=planner_command.command_id,
-        parent_command_id=None,
-        agent_id="qwen-planner",
-        parent_agent_id="chatgpt-work",
-        rank=planner_command.rank,
-        status="completed",
-        summary="Qwenの独立提案を司令部向けに受領",
-        result={"proposal_format": planner.get("format", "json"), "work_order_count": len(enriched_orders)},
-        artifacts=("commander-packet",),
-        evidence=("qwen-response-received",),
-        warnings=("司令部の明示承認まで実行不可",),
-        tools_used=planner_command.tool_scope,
+    def make_commander_report(
+        command: Any,
+        call: dict[str, Any] | None,
+        agent_label: str,
+        summary: str,
+        response: dict[str, Any],
+    ) -> ReportEnvelope:
+        call = call or {}
+        successful = call.get("ok") is True and call.get("valid") is True
+        status = "completed" if successful else ("blocked" if call.get("status") == "blocked" else "failed")
+        errors = () if successful else (safe_text(call.get("error") or "commander did not return a valid proposal", 500),)
+        warnings = ("司令部の明示承認まで実行不可",)
+        return ReportEnvelope(
+            mission_id=mission_id,
+            command_id=command.command_id,
+            parent_command_id=None,
+            agent_id=agent_label,
+            parent_agent_id="chatgpt-work",
+            rank=command.rank,
+            status=status,
+            summary=summary if successful else f"{agent_label}の結果を受領できず、親へ状態を報告",
+            result={
+                "proposal_format": response.get("format", "json") if successful else "unavailable",
+                "work_order_count": len(enriched_orders) if successful else 0,
+                "attempts": call.get("attempts", 0),
+                "provider_status": call.get("provider_status"),
+                "error_code": call.get("error_code"),
+            },
+            artifacts=("commander-packet",),
+            evidence=(f"{agent_label}-response-received",) if successful else (),
+            warnings=warnings,
+            errors=errors,
+            tools_used=command.tool_scope,
+        )
+
+    planner_report = make_commander_report(
+        planner_command,
+        planner_call,
+        "qwen-planner",
+        "Qwenの独立提案を司令部向けに受領",
+        planner,
     )
-    critic_report = ReportEnvelope(
-        mission_id=mission_id,
-        command_id=critic_command.command_id,
-        parent_command_id=None,
-        agent_id="deepseek-critic",
-        parent_agent_id="chatgpt-work",
-        rank=critic_command.rank,
-        status="completed",
-        summary="DeepSeekの独立批評を司令部向けに受領",
-        result={"critique_format": critic.get("format", "json"), "work_order_count": len(enriched_orders)},
-        artifacts=("commander-packet",),
-        evidence=("deepseek-response-received",),
-        warnings=("司令部の明示承認まで実行不可",),
-        tools_used=critic_command.tool_scope,
+    critic_report = make_commander_report(
+        critic_command,
+        critic_call,
+        "deepseek-critic",
+        "DeepSeekの独立批評を司令部向けに受領",
+        critic,
     )
     planner_report.validate(planner_command, registry)
     critic_report.validate(critic_command, registry)
@@ -523,11 +661,10 @@ def run_parallel_commanders(
     critic_system: str,
     critic_prompt: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Run the two sibling commander calls concurrently.
+    """Run both sibling commanders concurrently and preserve partial results.
 
-    Both calls are independently bounded free-model requests.  A failure is
-    returned to the caller as one generic error; no peer agent is allowed to
-    retry, escalate, or call another model on its own.
+    A failed child is reported upward as a bounded result.  It cannot retry
+    through a peer, escalate, or replace a successful sibling's output.
     """
     jobs = {
         "planner": (planner_model, planner_system, planner_prompt),
@@ -542,12 +679,27 @@ def run_parallel_commanders(
         for future in as_completed(futures):
             label = futures[future]
             try:
-                results[label] = future.result()
-            except SystemExit:
-                raise
+                results[label] = _annotate_call(label, future.result())
             except Exception:
-                fail(f"{label.capitalize()} commander failed without exposing provider details.")
-    return results["planner"], results["critic"]
+                results[label] = {
+                    "ok": False,
+                    "status": "failed",
+                    "error_code": "internal_commander_error",
+                    "error": "Commander result could not be collected.",
+                    "provider_status": None,
+                    "attempts": 1,
+                    "valid": False,
+                }
+    default_failure = {
+        "ok": False,
+        "status": "failed",
+        "error_code": "missing_commander_result",
+        "error": "Commander result was not returned.",
+        "provider_status": None,
+        "attempts": 0,
+        "valid": False,
+    }
+    return results.get("planner", default_failure.copy()), results.get("critic", default_failure.copy())
 
 
 def main() -> int:
@@ -607,13 +759,23 @@ def main() -> int:
         + "\nEND_CONTEXT\n"
         + "Qwenの出力は参照せず、独立した反対意見と専門Task案を作ってください。司令部の最終権限、無料・安全・需要検証を守ってください。"
     )
-    planner, critic = run_parallel_commanders(
+    planner_call, critic_call = run_parallel_commanders(
         planner_model,
         planner_system,
         planner_prompt,
         critic_model,
         critic_system,
         critic_prompt,
+    )
+    planner = (
+        planner_call.get("response", {})
+        if planner_call.get("ok") is True and planner_call.get("valid") is True
+        else {}
+    )
+    critic = (
+        critic_call.get("response", {})
+        if critic_call.get("ok") is True and critic_call.get("valid") is True
+        else {}
     )
 
     planner_orders = normalize_work_orders(planner)
@@ -629,6 +791,18 @@ def main() -> int:
             item["status"] = "critic_proposed"
             orders.append(item)
     artifact = build_artifact(planner, critic, orders)
+    successful_calls = sum(
+        call.get("ok") is True and call.get("valid") is True
+        for call in (planner_call, critic_call)
+    )
+    if successful_calls == 2:
+        packet_status = "awaiting_commander_approval"
+    elif successful_calls == 1:
+        packet_status = "completed_with_warnings"
+    else:
+        packet_status = "blocked"
+        artifact["status"] = "blocked_before_model_output"
+
     hierarchy_handoff = build_hierarchy_handoff(
         brief,
         context,
@@ -637,11 +811,28 @@ def main() -> int:
         planner,
         critic,
         orders,
+        planner_call,
+        critic_call,
     )
 
+    commander_results = {}
+    for label, call in (("planner", planner_call), ("critic", critic_call)):
+        commander_results[label] = {
+            key: call.get(key)
+            for key in ("ok", "status", "error_code", "error", "provider_status", "attempts", "valid")
+            if key in call
+        }
+    actual_model_calls = sum(call.get("attempts", 0) > 0 for call in (planner_call, critic_call))
+    total_attempts = sum(call.get("attempts", 0) for call in (planner_call, critic_call))
+    packet_errors = [
+        call.get("error")
+        for call in (planner_call, critic_call)
+        if call.get("error")
+    ]
+
     packet: dict[str, Any] = {
-        "ok": True,
-        "status": "awaiting_commander_approval",
+        "ok": successful_calls > 0,
+        "status": packet_status,
         "mode": "parallel_upper_commanders_with_downstream_handoff",
         "mission_id": hierarchy_handoff["mission_id"],
         "context_projection": hierarchy_handoff["context_projection"],
@@ -649,6 +840,11 @@ def main() -> int:
         "commands": hierarchy_handoff["commands"],
         "reports": hierarchy_handoff["reports"],
         "commander_fan_in": hierarchy_handoff["commander_fan_in"],
+        "commander_results": commander_results,
+        "errors": packet_errors,
+        "model_calls": actual_model_calls,
+        "execution_allowed": False,
+        "paid_fallback": False,
         "authority": {
             "commander": "final_decision_and_execution",
             "subagents": ["parallel_propose", "decompose", "draft", "review"],
@@ -667,12 +863,18 @@ def main() -> int:
         "artifact": artifact,
         "handoff": {
             "recipient": "司令部",
-            "next_action": "成果物と作業指示を検査し、採用したものだけを個別に承認する",
+            "next_action": (
+                "成果物と作業指示を検査し、採用したものだけを個別に承認する"
+                if successful_calls
+                else "無料モデルまたは一時障害を司令部が確認してから再承認する"
+            ),
             "execution_allowed": False,
         },
         "budget": {
             "provider": "openrouter",
             "calls": 2,
+            "attempts_total": total_attempts,
+            "max_attempts_per_call": MAX_CALL_ATTEMPTS,
             "max_tokens_per_call": MAX_TOKENS_PER_CALL,
             "timeout_seconds": TIMEOUT_SECONDS,
             "parallel_upper_commanders": True,

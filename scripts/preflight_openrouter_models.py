@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Read-only OpenRouter free-model preflight for the commander pilot.
+"""Read-only, zero-price model resolver for the commander pilot.
 
-The check uses only the public model catalog. It never sends a completion
-request, never reads a secret, and never chooses a paid or unrelated model.
-When a requested model is unavailable as a zero-priced catalog entry, a
-blocked handoff artifact is written so the workflow can finish safely without
-spending tokens.
+The resolver reads only OpenRouter's public catalog.  It never sends a
+completion request, never reads a secret, and never selects a paid or generic
+unrelated model.  A requested ID is preferred; if it has expired, a current
+zero-priced model from the same Qwen/DeepSeek family may be selected
+deterministically.  If no safe candidate exists, the handoff is blocked.
 """
 
 from __future__ import annotations
@@ -22,6 +22,8 @@ from urllib.request import Request, urlopen
 CATALOG_URL = "https://openrouter.ai/api/v1/models"
 CATALOG_TIMEOUT_SECONDS = 8
 ZERO_PRICES = {"0", "0.0", "0.00"}
+MODEL_ID_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._:/-")
+FAMILY_PREFIXES = {"planner": "qwen/", "critic": "deepseek/"}
 
 
 def _output_path() -> Path | None:
@@ -32,23 +34,39 @@ def _output_path() -> Path | None:
     return path
 
 
-def _set_ready(value: bool) -> None:
+def _safe_model_id(value: Any) -> str:
+    model = str(value or "").strip()
+    if not model or len(model) > 160 or any(char not in MODEL_ID_CHARS for char in model):
+        return ""
+    return model
+
+
+def _set_outputs(values: dict[str, str]) -> None:
     output = os.environ.get("GITHUB_OUTPUT", "").strip()
     if not output:
         return
     with Path(output).open("a", encoding="utf-8") as handle:
-        handle.write(f"ready={'true' if value else 'false'}\\n")
+        for key, value in values.items():
+            safe = value.replace("%", "%25").replace("\n", "%0A").replace("\r", "%0D")
+            handle.write(f"{key}={safe}\n")
 
 
-def _write_blocked(reason: str, details: dict[str, str], models: dict[str, str]) -> None:
+def _write_blocked(
+    reason: str,
+    details: dict[str, Any],
+    requested_models: dict[str, str],
+    available: dict[str, list[str]] | None = None,
+) -> None:
     path = _output_path()
     packet: dict[str, Any] = {
         "ok": False,
         "status": "blocked",
         "reason": reason,
         "checked_at": datetime.now(timezone.utc).isoformat(),
-        "models": models,
+        "requested_models": requested_models,
+        "resolved_models": {},
         "details": details,
+        "available_zero_priced_family_models": available or {},
         "execution_allowed": False,
         "paid_fallback": False,
         "model_calls": 0,
@@ -65,7 +83,15 @@ def _write_blocked(reason: str, details: dict[str, str], models: dict[str, str])
     }
     if path is not None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(packet, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+        path.write_text(json.dumps(packet, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _set_outputs(
+        {
+            "ready": "false",
+            "planner_model": "",
+            "critic_model": "",
+            "resolution": reason,
+        }
+    )
     print(json.dumps(packet, ensure_ascii=False, sort_keys=True))
 
 
@@ -74,7 +100,7 @@ def _catalog() -> list[dict[str, Any]]:
         CATALOG_URL,
         headers={
             "Accept": "application/json",
-            "User-Agent": "hf-site-agent-free-model-preflight/1.0",
+            "User-Agent": "hf-site-agent-free-model-preflight/2.0",
         },
     )
     with urlopen(request, timeout=CATALOG_TIMEOUT_SECONDS) as response:
@@ -97,55 +123,93 @@ def _is_zero_priced(entry: dict[str, Any]) -> bool:
     )
 
 
-def main() -> int:
-    models = {
-        "planner": os.environ.get("PLANNER_MODEL", "").strip(),
-        "critic": os.environ.get("CRITIC_MODEL", "").strip(),
+def _family_candidates(entries: list[dict[str, Any]], role: str) -> list[str]:
+    prefix = FAMILY_PREFIXES[role]
+    candidates = {
+        model_id
+        for entry in entries
+        if _is_zero_priced(entry)
+        for model_id in [_safe_model_id(entry.get("id"))]
+        if model_id.startswith(prefix) and model_id.endswith(":free")
     }
-    if not all(models.values()):
-        _set_ready(False)
-        _write_blocked("invalid_model_configuration", {"catalog": "model ID is empty"}, models)
+    return sorted(candidates)
+
+
+def _resolve_model(
+    entries: list[dict[str, Any]],
+    role: str,
+    requested: str,
+) -> tuple[str, str, list[str]]:
+    by_id = {
+        model_id: entry
+        for entry in entries
+        for model_id in [_safe_model_id(entry.get("id"))]
+        if model_id
+    }
+    if requested and requested in by_id and _is_zero_priced(by_id[requested]):
+        return requested, "requested_ready", _family_candidates(entries, role)
+    candidates = _family_candidates(entries, role)
+    if candidates:
+        return candidates[0], "family_candidate_selected", candidates
+    if requested not in by_id:
+        return "", "requested_not_listed_no_free_family_candidate", candidates
+    return "", "requested_not_zero_priced_no_free_family_candidate", candidates
+
+
+def main() -> int:
+    requested = {
+        "planner": _safe_model_id(os.environ.get("PLANNER_MODEL", "")),
+        "critic": _safe_model_id(os.environ.get("CRITIC_MODEL", "")),
+    }
+    if not all(requested.values()):
+        _write_blocked(
+            "invalid_model_configuration",
+            {"catalog": "model ID is empty or contains unsupported characters"},
+            requested,
+        )
         return 0
 
     try:
         entries = _catalog()
     except (HTTPError, URLError, TimeoutError, OSError, ValueError, RuntimeError):
-        _set_ready(False)
         _write_blocked(
             "free_model_catalog_unavailable",
             {"catalog": "read-only catalog check could not complete; no model call was attempted"},
-            models,
+            requested,
         )
         return 0
 
-    by_id = {
-        str(entry.get("id", "")).strip(): entry
-        for entry in entries
-        if str(entry.get("id", "")).strip()
-    }
+    resolved: dict[str, str] = {}
     details: dict[str, str] = {}
-    for role, model in models.items():
-        entry = by_id.get(model)
-        if entry is None:
-            details[role] = "not_listed"
-        elif not _is_zero_priced(entry):
-            details[role] = "listed_but_not_zero_priced"
-        else:
-            details[role] = "ready"
+    available: dict[str, list[str]] = {}
+    for role, model in requested.items():
+        value, status, candidates = _resolve_model(entries, role, model)
+        details[role] = status
+        available[role] = candidates[:5]
+        if value:
+            resolved[role] = value
 
-    if any(value != "ready" for value in details.values()):
-        _set_ready(False)
-        _write_blocked("requested_model_not_currently_free", details, models)
+    if set(resolved) != set(requested):
+        _write_blocked("requested_model_not_currently_free", details, requested, available)
         return 0
 
-    _set_ready(True)
+    _set_outputs(
+        {
+            "ready": "true",
+            "planner_model": resolved["planner"],
+            "critic_model": resolved["critic"],
+            "resolution": "requested_or_same_family_zero_price",
+        }
+    )
     print(
         json.dumps(
             {
                 "ok": True,
                 "status": "ready",
                 "catalog": "openrouter_public_models",
-                "models": models,
+                "requested_models": requested,
+                "resolved_models": resolved,
+                "available_zero_priced_family_models": available,
                 "model_calls": 0,
                 "paid_fallback": False,
             },
