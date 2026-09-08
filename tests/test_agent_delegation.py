@@ -141,12 +141,14 @@ class FreeModelPreflightTests(unittest.TestCase):
         env["GENERAL_COMMANDER_MODEL"] = "deepseek/deepseek-v4-flash:free"
         with tempfile.TemporaryDirectory() as directory:
             output_file = Path(directory) / "github_output"
+            packet_file = Path(directory) / "packet.json"
             env["GITHUB_OUTPUT"] = str(output_file)
+            env["COMMANDER_PACKET_PATH"] = str(packet_file)
             with contextlib.chdir(directory), patch.dict(os.environ, env, clear=True), patch.object(
                 preflight, "_catalog", return_value=entries
             ), patch.object(preflight, "load_registry", return_value=self._active_registry()):
                 self.assertEqual(preflight.main(), 0)
-            packet = json.loads(Path("packet.json").read_text(encoding="utf-8"))
+            packet = json.loads(packet_file.read_text(encoding="utf-8"))
             self.assertEqual(packet["status"], "blocked")
             self.assertEqual(packet["details"]["ROLE_GENERAL_COMMANDER"]["reason"], "requested_model_not_allowed_for_role")
             self.assertEqual(packet["model_calls"], 0)
@@ -158,13 +160,16 @@ class FreeModelPreflightTests(unittest.TestCase):
         ]
         with tempfile.TemporaryDirectory() as directory:
             output_file = Path(directory) / "github_output"
-            with contextlib.chdir(directory), patch.dict(os.environ, self._env(output_file), clear=True), patch.object(
+            packet_file = Path(directory) / "packet.json"
+            env = self._env(output_file)
+            env["COMMANDER_PACKET_PATH"] = str(packet_file)
+            with contextlib.chdir(directory), patch.dict(os.environ, env, clear=True), patch.object(
                 preflight, "_catalog", return_value=entries
             ), patch.object(preflight, "load_registry", return_value=self._active_registry()):
                 self.assertEqual(preflight.main(), 0)
             output = output_file.read_text(encoding="utf-8")
             self.assertIn("ready=false\n", output)
-            packet = json.loads(Path("packet.json").read_text(encoding="utf-8"))
+            packet = json.loads(packet_file.read_text(encoding="utf-8"))
             self.assertEqual(packet["status"], "blocked")
             self.assertEqual(packet["model_calls"], 0)
             self.assertFalse(packet["execution_allowed"])
