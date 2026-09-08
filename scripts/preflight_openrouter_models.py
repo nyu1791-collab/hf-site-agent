@@ -221,7 +221,8 @@ def main() -> int:
             "resolved_models": resolved,
             "details": details,
             "watch": watch_catalog(registry, entries),
-            "execution_allowed": True,
+            "execution_allowed": False,
+            "model_calls_allowed": True,
         }
     )
     _write_packet(packet, resolution="role_scoped_zero_price_candidates")
