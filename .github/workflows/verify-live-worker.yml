@@ -204,7 +204,7 @@ jobs:
           ]:
               if marker not in workflow:
                   raise SystemExit(f"provider workflow is missing: {marker}")
-          for forbidden in ["print(response", "message.content", "api_key)"]:
+          for forbidden in ["print(response", "message.content", "print(api_key", "print(os.getenv"]:
               if forbidden in source:
                   raise SystemExit(f"provider smoke test may expose response or secret data: {forbidden}")
           print("Provider adapter and smoke workflow safety contract passed.")
