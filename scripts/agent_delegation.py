@@ -640,11 +640,10 @@ def run_parallel_commanders(
     critic_system: str,
     critic_prompt: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Run the two sibling commander calls concurrently.
+    """Run both sibling commanders concurrently and preserve partial results.
 
-    Both calls are independently bounded free-model requests.  A failure is
-    returned to the caller as one generic error; no peer agent is allowed to
-    retry, escalate, or call another model on its own.
+    A failed child is reported upward as a bounded result.  It cannot retry
+    through a peer, escalate, or replace a successful sibling's output.
     """
     jobs = {
         "planner": (planner_model, planner_system, planner_prompt),
@@ -659,12 +658,27 @@ def run_parallel_commanders(
         for future in as_completed(futures):
             label = futures[future]
             try:
-                results[label] = future.result()
-            except SystemExit:
-                raise
+                results[label] = _annotate_call(label, future.result())
             except Exception:
-                fail(f"{label.capitalize()} commander failed without exposing provider details.")
-    return results["planner"], results["critic"]
+                results[label] = {
+                    "ok": False,
+                    "status": "failed",
+                    "error_code": "internal_commander_error",
+                    "error": "Commander result could not be collected.",
+                    "provider_status": None,
+                    "attempts": 1,
+                    "valid": False,
+                }
+    default_failure = {
+        "ok": False,
+        "status": "failed",
+        "error_code": "missing_commander_result",
+        "error": "Commander result was not returned.",
+        "provider_status": None,
+        "attempts": 0,
+        "valid": False,
+    }
+    return results.get("planner", default_failure.copy()), results.get("critic", default_failure.copy())
 
 
 def main() -> int:
