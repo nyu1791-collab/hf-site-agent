@@ -1,0 +1,150 @@
+name: Connect Hugging Face inference safely
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/connect-hf-inference.yml"
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type CONNECT to sync the existing HF_TOKEN secret and verify one free review
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: connect-hf-inference
+  cancel-in-progress: false
+
+jobs:
+  connect:
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'CONNECT') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WORKER_NAME: groq-github-site-agent
+
+    steps:
+      - name: Validate connection prerequisites
+        env:
+          ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          HF_TOKEN_VALUE: ${{ secrets.HF_TOKEN }}
+          ADMIN_PASSWORD: ${{ secrets.WORKER_ADMIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ACCOUNT_ID"
+          test -n "$API_TOKEN"
+          test -n "$HF_TOKEN_VALUE"
+          test -n "$ADMIN_PASSWORD"
+          echo "Connection prerequisites are present; secret values are not printed."
+
+      - name: Store encrypted Hugging Face token
+        env:
+          ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          HF_TOKEN_VALUE: ${{ secrets.HF_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -cn --arg text "$HF_TOKEN_VALUE" '{name:"HF_TOKEN",text:$text,type:"secret_text"}')"
+          response_file="$RUNNER_TEMP/hf-token-response.json"
+          status="$(curl --silent --show-error --retry 3 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            -o "$response_file" -w "%{http_code}" \
+            -X PUT \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$payload" \
+            "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/scripts/$WORKER_NAME/secrets")"
+          if [[ "$status" != 2* ]]; then
+            echo "Cloudflare rejected the Hugging Face token update (HTTP $status)." >&2
+            jq -c '{success, errors, messages}' "$response_file" >&2 || true
+            exit 1
+          fi
+          jq -e '.success == true and .result.name == "HF_TOKEN" and .result.type == "secret_text"' "$response_file" >/dev/null
+          echo "Encrypted HF_TOKEN stored."
+
+      - name: Enable the free-credit-only review lane
+        env:
+          ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload='{"name":"HF_INFERENCE_ENABLED","text":"true","type":"secret_text"}'
+          response_file="$RUNNER_TEMP/hf-inference-flag-response.json"
+          status="$(curl --silent --show-error --retry 3 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            -o "$response_file" -w "%{http_code}" \
+            -X PUT \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$payload" \
+            "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/scripts/$WORKER_NAME/secrets")"
+          if [[ "$status" != 2* ]]; then
+            echo "Cloudflare rejected the inference flag update (HTTP $status)." >&2
+            jq -c '{success, errors, messages}' "$response_file" >&2 || true
+            exit 1
+          fi
+          jq -e '.success == true and .result.name == "HF_INFERENCE_ENABLED" and .result.type == "secret_text"' "$response_file" >/dev/null
+          echo "Free-credit-only review lane enabled."
+
+      - name: Verify enabled health contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_url="https://groq-github-site-agent.n-yu1791.workers.dev/health"
+          for attempt in $(seq 1 10); do
+            health="$(curl --fail --silent --show-error --retry 2 --retry-all-errors \
+              --connect-timeout 10 --max-time 20 "$health_url" || true)"
+            if printf '%s' "$health" | jq -e '
+              .ok == true and
+              .inference.provider == "huggingface-router" and
+              .inference.freeCreditOnly == true and
+              .inference.codeReview.enabled == true and
+              (.inference.codeReview.missing | length == 0)
+            ' >/dev/null 2>&1; then
+              printf '%s' "$health" | jq -c '{ok,version,inference:{provider,freeCreditOnly,codeReview}}'
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Worker did not expose the enabled Hugging Face review lane." >&2
+          exit 1
+
+      - name: Run one free-credit review smoke test
+        env:
+          ADMIN_PASSWORD: ${{ secrets.WORKER_ADMIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="$RUNNER_TEMP/hf-review-response.json"
+          status="$(curl --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            -o "$response_file" -w "%{http_code}" \
+            -H 'Origin: https://yu-179191-groq-github-site-agent.hf.space' \
+            -H 'content-type: application/json' \
+            -H "x-admin-password: $ADMIN_PASSWORD" \
+            --data '{"text":"このサイトの入力検証と公開ゲートを短くレビューしてください。秘密値は出力しないでください。"}' \
+            https://groq-github-site-agent.n-yu1791.workers.dev/command/review)"
+          if [[ "$status" == "402" ]]; then
+            echo "Hugging Face free credits are exhausted; no paid request was made." >&2
+            exit 1
+          fi
+          if [[ "$status" != "2"* ]]; then
+            echo "Hugging Face review smoke test failed (HTTP $status)." >&2
+            jq -c '{error, requestId}' "$response_file" >&2 || true
+            exit 1
+          fi
+          jq -e '
+            (.review.model | type == "string" and length > 0) and
+            (.review.review | type == "string" and length > 0) and
+            (.requestId | type == "string" and length > 0)
+          ' "$response_file" >/dev/null
+          echo "Hugging Face review lane responded successfully without exposing its output."
