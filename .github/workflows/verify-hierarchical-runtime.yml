@@ -6,9 +6,11 @@ on:
       - "scripts/agent_runtime.py"
       - "scripts/validate_hierarchy.py"
       - "scripts/preflight_openrouter_models.py"
+      - "scripts/agent_delegation.py"
       - "schemas/command_envelope.schema.json"
       - "schemas/report_envelope.schema.json"
       - "tests/test_agent_runtime.py"
+      - "tests/test_agent_delegation.py"
       - "tests/fixtures/command_envelope.json"
       - "tests/fixtures/report_envelope.json"
       - "docs/HIERARCHICAL_RUNTIME.md"
@@ -48,7 +50,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Compile deterministic runtime
-        run: python -m py_compile scripts/agent_runtime.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py tests/test_agent_runtime.py
+        run: python -m py_compile scripts/agent_runtime.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py scripts/agent_delegation.py tests/test_agent_runtime.py tests/test_agent_delegation.py
       - name: Validate JSON schemas and fixtures
         run: |
           python -m json.tool schemas/command_envelope.schema.json >/dev/null
@@ -57,7 +59,7 @@ jobs:
             --command tests/fixtures/command_envelope.json \
             --report tests/fixtures/report_envelope.json
       - name: Run runtime tests
-        run: python -m unittest discover -s tests -p 'test_agent_runtime.py' -v
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Assert chain of command and least privilege
         run: |
           python - <<'PY'
