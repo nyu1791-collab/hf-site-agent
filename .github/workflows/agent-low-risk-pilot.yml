@@ -87,7 +87,7 @@ jobs:
               value = mission.get(key)
               if not isinstance(value, str) or not value.strip():
                   raise SystemExit(f"mission field {key!r} is empty")
-              if "\n" in value or "\\r" in value:
+              if "\n" in value or "\r" in value:
                   raise SystemExit(f"mission field {key!r} contains a newline")
           print("ChatGPT-approved low-risk mission envelope validated.")
           PY
@@ -107,7 +107,7 @@ jobs:
           with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
               for key in ("brief", "context", "planner_model", "critic_model"):
                   value = mission[key]
-                  if "\n" in value or "\\r" in value:
+                  if "\n" in value or "\r" in value:
                       raise SystemExit(f"newline is not allowed in {key}")
                   output.write(f"{key}={value}\n")
           PY
