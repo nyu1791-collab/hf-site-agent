@@ -18,6 +18,7 @@ on:
     paths:
       - "scripts/agent_runtime.py"
       - "scripts/validate_hierarchy.py"
+      - "scripts/preflight_openrouter_models.py"
       - "schemas/command_envelope.schema.json"
       - "schemas/report_envelope.schema.json"
       - "tests/test_agent_runtime.py"
