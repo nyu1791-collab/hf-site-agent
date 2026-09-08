@@ -1,0 +1,88 @@
+name: Design council safely
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type DESIGN to run one bounded read-only design review
+        required: true
+        type: string
+      brief:
+        description: Design brief (no secrets; maximum 3000 characters)
+        required: true
+        type: string
+      context:
+        description: Optional product context and constraints (maximum 6000 characters)
+        required: false
+        default: ""
+        type: string
+      model:
+        description: Free OpenRouter model ID (default is the free router)
+        required: true
+        default: openrouter/free
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: design-council
+  cancel-in-progress: false
+
+jobs:
+  council:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate explicit read-only gate
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          DESIGN_BRIEF: ${{ inputs.brief }}
+          DESIGN_CONTEXT: ${{ inputs.context }}
+          MODEL: ${{ inputs.model }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Design council must run from main." >&2
+            exit 1
+          fi
+          if [[ "$CONFIRM" != "DESIGN" ]]; then
+            echo "Type DESIGN in the confirmation field." >&2
+            exit 1
+          fi
+          if [[ -z "$DESIGN_BRIEF" || ${#DESIGN_BRIEF} -gt 3000 ]]; then
+            echo "Design brief must be 1-3000 characters." >&2
+            exit 1
+          fi
+          if [[ ${#DESIGN_CONTEXT} -gt 6000 ]]; then
+            echo "Design context must be at most 6000 characters." >&2
+            exit 1
+          fi
+          if [[ -z "$MODEL" || ${#MODEL} -gt 160 || "$MODEL" =~ [[:space:]] ]]; then
+            echo "Model ID is empty, too long, or contains whitespace." >&2
+            exit 1
+          fi
+          echo "Read-only design gate validated."
+      
+      - name: Check out review script
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install bounded OpenAI-compatible client
+        run: python -m pip install --disable-pip-version-check --no-cache-dir "openai>=1.0,<2"
+
+      - name: Ask the external model for a design review
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_BASE_URL: https://openrouter.ai/api/v1
+          AI_MODEL: ${{ inputs.model }}
+          DESIGN_BRIEF: ${{ inputs.brief }}
+          DESIGN_CONTEXT: ${{ inputs.context }}
+        run: python scripts/design_council.py
