@@ -8,7 +8,7 @@
 
 | 階級 | `agent_id` | 親 | 任務 | 子へ渡せる範囲 |
 |---|---|---|---|---|
-| 最高司令 | `chatgpt-work` | なし | Mission 解釈、承認、統合、最終実行判断 | `qwen-planner` のみ |
+| 最高司令 | `chatgpt-work` | なし | Mission 解釈、承認、統合、最終実行判断 | `qwen-planner` と `deepseek-critic` |
 | 上級指揮 | `qwen-planner` | `chatgpt-work` | 需要・製品・コンテンツ側のMission分解 | research / product / content の専門指揮 |
 | 上級指揮 | `deepseek-critic` | `chatgpt-work` | 技術・品質・自動化側の独立レビュー | video / code / qa / metrics の専門指揮 |
 | 専門指揮 | `<role>-specialist` | `qwen-planner` または `deepseek-critic` | 一つの承認済み Task を下位作業へ分解 | 同じ役割の `<role>-worker` のみ |
@@ -80,4 +80,3 @@ Report Envelope は会話全文ではなく、`summary`、`result`、`artifacts`
 ## 測定項目
 
 `CommandRuntime.metrics()` は、総トークン、LLM 呼び出し数、Mission 時間、Agent 数、平均深度・子数、並列率、Cache hit 率、重複・再処理数、失敗率、部分失敗率、Checkpoint 再開率、予算と Status 集計を返す。Phase 12 では現行 Workflow のベースラインと同じ Mission を比較し、品質低下がない場合だけ次の実装段階へ進める。
-
