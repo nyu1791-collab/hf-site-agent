@@ -50,7 +50,7 @@
       ],
       "requires_explicit_approval": true,
       "active": false,
-      "reason": "個別ページと公開一覧が不一致のため、実APIの1回プローブでFREE_ACTIVEを確認するまで停止。"
+      "reason": "FREE_ENDPOINT_UNAVAILABLE (HTTP 401) from the one-shot exact-ID probe; keep role inactive and do not substitute a paid model."
     },
     "ROLE_ENGINEERING_COMMANDER": {
       "agent_id": "deepseek-engineering-commander",
@@ -77,7 +77,7 @@
       ],
       "requires_explicit_approval": true,
       "active": false,
-      "reason": "個別ページと公開一覧が不一致のため、実APIの1回プローブでFREE_ACTIVEを確認するまで停止。"
+      "reason": "FREE_ENDPOINT_UNAVAILABLE (HTTP 401) from the one-shot exact-ID probe; keep role inactive and do not substitute a paid model."
     },
     "ROLE_RESERVE_COMMANDER": {
       "agent_id": "minimax-reserve-commander",
@@ -102,7 +102,7 @@
       ],
       "requires_explicit_approval": true,
       "active": false,
-      "reason": "常時起動禁止。FREE_ACTIVEかつ同役割の承認後のみ利用。"
+      "reason": "FREE_ENDPOINT_UNAVAILABLE (HTTP 401) from the one-shot exact-ID probe; keep reserve inactive until revalidated."
     },
     "ROLE_RESEARCH_AGENT": {
       "rank": "specialist_commander",
@@ -655,6 +655,13 @@
     "last_run_at": "2026-09-08T14:29:31Z",
     "catalog_individual_page_inconsistency": true,
     "exact_free_endpoints": "FREE_ENDPOINT_UNAVAILABLE",
-    "promotion_rule": "FREE_ACTIVE requires exact response model, usage.cost=0, unchanged credits, and no paid fallback"
+    "promotion_rule": "FREE_ACTIVE requires exact response model, usage.cost=0, unchanged credits, and no paid fallback",
+    "last_result": {
+      "status": "COMPLETED_WITH_BLOCKS",
+      "reason": "All three exact free-ID requests returned HTTP 401; credits could not be checked with the configured secret.",
+      "model_calls": 3,
+      "retries": 0,
+      "paid_fallback": false
+    }
   }
 }
