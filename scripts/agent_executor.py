@@ -20,9 +20,9 @@ from typing import Any
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 try:
-    from scripts.agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
+    from scripts.model_registry import load_registry, role_candidates, role_config\n    from scripts.agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 except ModuleNotFoundError:  # pragma: no cover - when invoked from scripts/
-    from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
+    from model_registry import load_registry, role_candidates, role_config\n    from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 
 
 ROLE_TO_SPECIALIST = {
@@ -47,7 +47,7 @@ TIMEOUT_SECONDS = 15.0
 MAX_NEXT_TASKS = 4
 BASE_URL = "https://openrouter.ai/api/v1"
 MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,160}$")
-FREE_MODEL_RE = re.compile(r"^(?:openrouter/free|[A-Za-z0-9._/-]+:free)$")
+FREE_MODEL_RE = re.compile(r"^[A-Za-z0-9._/-]+:free$")
 SECRET_PATTERNS = (
     re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]{12,}"),
     re.compile(r"(?i)(?:sk|gsk|hf|sk-or-v1)[_-][A-Za-z0-9_-]{12,}"),
@@ -188,7 +188,7 @@ def build_specialist_envelope(
     registry = AgentRegistry()
     child_agent_id = specialist_for_role(role)
     child = registry.get(child_agent_id)
-    parent_agent_id = bounded_identifier(os.environ.get("PARENT_AGENT_ID", ""), child.parent_agent_id or "qwen-planner")
+    parent_agent_id = bounded_identifier(os.environ.get("PARENT_AGENT_ID", ""), child.parent_agent_id or "glm-general-commander")
     mission_id = bounded_identifier(
         os.environ.get("MISSION_ID", ""),
         stable_id("MISSION", {"task_id": task_id, "instruction": instruction, "context": context}),
@@ -291,13 +291,26 @@ def main() -> int:
     instruction = clean(os.environ.get("TASK_INSTRUCTION", ""), MAX_INSTRUCTION)
     context = clean(os.environ.get("TASK_CONTEXT", ""), MAX_CONTEXT)
     acceptance = clean(os.environ.get("TASK_ACCEPTANCE", ""), MAX_ACCEPTANCE)
-    model = os.environ.get("AI_MODEL", "qwen/qwen3-32b:free").strip()
+    model = os.environ.get("AI_MODEL", "").strip()
     if not instruction:
         fail("Task instruction is required.")
     if not MODEL_RE.fullmatch(model) or not FREE_MODEL_RE.fullmatch(model):
-        fail("AI model must be an OpenRouter free model ID.")
+        fail("AI_MODEL must be an explicitly free model ID.")
     if len(model) > MAX_MODEL_CHARS:
-        fail("AI model is too long.")
+        fail("AI_MODEL is too long.")
+    try:
+        registry = load_registry(os.environ.get("MODEL_REGISTRY_PATH") or None)
+    except Exception:
+        fail("Model registry is invalid or unavailable.")
+    parent_role = (
+        "ROLE_ENGINEERING_COMMANDER"
+        if parent_agent_id == "deepseek-engineering-commander"
+        else "ROLE_GENERAL_COMMANDER"
+    )
+    if role_config(registry, parent_role).get("active") is not True:
+        fail("Parent commander role is inactive pending commander approval.")
+    if not role_candidates(registry, parent_role, model):
+        fail("AI_MODEL is not an approved same-role registry candidate.")
 
     system_prompt = (
         "あなたは司令部から一件だけ委任された専門エージェントです。"
