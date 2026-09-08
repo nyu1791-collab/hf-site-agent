@@ -1,0 +1,79 @@
+name: Check OpenAI-compatible provider safely
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type CHECK to run one bounded, read-only provider smoke test
+        required: true
+        type: string
+      provider:
+        description: Provider to test; no automatic fallback is performed
+        required: true
+        type: choice
+        options:
+          - groq
+          - huggingface
+          - deepseek
+          - siliconflow
+          - openrouter
+      model:
+        description: Exact provider model ID
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    if: \${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the reviewed smoke test
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install the OpenAI-compatible SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input "openai>=1.0,<2"
+
+      - name: Run one bounded provider smoke test
+        env:
+          AI_PROVIDER: \${{ inputs.provider }}
+          AI_MODEL: \${{ inputs.model }}
+          AI_TIMEOUT_MS: "15000"
+          AI_MAX_RETRIES: "1"
+          AI_API_KEY: \${{ secrets.AI_API_KEY }}
+          GROQ_API_KEY: \${{ secrets.GROQ_API_KEY }}
+          HF_TOKEN: \${{ secrets.HF_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$AI_PROVIDER" in
+            groq) key="$GROQ_API_KEY" ;;
+            huggingface) key="$HF_TOKEN" ;;
+            deepseek|siliconflow|openrouter) key="$AI_API_KEY" ;;
+            *) echo "Unsupported provider selection." >&2; exit 2 ;;
+          esac
+          if [[ -z "$key" ]]; then
+            echo "The selected provider secret is not configured; no request was sent." >&2
+            exit 2
+          fi
+          export AI_API_KEY="$key"
+          unset key
+          python scripts/provider_smoke.py
