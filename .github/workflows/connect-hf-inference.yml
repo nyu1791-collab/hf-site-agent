@@ -1,11 +1,6 @@
 name: Connect Hugging Face inference safely
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/connect-hf-inference.yml"
   workflow_dispatch:
     inputs:
       confirm:
@@ -22,7 +17,7 @@ concurrency:
 
 jobs:
   connect:
-    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'CONNECT') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'CONNECT' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
