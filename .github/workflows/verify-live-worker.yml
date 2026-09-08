@@ -164,6 +164,12 @@ jobs:
           if (!page.includes("課金検索は実行しません")) {
             throw new Error("HF frontend must clearly state that paid search is disabled.");
           }
+          for (const marker of ["id=\"template\"", "id=\"plan\"", "id=\"plan-research\"", "前回内容を再利用", "端末内指標"]) {
+            if (!page.includes(marker)) throw new Error("HF frontend is missing product loop control: " + marker);
+          }
+          for (const marker of ["TEMPLATES", "localStorage", "updateReuseCount", "content-plan", "citation", "new URL"]) {
+            if (!app.includes(marker)) throw new Error("HF frontend is missing product loop implementation: " + marker);
+          }
           console.log("Hugging Face frontend safety contract passed.");
           NODE
 
@@ -325,6 +331,10 @@ jobs:
           const fs = require("node:fs");
           const source = fs.readFileSync("worker/index.js", "utf8");
           if (source.includes("allowPaidResearch")) throw new Error("Paid Tavily authorization path must remain removed.");
+          if (!source.includes("async function createContentPlan")) throw new Error("Content plan must support asynchronous citation search.");
+          if (!source.includes("citationPolicy") || !source.includes("citations")) throw new Error("Citation policy and sanitized citations are missing.");
+          if (!source.includes("payload.research === true")) throw new Error("Citation search must require an explicit request.");
+          if (!source.includes("freeOnly: true") || !source.includes('paidSearch: "disabled"')) throw new Error("Citation plan must remain free-only.");
           if (!source.includes("/command/content-plan")) throw new Error("Content plan route is missing.");
           if (!source.includes('paidOperations: "disabled"')) throw new Error("Paid operations are not disabled in the pipeline.");
           const publishStart = source.indexOf('if (url.pathname === "/publish")');
