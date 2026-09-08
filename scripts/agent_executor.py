@@ -19,6 +19,24 @@ from typing import Any
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
+try:
+    from scripts.agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
+except ModuleNotFoundError:  # pragma: no cover - when invoked from scripts/
+    from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
+
+
+ROLE_TO_SPECIALIST = {
+    "research": "research-specialist",
+    "product": "product-specialist",
+    "content": "content-specialist",
+    "video": "video-specialist",
+    "code": "code-specialist",
+    "qa": "qa-specialist",
+    "metrics": "metrics-specialist",
+    "specialist": "product-specialist",
+    "specialist_commander": "product-specialist",
+}
+
 MAX_INSTRUCTION = 5000
 MAX_CONTEXT = 6000
 MAX_ACCEPTANCE = 3000
@@ -32,7 +50,7 @@ MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,160}$")
 FREE_MODEL_RE = re.compile(r"^(?:openrouter/free|[A-Za-z0-9._/-]+:free)$")
 SECRET_PATTERNS = (
     re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]{12,}"),
-    re.compile(r"(?i)(?:sk|gsk|hf|sk-or-v1)-[A-Za-z0-9_-]{12,}"),
+    re.compile(r"(?i)(?:sk|gsk|hf|sk-or-v1)[_-][A-Za-z0-9_-]{12,}"),
     re.compile(
         r"(?i)\b(?:AI_API_KEY|GROQ_API_KEY|HF_TOKEN|HF_SPACE_WRITE_TOKEN|"
         r"GITHUB_TOKEN|WORKER_ADMIN_PASSWORD|CLOUDFLARE_API_TOKEN)\b"
@@ -69,6 +87,21 @@ def clean_list(value: Any, limit: int = 8, item_limit: int = 500) -> list[str]:
     if not isinstance(value, list):
         return []
     return [item for item in (clean(entry, item_limit) for entry in value[:limit]) if item]
+
+
+def specialist_for_role(role: str) -> str:
+    key = clean(role, 80).lower().replace("-", "_")
+    if key in ROLE_TO_SPECIALIST:
+        return ROLE_TO_SPECIALIST[key]
+    for role_name, agent_id in ROLE_TO_SPECIALIST.items():
+        if role_name in key:
+            return agent_id
+    return "product-specialist"
+
+
+def bounded_identifier(value: str, fallback: str) -> str:
+    clean_value = re.sub(r"[^A-Za-z0-9._:-]+", "-", clean(value, 120)).strip("-")
+    return (clean_value or fallback)[:128]
 
 
 def parse_output(response: Any) -> dict[str, Any]:
@@ -137,6 +170,104 @@ def instruction_flags(text: str) -> list[str]:
     )
     lowered = text.lower()
     return [label for pattern, label in checks if re.search(pattern, lowered)]
+
+
+def build_specialist_envelope(
+    *,
+    role: str,
+    task_id: str,
+    instruction: str,
+    context: str,
+    acceptance: str,
+    model: str,
+    artifact: dict[str, Any],
+    result: dict[str, Any],
+    next_tasks: list[dict[str, Any]],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Bind one approved specialist result to the finite hierarchy."""
+    registry = AgentRegistry()
+    child_agent_id = specialist_for_role(role)
+    child = registry.get(child_agent_id)
+    parent_agent_id = bounded_identifier(os.environ.get("PARENT_AGENT_ID", ""), child.parent_agent_id or "qwen-planner")
+    mission_id = bounded_identifier(
+        os.environ.get("MISSION_ID", ""),
+        stable_id("MISSION", {"task_id": task_id, "instruction": instruction, "context": context}),
+    )
+    command_id = bounded_identifier(
+        os.environ.get("COMMAND_ID", ""),
+        stable_id("COMMAND", {"mission_id": mission_id, "task_id": task_id}),
+    )
+    parent_command_id = bounded_identifier(os.environ.get("PARENT_COMMAND_ID", ""), f"{mission_id}-P")
+    context_payload = {"mission_id": mission_id, "context": context}
+    context_ref = f"context-{stable_hash(context_payload)[:24]}"
+    done_when = [clean(line, 400) for line in acceptance.splitlines() if clean(line, 400)]
+    if not done_when:
+        done_when = ["structured report returned", "commander approval remains required"]
+    command = make_command(
+        registry,
+        mission_id=mission_id,
+        command_id=command_id,
+        parent_command_id=parent_command_id,
+        parent_agent_id=parent_agent_id,
+        child_agent_id=child_agent_id,
+        mission=instruction,
+        objective=instruction,
+        constraints=(
+            "read_only_draft",
+            "commander_approval_required",
+            "no_secret_or_binding_change",
+            "no_publication_or_payment",
+        ),
+        input_refs=(context_ref,),
+        expected_output={"schema": "report-envelope-v1", "artifact_type": artifact["type"]},
+        token_budget=child.token_budget,
+        time_budget_ms=child.time_budget_ms,
+        tool_scope=child.allowed_tools,
+        done_when=done_when,
+        depth=2,
+        inputs={"task_id": task_id, "context_ref": context_ref},
+        parallel_group=None,
+        priority=0,
+    )
+    artifact_ref = f"artifact-{stable_hash(artifact)[:24]}"
+    report = ReportEnvelope(
+        mission_id=mission_id,
+        command_id=command.command_id,
+        parent_command_id=command.parent_command_id,
+        agent_id=command.child_agent_id,
+        parent_agent_id=command.parent_agent_id,
+        rank=command.rank,
+        status="completed",
+        summary=f"{role} specialist draft returned to commander",
+        result={
+            "artifact_type": artifact["type"],
+            "artifact_ref": artifact_ref,
+            "finding_count": len(result.get("findings", [])) if isinstance(result.get("findings"), list) else 0,
+            "next_task_count": len(next_tasks),
+        },
+        artifacts=(artifact_ref,),
+        evidence=("specialist-response-received",),
+        warnings=("司令部の明示承認まで実行不可",),
+        tokens_used=0,
+        tools_used=command.tool_scope,
+    )
+    report.validate(command, registry)
+    packet_context = project_context(
+        instruction,
+        command.constraints,
+        {"role": role, "model": model, "acceptance": clean(acceptance, 1_200)},
+        (context_ref,),
+        "report-envelope-v1",
+        budget=3_000,
+    )
+    envelope = {
+        "mission_id": mission_id,
+        "command": command.to_dict(),
+        "report": report.to_dict(),
+        "context_projection": packet_context,
+        "hierarchy": {"parent_agent_id": command.parent_agent_id, "agent_id": command.child_agent_id, "rank": command.rank},
+    }
+    return envelope, report.to_dict()
 
 
 def write_packet(packet: dict[str, Any]) -> str:
@@ -221,10 +352,30 @@ def main() -> int:
             }
         )
 
+    try:
+        hierarchy_envelope, report_envelope = build_specialist_envelope(
+            role=role,
+            task_id=task_id,
+            instruction=instruction,
+            context=context,
+            acceptance=acceptance,
+            model=model,
+            artifact=artifact,
+            result=result,
+            next_tasks=next_tasks,
+        )
+    except Exception:
+        fail("Specialist result could not be bound to the commander hierarchy.")
+
     packet: dict[str, Any] = {
         "ok": True,
         "status": "awaiting_commander_approval",
-        "mode": "commander_approved_specialist_draft",
+        "mode": "commander_approved_specialist_draft_with_envelope",
+        "mission_id": hierarchy_envelope["mission_id"],
+        "command": hierarchy_envelope["command"],
+        "report": report_envelope,
+        "context_projection": hierarchy_envelope["context_projection"],
+        "hierarchy": hierarchy_envelope["hierarchy"],
         "task": {"id": task_id, "role": role, "instruction": instruction, "acceptance": acceptance},
         "artifact": artifact,
         "findings": clean_list(result.get("findings")),
@@ -275,3 +426,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
