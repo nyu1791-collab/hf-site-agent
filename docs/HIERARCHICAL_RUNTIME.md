@@ -80,3 +80,7 @@ Report Envelope は会話全文ではなく、`summary`、`result`、`artifacts`
 ## 測定項目
 
 `CommandRuntime.metrics()` は、総トークン、LLM 呼び出し数、Mission 時間、Agent 数、平均深度・子数、並列率、Cache hit 率、重複・再処理数、失敗率、部分失敗率、Checkpoint 再開率、予算と Status 集計を返す。Phase 12 では現行 Workflow のベースラインと同じ Mission を比較し、品質低下がない場合だけ次の実装段階へ進める。
+
+## モデル選択
+
+役割とモデルの対応は [`config/model_registry.json`](../config/model_registry.json) に一元化する。GLM-5.3 Flash と DeepSeek V4 Flash はカタログ上の候補として隔離登録しているが、価格がゼロでないため現在は両司令官を非アクティブに保ち、無料・同役割候補が確認できるまでモデル呼び出しを行わない。
