@@ -2,6 +2,16 @@
 
 `config/model_registry.json` はRoleとModelを分離した台帳です。Model IDをPrompt、Workflow、Runtimeへ大量に直書きせず、`provider_id → model_binding_role → 現行Catalog/Probe` の順で解決します。
 
+## LifecycleとDiscovery
+
+各Model recordは `model_id`、`provider`、`role_candidates`、`capabilities`、`status`、`lifecycle`、`discovered_at`、`last_verified_at`、`probe_status`、`benchmark_status`、`cost_class`、`quota_status` を保持します。Lifecycleは `STABLE`、`GA`、`PREVIEW`、`EXPERIMENTAL`、`LEGACY`、`DEPRECATED`、`REMOVED`、`UNKNOWN` のいずれかです。
+
+`STABLE`/`GA`だけがPrimary候補です。`PREVIEW`/`EXPERIMENTAL`は未承認の評価対象、`LEGACY`/`DEPRECATED`/`REMOVED`/`UNKNOWN`はRouting不可です。新モデルは `DISCOVERED → CAPABILITY_CHECKED → COST_CHECKED → PROBED → BENCHMARKED → CANDIDATE → EXPLICIT_APPROVAL → ACTIVE` の順で進み、発見だけでActiveにはなりません。
+
+Googleの `Gemini 3.8 Flash`、NVIDIAの `Nemotron 3.5 Lightning 30B A3B`、Groqのユーザー提供候補、OpenRouterの現行Free Worker群は `model_discovery.provider_targets` に評価対象として記録します。Google/NVIDIAの正確なIDが未確認の候補は `model_id=null`、Groqの画面由来IDは `USER_OBSERVED_UNVERIFIED` とし、Production RegistryのPrimaryには使用しません。
+
+旧固定Commander Roleは `LEGACY_DISABLED` を維持し、旧IDは `compatibility_model_ids` にのみ残します。旧IDを `primary_model`、`fallback_models`、`candidate_models`、Active経路へ戻すことは禁止です。
+
 ## 現行Role
 
 | Role | Agent | Provider | 初期状態 |
@@ -31,7 +41,7 @@ Google、NVIDIA、GroqのCommander Model IDは、現行公式Catalog、価格・
 ## Evaluation record projection
 
 既存のv1キーとの互換性を保つため、`scripts/model_registry.py` の
-`normalized_model_records()` が各Modelをv2評価レコードへ射影します。射影はRegistryを変更せず、`model_id`、`provider_id`、`role_candidate`、`context_length`、`max_output`、`modalities`、`reasoning`、`tool_calling`、`structured_output`、`coding`、`agentic`、`free_verified`、`availability`、`deprecated`、`probe_status`、`commander_score`、`average_latency`、`schema_success_rate`、`tool_success_rate`、`mission_success_rate`、`last_verified`を必ず返します。未検証の値は推測せず、`None`または`NOT_RUN`のまま保持します。
+`normalized_model_records()` が各Modelをv2評価レコードへ射影します。射影はRegistryを変更せず、Lifecycle、Role candidates、Capabilities、Probe、Benchmark、Cost、Quotaを含む安定した評価レコードを返します。未検証の値は推測せず、`None`、`UNKNOWN`または`NOT_RUN`のまま保持します。
 
 ## Provider別ポリシー
 
