@@ -10,6 +10,14 @@
 
 Googleの `Gemini 3.8 Flash`、NVIDIAの `Nemotron 3.5 Lightning 30B A3B`、Groqのユーザー提供候補、OpenRouterの現行Free Worker群は `model_discovery.provider_targets` に評価対象として記録します。Google/NVIDIAの正確なIDが未確認の候補は `model_id=null`、Groqの画面由来IDは `USER_OBSERVED_UNVERIFIED` とし、Production RegistryのPrimaryには使用しません。
 
+Phase 6で指示された期待ID（`gemini-3.8-flash`、
+`qwen/qwen3.8-27b`、NVIDIAの2候補、
+`z-ai/glm-5.3-flash:free`）は、別の `expected_candidates` に
+`EXPECTED_UNVERIFIED` として記録します。これは検証作業の照合先であり、
+モデル一覧への存在証明、Free証明、Probe結果、Benchmark結果、Role候補、
+Primary/ACTIVE登録を意味しません。Provider Catalogが返す正確なIDと一致する
+まで、実行候補にはなりません。
+
 旧固定Commander Roleは `LEGACY_DISABLED` を維持し、旧IDは `compatibility_model_ids` にのみ残します。旧IDを `primary_model`、`fallback_models`、`candidate_models`、Active経路へ戻すことは禁止です。
 
 ## 現行Role
