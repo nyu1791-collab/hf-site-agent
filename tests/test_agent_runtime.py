@@ -16,6 +16,7 @@ from scripts.agent_runtime import (
     MissionBudget,
     PermissionError,
     ReportEnvelope,
+    ResponseFreshnessGuard,
     TraceStore,
     compact_context,
     make_command,
@@ -572,6 +573,48 @@ class IdempotencyTests(unittest.TestCase):
             second = second_runtime.dispatch(command, handler)
             self.assertEqual(first.to_dict(), second.to_dict())
             self.assertEqual(calls, 1)
+
+
+class ResponseFreshnessTests(unittest.TestCase):
+    def test_out_of_order_and_duplicate_responses_are_rejected(self):
+        guard = ResponseFreshnessGuard()
+        self.assertTrue(guard.accept(mission_id="MISSION-FRESH-01", command_id="COMMAND-FRESH-01", response_version=2))
+        self.assertFalse(guard.accept(mission_id="MISSION-FRESH-01", command_id="COMMAND-FRESH-01", response_version=1))
+        self.assertFalse(guard.accept(mission_id="MISSION-FRESH-01", command_id="COMMAND-FRESH-01", response_version=2))
+        self.assertTrue(guard.accept(mission_id="MISSION-FRESH-01", command_id="COMMAND-FRESH-01", response_version=3))
+        self.assertEqual(guard.latest(mission_id="MISSION-FRESH-01", command_id="COMMAND-FRESH-01"), 3)
+
+    def test_freshness_isolated_by_mission(self):
+        guard = ResponseFreshnessGuard()
+        self.assertTrue(guard.accept(mission_id="MISSION-FRESH-A", command_id="COMMAND-FRESH", response_version=4))
+        self.assertTrue(guard.accept(mission_id="MISSION-FRESH-B", command_id="COMMAND-FRESH", response_version=0))
+
+    def test_invalid_response_version_is_rejected(self):
+        guard = ResponseFreshnessGuard()
+        with self.assertRaises(ContractError):
+            guard.accept(mission_id="MISSION-FRESH-02", command_id="COMMAND-FRESH-02", response_version=-1)
+        with self.assertRaises(ContractError):
+            guard.accept(mission_id="MISSION-FRESH-02", command_id="COMMAND-FRESH-02", response_version=True)
+
+    def test_runtime_does_not_adopt_a_stale_report(self):
+        registry = AgentRegistry()
+        guard = ResponseFreshnessGuard()
+        runtime = CommandRuntime(registry, freshness=guard)
+        command = command_for(
+            registry,
+            command_id="MISSION-FRESH-03-T01",
+            parent_agent_id="google-general-commander",
+            child_agent_id="product-specialist",
+            mission_id="MISSION-FRESH-03",
+        )
+        self.assertTrue(guard.accept(
+            mission_id=command.mission_id,
+            command_id=command.command_id,
+            response_version=2,
+        ))
+        report = runtime.dispatch(command, lambda value: success_report(value))
+        self.assertEqual(report.status, "failed")
+        self.assertIn("STALE_RESPONSE_REJECTED", report.errors)
 
 
 if __name__ == "__main__":
