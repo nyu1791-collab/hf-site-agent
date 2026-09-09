@@ -47,13 +47,18 @@ ROLE_MISSIONS = {
     "groq": ("bulk_classification", "log_triage", "fast_json_transform", "batch_summary", "first_pass_code_review"),
 }
 CANDIDATE_HINTS = {
-    "google": ("gemini-3.8-flash", "gemini-3.7-flash"),
-    "nvidia": (
-        "nvidia/nemotron-3-ultra-550b-a55b",
-        "deepseek-ai/deepseek-v4-pro-0813",
-        "moonshotai/kimi-k3",
+    # Google/NVIDIA IDs are intentionally empty until their official catalogs
+    # return exact IDs.  Supplying a candidate through the bounded workflow
+    # input is explicit and still requires catalog, capability, cost, probe,
+    # and benchmark gates.
+    "google": (),
+    "nvidia": (),
+    # These are user-observed dashboard labels only; Groq Models API must still
+    # list the exact ID before a probe can run.
+    "groq": (
+        "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b", "groq/compound", "groq/compound-mini",
     ),
-    "groq": ("openai/gpt-oss-120b", "qwen/qwen3.8-27b"),
 }
 CANDIDATE_ENVS = {
     "google": "GOOGLE_CANDIDATE_MODELS",
@@ -217,7 +222,6 @@ def _provider_status(config: Mapping[str, Any], env: Mapping[str, str], status: 
         "provider": str(config.get("provider_id") or ""),
         "provider_tier": str(config.get("provider_tier") or ""),
         "free_access_type": str(config.get("free_access_type") or "UNKNOWN"),
-        "trial_credits_allowed": False,
         "endpoint_configured": _endpoint_present(config, env),
         "secret_present": _secret_present(config, env),
         "status": status,
@@ -367,27 +371,16 @@ def _validate_provider(
     run_missions: bool,
     max_candidates: int,
     max_missions: int,
-    allow_trial_credits: bool,
     budget: dict[str, int],
 ) -> dict[str, Any]:
     config = registry["providers"][provider_id]
     result = _provider_status(config, env, "NOT_RUN", network_enabled=network_enabled)
-    result["trial_credits_allowed"] = bool(allow_trial_credits)
     candidates = _candidate_models(provider_id, env, supplied_candidates)
     result["candidate_models"] = candidates
 
     if not network_enabled:
         result["status"] = "DRY_RUN_NO_REQUEST"
         result["provider_health"] = "NOT_RUN"
-        result["authentication"] = "NOT_RUN"
-        result["model_availability"] = "NOT_RUN"
-        return result
-    # NVIDIA's registry entry represents trial credits, not a guaranteed
-    # free tier.  Require a separate opt-in so a normal validation cannot
-    # consume trial balance; this gate runs before any authenticated request.
-    if str(config.get("free_access_type") or "").upper() == "TRIAL_CREDITS" and not allow_trial_credits:
-        result["status"] = "TRIAL_CREDITS_APPROVAL_REQUIRED"
-        result["provider_health"] = "UNPROBED"
         result["authentication"] = "NOT_RUN"
         result["model_availability"] = "NOT_RUN"
         return result
@@ -609,7 +602,6 @@ def run_validation(
     max_candidates: int = 3,
     max_missions: int = 16,
     max_total_requests: int = 128,
-    allow_trial_credits: bool = False,
 ) -> dict[str, Any]:
     """Run safe staged validation; ``registry`` is never mutated."""
     env = os.environ if environ is None else environ
@@ -638,7 +630,6 @@ def run_validation(
             run_missions=run_missions,
             max_candidates=max(1, min(int(max_candidates), 3)),
             max_missions=max(1, min(int(max_missions), 16)),
-            allow_trial_credits=bool(allow_trial_credits),
             budget=budget,
         ))
     selected = {
@@ -676,7 +667,6 @@ def run_validation(
             "unexpected_mutations": 0,
             "retries": 0,
             "request_budget_remaining": budget["remaining"],
-            "trial_credits_allowed": bool(allow_trial_credits),
         },
         "selection": selected,
         "final": {
@@ -705,10 +695,7 @@ def main() -> int:
     parser.add_argument("--provider", action="append", choices=sorted(COMMANDER_PROVIDER_IDS))
     parser.add_argument("--capabilities", action="store_true", help="run structured/tool/command-schema checks after minimal probes")
     parser.add_argument("--missions", action="store_true", help="run bounded commander mission checks after capability gates")
-    parser.add_argument("--allow-trial-credits", action="store_true", help="permit NVIDIA trial-credit probes only after separate approval")
-    parser.add_argument("--max-candidates", type=int, default=1, help="maximum candidates per provider (CLI default is one)")
-    parser.add_argument("--max-missions", type=int, default=2, help="maximum mission types per candidate (CLI default is two)")
-    parser.add_argument("--max-total-requests", type=int, default=12, help="hard live-request budget (CLI maximum is 24)")
+    parser.add_argument("--max-total-requests", type=int, default=128)
     parser.add_argument("--output", default="artifacts/direct_api_report.json")
     args = parser.parse_args()
     try:
@@ -720,10 +707,7 @@ def main() -> int:
             confirmation=args.confirm,
             run_capabilities=args.capabilities,
             run_missions=args.missions,
-            max_candidates=max(1, min(args.max_candidates, 3)),
-            max_missions=max(1, min(args.max_missions, 16)),
-            max_total_requests=max(0, min(args.max_total_requests, 24)),
-            allow_trial_credits=args.allow_trial_credits,
+            max_total_requests=args.max_total_requests,
         )
     except Exception:
         report = {
