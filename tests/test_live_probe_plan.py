@@ -16,6 +16,10 @@ class LiveProbePlanTests(unittest.TestCase):
         self.assertTrue(all(item["estimated_cost"] == "UNKNOWN" for item in report["plans"]))
         self.assertTrue(all(item["model"] is None for item in report["plans"]))
         self.assertTrue(all(item["max_retries"] == 0 for item in report["plans"]))
+        self.assertTrue(all(item["probe_status"] == "NOT_RUN" for item in report["plans"]))
+        self.assertTrue(all(item["free_verified"] is False for item in report["plans"]))
+        self.assertTrue(all(item["quota_verified"] is False for item in report["plans"]))
+        self.assertTrue(all(item["endpoint"] is None for item in report["plans"]))
         by_provider = {item["provider"]: item for item in report["plans"]}
         self.assertIn("Gemini 3.8 Flash", by_provider["google"]["candidate_selection"]["labels"])
         self.assertIn("Nemotron 3.5 Lightning 30B A3B", by_provider["nvidia"]["candidate_selection"]["labels"])
