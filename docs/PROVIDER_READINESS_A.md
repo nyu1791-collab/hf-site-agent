@@ -390,3 +390,35 @@ No live catalog snapshot was taken in this phase. Exact model IDs, current
 pricing, quota, lifecycle, endpoint availability, and capability evidence
 therefore remain `UNKNOWN` until a separately approved Provider operation
 supplies them. The readiness flags remain false.
+
+## Phase 6 readiness addendum
+
+The Phase 6 implementation was added without Provider or Modal network calls.
+The exact expected IDs are represented as `EXPECTED_UNVERIFIED` entries, not
+as Primary, Active, or READY bindings:
+
+- Google: `gemini-3.8-flash`
+- Groq: `qwen/qwen3.8-27b`
+- NVIDIA: `deepseek-ai/deepseek-v4-flash-0731` and
+  `nvidia/nemotron-3.5-lightning-30b-a3b`
+- OpenRouter worker: `z-ai/glm-5.3-flash:free`
+
+The live gate requires exact catalog/model evidence, free and zero-cost
+evidence, capability evidence, quota evidence, secret presence, zero retries,
+and explicit probe approval. It does not read a secret or perform a network
+call. Model readiness requires the same evidence plus a successful probe and
+benchmark; readiness does not imply activation.
+
+The new local staging runtime adds bounded DAG dispatch, mission ownership,
+single-writer enforcement, delegation depth `2`, request/token reservation,
+checkpoint/resume, stale-response rejection, and provider-health fail-closed
+dispatch. Its file-backed ledger uses a local process lock and restart
+recovery, but explicitly reports `cross_runner_durable=false`; it is not
+evidence for production parallel routing.
+
+At the final Phase 6 verification, PR #40 HEAD was
+`a321774d3583345ac4da41e8929b8e579a4a792f`, GitHub Actions had two successful
+read-only workflow runs, and the local deterministic suite was `181/181
+PASS`. No live Provider catalog, free-tier, quota, or endpoint evidence was
+collected. All Provider and Live Probe readiness flags therefore remain
+false.
