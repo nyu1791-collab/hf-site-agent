@@ -369,3 +369,24 @@ Every model record now carries lifecycle, discovery, verification, benchmark,
 cost, quota, capability, and role-candidate fields. Only `STABLE`/`GA` can
 become Primary. Discovery, catalog presence, or a user-observed label alone
 never changes `active`, `PRIMARY`, or Provider readiness.
+
+## Catalog snapshot and drift guard
+
+`scripts/provider_catalog_snapshot.py` provides an offline boundary for a
+future catalog fetcher. It accepts only already-fetched public model metadata
+and persists a hash-protected, redacted snapshot. Credentials, account data,
+raw responses, prompts, and arbitrary provider fields are not copied into the
+snapshot. A catalog entry with an unknown lifecycle or a non-`:free` zero-price
+claim remains fail-closed rather than becoming a free candidate.
+
+Snapshot comparison is also non-mutating and never activates a model. A new
+model is reported as `DISCOVERED_NO_AUTO_ACTIVATION`; removed or deprecated
+models produce `BLOCK_ROUTING`; pricing changes produce
+`FAIL_CLOSED_REVALIDATE`; capability or quota changes require revalidation.
+The helper deliberately does not perform network discovery, change the Model
+Registry, or alter any Provider readiness flag.
+
+No live catalog snapshot was taken in this phase. Exact model IDs, current
+pricing, quota, lifecycle, endpoint availability, and capability evidence
+therefore remain `UNKNOWN` until a separately approved Provider operation
+supplies them. The readiness flags remain false.
