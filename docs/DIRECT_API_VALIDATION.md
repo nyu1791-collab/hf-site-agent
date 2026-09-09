@@ -14,6 +14,8 @@
 
 Probeは1回限り・Retry 0です。401/403/429/402、Credit枯渇、Provider停止を検知したら同じProviderへの追加候補Probeを止めます。実行は`--network`と完全一致する`--confirm DIRECT_API_VALIDATION`の両方が必要です。
 
+既定のCLIはCapability/Mission段階を無効、候補数1、Mission数2、要求総数12に制限します。要求総数は最大24までしか指定できません。NVIDIAは`TRIAL_CREDITS`扱いのため、別承認なしでは認証付きProbe自体を行わず、`--allow-trial-credits`を明示した場合だけ進みます。
+
 ## 実行例
 
 デフォルトは通信しないdry-runです。
