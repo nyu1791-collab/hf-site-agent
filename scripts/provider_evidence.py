@@ -75,14 +75,27 @@ def normalize_evidence(
     risk = _text(raw.get("billing_transition_risk"), 32).upper() or "UNKNOWN"
     if risk not in RISK_VALUES:
         raise ProviderEvidenceError("BILLING_TRANSITION_RISK_INVALID")
-    timestamp = _text(raw.get("evidence_timestamp") or raw.get("verified_at"), 80)
+    timestamp = _text(raw.get("evidence_timestamp") or raw.get("observed_at") or raw.get("verified_at"), 80)
     source = _text(raw.get("free_evidence_source") or raw.get("evidence_source"), 400)
+    raw_generation = raw.get("evidence_generation")
+    generation = evidence_generation if isinstance(evidence_generation, int) and evidence_generation >= 1 else (
+        raw_generation if isinstance(raw_generation, int) and raw_generation >= 1 else 1
+    )
+    raw_provenance = raw.get("evidence_provenance") or raw.get("provenance")
+    provenance = [
+        _text(item, 120)
+        for item in (raw_provenance if isinstance(raw_provenance, (list, tuple)) else [])
+        if _text(item, 120)
+    ]
     bundle = {
         "provider_id": _text(provider_id, 80),
         "model_id": _text(model_id, 200),
         "model_family": _text(raw.get("model_family"), 80),
-        "evidence_generation": evidence_generation if isinstance(evidence_generation, int) and evidence_generation >= 1 else 1,
+        "evidence_generation": generation,
         "evidence_timestamp": timestamp,
+        "expires_at": _text(raw.get("expires_at") or raw.get("evidence_expires_at"), 80) or None,
+        "evidence_provenance": provenance,
+        "secure_evidence": raw.get("secure_evidence") is True,
         "evidence_source": source,
         "current": raw.get("current", raw.get("is_current")) is True,
         "exact_model_verified": raw.get("exact_model_verified", raw.get("model_verified")) is True,
@@ -130,6 +143,20 @@ def evaluate_zero_cost(evidence: Mapping[str, Any], *, free_only: bool = True) -
         blockers.append("EVIDENCE_TIMESTAMP_REQUIRED")
     if not evidence.get("evidence_source"):
         blockers.append("EVIDENCE_SOURCE_REQUIRED")
+    if evidence.get("secure_evidence") is True:
+        if not evidence.get("expires_at"):
+            blockers.append("EVIDENCE_EXPIRY_REQUIRED")
+        else:
+            try:
+                expiry = datetime.fromisoformat(str(evidence["expires_at"]).replace("Z", "+00:00"))
+                if expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=timezone.utc)
+                if expiry <= datetime.now(timezone.utc):
+                    blockers.append("STALE_EVIDENCE")
+            except ValueError:
+                blockers.append("EVIDENCE_EXPIRY_INVALID")
+        if not evidence.get("evidence_provenance"):
+            blockers.append("EVIDENCE_PROVENANCE_REQUIRED")
     evidence_type = str(evidence.get("free_evidence_type") or "UNKNOWN")
     if evidence_type not in FREE_EVIDENCE_TYPES or evidence_type == "UNKNOWN":
         blockers.append("FREE_EVIDENCE_REQUIRED")

@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timedelta, timezone
 
 from scripts.provider_readiness import evaluate_model_readiness, evaluate_provider_readiness
 
@@ -56,6 +57,16 @@ class ProviderReadinessTests(unittest.TestCase):
         self.assertEqual(result["models_considered"], 1)
         self.assertEqual(result["ready_models"], ["gemini-3.8-flash"])
         self.assertFalse(result["active"])
+
+    def test_secure_account_evidence_must_be_fresh_and_provenanced(self):
+        result = evaluate_model_readiness(evidence(
+            secure_evidence=True,
+            expires_at=(datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat(),
+            evidence_provenance=["OFFICIAL_API"],
+            secret_present=True,
+        ))
+        self.assertFalse(result["ready"])
+        self.assertIn("STALE_EVIDENCE", result["blockers"])
 
 
 if __name__ == "__main__":

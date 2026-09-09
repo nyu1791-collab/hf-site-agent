@@ -288,7 +288,8 @@ def _supplied_free_evidence(
     """Find one redacted evidence record without accepting a paid fallback."""
     if not isinstance(free_evidence, Mapping):
         return {}
-    provider_value = free_evidence.get(provider_id)
+    source = free_evidence.get("providers") if isinstance(free_evidence.get("providers"), Mapping) else free_evidence
+    provider_value = source.get(provider_id) if isinstance(source, Mapping) else None
     if isinstance(provider_value, Mapping):
         direct = provider_value.get(model_id)
         if isinstance(direct, Mapping):
@@ -296,7 +297,7 @@ def _supplied_free_evidence(
         models = provider_value.get("models")
         if isinstance(models, Mapping) and isinstance(models.get(model_id), Mapping):
             return models[model_id]
-    direct = free_evidence.get(f"{provider_id}:{model_id}")
+    direct = source.get(f"{provider_id}:{model_id}") if isinstance(source, Mapping) else None
     return direct if isinstance(direct, Mapping) else {}
 
 
@@ -329,6 +330,10 @@ def _resolve_model_free_evidence(
         evidence_source=str(supplied.get("evidence_source") or supplied.get("free_evidence_source") or "direct_api_preflight")[:400],
         evidence_timestamp=str(supplied.get("evidence_timestamp") or supplied.get("verified_at") or "")[:80],
         current=supplied.get("current") is True,
+        evidence_generation=supplied.get("evidence_generation") if isinstance(supplied.get("evidence_generation"), int) else None,
+        expires_at=str(supplied.get("expires_at") or "")[:80] or None,
+        evidence_provenance=supplied.get("evidence_provenance") if isinstance(supplied.get("evidence_provenance"), (list, tuple)) else None,
+        secure_evidence=supplied.get("secure_evidence") is True,
     )
 
 
@@ -547,9 +552,12 @@ def _validate_provider(
                 "automatic_paid_transition_possible", "fallback_to_paid_possible",
                 "billing_transition_risk", "zero_cost_verified", "blockers",
                 "evidence_source", "evidence_timestamp", "catalog_hash",
+                "staging_probe_allowed", "staging_blockers",
             )
         }
-        if evidence.get("zero_cost_verified") is not True:
+        zero_cost_verified = evidence.get("zero_cost_verified") is True
+        staging_probe_allowed = evidence.get("staging_probe_allowed") is True
+        if not zero_cost_verified and not staging_probe_allowed:
             model_result["state"] = "CATALOG_INCONSISTENCY" if evidence.get("status") == "INCONSISTENT" else "ZERO_COST_PREFLIGHT_BLOCKED"
             model_result["stages"]["free_access"] = model_result["state"]
             model_result["zero_cost_preflight"] = model_result["state"]
@@ -557,7 +565,7 @@ def _validate_provider(
             # No model-generation request is permitted without a current,
             # account-aware zero-cost decision.
             continue
-        model_result["zero_cost_preflight"] = "ZERO_COST_VERIFIED"
+        model_result["zero_cost_preflight"] = "ZERO_COST_VERIFIED" if zero_cost_verified else "STAGING_FREE_ROUTE_ALLOWED"
         budget["remaining"] -= 1
         result["request_count"] += 1
         result["model_calls"] += 1

@@ -66,6 +66,27 @@ class ExecutionScopeTests(unittest.TestCase):
         with self.assertRaisesRegex(ExecutionScopeError, "PRODUCTION_ACTIVATION"):
             authorize_execution(config, policy)
 
+    def test_staging_fixed_free_route_is_separate_from_account_zero_cost(self):
+        config = copy.deepcopy(self.registry["providers"]["groq"])
+        evidence = {
+            **ready_evidence(),
+            "current_account_eligible": None,
+            "free_verified": False,
+            "cost_safe": False,
+            "staging_free_route_allowed": True,
+            "account_zero_cost_verified": False,
+        }
+        policy = ExecutionPolicy.from_evidence(
+            scope="STAGING",
+            provider_id="groq",
+            model_id="qwen/qwen3.8-27b",
+            evidence=evidence,
+            staging_approved=True,
+        )
+        result = authorize_execution(config, policy)
+        self.assertEqual(result["scope"], "STAGING")
+        self.assertFalse(policy.account_zero_cost_verified)
+
     def test_production_scope_requires_explicit_active_registry(self):
         config = copy.deepcopy(self.registry["providers"]["groq"])
         policy = ExecutionPolicy.from_evidence(

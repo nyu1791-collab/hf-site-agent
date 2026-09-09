@@ -70,7 +70,8 @@ def _provider_result(provider_id: str, *, model: str = "", status: str, model_ca
 def _model_evidence(free_evidence: Mapping[str, Any] | None, provider_id: str, model: str) -> Mapping[str, Any]:
     if not isinstance(free_evidence, Mapping):
         return {}
-    provider = free_evidence.get(provider_id)
+    source = free_evidence.get("providers") if isinstance(free_evidence.get("providers"), Mapping) else free_evidence
+    provider = source.get(provider_id) if isinstance(source, Mapping) else None
     if isinstance(provider, Mapping):
         direct = provider.get(model)
         if isinstance(direct, Mapping):
@@ -78,7 +79,7 @@ def _model_evidence(free_evidence: Mapping[str, Any] | None, provider_id: str, m
         models = provider.get("models")
         if isinstance(models, Mapping) and isinstance(models.get(model), Mapping):
             return models[model]
-    direct = free_evidence.get(f"{provider_id}:{model}")
+    direct = source.get(f"{provider_id}:{model}") if isinstance(source, Mapping) else None
     return direct if isinstance(direct, Mapping) else {}
 
 
@@ -158,6 +159,10 @@ def run_probe(
             evidence_source=str(supplied.get("evidence_source") or "provider_probe_preflight")[:400],
             evidence_timestamp=str(supplied.get("evidence_timestamp") or supplied.get("verified_at") or "")[:80],
             current=supplied.get("current") is True,
+            evidence_generation=supplied.get("evidence_generation") if isinstance(supplied.get("evidence_generation"), int) else None,
+            expires_at=str(supplied.get("expires_at") or "")[:80] or None,
+            evidence_provenance=supplied.get("evidence_provenance") if isinstance(supplied.get("evidence_provenance"), (list, tuple)) else None,
+            secure_evidence=supplied.get("secure_evidence") is True,
         )
         evidence_public = {
             key: evidence.get(key)
@@ -168,9 +173,13 @@ def run_probe(
                 "automatic_paid_transition_possible", "fallback_to_paid_possible",
                 "billing_transition_risk", "zero_cost_verified", "blockers",
                 "evidence_source", "evidence_timestamp", "catalog_hash",
+                "evidence_generation", "expires_at", "evidence_provenance", "secure_evidence",
+                "staging_probe_allowed", "staging_blockers",
             )
         }
-        if evidence.get("zero_cost_verified") is not True:
+        zero_cost_verified = evidence.get("zero_cost_verified") is True
+        staging_probe_allowed = evidence.get("staging_probe_allowed") is True
+        if not zero_cost_verified and not staging_probe_allowed:
             results.append(_provider_result(
                 provider_id,
                 model=model,
@@ -207,6 +216,7 @@ def run_probe(
             endpoint_configured=True,
             credentials_configured=True,
             network_enabled=True,
+            staging_only=not zero_cost_verified,
             response_model=raw.get("response_model") if isinstance(raw.get("response_model"), str) else None,
             usage_cost=usage_cost,
             latency_ms=raw.get("latency_ms") if isinstance(raw.get("latency_ms"), int) else None,

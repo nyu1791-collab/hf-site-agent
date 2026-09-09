@@ -177,6 +177,7 @@ def _prompt_context(task: MissionTask, context: Mapping[str, Any]) -> str:
         "owner_corps": task.owner_corps,
         "role": task.role,
         "required_capabilities": list(task.required_capabilities),
+        "task_metadata": dict(task.metadata) if isinstance(task.metadata, Mapping) else {},
         "phase": context.get("phase"),
         "iteration_count": context.get("iteration_count"),
         "revision_count": context.get("revision_count"),
@@ -334,6 +335,9 @@ def build_minimal_staging_plan(
     executor: LiveAgentBinding,
     request_budget: int = 6,
     token_budget: int = 2_048,
+    task_id: str = "LIVE-TASK-1",
+    task_role: str = "LIVE_STAGING_EXECUTOR",
+    objective: str = "Return a small read-only staging proposal for the isolated fixture.",
 ) -> MissionPlan:
     """Build the smallest read-only Executor/Reviewer mission."""
     owner_corps = PROVIDER_TO_CORPS.get(executor.provider_id)
@@ -341,11 +345,11 @@ def build_minimal_staging_plan(
         raise LiveStagingError("EXECUTOR_MUST_BE_DIRECT_CORPS_PROVIDER")
     task = MissionTask(
         mission_id=mission_id,
-        task_id="LIVE-TASK-1",
+        task_id=task_id,
         parent_task_id=None,
         parent_agent_id="chatgpt-work",
         owner_corps=owner_corps,
-        role="LIVE_STAGING_EXECUTOR",
+        role=task_role,
         required_capabilities=("structured_output",),
         priority=0,
         risk_level="LOW",
@@ -354,12 +358,17 @@ def build_minimal_staging_plan(
         request_budget=request_budget,
         token_budget=token_budget,
         estimated_cost=0,
-        idempotency_key=f"{mission_id}:LIVE-TASK-1:v1",
+        idempotency_key=f"{mission_id}:{task_id}:v1",
         response_version=1,
         delegation_depth=1,
         provider_id=executor.provider_id,
         side_effect_level="read_only_draft",
-        metadata={"execution_scope": "STAGING", "model_family": executor.model_family},
+        metadata={
+            "execution_scope": "STAGING",
+            "model_family": executor.model_family,
+            "objective": objective[:1_000],
+            "repository_write_allowed": False,
+        },
     )
     return MissionPlan(
         mission_id=mission_id,
@@ -436,7 +445,36 @@ def run_live_staging_mission(
             **live,
         }
         report["safety"] = {
-            "zero_cost_all_live_calls": report.get("status") == "completed",
+            # A fixed free-route staging allowance is not the same as
+            # account-specific zero-cost proof.  Keep both facts explicit.
+            "account_specific_zero_cost_proven": (
+                report.get("status") == "completed"
+                and all(
+                    binding.execution_policy.account_zero_cost_verified is True
+                    or (
+                        binding.execution_policy.staging_free_route_allowed is not True
+                        and binding.execution_policy.free_verified is True
+                        and binding.execution_policy.cost_safe is True
+                    )
+                    for binding in (executor, reviewer)
+                )
+            ),
+            "zero_cost_all_live_calls": (
+                report.get("status") == "completed"
+                and all(
+                    binding.execution_policy.account_zero_cost_verified is True
+                    or (
+                        binding.execution_policy.staging_free_route_allowed is not True
+                        and binding.execution_policy.free_verified is True
+                        and binding.execution_policy.cost_safe is True
+                    )
+                    for binding in (executor, reviewer)
+                )
+            ),
+            "staging_free_route_policy_used": any(
+                binding.execution_policy.staging_free_route_allowed is True
+                for binding in (executor, reviewer)
+            ),
             "paid_execution_count": 0,
             "paid_fallback_count": 0,
             "production_active": False,

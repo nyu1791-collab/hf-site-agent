@@ -53,6 +53,12 @@ class ExecutionPolicy:
     paid_fallback: bool = False
     auto_top_up: bool = False
     max_retries: int = 0
+    # A trusted, ephemeral staging run may use a fixed provider free route
+    # when account-tier evidence is unavailable.  This is deliberately
+    # separate from ``free_verified``/``cost_safe`` so it cannot masquerade
+    # as account-specific zero-cost proof.
+    staging_free_route_allowed: bool = False
+    account_zero_cost_verified: bool = False
 
     def validate(self) -> None:
         if self.scope not in EXECUTION_SCOPES:
@@ -65,6 +71,8 @@ class ExecutionPolicy:
             raise ExecutionScopeError("PAID_FALLBACK_FORBIDDEN")
         if self.auto_top_up is True:
             raise ExecutionScopeError("AUTO_TOP_UP_FORBIDDEN")
+        if self.staging_free_route_allowed is True and self.scope != "STAGING":
+            raise ExecutionScopeError("STAGING_ROUTE_OUTSIDE_STAGING_SCOPE")
         if self.production_active is True and self.scope != "PRODUCTION":
             raise ExecutionScopeError("PRODUCTION_ACTIVE_OUTSIDE_PRODUCTION_SCOPE")
         if self.production_approved is True and self.scope != "PRODUCTION":
@@ -105,6 +113,8 @@ class ExecutionPolicy:
             paid_fallback=evidence.get("paid_fallback") is True,
             auto_top_up=evidence.get("auto_top_up") is True,
             max_retries=evidence.get("max_retries", 0),
+            staging_free_route_allowed=evidence.get("staging_free_route_allowed") is True,
+            account_zero_cost_verified=evidence.get("account_zero_cost_verified") is True,
         )
         policy.validate()
         return policy
@@ -135,6 +145,10 @@ def authorize_execution(
         return {"allowed": True, "scope": "PROBE", "production_active": False}
 
     if policy.scope == "STAGING":
+        free_route_or_zero_cost = (
+            (policy.free_verified is True and policy.cost_safe is True)
+            or policy.staging_free_route_allowed is True
+        )
         required = {
             "technically_ready": policy.technically_ready,
             "staging_approved": policy.staging_approved,
@@ -142,8 +156,7 @@ def authorize_execution(
             "endpoint_verified": policy.endpoint_verified,
             "auth_verified": policy.auth_verified,
             "capability_verified": policy.capability_verified,
-            "free_verified": policy.free_verified,
-            "cost_safe": policy.cost_safe,
+            "free_route_or_zero_cost": free_route_or_zero_cost,
             "quota_safe": policy.quota_safe,
             "circuit_closed": policy.circuit_closed,
         }

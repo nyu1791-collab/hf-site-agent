@@ -9,6 +9,7 @@ approval and production policy).
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from math import isfinite
 from typing import Any, Mapping, Sequence
 
@@ -47,6 +48,23 @@ def evaluate_model_readiness(evidence: Mapping[str, Any]) -> dict[str, Any]:
         blockers.append("CURRENT_ACCOUNT_ELIGIBILITY_REQUIRED")
     if "selected_route" in evidence and not str(evidence.get("selected_route") or "").startswith("FREE_"):
         blockers.append("FREE_ROUTE_REQUIRED")
+    if evidence.get("secure_evidence") is True:
+        expiry = evidence.get("expires_at")
+        if not isinstance(expiry, str):
+            blockers.append("EVIDENCE_EXPIRY_REQUIRED")
+        else:
+            try:
+                parsed_expiry = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+                if parsed_expiry.tzinfo is None:
+                    parsed_expiry = parsed_expiry.replace(tzinfo=timezone.utc)
+                if parsed_expiry <= datetime.now(timezone.utc):
+                    blockers.append("STALE_EVIDENCE")
+            except ValueError:
+                blockers.append("EVIDENCE_EXPIRY_INVALID")
+        if not evidence.get("evidence_provenance"):
+            blockers.append("EVIDENCE_PROVENANCE_REQUIRED")
+        if evidence.get("secret_present") is not True:
+            blockers.append("SECRET_PRESENCE_REQUIRED")
     cost = evidence.get("estimated_cost")
     if isinstance(cost, bool) or not isinstance(cost, (int, float)) or not isfinite(float(cost)) or float(cost) != 0:
         blockers.append("ZERO_COST_REQUIRED")

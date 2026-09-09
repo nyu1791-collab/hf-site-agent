@@ -1,0 +1,122 @@
+name: Secure account evidence and zero-cost staging probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type SECURE_ACCOUNT_EVIDENCE to run the trusted read-only collector"
+        required: true
+        type: string
+      probe_confirmation:
+        description: "Type PROBE_ZERO_COST to allow the bounded probe after evidence passes"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: secure-account-evidence-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  collect-and-probe:
+    if: github.ref == 'refs/heads/ai-army/provider-v3' && inputs.confirmation == 'SECURE_ACCOUNT_EVIDENCE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source without write credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Compile secure runner
+        run: python -m py_compile scripts/secure_account_evidence.py scripts/validate_secure_evidence.py scripts/run_live_staging_from_probe.py scripts/free_evidence.py scripts/probe_providers.py scripts/live_staging_runner.py
+      - name: Collect redacted account evidence
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python scripts/secure_account_evidence.py --output artifacts/secure_account_evidence.json
+      - name: Validate redaction and freshness
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python scripts/validate_secure_evidence.py --input artifacts/secure_account_evidence.json
+      - name: Run explicitly approved bounded zero-cost probe
+        if: inputs.probe_confirmation == 'PROBE_ZERO_COST'
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GOOGLE_PROBE_MODEL: gemini-3.8-flash
+          GROQ_PROBE_MODEL: qwen/qwen3.8-27b
+          NVIDIA_PROBE_MODEL: deepseek-ai/deepseek-v4-flash-0731
+          OPENROUTER_WORKER_PROBE_MODEL: z-ai/glm-5.3-flash:free
+        run: >-
+          python scripts/probe_providers.py
+          --network
+          --confirm CHECK
+          --evidence-file artifacts/secure_account_evidence.json
+          --output artifacts/provider_probe.json
+      - name: Write safe blocked probe report when probe was not confirmed
+        if: inputs.probe_confirmation != 'PROBE_ZERO_COST'
+        run: >-
+          python scripts/probe_providers.py
+          --evidence-file artifacts/secure_account_evidence.json
+          --output artifacts/provider_probe.json
+      - name: Continue automatically into bounded live staging when two families pass
+        if: inputs.probe_confirmation == 'PROBE_ZERO_COST'
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: >-
+          python scripts/run_live_staging_from_probe.py
+          --evidence-file artifacts/secure_account_evidence.json
+          --probe-file artifacts/provider_probe.json
+          --network
+          --ledger artifacts/live_staging_ledger.json
+          --checkpoint-root artifacts/live_staging_checkpoints
+          --output artifacts/live_staging_report.json
+      - name: Write blocked staging report when probe was not confirmed
+        if: inputs.probe_confirmation != 'PROBE_ZERO_COST'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          Path("artifacts/live_staging_report.json").write_text(json.dumps({
+              "status": "blocked",
+              "stop_reason": "PROBE_CONFIRMATION_REQUIRED",
+              "live_staging": False,
+              "model_calls": 0,
+              "production_active": False,
+          }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          PY
+      - name: Audit repository and generated artifacts
+        run: |
+          python scripts/audit_secret_safety.py --root .
+          python -m json.tool artifacts/secure_account_evidence.json >/dev/null
+          python -m json.tool artifacts/provider_probe.json >/dev/null
+          python -m json.tool artifacts/live_staging_report.json >/dev/null
+      - name: Upload redacted evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secure-account-evidence-${{ github.run_id }}
+          path: |
+            artifacts/secure_account_evidence.json
+            artifacts/provider_probe.json
+            artifacts/live_staging_report.json
+          if-no-files-found: ignore
+          retention-days: 7

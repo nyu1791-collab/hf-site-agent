@@ -118,7 +118,9 @@ def _catalog_id(provider: str, entry: Mapping[str, Any]) -> str:
 
 def _safe_catalog_digest(provider: str, entries: Sequence[Mapping[str, Any]]) -> str:
     projected = []
-    for entry in entries[:512]:
+    # Exact candidates may arrive after the first page of a large catalog.
+    # Keep a bounded digest, but do not make it depend on a 512-entry cutoff.
+    for entry in entries[:5000]:
         model_id = _catalog_id(provider, entry)
         if not model_id:
             continue
@@ -279,6 +281,10 @@ def resolve_free_evidence(
     evidence_timestamp: str | None = None,
     current: bool = True,
     free_only: bool = True,
+    evidence_generation: int | None = None,
+    expires_at: str | None = None,
+    evidence_provenance: Sequence[str] | None = None,
+    secure_evidence: bool = False,
 ) -> dict[str, Any]:
     """Resolve current zero-cost evidence for one exact model and route.
 
@@ -401,6 +407,35 @@ def resolve_free_evidence(
     if raw_pricing.get("available") is False or (entry is not None and entry.get("available") is False):
         blockers.append("MODEL_UNAVAILABLE")
 
+    # Account/quota evidence is short-lived.  Legacy fixture callers retain
+    # their old contract, while a bundle explicitly marked secure must carry
+    # freshness and provenance before it can satisfy a live gate.
+    generation = evidence_generation if isinstance(evidence_generation, int) else raw_pricing.get("evidence_generation")
+    if not isinstance(generation, int):
+        generation = 1
+    expiry = _text(expires_at or _first(raw_pricing, "expires_at", "evidence_expires_at"), 80)
+    raw_provenance = _first(raw_pricing, "evidence_provenance", "provenance")
+    provenance_values = evidence_provenance if evidence_provenance is not None else (
+        raw_provenance if isinstance(raw_provenance, Sequence) and not isinstance(raw_provenance, (str, bytes, bytearray)) else []
+    )
+    provenance = [_text(item, 120) for item in provenance_values if _text(item, 120)]
+    if secure_evidence:
+        if generation < 1:
+            blockers.append("EVIDENCE_GENERATION_REQUIRED")
+        if not expiry:
+            blockers.append("EVIDENCE_EXPIRY_REQUIRED")
+        else:
+            try:
+                parsed_expiry = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+                if parsed_expiry.tzinfo is None:
+                    parsed_expiry = parsed_expiry.replace(tzinfo=timezone.utc)
+                if parsed_expiry <= datetime.now(timezone.utc):
+                    blockers.append("STALE_EVIDENCE")
+            except ValueError:
+                blockers.append("EVIDENCE_EXPIRY_INVALID")
+        if not provenance:
+            blockers.append("EVIDENCE_PROVENANCE_REQUIRED")
+
     deduped_blockers = sorted(set(blockers))
     inconsistent = any(item in {"CATALOG_INCONSISTENCY", "DUPLICATE_CATALOG_METADATA_CONFLICT"} for item in deduped_blockers)
     zero_cost_verified = not deduped_blockers
@@ -416,6 +451,50 @@ def resolve_free_evidence(
     confidence = "HIGH" if zero_cost_verified else ("MEDIUM" if current and catalog_verified and free_program_exists is True else "LOW")
     if not source:
         confidence = "LOW"
+
+    # A trusted runner may be allowed to perform a narrowly scoped staging
+    # probe before an account-plan API exists.  This is intentionally a
+    # separate result from zero-cost verification: UNKNOWN account eligibility
+    # is tolerated only for an ephemeral, fixed free route with no paid
+    # fallback/transition and fresh secure evidence.  An explicitly ineligible
+    # account, non-zero price, exhausted quota, or missing route proof still
+    # blocks the staging probe.
+    staging_blockers: list[str] = []
+    if secure_evidence is not True:
+        staging_blockers.append("SECURE_EVIDENCE_REQUIRED")
+    if current is not True:
+        staging_blockers.append("CURRENT_EVIDENCE_REQUIRED")
+    if catalog_verified is not True:
+        staging_blockers.append("CATALOG_NOT_VERIFIED")
+    if exact_model_verified is not True:
+        staging_blockers.append("EXACT_MODEL_NOT_VERIFIED")
+    if free_program_exists is not True:
+        staging_blockers.append("FREE_PROGRAM_NOT_VERIFIED")
+    if selected_route not in {"FREE_TIER", "FREE_PLAN", "FREE_ENDPOINT", "FREE_MODEL_ENDPOINT"}:
+        staging_blockers.append("FREE_ROUTE_NOT_SELECTED")
+    if current_account_eligible is False:
+        staging_blockers.append("CURRENT_ACCOUNT_NOT_ELIGIBLE")
+    if input_price != "0" or output_price != "0":
+        staging_blockers.append("STAGING_PRICE_NOT_ZERO")
+    if quota_verified is not True or quota_safe is not True:
+        staging_blockers.append("STAGING_QUOTA_NOT_SAFE")
+    if paid_transition_disabled is not True:
+        staging_blockers.append("AUTOMATIC_PAID_TRANSITION_NOT_DISABLED")
+    if paid_fallback_disabled is not True:
+        staging_blockers.append("PAID_FALLBACK_NOT_DISABLED")
+    if billing_risk == "KNOWN":
+        staging_blockers.append("KNOWN_BILLING_TRANSITION_RISK")
+    if raw_pricing.get("endpoint_verified") is not True:
+        staging_blockers.append("STAGING_ENDPOINT_NOT_VERIFIED")
+    if raw_pricing.get("auth_verified") is not True:
+        staging_blockers.append("STAGING_AUTH_NOT_VERIFIED")
+    if secure_evidence:
+        for blocker in ("EVIDENCE_EXPIRY_REQUIRED", "EVIDENCE_EXPIRY_INVALID", "STALE_EVIDENCE", "EVIDENCE_PROVENANCE_REQUIRED"):
+            if blocker in deduped_blockers:
+                staging_blockers.append(blocker)
+        if "EVIDENCE_SOURCE_REQUIRED" in deduped_blockers:
+            staging_blockers.append("EVIDENCE_SOURCE_REQUIRED")
+    staging_blockers = sorted(set(staging_blockers))
 
     return {
         "provider": provider_id,
@@ -448,10 +527,16 @@ def resolve_free_evidence(
         "billing_transition_risk": billing_risk,
         "evidence_source": source,
         "evidence_timestamp": observed_at,
+        "evidence_generation": generation,
+        "expires_at": expiry or None,
+        "evidence_provenance": provenance,
+        "secure_evidence": secure_evidence,
         "is_current": current is True,
         "confidence": confidence,
         "zero_price_verified": input_price == "0" and output_price == "0",
         "zero_cost_verified": zero_cost_verified,
+        "staging_probe_allowed": not staging_blockers,
+        "staging_blockers": staging_blockers,
         "blockers": deduped_blockers,
         "status": status,
         "revalidation_required": not zero_cost_verified,
