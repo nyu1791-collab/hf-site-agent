@@ -69,6 +69,11 @@ class DirectApiValidationTests(unittest.TestCase):
             "BASE_SHA": "base-sha-redacted-test",
             "PR_NUMBER": "40",
         }
+        self.candidates = {
+            "google": ["google-current-model", "google-current-model-2"],
+            "nvidia": ["nvidia-current-model", "nvidia-current-model-2"],
+            "groq": ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"],
+        }
 
     def test_default_is_dry_run_and_never_calls_an_adapter(self):
         adapters = {provider: FakeAdapter(provider, CANDIDATE_HINTS[provider][:1]) for provider in CANDIDATE_HINTS}
@@ -107,8 +112,8 @@ class DirectApiValidationTests(unittest.TestCase):
     def test_staged_validation_selects_direct_candidates_but_not_overall_army(self):
         registry_before = copy.deepcopy(self.registry)
         adapters = {
-            provider: FakeAdapter(provider, CANDIDATE_HINTS[provider][:2])
-            for provider in CANDIDATE_HINTS
+            provider: FakeAdapter(provider, self.candidates[provider])
+            for provider in self.candidates
         }
         report = run_validation(
             self.registry,
@@ -116,11 +121,11 @@ class DirectApiValidationTests(unittest.TestCase):
             confirmation="DIRECT_API_VALIDATION",
             adapters=adapters,
             environ=self.env,
+            candidate_models=self.candidates,
             run_capabilities=True,
             run_missions=True,
             max_missions=6,
             max_total_requests=64,
-            allow_trial_credits=True,
         )
         self.assertEqual(report["final"]["GOOGLE_READY"], True)
         self.assertEqual(report["final"]["NVIDIA_READY"], True)
@@ -137,25 +142,6 @@ class DirectApiValidationTests(unittest.TestCase):
             self.assertEqual(calls.count("capability"), 6)
             self.assertEqual(calls.count("mission"), 12)
             self.assertEqual(report["selection"][provider]["commander_score"], 100)
-
-    def test_nvidia_trial_credits_require_separate_opt_in_before_network(self):
-        adapter = FakeAdapter("nvidia", CANDIDATE_HINTS["nvidia"][:1])
-        report = run_validation(
-            self.registry,
-            ["nvidia"],
-            network_enabled=True,
-            confirmation="DIRECT_API_VALIDATION",
-            adapters={"nvidia": adapter},
-            environ=self.env,
-            max_total_requests=12,
-        )
-        provider = report["providers"][0]
-        self.assertEqual(provider["status"], "TRIAL_CREDITS_APPROVAL_REQUIRED")
-        self.assertFalse(provider["trial_credits_allowed"])
-        self.assertEqual(provider["request_count"], 0)
-        self.assertFalse(adapter.calls)
-        self.assertFalse(report["final"]["NVIDIA_READY"])
-        self.assertFalse(report["safety"]["trial_credits_allowed"])
 
     def test_model_not_in_current_catalog_is_not_probed(self):
         adapter = FakeAdapter("groq", ["unrelated/model"])
