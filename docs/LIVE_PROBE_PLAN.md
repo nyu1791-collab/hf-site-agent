@@ -9,6 +9,17 @@ token estimate, timeout, retry count, approval token, and estimated cost. Cost
 is intentionally `UNKNOWN` until current provider/account evidence is supplied;
 therefore `auto_execution_allowed` and every `LIVE_PROBE_*` flag remain false.
 
+Candidate labels are now included separately from model IDs. Google evaluates
+current Gemini Flash discovery with `Gemini 3.8 Flash` as a label; NVIDIA
+evaluates current NIM/Build discovery with `Nemotron 3.5 Lightning 30B A3B` and
+current DeepSeek labels; Groq evaluates the user-observed Qwen, GPT-OSS and
+Compound labels through the current Models API; OpenRouter uses a role-scoped
+current Free Worker pool. These labels never authorize a fixed model ID.
+
+Every exact model ID must be discovered from the current provider catalog,
+capability-checked, cost/quota-checked, probed, benchmarked, and explicitly
+approved before it can become a candidate or active model.
+
 Example:
 
 ```sh
