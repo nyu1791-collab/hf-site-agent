@@ -89,6 +89,22 @@ class ProviderAdapterTests(unittest.TestCase):
         result = adapter.probe("requested/model:free")
         self.assertEqual(result["status"], "FREE_COST_UNVERIFIED")
 
+    def test_probe_rejects_empty_openai_compatible_choices(self):
+        adapter = OpenAICompatibleAdapter(self.registry, "groq", network_enabled=True)
+        adapter._chat = lambda model_id, messages, **options: AdapterResponse(
+            {"model": model_id, "choices": [], "usage": {}}, {}, 4
+        )
+        result = adapter.probe("requested/model")
+        self.assertEqual(result["status"], "MODEL_OUTPUT_INVALID")
+
+    def test_probe_rejects_empty_openai_compatible_message(self):
+        adapter = OpenAICompatibleAdapter(self.registry, "groq", network_enabled=True)
+        adapter._chat = lambda model_id, messages, **options: AdapterResponse(
+            {"model": model_id, "choices": [{"message": {}}], "usage": {}}, {}, 4
+        )
+        result = adapter.probe("requested/model")
+        self.assertEqual(result["status"], "MODEL_OUTPUT_INVALID")
+
     def test_openrouter_generation_rejects_resolved_model_mismatch(self):
         registry = copy.deepcopy(self.registry)
         provider = registry["providers"]["openrouter"]
