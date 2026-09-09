@@ -44,8 +44,10 @@ Cost bands are configurable in `config/compute_provider_registry.json`:
 
 The shared ledger requirement is intentional. A local file lock is useful for
 tests and one host, but it is not proof of atomicity across independent
-GitHub runners. `MODAL_LEDGER_SHARED=true` and a genuinely shared, durable
-ledger are required before activation can be considered.
+GitHub runners. `MODAL_LEDGER_SHARED=true` is only an informational input;
+a separately reviewed adapter must provide an explicit durable-store proof
+before `ledger_status.ready`, cross-runner locking, or activation can be
+considered true. No current workflow supplies that proof.
 
 ## Official Modal interfaces used by the adapter
 
