@@ -1,5 +1,7 @@
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 
 from scripts.provider_controls import (
@@ -84,6 +86,33 @@ class ProviderControlsTests(unittest.TestCase):
             with self.assertRaises(QuotaGuardError) as caught:
                 google.reserve(request_id="g-1", mission_id="m", agent_id="a", model="model")
             self.assertEqual(caught.exception.reason, "QUOTA_UNKNOWN")
+
+    def test_separate_process_instances_reserve_atomically(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "usage.json"
+            ledgers = [
+                ProviderQuotaLedger("groq", path, daily_limit=2, hard_stop=1, rpm_limit=10),
+                ProviderQuotaLedger("groq", path, daily_limit=2, hard_stop=1, rpm_limit=10),
+            ]
+            gate = threading.Barrier(2)
+
+            def reserve(index):
+                gate.wait()
+                try:
+                    ledgers[index].reserve(
+                        request_id=f"race-{index}", mission_id="mission-race",
+                        agent_id="agent-race", model="model",
+                    )
+                    return "reserved"
+                except QuotaGuardError as error:
+                    return error.reason
+
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(reserve, (0, 1)))
+            self.assertEqual(results.count("reserved"), 1)
+            self.assertEqual(results.count("QUOTA_GUARD_BLOCKED"), 1)
+            self.assertTrue(ledgers[0].durability_status()["cross_process_atomic"])
+            self.assertFalse(ledgers[0].durability_status()["cross_runner_durable"])
 
 
 if __name__ == "__main__":
