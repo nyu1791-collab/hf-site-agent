@@ -50,6 +50,11 @@ MODEL_RECORD_FIELDS = (
     "benchmark_status", "cost_class", "quota_status", "commander_score", "average_latency",
     "schema_success_rate", "tool_success_rate", "mission_success_rate", "last_verified",
 )
+EXPECTED_CANDIDATE_FIELDS = {
+    "provider_id", "model_id", "role_candidates", "capabilities", "status", "lifecycle",
+    "discovered_at", "last_verified_at", "probe_status", "benchmark_status", "cost_class",
+    "quota_status", "free_verified", "source",
+}
 
 
 class RegistryError(ValueError):
@@ -147,6 +152,45 @@ def validate_registry(registry: Mapping[str, Any]) -> None:
             raise RegistryError(f"model role_candidates must be a list: {model_id}")
         if not isinstance(model.get("capabilities"), list):
             raise RegistryError(f"model capabilities must be a list: {model_id}")
+    expected_candidates = registry.get("expected_candidates", [])
+    if not isinstance(expected_candidates, list):
+        raise RegistryError("expected_candidates must be a list")
+    expected_ids: set[str] = set()
+    for candidate in expected_candidates:
+        if not isinstance(candidate, Mapping):
+            raise RegistryError("expected candidate is not an object")
+        missing = EXPECTED_CANDIDATE_FIELDS - set(candidate)
+        if missing:
+            raise RegistryError(f"expected candidate fields are missing: {sorted(missing)}")
+        provider_id = candidate.get("provider_id")
+        model_id = candidate.get("model_id")
+        if provider_id not in KNOWN_PROVIDER_IDS:
+            raise RegistryError(f"unknown expected candidate provider: {provider_id}")
+        if not isinstance(model_id, str) or not model_id.strip() or model_id in GENERIC_FREE_IDS:
+            raise RegistryError("invalid expected candidate model_id")
+        if model_id in expected_ids:
+            raise RegistryError(f"duplicate expected candidate: {model_id}")
+        expected_ids.add(model_id)
+        if candidate.get("status") != "EXPECTED_UNVERIFIED":
+            raise RegistryError(f"expected candidate must remain unverified: {model_id}")
+        if candidate.get("lifecycle") != "UNKNOWN":
+            raise RegistryError(f"expected candidate lifecycle must fail closed: {model_id}")
+        if candidate.get("free_verified") is not False:
+            raise RegistryError(f"expected candidate free state must be unverified: {model_id}")
+        if candidate.get("probe_status") != "NOT_RUN" or candidate.get("benchmark_status") != "NOT_RUN":
+            raise RegistryError(f"expected candidate cannot contain live evidence: {model_id}")
+        if not isinstance(candidate.get("role_candidates"), list) or not candidate.get("role_candidates"):
+            raise RegistryError(f"expected candidate roles are missing: {model_id}")
+        if not isinstance(candidate.get("capabilities"), list) or not candidate.get("capabilities"):
+            raise RegistryError(f"expected candidate capabilities are missing: {model_id}")
+        if not isinstance(candidate.get("source"), str) or not candidate.get("source").strip():
+            raise RegistryError(f"expected candidate source is missing: {model_id}")
+        if any(model_id in {
+            role.get("primary_model"),
+            *(role.get("fallback_models") or []),
+            *((role.get("candidate_models") or [])),
+        } for role in roles.values() if isinstance(role, Mapping)):
+            raise RegistryError(f"expected candidate cannot be routed: {model_id}")
     legacy = registry.get("legacy")
     if not isinstance(legacy, list):
         raise RegistryError("legacy model list is missing")
@@ -492,6 +536,7 @@ def lifecycle_guard(
 
 __all__ = [
     "DEFAULT_REGISTRY_PATH",
+    "EXPECTED_CANDIDATE_FIELDS",
     "MODEL_RECORD_FIELDS",
     "RegistryError",
     "load_registry",
