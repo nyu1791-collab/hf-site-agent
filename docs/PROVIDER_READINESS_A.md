@@ -417,7 +417,7 @@ recovery, but explicitly reports `cross_runner_durable=false`; it is not
 evidence for production parallel routing.
 
 At the final Phase 6 verification, PR #40 HEAD was
-`a321774d3583345ac4da41e8929b8e579a4a792f`, GitHub Actions had two successful
+`81a21dfa51f946729bec3ce5d6c5785d23c5b152`, GitHub Actions had two successful
 read-only workflow runs, and the local deterministic suite was `181/181
 PASS`. No live Provider catalog, free-tier, quota, or endpoint evidence was
 collected. All Provider and Live Probe readiness flags therefore remain
