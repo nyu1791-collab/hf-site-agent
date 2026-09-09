@@ -180,6 +180,76 @@ class ProviderAdapterTests(unittest.TestCase):
         self.assertFalse(registry["providers"]["groq"]["enabled"])
         self.assertFalse(registry["providers"]["groq"]["activation_approved"])
 
+    def test_limited_nvidia_generation_uses_eight_token_cap_and_allows_unreported_cost(self):
+        registry = copy.deepcopy(self.registry)
+        adapter = OpenAICompatibleAdapter(registry, "nvidia", network_enabled=True)
+        captured = {}
+
+        def chat(model_id, messages, **options):
+            captured.update(options)
+            return AdapterResponse(
+                {"model": model_id, "choices": [{"message": {"content": "{}"}}], "usage": {}},
+                {},
+                4,
+            )
+
+        adapter._chat = chat
+        policy = ExecutionPolicy(
+            scope="STAGING",
+            provider_id="nvidia",
+            model_id="deepseek-ai/deepseek-v4-flash-0731",
+            model_family="DeepSeek",
+            staging_approved=True,
+            exact_model_verified=True,
+            endpoint_verified=True,
+            auth_verified=True,
+            circuit_closed=True,
+            staging_free_route_allowed=True,
+            limited_staging=True,
+            limited_operation="BOOTSTRAP_PROPOSAL",
+        )
+        result = adapter.generate(
+            "deepseek-ai/deepseek-v4-flash-0731",
+            [{"role": "user", "content": "x"}],
+            execution_policy=policy,
+            require_zero_cost=True,
+        )
+        self.assertEqual(result["model"], "deepseek-ai/deepseek-v4-flash-0731")
+        self.assertEqual(captured["max_tokens"], 8)
+        self.assertFalse(registry["providers"]["nvidia"]["enabled"])
+        self.assertFalse(registry["providers"]["nvidia"]["activation_approved"])
+
+    def test_limited_nvidia_generation_rejects_response_model_mismatch(self):
+        registry = copy.deepcopy(self.registry)
+        adapter = OpenAICompatibleAdapter(registry, "nvidia", network_enabled=True)
+        adapter._chat = lambda model_id, messages, **options: AdapterResponse(
+            {"model": "another/model", "choices": [{"message": {"content": "{}"}}], "usage": {}},
+            {},
+            4,
+        )
+        policy = ExecutionPolicy(
+            scope="STAGING",
+            provider_id="nvidia",
+            model_id="deepseek-ai/deepseek-v4-flash-0731",
+            model_family="DeepSeek",
+            staging_approved=True,
+            exact_model_verified=True,
+            endpoint_verified=True,
+            auth_verified=True,
+            circuit_closed=True,
+            staging_free_route_allowed=True,
+            limited_staging=True,
+            limited_operation="BOOTSTRAP_PROPOSAL",
+        )
+        with self.assertRaises(ProviderAdapterError) as caught:
+            adapter.generate(
+                "deepseek-ai/deepseek-v4-flash-0731",
+                [{"role": "user", "content": "x"}],
+                execution_policy=policy,
+                require_zero_cost=True,
+            )
+        self.assertEqual(caught.exception.error_class, "MODEL_MISMATCH")
+
     def test_error_mapping_does_not_retry_auth_quota_or_credit(self):
         for status, error_class in ((401, "AUTH_ERROR"), (403, "PERMISSION_ERROR"), (404, "MODEL_UNAVAILABLE"), (402, "CREDIT_EXHAUSTED"), (429, "RATE_LIMITED")):
             error = HTTPError("https://provider.invalid", status, "blocked", {"Retry-After": "4"}, BytesIO(b"secret response body"))

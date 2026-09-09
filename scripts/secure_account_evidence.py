@@ -474,6 +474,11 @@ def _record_for_model(
         "staging_blockers": resolved.get("staging_blockers") or [],
         "limited_staging_probe_allowed": resolved.get("limited_staging_probe_allowed") is True,
         "limited_staging_probe_blockers": resolved.get("limited_staging_probe_blockers") or [],
+        "limited_staging_probe_warnings": resolved.get("limited_staging_probe_warnings") or [],
+        "limited_staging_evidence_severity": resolved.get("limited_staging_evidence_severity") or {
+            "hard_blockers": [],
+            "soft_warnings": [],
+        },
         "limited_staging_probe_request_limit": resolved.get("limited_staging_probe_request_limit", 0),
         "limited_staging_probe_max_output_tokens": resolved.get("limited_staging_probe_max_output_tokens", 0),
         "staging_state": resolved.get("staging_state", "BLOCKED"),

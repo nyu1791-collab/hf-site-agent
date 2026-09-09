@@ -25,7 +25,9 @@ from scripts.execution_scope import ExecutionPolicy
 from scripts.live_staging_runner import (
     LiveAgentBinding,
     build_minimal_staging_plan,
+    build_nvidia_limited_bootstrap_plan,
     run_live_staging_mission,
+    run_nvidia_limited_bootstrap_mission,
 )
 from scripts.provider_adapters import create_provider_adapter
 from scripts.provider_registry import load_provider_registry
@@ -95,7 +97,13 @@ def _candidate_ok(evidence: Mapping[str, Any], probe: Mapping[str, Any], provide
         record.get("secure_evidence") is True
         and record.get("current") is True
         and _fresh(record)
-        and (record.get("zero_cost_verified") is True or record.get("staging_probe_allowed") is True)
+        and (
+            record.get("zero_cost_verified") is True
+            or (
+                provider != "google"
+                and record.get("staging_probe_allowed") is True
+            )
+        )
         and record.get("model_verified") is True
         and record.get("endpoint_verified") is True
         and record.get("auth_verified") is True
@@ -104,6 +112,38 @@ def _candidate_ok(evidence: Mapping[str, Any], probe: Mapping[str, Any], provide
         and record.get("paid_transition_possible") is False
         and probe_record.get("status") == "PROBE_OK"
         and probe_record.get("model_calls") == 1
+    )
+
+
+def _limited_nvidia_candidate_ok(evidence: Mapping[str, Any], probe: Mapping[str, Any]) -> bool:
+    """Allow only the post-probe, one-call NVIDIA bootstrap exception."""
+    provider = "nvidia"
+    model = "deepseek-ai/deepseek-v4-flash-0731"
+    record = _model_record(evidence, provider, model)
+    probe_record = _probe_record(probe, provider, model)
+    severity = record.get("limited_staging_evidence_severity")
+    hard_blockers = severity.get("hard_blockers") if isinstance(severity, Mapping) else None
+    usage_cost = probe_record.get("usage_cost")
+    cost_is_zero_or_unreported = usage_cost in (None, "0", "0.0", "0.00", 0, 0.0)
+    return (
+        record.get("secure_evidence") is True
+        and record.get("current") is True
+        and _fresh(record)
+        and record.get("limited_staging_probe_allowed") is True
+        and record.get("limited_staging_probe_blockers") == []
+        and (hard_blockers == [] or hard_blockers is None)
+        and record.get("model_verified") is True
+        and record.get("endpoint_verified") is True
+        and record.get("auth_verified") is True
+        and record.get("selected_route") == "FREE_ENDPOINT"
+        and record.get("paid_fallback_possible") is False
+        and record.get("paid_transition_possible") is False
+        and probe_record.get("status") == "PROBE_OK"
+        and probe_record.get("model_calls") == 1
+        and probe_record.get("http_status", 0) in range(200, 300)
+        and probe_record.get("response_model") == model
+        and probe_record.get("staging_only") is True
+        and cost_is_zero_or_unreported
     )
 
 
@@ -150,11 +190,88 @@ def run_from_reports(
     network_enabled: bool,
     ledger_path: str | Path,
     checkpoint_root: str | Path,
+    allow_limited_nvidia_bootstrap: bool = False,
 ) -> dict[str, Any]:
     if not network_enabled:
         return {"status": "blocked", "stop_reason": "NETWORK_NOT_EXPLICITLY_ENABLED", "live_staging": False, "model_calls": 0}
     executor_choice, reviewer_choice = select_live_candidates(evidence, probe)
     if not executor_choice or not reviewer_choice:
+        if allow_limited_nvidia_bootstrap and _limited_nvidia_candidate_ok(evidence, probe):
+            model = "deepseek-ai/deepseek-v4-flash-0731"
+            record = _model_record(evidence, "nvidia", model)
+            registry = load_provider_registry()
+            adapter = create_provider_adapter(registry, "nvidia", network_enabled=True, timeout_seconds=8.0)
+            policy = ExecutionPolicy(
+                scope="STAGING",
+                provider_id="nvidia",
+                model_id=model,
+                model_family=MODEL_FAMILIES[("nvidia", model)],
+                technically_ready=False,
+                staging_approved=True,
+                exact_model_verified=record.get("model_verified") is True,
+                endpoint_verified=record.get("endpoint_verified") is True,
+                auth_verified=record.get("auth_verified") is True,
+                capability_verified=False,
+                free_verified=False,
+                cost_safe=False,
+                quota_safe=record.get("quota_safe") is True,
+                circuit_closed=True,
+                paid_fallback=False,
+                auto_top_up=False,
+                max_retries=0,
+                staging_free_route_allowed=True,
+                account_zero_cost_verified=False,
+                limited_staging=True,
+                limited_operation="BOOTSTRAP_PROPOSAL",
+            )
+            binding = LiveAgentBinding(
+                role="EXECUTOR",
+                provider_id="nvidia",
+                model_id=model,
+                model_family=MODEL_FAMILIES[("nvidia", model)],
+                adapter=adapter,
+                execution_policy=policy,
+            )
+            plan = build_nvidia_limited_bootstrap_plan(
+                mission_id="phase9-nvidia-google-bootstrap",
+                request_budget=1,
+                token_budget=2_048,
+                objective=(
+                    "Review the Google provider adapter and propose one minimal, low-risk change "
+                    "that can move Google toward a fail-closed staging probe. Return a proposal only."
+                ),
+            )
+            report = run_nvidia_limited_bootstrap_mission(
+                plan,
+                binding,
+                ledger_path=ledger_path,
+                checkpoint_root=checkpoint_root,
+                network_enabled=True,
+            )
+            report["nvidia_limited_staging"] = {
+                "ready_limited": report.get("status") == "completed",
+                "account_specific_zero_cost_proven": False,
+                "soft_warnings": record.get("limited_staging_probe_warnings") or [],
+                "hard_blockers": record.get("limited_staging_probe_blockers") or [],
+                "probe_consumed": True,
+                "request_limit": 1,
+            }
+            report["executor_model"] = model
+            report["executor_family"] = MODEL_FAMILIES[("nvidia", model)]
+            report["reviewer_model"] = "work-integrator-local"
+            report["reviewer_family"] = "LOCAL"
+            report["production_active"] = False
+            report["self_bootstrap"] = {
+                "started": False,
+                "status": "WAITING_FOR_TWO_AGENT_FAMILY",
+                "proposal_review_passed": False,
+                "work_integration_required": True,
+                "external_model_calls": 0,
+            }
+            report["total_external_model_calls_in_command"] = int(
+                (report.get("live_staging") or {}).get("external_model_calls", 0)
+            )
+            return report
         return {
             "status": "blocked",
             "stop_reason": "TWO_FRESH_ZERO_COST_MODEL_FAMILIES_REQUIRED",
@@ -287,6 +404,11 @@ def main() -> int:
     parser.add_argument("--network", action="store_true")
     parser.add_argument("--ledger", default="artifacts/live_staging_ledger.json")
     parser.add_argument("--checkpoint-root", default="artifacts/live_staging_checkpoints")
+    parser.add_argument(
+        "--allow-limited-nvidia-bootstrap",
+        action="store_true",
+        help="permit one post-probe NVIDIA staging bootstrap proposal",
+    )
     parser.add_argument("--output", default="artifacts/live_staging_report.json")
     args = parser.parse_args()
     try:
@@ -299,6 +421,7 @@ def main() -> int:
             network_enabled=args.network,
             ledger_path=args.ledger,
             checkpoint_root=args.checkpoint_root,
+            allow_limited_nvidia_bootstrap=args.allow_limited_nvidia_bootstrap,
         )
     except Exception:
         report = {

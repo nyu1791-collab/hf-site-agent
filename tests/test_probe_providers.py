@@ -116,6 +116,22 @@ class ProviderProbeTests(unittest.TestCase):
         self.assertEqual(report["providers"][0]["status"], "PROBE_OK")
         self.assertEqual(fake.calls, 1)
 
+    def test_google_unknown_account_cannot_use_generic_staging_probe(self):
+        fake = FakeAdapter()
+        evidence = self.evidence("google", "vendor/model")
+        evidence["google"]["vendor/model"]["current_account_eligible"] = None
+        report = run_probe(
+            self.registry,
+            ["google"],
+            network_enabled=True,
+            adapters={"google": fake},
+            environ={"GOOGLE_API_KEY": "test-key", "GOOGLE_PROBE_MODEL": "vendor/model"},
+            free_evidence=evidence,
+            explicit_approval=True,
+        )
+        self.assertEqual(report["providers"][0]["status"], "ZERO_COST_PREFLIGHT_BLOCKED")
+        self.assertEqual(fake.calls, 0)
+
     def test_probe_failure_does_not_include_raw_error(self):
         fake = FakeAdapter(error=True)
         report = run_probe(

@@ -140,6 +140,8 @@ class TaskLoopCallbacks:
     reviewer: TaskCallback
     reviser: TaskCallback | None = None
     replanner: TaskCallback | None = None
+    # Deterministic local review consumes no external model request.
+    reviewer_requests: int = 1
 
     def __post_init__(self) -> None:
         for name in ("executor", "validator", "reviewer"):
@@ -149,6 +151,8 @@ class TaskLoopCallbacks:
             callback = getattr(self, name)
             if callback is not None and not callable(callback):
                 raise AutonomousRuntimeError(f"{name} callback is invalid")
+        if isinstance(self.reviewer_requests, bool) or self.reviewer_requests not in {0, 1}:
+            raise AutonomousRuntimeError("reviewer_requests must be zero or one")
 
 
 @dataclass
@@ -660,6 +664,10 @@ class TaskLoopRunner:
                         phase,
                         callback,
                         self._context(phase=phase, failure_reason=failure_reason),
+                        # Execute/revision is always the external worker call.
+                        # ``reviewer_requests`` only controls the review phase
+                        # so a local integrator review cannot accidentally turn
+                        # the bounded executor call into a zero-request call.
                         default_requests=1,
                     )
                     self.state.review_decision = "PENDING"
@@ -685,7 +693,7 @@ class TaskLoopRunner:
                         "REVIEW",
                         self.callbacks.reviewer,
                         self._context(phase="REVIEW", candidate=candidate_data, validation=validation.data, failure_reason=failure_reason),
-                        default_requests=1,
+                        default_requests=self.callbacks.reviewer_requests,
                     )
                     decision = safe_text(review.data.get("decision") or review.data.get("verdict") or "", 40).upper()
                     if decision not in {"PASS", "FAIL"}:

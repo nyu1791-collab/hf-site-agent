@@ -78,6 +78,20 @@ class SecureAccountEvidenceTests(unittest.TestCase):
         self.assertEqual(report["providers"]["openrouter"]["models"]["z-ai/glm-5.3-flash:free"]["selected_route"], "FREE_MODEL_ENDPOINT")
         self.assertEqual(len(calls), 5)  # four catalogs plus the bounded OpenRouter key read
 
+    def test_nvidia_account_and_quota_gaps_are_redacted_soft_warnings(self):
+        requester, _ = self._requester()
+        report = run_evidence(
+            ["nvidia"],
+            environ={"NVIDIA_API_KEY": "nvidia-secret"},
+            requester=requester,
+        )
+        model = report["providers"]["nvidia"]["models"]["deepseek-ai/deepseek-v4-flash-0731"]
+        self.assertTrue(model["limited_staging_probe_allowed"])
+        self.assertIn("ACCOUNT_ENTITLEMENT_UNKNOWN", model["limited_staging_probe_warnings"])
+        self.assertNotIn("QUOTA_METADATA_UNAVAILABLE", model["limited_staging_probe_warnings"])
+        self.assertEqual(model["limited_staging_evidence_severity"]["hard_blockers"], [])
+        self.assertNotIn("nvidia-secret", str(model))
+
     def test_openrouter_legacy_secret_is_never_used_as_canonical_secret(self):
         requester, calls = self._requester()
         report = run_evidence(
@@ -331,6 +345,91 @@ class SecureAccountEvidenceTests(unittest.TestCase):
         self.assertEqual(report["total_external_model_calls_in_command"], 6)
         self.assertFalse(report["safety"]["account_specific_zero_cost_proven"])
         self.assertTrue(report["safety"]["staging_free_route_policy_used"])
+
+    def test_limited_nvidia_report_path_runs_one_bootstrap_call_after_probe(self):
+        expiry = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+        model = "deepseek-ai/deepseek-v4-flash-0731"
+        evidence = {
+            "schema_version": SCHEMA_VERSION,
+            "secret_values_in_bundle": False,
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": expiry,
+            "providers": {
+                "nvidia": {
+                    "models": {
+                        model: {
+                            "secure_evidence": True,
+                            "current": True,
+                            "expires_at": expiry,
+                            "limited_staging_probe_allowed": True,
+                            "limited_staging_probe_blockers": [],
+                            "limited_staging_evidence_severity": {
+                                "hard_blockers": [],
+                                "soft_warnings": ["ACCOUNT_ENTITLEMENT_UNKNOWN", "QUOTA_METADATA_UNAVAILABLE"],
+                            },
+                            "model_verified": True,
+                            "endpoint_verified": True,
+                            "auth_verified": True,
+                            "selected_route": "FREE_ENDPOINT",
+                            "paid_fallback_possible": False,
+                            "paid_transition_possible": False,
+                        }
+                    }
+                }
+            },
+        }
+        probe = {
+            "providers": [{
+                "provider": "nvidia",
+                "model": model,
+                "status": "PROBE_OK",
+                "model_calls": 1,
+                "staging_only": True,
+                "response_model": model,
+                "http_status": 200,
+                "usage_cost": None,
+            }]
+        }
+
+        class FakeAdapter:
+            provider_id = "nvidia"
+
+            def __init__(self, config):
+                self.config = config
+                self.calls = []
+
+            def generate(self, model_id, messages, **options):
+                self.calls.append({"model": model_id, "options": options})
+                return {
+                    "model": model_id,
+                    "text": json.dumps({"summary": "one bounded proposal", "proposal": {"files_affected": []}}),
+                    "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+                }
+
+        holder = {}
+
+        def factory(registry, provider_id, **kwargs):
+            holder[provider_id] = FakeAdapter(registry["providers"][provider_id])
+            return holder[provider_id]
+
+        with tempfile.TemporaryDirectory() as directory, patch(
+            "scripts.run_live_staging_from_probe.create_provider_adapter", side_effect=factory
+        ):
+            report = run_from_reports(
+                evidence,
+                probe,
+                network_enabled=True,
+                ledger_path=Path(directory) / "ledger.json",
+                checkpoint_root=Path(directory) / "checkpoints",
+                allow_limited_nvidia_bootstrap=True,
+            )
+
+        self.assertEqual(report["status"], "completed")
+        self.assertTrue(report["nvidia_limited_staging"]["ready_limited"])
+        self.assertEqual(report["live_staging"]["external_model_calls"], 1)
+        self.assertEqual(report["total_external_model_calls_in_command"], 1)
+        self.assertEqual(holder["nvidia"].calls[0]["options"]["max_tokens"], 8)
+        self.assertFalse(report["safety"]["zero_cost_all_live_calls"])
 
 
 if __name__ == "__main__":

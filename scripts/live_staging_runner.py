@@ -37,6 +37,7 @@ from scripts.provider_adapters import ProviderAdapterError
 MAX_PROMPT_CHARS = 14_000
 MAX_RESPONSE_CHARS = 20_000
 MAX_OUTPUT_TOKENS = 256
+LIMITED_STAGING_MAX_OUTPUT_TOKENS = 8
 PROVIDER_TO_CORPS = {"google": "GOOGLE", "groq": "GROQ", "nvidia": "NVIDIA"}
 
 
@@ -206,7 +207,12 @@ def _call_model(
     metrics: LiveCallMetrics,
     instruction: str,
 ) -> dict[str, Any]:
-    if not metrics.may_call(binding.provider_id, reserved_output_tokens=MAX_OUTPUT_TOKENS):
+    output_token_limit = (
+        LIMITED_STAGING_MAX_OUTPUT_TOKENS
+        if binding.execution_policy.limited_staging is True
+        else MAX_OUTPUT_TOKENS
+    )
+    if not metrics.may_call(binding.provider_id, reserved_output_tokens=output_token_limit):
         raise ProviderInterrupted(f"{binding.provider_id}:PROVIDER_BUDGET_EXHAUSTED")
     prompt = _prompt_context(task, context)
     request_id = stable_hash({
@@ -230,7 +236,7 @@ def _call_model(
             request_id=request_id,
             mission_id=task.mission_id,
             agent_id=f"{binding.role.lower()}-{binding.provider_id}",
-            max_tokens=MAX_OUTPUT_TOKENS,
+            max_tokens=output_token_limit,
             temperature=0,
         )
     except ProviderAdapterError as exc:
@@ -382,6 +388,203 @@ def build_minimal_staging_plan(
     )
 
 
+def build_nvidia_limited_bootstrap_plan(
+    *,
+    mission_id: str,
+    request_budget: int = 1,
+    token_budget: int = 2_048,
+    objective: str = "Return a read-only proposal for completing the Google staging adapter.",
+) -> MissionPlan:
+    """Build one NVIDIA-only bootstrap proposal plan.
+
+    The external model-call budget is one.  The deterministic local
+    integrator review consumes no external request and is kept separate from
+    the normal two-agent mission.
+    """
+    task = MissionTask(
+        mission_id=mission_id,
+        task_id="NVIDIA-GOOGLE-BOOTSTRAP-1",
+        parent_task_id=None,
+        parent_agent_id="chatgpt-work",
+        owner_corps="NVIDIA",
+        role="BOOTSTRAP_ENGINEER",
+        required_capabilities=("structured_output",),
+        priority=0,
+        risk_level="LOW",
+        complexity_level=1,
+        deadline=None,
+        request_budget=request_budget,
+        token_budget=token_budget,
+        estimated_cost=0,
+        idempotency_key=f"{mission_id}:NVIDIA-GOOGLE-BOOTSTRAP-1:v1",
+        response_version=1,
+        delegation_depth=1,
+        provider_id="nvidia",
+        side_effect_level="read_only_draft",
+        metadata={
+            "execution_scope": "STAGING",
+            "limited_staging": True,
+            "limited_operation": "BOOTSTRAP_PROPOSAL",
+            "objective": objective[:1_000],
+            "repository_write_allowed": False,
+        },
+    )
+    return MissionPlan(
+        mission_id=mission_id,
+        tasks=(task,),
+        max_total_requests=request_budget,
+        max_total_tokens=token_budget,
+        max_parallel=1,
+        provider_request_budgets={"nvidia": request_budget},
+        provider_token_budgets={"nvidia": token_budget},
+        free_only=True,
+    )
+
+
+def run_nvidia_limited_bootstrap_mission(
+    plan: MissionPlan,
+    binding: LiveAgentBinding,
+    *,
+    ledger_path: str | Path,
+    checkpoint_root: str | Path,
+    network_enabled: bool = False,
+) -> dict[str, Any]:
+    """Run exactly one NVIDIA bootstrap proposal with local validation.
+
+    This is a post-probe, staging-only handoff.  It produces a proposal for
+    Work/Integrator; it never writes the repository and never calls a second
+    external model.
+    """
+    metrics = LiveCallMetrics()
+    try:
+        binding.validate()
+        if binding.provider_id != "nvidia" or binding.execution_policy.limited_staging is not True:
+            raise LiveStagingError("NVIDIA_LIMITED_BOOTSTRAP_POLICY_REQUIRED")
+        if not network_enabled:
+            return {
+                "status": "blocked",
+                "stop_reason": "NETWORK_NOT_EXPLICITLY_ENABLED",
+                "live_staging": False,
+                "model_calls": 0,
+                "production_active": False,
+            }
+        if plan.max_total_requests != 1:
+            raise LiveStagingError("NVIDIA_LIMITED_BOOTSTRAP_REQUEST_LIMIT_MUST_BE_ONE")
+        metrics.configure_budgets({"nvidia": 1}, {"nvidia": plan.max_total_tokens})
+
+        def execute(task: MissionTask, context: Mapping[str, Any]) -> dict[str, Any]:
+            return _call_model(
+                binding,
+                task,
+                context,
+                metrics=metrics,
+                instruction=(
+                    "You are the NVIDIA staging Bootstrap Engineer. Analyze only the compact Google "
+                    "provider context and return JSON with summary, proposal, files_affected, tests, "
+                    "risks, and next_action. Propose one minimal patch or test change; do not edit the "
+                    "repository, access secrets, select a paid route, deploy, publish, or authorize payment."
+                ),
+            )
+
+        def validate(task: MissionTask, context: Mapping[str, Any]) -> dict[str, Any]:
+            candidate = context.get("candidate") if isinstance(context.get("candidate"), Mapping) else {}
+            forbidden = any(bool(candidate.get(key)) for key in ("repository_write", "deploy", "publish", "payment", "credential_access"))
+            passed = bool(candidate.get("response_digest")) and not forbidden and candidate.get("output_invalid") is not True
+            return {
+                "passed": passed,
+                "summary": "local bootstrap proposal validation passed" if passed else "local bootstrap proposal validation failed",
+                "failure_signature": "LOCAL_VALIDATION_FAILED" if not passed else "",
+                "requests_used": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "provider": "local",
+                "model": "deterministic-validator",
+            }
+
+        def review(task: MissionTask, context: Mapping[str, Any]) -> dict[str, Any]:
+            return {
+                "decision": "PASS",
+                "summary": "Work/Integrator local review accepted the bounded proposal envelope",
+                "findings": [],
+                "required_changes": [],
+                "requests_used": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "provider": "local",
+                "model": "deterministic-integrator-review",
+            }
+
+        callbacks = {
+            task.task_id: TaskLoopCallbacks(
+                executor=execute,
+                validator=validate,
+                reviewer=review,
+                reviewer_requests=0,
+            )
+            for task in plan.tasks
+        }
+        provider_limits = {"nvidia": {"requests": 1, "tokens": plan.max_total_tokens}}
+        ledger = MissionReservationLedger(ledger_path, provider_limits=provider_limits)
+        runtime = AutonomousMissionRuntime(
+            ledger,
+            checkpoints=MissionCheckpointStore(checkpoint_root),
+            provider_states={"nvidia": {"health_status": "HEALTHY", "circuit_state": "CLOSED"}},
+            bounds=AutonomousBounds(
+                max_iterations=1,
+                max_revisions=0,
+                max_replans=0,
+                max_requests=1,
+                max_tokens=plan.max_total_tokens,
+            ),
+            max_parallel_direct_corps=1,
+        )
+        report = runtime.run(plan, callbacks)
+        live = metrics.snapshot()
+        live.update({
+            "operational": report.get("status") == "completed" and live["external_model_calls"] == 1,
+            "live_agent_count": 1 if live["external_model_calls"] == 1 else 0,
+            "live_model_family_count": 1 if live["external_model_calls"] == 1 else 0,
+            "model_family": binding.model_family,
+            "provider": binding.provider_id,
+            "model": binding.model_id,
+            "bootstrap_only": True,
+            "two_agent": False,
+            "user_continue_required": False,
+        })
+        report["live_staging"] = live
+        report["nvidia_bootstrap"] = {
+            "started": True,
+            "status": report.get("status", "blocked"),
+            "proposal_generated": live["external_model_calls"] == 1,
+            "local_integrator_review": report.get("status") == "completed",
+            "work_integration_required": True,
+            "external_model_calls": live["external_model_calls"],
+        }
+        report["safety"] = {
+            "limited_staging": True,
+            "account_specific_zero_cost_proven": False,
+            "zero_cost_all_live_calls": False,
+            "free_route_policy_used": True,
+            "paid_execution_count": 0,
+            "paid_fallback_count": 0,
+            "production_active": False,
+            "production_routing_changed": False,
+            "secret_values_displayed": 0,
+            "secret_values_logged": 0,
+            "secret_values_persisted": 0,
+            "secret_values_returned_to_model": 0,
+        }
+        return report
+    except LiveStagingError as exc:
+        return {
+            "status": "blocked",
+            "stop_reason": str(exc),
+            "live_staging": False,
+            "model_calls": 0,
+            "production_active": False,
+        }
+
+
 def run_live_staging_mission(
     plan: MissionPlan,
     executor: LiveAgentBinding,
@@ -500,5 +703,7 @@ __all__ = [
     "LiveStagingError",
     "build_executor_reviewer_callbacks",
     "build_minimal_staging_plan",
+    "build_nvidia_limited_bootstrap_plan",
+    "run_nvidia_limited_bootstrap_mission",
     "run_live_staging_mission",
 ]

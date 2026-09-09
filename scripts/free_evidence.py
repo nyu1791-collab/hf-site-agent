@@ -340,7 +340,22 @@ def resolve_free_evidence(
         # Free Plan is request/token limited.  Those are separate routes.
         input_price, output_price = "0", "0"
     if provider_id in {"google", "nvidia"} and raw_pricing.get("free_price_verified") is True:
-        input_price, output_price = "0", "0"
+        # A provider catalog may expose paid model prices even when the
+        # selected free route is separately documented.  Only fill in zero
+        # when the caller did not provide an explicit price for that route;
+        # an explicit non-zero route price must remain a hard blocker.
+        route_key = "free_tier" if provider_id == "google" else "free_endpoint"
+        route_data = _mapping(raw_pricing.get(route_key))
+        explicit_route_price = any((
+            _first(route_data, "input", "prompt", "input_price") is not None,
+            _first(route_data, "output", "completion", "output_price") is not None,
+        ))
+        explicit_top_level_price = any(
+            key in raw_pricing
+            for key in ("input_price", "output_price", "input", "output", "prompt", "completion")
+        )
+        if not explicit_route_price and not explicit_top_level_price:
+            input_price, output_price = "0", "0"
 
     quota_limits = _quota_limits(raw_quota, raw_pricing)
     quota_source = _text(_first(raw_quota, "quota_source", "source") or _first(raw_pricing, "quota_source"), 240)
@@ -551,6 +566,22 @@ def resolve_free_evidence(
         if blocker in deduped_blockers:
             limited_staging_blockers.append(blocker)
     limited_staging_blockers = sorted(set(limited_staging_blockers))
+    # NVIDIA's fixed hosted FREE_ENDPOINT has a deliberately narrow staging
+    # exception.  Missing entitlement/quota metadata is a warning there, not
+    # proof of a paid route.  Explicit ineligibility, paid routing, non-zero
+    # pricing, stale/conflicting evidence, and unknown model identity remain
+    # hard blockers in ``limited_staging_blockers`` above.
+    limited_staging_soft_warnings: list[str] = []
+    if provider_id == "nvidia":
+        if current_tier in {None, "UNKNOWN"}:
+            limited_staging_soft_warnings.append("ACCOUNT_TIER_UNKNOWN")
+        if current_account_eligible is None:
+            limited_staging_soft_warnings.append("ACCOUNT_ENTITLEMENT_UNKNOWN")
+        if quota_verified is not True:
+            limited_staging_soft_warnings.append("QUOTA_METADATA_UNAVAILABLE")
+        if quota_safe is not True and raw_quota.get("remaining_safe") is not False:
+            limited_staging_soft_warnings.append("QUOTA_REMAINING_UNKNOWN")
+    limited_staging_soft_warnings = sorted(set(limited_staging_soft_warnings))
     limited_staging_probe_allowed = not limited_staging_blockers
     staging_state = (
         "STAGING_READY" if not staging_blockers
@@ -601,6 +632,11 @@ def resolve_free_evidence(
         "staging_blockers": staging_blockers,
         "limited_staging_probe_allowed": limited_staging_probe_allowed,
         "limited_staging_probe_blockers": limited_staging_blockers,
+        "limited_staging_probe_warnings": limited_staging_soft_warnings,
+        "limited_staging_evidence_severity": {
+            "hard_blockers": limited_staging_blockers,
+            "soft_warnings": limited_staging_soft_warnings,
+        },
         "limited_staging_probe_request_limit": 1 if limited_staging_probe_allowed else 0,
         "limited_staging_probe_max_output_tokens": 8 if limited_staging_probe_allowed else 0,
         "staging_state": staging_state,

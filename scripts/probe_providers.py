@@ -177,12 +177,18 @@ def run_probe(
                 "evidence_generation", "expires_at", "evidence_provenance", "secure_evidence",
                 "staging_probe_allowed", "staging_blockers",
                 "limited_staging_probe_allowed", "limited_staging_probe_blockers",
+                "limited_staging_probe_warnings", "limited_staging_evidence_severity",
                 "limited_staging_probe_request_limit", "limited_staging_probe_max_output_tokens",
                 "staging_state",
             )
         }
         zero_cost_verified = evidence.get("zero_cost_verified") is True
         staging_probe_allowed = evidence.get("staging_probe_allowed") is True
+        # The limited missing-account/quota exception is NVIDIA-only.  A
+        # Google public free-tier record must not become a live staging probe
+        # while the current project billing route remains unverified.
+        if provider_id == "google" and evidence.get("zero_cost_verified") is not True:
+            staging_probe_allowed = False
         limited_staging_probe_allowed = (
             allow_limited_staging_probe
             and evidence.get("limited_staging_probe_allowed") is True
@@ -219,7 +225,7 @@ def run_probe(
             status = "FREE_COST_NONZERO"
         elif provider_id == "openrouter" and usage_cost is None:
             status = "FREE_COST_UNVERIFIED"
-        if provider_id == "openrouter" and raw.get("response_model") != model:
+        if provider_id in {"openrouter", "nvidia"} and raw.get("response_model") != model:
             status = "MODEL_MISMATCH"
         results.append(_provider_result(
             provider_id,

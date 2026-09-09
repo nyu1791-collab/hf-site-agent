@@ -226,6 +226,10 @@ class FreeEvidenceResolverTests(unittest.TestCase):
         self.assertTrue(nvidia["limited_staging_probe_allowed"])
         self.assertEqual(nvidia["staging_state"], "LIMITED_STAGING_PROBE")
         self.assertEqual(nvidia["limited_staging_probe_request_limit"], 1)
+        self.assertIn("ACCOUNT_ENTITLEMENT_UNKNOWN", nvidia["limited_staging_probe_warnings"])
+        self.assertIn("QUOTA_METADATA_UNAVAILABLE", nvidia["limited_staging_probe_warnings"])
+        self.assertEqual(nvidia["limited_staging_evidence_severity"]["hard_blockers"], [])
+        self.assertIn("QUOTA_METADATA_UNAVAILABLE", nvidia["limited_staging_evidence_severity"]["soft_warnings"])
 
         google = resolve_free_evidence(
             "google",
@@ -249,6 +253,66 @@ class FreeEvidenceResolverTests(unittest.TestCase):
         self.assertFalse(google["limited_staging_probe_allowed"])
         self.assertEqual(google["staging_state"], "BLOCKED")
         self.assertIn("LIMITED_STAGING_FIXED_FREE_ENDPOINT_REQUIRED", google["limited_staging_probe_blockers"])
+
+    def test_nvidia_explicit_paid_route_remains_hard_block_even_when_quota_is_unknown(self):
+        result = resolve_free_evidence(
+            "nvidia",
+            "deepseek-ai/deepseek-v4-flash-0731",
+            [{"id": "deepseek-ai/deepseek-v4-flash-0731"}],
+            {"automatic_paid_transition_possible": False, "fallback_to_paid_possible": False},
+            {
+                "selected_route": "PARTNER_ENDPOINT",
+                "free_endpoint_available": True,
+                "free_price_verified": True,
+                "fixed_free_endpoint": True,
+                "endpoint_verified": True,
+                "auth_verified": True,
+                "paid_fallback_disabled": True,
+            },
+            {},
+            evidence_source="nvidia-route-fixture",
+            evidence_timestamp=datetime.now(timezone.utc).isoformat(),
+            expires_at=(datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
+            evidence_generation=1,
+            evidence_provenance=["OFFICIAL_API"],
+            secure_evidence=True,
+        )
+        self.assertFalse(result["limited_staging_probe_allowed"])
+        self.assertTrue(result["limited_staging_probe_blockers"])
+        self.assertNotIn("QUOTA_METADATA_UNAVAILABLE", result["limited_staging_probe_blockers"])
+        self.assertIn("LIMITED_STAGING_FREE_ENDPOINT_NOT_SELECTED", result["limited_staging_probe_blockers"])
+
+    def test_nvidia_explicit_nonzero_free_route_price_remains_hard_block(self):
+        result = resolve_free_evidence(
+            "nvidia",
+            "deepseek-ai/deepseek-v4-flash-0731",
+            [{"id": "deepseek-ai/deepseek-v4-flash-0731"}],
+            {
+                "current_account_eligible": True,
+                "automatic_paid_transition_possible": False,
+                "fallback_to_paid_possible": False,
+            },
+            {
+                "free_endpoint_available": True,
+                "free_price_verified": True,
+                "fixed_free_endpoint": True,
+                "endpoint_verified": True,
+                "auth_verified": True,
+                "paid_fallback_disabled": True,
+                "input_price": "0.01",
+                "output_price": "0",
+            },
+            quota(),
+            evidence_source="nvidia-nonzero-free-route-fixture",
+            evidence_timestamp=datetime.now(timezone.utc).isoformat(),
+            expires_at=(datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
+            evidence_generation=1,
+            evidence_provenance=["OFFICIAL_API"],
+            secure_evidence=True,
+        )
+        self.assertEqual(result["input_price"], "0.01")
+        self.assertFalse(result["limited_staging_probe_allowed"])
+        self.assertIn("LIMITED_STAGING_PRICE_NOT_ZERO", result["limited_staging_probe_blockers"])
 
     def test_openrouter_colon_suffix_is_exact_and_paid_sibling_is_not_selected(self):
         model = "z-ai/glm-5.3-flash:free"

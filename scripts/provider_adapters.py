@@ -24,6 +24,9 @@ from .provider_controls import ProviderQuotaLedger, QuotaGuardError
 from .execution_scope import ExecutionPolicy, ExecutionScopeError, authorize_execution
 
 
+LIMITED_STAGING_MAX_OUTPUT_TOKENS = 8
+
+
 MISSION_PROMPTS: dict[str, str] = {
     "decomposition": "Return a JSON object with a bounded list of independent steps for a read-only task.",
     "dependency_graph": "Return a JSON object containing bounded nodes and dependencies for a read-only task.",
@@ -385,9 +388,29 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             or self.config.get("circuit_state") != "CLOSED"
         ) and execution_scope == "PRODUCTION":
             raise ProviderAdapterError("PROVIDER_NOT_ACTIVE")
+        if (
+            isinstance(execution_policy, ExecutionPolicy)
+            and execution_policy.limited_staging is True
+        ):
+            # Enforce the NVIDIA one-shot bootstrap bound at the adapter too;
+            # callers cannot accidentally widen it by omitting or overriding
+            # ``max_tokens`` in the runtime callback.
+            try:
+                requested_max_tokens = int(options.get("max_tokens", LIMITED_STAGING_MAX_OUTPUT_TOKENS))
+            except (TypeError, ValueError):
+                requested_max_tokens = LIMITED_STAGING_MAX_OUTPUT_TOKENS
+            options["max_tokens"] = min(max(1, requested_max_tokens), LIMITED_STAGING_MAX_OUTPUT_TOKENS)
         require_zero_cost = bool(options.pop("require_zero_cost", False))
         result = self._normalized_generation(self._chat(model_id, messages, **options), model_id)
         if self.provider_id == "openrouter" and result["model"] != model_id:
+            raise ProviderAdapterError("MODEL_MISMATCH")
+        if (
+            self.provider_id == "nvidia"
+            and isinstance(execution_policy, ExecutionPolicy)
+            and execution_policy.limited_staging is True
+            and result["model"]
+            and result["model"] != model_id
+        ):
             raise ProviderAdapterError("MODEL_MISMATCH")
         if require_zero_cost:
             usage = result.get("usage") if isinstance(result.get("usage"), Mapping) else {}
@@ -398,7 +421,13 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             evidence_allows_unreported_cost = (
                 isinstance(execution_policy, ExecutionPolicy)
                 and execution_policy.scope in {"PROBE", "STAGING"}
-                and execution_policy.cost_safe is True
+                and (
+                    execution_policy.cost_safe is True
+                    or (
+                        execution_policy.limited_staging is True
+                        and execution_policy.staging_free_route_allowed is True
+                    )
+                )
             )
             if not cost and not evidence_allows_unreported_cost:
                 raise ProviderAdapterError("FREE_COST_UNVERIFIED")

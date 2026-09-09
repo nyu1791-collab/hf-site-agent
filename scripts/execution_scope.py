@@ -59,6 +59,10 @@ class ExecutionPolicy:
     # as account-specific zero-cost proof.
     staging_free_route_allowed: bool = False
     account_zero_cost_verified: bool = False
+    # Explicit one-call NVIDIA bootstrap exception after a bounded fixed-free
+    # endpoint probe. This is not a general staging permission.
+    limited_staging: bool = False
+    limited_operation: str = ""
 
     def validate(self) -> None:
         if self.scope not in EXECUTION_SCOPES:
@@ -73,6 +77,15 @@ class ExecutionPolicy:
             raise ExecutionScopeError("AUTO_TOP_UP_FORBIDDEN")
         if self.staging_free_route_allowed is True and self.scope != "STAGING":
             raise ExecutionScopeError("STAGING_ROUTE_OUTSIDE_STAGING_SCOPE")
+        if self.limited_staging is True:
+            if self.scope != "STAGING":
+                raise ExecutionScopeError("LIMITED_STAGING_OUTSIDE_STAGING_SCOPE")
+            if self.provider_id != "nvidia":
+                raise ExecutionScopeError("LIMITED_STAGING_NVIDIA_ONLY")
+            if self.limited_operation != "BOOTSTRAP_PROPOSAL":
+                raise ExecutionScopeError("LIMITED_STAGING_OPERATION_REQUIRED")
+            if self.staging_free_route_allowed is not True:
+                raise ExecutionScopeError("LIMITED_STAGING_FREE_ROUTE_REQUIRED")
         if self.production_active is True and self.scope != "PRODUCTION":
             raise ExecutionScopeError("PRODUCTION_ACTIVE_OUTSIDE_PRODUCTION_SCOPE")
         if self.production_approved is True and self.scope != "PRODUCTION":
@@ -115,6 +128,8 @@ class ExecutionPolicy:
             max_retries=evidence.get("max_retries", 0),
             staging_free_route_allowed=evidence.get("staging_free_route_allowed") is True,
             account_zero_cost_verified=evidence.get("account_zero_cost_verified") is True,
+            limited_staging=evidence.get("limited_staging") is True,
+            limited_operation=str(evidence.get("limited_operation") or ""),
         )
         policy.validate()
         return policy
@@ -145,6 +160,27 @@ def authorize_execution(
         return {"allowed": True, "scope": "PROBE", "production_active": False}
 
     if policy.scope == "STAGING":
+        if policy.limited_staging is True:
+            required = {
+                "staging_approved": policy.staging_approved,
+                "exact_model_verified": policy.exact_model_verified,
+                "endpoint_verified": policy.endpoint_verified,
+                "auth_verified": policy.auth_verified,
+                "staging_free_route_allowed": policy.staging_free_route_allowed,
+                "circuit_closed": policy.circuit_closed,
+            }
+            missing = [name for name, value in required.items() if value is not True]
+            if missing:
+                raise ExecutionScopeError("LIMITED_STAGING_GATE_BLOCKED:" + ",".join(sorted(missing)))
+            if provider_config.get("enabled") is True or provider_config.get("activation_approved") is True:
+                raise ExecutionScopeError("STAGING_CANNOT_USE_PRODUCTION_ACTIVATION_FLAGS")
+            return {
+                "allowed": True,
+                "scope": "STAGING",
+                "limited_staging": True,
+                "operation": policy.limited_operation,
+                "production_active": False,
+            }
         free_route_or_zero_cost = (
             (policy.free_verified is True and policy.cost_safe is True)
             or policy.staging_free_route_allowed is True

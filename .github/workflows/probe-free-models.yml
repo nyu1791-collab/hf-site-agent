@@ -150,7 +150,7 @@ jobs:
           --evidence-file artifacts/secure_account_evidence.json
           --output artifacts/provider_probe.json
 
-      - name: Continue automatically into bounded live Executor Reviewer staging
+      - name: Continue automatically into bounded NVIDIA bootstrap or two-agent staging
         if: always()
         continue-on-error: true
         env:
@@ -162,6 +162,7 @@ jobs:
           --evidence-file artifacts/secure_account_evidence.json
           --probe-file artifacts/provider_probe.json
           --network
+          --allow-limited-nvidia-bootstrap
           --ledger artifacts/live_staging_ledger.json
           --checkpoint-root artifacts/live_staging_checkpoints
           --output artifacts/live_staging_report.json
@@ -253,6 +254,8 @@ jobs:
           evidence_calls = sum(1 for lane in evidence_providers.values() if isinstance(lane, dict) and lane.get("secret_present") is True)
           probe_calls = int(probe.get("model_calls", 0) or 0)
           live_calls = int(live.get("total_external_model_calls_in_command", 0) or 0)
+          live_agent_count = int(live_view.get("live_agent_count", 2 if live_view.get("operational") is True else 0) or 0)
+          live_two_agent = bool(live_view.get("two_agent", live_view.get("operational") is True and live_agent_count >= 2))
           summary = {
               "schema_version": "carrier-summary-v1",
               "dispatch_status": dispatch.get("dispatch_status", "EXECUTED"),
@@ -269,14 +272,16 @@ jobs:
                   for item in probe_passes
               ],
               "live_staging_status": live.get("status", "blocked"),
-              "live_two_agent": bool(live_view.get("operational") is True),
-              "live_agent_count": 2 if live_view.get("operational") is True else 0,
+              "live_two_agent": live_two_agent,
+              "live_agent_count": live_agent_count,
               "live_model_family_count": int(live_view.get("live_model_family_count", 0) or 0),
               "live_task_loop": bool(live_view.get("operational") is True),
               "live_mission_loop": False,
               "user_continue_required": False,
               "self_bootstrap_status": bootstrap.get("status", "NOT_STARTED"),
               "self_bootstrap_live": bootstrap.get("proposal_review_passed") is True,
+              "nvidia_bootstrap_status": (live.get("nvidia_bootstrap") or {}).get("status", "NOT_STARTED"),
+              "nvidia_bootstrap_proposal": (live.get("nvidia_bootstrap") or {}).get("proposal_generated") is True,
               "external_model_calls": live_calls,
               "failure_count": int(classification.get("failure_count", 0) or 0),
               "production_active": False,

@@ -7,7 +7,9 @@ from scripts.execution_scope import ExecutionPolicy
 from scripts.live_staging_runner import (
     LiveAgentBinding,
     build_minimal_staging_plan,
+    build_nvidia_limited_bootstrap_plan,
     run_live_staging_mission,
+    run_nvidia_limited_bootstrap_mission,
 )
 from scripts.provider_registry import load_provider_registry
 
@@ -138,6 +140,55 @@ class LiveStagingRunnerTests(unittest.TestCase):
         self.assertEqual(report["status"], "blocked")
         self.assertEqual(report["stop_reason"], "NETWORK_NOT_EXPLICITLY_ENABLED")
         self.assertEqual(executor.adapter.calls, [])
+
+    def test_nvidia_limited_bootstrap_is_one_external_call_and_local_review(self):
+        model = "deepseek-ai/deepseek-v4-flash-0731"
+        adapter = FakeLiveAdapter("nvidia", self.registry["providers"]["nvidia"], [
+            {"summary": "google adapter proposal", "proposal": {"files_affected": ["scripts/google.py"]}, "risks": []}
+        ])
+        policy = ExecutionPolicy(
+            scope="STAGING",
+            provider_id="nvidia",
+            model_id=model,
+            model_family="DeepSeek",
+            staging_approved=True,
+            exact_model_verified=True,
+            endpoint_verified=True,
+            auth_verified=True,
+            circuit_closed=True,
+            staging_free_route_allowed=True,
+            account_zero_cost_verified=False,
+            limited_staging=True,
+            limited_operation="BOOTSTRAP_PROPOSAL",
+        )
+        binding = LiveAgentBinding("EXECUTOR", "nvidia", model, "DeepSeek", adapter, policy)
+        with tempfile.TemporaryDirectory() as directory:
+            plan = build_nvidia_limited_bootstrap_plan(
+                mission_id="NVIDIA-LIMITED-BOOTSTRAP-TEST",
+                request_budget=1,
+                token_budget=2_048,
+            )
+            report = run_nvidia_limited_bootstrap_mission(
+                plan,
+                binding,
+                ledger_path=Path(directory) / "ledger.json",
+                checkpoint_root=Path(directory) / "checkpoints",
+                network_enabled=True,
+            )
+            ledger = json.loads((Path(directory) / "ledger.json").read_text(encoding="utf-8"))
+        self.assertEqual(report["status"], "completed")
+        self.assertTrue(report["live_staging"]["operational"])
+        self.assertEqual(report["live_staging"]["external_model_calls"], 1)
+        self.assertEqual(report["live_staging"]["live_agent_count"], 1)
+        self.assertEqual(report["live_staging"]["live_model_family_count"], 1)
+        self.assertFalse(report["live_staging"]["two_agent"])
+        self.assertTrue(report["nvidia_bootstrap"]["proposal_generated"])
+        self.assertTrue(report["nvidia_bootstrap"]["local_integrator_review"])
+        self.assertFalse(report["safety"]["account_specific_zero_cost_proven"])
+        self.assertEqual(len(adapter.calls), 1)
+        self.assertEqual(adapter.calls[0]["options"]["max_tokens"], 8)
+        self.assertTrue(adapter.calls[0]["options"]["execution_policy"].limited_staging)
+        self.assertTrue(all(item["state"] == "settled" for item in ledger["reservations"].values()))
 
 
 if __name__ == "__main__":
