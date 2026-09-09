@@ -77,9 +77,7 @@ jobs:
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -90,9 +88,7 @@ jobs:
           google_present = bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"))
           presence = {
               "google": google_present,
-              "groq": bool(os.environ.get("GROQ_API_KEY")),
               "nvidia": bool(os.environ.get("NVIDIA_API_KEY")),
-              "openrouter": bool(os.environ.get("OPENROUTER_API_KEY")),
           }
           report = {
               "schema_version": "carrier-secret-presence-v1",
@@ -119,13 +115,11 @@ jobs:
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: >-
           python scripts/secure_account_evidence.py
-          --provider groq
           --provider nvidia
+          --provider google
           --output artifacts/secure_account_evidence.json
 
       - name: Validate redaction and evidence freshness
@@ -134,23 +128,22 @@ jobs:
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python scripts/validate_secure_evidence.py --input artifacts/secure_account_evidence.json
 
-      - name: Run bounded exact Groq and NVIDIA probes
+      - name: Run bounded exact NVIDIA and Google probes
         if: always()
         continue-on-error: true
         env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          GROQ_PROBE_MODEL: qwen/qwen3.8-27b
           NVIDIA_PROBE_MODEL: deepseek-ai/deepseek-v4-flash-0731
+          GOOGLE_PROBE_MODEL: gemini-3.8-flash
         run: >-
           python scripts/probe_providers.py
-          --provider groq
           --provider nvidia
+          --provider google
           --network
           --confirm CHECK
           --evidence-file artifacts/secure_account_evidence.json
@@ -160,7 +153,8 @@ jobs:
         if: always()
         continue-on-error: true
         env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
         run: >-
           python scripts/run_live_staging_from_probe.py

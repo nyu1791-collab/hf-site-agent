@@ -30,6 +30,14 @@ class CarrierWorkflowTests(unittest.TestCase):
         ):
             self.assertIn(required, self.text)
 
+    def test_carrier_focuses_only_on_nvidia_and_google(self):
+        self.assertIn("--provider nvidia", self.text)
+        self.assertIn("--provider google", self.text)
+        self.assertIn("NVIDIA_PROBE_MODEL: deepseek-ai/deepseek-v4-flash-0731", self.text)
+        self.assertIn("GOOGLE_PROBE_MODEL: gemini-3.8-flash", self.text)
+        self.assertNotIn("--provider groq", self.text)
+        self.assertNotIn("GROQ_API_KEY", self.text)
+
     def test_carrier_does_not_use_legacy_openrouter_secret_or_production_write(self):
         self.assertNotIn("secrets.AI_API_KEY", self.text)
         self.assertIn("permissions:\n  contents: read", self.text)
