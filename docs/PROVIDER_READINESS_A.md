@@ -318,33 +318,3 @@ Provider境界、Role/Model分離、Paid Guard、未検証候補をActiveにし�
 The following values are recorded as account-dashboard observations only;
 they are not Provider Registry limits, are not API-verified in this phase,
 and are not used to authorize requests:
-
-| Model label | RPM | RPD | TPM | TPD |
-|---|---:|---:|---:|---:|
-| `qwen/qwen3.6-27b` | 30 | 1000 | 8000 | 200000 |
-| `qwen/qwen3.8-27b` | 30 | 1000 | 8000 | 200000 |
-| `openai/gpt-oss-120b` | 30 | 1000 | 8000 | 200000 |
-| `groq/compound` | 30 | 250 | 70000 | UNKNOWN |
-| `groq/compound-mini` | 30 | 250 | 70000 | UNKNOWN |
-
-The observation timestamp, account scope, plan revision, and API-header
-mapping are unknown. No internal safety factor or soft limit was promoted
-from these values; the correct current policy remains fail-closed until
-official/API evidence is captured.
-
-The following bounded changes were made after this read-only snapshot and
-were tested locally without network access:
-
-- `ProviderQuotaLedger` now takes a POSIX file lock and reloads the provider
-  namespace inside the lock before each summary, reservation, result, or
-  recovery operation. This closes the local multi-process race.
-- `ProviderQuotaLedger.durability_status()` explicitly reports that
-  cross-runner durability is not proven; it therefore cannot make a Provider
-  READY.
-- The runtime now rejects duplicate or out-of-order `response_version` values
-  per `(mission_id, command_id)`.
-- OpenAI-compatible probes now reject empty choices and empty messages as
-  `MODEL_OUTPUT_INVALID`.
-
-These follow-up changes improve local safety coverage but do not change any
-Provider activation flag or authorize a Live Probe.
