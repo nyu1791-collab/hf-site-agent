@@ -14,7 +14,7 @@ on:
         default: ""
         type: string
       shared_ledger_ready:
-        description: "Set true only when a durable cross-runner shared ledger is configured"
+        description: "Informational local-store flag; it never proves durable cross-runner readiness"
         required: true
         default: false
         type: boolean
