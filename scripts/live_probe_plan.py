@@ -21,6 +21,27 @@ PROVIDERS = ("google", "nvidia", "groq", "openrouter", "modal")
 DIRECT_PROVIDERS = frozenset(("google", "nvidia", "groq"))
 MODEL_ID_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,200}$")
 CONFIRMATION_REQUIRED = True
+CANDIDATE_TARGETS = {
+    "google": {
+        "source": "google_models_api",
+        "labels": ["Gemini 3.8 Flash", "current Gemini Flash models"],
+    },
+    "nvidia": {
+        "source": "nvidia_build_or_nim_catalog",
+        "labels": ["Nemotron 3.5 Lightning 30B A3B", "current DeepSeek models"],
+    },
+    "groq": {
+        "source": "groq_models_api_and_user_dashboard",
+        "labels": [
+            "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b", "groq/compound", "groq/compound-mini",
+        ],
+    },
+    "openrouter": {
+        "source": "openrouter_models_api",
+        "labels": ["role-scoped current free Worker pool"],
+    },
+}
 
 
 def _bounded_int(value: Any, field: str, *, minimum: int, maximum: int) -> int:
@@ -70,6 +91,11 @@ def _direct_plan(
         "provider": provider,
         "model": None,
         "model_source": "current_provider_catalog_and_exact_candidate_required",
+        "candidate_selection": {
+            **CANDIDATE_TARGETS[provider],
+            "exact_model_id_required": True,
+            "fixed_id_authorized": False,
+        },
         "phase": "DIRECT_COMMANDER_PROBE",
         "estimated_requests": requests,
         "estimated_tokens": tokens,
@@ -93,6 +119,11 @@ def _openrouter_plan() -> dict[str, Any]:
         "provider": "openrouter",
         "model": None,
         "model_source": "current_openrouter_catalog_and_exact_free_worker_probe_required",
+        "candidate_selection": {
+            **CANDIDATE_TARGETS["openrouter"],
+            "exact_model_id_required": True,
+            "fixed_id_authorized": False,
+        },
         "phase": "OPENROUTER_FREE_WORKER_PROBE",
         "estimated_requests": requests,
         "estimated_tokens": requests * 320,
@@ -115,6 +146,12 @@ def _modal_plan() -> dict[str, Any]:
         "provider": "modal",
         "model": None,
         "model_source": "official_modal_workspace_billing_interfaces_required",
+        "candidate_selection": {
+            "source": "official_modal_workspace_billing_interfaces",
+            "labels": ["read-only billing/rates/auth validation"],
+            "exact_model_id_required": False,
+            "fixed_id_authorized": False,
+        },
         "phase": "MODAL_READ_ONLY_BILLING_VALIDATION",
         "estimated_requests": requests,
         "estimated_tokens": 0,
