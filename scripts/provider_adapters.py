@@ -21,6 +21,7 @@ from urllib.request import Request, urlopen
 
 from .provider_registry import ProviderRegistryError, provider_config, validate_provider_registry
 from .provider_controls import ProviderQuotaLedger, QuotaGuardError
+from .execution_scope import ExecutionPolicy, ExecutionScopeError, authorize_execution
 
 
 MISSION_PROMPTS: dict[str, str] = {
@@ -113,6 +114,49 @@ def normalize_error(error: BaseException, *, provider_id: str = "") -> Normalize
     if isinstance(error, ProviderAdapterError):
         return NormalizedProviderError(error.error_class, error.http_status, error.retry_after_seconds, error.retryable)
     return NormalizedProviderError("PROVIDER_ERROR", status, None, False)
+
+
+def _authorize_generation(config: Mapping[str, Any], provider_id: str, model_id: str, options: dict[str, Any]) -> str:
+    """Authorize one generation without conflating staging and production."""
+    execution_policy = options.pop("execution_policy", None)
+    legacy_default = execution_policy is None
+    if execution_policy is None:
+        # Existing callers retain the explicit production activation contract.
+        # Staging callers must pass an ExecutionPolicy(scope="STAGING"); they
+        # cannot inherit this production-shaped default.
+        execution_policy = ExecutionPolicy(
+            scope="PRODUCTION",
+            provider_id=provider_id,
+            model_id=model_id,
+            production_approved=config.get("activation_approved") is True,
+            production_active=config.get("enabled") is True,
+            exact_model_verified=True,
+            endpoint_verified=True,
+            auth_verified=True,
+            capability_verified=True,
+            free_verified=config.get("free_mode") is True,
+            cost_safe=config.get("free_mode") is True,
+            quota_safe=config.get("health_status") == "HEALTHY",
+            circuit_closed=config.get("circuit_state") == "CLOSED",
+        )
+    if not isinstance(execution_policy, ExecutionPolicy):
+        raise ProviderAdapterError("EXECUTION_POLICY_REQUIRED")
+    if execution_policy.provider_id != provider_id or execution_policy.model_id != model_id:
+        raise ProviderAdapterError("EXECUTION_POLICY_MODEL_MISMATCH")
+    if legacy_default and (
+        config.get("enabled") is not True
+        or config.get("activation_approved") is not True
+    ):
+        # Preserve the established adapter error contract for legacy callers.
+        # Explicit STAGING callers never take this path.
+        raise ProviderAdapterError("PROVIDER_NOT_ACTIVE")
+    try:
+        authorize_execution(config, execution_policy)
+    except ExecutionScopeError as exc:
+        if exc.reason == "PRODUCTION_REGISTRY_ACTIVATION_REQUIRED":
+            raise ProviderAdapterError("PROVIDER_NOT_ACTIVE") from None
+        raise ProviderAdapterError(exc.reason) from None
+    return execution_policy.scope
 
 
 class ProviderAdapter:
@@ -333,13 +377,13 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         }
 
     def generate(self, model_id: str, messages: Sequence[Mapping[str, Any]], **options: Any) -> dict[str, Any]:
+        execution_policy = options.get("execution_policy")
+        execution_scope = _authorize_generation(self.config, self.provider_id, model_id, options)
         if (
-            self.config.get("enabled") is not True
-            or self.config.get("activation_approved") is not True
-            or self.config.get("probe_status") != "PROBE_OK"
+            self.config.get("probe_status") != "PROBE_OK"
             or self.config.get("health_status") != "HEALTHY"
             or self.config.get("circuit_state") != "CLOSED"
-        ):
+        ) and execution_scope == "PRODUCTION":
             raise ProviderAdapterError("PROVIDER_NOT_ACTIVE")
         require_zero_cost = bool(options.pop("require_zero_cost", False))
         result = self._normalized_generation(self._chat(model_id, messages, **options), model_id)
@@ -348,9 +392,17 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         if require_zero_cost:
             usage = result.get("usage") if isinstance(result.get("usage"), Mapping) else {}
             cost = str(usage.get("cost", "")).strip()
-            if not cost:
+            # Some providers do not return a per-response cost field.  In
+            # that case the current, account-aware free-route evidence is the
+            # authority; a missing field is not silently treated as free.
+            evidence_allows_unreported_cost = (
+                isinstance(execution_policy, ExecutionPolicy)
+                and execution_policy.scope in {"PROBE", "STAGING"}
+                and execution_policy.cost_safe is True
+            )
+            if not cost and not evidence_allows_unreported_cost:
                 raise ProviderAdapterError("FREE_COST_UNVERIFIED")
-            if cost not in {"0", "0.0", "0.00"}:
+            if cost and cost not in {"0", "0.0", "0.00"}:
                 raise ProviderAdapterError("FREE_COST_NONZERO")
         return result
 
@@ -632,15 +684,29 @@ class GeminiNativeAdapter(OpenAICompatibleAdapter):
         }
 
     def generate(self, model_id: str, messages: Sequence[Mapping[str, Any]], **options: Any) -> dict[str, Any]:
+        execution_policy = options.get("execution_policy")
+        execution_scope = _authorize_generation(self.config, self.provider_id, model_id, options)
         if (
-            self.config.get("enabled") is not True
-            or self.config.get("activation_approved") is not True
-            or self.config.get("probe_status") != "PROBE_OK"
+            self.config.get("probe_status") != "PROBE_OK"
             or self.config.get("health_status") != "HEALTHY"
             or self.config.get("circuit_state") != "CLOSED"
-        ):
+        ) and execution_scope == "PRODUCTION":
             raise ProviderAdapterError("PROVIDER_NOT_ACTIVE")
-        return self._normalized_native(self._gemini_chat(model_id, messages, **options), model_id)
+        require_zero_cost = bool(options.pop("require_zero_cost", False))
+        result = self._normalized_native(self._gemini_chat(model_id, messages, **options), model_id)
+        if require_zero_cost:
+            usage = result.get("usage") if isinstance(result.get("usage"), Mapping) else {}
+            cost = str(usage.get("cost", "")).strip()
+            evidence_allows_unreported_cost = (
+                isinstance(execution_policy, ExecutionPolicy)
+                and execution_policy.scope in {"PROBE", "STAGING"}
+                and execution_policy.cost_safe is True
+            )
+            if not cost and not evidence_allows_unreported_cost:
+                raise ProviderAdapterError("FREE_COST_UNVERIFIED")
+            if cost and cost not in {"0", "0.0", "0.00"}:
+                raise ProviderAdapterError("FREE_COST_NONZERO")
+        return result
 
     def tool_call(self, model_id: str, messages: Sequence[Mapping[str, Any]], tools: Sequence[Mapping[str, Any]], **options: Any) -> dict[str, Any]:
         if not tools:
@@ -768,6 +834,7 @@ class GuardedProviderAdapter(ProviderAdapter):
         self.adapter = adapter
         self.ledger = ledger
         self.provider_id = adapter.provider_id
+        self.config = getattr(adapter, "config", {})
 
     def list_models(self) -> list[dict[str, Any]]:
         return self.adapter.list_models()
@@ -801,6 +868,16 @@ class GuardedProviderAdapter(ProviderAdapter):
         estimated_requests = int(options.pop("estimated_requests", 1))
         if not request_id or not mission_id or not agent_id:
             raise ProviderAdapterError("REQUEST_IDENTITY_REQUIRED")
+        execution_policy = options.get("execution_policy")
+        if isinstance(self.config, Mapping) and execution_policy is not None:
+            if not isinstance(execution_policy, ExecutionPolicy):
+                raise ProviderAdapterError("EXECUTION_POLICY_REQUIRED")
+            if execution_policy.provider_id != self.provider_id or execution_policy.model_id != model_id:
+                raise ProviderAdapterError("EXECUTION_POLICY_MODEL_MISMATCH")
+            try:
+                authorize_execution(self.config, execution_policy)
+            except ExecutionScopeError as exc:
+                raise ProviderAdapterError(exc.reason) from None
         self.ledger.reserve(
             request_id=request_id,
             mission_id=mission_id,

@@ -91,7 +91,7 @@ jobs:
             openrouter) export OPENROUTER_WORKER_PROBE_MODEL="$PROBE_MODEL_INPUT" ;;
             *) echo "Unsupported provider selection." >&2; exit 2 ;;
           esac
-          python scripts/probe_providers.py --network --provider "$AI_PROVIDER" --output artifacts/provider_probe.json
+          python scripts/probe_providers.py --network --confirm "$CONFIRM" --provider "$AI_PROVIDER" --output artifacts/provider_probe.json
 
       - name: Validate redacted probe report
         if: ${{ always() }}

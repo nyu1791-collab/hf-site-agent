@@ -21,6 +21,7 @@ if __package__ in {None, ""}:  # pragma: no cover - script invocation path
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.provider_adapters import create_provider_adapter
+from scripts.free_evidence import resolve_free_evidence
 from scripts.provider_registry import PROVIDER_IDS, load_provider_registry
 
 
@@ -30,6 +31,7 @@ PROBE_MODEL_ENVS = {
     "groq": "GROQ_PROBE_MODEL",
     "openrouter": "OPENROUTER_WORKER_PROBE_MODEL",
 }
+PROBE_CONFIRMATION_TOKEN = "CHECK"
 
 
 def _safe_model(value: Any) -> str:
@@ -65,6 +67,21 @@ def _provider_result(provider_id: str, *, model: str = "", status: str, model_ca
     return result
 
 
+def _model_evidence(free_evidence: Mapping[str, Any] | None, provider_id: str, model: str) -> Mapping[str, Any]:
+    if not isinstance(free_evidence, Mapping):
+        return {}
+    provider = free_evidence.get(provider_id)
+    if isinstance(provider, Mapping):
+        direct = provider.get(model)
+        if isinstance(direct, Mapping):
+            return direct
+        models = provider.get("models")
+        if isinstance(models, Mapping) and isinstance(models.get(model), Mapping):
+            return models[model]
+    direct = free_evidence.get(f"{provider_id}:{model}")
+    return direct if isinstance(direct, Mapping) else {}
+
+
 def run_probe(
     registry: Mapping[str, Any],
     provider_ids: Sequence[str] | None = None,
@@ -72,11 +89,27 @@ def run_probe(
     network_enabled: bool = False,
     adapters: Mapping[str, Any] | None = None,
     environ: Mapping[str, str] | None = None,
+    free_evidence: Mapping[str, Any] | None = None,
+    explicit_approval: bool = False,
 ) -> dict[str, Any]:
     """Return redacted probe evidence; never mutates ``registry``."""
     env = os.environ if environ is None else environ
     selected = tuple(provider_ids or sorted(PROVIDER_IDS))
     results: list[dict[str, Any]] = []
+    if network_enabled and explicit_approval is not True:
+        for provider_id in selected:
+            results.append(_provider_result(provider_id, status="BLOCKED_CONFIRMATION_REQUIRED"))
+        return {
+            "schema_version": "provider-probe-v1",
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "network_enabled": False,
+            "model_calls": 0,
+            "retry_count": 0,
+            "paid_fallback": False,
+            "registry_changed": False,
+            "explicit_probe_approval": False,
+            "providers": results,
+        }
     for provider_id in selected:
         if provider_id not in PROVIDER_IDS:
             results.append(_provider_result(provider_id, status="UNKNOWN_PROVIDER"))
@@ -105,6 +138,50 @@ def run_probe(
         if not model:
             results.append(_provider_result(provider_id, status="MODEL_NOT_CONFIGURED", endpoint_configured=True, credentials_configured=True))
             continue
+        supplied = _model_evidence(free_evidence, provider_id, model)
+        account_metadata = supplied.get("account_metadata") if isinstance(supplied.get("account_metadata"), Mapping) else {}
+        pricing_metadata = dict(supplied.get("pricing_metadata") if isinstance(supplied.get("pricing_metadata"), Mapping) else {})
+        pricing_metadata.update({
+            key: value
+            for key, value in supplied.items()
+            if key not in {"account_metadata", "pricing_metadata", "quota_metadata", "catalog"}
+        })
+        catalog = supplied.get("catalog") if isinstance(supplied.get("catalog"), (list, tuple, Mapping)) else []
+        quota_metadata = supplied.get("quota_metadata") if isinstance(supplied.get("quota_metadata"), Mapping) else {}
+        evidence = resolve_free_evidence(
+            provider_id,
+            model,
+            catalog,
+            account_metadata,
+            pricing_metadata,
+            quota_metadata,
+            evidence_source=str(supplied.get("evidence_source") or "provider_probe_preflight")[:400],
+            evidence_timestamp=str(supplied.get("evidence_timestamp") or supplied.get("verified_at") or "")[:80],
+            current=supplied.get("current") is True,
+        )
+        evidence_public = {
+            key: evidence.get(key)
+            for key in (
+                "status", "model_verified", "catalog_verified", "free_program_exists",
+                "current_account_tier", "current_account_eligible", "selected_route",
+                "input_price", "output_price", "quota_verified", "quota_safe",
+                "automatic_paid_transition_possible", "fallback_to_paid_possible",
+                "billing_transition_risk", "zero_cost_verified", "blockers",
+                "evidence_source", "evidence_timestamp", "catalog_hash",
+            )
+        }
+        if evidence.get("zero_cost_verified") is not True:
+            results.append(_provider_result(
+                provider_id,
+                model=model,
+                status="CATALOG_INCONSISTENCY" if evidence.get("status") == "INCONSISTENT" else "ZERO_COST_PREFLIGHT_BLOCKED",
+                model_calls=0,
+                endpoint_configured=True,
+                credentials_configured=True,
+                network_enabled=True,
+                free_evidence=evidence_public,
+            ))
+            continue
         adapter = adapters.get(provider_id) if adapters else None
         if adapter is None:
             adapter = create_provider_adapter(registry, provider_id, network_enabled=True, timeout_seconds=8.0)
@@ -115,6 +192,13 @@ def run_probe(
             results.append(_provider_result(provider_id, model=model, status="PROBE_FAILED", model_calls=1, endpoint_configured=True, credentials_configured=True, network_enabled=True))
             continue
         status = str(raw.get("status") or "PROBE_FAILED")
+        usage_cost = raw.get("usage_cost")
+        if usage_cost is not None and str(usage_cost).strip() not in {"0", "0.0", "0.00"}:
+            status = "FREE_COST_NONZERO"
+        elif provider_id == "openrouter" and usage_cost is None:
+            status = "FREE_COST_UNVERIFIED"
+        if provider_id == "openrouter" and raw.get("response_model") != model:
+            status = "MODEL_MISMATCH"
         results.append(_provider_result(
             provider_id,
             model=model,
@@ -124,10 +208,11 @@ def run_probe(
             credentials_configured=True,
             network_enabled=True,
             response_model=raw.get("response_model") if isinstance(raw.get("response_model"), str) else None,
-            usage_cost=raw.get("usage_cost"),
+            usage_cost=usage_cost,
             latency_ms=raw.get("latency_ms") if isinstance(raw.get("latency_ms"), int) else None,
             http_status=raw.get("http_status") if isinstance(raw.get("http_status"), int) else None,
             quota_headers=_safe_quota_headers(raw.get("quota_headers")),
+            free_evidence=evidence_public,
         ))
     return {
         "schema_version": "provider-probe-v1",
@@ -137,6 +222,7 @@ def run_probe(
         "retry_count": 0,
         "paid_fallback": False,
         "registry_changed": False,
+        "explicit_probe_approval": explicit_approval is True,
         "providers": results,
     }
 
@@ -145,11 +231,28 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--network", action="store_true", help="explicitly permit one request per configured provider")
     parser.add_argument("--provider", action="append", choices=sorted(PROVIDER_IDS))
+    parser.add_argument("--confirm", default="", help="must equal CHECK before any model probe")
+    parser.add_argument("--evidence-file", default="", help="redacted current provider evidence JSON")
     parser.add_argument("--output", default="artifacts/provider_probe.json")
     args = parser.parse_args()
     try:
         registry = load_provider_registry()
-        report = run_probe(registry, args.provider, network_enabled=args.network)
+        free_evidence: Mapping[str, Any] = {}
+        if args.evidence_file:
+            evidence_path = Path(args.evidence_file)
+            if evidence_path.is_absolute() or ".." in evidence_path.parts:
+                raise ValueError("evidence file must stay inside the workspace")
+            payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, Mapping):
+                raise ValueError("evidence file must contain an object")
+            free_evidence = payload
+        report = run_probe(
+            registry,
+            args.provider,
+            network_enabled=args.network,
+            free_evidence=free_evidence,
+            explicit_approval=args.confirm == PROBE_CONFIRMATION_TOKEN,
+        )
     except Exception:
         report = {
             "schema_version": "provider-probe-v1",
@@ -159,6 +262,7 @@ def main() -> int:
             "retry_count": 0,
             "paid_fallback": False,
             "registry_changed": False,
+            "explicit_probe_approval": args.confirm == PROBE_CONFIRMATION_TOKEN,
             "status": "REGISTRY_INVALID",
             "providers": [],
         }

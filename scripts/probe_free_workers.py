@@ -35,6 +35,7 @@ CREDITS_URL = "https://openrouter.ai/api/v1/credits"
 TIMEOUT_SECONDS = 20
 MAX_TOKENS = 4
 MAX_WORKER_PROBES = 4
+PROBE_CONFIRMATION_TOKEN = "PROBE_FREE_WORKERS"
 
 
 def _json_request(url: str, *, method: str = "GET", headers: Mapping[str, str] | None = None, body: Mapping[str, Any] | None = None) -> tuple[int, dict[str, Any] | None, str]:
@@ -164,7 +165,13 @@ def _public_result(result: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def run_probe(*, api_key: str = "", catalog: list[dict[str, Any]] | None = None, registry: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def run_probe(
+    *,
+    api_key: str = "",
+    catalog: list[dict[str, Any]] | None = None,
+    registry: Mapping[str, Any] | None = None,
+    explicit_approval: bool = False,
+) -> dict[str, Any]:
     registry = registry or load_registry(os.environ.get("MODEL_REGISTRY_PATH") or DEFAULT_REGISTRY_PATH)
     entries = catalog if catalog is not None else _catalog()[0]
     metadata = registry.get("models") if isinstance(registry.get("models"), Mapping) else {}
@@ -198,7 +205,13 @@ def run_probe(*, api_key: str = "", catalog: list[dict[str, Any]] | None = None,
         "results": [],
         "selections": {},
         "registry_changed": False,
+        "explicit_probe_approval": explicit_approval is True,
     }
+    if explicit_approval is not True:
+        report["status"] = "BLOCKED_CONFIRMATION_REQUIRED"
+        report["reason"] = "The exact probe confirmation token was not supplied; no model call was sent."
+        report["model_calls"] = 0
+        return report
     if not api_key:
         report["status"] = "BLOCKED_MISSING_SECRET"
         report["reason"] = "OpenRouter API secret is not configured; no model call was sent."
@@ -273,6 +286,7 @@ def main() -> int:
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--network", action="store_true", help="explicitly permit catalog, credits, and bounded worker probes")
+    parser.add_argument("--confirm", default="", help="must equal PROBE_FREE_WORKERS before any model probe")
     args = parser.parse_args()
     output = Path(os.environ.get("FREE_WORKER_PROBE_OUTPUT", "artifacts/free_worker_probe.json"))
     if output.is_absolute() or ".." in output.parts:
@@ -280,7 +294,11 @@ def main() -> int:
     try:
         registry = load_registry(os.environ.get("MODEL_REGISTRY_PATH") or DEFAULT_REGISTRY_PATH)
         report = (
-            run_probe(api_key=os.environ.get("OPENROUTER_API_KEY") or os.environ.get("AI_API_KEY") or "", registry=registry)
+            run_probe(
+                api_key=os.environ.get("OPENROUTER_API_KEY") or os.environ.get("AI_API_KEY") or "",
+                registry=registry,
+                explicit_approval=args.confirm == PROBE_CONFIRMATION_TOKEN,
+            )
             if args.network else _dry_run_report()
         )
     except Exception:

@@ -74,6 +74,37 @@ class DirectApiValidationTests(unittest.TestCase):
             "nvidia": ["nvidia-current-model", "nvidia-current-model-2"],
             "groq": ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"],
         }
+        route_by_provider = {"google": "FREE_TIER", "nvidia": "FREE_ENDPOINT", "groq": "FREE_PLAN"}
+        tier_by_provider = {"google": "FREE", "nvidia": "FREE", "groq": "FREE"}
+        self.free_evidence = {
+            provider: {
+                model: {
+                    "current": True,
+                    "catalog_verified": True,
+                    "exact_model_verified": True,
+                    "free_program_exists": True,
+                    "free_access_type": route_by_provider[provider],
+                    "current_account_tier": tier_by_provider[provider],
+                    "current_account_eligible": True,
+                    "selected_route": route_by_provider[provider],
+                    "input_price": "0",
+                    "output_price": "0",
+                    "free_price_verified": True,
+                    "quota_metadata": {
+                        "quota_verified": True,
+                        "quota_safe": True,
+                        "quota_source": "fixture",
+                    },
+                    "automatic_paid_transition_possible": False,
+                    "fallback_to_paid_possible": False,
+                    "billing_transition_risk": "NONE",
+                    "evidence_source": "unit-test-fixture",
+                    "evidence_timestamp": "2026-09-09T00:00:00Z",
+                }
+                for model in models
+            }
+            for provider, models in self.candidates.items()
+        }
 
     def test_default_is_dry_run_and_never_calls_an_adapter(self):
         adapters = {provider: FakeAdapter(provider, CANDIDATE_HINTS[provider][:1]) for provider in CANDIDATE_HINTS}
@@ -126,6 +157,7 @@ class DirectApiValidationTests(unittest.TestCase):
             run_missions=True,
             max_missions=6,
             max_total_requests=64,
+            free_evidence=self.free_evidence,
         )
         self.assertEqual(report["final"]["GOOGLE_READY"], True)
         self.assertEqual(report["final"]["NVIDIA_READY"], True)
@@ -152,6 +184,7 @@ class DirectApiValidationTests(unittest.TestCase):
             confirmation="DIRECT_API_VALIDATION",
             adapters={"groq": adapter},
             environ=self.env,
+            free_evidence=self.free_evidence,
         )
         self.assertEqual(report["providers"][0]["status"], "MODEL_NOT_AVAILABLE")
         self.assertEqual(report["providers"][0]["model_calls"], 0)
@@ -166,6 +199,7 @@ class DirectApiValidationTests(unittest.TestCase):
             confirmation="DIRECT_API_VALIDATION",
             adapters={"groq": adapter},
             environ=self.env,
+            free_evidence=self.free_evidence,
         )
         provider = report["providers"][0]
         self.assertEqual(provider["status"], "RATE_LIMITED")

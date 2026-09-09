@@ -36,6 +36,17 @@ def evaluate_model_readiness(evidence: Mapping[str, Any]) -> dict[str, Any]:
     for field in REQUIRED_MODEL_EVIDENCE:
         if evidence.get(field) is not True:
             blockers.append(f"{field.upper()}_REQUIRED")
+    # New evidence bundles carry richer route/account facts.  These checks are
+    # conditional for backward compatibility with the existing v1 fixtures;
+    # when present, they are never inferred from a generic ``free`` boolean.
+    if "current" in evidence and evidence.get("current") is not True:
+        blockers.append("CURRENT_EVIDENCE_REQUIRED")
+    if "zero_cost_verified" in evidence and evidence.get("zero_cost_verified") is not True:
+        blockers.append("ZERO_COST_EVIDENCE_REQUIRED")
+    if "current_account_eligible" in evidence and evidence.get("current_account_eligible") is not True:
+        blockers.append("CURRENT_ACCOUNT_ELIGIBILITY_REQUIRED")
+    if "selected_route" in evidence and not str(evidence.get("selected_route") or "").startswith("FREE_"):
+        blockers.append("FREE_ROUTE_REQUIRED")
     cost = evidence.get("estimated_cost")
     if isinstance(cost, bool) or not isinstance(cost, (int, float)) or not isfinite(float(cost)) or float(cost) != 0:
         blockers.append("ZERO_COST_REQUIRED")

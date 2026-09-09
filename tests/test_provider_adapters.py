@@ -17,6 +17,7 @@ from scripts.provider_adapters import (
 )
 from scripts.provider_registry import load_provider_registry
 from scripts.provider_controls import ProviderQuotaLedger, QuotaGuardError
+from scripts.execution_scope import ExecutionPolicy
 
 
 class FakeProvider:
@@ -146,6 +147,38 @@ class ProviderAdapterTests(unittest.TestCase):
                 require_zero_cost=True,
             )
         self.assertEqual(caught.exception.error_class, "FREE_COST_UNVERIFIED")
+
+    def test_staging_generation_uses_ephemeral_policy_without_registry_activation(self):
+        registry = copy.deepcopy(self.registry)
+        adapter = OpenAICompatibleAdapter(registry, "groq", network_enabled=True)
+        adapter._chat = lambda model_id, messages, **options: AdapterResponse(
+            {"model": model_id, "choices": [{"message": {"content": "{}"}}], "usage": {"cost": "0"}}, {}, 4
+        )
+        policy = ExecutionPolicy(
+            scope="STAGING",
+            provider_id="groq",
+            model_id="qwen/qwen3.8-27b",
+            model_family="Qwen",
+            technically_ready=True,
+            staging_approved=True,
+            exact_model_verified=True,
+            endpoint_verified=True,
+            auth_verified=True,
+            capability_verified=True,
+            free_verified=True,
+            cost_safe=True,
+            quota_safe=True,
+            circuit_closed=True,
+        )
+        result = adapter.generate(
+            "qwen/qwen3.8-27b",
+            [{"role": "user", "content": "x"}],
+            execution_policy=policy,
+            require_zero_cost=True,
+        )
+        self.assertEqual(result["model"], "qwen/qwen3.8-27b")
+        self.assertFalse(registry["providers"]["groq"]["enabled"])
+        self.assertFalse(registry["providers"]["groq"]["activation_approved"])
 
     def test_error_mapping_does_not_retry_auth_quota_or_credit(self):
         for status, error_class in ((401, "AUTH_ERROR"), (403, "PERMISSION_ERROR"), (404, "MODEL_UNAVAILABLE"), (402, "CREDIT_EXHAUSTED"), (429, "RATE_LIMITED")):

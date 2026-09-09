@@ -33,6 +33,31 @@ class ProviderProbeTests(unittest.TestCase):
     def setUp(self):
         self.registry = load_provider_registry()
 
+    @staticmethod
+    def evidence(provider, model):
+        route = {"google": "FREE_TIER", "groq": "FREE_PLAN", "nvidia": "FREE_ENDPOINT", "openrouter": "FREE_MODEL_ENDPOINT"}[provider]
+        return {
+            provider: {
+                model: {
+                    "current": True,
+                    "catalog_verified": True,
+                    "exact_model_verified": True,
+                    "free_program_exists": True,
+                    "free_access_type": route,
+                    "current_account_eligible": True,
+                    "selected_route": route,
+                    "input_price": "0",
+                    "output_price": "0",
+                    "free_price_verified": True,
+                    "quota_metadata": {"quota_verified": True, "quota_safe": True, "quota_source": "fixture"},
+                    "automatic_paid_transition_possible": False,
+                    "fallback_to_paid_possible": False,
+                    "billing_transition_risk": "NONE",
+                    "evidence_source": "unit-test-fixture",
+                }
+            }
+        }
+
     def test_default_mode_is_dry_run_and_sends_no_request(self):
         report = run_probe(self.registry, network_enabled=False, environ={})
         self.assertEqual(report["model_calls"], 0)
@@ -45,6 +70,7 @@ class ProviderProbeTests(unittest.TestCase):
             ["google"],
             network_enabled=True,
             environ={"GOOGLE_PROBE_MODEL": "vendor/model"},
+            explicit_approval=True,
         )
         self.assertEqual(report["providers"][0]["status"], "AUTH_NOT_CONFIGURED")
         self.assertEqual(report["model_calls"], 0)
@@ -61,6 +87,8 @@ class ProviderProbeTests(unittest.TestCase):
                 "GROQ_API_KEY": "test-key",
                 "GROQ_PROBE_MODEL": "vendor/model",
             },
+            free_evidence=self.evidence("groq", "vendor/model"),
+            explicit_approval=True,
         )
         result = report["providers"][0]
         self.assertEqual(result["status"], "PROBE_OK")
@@ -81,6 +109,8 @@ class ProviderProbeTests(unittest.TestCase):
                 "GEMINI_API_KEY": "test-key",
                 "GOOGLE_PROBE_MODEL": "vendor/model",
             },
+            free_evidence=self.evidence("google", "vendor/model"),
+            explicit_approval=True,
         )
         self.assertEqual(report["providers"][0]["status"], "PROBE_OK")
         self.assertEqual(fake.calls, 1)
@@ -97,9 +127,28 @@ class ProviderProbeTests(unittest.TestCase):
                 "NVIDIA_API_KEY": "test-key",
                 "NVIDIA_PROBE_MODEL": "vendor/model",
             },
+            free_evidence=self.evidence("nvidia", "vendor/model"),
+            explicit_approval=True,
         )
         self.assertEqual(report["providers"][0]["status"], "PROBE_FAILED")
         self.assertNotIn("provider response body", str(report))
+
+    def test_missing_probe_approval_blocks_before_provider_call(self):
+        fake = FakeAdapter()
+        report = run_probe(
+            self.registry,
+            ["groq"],
+            network_enabled=True,
+            adapters={"groq": fake},
+            environ={
+                "GROQ_BASE_URL": "https://provider.example/v1",
+                "GROQ_API_KEY": "test-key",
+                "GROQ_PROBE_MODEL": "vendor/model",
+            },
+            free_evidence=self.evidence("groq", "vendor/model"),
+        )
+        self.assertEqual(report["providers"][0]["status"], "BLOCKED_CONFIRMATION_REQUIRED")
+        self.assertEqual(fake.calls, 0)
 
     def test_probe_does_not_mutate_registry(self):
         before = copy.deepcopy(self.registry)

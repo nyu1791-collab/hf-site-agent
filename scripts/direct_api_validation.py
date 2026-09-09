@@ -28,6 +28,7 @@ if __package__ in {None, ""}:  # pragma: no cover - script invocation path
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.provider_adapters import create_provider_adapter
+from scripts.free_evidence import resolve_free_evidence
 from scripts.provider_registry import COMMANDER_PROVIDER_IDS, load_provider_registry
 
 
@@ -279,6 +280,58 @@ def _free_access_result(config: Mapping[str, Any], probe: Mapping[str, Any], quo
     return "FREE_ACCESS_CONFIRMED" if evidence else "FREE_ACCESS_UNVERIFIED"
 
 
+def _supplied_free_evidence(
+    free_evidence: Mapping[str, Any] | None,
+    provider_id: str,
+    model_id: str,
+) -> Mapping[str, Any]:
+    """Find one redacted evidence record without accepting a paid fallback."""
+    if not isinstance(free_evidence, Mapping):
+        return {}
+    provider_value = free_evidence.get(provider_id)
+    if isinstance(provider_value, Mapping):
+        direct = provider_value.get(model_id)
+        if isinstance(direct, Mapping):
+            return direct
+        models = provider_value.get("models")
+        if isinstance(models, Mapping) and isinstance(models.get(model_id), Mapping):
+            return models[model_id]
+    direct = free_evidence.get(f"{provider_id}:{model_id}")
+    return direct if isinstance(direct, Mapping) else {}
+
+
+def _resolve_model_free_evidence(
+    provider_id: str,
+    model_id: str,
+    catalog: Sequence[Mapping[str, Any]],
+    quota: Mapping[str, Any],
+    supplied: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    supplied = supplied if isinstance(supplied, Mapping) else {}
+    account_metadata = supplied.get("account_metadata") if isinstance(supplied.get("account_metadata"), Mapping) else {}
+    pricing_metadata = dict(supplied.get("pricing_metadata") if isinstance(supplied.get("pricing_metadata"), Mapping) else {})
+    pricing_metadata.update({
+        key: value
+        for key, value in supplied.items()
+        if key not in {"account_metadata", "pricing_metadata", "quota_metadata"}
+    })
+    quota_metadata = dict(quota)
+    extra_quota = supplied.get("quota_metadata")
+    if isinstance(extra_quota, Mapping):
+        quota_metadata.update(extra_quota)
+    return resolve_free_evidence(
+        provider_id,
+        model_id,
+        catalog,
+        account_metadata,
+        pricing_metadata,
+        quota_metadata,
+        evidence_source=str(supplied.get("evidence_source") or supplied.get("free_evidence_source") or "direct_api_preflight")[:400],
+        evidence_timestamp=str(supplied.get("evidence_timestamp") or supplied.get("verified_at") or "")[:80],
+        current=supplied.get("current") is True,
+    )
+
+
 def _latency_score(latencies: Sequence[int]) -> int:
     if not latencies:
         return 0
@@ -374,6 +427,7 @@ def _validate_provider(
     max_candidates: int,
     max_missions: int,
     budget: dict[str, int],
+    free_evidence: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     config = registry["providers"][provider_id]
     result = _provider_status(config, env, "NOT_RUN", network_enabled=network_enabled)
@@ -474,12 +528,36 @@ def _validate_provider(
             "missions": {},
             "metrics": {},
             "hard_fail": False,
+            "free_evidence": {},
+            "zero_cost_preflight": "NOT_RUN",
         }
         if budget["remaining"] <= 0:
             model_result["state"] = "BLOCKED_REQUEST_BUDGET"
             model_result["stages"]["minimal_generation"] = "BLOCKED_REQUEST_BUDGET"
             result["model_results"].append(model_result)
             break
+        supplied_evidence = _supplied_free_evidence(free_evidence, provider_id, model_id)
+        evidence = _resolve_model_free_evidence(provider_id, model_id, catalog_entries, quota, supplied_evidence)
+        model_result["free_evidence"] = {
+            key: evidence.get(key)
+            for key in (
+                "status", "catalog_verified", "model_verified", "free_program_exists",
+                "current_account_tier", "current_account_eligible", "selected_route",
+                "input_price", "output_price", "quota_verified", "quota_safe",
+                "automatic_paid_transition_possible", "fallback_to_paid_possible",
+                "billing_transition_risk", "zero_cost_verified", "blockers",
+                "evidence_source", "evidence_timestamp", "catalog_hash",
+            )
+        }
+        if evidence.get("zero_cost_verified") is not True:
+            model_result["state"] = "CATALOG_INCONSISTENCY" if evidence.get("status") == "INCONSISTENT" else "ZERO_COST_PREFLIGHT_BLOCKED"
+            model_result["stages"]["free_access"] = model_result["state"]
+            model_result["zero_cost_preflight"] = model_result["state"]
+            result["model_results"].append(model_result)
+            # No model-generation request is permitted without a current,
+            # account-aware zero-cost decision.
+            continue
+        model_result["zero_cost_preflight"] = "ZERO_COST_VERIFIED"
         budget["remaining"] -= 1
         result["request_count"] += 1
         result["model_calls"] += 1
@@ -499,6 +577,12 @@ def _validate_provider(
         model_result["stages"]["usage_parse"] = "USAGE_PARSE_OK" if probe["usage_present"] else "USAGE_PARSE_UNVERIFIED"
         model_result["free_access"] = _free_access_result(config, probe, quota)
         model_result["stages"]["free_access"] = model_result["free_access"]
+        usage_cost = probe.get("usage_cost")
+        if usage_cost is not None and usage_cost not in ZERO_COST:
+            model_result["state"] = "FREE_COST_NONZERO"
+            model_result["hard_fail"] = True
+            result["model_results"].append(model_result)
+            continue
         if probe_status == "PROBE_OK" and probe["usage_present"] and model_result["free_access"] == "FREE_ACCESS_CONFIRMED":
             model_result["state"] = "PROBE_OK"
         else:
@@ -604,6 +688,7 @@ def run_validation(
     max_candidates: int = 3,
     max_missions: int = 16,
     max_total_requests: int = 128,
+    free_evidence: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run safe staged validation; ``registry`` is never mutated."""
     env = os.environ if environ is None else environ
@@ -633,6 +718,7 @@ def run_validation(
             max_candidates=max(1, min(int(max_candidates), 3)),
             max_missions=max(1, min(int(max_missions), 16)),
             budget=budget,
+            free_evidence=free_evidence,
         ))
     selected = {
         item["provider"]: item.get("selected_commander")
@@ -664,6 +750,12 @@ def run_validation(
             "paid_fallback": False,
             "auto_top_up": False,
             "secret_values_emitted": False,
+            "secret_present_checked": any(item.get("secret_present") is True for item in provider_reports if isinstance(item, Mapping)),
+            "secret_values_displayed": 0,
+            "secret_values_logged": 0,
+            "secret_values_persisted": 0,
+            "secret_values_returned_to_model": 0,
+            "secret_values_written_to_artifact": 0,
             "registry_changed": False,
             "production_routing_changed": False,
             "unexpected_mutations": 0,
@@ -699,9 +791,19 @@ def main() -> int:
     parser.add_argument("--missions", action="store_true", help="run bounded commander mission checks after capability gates")
     parser.add_argument("--max-total-requests", type=int, default=128)
     parser.add_argument("--output", default="artifacts/direct_api_report.json")
+    parser.add_argument("--evidence-file", default="", help="redacted current provider evidence JSON; missing evidence blocks model calls")
     args = parser.parse_args()
     try:
         registry = load_provider_registry()
+        free_evidence = {}
+        if args.evidence_file:
+            evidence_path = Path(args.evidence_file)
+            if evidence_path.is_absolute() or ".." in evidence_path.parts:
+                raise ValueError("evidence file must stay inside the workspace")
+            payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, Mapping):
+                raise ValueError("evidence file must contain an object")
+            free_evidence = payload
         report = run_validation(
             registry,
             args.provider,
@@ -710,6 +812,7 @@ def main() -> int:
             run_capabilities=args.capabilities,
             run_missions=args.missions,
             max_total_requests=args.max_total_requests,
+            free_evidence=free_evidence,
         )
     except Exception:
         report = {
@@ -731,6 +834,12 @@ def main() -> int:
                 "paid_fallback": False,
                 "auto_top_up": False,
                 "secret_values_emitted": False,
+                "secret_present_checked": False,
+                "secret_values_displayed": 0,
+                "secret_values_logged": 0,
+                "secret_values_persisted": 0,
+                "secret_values_returned_to_model": 0,
+                "secret_values_written_to_artifact": 0,
                 "registry_changed": False,
                 "production_routing_changed": False,
             },

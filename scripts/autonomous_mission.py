@@ -313,6 +313,12 @@ def _compact_callback(data: Mapping[str, Any], summary: str) -> dict[str, Any]:
         "summary": adopted_summary,
         "response_digest": stable_hash(dict(data))[:16],
     }
+    for key in ("output_invalid", "schema_valid"):
+        if isinstance(data.get(key), bool):
+            compact[key] = data[key]
+    for key in ("provider", "model"):
+        if data.get(key) not in (None, ""):
+            compact[key] = safe_text(data[key], 200)
     for key in ("decision", "verdict", "next_action", "failure_signature"):
         if key in data and data[key] not in (None, ""):
             compact[key] = safe_text(data[key], 400)

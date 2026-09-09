@@ -27,7 +27,7 @@ class FreeWorkerProbeTests(unittest.TestCase):
         ]
 
     def test_missing_secret_discovers_candidates_but_sends_no_model_request(self):
-        report = probe_free_workers.run_probe(api_key="", catalog=self.catalog, registry=self.registry)
+        report = probe_free_workers.run_probe(api_key="", catalog=self.catalog, registry=self.registry, explicit_approval=True)
         self.assertEqual(report["status"], "BLOCKED_MISSING_SECRET")
         self.assertEqual(report["model_calls"], 0)
         self.assertEqual(report["selected_probe_models"], [entry["id"] for entry in self.catalog])
@@ -55,7 +55,7 @@ class FreeWorkerProbeTests(unittest.TestCase):
         with patch.object(probe_free_workers, "_credits", side_effect=[before, after]), patch.object(
             probe_free_workers, "_probe_one", side_effect=fake_probe
         ):
-            report = probe_free_workers.run_probe(api_key="test-key", catalog=self.catalog, registry=self.registry)
+            report = probe_free_workers.run_probe(api_key="test-key", catalog=self.catalog, registry=self.registry, explicit_approval=True)
         self.assertEqual(calls, [entry["id"] for entry in self.catalog])
         self.assertEqual(report["model_calls"], 4)
         self.assertEqual(report["status"], "FREE_ACTIVE")
@@ -82,7 +82,7 @@ class FreeWorkerProbeTests(unittest.TestCase):
                 {"checked": True, "status": 200, "digest": "after"},
             ]
         ), patch.object(probe_free_workers, "_probe_one", side_effect=fake_probe):
-            report = probe_free_workers.run_probe(api_key="test-key", catalog=self.catalog, registry=self.registry)
+            report = probe_free_workers.run_probe(api_key="test-key", catalog=self.catalog, registry=self.registry, explicit_approval=True)
         self.assertEqual(report["credits_unchanged"], False)
         self.assertEqual(report["status"], "COMPLETED_WITH_BLOCKS")
         self.assertTrue(all(item["status"] == "FREE_CREDITS_CHANGED" for item in report["results"]))
@@ -91,9 +91,14 @@ class FreeWorkerProbeTests(unittest.TestCase):
     def test_registry_and_catalog_inputs_are_not_mutated(self):
         catalog = copy.deepcopy(self.catalog)
         registry = copy.deepcopy(self.registry)
-        probe_free_workers.run_probe(api_key="", catalog=catalog, registry=registry)
+        probe_free_workers.run_probe(api_key="", catalog=catalog, registry=registry, explicit_approval=True)
         self.assertEqual(catalog, self.catalog)
         self.assertEqual(registry, self.registry)
+
+    def test_missing_confirmation_blocks_before_secret_or_model_request(self):
+        report = probe_free_workers.run_probe(api_key="test-key", catalog=self.catalog, registry=self.registry)
+        self.assertEqual(report["status"], "BLOCKED_CONFIRMATION_REQUIRED")
+        self.assertEqual(report["model_calls"], 0)
 
 
 if __name__ == "__main__":
