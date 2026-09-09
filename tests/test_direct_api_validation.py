@@ -137,6 +137,25 @@ class DirectApiValidationTests(unittest.TestCase):
             self.assertEqual(calls.count("mission"), 12)
             self.assertEqual(report["selection"][provider]["commander_score"], 100)
 
+    def test_nvidia_trial_credits_require_separate_opt_in_before_network(self):
+        adapter = FakeAdapter("nvidia", CANDIDATE_HINTS["nvidia"][:1])
+        report = run_validation(
+            self.registry,
+            ["nvidia"],
+            network_enabled=True,
+            confirmation="DIRECT_API_VALIDATION",
+            adapters={"nvidia": adapter},
+            environ=self.env,
+            max_total_requests=12,
+        )
+        provider = report["providers"][0]
+        self.assertEqual(provider["status"], "TRIAL_CREDITS_APPROVAL_REQUIRED")
+        self.assertFalse(provider["trial_credits_allowed"])
+        self.assertEqual(provider["request_count"], 0)
+        self.assertFalse(adapter.calls)
+        self.assertFalse(report["final"]["NVIDIA_READY"])
+        self.assertFalse(report["safety"]["trial_credits_allowed"])
+
     def test_model_not_in_current_catalog_is_not_probed(self):
         adapter = FakeAdapter("groq", ["unrelated/model"])
         report = run_validation(
