@@ -124,3 +124,22 @@ than silently rewriting that run:
 
 No Provider was activated by these follow-up changes, and the Live Probe
 flags remain false.
+
+## Phase 5 revalidation addendum
+
+The current PR #40 HEAD is `cdc436c8c9efcd01d3281c29f994d064ca226ddb`.
+The Phase 5 additions were verified without Provider network access:
+
+- Full local deterministic suite: `157/157 PASS`, `0 FAIL`, `0 ERROR`.
+- Redacted catalog snapshot/drift tests: `6/6 PASS`.
+- Live Probe plan tests: `6/6 PASS`.
+- Secret audit: `SECRET_NEW_LEAKS=0`; the scan reports no values.
+- Generated Live Probe plan: 14 bounded requests, cost `UNKNOWN`, retry `0`,
+  `auto_execution_allowed=false`, and all live flags false.
+- Catalog snapshots are non-mutating, hash-validated, and do not activate a
+  newly discovered model. Removed/deprecated/pricing changes fail closed.
+
+No live Provider failure injection was started in this phase. Therefore the
+existing `BLOCKED` status for provider interruption/resume and cross-runner
+durability remains valid; deterministic local tests do not prove remote
+Runner durability or a real Provider outage.
