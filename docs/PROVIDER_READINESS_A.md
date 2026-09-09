@@ -416,9 +416,10 @@ dispatch. Its file-backed ledger uses a local process lock and restart
 recovery, but explicitly reports `cross_runner_durable=false`; it is not
 evidence for production parallel routing.
 
-At the final Phase 6 verification, PR #40 HEAD was
-`81a21dfa51f946729bec3ce5d6c5785d23c5b152`, GitHub Actions had two successful
-read-only workflow runs, and the local deterministic suite was `181/181
-PASS`. No live Provider catalog, free-tier, quota, or endpoint evidence was
-collected. All Provider and Live Probe readiness flags therefore remain
+At the final Phase 6 verification, PR #40 remained Open/Draft/unmerged;
+GitHub Actions had two successful read-only workflow runs, and the local
+deterministic suite was `181/181 PASS`. The authoritative final PR HEAD is
+recorded in the handoff report rather than hard-coded into this historical
+document. No live Provider catalog, free-tier, quota, or endpoint evidence
+was collected. All Provider and Live Probe readiness flags therefore remain
 false.
