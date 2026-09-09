@@ -175,6 +175,11 @@
       "minLength": 1,
       "maxLength": 80
     },
+    "response_version": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonic version owned by the command caller; older or duplicate responses are rejected."
+    },
     "free_requests_used": {
       "type": "integer",
       "minimum": 0,
