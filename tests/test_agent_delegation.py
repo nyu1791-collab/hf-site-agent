@@ -100,8 +100,11 @@ class FreeModelPreflightTests(unittest.TestCase):
             ("ROLE_ENGINEERING_COMMANDER", "deepseek/deepseek-v4-flash:free"),
         ):
             registry["roles"][role_name]["active"] = True
+            registry["roles"][role_name]["approved"] = True
+            registry["roles"][role_name]["candidate_models"] = [model_id]
             registry["models"][model_id]["free_available"] = True
             registry["models"][model_id]["status"] = "FREE_ACTIVE"
+            registry["models"][model_id]["lifecycle"] = "GA"
         return registry
 
     def _env(self, output_file):
