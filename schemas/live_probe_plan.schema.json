@@ -37,6 +37,7 @@
           "provider",
           "model",
           "model_source",
+          "candidate_selection",
           "estimated_requests",
           "estimated_tokens",
           "estimated_cost",
@@ -52,6 +53,17 @@
           "provider": {"enum": ["google", "nvidia", "groq", "openrouter", "modal"]},
           "model": {"type": ["string", "null"]},
           "model_source": {"type": "string", "minLength": 1},
+          "candidate_selection": {
+            "type": "object",
+            "required": ["source", "labels", "exact_model_id_required", "fixed_id_authorized"],
+            "properties": {
+              "source": {"type": "string", "minLength": 1},
+              "labels": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+              "exact_model_id_required": {"type": "boolean"},
+              "fixed_id_authorized": {"const": false}
+            },
+            "additionalProperties": false
+          },
           "phase": {"type": "string", "minLength": 1},
           "estimated_requests": {"type": "integer", "minimum": 0},
           "estimated_tokens": {"type": "integer", "minimum": 0},
