@@ -115,7 +115,7 @@ jobs:
           from pathlib import Path
           plan = json.loads(Path("artifacts/live_probe_plan.json").read_text(encoding="utf-8"))
           assert plan["final"]["state"] == "LIVE_PROBE_PLAN_READY"
-          assert plan["estimated_cost"] if False else True
+          assert all(item["estimated_cost"] == "UNKNOWN" for item in plan["plans"])
           assert plan["auto_execution_allowed"] is False
           assert plan["safety"]["cost_unknown_blocks_auto_execution"] is True
           assert plan["safety"]["paid_calls"] == 0
