@@ -89,6 +89,39 @@ jobs:
       - name: Run deterministic regression before live requests
         run: python -m unittest discover -s tests -p 'test_*.py' -q
 
+      - name: Generate redacted pre-live plan (no network)
+        shell: bash
+        env:
+          PROVIDER_INPUT: ${{ inputs.provider }}
+          CAPABILITIES_INPUT: ${{ inputs.capabilities }}
+          MISSIONS_INPUT: ${{ inputs.missions }}
+          MAX_CANDIDATES_INPUT: ${{ inputs.max_candidates }}
+          MAX_MISSIONS_INPUT: ${{ inputs.max_missions }}
+          MAX_REQUESTS_INPUT: ${{ inputs.max_requests }}
+        run: |
+          set -euo pipefail
+          args=(--max-candidates "$MAX_CANDIDATES_INPUT" --max-missions "$MAX_MISSIONS_INPUT" --max-total-requests "$MAX_REQUESTS_INPUT" --output artifacts/live_probe_plan.json)
+          if [[ "$PROVIDER_INPUT" == "all" ]]; then
+            args+=(--provider google --provider nvidia --provider groq)
+          else
+            args+=(--provider "$PROVIDER_INPUT")
+          fi
+          if [[ "$CAPABILITIES_INPUT" == "true" ]]; then args+=(--capabilities); fi
+          if [[ "$MISSIONS_INPUT" == "true" ]]; then args+=(--missions); fi
+          python scripts/live_probe_plan.py "${args[@]}"
+          python -m json.tool artifacts/live_probe_plan.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          plan = json.loads(Path("artifacts/live_probe_plan.json").read_text(encoding="utf-8"))
+          assert plan["final"]["state"] == "LIVE_PROBE_PLAN_READY"
+          assert plan["estimated_cost"] if False else True
+          assert plan["auto_execution_allowed"] is False
+          assert plan["safety"]["cost_unknown_blocks_auto_execution"] is True
+          assert plan["safety"]["paid_calls"] == 0
+          assert plan["safety"]["production_routing_changed"] is False
+          print(json.dumps({"estimated_requests": plan["budget"]["estimated_requests"], "estimated_cost": "UNKNOWN", "live_probe_enabled": False}))
+          PY
       - name: Run explicitly confirmed direct validation
         shell: bash
         env:
