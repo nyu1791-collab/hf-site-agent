@@ -278,9 +278,28 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             # provider.  Probe and generation use the same strict setting.
             payload["provider"] = {"allow_fallbacks": False}
         response = self._request_json(str(self.config.get("generate_path") or "/chat/completions"), method="POST", payload=payload)
-        if not isinstance(response.payload.get("choices"), list):
-            raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
+        self._validate_chat_payload(response.payload)
         return response
+
+    @staticmethod
+    def _validate_chat_payload(payload: Mapping[str, Any]) -> None:
+        """Reject successful-looking but unusable OpenAI-compatible output."""
+        choices = payload.get("choices")
+        if not isinstance(choices, list) or not choices:
+            raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
+        first = choices[0] if isinstance(choices[0], Mapping) else {}
+        message = first.get("message") if isinstance(first, Mapping) else None
+        if not isinstance(message, Mapping):
+            raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
+        content = message.get("content")
+        tool_calls = message.get("tool_calls")
+        has_content = (
+            (isinstance(content, str) and bool(content.strip()))
+            or (isinstance(content, list) and bool(content))
+        )
+        has_tool_calls = isinstance(tool_calls, list) and bool(tool_calls)
+        if not has_content and not has_tool_calls:
+            raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
 
     @staticmethod
     def _quota_headers(headers: Mapping[str, str]) -> dict[str, str]:
@@ -343,6 +362,7 @@ class OpenAICompatibleAdapter(ProviderAdapter):
     def probe(self, model_id: str) -> dict[str, Any]:
         try:
             response = self._chat(model_id, [{"role": "user", "content": "Return JSON: {\"ok\":true}"}], max_tokens=8)
+            self._validate_chat_payload(response.payload)
         except Exception as exc:
             normalized = self.normalize_error(exc)
             return {
