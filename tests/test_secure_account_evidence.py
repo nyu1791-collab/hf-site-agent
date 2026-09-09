@@ -68,6 +68,12 @@ class SecureAccountEvidenceTests(unittest.TestCase):
         self.assertNotIn("nvidia-secret", str(report))
         self.assertNotIn("router-secret", str(report))
         self.assertFalse(report["providers"]["google"]["models"]["gemini-3.8-flash"]["zero_cost_verified"])
+        google = report["providers"]["google"]["models"]["gemini-3.8-flash"]
+        self.assertEqual(google["paid_fallback_policy"], "NOT_APPLICABLE")
+        self.assertFalse(google["paid_fallback_possible"])
+        self.assertEqual(google["account_evidence_status"], "EVIDENCE_API_UNAVAILABLE")
+        self.assertEqual(google["evidence_paths_attempted"], ["OFFICIAL_API_CATALOG", "OFFICIAL_RESPONSE_HEADER"])
+        self.assertEqual(google["evidence_path_limit"], 2)
         self.assertTrue(report["providers"]["openrouter"]["models"]["z-ai/glm-5.3-flash:free"]["zero_cost_verified"])
         self.assertEqual(report["providers"]["openrouter"]["models"]["z-ai/glm-5.3-flash:free"]["selected_route"], "FREE_MODEL_ENDPOINT")
         self.assertEqual(len(calls), 5)  # four catalogs plus the bounded OpenRouter key read

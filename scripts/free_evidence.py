@@ -496,6 +496,68 @@ def resolve_free_evidence(
             staging_blockers.append("EVIDENCE_SOURCE_REQUIRED")
     staging_blockers = sorted(set(staging_blockers))
 
+    # ``LIMITED_STAGING_PROBE`` is deliberately narrower than normal staging.
+    # It is not a substitute for account-specific zero-cost verification and
+    # it never makes a provider production-ready.  At present it is reserved
+    # for NVIDIA's exact, fixed Build free endpoint: unlike an account-tier
+    # free programme, that endpoint is a distinct route and can safely return
+    # an entitlement or quota error instead of selecting a paid sibling.
+    #
+    # Quota is intentionally observed by this one-request probe, so absent
+    # quota headers do not by themselves make the fixed free endpoint paid.
+    # Every other normal staging requirement remains in force.
+    limited_staging_blockers: list[str] = []
+    if provider_id != "nvidia":
+        limited_staging_blockers.append("LIMITED_STAGING_FIXED_FREE_ENDPOINT_REQUIRED")
+    if selected_route != "FREE_ENDPOINT":
+        limited_staging_blockers.append("LIMITED_STAGING_FREE_ENDPOINT_NOT_SELECTED")
+    if raw_pricing.get("fixed_free_endpoint") is not True:
+        limited_staging_blockers.append("LIMITED_STAGING_FIXED_ENDPOINT_NOT_VERIFIED")
+    if secure_evidence is not True:
+        limited_staging_blockers.append("SECURE_EVIDENCE_REQUIRED")
+    if current is not True:
+        limited_staging_blockers.append("CURRENT_EVIDENCE_REQUIRED")
+    if catalog_verified is not True:
+        limited_staging_blockers.append("CATALOG_NOT_VERIFIED")
+    if exact_model_verified is not True:
+        limited_staging_blockers.append("EXACT_MODEL_NOT_VERIFIED")
+    if free_program_exists is not True:
+        limited_staging_blockers.append("FREE_PROGRAM_NOT_VERIFIED")
+    if current_account_eligible is False:
+        limited_staging_blockers.append("CURRENT_ACCOUNT_NOT_ELIGIBLE")
+    if input_price != "0" or output_price != "0":
+        limited_staging_blockers.append("LIMITED_STAGING_PRICE_NOT_ZERO")
+    if paid_transition_disabled is not True:
+        limited_staging_blockers.append("AUTOMATIC_PAID_TRANSITION_NOT_DISABLED")
+    if paid_fallback_disabled is not True:
+        limited_staging_blockers.append("PAID_FALLBACK_NOT_DISABLED")
+    if billing_risk != "NONE":
+        limited_staging_blockers.append("BILLING_TRANSITION_RISK_NOT_NONE")
+    if raw_pricing.get("endpoint_verified") is not True:
+        limited_staging_blockers.append("STAGING_ENDPOINT_NOT_VERIFIED")
+    if raw_pricing.get("auth_verified") is not True:
+        limited_staging_blockers.append("STAGING_AUTH_NOT_VERIFIED")
+    for blocker in (
+        "CATALOG_INCONSISTENCY",
+        "DUPLICATE_CATALOG_METADATA_CONFLICT",
+        "MODEL_UNAVAILABLE",
+        "TRIAL_CREDIT_NOT_FREE_ONLY_SAFE",
+        "EVIDENCE_EXPIRY_REQUIRED",
+        "EVIDENCE_EXPIRY_INVALID",
+        "STALE_EVIDENCE",
+        "EVIDENCE_PROVENANCE_REQUIRED",
+        "EVIDENCE_SOURCE_REQUIRED",
+    ):
+        if blocker in deduped_blockers:
+            limited_staging_blockers.append(blocker)
+    limited_staging_blockers = sorted(set(limited_staging_blockers))
+    limited_staging_probe_allowed = not limited_staging_blockers
+    staging_state = (
+        "STAGING_READY" if not staging_blockers
+        else "LIMITED_STAGING_PROBE" if limited_staging_probe_allowed
+        else "BLOCKED"
+    )
+
     return {
         "provider": provider_id,
         "model_id": model_id,
@@ -537,6 +599,11 @@ def resolve_free_evidence(
         "zero_cost_verified": zero_cost_verified,
         "staging_probe_allowed": not staging_blockers,
         "staging_blockers": staging_blockers,
+        "limited_staging_probe_allowed": limited_staging_probe_allowed,
+        "limited_staging_probe_blockers": limited_staging_blockers,
+        "limited_staging_probe_request_limit": 1 if limited_staging_probe_allowed else 0,
+        "limited_staging_probe_max_output_tokens": 8 if limited_staging_probe_allowed else 0,
+        "staging_state": staging_state,
         "blockers": deduped_blockers,
         "status": status,
         "revalidation_required": not zero_cost_verified,

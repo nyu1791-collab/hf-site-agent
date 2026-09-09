@@ -92,6 +92,7 @@ def run_probe(
     environ: Mapping[str, str] | None = None,
     free_evidence: Mapping[str, Any] | None = None,
     explicit_approval: bool = False,
+    allow_limited_staging_probe: bool = False,
 ) -> dict[str, Any]:
     """Return redacted probe evidence; never mutates ``registry``."""
     env = os.environ if environ is None else environ
@@ -175,15 +176,27 @@ def run_probe(
                 "evidence_source", "evidence_timestamp", "catalog_hash",
                 "evidence_generation", "expires_at", "evidence_provenance", "secure_evidence",
                 "staging_probe_allowed", "staging_blockers",
+                "limited_staging_probe_allowed", "limited_staging_probe_blockers",
+                "limited_staging_probe_request_limit", "limited_staging_probe_max_output_tokens",
+                "staging_state",
             )
         }
         zero_cost_verified = evidence.get("zero_cost_verified") is True
         staging_probe_allowed = evidence.get("staging_probe_allowed") is True
-        if not zero_cost_verified and not staging_probe_allowed:
+        limited_staging_probe_allowed = (
+            allow_limited_staging_probe
+            and evidence.get("limited_staging_probe_allowed") is True
+        )
+        if not zero_cost_verified and not staging_probe_allowed and not limited_staging_probe_allowed:
+            limited_requires_approval = evidence.get("limited_staging_probe_allowed") is True
             results.append(_provider_result(
                 provider_id,
                 model=model,
-                status="CATALOG_INCONSISTENCY" if evidence.get("status") == "INCONSISTENT" else "ZERO_COST_PREFLIGHT_BLOCKED",
+                status=(
+                    "CATALOG_INCONSISTENCY" if evidence.get("status") == "INCONSISTENT"
+                    else "LIMITED_STAGING_APPROVAL_REQUIRED" if limited_requires_approval
+                    else "ZERO_COST_PREFLIGHT_BLOCKED"
+                ),
                 model_calls=0,
                 endpoint_configured=True,
                 credentials_configured=True,
@@ -217,6 +230,15 @@ def run_probe(
             credentials_configured=True,
             network_enabled=True,
             staging_only=not zero_cost_verified,
+            probe_mode="LIMITED_STAGING_PROBE" if limited_staging_probe_allowed else "STANDARD_PROBE",
+            request_hard_limit=1,
+            max_output_tokens=(
+                int(evidence.get("limited_staging_probe_max_output_tokens") or 8)
+                if limited_staging_probe_allowed else None
+            ),
+            automatic_model_fallback=False,
+            generic_paid_router_disabled=True,
+            auto_top_up=False,
             response_model=raw.get("response_model") if isinstance(raw.get("response_model"), str) else None,
             usage_cost=usage_cost,
             latency_ms=raw.get("latency_ms") if isinstance(raw.get("latency_ms"), int) else None,
@@ -233,6 +255,7 @@ def run_probe(
         "paid_fallback": False,
         "registry_changed": False,
         "explicit_probe_approval": explicit_approval is True,
+        "limited_staging_probe_approval": allow_limited_staging_probe is True,
         "providers": results,
     }
 
@@ -242,6 +265,7 @@ def main() -> int:
     parser.add_argument("--network", action="store_true", help="explicitly permit one request per configured provider")
     parser.add_argument("--provider", action="append", choices=sorted(PROVIDER_IDS))
     parser.add_argument("--confirm", default="", help="must equal CHECK before any model probe")
+    parser.add_argument("--allow-limited-staging-probe", action="store_true", help="permit one NVIDIA fixed-free-endpoint staging probe")
     parser.add_argument("--evidence-file", default="", help="redacted current provider evidence JSON")
     parser.add_argument("--output", default="artifacts/provider_probe.json")
     args = parser.parse_args()
@@ -262,6 +286,7 @@ def main() -> int:
             network_enabled=args.network,
             free_evidence=free_evidence,
             explicit_approval=args.confirm == PROBE_CONFIRMATION_TOKEN,
+            allow_limited_staging_probe=args.allow_limited_staging_probe,
         )
     except Exception:
         report = {
@@ -273,6 +298,7 @@ def main() -> int:
             "paid_fallback": False,
             "registry_changed": False,
             "explicit_probe_approval": args.confirm == PROBE_CONFIRMATION_TOKEN,
+            "limited_staging_probe_approval": args.allow_limited_staging_probe,
             "status": "REGISTRY_INVALID",
             "providers": [],
         }

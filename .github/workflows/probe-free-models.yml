@@ -146,6 +146,7 @@ jobs:
           --provider google
           --network
           --confirm CHECK
+          --allow-limited-staging-probe
           --evidence-file artifacts/secure_account_evidence.json
           --output artifacts/provider_probe.json
 

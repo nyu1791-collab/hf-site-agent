@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 import unittest
 
 from scripts.free_evidence import resolve_free_evidence
@@ -192,6 +193,62 @@ class FreeEvidenceResolverTests(unittest.TestCase):
         self.assertEqual(result["status"], "VERIFIED")
         self.assertEqual(result["selected_route"], "FREE_ENDPOINT")
         self.assertTrue(result["paid_fallback_disabled"])
+
+    def test_only_fixed_nvidia_free_endpoint_can_enter_limited_staging_probe(self):
+        expiry = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+        nvidia = resolve_free_evidence(
+            "nvidia",
+            "deepseek-ai/deepseek-v4-flash-0731",
+            [{"id": "deepseek-ai/deepseek-v4-flash-0731"}],
+            {
+                "automatic_paid_transition_possible": False,
+                "fallback_to_paid_possible": False,
+                "billing_transition_risk": "NONE",
+            },
+            {
+                "free_endpoint_available": True,
+                "free_price_verified": True,
+                "fixed_free_endpoint": True,
+                "endpoint_verified": True,
+                "auth_verified": True,
+                "paid_fallback_disabled": True,
+            },
+            {},
+            evidence_source="nvidia-build-free-endpoint-fixture",
+            evidence_timestamp=datetime.now(timezone.utc).isoformat(),
+            expires_at=expiry,
+            evidence_generation=1,
+            evidence_provenance=["OFFICIAL_API", "OFFICIAL_MODEL_PAGE"],
+            secure_evidence=True,
+        )
+        self.assertFalse(nvidia["zero_cost_verified"])
+        self.assertFalse(nvidia["staging_probe_allowed"])
+        self.assertTrue(nvidia["limited_staging_probe_allowed"])
+        self.assertEqual(nvidia["staging_state"], "LIMITED_STAGING_PROBE")
+        self.assertEqual(nvidia["limited_staging_probe_request_limit"], 1)
+
+        google = resolve_free_evidence(
+            "google",
+            "gemini-3.8-flash",
+            [{"id": "gemini-3.8-flash"}],
+            {"fallback_to_paid_possible": False},
+            {
+                "free_tier": {"input": "0", "output": "0"},
+                "endpoint_verified": True,
+                "auth_verified": True,
+                "paid_fallback_disabled": True,
+            },
+            {},
+            evidence_source="google-free-tier-fixture",
+            evidence_timestamp=datetime.now(timezone.utc).isoformat(),
+            expires_at=expiry,
+            evidence_generation=1,
+            evidence_provenance=["OFFICIAL_API", "OFFICIAL_PRICING"],
+            secure_evidence=True,
+        )
+        self.assertFalse(google["limited_staging_probe_allowed"])
+        self.assertEqual(google["staging_state"], "BLOCKED")
+        self.assertIn("LIMITED_STAGING_FIXED_FREE_ENDPOINT_REQUIRED", google["limited_staging_probe_blockers"])
 
     def test_openrouter_colon_suffix_is_exact_and_paid_sibling_is_not_selected(self):
         model = "z-ai/glm-5.3-flash:free"

@@ -289,6 +289,19 @@ def _account_defaults(provider: str, exact: bool, key_metadata: Mapping[str, Any
             "fallback_to_paid_possible": False,
             "billing_transition_risk": "NONE",
         }
+    if provider == "google":
+        # The native Gemini adapter has no model-routing or paid-sibling
+        # fallback.  This says nothing about the billing tier of the project:
+        # automatic paid transition remains UNKNOWN until account evidence is
+        # supplied through an official account surface.
+        return {
+            "current_account_tier": "UNKNOWN",
+            "current_account_eligible": None,
+            "billing_enabled": None,
+            "automatic_paid_transition_possible": None,
+            "fallback_to_paid_possible": False,
+            "billing_transition_risk": "UNKNOWN",
+        }
     return {
         "current_account_tier": "UNKNOWN",
         "current_account_eligible": None,
@@ -316,6 +329,8 @@ def _pricing_metadata(provider: str, model_id: str, entry: Mapping[str, Any] | N
             "free_tier": {"input": "0", "output": "0"},
             "paid_tier_available": True,
             "free_price_verified": True,
+            "paid_fallback_disabled": True,
+            "automatic_model_fallback": False,
         })
     elif provider == "groq":
         pricing.update({
@@ -328,6 +343,10 @@ def _pricing_metadata(provider: str, model_id: str, entry: Mapping[str, Any] | N
             "free_endpoint_available": True,
             "available_access_routes": ["FREE_ENDPOINT", "PARTNER_ENDPOINT"],
             "free_price_verified": True,
+            "fixed_free_endpoint": True,
+            "free_endpoint_identity": "https://integrate.api.nvidia.com/v1",
+            "paid_fallback_disabled": True,
+            "automatic_model_fallback": False,
         })
     elif provider == "openrouter":
         pricing.update({
@@ -434,8 +453,10 @@ def _record_for_model(
         "account_tier_class": account.get("current_account_tier"),
         "account_eligibility": account.get("current_account_eligible"),
         "account_evidence_status": (
-            "AUTHENTICATED_ROUTE" if provider == "openrouter" and exact else "ACCOUNT_TIER_API_UNAVAILABLE"
+            "AUTHENTICATED_ROUTE" if provider == "openrouter" and exact else "EVIDENCE_API_UNAVAILABLE"
         ),
+        "evidence_paths_attempted": ["OFFICIAL_API_CATALOG", "OFFICIAL_RESPONSE_HEADER"],
+        "evidence_path_limit": 2,
         "selected_route": pricing.get("selected_route"),
         "free_access_type": pricing.get("selected_route"),
         "free_route_selected": pricing.get("selected_route") in {"FREE_TIER", "FREE_PLAN", "FREE_ENDPOINT", "FREE_MODEL_ENDPOINT"},
@@ -443,6 +464,7 @@ def _record_for_model(
         "zero_price_verified": resolved.get("zero_price_verified") is True,
         "paid_transition_possible": account.get("automatic_paid_transition_possible"),
         "paid_fallback_possible": account.get("fallback_to_paid_possible"),
+        "paid_fallback_policy": "NOT_APPLICABLE" if provider in {"google", "nvidia"} else "PROVIDER_SPECIFIC",
         "billing_enabled_class": account.get("billing_enabled"),
         "quota_source": quota.get("quota_source"),
         "quota_remaining_if_safe": quota.get("remaining_requests") if quota.get("quota_safe") is True else None,
@@ -450,6 +472,11 @@ def _record_for_model(
         "zero_cost_verified": resolved.get("zero_cost_verified") is True,
         "staging_probe_allowed": resolved.get("staging_probe_allowed") is True,
         "staging_blockers": resolved.get("staging_blockers") or [],
+        "limited_staging_probe_allowed": resolved.get("limited_staging_probe_allowed") is True,
+        "limited_staging_probe_blockers": resolved.get("limited_staging_probe_blockers") or [],
+        "limited_staging_probe_request_limit": resolved.get("limited_staging_probe_request_limit", 0),
+        "limited_staging_probe_max_output_tokens": resolved.get("limited_staging_probe_max_output_tokens", 0),
+        "staging_state": resolved.get("staging_state", "BLOCKED"),
         "resolver_status": resolved.get("status"),
         "blockers": all_blockers,
         "status": status_override or ("READY_FOR_PROBE" if not all_blockers else "EVIDENCE_COLLECTED_BLOCKED"),

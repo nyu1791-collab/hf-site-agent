@@ -35,6 +35,7 @@ class CarrierWorkflowTests(unittest.TestCase):
         self.assertIn("--provider google", self.text)
         self.assertIn("NVIDIA_PROBE_MODEL: deepseek-ai/deepseek-v4-flash-0731", self.text)
         self.assertIn("GOOGLE_PROBE_MODEL: gemini-3.8-flash", self.text)
+        self.assertIn("--allow-limited-staging-probe", self.text)
         self.assertNotIn("--provider groq", self.text)
         self.assertNotIn("GROQ_API_KEY", self.text)
 

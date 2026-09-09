@@ -1,4 +1,5 @@
 import copy
+from datetime import datetime, timedelta, timezone
 import unittest
 
 from scripts.probe_providers import run_probe
@@ -154,6 +155,90 @@ class ProviderProbeTests(unittest.TestCase):
         before = copy.deepcopy(self.registry)
         run_probe(self.registry, ["openrouter"], network_enabled=False, environ={})
         self.assertEqual(self.registry, before)
+
+    def test_limited_staging_probe_requires_explicit_nvidia_only_opt_in(self):
+        expiry = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+        limited_evidence = {
+            "providers": {
+                "nvidia": {
+                    "models": {
+                        "deepseek-ai/deepseek-v4-flash-0731": {
+                            "catalog": [{"id": "deepseek-ai/deepseek-v4-flash-0731"}],
+                            "account_metadata": {
+                                "automatic_paid_transition_possible": False,
+                                "fallback_to_paid_possible": False,
+                                "billing_transition_risk": "NONE",
+                            },
+                            "pricing_metadata": {
+                                "free_endpoint_available": True,
+                                "free_price_verified": True,
+                                "fixed_free_endpoint": True,
+                                "endpoint_verified": True,
+                                "auth_verified": True,
+                                "paid_fallback_disabled": True,
+                            },
+                            "quota_metadata": {},
+                            "current": True,
+                            "secure_evidence": True,
+                            "evidence_source": "official-nvidia-fixture",
+                            "evidence_timestamp": datetime.now(timezone.utc).isoformat(),
+                            "expires_at": expiry,
+                            "evidence_generation": 1,
+                            "evidence_provenance": ["OFFICIAL_API", "OFFICIAL_MODEL_PAGE"],
+                        }
+                    }
+                }
+            }
+        }
+        env = {
+            "NVIDIA_API_KEY": "test-key",
+            "NVIDIA_PROBE_MODEL": "deepseek-ai/deepseek-v4-flash-0731",
+        }
+        denied_adapter = FakeAdapter(result={
+            "status": "PROBE_OK",
+            "response_model": "deepseek-ai/deepseek-v4-flash-0731",
+            "usage_cost": None,
+            "latency_ms": 12,
+            "http_status": 200,
+            "quota_headers": {},
+        })
+        denied = run_probe(
+            self.registry,
+            ["nvidia"],
+            network_enabled=True,
+            adapters={"nvidia": denied_adapter},
+            environ=env,
+            free_evidence=limited_evidence,
+            explicit_approval=True,
+        )
+        self.assertEqual(denied["providers"][0]["status"], "LIMITED_STAGING_APPROVAL_REQUIRED")
+        self.assertEqual(denied_adapter.calls, 0)
+
+        allowed_adapter = FakeAdapter(result={
+            "status": "PROBE_OK",
+            "response_model": "deepseek-ai/deepseek-v4-flash-0731",
+            "usage_cost": None,
+            "latency_ms": 12,
+            "http_status": 200,
+            "quota_headers": {},
+        })
+        allowed = run_probe(
+            self.registry,
+            ["nvidia"],
+            network_enabled=True,
+            adapters={"nvidia": allowed_adapter},
+            environ=env,
+            free_evidence=limited_evidence,
+            explicit_approval=True,
+            allow_limited_staging_probe=True,
+        )
+        result = allowed["providers"][0]
+        self.assertEqual(result["status"], "PROBE_OK")
+        self.assertEqual(result["probe_mode"], "LIMITED_STAGING_PROBE")
+        self.assertEqual(result["request_hard_limit"], 1)
+        self.assertFalse(result["automatic_model_fallback"])
+        self.assertEqual(allowed_adapter.calls, 1)
+        self.assertNotIn("test-key", str(allowed))
 
 
 if __name__ == "__main__":
