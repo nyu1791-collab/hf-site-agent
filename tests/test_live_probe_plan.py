@@ -16,6 +16,11 @@ class LiveProbePlanTests(unittest.TestCase):
         self.assertTrue(all(item["estimated_cost"] == "UNKNOWN" for item in report["plans"]))
         self.assertTrue(all(item["model"] is None for item in report["plans"]))
         self.assertTrue(all(item["max_retries"] == 0 for item in report["plans"]))
+        by_provider = {item["provider"]: item for item in report["plans"]}
+        self.assertIn("Gemini 3.8 Flash", by_provider["google"]["candidate_selection"]["labels"])
+        self.assertIn("Nemotron 3.5 Lightning 30B A3B", by_provider["nvidia"]["candidate_selection"]["labels"])
+        self.assertIn("qwen/qwen3.8-27b", by_provider["groq"]["candidate_selection"]["labels"])
+        self.assertFalse(by_provider["openrouter"]["candidate_selection"]["fixed_id_authorized"])
 
     def test_optional_stages_are_included_in_the_upper_bound(self):
         report = build_plan(
