@@ -23,6 +23,7 @@ ERROR_ACTIONS: dict[str, str] = {
     "INPUT_SCHEMA_MISMATCH": "remove unavailable required inputs and use dispatch plus target branch",
     "SECRET_ABSENT": "block this provider and continue independent provider lanes",
     "AUTH_FAILED": "block this provider; inspect provider authentication without exposing the secret",
+    "PROVIDER_HTTP_ERROR": "keep this provider blocked and inspect the redacted HTTP status before changing routes",
     "MODEL_NOT_FOUND": "revalidate the exact current catalog ID; do not guess a sibling",
     "FREE_ROUTE_NOT_VERIFIED": "block the route until current zero-cost evidence is available",
     "QUOTA_EXHAUSTED": "wait or route to an independently verified eligible provider",
@@ -42,11 +43,12 @@ _TOKENS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("SECRET_ABSENT", ("SECRET_NOT_PRESENT", "AUTH_NOT_CONFIGURED", "SECRET_ABSENT")),
     ("AUTH_FAILED", ("AUTH_FAILED", "AUTH_ERROR", "HTTP_401", "HTTP_403", "UNAUTHORIZED", "FORBIDDEN")),
     ("MODEL_NOT_FOUND", ("MODEL_NOT_FOUND", "MODEL_NOT_CONFIGURED", "MODEL_UNAVAILABLE", "NOT_IN_CATALOG")),
-    ("FREE_ROUTE_NOT_VERIFIED", ("ZERO_COST_PREFLIGHT", "FREE_ROUTE", "COST_UNVERIFIED", "PAID_ROUTE")),
-    ("QUOTA_EXHAUSTED", ("QUOTA_EXHAUSTED", "QUOTA_NOT_SAFE", "HARD_STOP", "DAILY_CAP")),
     ("RATE_LIMITED", ("RATE_LIMITED", "HTTP_429", "TOO_MANY_REQUESTS")),
     ("PROVIDER_5XX", ("PROVIDER_5XX", "HTTP_500", "HTTP_502", "HTTP_503", "TEMPORARY_PROVIDER_ERROR")),
     ("CATALOG_CONFLICT", ("CATALOG_CONFLICT", "CATALOG_INCONSISTENCY", "CATALOG_HTTP_ERROR")),
+    ("PROVIDER_HTTP_ERROR", ("PROVIDER_HTTP_ERROR", "HTTP_ERROR", "COLLECTOR_FAILED")),
+    ("FREE_ROUTE_NOT_VERIFIED", ("ZERO_COST_PREFLIGHT", "FREE_ROUTE", "COST_UNVERIFIED", "PAID_ROUTE")),
+    ("QUOTA_EXHAUSTED", ("QUOTA_EXHAUSTED", "QUOTA_NOT_SAFE", "HARD_STOP", "DAILY_CAP")),
     ("MODEL_MISMATCH", ("MODEL_MISMATCH",)),
     ("SCHEMA_INVALID", ("SCHEMA_INVALID", "EVIDENCE_SCHEMA", "REPORT_SCHEMA")),
     ("REVIEW_FAILED", ("REVIEW_FAILED", "REVIEW_SCHEMA_INVALID")),
@@ -74,6 +76,24 @@ def _read(path: str | Path) -> Mapping[str, Any]:
 
 
 def _classify(values: Iterable[Any]) -> str | None:
+    status_codes: list[int] = []
+    for value in values:
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int):
+            candidate = value
+        elif isinstance(value, str) and value.strip().isdigit():
+            candidate = int(value.strip())
+        else:
+            continue
+        if 100 <= candidate <= 599:
+            status_codes.append(candidate)
+    if any(code in {401, 403} for code in status_codes):
+        return "AUTH_FAILED"
+    if 429 in status_codes:
+        return "RATE_LIMITED"
+    if any(500 <= code <= 599 for code in status_codes):
+        return "PROVIDER_5XX"
     haystack = " ".join(_safe_text(value).upper() for value in values if _safe_text(value))
     if not haystack:
         return None
@@ -114,7 +134,7 @@ def _evidence_failures(report: Mapping[str, Any], failures: list[dict[str, Any]]
     for provider, lane in providers.items():
         if not isinstance(lane, Mapping):
             continue
-        lane_type = _classify((lane.get("status"),))
+        lane_type = _classify((lane.get("status"), lane.get("http_status")))
         models = lane.get("models") if isinstance(lane.get("models"), Mapping) else {}
         if not models:
             _append_failure(failures, lane_type, provider=str(provider), step="secure_account_evidence")
@@ -122,10 +142,14 @@ def _evidence_failures(report: Mapping[str, Any], failures: list[dict[str, Any]]
         for model, record in models.items():
             if not isinstance(record, Mapping):
                 continue
-            status_values: list[Any] = [record.get("status")]
+            status_values: list[Any] = [record.get("status"), record.get("http_status")]
             if isinstance(record.get("blockers"), list):
                 status_values.extend(record["blockers"])
             error_type = _classify(status_values)
+            # A lane-level transport/auth failure is more specific than the
+            # derived quota/account blockers added to each model record.
+            if lane_type in {"AUTH_FAILED", "RATE_LIMITED", "PROVIDER_5XX", "CATALOG_CONFLICT", "PROVIDER_HTTP_ERROR"}:
+                error_type = lane_type
             _append_failure(
                 failures,
                 error_type or lane_type,

@@ -46,6 +46,56 @@ class CarrierFailureClassificationTests(unittest.TestCase):
         self.assertEqual(result["failure_signatures"][0]["failure_signature"]["error_type"], "CATALOG_CONFLICT")
         self.assertIn("REPLAN", result["same_failure_policy"])
 
+    def test_http_status_is_classified_before_derived_quota_blocker(self):
+        result = classify_reports(
+            {
+                "providers": {
+                    "groq": {
+                        "status": "HTTP_ERROR",
+                        "http_status": 401,
+                        "models": {
+                            "qwen/qwen3.8-27b": {
+                                "status": "HTTP_ERROR",
+                                "http_status": 401,
+                                "blockers": ["QUOTA_NOT_SAFE"],
+                            },
+                        },
+                    },
+                },
+            },
+            {"providers": []},
+            {"status": ""},
+        )
+
+        self.assertEqual(
+            result["failure_signatures"][0]["failure_signature"]["error_type"],
+            "AUTH_FAILED",
+        )
+
+    def test_generic_http_error_is_not_reported_as_quota_exhaustion(self):
+        result = classify_reports(
+            {
+                "providers": {
+                    "groq": {
+                        "status": "HTTP_ERROR",
+                        "models": {
+                            "qwen/qwen3.8-27b": {
+                                "status": "HTTP_ERROR",
+                                "blockers": ["QUOTA_NOT_SAFE"],
+                            },
+                        },
+                    },
+                },
+            },
+            {"providers": []},
+            {"status": ""},
+        )
+
+        self.assertEqual(
+            result["failure_signatures"][0]["failure_signature"]["error_type"],
+            "PROVIDER_HTTP_ERROR",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
