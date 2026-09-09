@@ -120,6 +120,7 @@ class DirectApiValidationTests(unittest.TestCase):
             run_missions=True,
             max_missions=6,
             max_total_requests=64,
+            allow_trial_credits=True,
         )
         self.assertEqual(report["final"]["GOOGLE_READY"], True)
         self.assertEqual(report["final"]["NVIDIA_READY"], True)
