@@ -62,6 +62,7 @@
         "properties": {
           "provider": {"enum": ["google", "nvidia", "groq", "openrouter", "modal"]},
           "model": {"type": ["string", "null"]},
+          "expected_model_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
           "model_source": {"type": "string", "minLength": 1},
           "endpoint": {"type": ["string", "null"]},
           "requests": {"type": "integer", "minimum": 0},
