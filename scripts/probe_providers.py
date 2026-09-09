@@ -14,14 +14,14 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import sys
 from typing import Any, Mapping, Sequence
 
-try:
-    from scripts.provider_adapters import OpenAICompatibleAdapter
-    from scripts.provider_registry import PROVIDER_IDS, load_provider_registry
-except ModuleNotFoundError:  # pragma: no cover
-    from provider_adapters import OpenAICompatibleAdapter
-    from provider_registry import PROVIDER_IDS, load_provider_registry
+if __package__ in {None, ""}:  # pragma: no cover - script invocation path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.provider_adapters import create_provider_adapter
+from scripts.provider_registry import PROVIDER_IDS, load_provider_registry
 
 
 PROBE_MODEL_ENVS = {
@@ -85,8 +85,8 @@ def run_probe(
         model_env = PROBE_MODEL_ENVS[provider_id]
         model = _safe_model(env.get(model_env, ""))
         endpoint = str(config.get("base_url") or env.get(str(config.get("base_url_env") or ""), "")).strip()
-        api_key_name = str(config.get("api_key_env") or "")
-        has_key = bool(env.get(api_key_name, "")) if api_key_name else False
+        api_key_names = [str(config.get("api_key_env") or ""), *(config.get("legacy_api_key_envs") or [])]
+        has_key = any(name and bool(env.get(name, "")) for name in api_key_names)
         if not network_enabled:
             results.append(_provider_result(
                 provider_id,
@@ -107,7 +107,7 @@ def run_probe(
             continue
         adapter = adapters.get(provider_id) if adapters else None
         if adapter is None:
-            adapter = OpenAICompatibleAdapter(registry, provider_id, network_enabled=True, timeout_seconds=8.0)
+            adapter = create_provider_adapter(registry, provider_id, network_enabled=True, timeout_seconds=8.0)
         try:
             raw = adapter.probe(model)
         except Exception:

@@ -65,6 +65,14 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertNotIn("legacy_api_key_envs", status)
         self.assertNotIn("secret", json.dumps(status).lower())
 
+    def test_provider_free_access_types_and_official_adapter_contract_metadata_are_separate(self):
+        self.assertEqual(self.registry["providers"]["google"]["free_access_type"], "FREE_TIER")
+        self.assertEqual(self.registry["providers"]["nvidia"]["free_access_type"], "TRIAL_CREDITS")
+        self.assertEqual(self.registry["providers"]["groq"]["free_access_type"], "FREE_PLAN")
+        self.assertEqual(self.registry["providers"]["openrouter"]["free_access_type"], "FREE_MODEL_ENDPOINT")
+        self.assertEqual(self.registry["providers"]["google"]["api_style"], "gemini_native")
+        self.assertEqual(self.registry["providers"]["nvidia"]["api_style"], "openai_compatible")
+
 
 if __name__ == "__main__":
     unittest.main()

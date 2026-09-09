@@ -13,12 +13,11 @@ import os
 from pathlib import Path
 import sys
 
-try:
-    from scripts.probe_providers import PROBE_MODEL_ENVS, run_probe
-    from scripts.provider_registry import load_provider_registry
-except ModuleNotFoundError:  # pragma: no cover
-    from probe_providers import PROBE_MODEL_ENVS, run_probe
-    from provider_registry import load_provider_registry
+if __package__ in {None, ""}:  # pragma: no cover - script invocation path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.probe_providers import PROBE_MODEL_ENVS, run_probe
+from scripts.provider_registry import load_provider_registry
 
 
 def main() -> int:

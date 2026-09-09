@@ -1,4 +1,5 @@
 import copy
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -7,9 +8,11 @@ from io import BytesIO
 
 from scripts.provider_adapters import (
     AdapterResponse,
+    GeminiNativeAdapter,
     GuardedProviderAdapter,
     OpenAICompatibleAdapter,
     ProviderAdapterError,
+    create_provider_adapter,
     normalize_error,
 )
 from scripts.provider_registry import load_provider_registry
@@ -187,6 +190,44 @@ class ProviderAdapterTests(unittest.TestCase):
                 )
             self.assertEqual(blocked.exception.reason, "PROVIDER_CIRCUIT_OPEN")
             self.assertEqual(fake.calls, 1)
+
+    def test_google_factory_uses_native_contract_and_auth_discovery_is_cached(self):
+        adapter = create_provider_adapter(self.registry, "google", network_enabled=True)
+        self.assertIsInstance(adapter, GeminiNativeAdapter)
+        adapter._request_json = lambda path, **options: AdapterResponse(
+            {"models": [{"name": "models/gemini-3.8-flash", "supportedGenerationMethods": ["generateContent"]}]},
+            {},
+            2,
+        )
+        auth = adapter.probe_auth()
+        self.assertEqual(auth["status"], "AUTH_OK")
+        self.assertEqual(auth["model_count"], 1)
+        self.assertEqual(adapter._last_discovered_models[0]["id"], "gemini-3.8-flash")
+
+    def test_native_command_schema_probe_checks_required_fields_without_side_effects(self):
+        adapter = GeminiNativeAdapter(self.registry, "google", network_enabled=True)
+        required = {
+            "mission_id": "M-1",
+            "command_id": "C-1",
+            "parent_agent_id": "parent",
+            "child_agent_id": "child",
+            "owner_agent_id": "owner",
+            "role": "ROLE_TEST",
+            "objective": "read-only",
+            "constraints": [],
+            "expected_output": {},
+            "tool_scope": [],
+            "may_spawn_children": False,
+            "idempotency_key": "IDEM-1",
+            "side_effect_level": "none",
+        }
+        adapter._gemini_chat = lambda model_id, messages, **options: AdapterResponse(
+            {"modelVersion": model_id, "candidates": [{"content": {"parts": [{"text": json.dumps(required)}]}}]},
+            {},
+            3,
+        )
+        result = adapter.capability_probe("gemini-3.8-flash", "command_schema")
+        self.assertEqual(result["status"], "CAPABILITY_OK")
 
 
 if __name__ == "__main__":

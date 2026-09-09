@@ -29,6 +29,12 @@ REQUIRED_MODEL_FIELDS = {
     "status",
     "last_verified",
 }
+MODEL_RECORD_FIELDS = (
+    "model_id", "provider_id", "role_candidate", "context_length", "max_output", "modalities",
+    "reasoning", "tool_calling", "structured_output", "coding", "agentic", "free_verified",
+    "availability", "deprecated", "probe_status", "commander_score", "average_latency",
+    "schema_success_rate", "tool_success_rate", "mission_success_rate", "last_verified",
+)
 
 
 class RegistryError(ValueError):
@@ -48,6 +54,11 @@ def validate_registry(registry: Mapping[str, Any]) -> None:
     policy = registry.get("policy")
     if not isinstance(policy, Mapping):
         raise RegistryError("registry policy is missing")
+    record_schema = registry.get("model_record_schema")
+    if not isinstance(record_schema, Mapping) or record_schema.get("version") != "model-record-v2":
+        raise RegistryError("model record schema is missing")
+    if set(record_schema.get("required_fields") or []) != set(MODEL_RECORD_FIELDS):
+        raise RegistryError("model record schema fields are incomplete")
     if policy.get("allow_paid_models") is not False:
         raise RegistryError("paid models must remain disabled by default")
     if policy.get("allow_generic_free_router") is not False:
@@ -140,6 +151,88 @@ def role_candidates(
             return []
         return [requested, *[item for item in allowed if item != requested]]
     return allowed
+
+
+def _roles_for_model(registry: Mapping[str, Any], model_id: str) -> list[str]:
+    matches: list[str] = []
+    roles = registry.get("roles", {})
+    if not isinstance(roles, Mapping):
+        return matches
+    for role_name, role in roles.items():
+        if not isinstance(role, Mapping):
+            continue
+        candidates = {
+            role.get("primary_model"),
+            *(role.get("fallback_models") or []),
+            *((role.get("candidate_models") or [])),
+        }
+        if model_id in candidates:
+            matches.append(str(role_name))
+    return sorted(matches)
+
+
+def normalize_model_record(
+    model_id: str,
+    model: Mapping[str, Any],
+    *,
+    role_candidates_for_model: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Project the legacy record into the v2 validation/evaluation contract.
+
+    The JSON file keeps its v1 keys for compatibility with existing callers.
+    This pure projection gives new probes a stable record shape without
+    inventing model availability, pricing, or evaluation results.
+    """
+    tags = {str(tag).lower() for tag in (model.get("capability_tags") or [])}
+    multimodal = model.get("multimodal") is True
+    modalities = model.get("modalities")
+    if not isinstance(modalities, list):
+        modalities = ["text", "image"] if multimodal else ["text"]
+    probe = model.get("probe") if isinstance(model.get("probe"), Mapping) else {}
+    probe_status = probe.get("status") or model.get("probe_status") or "NOT_RUN"
+    free_verified = model.get("free_verified")
+    if not isinstance(free_verified, bool):
+        free_verified = bool(model.get("free_available") is True and probe_status == "PROBE_OK")
+    status = str(model.get("status") or "UNVERIFIED")
+    return {
+        "model_id": str(model_id),
+        "provider_id": str(model.get("provider_id") or model.get("provider") or ""),
+        "role_candidate": sorted(str(item) for item in (role_candidates_for_model or [])),
+        "context_length": model.get("context_length"),
+        "max_output": model.get("max_output", model.get("max_output_tokens")),
+        "modalities": [str(item) for item in modalities],
+        "reasoning": model.get("reasoning") if isinstance(model.get("reasoning"), bool) else "reasoning" in tags,
+        "tool_calling": model.get("tool_calling") is True,
+        "structured_output": model.get("structured_output") is True,
+        "coding": model.get("coding") if isinstance(model.get("coding"), bool) else "coding" in tags,
+        "agentic": model.get("agentic") if isinstance(model.get("agentic"), bool) else bool({"agentic", "automation"} & tags),
+        "free_verified": free_verified,
+        "availability": model.get("availability", status),
+        "deprecated": model.get("deprecated") if isinstance(model.get("deprecated"), bool) else status == "deprecated" or str(model_id).startswith("~"),
+        "probe_status": str(probe_status),
+        "commander_score": model.get("commander_score"),
+        "average_latency": model.get("average_latency"),
+        "schema_success_rate": model.get("schema_success_rate"),
+        "tool_success_rate": model.get("tool_success_rate"),
+        "mission_success_rate": model.get("mission_success_rate"),
+        "last_verified": model.get("last_verified"),
+    }
+
+
+def normalized_model_records(registry: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    """Return v2 records without mutating the loaded registry."""
+    models = registry.get("models", {})
+    if not isinstance(models, Mapping):
+        return {}
+    return {
+        str(model_id): normalize_model_record(
+            str(model_id),
+            model,
+            role_candidates_for_model=_roles_for_model(registry, str(model_id)),
+        )
+        for model_id, model in models.items()
+        if isinstance(model, Mapping)
+    }
 
 
 def _zero_priced(entry: Mapping[str, Any]) -> bool:
@@ -311,8 +404,11 @@ def watch_catalog(registry: Mapping[str, Any], entries: Sequence[Mapping[str, An
 
 __all__ = [
     "DEFAULT_REGISTRY_PATH",
+    "MODEL_RECORD_FIELDS",
     "RegistryError",
     "load_registry",
+    "normalize_model_record",
+    "normalized_model_records",
     "validate_registry",
     "role_config",
     "role_candidates",

@@ -1,5 +1,31 @@
 {
   "schema_version": "model-registry-v1",
+  "model_record_schema": {
+    "version": "model-record-v2",
+    "required_fields": [
+      "model_id",
+      "provider_id",
+      "role_candidate",
+      "context_length",
+      "max_output",
+      "modalities",
+      "reasoning",
+      "tool_calling",
+      "structured_output",
+      "coding",
+      "agentic",
+      "free_verified",
+      "availability",
+      "deprecated",
+      "probe_status",
+      "commander_score",
+      "average_latency",
+      "schema_success_rate",
+      "tool_success_rate",
+      "mission_success_rate",
+      "last_verified"
+    ]
+  },
   "last_policy_reviewed": "2026-09-08",
   "policy": {
     "production_model_swap_requires": "chatgpt-work",

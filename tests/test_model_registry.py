@@ -1,7 +1,16 @@
 import copy
 import unittest
 
-from scripts.model_registry import GENERIC_FREE_IDS, load_registry, resolve_role_model, role_candidates, validate_registry, watch_catalog
+from scripts.model_registry import (
+    GENERIC_FREE_IDS,
+    MODEL_RECORD_FIELDS,
+    load_registry,
+    normalized_model_records,
+    resolve_role_model,
+    role_candidates,
+    validate_registry,
+    watch_catalog,
+)
 
 
 def free_entry(model_id):
@@ -122,6 +131,15 @@ class ModelRegistryTests(unittest.TestCase):
         self.assertFalse(report["paid_operations"])
         self.assertFalse(report["active_roles_changed"])
         self.assertTrue(any(item["model_id"] == "z-ai/glm-5.3-flash" for item in report["models"]))
+
+    def test_normalized_model_projection_exposes_v2_evaluation_contract_without_mutation(self):
+        before = copy.deepcopy(self.registry)
+        records = normalized_model_records(self.registry)
+        self.assertEqual(set(MODEL_RECORD_FIELDS), set(records["deepseek/deepseek-v4-pro"]))
+        self.assertEqual(records["deepseek/deepseek-v4-pro"]["provider_id"], "openrouter")
+        self.assertEqual(records["deepseek/deepseek-v4-pro"]["coding"], True)
+        self.assertEqual(records["deepseek/deepseek-v4-pro"]["free_verified"], False)
+        self.assertEqual(self.registry, before)
 
 
 if __name__ == "__main__":

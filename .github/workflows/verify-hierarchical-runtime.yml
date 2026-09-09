@@ -26,8 +26,12 @@ on:
       - "config/provider_registry.json"
       - "scripts/provider_registry.py"
       - "scripts/provider_adapters.py"
+      - "scripts/direct_api_validation.py"
       - "tests/test_provider_registry.py"
       - "tests/test_provider_adapters.py"
+      - "tests/test_direct_api_validation.py"
+      - "schemas/direct_api_report.schema.json"
+      - "docs/DIRECT_API_VALIDATION.md"
       - "scripts/provider_controls.py"
       - "tests/test_provider_controls.py"
       - "scripts/worker_selection.py"
@@ -35,6 +39,7 @@ on:
       - "scripts/commander_routing.py"
       - "tests/test_commander_routing.py"
       - "scripts/probe_providers.py"
+      - "scripts/provider_smoke.py"
       - "tests/test_probe_providers.py"
       - "scripts/probe_free_workers.py"
       - "tests/test_probe_free_workers.py"
@@ -68,8 +73,12 @@ on:
       - "config/provider_registry.json"
       - "scripts/provider_registry.py"
       - "scripts/provider_adapters.py"
+      - "scripts/direct_api_validation.py"
       - "tests/test_provider_registry.py"
       - "tests/test_provider_adapters.py"
+      - "tests/test_direct_api_validation.py"
+      - "schemas/direct_api_report.schema.json"
+      - "docs/DIRECT_API_VALIDATION.md"
       - "scripts/provider_controls.py"
       - "tests/test_provider_controls.py"
       - "scripts/worker_selection.py"
@@ -77,6 +86,7 @@ on:
       - "scripts/commander_routing.py"
       - "tests/test_commander_routing.py"
       - "scripts/probe_providers.py"
+      - "scripts/provider_smoke.py"
       - "tests/test_probe_providers.py"
       - "scripts/probe_free_workers.py"
       - "tests/test_probe_free_workers.py"
@@ -107,17 +117,20 @@ jobs:
       - name: Install bounded OpenAI-compatible client
         run: python -m pip install --disable-pip-version-check --no-input "openai>=1.0,<2"
       - name: Compile deterministic runtime
-        run: python -m py_compile scripts/agent_runtime.py scripts/model_registry.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py scripts/agent_delegation.py scripts/agent_executor.py scripts/free_quota.py scripts/probe_free_models.py scripts/probe_free_workers.py scripts/model_watch.py scripts/audit_secret_safety.py scripts/provider_registry.py scripts/provider_adapters.py scripts/provider_controls.py scripts/worker_selection.py scripts/commander_routing.py scripts/probe_providers.py tests/test_free_quota.py tests/test_agent_runtime.py tests/test_agent_delegation.py tests/test_agent_executor.py tests/test_model_registry.py tests/test_secret_safety.py tests/test_provider_registry.py tests/test_provider_adapters.py tests/test_provider_controls.py tests/test_worker_selection.py tests/test_commander_routing.py tests/test_probe_providers.py tests/test_probe_free_workers.py tests/test_mission_matrix.py
+        run: python -m py_compile scripts/agent_runtime.py scripts/model_registry.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py scripts/agent_delegation.py scripts/agent_executor.py scripts/free_quota.py scripts/probe_free_models.py scripts/probe_free_workers.py scripts/model_watch.py scripts/audit_secret_safety.py scripts/provider_registry.py scripts/provider_adapters.py scripts/provider_controls.py scripts/worker_selection.py scripts/commander_routing.py scripts/probe_providers.py scripts/provider_smoke.py scripts/direct_api_validation.py tests/test_free_quota.py tests/test_agent_runtime.py tests/test_agent_delegation.py tests/test_agent_executor.py tests/test_model_registry.py tests/test_secret_safety.py tests/test_provider_registry.py tests/test_provider_adapters.py tests/test_provider_controls.py tests/test_worker_selection.py tests/test_commander_routing.py tests/test_probe_providers.py tests/test_probe_free_workers.py tests/test_direct_api_validation.py tests/test_mission_matrix.py
       - name: Validate JSON schemas and fixtures
         run: |
           python -m json.tool schemas/command_envelope.schema.json >/dev/null
           python -m json.tool schemas/report_envelope.schema.json >/dev/null
+          python -m json.tool schemas/direct_api_report.schema.json >/dev/null
           python -m json.tool config/provider_registry.json >/dev/null
           python - <<'PY'
           from scripts.provider_registry import load_provider_registry
           load_provider_registry()
           print("provider registry ok")
           PY
+          python scripts/direct_api_validation.py --output artifacts/direct_api_report.json >/dev/null
+          python -m json.tool artifacts/direct_api_report.json >/dev/null
           python scripts/validate_hierarchy.py \
             --command tests/fixtures/command_envelope.json \
             --report tests/fixtures/report_envelope.json

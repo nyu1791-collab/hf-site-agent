@@ -46,7 +46,7 @@ class ProviderProbeTests(unittest.TestCase):
             network_enabled=True,
             environ={"GOOGLE_PROBE_MODEL": "vendor/model"},
         )
-        self.assertEqual(report["providers"][0]["status"], "ENDPOINT_NOT_CONFIGURED")
+        self.assertEqual(report["providers"][0]["status"], "AUTH_NOT_CONFIGURED")
         self.assertEqual(report["model_calls"], 0)
 
     def test_successful_probe_is_redacted_and_preserves_only_quota_headers(self):
@@ -69,6 +69,21 @@ class ProviderProbeTests(unittest.TestCase):
         self.assertIn("x-ratelimit-remaining-requests", result["quota_headers"])
         self.assertNotIn("authorization", result["quota_headers"])
         self.assertNotIn("test-key", str(report))
+
+    def test_google_legacy_secret_name_remains_compatible(self):
+        fake = FakeAdapter()
+        report = run_probe(
+            self.registry,
+            ["google"],
+            network_enabled=True,
+            adapters={"google": fake},
+            environ={
+                "GEMINI_API_KEY": "test-key",
+                "GOOGLE_PROBE_MODEL": "vendor/model",
+            },
+        )
+        self.assertEqual(report["providers"][0]["status"], "PROBE_OK")
+        self.assertEqual(fake.calls, 1)
 
     def test_probe_failure_does_not_include_raw_error(self):
         fake = FakeAdapter(error=True)

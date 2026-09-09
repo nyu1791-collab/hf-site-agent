@@ -28,6 +28,11 @@ Google、NVIDIA、GroqのCommander Model IDは、現行公式Catalog、価格・
 
 `openrouter/free` は動的RouterなのでCommander、重大判断、Deploy判断、最終Reviewには使いません。低リスクWorkerでも、現在のRole条件とProbeを満たした記録が必要です。
 
+## Evaluation record projection
+
+既存のv1キーとの互換性を保つため、`scripts/model_registry.py` の
+`normalized_model_records()` が各Modelをv2評価レコードへ射影します。射影はRegistryを変更せず、`model_id`、`provider_id`、`role_candidate`、`context_length`、`max_output`、`modalities`、`reasoning`、`tool_calling`、`structured_output`、`coding`、`agentic`、`free_verified`、`availability`、`deprecated`、`probe_status`、`commander_score`、`average_latency`、`schema_success_rate`、`tool_success_rate`、`mission_success_rate`、`last_verified`を必ず返します。未検証の値は推測せず、`None`または`NOT_RUN`のまま保持します。
+
 ## Provider別ポリシー
 
 Provider台帳は [`config/provider_registry.json`](../config/provider_registry.json) で管理します。Google/NVIDIA/Groqは `COMMANDER_PROVIDER`、OpenRouterは `WORKER_PROVIDER` です。全Providerで初期値は `enabled=false`、`probe_status=NOT_RUN`、Paid Model/Fallback/Auto top-up=falseです。

@@ -1,0 +1,90 @@
+name: Direct API validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DIRECT_API_VALIDATION to permit bounded live probes"
+        required: true
+        type: string
+      provider:
+        description: "Validate one commander provider or all three"
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - google
+          - nvidia
+          - groq
+      capabilities:
+        description: "Run structured/tool/command-schema gates"
+        required: true
+        default: true
+        type: boolean
+      missions:
+        description: "Run bounded commander mission comparisons"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: direct-api-validation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout without write credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install bounded test dependency
+        run: python -m pip install --disable-pip-version-check --no-input "openai>=1.0,<2"
+
+      - name: Run deterministic regression before live requests
+        run: python -m unittest discover -s tests -p 'test_*.py' -q
+
+      - name: Run explicitly confirmed direct validation
+        shell: bash
+        env:
+          CONFIRM_INPUT: ${{ inputs.confirm }}
+          PROVIDER_INPUT: ${{ inputs.provider }}
+          CAPABILITIES_INPUT: ${{ inputs.capabilities }}
+          MISSIONS_INPUT: ${{ inputs.missions }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GOOGLE_CANDIDATE_MODELS: ${{ vars.GOOGLE_CANDIDATE_MODELS }}
+          NVIDIA_CANDIDATE_MODELS: ${{ vars.NVIDIA_CANDIDATE_MODELS }}
+          GROQ_CANDIDATE_MODELS: ${{ vars.GROQ_CANDIDATE_MODELS }}
+        run: |
+          set -euo pipefail
+          args=(--network --confirm "$CONFIRM_INPUT" --output artifacts/direct_api_report.json)
+          if [[ "$PROVIDER_INPUT" != "all" ]]; then args+=(--provider "$PROVIDER_INPUT"); fi
+          if [[ "$CAPABILITIES_INPUT" == "true" ]]; then args+=(--capabilities); fi
+          if [[ "$MISSIONS_INPUT" == "true" ]]; then args+=(--missions); fi
+          python scripts/direct_api_validation.py "${args[@]}"
+          python -m json.tool artifacts/direct_api_report.json >/dev/null
+
+      - name: Preserve redacted validation report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: direct-api-validation-report-${{ github.run_id }}
+          path: artifacts/direct_api_report.json
+          if-no-files-found: ignore
+          retention-days: 7

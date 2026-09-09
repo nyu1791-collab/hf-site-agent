@@ -16,11 +16,42 @@ from pathlib import Path
 import time
 from typing import Any, Mapping, Sequence
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 from urllib.request import Request, urlopen
 
 from .provider_registry import ProviderRegistryError, provider_config, validate_provider_registry
 from .provider_controls import ProviderQuotaLedger, QuotaGuardError
+
+
+MISSION_PROMPTS: dict[str, str] = {
+    "decomposition": "Return a JSON object with a bounded list of independent steps for a read-only task.",
+    "dependency_graph": "Return a JSON object containing bounded nodes and dependencies for a read-only task.",
+    "constraint_planning": "Return a JSON object with a plan that explicitly preserves safety constraints.",
+    "failure_recovery": "Return a JSON object describing a blocked result and a safe parent decision.",
+    "child_command_generation": "Return a JSON object containing one bounded child command draft.",
+    "result_aggregation": "Return a JSON object aggregating two bounded child reports.",
+    "long_document_synthesis": "Return a JSON outline for synthesizing a long document without copying irrelevant text.",
+    "research_planning": "Return a JSON research plan with sources, evidence checks, and bounded follow-up work.",
+    "multimodal_plan": "Return a JSON plan for a read-only multimodal analysis with explicit missing-input handling.",
+    "cross_source_synthesis": "Return a JSON synthesis plan that separates evidence, uncertainty, and conclusions.",
+    "repository_diagnosis": "Return a JSON diagnosis plan for a repository bug using read-only inspection first.",
+    "bug_localization": "Return a JSON bug-localization plan with bounded hypotheses and tests.",
+    "implementation_plan": "Return a JSON implementation plan with small commits and rollback checkpoints.",
+    "test_strategy": "Return a JSON test strategy covering unit, integration, regression, and failure injection.",
+    "code_review": "Return a JSON code-review report with findings, evidence, and no direct mutation.",
+    "technical_recovery": "Return a JSON recovery plan that preserves successful artifacts after a provider failure.",
+    "bulk_classification": "Return a JSON classification result for a bounded batch with no external side effects.",
+    "log_triage": "Return a JSON log triage result separating severity, evidence, and next safe action.",
+    "fast_json_transform": "Return a JSON transformation result for a bounded input while preserving its schema.",
+    "batch_summary": "Return a JSON summary of a bounded batch with counts and uncertainty markers.",
+    "first_pass_code_review": "Return a JSON first-pass review limited to read-only observations and risk labels.",
+}
+
+
+def _parse_json_text(value: Any) -> Any:
+    if not isinstance(value, str):
+        raise ValueError("structured response missing")
+    return json.loads(value)
 
 
 class ProviderAdapterError(RuntimeError):
@@ -87,6 +118,42 @@ def normalize_error(error: BaseException, *, provider_id: str = "") -> Normalize
 class ProviderAdapter:
     """Provider-neutral contract used by commander and worker routes."""
 
+    def discover_models(self) -> list[dict[str, Any]]:
+        """Discover models through the provider's official configured API."""
+        return self.list_models()
+
+    def probe_auth(self) -> dict[str, Any]:
+        """Perform the smallest authenticated read and return redacted evidence."""
+        try:
+            models = self.discover_models()
+            # Keep the discovery result for the validation runner.  This
+            # avoids a second authenticated catalog request while preserving
+            # the provider-neutral interface.
+            self._last_discovered_models = [dict(model) for model in models if isinstance(model, Mapping)]
+        except Exception as exc:
+            normalized = self.normalize_error(exc)
+            return {
+                "provider": self.provider_id,
+                "status": normalized.error_class,
+                "http_status": normalized.http_status,
+                "retry_after_seconds": normalized.retry_after_seconds,
+                "retryable": normalized.retryable,
+                "model_count": 0,
+            }
+        return {"provider": self.provider_id, "status": "AUTH_OK", "model_count": len(models)}
+
+    def probe_model(self, model_id: str) -> dict[str, Any]:
+        """Probe one exact model after authentication/discovery."""
+        return self.probe(model_id)
+
+    def capability_probe(self, model_id: str, capability: str) -> dict[str, Any]:
+        """Run one bounded, read-only capability check without activating a role."""
+        raise NotImplementedError
+
+    def mission_probe(self, model_id: str, mission_type: str) -> dict[str, Any]:
+        """Run one bounded commander-contract task without side effects."""
+        raise NotImplementedError
+
     def list_models(self) -> list[dict[str, Any]]:
         raise NotImplementedError
 
@@ -148,12 +215,22 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         if not self.network_enabled:
             raise ProviderAdapterError("NETWORK_DISABLED")
 
-    def _request_json(self, path: str, *, method: str = "GET", payload: Mapping[str, Any] | None = None, include_auth: bool = True) -> AdapterResponse:
+    def _request_json(
+        self,
+        path: str,
+        *,
+        method: str = "GET",
+        payload: Mapping[str, Any] | None = None,
+        include_auth: bool = True,
+        auth_header: str | None = None,
+    ) -> AdapterResponse:
         self._ensure_network()
         url = urljoin(self._base_url, path.lstrip("/"))
         headers = {"Accept": "application/json", "User-Agent": "hf-site-agent-provider-adapter/1"}
         if include_auth:
-            headers["Authorization"] = f"Bearer {self._api_key()}"
+            header_name = str(auth_header or self.config.get("auth_header") or "Authorization")
+            credential = self._api_key()
+            headers[header_name] = f"Bearer {credential}" if header_name.lower() == "authorization" else credential
         data = None
         if payload is not None:
             data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
@@ -174,7 +251,7 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             raise ProviderAdapterError("NETWORK_ERROR") from exc
 
     def list_models(self) -> list[dict[str, Any]]:
-        response = self._request_json("/models")
+        response = self._request_json(str(self.config.get("models_path") or "/models"))
         entries = response.payload.get("data")
         if not isinstance(entries, list):
             raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
@@ -194,11 +271,13 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         if tools:
             payload["tools"] = [dict(tool) for tool in tools[:32]]
             payload["tool_choice"] = options.get("tool_choice", "auto")
+        if isinstance(options.get("response_format"), Mapping):
+            payload["response_format"] = dict(options["response_format"])
         if self.provider_id == "openrouter":
             # Worker calls must not be silently routed to another model or
             # provider.  Probe and generation use the same strict setting.
             payload["provider"] = {"allow_fallbacks": False}
-        response = self._request_json("/chat/completions", method="POST", payload=payload)
+        response = self._request_json(str(self.config.get("generate_path") or "/chat/completions"), method="POST", payload=payload)
         if not isinstance(response.payload.get("choices"), list):
             raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
         return response
@@ -281,11 +360,11 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         usage = response.payload.get("usage") if isinstance(response.payload.get("usage"), Mapping) else {}
         cost = usage.get("cost")
         status = "PROBE_OK"
-        if resolved != model_id:
+        if resolved and resolved != model_id:
             status = "MODEL_MISMATCH"
-        elif cost is None:
+        elif self.config.get("free_access_type") == "FREE_MODEL_ENDPOINT" and cost is None:
             status = "FREE_COST_UNVERIFIED"
-        elif str(cost) not in {"0", "0.0", "0.00"}:
+        elif self.config.get("free_access_type") == "FREE_MODEL_ENDPOINT" and str(cost) not in {"0", "0.0", "0.00"}:
             status = "FREE_COST_NONZERO"
         return {
             "provider": self.provider_id,
@@ -297,8 +376,90 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             "retryable": False,
             "latency_ms": response.latency_ms,
             "usage_cost": cost,
+            "usage_present": bool(usage),
+            "usage_keys": sorted(str(key) for key in usage)[:24],
             "quota_headers": self._quota_headers(response.headers),
         }
+
+    def capability_probe(self, model_id: str, capability: str) -> dict[str, Any]:
+        try:
+            if capability == "structured_output":
+                response = self._chat(
+                    model_id,
+                    [{"role": "user", "content": "Return a JSON object with the boolean field ok set to true."}],
+                    response_format={"type": "json_object"},
+                    max_tokens=32,
+                )
+                choices = response.payload.get("choices") or []
+                message = choices[0].get("message") if choices and isinstance(choices[0], Mapping) else {}
+                content = message.get("content") if isinstance(message, Mapping) else None
+                _parse_json_text(content)
+            elif capability in {"tool_calling", "command_schema"}:
+                command_schema = capability == "command_schema"
+                response = self._chat(
+                    model_id,
+                    [{
+                        "role": "user",
+                        "content": (
+                            "Return one JSON child-command draft with these keys: mission_id, command_id, "
+                            "parent_agent_id, child_agent_id, owner_agent_id, role, objective, constraints, "
+                            "expected_output, tool_scope, may_spawn_children, idempotency_key, side_effect_level."
+                            if command_schema else "Call the provided function."
+                        ),
+                    }],
+                    tools=() if command_schema else [{
+                        "type": "function",
+                        "function": {"name": "emit", "description": "Emit a validation marker", "parameters": {"type": "object", "properties": {}}},
+                    }],
+                    tool_choice=None if command_schema else {"type": "function", "function": {"name": "emit"}},
+                    response_format={"type": "json_object"} if command_schema else None,
+                    max_tokens=32,
+                )
+                choices = response.payload.get("choices") or []
+                message = choices[0].get("message") if choices and isinstance(choices[0], Mapping) else {}
+                if command_schema:
+                    content = message.get("content") if isinstance(message, Mapping) else None
+                    if not isinstance(content, str):
+                        raise ValueError("command schema response missing")
+                    parsed = _parse_json_text(content)
+                    required = {
+                        "mission_id", "command_id", "parent_agent_id", "child_agent_id",
+                        "owner_agent_id", "role", "objective", "constraints", "expected_output",
+                        "tool_scope", "may_spawn_children", "idempotency_key", "side_effect_level",
+                    }
+                    if not isinstance(parsed, Mapping) or not required <= set(parsed):
+                        raise ValueError("command schema fields missing")
+                else:
+                    calls = message.get("tool_calls") if isinstance(message, Mapping) else []
+                    if not isinstance(calls, list) or not calls:
+                        raise ValueError("tool call missing")
+            else:
+                return {"status": "CAPABILITY_NOT_SUPPORTED", "capability": capability, "model": model_id}
+        except Exception as exc:
+            normalized = self.normalize_error(exc)
+            return {"status": normalized.error_class, "capability": capability, "model": model_id, "http_status": normalized.http_status}
+        return {
+            "status": "CAPABILITY_OK",
+            "capability": capability,
+            "model": model_id,
+            "latency_ms": response.latency_ms,
+            "quota_headers": self._quota_headers(response.headers),
+        }
+
+    def mission_probe(self, model_id: str, mission_type: str) -> dict[str, Any]:
+        prompt = MISSION_PROMPTS.get(mission_type)
+        if prompt is None:
+            return {"status": "MISSION_TYPE_INVALID", "mission_type": mission_type, "model": model_id}
+        try:
+            response = self._chat(model_id, [{"role": "user", "content": prompt}], response_format={"type": "json_object"}, max_tokens=96)
+            choices = response.payload.get("choices") or []
+            message = choices[0].get("message") if choices and isinstance(choices[0], Mapping) else {}
+            content = message.get("content") if isinstance(message, Mapping) else None
+            _parse_json_text(content)
+        except Exception as exc:
+            normalized = self.normalize_error(exc)
+            return {"status": normalized.error_class, "mission_type": mission_type, "model": model_id, "http_status": normalized.http_status}
+        return {"status": "MISSION_OK", "mission_type": mission_type, "model": model_id, "latency_ms": response.latency_ms}
 
     def get_usage(self) -> dict[str, Any]:
         return {"provider": self.provider_id, "status": "UNAVAILABLE_UNTIL_PROVIDER_ENDPOINT_CONFIGURED"}
@@ -312,11 +473,265 @@ class OpenAICompatibleAdapter(ProviderAdapter):
 
     def health_check(self) -> dict[str, Any]:
         try:
-            response = self._request_json("/models")
+            response = self._request_json(str(self.config.get("models_path") or "/models"))
         except Exception as exc:
             normalized = self.normalize_error(exc)
             return {"provider": self.provider_id, "status": normalized.error_class, "http_status": normalized.http_status}
         return {"provider": self.provider_id, "status": "HEALTHY", "http_status": 200, "latency_ms": response.latency_ms}
+
+
+class GeminiNativeAdapter(OpenAICompatibleAdapter):
+    """Adapter for Google's native Gemini REST contract.
+
+    Gemini's API is not OpenAI-compatible: it uses ``contents`` and a
+    ``models/*:generateContent`` path, and authenticates with the configured
+    API-key header.  The adapter remains inert until ``network_enabled`` is
+    explicitly set, and never puts the key in a URL or report.
+    """
+
+    @staticmethod
+    def _parts(content: Any) -> list[dict[str, Any]]:
+        if isinstance(content, str):
+            return [{"text": content[:20_000]}]
+        if isinstance(content, Mapping):
+            parts = content.get("parts")
+            if isinstance(parts, list):
+                return [dict(part) for part in parts[:32] if isinstance(part, Mapping)]
+        if isinstance(content, list):
+            return [dict(part) for part in content[:32] if isinstance(part, Mapping)]
+        return [{"text": str(content or "")[:20_000]}]
+
+    @classmethod
+    def _contents(cls, messages: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+        contents: list[dict[str, Any]] = []
+        system_parts: list[dict[str, Any]] = []
+        for message in messages:
+            role = str(message.get("role") or "user").lower()
+            parts = cls._parts(message.get("content", ""))
+            if role in {"system", "developer"}:
+                system_parts.extend(parts)
+                continue
+            contents.append({"role": "model" if role in {"assistant", "model"} else "user", "parts": parts})
+        system = {"parts": system_parts} if system_parts else None
+        return contents, system
+
+    @staticmethod
+    def _native_tools(tools: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        declarations: list[dict[str, Any]] = []
+        for tool in tools[:32]:
+            if not isinstance(tool, Mapping):
+                continue
+            function = tool.get("function") if isinstance(tool.get("function"), Mapping) else tool
+            if isinstance(function, Mapping) and function.get("name"):
+                declaration = {key: function[key] for key in ("name", "description", "parameters") if key in function}
+                if "parameters" in declaration:
+                    declaration["parametersJsonSchema"] = declaration.pop("parameters")
+                declarations.append(declaration)
+        return [{"functionDeclarations": declarations}] if declarations else []
+
+    def list_models(self) -> list[dict[str, Any]]:
+        response = self._request_json(str(self.config.get("models_path") or "/models"))
+        entries = response.payload.get("models")
+        if not isinstance(entries, list):
+            raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
+        normalized: list[dict[str, Any]] = []
+        for item in entries[:500]:
+            if not isinstance(item, Mapping):
+                continue
+            name = str(item.get("name") or "").strip()
+            model_id = name.removeprefix("models/") if name else ""
+            if model_id:
+                normalized.append({**dict(item), "id": model_id, "provider": "google"})
+        return normalized
+
+    def _gemini_chat(
+        self,
+        model_id: str,
+        messages: Sequence[Mapping[str, Any]],
+        *,
+        tools: Sequence[Mapping[str, Any]] = (),
+        **options: Any,
+    ) -> AdapterResponse:
+        if not isinstance(model_id, str) or not model_id.strip():
+            raise ProviderAdapterError("MODEL_ID_REQUIRED")
+        if not messages or len(messages) > 64:
+            raise ProviderAdapterError("INPUT_INVALID")
+        contents, system_instruction = self._contents(messages)
+        payload: dict[str, Any] = {
+            "contents": contents,
+            "generationConfig": {
+                "maxOutputTokens": int(options.get("max_tokens", 256)),
+                "temperature": float(options.get("temperature", 0)),
+            },
+        }
+        if system_instruction:
+            payload["systemInstruction"] = system_instruction
+        response_format = options.get("response_format")
+        if isinstance(response_format, Mapping):
+            payload["generationConfig"]["responseMimeType"] = "application/json"
+            schema = response_format.get("json_schema")
+            if isinstance(schema, Mapping) and isinstance(schema.get("schema"), Mapping):
+                payload["generationConfig"]["responseJsonSchema"] = dict(schema["schema"])
+        native_tools = self._native_tools(tools)
+        if native_tools:
+            payload["tools"] = native_tools
+        path = str(self.config.get("generate_path") or "/models/{model}:generateContent")
+        path = path.replace("{model}", quote(model_id.strip(), safe="-_.~"))
+        return self._request_json(path, method="POST", payload=payload)
+
+    @staticmethod
+    def _normalized_native(response: AdapterResponse, requested_model: str) -> dict[str, Any]:
+        candidates = response.payload.get("candidates") or []
+        first = candidates[0] if candidates and isinstance(candidates[0], Mapping) else {}
+        content = first.get("content") if isinstance(first, Mapping) else {}
+        parts = content.get("parts") if isinstance(content, Mapping) else []
+        text_parts: list[str] = []
+        tool_calls: list[dict[str, Any]] = []
+        for part in parts if isinstance(parts, list) else []:
+            if not isinstance(part, Mapping):
+                continue
+            if part.get("text") is not None:
+                text_parts.append(str(part["text"])[:20_000])
+            function_call = part.get("functionCall")
+            if isinstance(function_call, Mapping) and function_call.get("name"):
+                tool_calls.append({
+                    "type": "function",
+                    "function": {
+                        "name": str(function_call["name"]),
+                        "arguments": json.dumps(function_call.get("args") or {}, ensure_ascii=False, separators=(",", ":")),
+                    },
+                })
+        return {
+            "model": str(response.payload.get("modelVersion") or ""),
+            "requested_model": requested_model,
+            "text": "".join(text_parts),
+            "tool_calls": tool_calls[:32],
+            "usage": dict(response.payload.get("usageMetadata") or {}) if isinstance(response.payload.get("usageMetadata"), Mapping) else {},
+            "latency_ms": response.latency_ms,
+            "quota_headers": OpenAICompatibleAdapter._quota_headers(response.headers),
+        }
+
+    def generate(self, model_id: str, messages: Sequence[Mapping[str, Any]], **options: Any) -> dict[str, Any]:
+        if (
+            self.config.get("enabled") is not True
+            or self.config.get("activation_approved") is not True
+            or self.config.get("probe_status") != "PROBE_OK"
+            or self.config.get("health_status") != "HEALTHY"
+            or self.config.get("circuit_state") != "CLOSED"
+        ):
+            raise ProviderAdapterError("PROVIDER_NOT_ACTIVE")
+        return self._normalized_native(self._gemini_chat(model_id, messages, **options), model_id)
+
+    def tool_call(self, model_id: str, messages: Sequence[Mapping[str, Any]], tools: Sequence[Mapping[str, Any]], **options: Any) -> dict[str, Any]:
+        if not tools:
+            raise ProviderAdapterError("TOOLS_REQUIRED")
+        return self.generate(model_id, messages, tools=tools, **options)
+
+    def probe(self, model_id: str) -> dict[str, Any]:
+        try:
+            response = self._gemini_chat(model_id, [{"role": "user", "content": "Return exactly OK."}], max_tokens=4)
+        except Exception as exc:
+            normalized = self.normalize_error(exc)
+            return {
+                "provider": self.provider_id,
+                "requested_model": model_id,
+                "status": normalized.error_class,
+                "http_status": normalized.http_status,
+                "retry_after_seconds": normalized.retry_after_seconds,
+                "retryable": normalized.retryable,
+                "latency_ms": None,
+                "usage_cost": None,
+                "response_model": None,
+            }
+        normalized = self._normalized_native(response, model_id)
+        return {
+            "provider": self.provider_id,
+            "requested_model": model_id,
+            "response_model": normalized["model"] or None,
+            "status": "PROBE_OK" if response.payload.get("candidates") else "MODEL_OUTPUT_INVALID",
+            "http_status": 200,
+            "retry_after_seconds": None,
+            "retryable": False,
+            "latency_ms": response.latency_ms,
+            "usage_cost": None,
+            "usage_present": bool(normalized["usage"]),
+            "usage_keys": sorted(str(key) for key in normalized["usage"])[:24],
+            "quota_headers": normalized["quota_headers"],
+        }
+
+    def capability_probe(self, model_id: str, capability: str) -> dict[str, Any]:
+        try:
+            if capability == "structured_output":
+                response = self._gemini_chat(
+                    model_id,
+                    [{"role": "user", "content": "Return a JSON object with the boolean field ok set to true."}],
+                    response_format={"type": "json_object"},
+                    max_tokens=32,
+                )
+                normalized = self._normalized_native(response, model_id)
+                _parse_json_text(normalized["text"])
+            elif capability in {"tool_calling", "command_schema"}:
+                command_schema = capability == "command_schema"
+                response = self._gemini_chat(
+                    model_id,
+                    [{"role": "user", "content": (
+                        "Return one JSON child-command draft with these keys: mission_id, command_id, "
+                        "parent_agent_id, child_agent_id, owner_agent_id, role, objective, constraints, "
+                        "expected_output, tool_scope, may_spawn_children, idempotency_key, side_effect_level."
+                        if command_schema else "Call the provided function."
+                    )}],
+                    tools=() if command_schema else [{
+                        "type": "function",
+                        "function": {"name": "emit", "description": "Emit a validation marker", "parameters": {"type": "object", "properties": {}}},
+                    }],
+                    response_format={"type": "json_object"} if command_schema else None,
+                    max_tokens=32,
+                )
+                normalized = self._normalized_native(response, model_id)
+                if command_schema:
+                    parsed = _parse_json_text(normalized["text"]) if normalized["text"] else {}
+                    required = {
+                        "mission_id", "command_id", "parent_agent_id", "child_agent_id",
+                        "owner_agent_id", "role", "objective", "constraints", "expected_output",
+                        "tool_scope", "may_spawn_children", "idempotency_key", "side_effect_level",
+                    }
+                    if not isinstance(parsed, Mapping) or not required <= set(parsed):
+                        raise ValueError("command schema fields missing")
+                elif not normalized["tool_calls"]:
+                    raise ValueError("tool call missing")
+            else:
+                return {"status": "CAPABILITY_NOT_SUPPORTED", "capability": capability, "model": model_id}
+        except Exception as exc:
+            normalized_error = self.normalize_error(exc)
+            return {"status": normalized_error.error_class, "capability": capability, "model": model_id, "http_status": normalized_error.http_status}
+        return {
+            "status": "CAPABILITY_OK",
+            "capability": capability,
+            "model": model_id,
+            "latency_ms": response.latency_ms,
+            "quota_headers": OpenAICompatibleAdapter._quota_headers(response.headers),
+        }
+
+    def mission_probe(self, model_id: str, mission_type: str) -> dict[str, Any]:
+        prompt = MISSION_PROMPTS.get(mission_type)
+        if prompt is None:
+            return {"status": "MISSION_TYPE_INVALID", "mission_type": mission_type, "model": model_id}
+        try:
+            response = self._gemini_chat(model_id, [{"role": "user", "content": prompt}], response_format={"type": "json_object"}, max_tokens=96)
+            normalized = self._normalized_native(response, model_id)
+            _parse_json_text(normalized["text"])
+        except Exception as exc:
+            normalized_error = self.normalize_error(exc)
+            return {"status": normalized_error.error_class, "mission_type": mission_type, "model": model_id, "http_status": normalized_error.http_status}
+        return {"status": "MISSION_OK", "mission_type": mission_type, "model": model_id, "latency_ms": response.latency_ms}
+
+    def health_check(self) -> dict[str, Any]:
+        try:
+            models = self.list_models()
+        except Exception as exc:
+            normalized = self.normalize_error(exc)
+            return {"provider": self.provider_id, "status": normalized.error_class, "http_status": normalized.http_status}
+        return {"provider": self.provider_id, "status": "HEALTHY", "http_status": 200, "model_count": len(models)}
 
 
 class GuardedProviderAdapter(ProviderAdapter):
@@ -337,8 +752,27 @@ class GuardedProviderAdapter(ProviderAdapter):
     def list_models(self) -> list[dict[str, Any]]:
         return self.adapter.list_models()
 
+    def discover_models(self) -> list[dict[str, Any]]:
+        return self.adapter.discover_models()
+
+    def probe_auth(self) -> dict[str, Any]:
+        result = self.adapter.probe_auth()
+        cached = getattr(self.adapter, "_last_discovered_models", None)
+        if isinstance(cached, list):
+            self._last_discovered_models = [dict(model) for model in cached if isinstance(model, Mapping)]
+        return result
+
     def probe(self, model_id: str) -> dict[str, Any]:
         return self.adapter.probe(model_id)
+
+    def probe_model(self, model_id: str) -> dict[str, Any]:
+        return self.adapter.probe_model(model_id)
+
+    def capability_probe(self, model_id: str, capability: str) -> dict[str, Any]:
+        return self.adapter.capability_probe(model_id, capability)
+
+    def mission_probe(self, model_id: str, mission_type: str) -> dict[str, Any]:
+        return self.adapter.mission_probe(model_id, mission_type)
 
     def generate(self, model_id: str, messages: Sequence[Mapping[str, Any]], **options: Any) -> dict[str, Any]:
         request_id = str(options.pop("request_id", "")).strip()
@@ -399,7 +833,21 @@ class GuardedProviderAdapter(ProviderAdapter):
         return self.adapter.health_check()
 
 
+def create_provider_adapter(
+    registry: Mapping[str, Any],
+    provider_id: str,
+    *,
+    network_enabled: bool = False,
+    timeout_seconds: float = 8.0,
+) -> ProviderAdapter:
+    """Create the provider-specific adapter without embedding provider logic in Runtime."""
+    config = provider_config(registry, provider_id)
+    adapter_class = GeminiNativeAdapter if config.get("api_style") == "gemini_native" else OpenAICompatibleAdapter
+    return adapter_class(registry, provider_id, network_enabled=network_enabled, timeout_seconds=timeout_seconds)
+
+
 __all__ = [
-    "AdapterResponse", "GuardedProviderAdapter", "NormalizedProviderError", "OpenAICompatibleAdapter", "ProviderAdapter",
-    "ProviderAdapterError", "normalize_error",
+    "AdapterResponse", "GeminiNativeAdapter", "GuardedProviderAdapter", "NormalizedProviderError",
+    "MISSION_PROMPTS", "OpenAICompatibleAdapter", "ProviderAdapter", "ProviderAdapterError",
+    "create_provider_adapter", "normalize_error",
 ]

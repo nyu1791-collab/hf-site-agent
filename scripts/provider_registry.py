@@ -22,13 +22,16 @@ WORKER_PROVIDER_IDS = frozenset({"openrouter"})
 PROVIDER_TIERS = frozenset({"COMMANDER_PROVIDER", "WORKER_PROVIDER"})
 CIRCUIT_STATES = frozenset({"CLOSED", "OPEN", "HALF_OPEN"})
 HEALTH_STATES = frozenset({"UNPROBED", "HEALTHY", "DEGRADED", "AUTH_BLOCKED", "QUOTA_PAUSED", "UNAVAILABLE"})
+API_STYLES = frozenset({"openai_compatible", "gemini_native"})
+FREE_ACCESS_TYPES = frozenset({"FREE_TIER", "FREE_PLAN", "TRIAL_CREDITS", "FREE_ENDPOINT", "PAID", "UNKNOWN", "FREE_MODEL_ENDPOINT"})
 ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]{1,127}$")
 REQUIRED_FIELDS = {
     "provider_id", "display_name", "base_url", "api_key_env", "enabled", "provider_tier",
     "quota_type", "free_mode", "health_status", "circuit_state", "last_probe_at",
     "last_success_at", "last_error_type", "rpm_limit", "rpd_limit", "tpm_limit", "tpd_limit",
     "daily_cap", "hard_stop", "emergency_reserve", "safety_threshold", "endpoint_source",
-    "probe_status", "activation_approved",
+    "probe_status", "activation_approved", "api_style", "models_path", "generate_path", "auth_header",
+    "free_access_type", "credit_remaining", "quota_source", "quota_last_verified",
 }
 
 
@@ -55,6 +58,11 @@ def _validate_url(value: Any, provider_id: str) -> None:
 
 def _validate_limit(value: Any, field: str, provider_id: str) -> None:
     if value is not None and (not isinstance(value, int) or value <= 0):
+        raise ProviderRegistryError(f"invalid {field}: {provider_id}")
+
+
+def _validate_path(value: Any, field: str, provider_id: str) -> None:
+    if not isinstance(value, str) or not value.startswith("/") or any(char in value for char in "\r\n?"):
         raise ProviderRegistryError(f"invalid {field}: {provider_id}")
 
 
@@ -100,6 +108,28 @@ def validate_provider_registry(registry: Mapping[str, Any]) -> None:
             if not isinstance(legacy_env, str) or not ENV_NAME.fullmatch(legacy_env):
                 raise ProviderRegistryError(f"invalid legacy secret name: {provider_id}")
         _validate_url(provider.get("base_url"), provider_id)
+        if provider.get("api_style") not in API_STYLES:
+            raise ProviderRegistryError(f"invalid api_style: {provider_id}")
+        _validate_path(provider.get("models_path"), "models_path", provider_id)
+        _validate_path(provider.get("generate_path"), "generate_path", provider_id)
+        auth_header = provider.get("auth_header")
+        if not isinstance(auth_header, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9-]{0,63}", auth_header):
+            raise ProviderRegistryError(f"invalid auth_header: {provider_id}")
+        free_access_type = provider.get("free_access_type")
+        if free_access_type not in FREE_ACCESS_TYPES:
+            raise ProviderRegistryError(f"invalid free_access_type: {provider_id}")
+        if provider.get("free_mode") is True and free_access_type in {"PAID", "UNKNOWN"}:
+            raise ProviderRegistryError(f"free_mode cannot use {free_access_type}: {provider_id}")
+        credit_remaining = provider.get("credit_remaining")
+        if credit_remaining is not None and (
+            isinstance(credit_remaining, bool) or not isinstance(credit_remaining, (int, float)) or credit_remaining < 0
+        ):
+            raise ProviderRegistryError(f"invalid credit_remaining: {provider_id}")
+        quota_source = provider.get("quota_source")
+        if not isinstance(quota_source, str) or not quota_source.strip():
+            raise ProviderRegistryError(f"invalid quota_source: {provider_id}")
+        if provider.get("quota_last_verified") is not None and not isinstance(provider.get("quota_last_verified"), str):
+            raise ProviderRegistryError(f"invalid quota_last_verified: {provider_id}")
         if not isinstance(provider.get("activation_approved"), bool):
             raise ProviderRegistryError(f"activation approval flag is invalid: {provider_id}")
         if provider.get("probe_status") not in {"NOT_RUN", "AUTH_OK", "MODEL_AVAILABLE", "PROBE_OK", "PROBE_FAILED"}:
@@ -149,7 +179,8 @@ def safe_provider_status(provider: Mapping[str, Any]) -> dict[str, Any]:
     """Return provider metadata suitable for a report; never include values."""
     allowed = (
         "provider_id", "display_name", "base_url", "enabled", "provider_tier", "quota_type",
-        "free_mode", "health_status", "circuit_state", "last_probe_at", "last_success_at",
+        "free_mode", "free_access_type", "credit_remaining", "quota_source", "quota_last_verified",
+        "api_style", "models_path", "generate_path", "health_status", "circuit_state", "last_probe_at", "last_success_at",
         "last_error_type", "rpm_limit", "rpd_limit", "tpm_limit", "tpd_limit", "safety_threshold",
         "daily_cap", "hard_stop", "emergency_reserve", "endpoint_source", "probe_status", "activation_approved",
     )
