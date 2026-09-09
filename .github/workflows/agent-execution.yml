@@ -120,7 +120,7 @@ jobs:
 
       - name: Discover and verify one current Worker per role
         env:
-          OPENROUTER_API_KEY: ${{ secrets.AI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.AI_API_KEY }}
           FREE_WORKER_PROBE_OUTPUT: artifacts/free_worker_probe.json
         shell: bash
         run: |
@@ -129,7 +129,7 @@ jobs:
 
       - name: Run one specialist draft
         env:
-          OPENROUTER_API_KEY: ${{ secrets.AI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.AI_API_KEY }}
           TASK_ID: ${{ inputs.task_id }}
           TASK_ROLE: ${{ inputs.role }}
           TASK_INSTRUCTION: ${{ inputs.instruction }}

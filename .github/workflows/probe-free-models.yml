@@ -27,7 +27,7 @@ jobs:
           python-version: "3.12"
       - name: Discover and send bounded exact worker probes
         env:
-          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.AI_API_KEY }}
           FREE_WORKER_PROBE_OUTPUT: artifacts/free_worker_probe.json
         run: python scripts/probe_free_workers.py --network
       - name: Validate public probe report
