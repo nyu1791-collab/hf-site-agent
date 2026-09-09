@@ -8,6 +8,7 @@ stop condition, not permission for unlimited use.  No retry is performed here.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -15,6 +16,11 @@ from pathlib import Path
 import threading
 import time
 from typing import Any, Mapping
+
+try:  # POSIX file locking protects read/check/write across processes.
+    import fcntl
+except ImportError:  # pragma: no cover - the safe path is exercised by policy on Windows
+    fcntl = None
 
 
 class QuotaGuardError(RuntimeError):
@@ -98,7 +104,14 @@ class ProviderCircuitBreaker:
 
 
 class ProviderQuotaLedger:
-    """A persistent ledger for one provider namespace."""
+    """A persistent ledger for one provider namespace.
+
+    Each mutating operation takes an advisory file lock and reloads the
+    provider namespace before checking limits.  This closes the local
+    multi-process read/check/write race.  A shared filesystem is not proof of
+    cross-runner durability, so callers must still keep the global readiness
+    gate closed until a reviewed durable backend is explicitly proven.
+    """
 
     def __init__(
         self,
@@ -120,6 +133,7 @@ class ProviderQuotaLedger:
             raise ValueError("rpm_limit must be positive when known")
         self.provider_id = provider_id
         self.path = Path(path)
+        self.lock_path = Path(f"{self.path}.lock")
         self.daily_limit = daily_limit
         self.hard_stop = hard_stop if hard_stop is not None else daily_limit
         self.rpm_limit = rpm_limit
@@ -131,6 +145,9 @@ class ProviderQuotaLedger:
         self._load()
 
     def _load(self) -> None:
+        previous_circuit = self.circuit.snapshot()
+        self._entries = []
+        self._reservations = {}
         if not self.path.exists():
             return
         try:
@@ -151,6 +168,40 @@ class ProviderQuotaLedger:
                 self.circuit.open(str(circuit.get("reason") or "restored_open"))
             elif state == CircuitState.HALF_OPEN:
                 self.circuit.half_open()
+            elif previous_circuit.state != CircuitState.CLOSED:
+                # A direct in-process circuit transition is fail-closed until
+                # the owner explicitly recovers it.  Persisted OPEN/HALF_OPEN
+                # always wins when restoring from another process.
+                self.circuit.open(previous_circuit.reason or "local_circuit_open")
+
+    @contextmanager
+    def _shared_lock(self):
+        """Lock one ledger file for a complete read/check/write operation."""
+        if fcntl is None:
+            raise QuotaGuardError("CROSS_PROCESS_LOCK_UNAVAILABLE", provider_id=self.provider_id)
+        try:
+            self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.lock_path.open("a+", encoding="utf-8") as handle:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        except QuotaGuardError:
+            raise
+        except (OSError, ValueError):
+            raise QuotaGuardError("QUOTA_LEDGER_LOCK_FAILED", provider_id=self.provider_id) from None
+
+    def durability_status(self) -> dict[str, Any]:
+        """Describe what this backend proves without claiming runner sharing."""
+        return {
+            "backend": "filesystem_json",
+            "cross_process_atomic": bool(fcntl is not None),
+            "cross_runner_durable": False,
+            "durable_store_proven": False,
+            "ready": False,
+            "reason": "SHARED_DURABLE_BACKEND_PROOF_REQUIRED",
+        }
 
     def _write_locked(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -195,22 +246,25 @@ class ProviderQuotaLedger:
 
     def summary(self) -> dict[str, Any]:
         with self._lock:
-            used = len(self._today_entries_locked())
-            reserved = sum(max(0, int(item.get("estimated_requests", 0))) for item in self._reservations.values() if item.get("released") is not True)
-            zone = quota_zone(used + reserved, self.daily_limit)
-            return {
-                "provider_id": self.provider_id,
-                "used": used,
-                "reserved": reserved,
-                "daily_limit": self.daily_limit,
-                "hard_stop": self.hard_stop,
-                "rpm_limit": self.rpm_limit,
-                "zone": zone,
-                "circuit_state": self.circuit.snapshot().state,
-                "circuit_reason": self.circuit.snapshot().reason,
-                "paid_fallback": False,
-                "allow_new_requests": self._allow_new_locked(1),
-            }
+            with self._shared_lock():
+                self._load()
+                used = len(self._today_entries_locked())
+                reserved = sum(max(0, int(item.get("estimated_requests", 0))) for item in self._reservations.values() if item.get("released") is not True)
+                zone = quota_zone(used + reserved, self.daily_limit)
+                return {
+                    "provider_id": self.provider_id,
+                    "used": used,
+                    "reserved": reserved,
+                    "daily_limit": self.daily_limit,
+                    "hard_stop": self.hard_stop,
+                    "rpm_limit": self.rpm_limit,
+                    "zone": zone,
+                    "circuit_state": self.circuit.snapshot().state,
+                    "circuit_reason": self.circuit.snapshot().reason,
+                    "paid_fallback": False,
+                    "allow_new_requests": self._allow_new_locked(1),
+                    "durability": self.durability_status(),
+                }
 
     def _allow_new_locked(self, estimated_requests: int) -> bool:
         if self.daily_limit is None or self.rpm_limit is None:
@@ -230,69 +284,76 @@ class ProviderQuotaLedger:
         if estimated_requests < 1:
             raise ValueError("estimated_requests must be positive")
         with self._lock:
-            self.circuit.assert_request_allowed()
-            existing = self._reservations.get(request_id)
-            if existing is not None:
-                if existing.get("released") is True:
-                    raise QuotaGuardError("DUPLICATE_REQUEST", provider_id=self.provider_id)
-                raise QuotaGuardError("REQUEST_IN_PROGRESS", provider_id=self.provider_id)
-            if not self._allow_new_locked(estimated_requests):
-                reason = "QUOTA_UNKNOWN" if self.daily_limit is None or self.rpm_limit is None else "QUOTA_GUARD_BLOCKED"
-                raise QuotaGuardError(reason, provider_id=self.provider_id)
-            now = utc_iso()
-            reservation = {
-                "request_id": request_id,
-                "provider_id": self.provider_id,
-                "mission_id": mission_id,
-                "agent_id": agent_id,
-                "model": model,
-                "requested_at": now,
-                "estimated_requests": estimated_requests,
-                "released": False,
-            }
-            self._reservations[request_id] = reservation
-            # Count before send.  A failed or timed-out request remains in the
-            # ledger, satisfying the free-resource safety contract.
-            self._entries.append({
-                "provider_id": self.provider_id,
-                "date_utc": now[:10],
-                "request_id": request_id,
-                "mission_id": mission_id,
-                "agent_id": agent_id,
-                "model": model,
-                "requested_at": now,
-                "success": None,
-                "http_status": None,
-                "retry": 0,
-                "quota_counted": True,
-            })
-            self._write_locked()
-            return dict(reservation)
+            with self._shared_lock():
+                self._load()
+                self.circuit.assert_request_allowed()
+                existing = self._reservations.get(request_id)
+                if existing is not None:
+                    if existing.get("released") is True:
+                        raise QuotaGuardError("DUPLICATE_REQUEST", provider_id=self.provider_id)
+                    raise QuotaGuardError("REQUEST_IN_PROGRESS", provider_id=self.provider_id)
+                if not self._allow_new_locked(estimated_requests):
+                    reason = "QUOTA_UNKNOWN" if self.daily_limit is None or self.rpm_limit is None else "QUOTA_GUARD_BLOCKED"
+                    raise QuotaGuardError(reason, provider_id=self.provider_id)
+                now = utc_iso()
+                reservation = {
+                    "request_id": request_id,
+                    "provider_id": self.provider_id,
+                    "mission_id": mission_id,
+                    "agent_id": agent_id,
+                    "model": model,
+                    "requested_at": now,
+                    "estimated_requests": estimated_requests,
+                    "released": False,
+                }
+                self._reservations[request_id] = reservation
+                # Count before send.  A failed or timed-out request remains in
+                # the ledger, satisfying the free-resource safety contract.
+                self._entries.append({
+                    "provider_id": self.provider_id,
+                    "date_utc": now[:10],
+                    "request_id": request_id,
+                    "mission_id": mission_id,
+                    "agent_id": agent_id,
+                    "model": model,
+                    "requested_at": now,
+                    "success": None,
+                    "http_status": None,
+                    "retry": 0,
+                    "quota_counted": True,
+                })
+                self._write_locked()
+                return dict(reservation)
 
     def record_result(self, request_id: str, *, success: bool, http_status: int | None, retry: int = 0, error_class: str | None = None, retry_after_seconds: int | None = None) -> dict[str, Any]:
         with self._lock:
-            entry = next((item for item in reversed(self._entries) if item.get("request_id") == request_id), None)
-            if entry is None:
-                raise QuotaGuardError("UNKNOWN_REQUEST_RESERVATION", provider_id=self.provider_id)
-            entry.update({
-                "success": bool(success),
-                "http_status": http_status,
-                "retry": max(0, int(retry)),
-                "error_class": error_class,
-                "retry_after_seconds": retry_after_seconds,
-            })
-            reservation = self._reservations.get(request_id)
-            if reservation is not None:
-                reservation["released"] = True
-            if http_status == 429 or error_class in {"RATE_LIMITED", "CREDIT_EXHAUSTED", "AUTH_ERROR", "PERMISSION_ERROR"}:
-                self.circuit.open(error_class or "PROVIDER_BLOCKED")
-            self._write_locked()
-            return dict(entry)
+            with self._shared_lock():
+                self._load()
+                entry = next((item for item in reversed(self._entries) if item.get("request_id") == request_id), None)
+                if entry is None:
+                    raise QuotaGuardError("UNKNOWN_REQUEST_RESERVATION", provider_id=self.provider_id)
+                entry.update({
+                    "success": bool(success),
+                    "http_status": http_status,
+                    "retry": max(0, int(retry)),
+                    "error_class": error_class,
+                    "retry_after_seconds": retry_after_seconds,
+                })
+                reservation = self._reservations.get(request_id)
+                if reservation is not None:
+                    reservation["released"] = True
+                if http_status == 429 or error_class in {"RATE_LIMITED", "CREDIT_EXHAUSTED", "AUTH_ERROR", "PERMISSION_ERROR"}:
+                    self.circuit.open(error_class or "PROVIDER_BLOCKED")
+                self._write_locked()
+                return dict(entry)
 
     def recover_after_probe(self, success: bool) -> CircuitSnapshot:
-        if success:
-            return self.circuit.close()
-        return self.circuit.open("PROBE_FAILED")
+        with self._lock:
+            with self._shared_lock():
+                self._load()
+                snapshot = self.circuit.close() if success else self.circuit.open("PROBE_FAILED")
+                self._write_locked()
+                return snapshot
 
 
 def ledger_from_registry(provider_id: str, registry: Mapping[str, Any], path: str | Path) -> ProviderQuotaLedger:
