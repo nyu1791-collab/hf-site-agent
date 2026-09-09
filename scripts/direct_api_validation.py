@@ -47,12 +47,14 @@ ROLE_MISSIONS = {
     "groq": ("bulk_classification", "log_triage", "fast_json_transform", "batch_summary", "first_pass_code_review"),
 }
 CANDIDATE_HINTS = {
-    # Google/NVIDIA IDs are intentionally empty until their official catalogs
-    # return exact IDs.  Supplying a candidate through the bounded workflow
-    # input is explicit and still requires catalog, capability, cost, probe,
-    # and benchmark gates.
-    "google": (),
-    "nvidia": (),
+    # These are bounded Phase 6 expectations, not registry activation.  The
+    # candidate is probed only after the authenticated catalog lists the exact
+    # ID; a wrong or retired expectation therefore receives no request.
+    "google": ("gemini-3.8-flash",),
+    "nvidia": (
+        "deepseek-ai/deepseek-v4-flash-0731",
+        "nvidia/nemotron-3.5-lightning-30b-a3b",
+    ),
     # These are user-observed dashboard labels only; Groq Models API must still
     # list the exact ID before a probe can run.
     "groq": (
