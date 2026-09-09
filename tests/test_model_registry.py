@@ -77,6 +77,29 @@ class ModelRegistryTests(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
         self.assertEqual(result["reason"], "no_current_zero_priced_role_candidate")
 
+    def test_expected_phase6_candidates_are_unverified_and_not_routable(self):
+        candidates = self.registry["expected_candidates"]
+        self.assertEqual({item["model_id"] for item in candidates}, {
+            "gemini-3.8-flash",
+            "qwen/qwen3.8-27b",
+            "deepseek-ai/deepseek-v4-flash-0731",
+            "nvidia/nemotron-3.5-lightning-30b-a3b",
+            "z-ai/glm-5.3-flash:free",
+        })
+        for item in candidates:
+            self.assertEqual(item["status"], "EXPECTED_UNVERIFIED")
+            self.assertEqual(item["lifecycle"], "UNKNOWN")
+            self.assertFalse(item["free_verified"])
+            self.assertEqual(item["probe_status"], "NOT_RUN")
+            self.assertNotIn(item["model_id"], sum((role_candidates(self.registry, role) for role in self.registry["roles"]), []))
+
+    def test_expected_candidate_cannot_be_promoted_by_registry_validation(self):
+        registry = copy.deepcopy(self.registry)
+        candidate = registry["expected_candidates"][0]
+        registry["roles"]["ROLE_GOOGLE_GENERAL_COMMANDER"]["candidate_models"] = [candidate["model_id"]]
+        with self.assertRaises(ValueError):
+            validate_registry(registry)
+
     def _active_registry(self):
         registry = copy.deepcopy(self.registry)
         for role_name, model_id in (
