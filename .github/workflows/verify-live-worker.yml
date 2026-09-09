@@ -299,7 +299,7 @@ jobs:
               if marker not in compatibility + probe:
                   raise SystemExit(f"provider probe is missing: {marker}")
           for marker in [
-              'headers["Authorization"] = f"Bearer {self._api_key()}"',
+              'headers[header_name] = f"Bearer {credential}" if header_name.lower() == "authorization" else credential',
               '"provider"] = {"allow_fallbacks": False}',
               'max_tokens=8',
               'status in {429}',
