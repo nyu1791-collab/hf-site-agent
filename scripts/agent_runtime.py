@@ -323,6 +323,47 @@ class IdempotencyStore:
             return tuple(dict(record) for record in self._records.values())
 
 
+class ResponseFreshnessGuard:
+    """Reject out-of-order responses for one mission/command boundary.
+
+    Provider retries and asynchronous workers can finish out of order.  The
+    response version is assigned by the caller that owns the command; this
+    guard only accepts a strictly newer version and never lets an older (or
+    duplicate) response replace the accepted one.  It deliberately does not
+    perform retries or provider failover.
+    """
+
+    def __init__(self) -> None:
+        self._latest: dict[tuple[str, str], int] = {}
+        self._lock = RLock()
+
+    @staticmethod
+    def _identity(mission_id: Any, command_id: Any, response_version: Any) -> tuple[str, str, int]:
+        if not isinstance(mission_id, str) or not ID_RE.fullmatch(mission_id):
+            raise ContractError("invalid response mission_id")
+        if not isinstance(command_id, str) or not ID_RE.fullmatch(command_id):
+            raise ContractError("invalid response command_id")
+        if isinstance(response_version, bool) or not isinstance(response_version, int) or response_version < 0:
+            raise ContractError("response_version must be a non-negative integer")
+        return mission_id, command_id, response_version
+
+    def accept(self, *, mission_id: str, command_id: str, response_version: int = 0) -> bool:
+        """Atomically accept only a strictly newer response version."""
+        mission, command, version = self._identity(mission_id, command_id, response_version)
+        key = (mission, command)
+        with self._lock:
+            previous = self._latest.get(key)
+            if previous is not None and version <= previous:
+                return False
+            self._latest[key] = version
+            return True
+
+    def latest(self, *, mission_id: str, command_id: str) -> int | None:
+        mission, command, _ = self._identity(mission_id, command_id, 0)
+        with self._lock:
+            return self._latest.get((mission, command))
+
+
 def _tuple_strings(values: Iterable[Any] | None, limit: int = 32, item_limit: int = MAX_TEXT) -> tuple[str, ...]:
     if values is None:
         return ()
@@ -704,6 +745,7 @@ class ReportEnvelope:
     tools_used: tuple[str, ...] = ()
     source_version: str = "agent-runtime-v1"
     created_at: str = field(default_factory=now_iso)
+    response_version: int = 0
 
     def validate(self, command: CommandEnvelope, registry: AgentRegistry) -> None:
         if self.mission_id != command.mission_id or self.command_id != command.command_id:
@@ -738,6 +780,8 @@ class ReportEnvelope:
             raise ContractError("invalid report quota state")
         if self.error_class is not None and (len(self.error_class) > 120 or any(ord(char) < 32 for char in self.error_class)):
             raise ContractError("invalid report error class")
+        if isinstance(self.response_version, bool) or not isinstance(self.response_version, int) or self.response_version < 0:
+            raise ContractError("response_version must be a non-negative integer")
         if len(self.summary) > MAX_TEXT:
             raise ContractError("report summary is too long")
         safe_json(dict(self.result), limit=MAX_JSON_CHARS)
@@ -1079,7 +1123,7 @@ Handler = Callable[[CommandEnvelope], ReportEnvelope | Mapping[str, Any]]
 class CommandRuntime:
     """Queue, idempotency, bounded fan-out/fan-in, cancellation, and metrics."""
 
-    def __init__(self, registry: AgentRegistry | None = None, mission_budget: MissionBudget | None = None, artifacts: ArtifactStore | None = None, cache: HierarchicalCache | None = None, checkpoints: CheckpointStore | None = None, trace: TraceStore | None = None, idempotency: IdempotencyStore | None = None) -> None:
+    def __init__(self, registry: AgentRegistry | None = None, mission_budget: MissionBudget | None = None, artifacts: ArtifactStore | None = None, cache: HierarchicalCache | None = None, checkpoints: CheckpointStore | None = None, trace: TraceStore | None = None, idempotency: IdempotencyStore | None = None, freshness: ResponseFreshnessGuard | None = None) -> None:
         self.registry = registry or AgentRegistry()
         self.ledger = BudgetLedger(mission_budget or MissionBudget())
         self.artifacts = artifacts or ArtifactStore()
@@ -1087,6 +1131,7 @@ class CommandRuntime:
         self.checkpoints = checkpoints or CheckpointStore()
         self.trace = trace or TraceStore()
         self.idempotency = idempotency or IdempotencyStore()
+        self.freshness = freshness or ResponseFreshnessGuard()
         self.progress = ProgressEmitter(self.trace)
         self._statuses: dict[str, str] = {}
         self._reports: dict[str, ReportEnvelope] = {}
@@ -1316,6 +1361,17 @@ class CommandRuntime:
                 # cancelling.  A completed result is never overwritten.
                 if self._is_cancelled_locked(command.mission_id, command.command_id, command.parent_command_id):
                     cancellation_requested = True
+                elif not self.freshness.accept(
+                    mission_id=command.mission_id,
+                    command_id=command.command_id,
+                    response_version=report.response_version,
+                ):
+                    existing = self._reports.get(command.command_id)
+                    if existing is not None:
+                        cancellation_requested = True
+                        report = existing
+                    else:
+                        raise ContractError("STALE_RESPONSE_REJECTED")
                 else:
                     self._reports[command.command_id] = report
                     self._statuses[command.command_id] = report.status
@@ -1497,7 +1553,7 @@ __all__ = [
     "AgentRank", "AgentSpec", "AgentRegistry", "CommandEnvelope", "ReportEnvelope", "MissionBudget",
     "BudgetLedger", "ArtifactStore", "HierarchicalCache", "CheckpointStore", "TraceStore", "ProgressEmitter",
     "CommandRuntime", "ContractError", "PermissionError", "BudgetError", "IdempotencyConflict",
-    "IdempotencyInProgress", "IdempotencyStore", "default_agent_specs", "make_command",
+    "IdempotencyInProgress", "IdempotencyStore", "ResponseFreshnessGuard", "default_agent_specs", "make_command",
     "project_context", "compact_context", "stable_hash", "stable_id", "is_read_only_operation",
     "require_idempotency_key", "validate_operation_identity",
 ]
