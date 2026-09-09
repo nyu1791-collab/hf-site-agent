@@ -16,7 +16,13 @@ DEFAULT_REGISTRY_PATH = Path(__file__).resolve().parents[1] / "config" / "model_
 ZERO_PRICES = {"0", "0.0", "0.00"}
 GENERIC_FREE_IDS = {"openrouter/free"}
 KNOWN_PROVIDER_IDS = {"google", "nvidia", "groq", "openrouter"}
+LIFECYCLE_VALUES = {
+    "STABLE", "GA", "PREVIEW", "EXPERIMENTAL", "LEGACY", "DEPRECATED", "REMOVED", "UNKNOWN",
+}
+PRIMARY_LIFECYCLES = {"STABLE", "GA"}
+ROUTING_BLOCKED_LIFECYCLES = {"LEGACY", "DEPRECATED", "REMOVED", "UNKNOWN"}
 REQUIRED_MODEL_FIELDS = {
+    "model_id",
     "provider",
     "model_generation",
     "context_length",
@@ -28,11 +34,20 @@ REQUIRED_MODEL_FIELDS = {
     "rate_limit",
     "status",
     "last_verified",
+    "role_candidates",
+    "capabilities",
+    "lifecycle",
+    "discovered_at",
+    "last_verified_at",
+    "benchmark_status",
+    "cost_class",
+    "quota_status",
 }
 MODEL_RECORD_FIELDS = (
-    "model_id", "provider_id", "role_candidate", "context_length", "max_output", "modalities",
+    "model_id", "provider_id", "role_candidate", "role_candidates", "capabilities", "context_length", "max_output", "modalities",
     "reasoning", "tool_calling", "structured_output", "coding", "agentic", "free_verified",
-    "availability", "deprecated", "probe_status", "commander_score", "average_latency",
+    "availability", "deprecated", "lifecycle", "discovered_at", "last_verified_at", "probe_status",
+    "benchmark_status", "cost_class", "quota_status", "commander_score", "average_latency",
     "schema_success_rate", "tool_success_rate", "mission_success_rate", "last_verified",
 )
 
@@ -95,6 +110,11 @@ def validate_registry(registry: Mapping[str, Any]) -> None:
                 raise RegistryError("generic free router cannot be a role candidate")
             if model_id not in models:
                 raise RegistryError(f"role references unknown model: {role_name} -> {model_id}")
+        primary_model = role.get("primary_model")
+        if primary_model:
+            lifecycle = str(models[primary_model].get("lifecycle") or "UNKNOWN").upper()
+            if lifecycle not in PRIMARY_LIFECYCLES:
+                raise RegistryError(f"primary model lifecycle is not promotable: {role_name}")
         routes = role.get("allowed_provider_routes")
         if routes is not None:
             if not isinstance(routes, list) or not routes:
@@ -106,6 +126,8 @@ def validate_registry(registry: Mapping[str, Any]) -> None:
         if role.get("active") is True and role.get("requires_explicit_approval") is True:
             if role.get("approved") is not True:
                 raise RegistryError(f"active role lacks explicit approval record: {role_name}")
+        if role.get("primary_model") and role.get("legacy_status") == "LEGACY_DISABLED":
+            raise RegistryError(f"legacy role cannot retain a primary model: {role_name}")
     for model_id, model in models.items():
         if not isinstance(model, Mapping):
             raise RegistryError(f"model is not an object: {model_id}")
@@ -114,6 +136,17 @@ def validate_registry(registry: Mapping[str, Any]) -> None:
             raise RegistryError(f"model fields missing for {model_id}: {sorted(missing)}")
         if model.get("free_available") is True and model.get("status") == "candidate_paid_requires_approval":
             raise RegistryError(f"free model marked paid: {model_id}")
+        if model.get("model_id") != model_id:
+            raise RegistryError(f"model_id must match registry key: {model_id}")
+        lifecycle = str(model.get("lifecycle") or "").upper()
+        if lifecycle not in LIFECYCLE_VALUES:
+            raise RegistryError(f"invalid model lifecycle: {model_id}")
+        if model.get("lifecycle") != lifecycle:
+            raise RegistryError(f"model lifecycle must be uppercase: {model_id}")
+        if not isinstance(model.get("role_candidates"), list):
+            raise RegistryError(f"model role_candidates must be a list: {model_id}")
+        if not isinstance(model.get("capabilities"), list):
+            raise RegistryError(f"model capabilities must be a list: {model_id}")
     legacy = registry.get("legacy")
     if not isinstance(legacy, list):
         raise RegistryError("legacy model list is missing")
@@ -184,6 +217,10 @@ def normalize_model_record(
     inventing model availability, pricing, or evaluation results.
     """
     tags = {str(tag).lower() for tag in (model.get("capability_tags") or [])}
+    role_list = sorted(str(item) for item in (role_candidates_for_model or []))
+    capabilities = model.get("capabilities")
+    if not isinstance(capabilities, list):
+        capabilities = sorted(tags)
     multimodal = model.get("multimodal") is True
     modalities = model.get("modalities")
     if not isinstance(modalities, list):
@@ -197,7 +234,9 @@ def normalize_model_record(
     return {
         "model_id": str(model_id),
         "provider_id": str(model.get("provider_id") or model.get("provider") or ""),
-        "role_candidate": sorted(str(item) for item in (role_candidates_for_model or [])),
+        "role_candidate": role_list,
+        "role_candidates": role_list,
+        "capabilities": [str(item) for item in capabilities],
         "context_length": model.get("context_length"),
         "max_output": model.get("max_output", model.get("max_output_tokens")),
         "modalities": [str(item) for item in modalities],
@@ -209,7 +248,13 @@ def normalize_model_record(
         "free_verified": free_verified,
         "availability": model.get("availability", status),
         "deprecated": model.get("deprecated") if isinstance(model.get("deprecated"), bool) else status == "deprecated" or str(model_id).startswith("~"),
+        "lifecycle": str(model.get("lifecycle") or "UNKNOWN").upper(),
+        "discovered_at": model.get("discovered_at"),
+        "last_verified_at": model.get("last_verified_at", model.get("last_verified")),
         "probe_status": str(probe_status),
+        "benchmark_status": model.get("benchmark_status", "NOT_RUN"),
+        "cost_class": model.get("cost_class", "UNKNOWN"),
+        "quota_status": model.get("quota_status", "UNKNOWN"),
         "commander_score": model.get("commander_score"),
         "average_latency": model.get("average_latency"),
         "schema_success_rate": model.get("schema_success_rate"),
@@ -343,6 +388,11 @@ def resolve_role_model(
             "MODEL_NOT_FOUND",
         } and not allow_paid:
             continue
+        lifecycle = str(metadata.get("lifecycle") or "UNKNOWN").upper()
+        if lifecycle not in PRIMARY_LIFECYCLES:
+            continue
+        if metadata.get("deprecated") is True:
+            continue
         if not _supports_required_features(role, catalog_entry, metadata):
             continue
         return {
@@ -374,10 +424,15 @@ def watch_catalog(registry: Mapping[str, Any], entries: Sequence[Mapping[str, An
     report: list[dict[str, Any]] = []
     for model_id, metadata in models.items():
         entry = listed.get(model_id)
+        recommended_lifecycle = str(metadata.get("lifecycle") or "UNKNOWN").upper() if isinstance(metadata, Mapping) else "UNKNOWN"
+        routing_allowed = recommended_lifecycle in PRIMARY_LIFECYCLES
         if entry is None:
             status = "not_listed"
             pricing = None
             context_length = None
+            if routing_allowed:
+                recommended_lifecycle = "DEGRADED"
+                routing_allowed = False
         else:
             pricing = entry.get("pricing") if isinstance(entry.get("pricing"), Mapping) else {}
             context_length = entry.get("context_length")
@@ -385,12 +440,19 @@ def watch_catalog(registry: Mapping[str, Any], entries: Sequence[Mapping[str, An
                 status = "listed_zero_priced"
             else:
                 status = "listed_paid"
+            entry_status = str(entry.get("status") or "").lower()
+            if entry.get("deprecated") is True or entry_status in {"deprecated", "removed", "retired"}:
+                recommended_lifecycle = "DEPRECATED" if entry_status != "removed" else "REMOVED"
+                routing_allowed = False
         report.append({
             "model_id": model_id,
             "status": status,
             "catalog_context_length": context_length,
             "catalog_pricing": pricing,
             "registry_status": metadata.get("status") if isinstance(metadata, Mapping) else "unknown",
+            "lifecycle": metadata.get("lifecycle", "UNKNOWN") if isinstance(metadata, Mapping) else "UNKNOWN",
+            "recommended_lifecycle": recommended_lifecycle,
+            "routing_allowed": routing_allowed,
             "free_available_registry": metadata.get("free_available") if isinstance(metadata, Mapping) else False,
         })
     return {
@@ -402,6 +464,32 @@ def watch_catalog(registry: Mapping[str, Any], entries: Sequence[Mapping[str, An
     }
 
 
+def lifecycle_guard(
+    registry: Mapping[str, Any],
+    model_id: str,
+    *,
+    for_primary: bool = False,
+) -> dict[str, Any]:
+    """Return a fail-closed lifecycle decision without changing the registry."""
+    models = registry.get("models", {})
+    metadata = models.get(model_id) if isinstance(models, Mapping) else None
+    if not isinstance(metadata, Mapping):
+        legacy_ids = {
+            item.get("id") for item in (registry.get("legacy") or [])
+            if isinstance(item, Mapping)
+        }
+        lifecycle = "DEPRECATED" if model_id in legacy_ids else "UNKNOWN"
+        return {"model_id": model_id, "lifecycle": lifecycle, "allowed": False, "reason": "model_not_registered"}
+    lifecycle = str(metadata.get("lifecycle") or "UNKNOWN").upper()
+    allowed = lifecycle in PRIMARY_LIFECYCLES if for_primary else lifecycle not in ROUTING_BLOCKED_LIFECYCLES
+    return {
+        "model_id": model_id,
+        "lifecycle": lifecycle,
+        "allowed": allowed,
+        "reason": "primary_lifecycle_allowed" if allowed else "lifecycle_fail_closed",
+    }
+
+
 __all__ = [
     "DEFAULT_REGISTRY_PATH",
     "MODEL_RECORD_FIELDS",
@@ -409,6 +497,7 @@ __all__ = [
     "load_registry",
     "normalize_model_record",
     "normalized_model_records",
+    "lifecycle_guard",
     "validate_registry",
     "role_config",
     "role_candidates",
