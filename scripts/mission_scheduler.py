@@ -769,6 +769,7 @@ class HierarchicalMissionScheduler:
         max_parallel_subordinate_workers: int = MAX_PARALLEL_SUBORDINATE_WORKERS,
         max_concurrent_requests_per_provider: int = MAX_CONCURRENT_REQUESTS_PER_PROVIDER,
         provider_states: Mapping[str, Mapping[str, Any]] | None = None,
+        checkpoint_state_provider: Callable[[str], Mapping[str, Any]] | None = None,
     ) -> None:
         if not 1 <= max_parallel_direct_corps <= MAX_PARALLEL_DIRECT_CORPS:
             raise SchedulerError("unsafe direct corps parallel bound")
@@ -779,6 +780,7 @@ class HierarchicalMissionScheduler:
         self.max_parallel_direct_corps = max_parallel_direct_corps
         self.max_parallel_subordinate_workers = max_parallel_subordinate_workers
         self.max_concurrent_requests_per_provider = max_concurrent_requests_per_provider
+        self.checkpoint_state_provider = checkpoint_state_provider
         self.provider_states = {
             str(provider): dict(state)
             for provider, state in (provider_states or {}).items()
@@ -866,6 +868,12 @@ class HierarchicalMissionScheduler:
             "reservation_ids": dict(self._reservation_ids.get(mission_id, {})),
             "provider_state": {"cancelled": mission_id in self._cancelled_missions},
         }
+        if self.checkpoint_state_provider is not None:
+            extra = self.checkpoint_state_provider(mission_id)
+            if not isinstance(extra, Mapping):
+                raise SchedulerError("checkpoint runtime state must be a mapping")
+            safe_json(dict(extra), limit=100_000)
+            state["runtime"] = dict(extra)
         self.checkpoints.save(mission_id, state)
 
     def _restore(self, plan: MissionPlan, resume: bool) -> None:

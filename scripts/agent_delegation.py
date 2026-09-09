@@ -18,7 +18,19 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
+# The deterministic runtime and its tests must remain usable without the
+# optional OpenAI-compatible SDK.  Only the explicitly invoked network lane
+# needs this dependency; a missing SDK must fail closed before any request.
+try:
+    from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
+except ModuleNotFoundError:  # pragma: no cover - exercised by minimal runners
+    class _OpenAISDKMissing(RuntimeError):
+        pass
+
+    APIConnectionError = _OpenAISDKMissing
+    APIStatusError = _OpenAISDKMissing
+    APITimeoutError = _OpenAISDKMissing
+    OpenAI = None
 
 try:
     from scripts.model_registry import load_registry, role_candidates, role_config
@@ -143,6 +155,11 @@ def parse_agent_output(response: Any) -> dict[str, Any]:
 
 def _call_once(model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
     try:
+        if OpenAI is None:
+            raise AgentCallError(
+                "dependency_missing",
+                "OpenAI-compatible client dependency is unavailable; no provider request was sent.",
+            )
         client = OpenAI(
             api_key=os.environ["AI_API_KEY"],
             base_url=BASE_URL,

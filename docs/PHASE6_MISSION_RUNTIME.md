@@ -4,6 +4,13 @@ This phase adds a provider-call-agnostic execution layer behind the existing
 provider adapters. It is enabled only by an explicit caller; it does not
 change production routing or activate a model.
 
+The OpenAI-compatible SDK is an optional dependency of the legacy
+OpenRouter-only delegation and design-council command lines. Deterministic
+tests, provider adapters, ledgers, and the mission scheduler do not require it.
+When that optional package is absent, those network-only entry points fail
+closed before constructing a client or sending a request; the repository does
+not rely on an accidentally preinstalled SDK.
+
 ## Safety bounds
 
 - direct corps: Google, Groq, NVIDIA
@@ -79,3 +86,26 @@ The handlers are local fixture functions. A successful staging report proves
 the scheduler, reservation, join, checkpoint, ownership, and safety contracts
 only. It is not a provider probe and cannot set any `*_READY` or `*_ACTIVE`
 flag.
+
+## Bounded autonomous loops
+
+`autonomous_mission.py` adds the bounded runtime above the scheduler. Each task
+executes `EXECUTE -> VALIDATE -> REVIEW`; a failed review may invoke a bounded
+revision callback and then re-review the result. Repeated failure signatures
+invoke an optional replan callback instead of resending the same attempt
+indefinitely. The mission runtime automatically dispatches newly unblocked DAG
+tasks and joins independent branches without asking the caller to continue.
+
+The runtime records iteration, revision, replan, request, token, elapsed-time,
+lease, heartbeat, generation, and stop-reason state. It checkpoints that state
+with the scheduler. A provider interruption retains unknown usage as
+`unsettled`; it does not automatically replay the task or launch a speculative
+fallback. A mission-level replan is allowed only when no unsettled reservation
+is present and only when the Integrator callback returns a validated,
+free-only `MissionPlan`; completed tasks are removed from the new generation.
+
+Callback output is untrusted input. The runtime accepts only bounded structured
+data, compacts it to a summary/digest, and exposes no repository-write,
+deploy, publish, payment, or credential-value permission. The report marks
+`user_continue_required=false` and `raw_result_compaction=true`; the offload
+ratio is explicitly a runtime proxy, not a ChatGPT product usage measurement.
