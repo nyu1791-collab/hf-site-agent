@@ -25,6 +25,24 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - name: Generate redacted pre-live worker plan (no network)
+        run: |
+          set -euo pipefail
+          python scripts/live_probe_plan.py --provider openrouter --max-total-requests 24 --output artifacts/live_probe_plan.json
+          python -m json.tool artifacts/live_probe_plan.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          plan = json.loads(Path("artifacts/live_probe_plan.json").read_text(encoding="utf-8"))
+          assert plan["final"]["state"] == "LIVE_PROBE_PLAN_READY"
+          assert plan["budget"]["estimated_requests"] == 5
+          assert plan["plans"][0]["estimated_tokens"] == 1600
+          assert plan["plans"][0]["estimated_cost"] == "UNKNOWN"
+          assert plan["auto_execution_allowed"] is False
+          assert plan["safety"]["paid_calls"] == 0
+          assert plan["safety"]["compute_jobs_started"] == 0
+          print(json.dumps({"estimated_requests": 5, "estimated_cost": "UNKNOWN", "live_probe_enabled": False}))
+          PY
       - name: Discover and send bounded exact worker probes
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.AI_API_KEY }}
