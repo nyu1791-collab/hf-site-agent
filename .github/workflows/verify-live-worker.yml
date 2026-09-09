@@ -289,7 +289,7 @@ jobs:
           workflow = Path(".github/workflows/check-openai-compatible-provider.yml").read_text(encoding="utf-8")
           for marker in [
               "PROBE_MODEL_ENVS",
-              "network_enabled=False",
+              "network_enabled: bool = False",
               '"retry_count": 0',
               '"paid_fallback": False',
               '"registry_changed": False',
