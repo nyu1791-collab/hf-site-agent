@@ -143,3 +143,24 @@ No live Provider failure injection was started in this phase. Therefore the
 existing `BLOCKED` status for provider interruption/resume and cross-runner
 durability remains valid; deterministic local tests do not prove remote
 Runner durability or a real Provider outage.
+
+## Phase 6 follow-up
+
+The Phase 6 follow-up was executed as deterministic local/fixture validation;
+it did not call a Provider, start Modal, or alter production routing.
+
+| Area | Current result | Boundary |
+|---|---|---|
+| Empty OpenAI-compatible response | PASS | Empty choices/messages are rejected as `MODEL_OUTPUT_INVALID` |
+| Stale response | PASS | Monotonic response version/freshness checks reject stale reports |
+| Reservation race | PASS | Local file-backed process locking protects the exercised read/check/write path |
+| DAG, ownership, single writer, depth bound | PASS | Bounded staging scheduler; no production writes |
+| Checkpoint/resume | PASS | Known local state resumes without replaying settled tasks |
+| Provider crash with unknown usage | PASS_SAFE_STOP | Reservation is retained as unsettled; automatic retry/fallback is not performed |
+| Mid-mission real Provider outage | BLOCKED | No live Provider call was permitted |
+| Cross-runner durable ledger | BLOCKED | Local backend explicitly reports `cross_runner_durable=false` |
+
+The full local deterministic suite is `181/181 PASS`; GitHub Actions for the
+final PR HEAD also completed successfully. These results do not satisfy live
+catalog, free-tier, quota, or endpoint verification, so no model or Provider
+was promoted to READY or ACTIVE.
