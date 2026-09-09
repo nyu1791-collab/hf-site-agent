@@ -275,42 +275,55 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile scripts/provider_smoke.py
+          python3 -m py_compile scripts/provider_smoke.py scripts/probe_providers.py scripts/provider_adapters.py
           python3 - <<'PY'
           from pathlib import Path
 
-          source = Path("scripts/provider_smoke.py").read_text(encoding="utf-8")
+          adapter = Path("scripts/provider_adapters.py").read_text(encoding="utf-8")
+          smoke = Path("scripts/provider_smoke.py").read_text(encoding="utf-8")
+          probe = Path("scripts/probe_providers.py").read_text(encoding="utf-8")
           workflow = Path(".github/workflows/check-openai-compatible-provider.yml").read_text(encoding="utf-8")
-          for marker in [
-              "PROVIDER_BASE_URLS",
-              "OpenAI(",
-              "max_retries=0",
-              'REQUEST_TEXT = "Reply with OK."',
-              "status == 402",
-              "AI_TIMEOUT_MS",
-              "AI_MAX_RETRIES",
-              "max_tokens=1",
+          for source, markers in [
+              (adapter, [
+                  "class OpenAICompatibleAdapter",
+                  "normalize_error",
+                  "allow_fallbacks",
+                  "require_zero_cost",
+                  "PROVIDER_NOT_ACTIVE",
+              ]),
+              (smoke, [
+                  "PROVIDER_SMOKE_ENABLE",
+                  "network_enabled=True",
+                  "openrouter/free",
+                  "paid_fallback",
+              ]),
+              (probe, [
+                  "PROBE_MODEL_ENVS",
+                  "network_enabled: bool = False",
+                  "registry_changed",
+                  "retry_count",
+                  "paid_fallback",
+              ]),
+              (workflow, [
+                  "workflow_dispatch:",
+                  "event_name == 'workflow_dispatch'",
+                  "github.event.inputs.confirm",
+                  "github.event.inputs.provider",
+                  "github.event.inputs.model",
+                  'if [[ "$REF_NAME" != "main" ]]; then',
+                  'if [[ "$CONFIRM" != "CHECK" ]]; then',
+                  "actions/setup-python@v6",
+                  "secrets.AI_API_KEY",
+                  "no automatic fallback",
+                  "--network",
+              ]),
           ]:
-              if marker not in source:
-                  raise SystemExit(f"provider smoke test is missing: {marker}")
-          for marker in [
-              "workflow_dispatch:",
-              "event_name == 'workflow_dispatch'",
-              "github.event.inputs.confirm",
-              "github.event.inputs.provider",
-              "github.event.inputs.model",
-              'if [[ "$REF_NAME" != "main" ]]; then',
-              'if [[ "$CONFIRM" != "CHECK" ]]; then',
-              "actions/setup-python@v6",
-              'openai>=1.0,<2',
-              "secrets.AI_API_KEY",
-              "no automatic fallback",
-          ]:
-              if marker not in workflow:
-                  raise SystemExit(f"provider workflow is missing: {marker}")
-          for forbidden in ["print(response", "message.content", "print(api_key", "print(os.getenv"]:
-              if forbidden in source:
-                  raise SystemExit(f"provider smoke test may expose response or secret data: {forbidden}")
+              for marker in markers:
+                  if marker not in source:
+                      raise SystemExit(f"provider safety contract is missing: {marker}")
+          for forbidden in ["print(response", "print(api_key", "print(os.getenv", "permissions: write", "wrangler deploy"]:
+              if forbidden in adapter or forbidden in smoke or forbidden in probe:
+                  raise SystemExit(f"provider code is not read-only/redacted: {forbidden}")
           print("Provider adapter and smoke workflow safety contract passed.")
           PY
 
