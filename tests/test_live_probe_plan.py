@@ -25,6 +25,13 @@ class LiveProbePlanTests(unittest.TestCase):
         self.assertIn("Nemotron 3.5 Lightning 30B A3B", by_provider["nvidia"]["candidate_selection"]["labels"])
         self.assertIn("qwen/qwen3.8-27b", by_provider["groq"]["candidate_selection"]["labels"])
         self.assertFalse(by_provider["openrouter"]["candidate_selection"]["fixed_id_authorized"])
+        self.assertEqual(by_provider["google"]["expected_model_ids"], ["gemini-3.8-flash"])
+        self.assertEqual(by_provider["groq"]["expected_model_ids"], ["qwen/qwen3.8-27b"])
+        self.assertEqual(by_provider["nvidia"]["expected_model_ids"], [
+            "deepseek-ai/deepseek-v4-flash-0731",
+            "nvidia/nemotron-3.5-lightning-30b-a3b",
+        ])
+        self.assertEqual(by_provider["openrouter"]["expected_model_ids"], ["z-ai/glm-5.3-flash:free"])
 
     def test_optional_stages_are_included_in_the_upper_bound(self):
         report = build_plan(
