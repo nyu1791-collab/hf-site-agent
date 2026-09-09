@@ -20,6 +20,15 @@ Every exact model ID must be discovered from the current provider catalog,
 capability-checked, cost/quota-checked, probed, benchmarked, and explicitly
 approved before it can become a candidate or active model.
 
+The dry-run also records `endpoint`, bounded `requests`, `max_input_tokens`,
+`max_output_tokens`, `free_verified`, `quota_verified`, `capabilities_tested`,
+`probe_gate`, `probe_status`, and `benchmark_status`. Until a current exact ID,
+zero-cost evidence, and quota evidence are supplied, the plan uses
+`endpoint=null`, `free_verified=false`, `quota_verified=false`,
+`probe_gate=BLOCKED_COST_UNKNOWN`, `probe_status=NOT_RUN`, and
+`benchmark_status=NOT_RUN`. These fields are descriptive only and never enable
+network execution.
+
 Example:
 
 ```sh
