@@ -1181,6 +1181,122 @@
       "paid_fallback": false
     }
   },
+  "expected_candidates": [
+    {
+      "provider_id": "google",
+      "model_id": "gemini-3.8-flash",
+      "role_candidates": [
+        "RESEARCH",
+        "REQUIREMENT_ANALYSIS",
+        "LONG_CONTEXT",
+        "MULTIMODAL",
+        "CONTEXT_MAPPING",
+        "INFORMATION_SYNTHESIS"
+      ],
+      "capabilities": ["reasoning", "long_context", "multimodal", "structured_output", "tool_calling"],
+      "status": "EXPECTED_UNVERIFIED",
+      "lifecycle": "UNKNOWN",
+      "discovered_at": null,
+      "last_verified_at": null,
+      "probe_status": "NOT_RUN",
+      "benchmark_status": "NOT_RUN",
+      "cost_class": "UNKNOWN",
+      "quota_status": "UNKNOWN",
+      "free_verified": false,
+      "source": "phase6_expected_candidate_instruction"
+    },
+    {
+      "provider_id": "groq",
+      "model_id": "qwen/qwen3.8-27b",
+      "role_candidates": [
+        "FAST_EXECUTION",
+        "CODING",
+        "PATCH_GENERATION",
+        "JSON",
+        "STRUCTURED_OUTPUT",
+        "TOOL_USE",
+        "FAST_REASONING"
+      ],
+      "capabilities": ["fast_reasoning", "coding", "structured_output", "tool_calling"],
+      "status": "EXPECTED_UNVERIFIED",
+      "lifecycle": "UNKNOWN",
+      "discovered_at": null,
+      "last_verified_at": null,
+      "probe_status": "NOT_RUN",
+      "benchmark_status": "NOT_RUN",
+      "cost_class": "UNKNOWN",
+      "quota_status": "UNKNOWN",
+      "free_verified": false,
+      "source": "phase6_expected_candidate_instruction"
+    },
+    {
+      "provider_id": "nvidia",
+      "model_id": "deepseek-ai/deepseek-v4-flash-0731",
+      "role_candidates": [
+        "CRITIC",
+        "REASONING",
+        "TECHNICAL_REVIEW",
+        "FAILURE_ANALYSIS",
+        "SECURITY_REVIEW",
+        "SECOND_OPINION"
+      ],
+      "capabilities": ["reasoning", "technical_review", "security_review", "structured_output"],
+      "status": "EXPECTED_UNVERIFIED",
+      "lifecycle": "UNKNOWN",
+      "discovered_at": null,
+      "last_verified_at": null,
+      "probe_status": "NOT_RUN",
+      "benchmark_status": "NOT_RUN",
+      "cost_class": "UNKNOWN",
+      "quota_status": "UNKNOWN",
+      "free_verified": false,
+      "source": "phase6_expected_candidate_instruction"
+    },
+    {
+      "provider_id": "nvidia",
+      "model_id": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "role_candidates": [
+        "LONG_RUNNING_AGENT",
+        "SUB_AGENT",
+        "REPOSITORY_ANALYSIS",
+        "MULTI_STEP_WORK",
+        "CHECKPOINTABLE_TASK"
+      ],
+      "capabilities": ["long_running", "repository_analysis", "multi_step", "checkpointable", "structured_output"],
+      "status": "EXPECTED_UNVERIFIED",
+      "lifecycle": "UNKNOWN",
+      "discovered_at": null,
+      "last_verified_at": null,
+      "probe_status": "NOT_RUN",
+      "benchmark_status": "NOT_RUN",
+      "cost_class": "UNKNOWN",
+      "quota_status": "UNKNOWN",
+      "free_verified": false,
+      "source": "phase6_expected_candidate_instruction"
+    },
+    {
+      "provider_id": "openrouter",
+      "model_id": "z-ai/glm-5.3-flash:free",
+      "role_candidates": [
+        "LONG_HORIZON_CODING",
+        "LARGE_CONTEXT_WORKER",
+        "MULTIMODAL_WORKER",
+        "ALTERNATE_IMPLEMENTATION",
+        "OVERFLOW_WORKER"
+      ],
+      "capabilities": ["long_context", "coding", "multimodal", "worker", "structured_output"],
+      "status": "EXPECTED_UNVERIFIED",
+      "lifecycle": "UNKNOWN",
+      "discovered_at": null,
+      "last_verified_at": null,
+      "probe_status": "NOT_RUN",
+      "benchmark_status": "NOT_RUN",
+      "cost_class": "UNKNOWN",
+      "quota_status": "UNKNOWN",
+      "free_verified": false,
+      "source": "phase6_expected_candidate_instruction"
+    }
+  ],
   "model_discovery": {
     "enabled": true,
     "read_only": true,
