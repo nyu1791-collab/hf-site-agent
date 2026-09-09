@@ -42,6 +42,15 @@ CANDIDATE_TARGETS = {
         "labels": ["role-scoped current free Worker pool"],
     },
 }
+EXPECTED_MODEL_IDS = {
+    "google": ["gemini-3.8-flash"],
+    "nvidia": [
+        "deepseek-ai/deepseek-v4-flash-0731",
+        "nvidia/nemotron-3.5-lightning-30b-a3b",
+    ],
+    "groq": ["qwen/qwen3.8-27b"],
+    "openrouter": ["z-ai/glm-5.3-flash:free"],
+}
 
 
 def _bounded_int(value: Any, field: str, *, minimum: int, maximum: int) -> int:
@@ -90,6 +99,7 @@ def _direct_plan(
     return {
         "provider": provider,
         "model": None,
+        "expected_model_ids": list(EXPECTED_MODEL_IDS[provider]),
         "model_source": "current_provider_catalog_and_exact_candidate_required",
         "endpoint": None,
         "requests": requests,
@@ -128,6 +138,7 @@ def _openrouter_plan() -> dict[str, Any]:
     return {
         "provider": "openrouter",
         "model": None,
+        "expected_model_ids": list(EXPECTED_MODEL_IDS["openrouter"]),
         "model_source": "current_openrouter_catalog_and_exact_free_worker_probe_required",
         "endpoint": None,
         "requests": requests,
