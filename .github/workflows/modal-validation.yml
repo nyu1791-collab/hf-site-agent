@@ -46,6 +46,25 @@ jobs:
       - name: Run deterministic regression before any optional live check
         run: python -m unittest discover -s tests -p 'test_*.py' -q
 
+      - name: Generate redacted Modal preflight plan (no compute)
+        run: |
+          set -euo pipefail
+          python scripts/live_probe_plan.py --provider modal --max-total-requests 24 --output artifacts/live_probe_plan.json
+          python -m json.tool artifacts/live_probe_plan.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          plan = json.loads(Path("artifacts/live_probe_plan.json").read_text(encoding="utf-8"))
+          assert plan["final"]["state"] == "LIVE_PROBE_PLAN_READY"
+          assert plan["plans"][0]["estimated_requests"] == 3
+          assert plan["plans"][0]["estimated_tokens"] == 0
+          assert plan["plans"][0]["estimated_cost"] == "UNKNOWN"
+          assert plan["plans"][0]["compute_jobs_included"] == 0
+          assert plan["auto_execution_allowed"] is False
+          assert plan["safety"]["compute_jobs_started"] == 0
+          assert plan["safety"]["paid_calls"] == 0
+          print(json.dumps({"estimated_requests": 3, "estimated_tokens": 0, "estimated_cost": "UNKNOWN", "compute_jobs": 0, "live_probe_enabled": False}))
+          PY
       - name: Install Modal SDK only for explicitly confirmed validation
         if: inputs.confirm == 'MODAL_VALIDATION'
         run: |
