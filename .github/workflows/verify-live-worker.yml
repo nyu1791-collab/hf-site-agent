@@ -306,7 +306,7 @@ jobs:
               '"RATE_LIMITED"',
               '"FREE_COST_UNVERIFIED"',
               '"FREE_COST_NONZERO"',
-              'self._request_json("/chat/completions"',
+              'self.config.get("generate_path")',
           ]:
               if marker not in adapter:
                   raise SystemExit(f"provider adapter is missing: {marker}")
