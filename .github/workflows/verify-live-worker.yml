@@ -476,7 +476,9 @@ jobs:
             "AGENT_PACKET_PATH",
             "execution_allowed",
             "next_tasks",
-            "max_retries=0"
+            "GuardedProviderAdapter",
+            "require_zero_cost=True",
+            "RATE_LIMITED"
           ]) {
             if (!executor.includes(marker)) throw new Error("Specialist agent contract is missing: " + marker);
           }
