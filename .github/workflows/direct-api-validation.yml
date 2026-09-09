@@ -18,15 +18,46 @@ on:
           - nvidia
           - groq
       capabilities:
-        description: "Run structured/tool/command-schema gates"
+        description: "Optional: run structured/tool/command-schema gates (may add requests)"
         required: true
-        default: true
+        default: false
         type: boolean
       missions:
-        description: "Run bounded commander mission comparisons"
+        description: "Optional: run a very small commander mission sample (may add requests)"
         required: true
-        default: true
+        default: false
         type: boolean
+      allow_trial_credits:
+        description: "Permit NVIDIA trial-credit probes; keep false unless separately approved"
+        required: true
+        default: false
+        type: boolean
+      max_candidates:
+        description: "Maximum exact candidates per provider (bounded to 1 or 2)"
+        required: true
+        default: "1"
+        type: choice
+        options:
+          - "1"
+          - "2"
+      max_missions:
+        description: "Maximum mission types per candidate when missions are enabled"
+        required: true
+        default: "2"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "4"
+      max_requests:
+        description: "Hard live request budget; never exceeds 24"
+        required: true
+        default: "12"
+        type: choice
+        options:
+          - "6"
+          - "12"
+          - "24"
 
 permissions:
   contents: read
@@ -65,6 +96,10 @@ jobs:
           PROVIDER_INPUT: ${{ inputs.provider }}
           CAPABILITIES_INPUT: ${{ inputs.capabilities }}
           MISSIONS_INPUT: ${{ inputs.missions }}
+          ALLOW_TRIAL_CREDITS_INPUT: ${{ inputs.allow_trial_credits }}
+          MAX_CANDIDATES_INPUT: ${{ inputs.max_candidates }}
+          MAX_MISSIONS_INPUT: ${{ inputs.max_missions }}
+          MAX_REQUESTS_INPUT: ${{ inputs.max_requests }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -73,10 +108,15 @@ jobs:
           GROQ_CANDIDATE_MODELS: ${{ vars.GROQ_CANDIDATE_MODELS }}
         run: |
           set -euo pipefail
-          args=(--network --confirm "$CONFIRM_INPUT" --output artifacts/direct_api_report.json)
+          args=(--network --confirm "$CONFIRM_INPUT"
+            --max-candidates "$MAX_CANDIDATES_INPUT"
+            --max-missions "$MAX_MISSIONS_INPUT"
+            --max-total-requests "$MAX_REQUESTS_INPUT"
+            --output artifacts/direct_api_report.json)
           if [[ "$PROVIDER_INPUT" != "all" ]]; then args+=(--provider "$PROVIDER_INPUT"); fi
           if [[ "$CAPABILITIES_INPUT" == "true" ]]; then args+=(--capabilities); fi
           if [[ "$MISSIONS_INPUT" == "true" ]]; then args+=(--missions); fi
+          if [[ "$ALLOW_TRIAL_CREDITS_INPUT" == "true" ]]; then args+=(--allow-trial-credits); fi
           python scripts/direct_api_validation.py "${args[@]}"
           python -m json.tool artifacts/direct_api_report.json >/dev/null
 
