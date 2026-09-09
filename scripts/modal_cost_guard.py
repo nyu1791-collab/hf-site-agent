@@ -5,6 +5,11 @@ This module is deliberately independent from the LLM request quota ledger.
 Money is represented with :class:`decimal.Decimal`; unknown billing, rates,
 credits, ledger state, or reconciliation state denies new work.  The module
 does not import the Modal SDK and never starts a job by itself.
+
+A local file lock is useful for deterministic tests, but it is not proof of a
+durable cross-runner store.  Production readiness therefore requires an
+explicit durable_store_proven assertion supplied by a separately reviewed
+shared-store adapter; no workflow sets that assertion today.
 """
 
 from __future__ import annotations
@@ -356,6 +361,8 @@ class ModalCostGuard:
         policy: Mapping[str, Any] | None = None,
         shared_store_ready: bool | None = None,
         allow_initialize: bool = False,
+        durable_store_proven: bool = False,
+        require_durable_store: bool | None = None,
     ):
         if policy is None:
             from scripts.compute_provider_registry import load_compute_provider_registry
@@ -395,6 +402,13 @@ class ModalCostGuard:
         self.ledger_path = Path(ledger_path)
         self.lock_path = Path(f"{self.ledger_path}.lock")
         self.allow_initialize = bool(allow_initialize)
+        # allow_initialize is used by unit tests for an ephemeral local
+        # ledger. Real callers default to requiring a durable shared store.
+        self.require_durable_store = (
+            (not self.allow_initialize)
+            if require_durable_store is None else bool(require_durable_store)
+        )
+        self.durable_store_proven = bool(durable_store_proven)
         self.shared_store_ready = (
             os.environ.get("MODAL_LEDGER_SHARED", "").strip().lower() == "true"
             if shared_store_ready is None else bool(shared_store_ready)
@@ -403,13 +417,26 @@ class ModalCostGuard:
 
     def ledger_status(self) -> dict[str, Any]:
         exists = self.ledger_path.exists()
+        durable_ready = bool(self.shared_store_ready and self.durable_store_proven)
+        ready = bool(durable_ready and (exists or self.allow_initialize))
+        if not self.shared_store_ready:
+            reason = "LEDGER_UNAVAILABLE"
+        elif not self.durable_store_proven:
+            reason = "LEDGER_DURABILITY_UNPROVEN"
+        elif not (exists or self.allow_initialize):
+            reason = "LEDGER_UNAVAILABLE"
+        else:
+            reason = None
         return {
-            "ready": bool(self.shared_store_ready and (exists or self.allow_initialize)),
+            "ready": ready,
             "shared_store_ready": self.shared_store_ready,
-            "cross_runner_lock_supported": bool(fcntl is not None and self.shared_store_ready),
+            "durable_store_proven": self.durable_store_proven,
+            "durability_required": self.require_durable_store,
+            "cross_runner_lock_supported": bool(fcntl is not None and durable_ready),
             "ledger_exists": exists,
             "schema_version": LEDGER_SCHEMA_VERSION if exists else None,
             "allow_initialize": self.allow_initialize,
+            "readiness_reason": reason,
         }
 
     @contextmanager
@@ -628,7 +655,12 @@ class ModalCostGuard:
             with self._locked():
                 payload = self._read_locked()
                 result = self._evaluate_locked(payload, billing, job.estimated_max_cost)
-                result["ledger_status"] = "READY"
+                if self.require_durable_store and not self.durable_store_proven:
+                    result["MODAL_NEW_JOBS_ALLOWED"] = False
+                    result["reason"] = "LEDGER_DURABILITY_UNPROVEN"
+                    result["ledger_status"] = "NOT_READY"
+                else:
+                    result["ledger_status"] = "READY"
                 return result
         except ModalCostGuardError as error:
             return {
@@ -682,6 +714,8 @@ class ModalCostGuard:
             existing = self._existing_idempotency(payload, job)
             if existing is not None:
                 return {"status": "REPLAY", "job_id": existing.get("job_id"), "record": dict(existing), "ledger_status": "READY"}
+            if self.require_durable_store and not self.durable_store_proven:
+                raise ModalCostGuardError("LEDGER_DURABILITY_UNPROVEN")
             if payload.get("circuit_state") != "CLOSED":
                 raise ModalCostGuardError("CIRCUIT_NOT_CLOSED")
             evaluation = self._evaluate_locked(payload, billing, job.estimated_max_cost)
@@ -907,7 +941,8 @@ class ModalCostGuard:
                 metrics = self._ledger_metrics(payload)
                 result: dict[str, Any] = {
                     "provider_id": PROVIDER_ID,
-                    "ledger_status": "READY",
+                    "ledger_status": "READY" if (not self.require_durable_store or self.durable_store_proven) else "NOT_READY",
+                    "durable_store_proven": self.durable_store_proven,
                     "active_reservations": _money_text(metrics["active_reservations"]),
                     "active_reservation_count": metrics["active_reservation_count"],
                     "local_unsettled_usage": _money_text(metrics["local_unsettled_usage"]),
@@ -921,10 +956,15 @@ class ModalCostGuard:
                     evaluated = self._evaluate_locked(payload, billing, Decimal("0"))
                     result.update({
                         "MODAL_COST_STATE": evaluated.get("MODAL_COST_STATE"),
-                        "MODAL_NEW_JOBS_ALLOWED": evaluated.get("MODAL_NEW_JOBS_ALLOWED") is True,
+                        "MODAL_NEW_JOBS_ALLOWED": (
+                            evaluated.get("MODAL_NEW_JOBS_ALLOWED") is True
+                            and (not self.require_durable_store or self.durable_store_proven)
+                        ),
                         "projected_exposure": evaluated.get("projected_exposure"),
                         "billing_cycle": billing.billing_cycle,
                     })
+                    if self.require_durable_store and not self.durable_store_proven:
+                        result["reason"] = "LEDGER_DURABILITY_UNPROVEN"
                 return result
         except ModalCostGuardError as error:
             return {
