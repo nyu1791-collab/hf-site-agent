@@ -151,6 +151,24 @@ class ModalCostGuardTests(unittest.TestCase):
             self.assertEqual(results.count("RESERVED"), 1)
             self.assertEqual(results.count("MODAL_COST_HARD_STOP"), 1)
 
+    def test_durable_store_proof_is_required_for_production_readiness(self):
+        with tempfile.TemporaryDirectory() as directory:
+            local = self.guard(directory)
+            local.reserve(self.billing, self.job())
+            unproven = ModalCostGuard(
+                Path(directory) / "modal-ledger.json",
+                shared_store_ready=True,
+                allow_initialize=False,
+            )
+            status = unproven.ledger_status()
+            self.assertFalse(status["ready"])
+            self.assertFalse(status["cross_runner_lock_supported"])
+            self.assertEqual(status["readiness_reason"], "LEDGER_DURABILITY_UNPROVEN")
+            self.assertEqual(unproven.summary()["ledger_status"], "NOT_READY")
+            with self.assertRaises(ModalCostGuardError) as caught:
+                unproven.reserve(self.billing, self.job(job_id="new-job", key="new-key"))
+            self.assertEqual(caught.exception.reason, "LEDGER_DURABILITY_UNPROVEN")
+
     def test_start_settle_unknown_keeps_unsettled_cost_and_restart_replays(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "modal-ledger.json"
@@ -160,7 +178,12 @@ class ModalCostGuardTests(unittest.TestCase):
             settled = guard.settle("job-1", mission_id="mission-1", success=False)
             self.assertEqual(settled["billing_status"], "UNSETTLED")
             self.assertEqual(guard.summary()["local_unsettled_usage"], "1.00")
-            restarted = ModalCostGuard(path, shared_store_ready=True, allow_initialize=False)
+            restarted = ModalCostGuard(
+                path,
+                shared_store_ready=True,
+                allow_initialize=False,
+                durable_store_proven=True,
+            )
             replay = restarted.reserve(self.billing, self.job(job_id="retry-job"))
             self.assertEqual(replay["status"], "REPLAY")
 
