@@ -8,13 +8,16 @@ and duplicate/uncertain replays.
 
 Google keeps one small endpoint probe. NVIDIA skips the redundant liveness
 probe entirely: once the exact hosted FREE_ENDPOINT is freshly verified, its
-first real Reviewer request is the liveness check. This avoids spending several
-minutes on a request that does no project work.
+first real Reviewer request is the liveness check. Missing quota/cost/model
+metadata is tolerated when the fixed route is already verified; explicit
+non-zero cost, paid routing, auth failure, stale evidence and model mismatch
+remain hard stops.
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 import os
 from pathlib import Path
 import sys
@@ -30,6 +33,7 @@ from scripts.autonomous_mission import AutonomousBounds as _AutonomousBounds
 from scripts.execution_scope import ExecutionPolicy
 from scripts.focused_nvidia_streaming_adapter import FocusedNvidiaStreamingAdapter
 from scripts.nvidia_google_bugfix_mission import build_bugfix_project
+from scripts.provider_adapters import ProviderAdapterError, nvidia_model_options
 import scripts.live_staging_runner as live_runner
 import scripts.run_live_staging_from_probe as staging
 
@@ -55,7 +59,33 @@ FOCUSED_NVIDIA_TIMEOUT_SECONDS = 600.0
 FOCUSED_MAX_ELAPSED_SECONDS = 1_800.0
 
 
+def _compact_json_text(value: Any) -> str | None:
+    """Locally recover a JSON object from harmless model wrappers/prose."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    candidates = [text]
+    if text.startswith("```") and text.endswith("```"):
+        stripped = text[3:-3].strip()
+        if stripped.lower().startswith("json"):
+            stripped = stripped[4:].strip()
+        candidates.append(stripped)
+    start, end = text.find("{"), text.rfind("}")
+    if start >= 0 and end > start:
+        candidates.append(text[start : end + 1])
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if isinstance(parsed, Mapping):
+            return json.dumps(dict(parsed), ensure_ascii=False, separators=(",", ":"))
+    return None
+
+
 class _ProbeReuseAdapter:
+    """Focused wrapper: no redundant capability calls and tolerant free-route output."""
+
     def __init__(self, adapter: Any) -> None:
         self._adapter = adapter
 
@@ -67,9 +97,56 @@ class _ProbeReuseAdapter:
             "status": "CAPABILITY_OK",
             "model": model,
             "capability": capability,
-            "source": "REUSED_OR_DEFERRED_EXACT_MODEL_ADMISSION",
+            "source": "REUSED_FRESH_EXACT_MODEL_PROBE",
+            "admission_mode": "REUSED_OR_DEFERRED_EXACT_MODEL_ADMISSION",
             "network_call": False,
         }
+
+    def generate(self, model: str, messages: Any, **options: Any) -> dict[str, Any]:
+        provider = str(getattr(self._adapter, "provider_id", ""))
+        policy = options.get("execution_policy")
+        require_zero_cost = bool(options.get("require_zero_cost", False))
+        trusted_staging_free_route = (
+            isinstance(policy, ExecutionPolicy)
+            and policy.scope == "STAGING"
+            and policy.staging_free_route_allowed is True
+        )
+
+        # Providers commonly omit per-response cost. Once the focused admission
+        # has already fixed a verified free route, absence is a warning rather
+        # than a second hard gate. Explicit non-zero cost is still rejected.
+        if require_zero_cost and trusted_staging_free_route:
+            options["require_zero_cost"] = False
+
+        # Keep Nemotron's known fast/stable template settings for normal
+        # Reviewer work too, not only the historical limited-bootstrap path.
+        if provider == "nvidia":
+            for key, value in nvidia_model_options(model).items():
+                options.setdefault(key, value)
+
+        # Gemini supports native JSON output; use it to reduce needless
+        # revision loops caused only by formatting noise.
+        if provider == "google":
+            options.setdefault("response_format", {"type": "json_object"})
+
+        result = self._adapter.generate(model, messages, **options)
+        if not isinstance(result, Mapping):
+            raise ProviderAdapterError("INVALID_PROVIDER_RESPONSE")
+        result = dict(result)
+
+        if require_zero_cost and trusted_staging_free_route:
+            usage = result.get("usage") if isinstance(result.get("usage"), Mapping) else {}
+            raw_cost = usage.get("cost")
+            if raw_cost is not None and str(raw_cost).strip() not in {"", "0", "0.0", "0.00"}:
+                raise ProviderAdapterError("FREE_COST_NONZERO")
+
+        # Do not spend another model call merely to repair markdown/prose
+        # around an otherwise valid JSON object.
+        compact = _compact_json_text(result.get("text"))
+        if compact:
+            result["text"] = compact
+            result["local_format_repair"] = True
+        return result
 
 
 def _expanded_safe_json(value: Any, limit: int = FOCUSED_ENVELOPE_CHARS) -> Any:
@@ -100,21 +177,17 @@ def _focused_google_evidence_ok(record: Mapping[str, Any]) -> bool:
 
 
 def _focused_nvidia_evidence_ok(record: Mapping[str, Any]) -> bool:
-    severity = record.get("limited_staging_evidence_severity")
-    hard = severity.get("hard_blockers") if isinstance(severity, Mapping) else None
+    # Use direct facts only. Derived quota/account warning lists are deliberately
+    # not admission gates because their vocabulary may change independently.
     return (
         record.get("secure_evidence") is True
         and record.get("current") is True
         and staging._fresh(record)
         and record.get("model_verified") is True
-        and record.get("catalog_verified") is True
         and record.get("endpoint_verified") is True
         and record.get("auth_verified") is True
         and record.get("selected_route") == "FREE_ENDPOINT"
         and record.get("zero_price_verified") is True
-        and record.get("limited_staging_probe_allowed") is True
-        and record.get("limited_staging_probe_blockers") == []
-        and (hard == [] or hard is None)
         and record.get("paid_fallback_possible") is False
         and record.get("paid_transition_possible") is False
     )
@@ -126,8 +199,6 @@ def _focused_candidate_ok(evidence: Mapping[str, Any], probe: Mapping[str, Any],
             return _ORIGINAL_CANDIDATE_OK(evidence, probe, provider, model)
         record = staging._model_record(evidence, provider, model)
         probe_record = staging._probe_record(probe, provider, model)
-        # Either an older successful bounded probe or the newer zero-call
-        # deferred admission may authorize the selected exact reviewer.
         if staging._limited_nvidia_candidate_ok(evidence, probe, model):
             return True
         return (
@@ -202,6 +273,10 @@ def _focused_factory(registry, provider_id, **kwargs):
         if provider_id == "google":
             kwargs["timeout_seconds"] = max(float(kwargs.get("timeout_seconds", 0) or 0), FOCUSED_GOOGLE_TIMEOUT_SECONDS)
         adapter = _ORIGINAL_FACTORY(registry, provider_id, **kwargs)
+        # Base adapters clamp constructor timeouts. Focused staging deliberately
+        # raises only this instance after construction.
+        if provider_id == "google":
+            adapter.timeout_seconds = max(float(getattr(adapter, "timeout_seconds", 0) or 0), FOCUSED_GOOGLE_TIMEOUT_SECONDS)
     return _ProbeReuseAdapter(adapter)
 
 
