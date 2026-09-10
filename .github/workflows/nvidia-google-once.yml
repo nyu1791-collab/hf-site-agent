@@ -39,7 +39,9 @@ jobs:
             scripts/secure_account_evidence.py \
             scripts/validate_secure_evidence.py \
             scripts/probe_providers.py \
+            scripts/probe_nvidia_google_focused.py \
             scripts/run_live_staging_from_probe.py \
+            scripts/run_nvidia_google_staging_focused.py \
             scripts/live_staging_runner.py \
             scripts/run_nvidia_orchestrator_mission.py
 
@@ -61,7 +63,7 @@ jobs:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
         run: python scripts/validate_secure_evidence.py --input artifacts/secure_account_evidence.json
 
-      - name: Probe exact NVIDIA and Google candidates through existing gates
+      - name: Probe exact NVIDIA and Google candidates through focused gates
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -69,22 +71,17 @@ jobs:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           NVIDIA_PROBE_MODEL: deepseek-ai/deepseek-v4-flash-0731
         run: >-
-          python scripts/probe_providers.py
-          --provider nvidia
-          --provider google
-          --network
-          --confirm CHECK
-          --allow-limited-staging-probe
+          python scripts/probe_nvidia_google_focused.py
           --evidence-file artifacts/secure_account_evidence.json
           --output artifacts/provider_probe.json
 
-      - name: Continue into safe live staging or NVIDIA bootstrap
+      - name: Continue into safe focused live staging or NVIDIA bootstrap
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
         run: >-
-          python scripts/run_live_staging_from_probe.py
+          python scripts/run_nvidia_google_staging_focused.py
           --evidence-file artifacts/secure_account_evidence.json
           --probe-file artifacts/provider_probe.json
           --network
@@ -114,8 +111,9 @@ jobs:
           providers = evidence.get("providers") if isinstance(evidence.get("providers"), dict) else {}
           probe_items = probe.get("providers") if isinstance(probe.get("providers"), list) else []
           summary = {
-              "schema_version": "nvidia-google-once-v1",
+              "schema_version": "nvidia-google-once-v2",
               "provider_focus": ["nvidia", "google"],
+              "nvidia_timeout_seconds": 150,
               "secret_presence": {
                   name: bool(isinstance(lane, dict) and lane.get("secret_present") is True)
                   for name, lane in providers.items()
