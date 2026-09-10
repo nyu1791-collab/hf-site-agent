@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Continuous post-review pipeline for the OpenRouter worker trial.
+"""Continuous NVIDIA/Google -> OpenRouter -> project pipeline.
 
 One carrier invocation can progress from a validated NVIDIA+Google result into
-OpenRouter discovery, exact free probing, role benchmarks, deterministic
-ranking, and a commander handoff packet. No user action is required between
-stages. The pipeline stops only on completion or an external/budget blocker.
+OpenRouter discovery, exact-free probing, role benchmarks, deterministic
+ranking, commander handoff, and bounded follow-up projects. No user action is
+required between stages. External/budget uncertainty checkpoints the same
+project instead of creating a new mission or replaying an uncertain request.
 """
 
 from __future__ import annotations
@@ -16,12 +17,12 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from scripts.benchmark_free_workers import run_benchmarks
+from scripts.continuous_project_loop import AUTO_NEXT_SAFE, PROJECT_BOUNDARY, run_continuous_project_loop
 from scripts.openrouter_worker_mission import build_mission_packet
-from scripts.probe_free_workers import PROBE_CONFIRMATION_TOKEN
 from scripts.probe_free_workers_multi import run_multi_probe
 
-SCHEMA_VERSION = "openrouter-worker-orchestrator-v1"
-MAX_STAGE_EVENTS = 16
+SCHEMA_VERSION = "openrouter-worker-orchestrator-v2"
+MAX_STAGE_EVENTS = 20
 
 
 def _event(stage: str, status: str, summary: str) -> dict[str, Any]:
@@ -42,8 +43,6 @@ def _live_result_accepted(live: Mapping[str, Any]) -> bool:
             return False
         if int(view.get("live_agent_count", 0) or 0) < 2:
             return False
-    # The focused two-agent result is only accepted when there is no paid or
-    # production side effect and the autonomous mission reached completion.
     return (
         int(live.get("paid_execution_count", 0) or 0) == 0
         and int(live.get("paid_fallback_count", 0) or 0) == 0
@@ -69,11 +68,19 @@ def _handoff(benchmark: Mapping[str, Any]) -> dict[str, Any]:
         "selected_workers": selected,
         "ready_role_count": len(selected),
         "automatic_activation": False,
-        "next_action": "WORK_INTEGRATE_ROLE_ASSIGNMENTS" if selected else "NO_WORKER_ASSIGNMENT_AVAILABLE",
+        "next_action": "CONTINUE_PROJECT_PIPELINE" if selected else "NO_WORKER_ASSIGNMENT_AVAILABLE",
     }
 
 
-def run_pipeline(*, source_head: str, live_report: Mapping[str, Any], api_key: str, network_enabled: bool) -> dict[str, Any]:
+def run_pipeline(
+    *,
+    source_head: str,
+    live_report: Mapping[str, Any],
+    api_key: str,
+    network_enabled: bool,
+    continuation_mode: str = AUTO_NEXT_SAFE,
+    max_auto_projects: int = 3,
+) -> dict[str, Any]:
     events: list[dict[str, Any]] = []
     report: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -83,12 +90,14 @@ def run_pipeline(*, source_head: str, live_report: Mapping[str, Any], api_key: s
         "current_stage": "TWO_AGENT_RESULT_GATE",
         "events": events,
         "network_enabled": network_enabled,
+        "continuation_mode": continuation_mode,
         "paid_fallback": False,
         "production_active": False,
         "automatic_activation": False,
         "probe": {},
         "benchmark": {},
         "handoff": {},
+        "project_loop": {},
     }
 
     if not _live_result_accepted(live_report):
@@ -98,7 +107,7 @@ def run_pipeline(*, source_head: str, live_report: Mapping[str, Any], api_key: s
             state="WAITING_FOR_TWO_AGENT_COMPLETION",
             current_stage="TWO_AGENT_RESULT_GATE",
             stop_reason=reason,
-            next_action="RESUME_SAME_MISSION_WHEN_PROVIDER_EVIDENCE_IS_READY",
+            next_action="RESUME_SAME_PROJECT_WHEN_PROVIDER_EVIDENCE_IS_READY",
         )
         return report
 
@@ -109,7 +118,7 @@ def run_pipeline(*, source_head: str, live_report: Mapping[str, Any], api_key: s
             state="WAITING_FOR_NETWORK_ENABLE",
             current_stage="OPENROUTER_PROBE",
             stop_reason="NETWORK_NOT_ENABLED",
-            next_action="RESUME_SAME_MISSION_WITH_NETWORK",
+            next_action="RESUME_SAME_PROJECT_WITH_NETWORK",
         )
         return report
     if not api_key:
@@ -118,7 +127,7 @@ def run_pipeline(*, source_head: str, live_report: Mapping[str, Any], api_key: s
             state="WAITING_FOR_OPENROUTER_SECRET",
             current_stage="OPENROUTER_PROBE",
             stop_reason="OPENROUTER_SECRET_UNAVAILABLE",
-            next_action="RESUME_SAME_MISSION_WHEN_SECRET_IS_AVAILABLE",
+            next_action="RESUME_SAME_PROJECT_WHEN_SECRET_IS_AVAILABLE",
         )
         return report
 
@@ -131,7 +140,7 @@ def run_pipeline(*, source_head: str, live_report: Mapping[str, Any], api_key: s
         report.update(
             state="WAITING_FOR_FREE_WORKER",
             stop_reason=reason,
-            next_action="RESUME_SAME_MISSION_ON_NEXT_CATALOG_OR_QUOTA_WINDOW",
+            next_action="RESUME_SAME_PROJECT_ON_NEXT_CATALOG_OR_QUOTA_WINDOW",
         )
         return report
     events.append(_event("OPENROUTER_PROBE", "PASSED", f"exact free candidates verified with {int(probe.get('model_calls', 0) or 0)} probe calls"))
@@ -146,17 +155,33 @@ def run_pipeline(*, source_head: str, live_report: Mapping[str, Any], api_key: s
         report.update(
             state="WAITING_FOR_BENCHMARK_RECOVERY",
             stop_reason="NO_ACCEPTABLE_BENCHMARK_WINNER",
-            next_action="RESUME_SAME_MISSION_WITH_EXISTING_PROBE_EVIDENCE",
+            next_action="RESUME_SAME_PROJECT_WITH_EXISTING_PROBE_EVIDENCE",
         )
         return report
 
     events.append(_event("WORKER_BENCHMARK", "PASSED", f"{handoff['ready_role_count']} worker roles have ranked winners"))
-    events.append(_event("COMMANDER_HANDOFF", "READY", "role-scoped worker assignments ready for Work integration"))
+    events.append(_event("COMMANDER_HANDOFF", "READY", "role-scoped worker assignments ready for project continuation"))
+
+    # The first project is complete at this point. The project loop raises the
+    # stop boundary and can run bounded safe follow-up projects without a user
+    # click. Source-changing predicted projects still return to Work Integrator.
+    seed_report = dict(report)
+    seed_report.update(state="PROJECT_COMPLETE", current_stage="COMMANDER_HANDOFF")
+    project_loop = run_continuous_project_loop(
+        source_head=source_head,
+        openrouter_report=seed_report,
+        api_key=api_key,
+        network_enabled=network_enabled,
+        mode=continuation_mode,
+        max_auto_projects=max_auto_projects,
+    )
+    report["project_loop"] = project_loop
+    events.append(_event("PROJECT_CONTINUATION", str(project_loop.get("state") or "UNKNOWN"), str(project_loop.get("next_action") or "project loop completed")))
     report.update(
-        state="READY_FOR_WORK_INTEGRATION",
-        current_stage="COMMANDER_HANDOFF",
-        stop_reason="MISSION_PIPELINE_COMPLETE",
-        next_action="WORK_INTEGRATE_ROLE_ASSIGNMENTS",
+        state=str(project_loop.get("state") or "PROJECT_BOUNDARY_REACHED"),
+        current_stage="PROJECT_CONTINUATION",
+        stop_reason="PROJECT_LEVEL_STOP_BOUNDARY",
+        next_action=str(project_loop.get("next_action") or "NO_NEXT_PROJECT_PREDICTED"),
     )
     report["events"] = events[-MAX_STAGE_EVENTS:]
     return report
@@ -175,6 +200,13 @@ def main() -> int:
     output = Path(args.output)
     if live_path.is_absolute() or ".." in live_path.parts or output.is_absolute() or ".." in output.parts:
         raise SystemExit("paths must stay inside workspace")
+    mode = str(os.environ.get("PROJECT_CONTINUATION_MODE") or AUTO_NEXT_SAFE).strip().upper()
+    if mode not in {AUTO_NEXT_SAFE, PROJECT_BOUNDARY}:
+        mode = AUTO_NEXT_SAFE
+    try:
+        max_auto = int(os.environ.get("PROJECT_MAX_AUTO_PROJECTS") or 3)
+    except ValueError:
+        max_auto = 3
     try:
         live = json.loads(live_path.read_text(encoding="utf-8"))
         if not isinstance(live, Mapping):
@@ -184,6 +216,8 @@ def main() -> int:
             live_report=live,
             api_key=os.environ.get("OPENROUTER_API_KEY") or "",
             network_enabled=args.network,
+            continuation_mode=mode,
+            max_auto_projects=max_auto,
         )
     except Exception:
         report = {
@@ -191,7 +225,7 @@ def main() -> int:
             "state": "ORCHESTRATOR_BLOCKED",
             "current_stage": "INPUT_OR_RUNTIME",
             "stop_reason": "ORCHESTRATOR_INPUT_OR_RUNTIME_FAILURE",
-            "next_action": "RESUME_SAME_MISSION_AFTER_DIAGNOSIS",
+            "next_action": "RESUME_SAME_PROJECT_AFTER_DIAGNOSIS",
             "paid_fallback": False,
             "production_active": False,
             "automatic_activation": False,
@@ -199,11 +233,13 @@ def main() -> int:
         }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    project_loop = report.get("project_loop") if isinstance(report.get("project_loop"), Mapping) else {}
     print(json.dumps({
         "state": report.get("state"),
         "current_stage": report.get("current_stage"),
         "next_action": report.get("next_action"),
         "ready_role_count": ((report.get("handoff") or {}).get("ready_role_count", 0) if isinstance(report.get("handoff"), Mapping) else 0),
+        "completed_project_count": len(project_loop.get("completed_project_ids", [])) if isinstance(project_loop.get("completed_project_ids"), list) else 0,
     }, sort_keys=True))
     return 0
 
