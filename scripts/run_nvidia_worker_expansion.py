@@ -20,8 +20,12 @@ if __package__ in {None, ""}:  # pragma: no cover
 
 from scripts import run_nvidia_orchestrator_guarded as guarded
 from scripts import run_nvidia_orchestrator_mission as mission
+from scripts.china_bulk_coding_pool import build_bulk_coding_pool
 
 COUNCIL_PATH = Path("artifacts/worker_council.json")
+PROBE_PATH = Path("artifacts/openrouter_expansion_probe.json")
+BENCHMARK_PATH = Path("artifacts/openrouter_expansion_benchmark.json")
+CANARY_PATH = Path("artifacts/worker_canary.json")
 MAX_COUNCIL_PROMPT_CHARS = 18_000
 
 EXPANSION_FILES = (
@@ -30,12 +34,14 @@ EXPANSION_FILES = (
     "scripts/probe_free_workers_multi.py",
     "scripts/benchmark_free_workers.py",
     "scripts/worker_benchmark_ranking.py",
+    "scripts/china_bulk_coding_pool.py",
     "scripts/parallel_worker_council.py",
     "scripts/openrouter_worker_orchestrator.py",
     "scripts/continuous_project_loop.py",
     "scripts/model_registry.py",
     "tests/test_worker_selection.py",
     "tests/test_benchmark_free_workers_active_filter.py",
+    "tests/test_china_bulk_coding_pool.py",
     "tests/test_parallel_worker_council.py",
     "tests/test_openrouter_worker_orchestrator.py",
     "tests/test_continuous_project_loop.py",
@@ -53,20 +59,47 @@ EXPANSION_OBJECTIVE = (
     "highest aggregate-score model, and prefer a separate verified standby where practical. Bounded parallel execution "
     "across independent worker models is explicitly allowed and desired. Prefer several ranked workers and standbys per "
     "role, provider/model diversity, load spreading, and graceful same-run reselection when a free model is unavailable. "
-    "Keep only the minimum hard safeguards: exact requested model, :free/zero-cost evidence, no provider fallback to "
-    "another model, no paid fallback, no secret exposure, and no external-model repository writes. Do not add layers of "
-    "approval or defensive gates that merely reduce availability. Focus only on worker-corps expansion and routing; "
-    "do not spend the proposal on Google quota recovery. Return a complete implementation-ready Structured Patch "
-    "Bundle grounded only in the provided worker-corp repository files."
+    "For bulk low-risk coding, strongly consider the supplied China-value coding sub-pool (Qwen, DeepSeek, GLM, Kimi, "
+    "Ling, Tencent, MiniMax, StepFun and related current free families) because it is specifically ranked from same-run "
+    "coding quality, latency, token efficiency and reliability. This is a workload-placement preference, never an origin "
+    "hard gate: keep a model only when the evidence is competitive, and reserve security-critical/final architecture work "
+    "for stronger review paths. Keep only the minimum hard safeguards: exact requested model, :free/zero-cost evidence, "
+    "no provider fallback to another model, no paid fallback, no secret exposure, and no external-model repository writes. "
+    "Do not add layers of approval or defensive gates that merely reduce availability. Focus only on worker-corps expansion "
+    "and routing; do not spend the proposal on Google quota recovery. Return a complete implementation-ready Structured "
+    "Patch Bundle grounded only in the provided worker-corp repository files."
 )
 
 
-def _council_context() -> str:
+def _load_mapping(path: Path) -> Mapping[str, Any]:
     try:
-        raw = json.loads(COUNCIL_PATH.read_text(encoding="utf-8"))
+        value = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
-        return ""
-    if not isinstance(raw, Mapping):
+        return {}
+    return value if isinstance(value, Mapping) else {}
+
+
+def _augment_council_with_bulk_pool() -> None:
+    """Attach a same-run zero-extra-call bulk coding ranking to the uploaded council artifact."""
+    council = dict(_load_mapping(COUNCIL_PATH))
+    if not council:
+        return
+    probe = _load_mapping(PROBE_PATH)
+    benchmark = _load_mapping(BENCHMARK_PATH)
+    canary = _load_mapping(CANARY_PATH)
+    if not probe or not benchmark:
+        return
+    pool = build_bulk_coding_pool(probe=probe, benchmark=benchmark, canary=canary)
+    council["bulk_coding_pool"] = pool
+    COUNCIL_PATH.write_text(
+        json.dumps(council, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _council_context() -> str:
+    raw = _load_mapping(COUNCIL_PATH)
+    if not raw:
         return ""
     compact_selected = []
     selected_rows = raw.get("selected_models") if isinstance(raw.get("selected_models"), list) else []
@@ -93,6 +126,22 @@ def _council_context() -> str:
             "benchmark_evidence": row.get("benchmark_evidence") if isinstance(row.get("benchmark_evidence"), Mapping) else {},
             "response": str(row.get("response") or "")[:1800],
         })
+    bulk = raw.get("bulk_coding_pool") if isinstance(raw.get("bulk_coding_pool"), Mapping) else {}
+    compact_bulk_models = []
+    for row in bulk.get("models", []) if isinstance(bulk.get("models"), list) else []:
+        if not isinstance(row, Mapping):
+            continue
+        compact_bulk_models.append({
+            "bulk_rank": row.get("bulk_rank"),
+            "model": str(row.get("model") or "")[:180],
+            "family": row.get("family"),
+            "bulk_score": row.get("bulk_score"),
+            "coding_score": row.get("coding_score"),
+            "task_quality": row.get("task_quality"),
+            "latency_ms": row.get("latency_ms"),
+            "tokens_per_success": row.get("tokens_per_success"),
+            "coding_canary_verified": row.get("coding_canary_verified"),
+        })
     compact = {
         "status": raw.get("status"),
         "selection_policy": raw.get("selection_policy"),
@@ -102,6 +151,14 @@ def _council_context() -> str:
         "parallel_worker_limit": raw.get("parallel_worker_limit", 0),
         "selected_models": compact_selected,
         "results": compact_results,
+        "bulk_coding_pool": {
+            "status": bulk.get("status"),
+            "selection_policy": bulk.get("selection_policy"),
+            "model_count": bulk.get("model_count", 0),
+            "family_count": bulk.get("family_count", 0),
+            "recommended_parallelism": bulk.get("recommended_parallelism", 0),
+            "models": compact_bulk_models,
+        },
     }
     return json.dumps(compact, ensure_ascii=False, sort_keys=True, separators=(",", ":"))[:MAX_COUNCIL_PROMPT_CHARS]
 
@@ -115,6 +172,7 @@ def main() -> int:
     original_initial_tokens = mission.INITIAL_OUTPUT_TOKENS
     original_resume_tokens = mission.RESUME_OUTPUT_TOKENS
     original_recovery_context = guarded._current_recovery_context
+    _augment_council_with_bulk_pool()
     council = _council_context()
 
     def expansion_prompt(*, resume: bool, previous_hash: str, mission_mode: str) -> str:
@@ -156,6 +214,12 @@ def main() -> int:
             "MAX_PARALLEL_BENCHMARKS",
             "BENCHMARKS",
             "run_benchmarks",
+        ),
+        "scripts/china_bulk_coding_pool.py": (
+            "CHINA_VALUE_CODING_PREFIXES",
+            "MIN_TASK_QUALITY",
+            "RECOMMENDED_PARALLEL_LIMIT",
+            "build_bulk_coding_pool",
         ),
         "scripts/parallel_worker_council.py": (
             "MAX_COUNCIL_MODELS",
