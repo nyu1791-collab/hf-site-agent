@@ -18,7 +18,15 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sys
 from typing import Any, Mapping
+
+# GitHub Actions invokes this file directly as ``python scripts/...``. In that
+# mode sys.path[0] is the scripts directory, so add the repository root before
+# importing the scripts package. This is path bootstrapping only; it grants no
+# additional filesystem or provider permissions.
+if __package__ in {None, ""}:  # pragma: no cover - direct script entrypoint
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts import run_nvidia_orchestrator_mission as mission
 from scripts.mission_integrity import HEAD_RE, result_hash, validate_resume_bundle
