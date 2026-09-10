@@ -8,7 +8,9 @@ from scripts.live_staging_runner import LiveAgentBinding, LiveCallMetrics
 from scripts.mission_scheduler import ProviderInterrupted
 from scripts.provider_adapters import ProviderAdapterError
 from scripts.resilient_live_call import (
+    MAX_PRIMARY_RATE_LIMIT_RECOVERIES,
     MAX_TRAILING_RATE_LIMIT_RECOVERIES,
+    PRIMARY_RATE_LIMIT_BACKOFF_SECONDS,
     TRAILING_RATE_LIMIT_BACKOFF_SECONDS,
     call_model_with_bounded_recovery,
 )
@@ -77,6 +79,11 @@ class SequenceAdapter:
         return event
 
 
+class FocusedSequenceAdapter(SequenceAdapter):
+    # Test seam for the explicit marker on FocusedGoogleNativeAdapter.
+    focused_commander_transport = True
+
+
 def _unavailable():
     return ProviderAdapterError(
         "TEMPORARY_PROVIDER_ERROR",
@@ -125,7 +132,7 @@ class GoogleBackpressureRecoveryTests(unittest.TestCase):
         self.assertEqual(len(request_ids), len(set(request_ids)))
 
     @patch("scripts.resilient_live_call.time.sleep")
-    def test_first_call_429_still_does_not_retry(self, sleep):
+    def test_generic_first_call_429_remains_fail_closed(self, sleep):
         adapter = SequenceAdapter([_limited(), _ok()])
         metrics = self._metrics()
         with self.assertRaises(ProviderInterrupted) as caught:
@@ -140,6 +147,29 @@ class GoogleBackpressureRecoveryTests(unittest.TestCase):
         self.assertEqual(caught.exception.actual_requests, 1)
         self.assertEqual(caught.exception.actual_tokens, 0)
         sleep.assert_not_called()
+
+    @patch("scripts.resilient_live_call.time.sleep")
+    def test_focused_free_route_first_429_gets_two_bounded_cooldowns(self, sleep):
+        adapter = FocusedSequenceAdapter([_limited(), _limited(), _ok()])
+        metrics = self._metrics()
+        result = call_model_with_bounded_recovery(
+            self._binding(adapter),
+            _task(),
+            {"phase": "EXECUTE"},
+            metrics=metrics,
+            instruction="Return JSON only.",
+        )
+        self.assertEqual(result["summary"], "recovered")
+        self.assertEqual(result["provider_attempts"], 3)
+        self.assertEqual(result["primary_rate_limit_recovery_count"], 2)
+        self.assertEqual(MAX_PRIMARY_RATE_LIMIT_RECOVERIES, 2)
+        self.assertEqual(len(adapter.calls), 3)
+        self.assertEqual(metrics.snapshot()["external_model_calls"], 3)
+        self.assertEqual(sleep.call_count, 2)
+        self.assertEqual(sleep.call_args_list[0].args[0], PRIMARY_RATE_LIMIT_BACKOFF_SECONDS[0])
+        self.assertEqual(sleep.call_args_list[1].args[0], PRIMARY_RATE_LIMIT_BACKOFF_SECONDS[1])
+        request_ids = [call["options"]["request_id"] for call in adapter.calls]
+        self.assertEqual(len(request_ids), len(set(request_ids)))
 
 
 if __name__ == "__main__":
