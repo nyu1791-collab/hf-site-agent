@@ -1,0 +1,78 @@
+{
+  "schema_version": "deepseek-specialist-routing-v1",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "model_family": "DeepSeek-V4.1-Flash",
+  "rank": "PAID_ENGINEERING_SPECIALIST",
+  "scope": "STAGING_ONLY",
+  "enabled": true,
+  "production_enabled": false,
+  "generic_paid_fallback": false,
+  "auto_top_up": false,
+  "free_workers_remain_primary": true,
+  "nvidia_remains_commander": true,
+  "normal_mission_budget": {
+    "max_paid_calls": 2,
+    "max_parallel_calls": 2,
+    "max_estimated_cost_usd": 0.05,
+    "budget_guard_rates": "CONSERVATIVE"
+  },
+  "automatic_escalation": {
+    "only_after_free_worker_and_work_stealing_failure": true,
+    "lanes": {
+      "SCHEDULER_DAG": {
+        "capability": "CODING_DEEP",
+        "thinking": false,
+        "max_tokens": 4096,
+        "reason": "A/B run 34544219285: direct quality=1.00, grounded_patch_ratio=1.00, latency=4080ms, estimated_cost=$0.00098085; faster and cheaper than thinking mode at equal structural quality."
+      },
+      "FAILURE_RETRY": {
+        "capability": "DEBUGGING",
+        "thinking": false,
+        "max_tokens": 4096,
+        "reason": "A/B run 34544219285: direct quality=1.00, grounded_patch_ratio=1.00, latency=5614ms, estimated_cost=$0.00064714; thinking mode cost and latency were substantially higher."
+      }
+    }
+  },
+  "on_demand": {
+    "ARCHITECTURE": {
+      "thinking": true,
+      "reasoning_effort": "high",
+      "max_tokens": 4096,
+      "requires_unresolved_architecture_or_commander_request": true,
+      "reason": "Trial run 34543909763 completed architecture at structural quality=1.00 with bounded cost."
+    },
+    "CODE_REVIEW": {
+      "thinking": false,
+      "max_tokens": 4096,
+      "requires_free_reviewer_disagreement_or_targeted_request": true,
+      "reason": "Direct mode succeeded in A/B run while thinking mode exhausted 8192 tokens; grounding score was 0.6667, so automatic final-review authority is intentionally not granted."
+    }
+  },
+  "keep_on_free_workers": [
+    "BULK",
+    "DOCUMENTATION",
+    "CLASSIFICATION",
+    "SIMPLE_TEST",
+    "TEST_STRATEGY",
+    "RESULT_AGGREGATION",
+    "PERFORMANCE_TELEMETRY",
+    "TRIVIAL"
+  ],
+  "result_policy": {
+    "advisory_candidate_only": true,
+    "does_not_auto_apply_patch": true,
+    "does_not_mark_lane_machine_validated": true,
+    "commander_or_work_integrates_after_validation": true
+  },
+  "evidence": {
+    "trial_run": 34543909763,
+    "trial_success_rate": 0.5,
+    "trial_cache_hit_rate": 0.954,
+    "trial_estimated_cost_usd": 0.01152312,
+    "role_mode_benchmark_run": 34544219285,
+    "role_mode_success_rate": 0.8333,
+    "role_mode_estimated_cost_usd": 0.01233269,
+    "role_mode_conservative_cost_usd": 0.02783386
+  }
+}
