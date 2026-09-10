@@ -6,18 +6,31 @@ bounds. The focused AI-army lane has independently bounded 120k prompt and
 144k response envelopes, so this adapter preserves that useful context while
 keeping the native Gemini contract, exact-model checks, no fallback, and no
 provider retries.
+
+For HTTP 429 responses, only machine-readable quota/retry metadata is reduced
+to a safe error class and delay. Raw provider error bodies and human-readable
+messages are never persisted. This lets the runtime distinguish a temporary
+rate limit from a daily/zero quota instead of blindly retrying both.
 """
 
 from __future__ import annotations
 
 import json
 from typing import Any, Mapping, Sequence
+from urllib.error import HTTPError
 from urllib.parse import quote
 
-from scripts.provider_adapters import AdapterResponse, GeminiNativeAdapter, OpenAICompatibleAdapter, ProviderAdapterError
+from scripts.provider_adapters import (
+    AdapterResponse,
+    GeminiNativeAdapter,
+    NormalizedProviderError,
+    OpenAICompatibleAdapter,
+    ProviderAdapterError,
+)
 
 FOCUSED_GOOGLE_MAX_INPUT_CHARS = 120_000
 FOCUSED_GOOGLE_MAX_RESPONSE_CHARS = 144_000
+MAX_GOOGLE_ERROR_BODY_BYTES = 65_536
 
 
 class FocusedGoogleNativeAdapter(GeminiNativeAdapter):
@@ -55,6 +68,99 @@ class FocusedGoogleNativeAdapter(GeminiNativeAdapter):
                 remaining -= len(text)
             output.append(part)
         return output
+
+    @staticmethod
+    def _retry_delay_seconds(value: Any) -> int | None:
+        if isinstance(value, bool) or value is None:
+            return None
+        text = str(value).strip().lower()
+        if text.endswith("s"):
+            text = text[:-1].strip()
+        try:
+            seconds = float(text)
+        except (TypeError, ValueError):
+            return None
+        if seconds < 0:
+            return None
+        # Ceiling without importing math; retrying slightly late is safer.
+        return min(3600, int(seconds) if seconds.is_integer() else int(seconds) + 1)
+
+    @classmethod
+    def _safe_429_diagnostic(cls, error: HTTPError) -> NormalizedProviderError:
+        """Reduce a Gemini 429 body to a non-sensitive quota classification."""
+        retry_after: int | None = None
+        try:
+            retry_after = cls._retry_delay_seconds(error.headers.get("Retry-After"))
+        except AttributeError:
+            retry_after = None
+
+        error_code = ""
+        quota_tokens: list[str] = []
+        zero_limit = False
+        try:
+            raw = error.read(MAX_GOOGLE_ERROR_BODY_BYTES + 1)
+            if len(raw) <= MAX_GOOGLE_ERROR_BODY_BYTES:
+                payload = json.loads(raw.decode("utf-8", errors="strict")) if raw else {}
+            else:
+                payload = {}
+        except (OSError, UnicodeError, TypeError, ValueError, json.JSONDecodeError):
+            payload = {}
+
+        envelope = payload.get("error") if isinstance(payload, Mapping) else {}
+        envelope = envelope if isinstance(envelope, Mapping) else {}
+        raw_code = envelope.get("code")
+        if isinstance(raw_code, str):
+            error_code = raw_code.strip().lower()
+
+        details = envelope.get("details")
+        if isinstance(details, list):
+            for detail in details[:24]:
+                if not isinstance(detail, Mapping):
+                    continue
+                type_name = str(detail.get("@type") or detail.get("type") or "").lower()
+                if "retryinfo" in type_name or "retry_info" in type_name:
+                    parsed_delay = cls._retry_delay_seconds(
+                        detail.get("retryDelay", detail.get("retry_delay"))
+                    )
+                    if parsed_delay is not None:
+                        retry_after = parsed_delay if retry_after is None else max(retry_after, parsed_delay)
+                if "quotafailure" not in type_name and "quota_failure" not in type_name:
+                    continue
+                violations = detail.get("violations")
+                if not isinstance(violations, list):
+                    continue
+                for violation in violations[:24]:
+                    if not isinstance(violation, Mapping):
+                        continue
+                    for key in ("quotaId", "quota_id", "quotaMetric", "quota_metric"):
+                        value = violation.get(key)
+                        if isinstance(value, str):
+                            quota_tokens.append(value.lower()[:240])
+                    quota_value = violation.get("quotaValue", violation.get("quota_value"))
+                    if str(quota_value).strip() in {"0", "0.0", "0.00"}:
+                        zero_limit = True
+
+        joined = " ".join(quota_tokens)
+        daily = (
+            error_code == "quota_exceeded"
+            or "perday" in joined
+            or "per_day" in joined
+            or "requestsperday" in joined
+            or "requests_per_day" in joined
+            or "daily" in joined
+        )
+        if zero_limit:
+            return NormalizedProviderError("GOOGLE_QUOTA_LIMIT_ZERO", 429, None, False)
+        if daily:
+            return NormalizedProviderError("GOOGLE_DAILY_QUOTA_EXHAUSTED", 429, None, False)
+        # rate_limit_exceeded / too_many_requests / legacy RESOURCE_EXHAUSTED
+        # without a daily or zero-limit quota signal are treated as transient.
+        return NormalizedProviderError("RATE_LIMITED", 429, retry_after, True)
+
+    def normalize_error(self, error: BaseException) -> NormalizedProviderError:
+        if isinstance(error, HTTPError) and int(getattr(error, "code", 0) or 0) == 429:
+            return self._safe_429_diagnostic(error)
+        return super().normalize_error(error)
 
     def _gemini_chat(
         self,
@@ -145,4 +251,5 @@ __all__ = [
     "FocusedGoogleNativeAdapter",
     "FOCUSED_GOOGLE_MAX_INPUT_CHARS",
     "FOCUSED_GOOGLE_MAX_RESPONSE_CHARS",
+    "MAX_GOOGLE_ERROR_BODY_BYTES",
 ]
