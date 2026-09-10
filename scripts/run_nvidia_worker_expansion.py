@@ -46,11 +46,15 @@ EXPANSION_OBJECTIVE = (
     "NVIDIA Nemotron is the main high-availability commander/reviewer for ordinary engineering. Google Gemini "
     "must be conserved for critical implementation, unusually difficult design, and final critical review only. "
     "Use the current OpenRouter catalog dynamically and admit useful models through exact-free probes plus real "
-    "role benchmarks rather than brittle metadata requirements. Bounded parallel execution across independent "
-    "worker models is explicitly allowed and desired. Prefer several ranked workers and standbys per role, "
-    "provider/model diversity, load spreading, and graceful reselection when a free model is unavailable. Keep only "
-    "the minimum hard safeguards: exact requested model, :free/zero-cost evidence, no provider fallback to another "
-    "model, no paid fallback, no secret exposure, and no external-model repository writes. Do not add layers of "
+    "role benchmarks rather than brittle metadata requirements. Do not pin a model merely because it was previously "
+    "strong or newly released: current exact-free availability and same-run benchmark evidence are mandatory. "
+    "Treat worker choice as a Pareto portfolio across task quality, latency, tokens-per-success, error/revision rate, "
+    "role coverage, and model-family diversity. Preserve distinct fast/lean specialists even when they are not the "
+    "highest aggregate-score model, and prefer a separate verified standby where practical. Bounded parallel execution "
+    "across independent worker models is explicitly allowed and desired. Prefer several ranked workers and standbys per "
+    "role, provider/model diversity, load spreading, and graceful same-run reselection when a free model is unavailable. "
+    "Keep only the minimum hard safeguards: exact requested model, :free/zero-cost evidence, no provider fallback to "
+    "another model, no paid fallback, no secret exposure, and no external-model repository writes. Do not add layers of "
     "approval or defensive gates that merely reduce availability. Focus only on worker-corps expansion and routing; "
     "do not spend the proposal on Google quota recovery. Return a complete implementation-ready Structured Patch "
     "Bundle grounded only in the provided worker-corp repository files."
@@ -64,6 +68,19 @@ def _council_context() -> str:
         return ""
     if not isinstance(raw, Mapping):
         return ""
+    compact_selected = []
+    selected_rows = raw.get("selected_models") if isinstance(raw.get("selected_models"), list) else []
+    for row in selected_rows[:12]:
+        if not isinstance(row, Mapping):
+            continue
+        compact_selected.append({
+            "model": str(row.get("model") or "")[:180],
+            "roles": list(row.get("roles") or [])[:8],
+            "best_score": row.get("best_score"),
+            "best_latency_ms": row.get("best_latency_ms"),
+            "best_tokens_per_success": row.get("best_tokens_per_success"),
+            "selection_reasons": list(row.get("selection_reasons") or [])[:8],
+        })
     compact_results = []
     rows = raw.get("results") if isinstance(raw.get("results"), list) else []
     for row in rows[:8]:
@@ -72,13 +89,18 @@ def _council_context() -> str:
         compact_results.append({
             "model": str(row.get("model") or "")[:180],
             "roles": list(row.get("roles") or [])[:8],
+            "selection_reasons": list(row.get("selection_reasons") or [])[:8],
+            "benchmark_evidence": row.get("benchmark_evidence") if isinstance(row.get("benchmark_evidence"), Mapping) else {},
             "response": str(row.get("response") or "")[:1800],
         })
     compact = {
         "status": raw.get("status"),
+        "selection_policy": raw.get("selection_policy"),
+        "decision_axes": list(raw.get("decision_axes") or [])[:12],
         "selected_model_count": raw.get("selected_model_count", 0),
         "successful_model_count": raw.get("successful_model_count", 0),
         "parallel_worker_limit": raw.get("parallel_worker_limit", 0),
+        "selected_models": compact_selected,
         "results": compact_results,
     }
     return json.dumps(compact, ensure_ascii=False, sort_keys=True, separators=(",", ":"))[:MAX_COUNCIL_PROMPT_CHARS]
@@ -138,6 +160,7 @@ def main() -> int:
         "scripts/parallel_worker_council.py": (
             "MAX_COUNCIL_MODELS",
             "MAX_PARALLEL_COUNCIL",
+            "COUNCIL_DECISION_AXES",
             "select_council_models",
             "run_council",
         ),
