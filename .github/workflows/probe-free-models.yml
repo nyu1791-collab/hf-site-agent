@@ -86,22 +86,29 @@ jobs:
             scripts/mission_integrity.py \
             scripts/google_staging_readiness.py \
             scripts/ai_army_coordination.py \
+            scripts/openrouter_worker_mission.py \
+            scripts/probe_free_workers_multi.py \
+            scripts/benchmark_free_workers.py \
+            scripts/worker_benchmark_ranking.py \
+            scripts/openrouter_worker_orchestrator.py \
             scripts/run_nvidia_orchestrator_mission.py \
             scripts/run_nvidia_orchestrator_guarded.py
           python - <<'PY'
           import json, os
           from pathlib import Path
           report = {
-              "schema_version": "carrier-dispatch-v4",
+              "schema_version": "carrier-dispatch-v5",
               "dispatch_status": "EXECUTED",
               "workflow": "probe-free-models.yml",
               "event": os.environ.get("GITHUB_EVENT_NAME", ""),
               "branch": os.environ.get("GITHUB_REF_NAME", ""),
               "branch_guard_allows_target": True,
               "required_input_blocker": False,
-              "provider_focus": ["nvidia", "google"],
+              "provider_focus": ["nvidia", "google", "openrouter-worker"],
               "nvidia_selected_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
               "google_selected_model": "gemini-3.8-flash",
+              "openrouter_worker_selection": "dynamic-current-catalog",
+              "continuous_pipeline": True,
               "production_active": False,
               "paid_execution_count": 0,
           }
@@ -113,6 +120,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -121,6 +129,7 @@ jobs:
           presence = {
               "google": bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")),
               "nvidia": bool(os.environ.get("NVIDIA_API_KEY")),
+              "openrouter": bool(os.environ.get("OPENROUTER_API_KEY")),
           }
           report = {
               "schema_version": "carrier-secret-presence-v1",
@@ -195,6 +204,18 @@ jobs:
           --checkpoint-root artifacts/live_staging_checkpoints
           --output artifacts/live_staging_report.json
 
+      - name: Continue same mission through OpenRouter worker probe benchmark and handoff
+        if: always()
+        continue-on-error: true
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: >-
+          python scripts/openrouter_worker_orchestrator.py
+          --live-report artifacts/live_staging_report.json
+          --source-head "$GITHUB_SHA"
+          --network
+          --output artifacts/openrouter_worker_orchestrator.json
+
       - name: Build deterministic AI army coordination packet
         if: always()
         run: >-
@@ -252,6 +273,7 @@ jobs:
               "artifacts/provider_probe.json": {"schema_version":"provider-probe-v1","network_enabled":True,"model_calls":0,"retry_count":0,"paid_fallback":False,"providers":[]},
               "artifacts/google_staging_readiness.json": {"schema_version":"google-staging-readiness-v2","state":"BLOCKED_INVALID_INPUT","live_ready":False,"repeat_nvidia_call_allowed":False,"external_model_calls_recommended":0},
               "artifacts/live_staging_report.json": {"status":"blocked","stop_reason":"CARRIER_INPUT_UNAVAILABLE","live_staging":False,"model_calls":0,"paid_execution_count":0,"paid_fallback_count":0,"production_active":False},
+              "artifacts/openrouter_worker_orchestrator.json": {"schema_version":"openrouter-worker-orchestrator-v1","state":"WAITING_FOR_TWO_AGENT_COMPLETION","current_stage":"TWO_AGENT_RESULT_GATE","events":[],"paid_fallback":False,"production_active":False,"automatic_activation":False},
               "artifacts/ai_army_coordination.json": {"schema_version":"ai-army-coordination-v1","state":"BLOCKED_INVALID_INPUT","next_action":"REFRESH_COORDINATION_INPUTS","call_policy":{"recommended_nvidia_calls_this_stage":0,"recommended_google_calls_this_stage":0,"paid_fallback":False}},
           }
           for name, default in defaults.items():
@@ -285,20 +307,26 @@ jobs:
           probe=read("artifacts/provider_probe.json")
           live=read("artifacts/live_staging_report.json")
           ready=read("artifacts/google_staging_readiness.json")
+          orchestration=read("artifacts/openrouter_worker_orchestrator.json")
           coordination=read("artifacts/ai_army_coordination.json")
           state=read("artifacts/mission_state.json")
           inbox=read("artifacts/result_inbox.json")
           ledger=read("artifacts/nvidia_orchestrator_ledger.json")
           items=probe.get("providers") if isinstance(probe.get("providers"),list) else []
           live_view=live.get("live_staging") if isinstance(live.get("live_staging"),dict) else {}
+          handoff=orchestration.get("handoff") if isinstance(orchestration.get("handoff"),dict) else {}
           summary={
-              "schema_version":"carrier-summary-v5",
-              "provider_focus":["nvidia","google"],
+              "schema_version":"carrier-summary-v6",
+              "provider_focus":["nvidia","google","openrouter-worker"],
               "nvidia_model":"nvidia/nemotron-3.5-lightning-30b-a3b",
               "google_model":"gemini-3.8-flash",
               "google_readiness_state":ready.get("state"),
               "coordination_state":coordination.get("state"),
               "coordination_next_action":coordination.get("next_action"),
+              "openrouter_orchestration_state":orchestration.get("state"),
+              "openrouter_orchestration_stage":orchestration.get("current_stage"),
+              "openrouter_ready_role_count":int(handoff.get("ready_role_count",0) or 0),
+              "continuous_pipeline":True,
               "probe_model_calls":int(probe.get("model_calls",0) or 0),
               "probe_status_by_provider":{str(i.get("provider")):str(i.get("status")) for i in items if isinstance(i,dict) and i.get("provider")},
               "live_two_agent":bool(live_view.get("operational") is True),
@@ -331,7 +359,7 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/audit_secret_safety.py --root .
-          for report in artifacts/secure_account_evidence.json artifacts/provider_probe.json artifacts/google_staging_readiness.json artifacts/live_staging_report.json artifacts/ai_army_coordination.json artifacts/failure_classification.json artifacts/carrier_summary.json; do
+          for report in artifacts/secure_account_evidence.json artifacts/provider_probe.json artifacts/google_staging_readiness.json artifacts/live_staging_report.json artifacts/openrouter_worker_orchestrator.json artifacts/ai_army_coordination.json artifacts/failure_classification.json artifacts/carrier_summary.json; do
             python -m json.tool "$report" >/dev/null
           done
 
@@ -347,6 +375,7 @@ jobs:
             artifacts/provider_probe.json
             artifacts/google_staging_readiness.json
             artifacts/live_staging_report.json
+            artifacts/openrouter_worker_orchestrator.json
             artifacts/ai_army_coordination.json
             artifacts/failure_classification.json
             artifacts/carrier_summary.json
