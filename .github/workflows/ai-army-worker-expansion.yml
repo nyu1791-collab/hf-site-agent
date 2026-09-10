@@ -1,4 +1,4 @@
-name: "AI army worker expansion: NVIDIA lead"
+name: "AI army worker expansion: NVIDIA + OpenRouter"
 
 on:
   push:
@@ -18,7 +18,7 @@ concurrency:
 jobs:
   nvidia-worker-expansion:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout source without write credentials
         uses: actions/checkout@v6
@@ -73,6 +73,115 @@ jobs:
           SOURCE_HEAD: ${{ github.sha }}
         run: python scripts/run_nvidia_worker_expansion.py
 
+      - name: Probe expanded OpenRouter exact-free worker pool
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from scripts.probe_free_workers_multi import run_multi_probe
+          report = run_multi_probe(
+              api_key=os.environ.get("OPENROUTER_API_KEY") or "",
+              explicit_approval=True,
+          )
+          Path("artifacts/openrouter_expansion_probe.json").write_text(
+              json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps({
+              "status": report.get("status"),
+              "model_calls": report.get("model_calls", 0),
+              "selected_probe_models": report.get("selected_probe_models", []),
+          }, sort_keys=True))
+          PY
+
+      - name: Benchmark all verified active workers within role caps
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from scripts.benchmark_free_workers import run_benchmarks
+          probe = json.loads(Path("artifacts/openrouter_expansion_probe.json").read_text(encoding="utf-8"))
+          report = run_benchmarks(
+              api_key=os.environ.get("OPENROUTER_API_KEY") or "",
+              probe_report=probe,
+          )
+          Path("artifacts/openrouter_expansion_benchmark.json").write_text(
+              json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps({
+              "status": report.get("status"),
+              "model_calls": report.get("model_calls", 0),
+              "ready_role_count": report.get("ready_role_count", 0),
+          }, sort_keys=True))
+          PY
+
+      - name: Build dynamic AI army worker pool handoff
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          probe = json.loads(Path("artifacts/openrouter_expansion_probe.json").read_text(encoding="utf-8"))
+          benchmark = json.loads(Path("artifacts/openrouter_expansion_benchmark.json").read_text(encoding="utf-8"))
+          verified = []
+          for row in probe.get("results", []):
+              if not isinstance(row, dict) or row.get("status") != "FREE_ACTIVE":
+                  continue
+              requested = str(row.get("requested_model") or "")
+              if requested and row.get("response_model") == requested and row.get("fallback_used") is not True:
+                  verified.append(requested)
+          pools = {}
+          unique_ranked = set()
+          for role, ranking in (benchmark.get("rankings") or {}).items():
+              if not isinstance(ranking, list):
+                  continue
+              entries = []
+              for item in ranking[:3]:
+                  if not isinstance(item, dict) or not item.get("model"):
+                      continue
+                  model = str(item["model"])
+                  unique_ranked.add(model)
+                  entries.append({
+                      "model": model,
+                      "rank": item.get("rank"),
+                      "score": item.get("score"),
+                      "status": "BENCHMARKED_ROLE_CANDIDATE",
+                  })
+              if entries:
+                  pools[str(role)] = entries
+          report = {
+              "schema_version": "ai-army-dynamic-worker-pool-v1",
+              "source_head": "${{ github.sha }}",
+              "nvidia_commander": "nvidia/nemotron-3.5-lightning-30b-a3b",
+              "google_policy": "RESERVE_FOR_CRITICAL_IMPLEMENTATION_AND_FINAL_CRITICAL_REVIEW",
+              "verified_free_models": sorted(set(verified)),
+              "verified_free_model_count": len(set(verified)),
+              "benchmarked_unique_models": sorted(unique_ranked),
+              "benchmarked_unique_model_count": len(unique_ranked),
+              "role_pools": pools,
+              "generic_openrouter_free_router_allowed": False,
+              "paid_fallback": False,
+              "automatic_unverified_activation": False,
+              "external_repository_write": False,
+          }
+          Path("artifacts/ai_army_dynamic_worker_pool.json").write_text(
+              json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps({
+              "verified_free_model_count": report["verified_free_model_count"],
+              "benchmarked_unique_model_count": report["benchmarked_unique_model_count"],
+              "roles": sorted(report["role_pools"]),
+          }, sort_keys=True))
+          PY
+
       - name: Audit repository and result artifacts
         run: |
           set -euo pipefail
@@ -80,8 +189,11 @@ jobs:
           python -m json.tool artifacts/mission_state.json >/dev/null
           python -m json.tool artifacts/result_inbox.json >/dev/null
           python -m json.tool artifacts/nvidia_orchestrator_ledger.json >/dev/null
+          python -m json.tool artifacts/openrouter_expansion_probe.json >/dev/null
+          python -m json.tool artifacts/openrouter_expansion_benchmark.json >/dev/null
+          python -m json.tool artifacts/ai_army_dynamic_worker_pool.json >/dev/null
 
-      - name: Upload NVIDIA expansion result
+      - name: Upload NVIDIA and OpenRouter expansion result
         uses: actions/upload-artifact@v6
         with:
           name: nvidia-worker-expansion-${{ github.run_id }}
@@ -91,4 +203,7 @@ jobs:
             artifacts/mission_state.json
             artifacts/result_inbox.json
             artifacts/nvidia_orchestrator_ledger.json
+            artifacts/openrouter_expansion_probe.json
+            artifacts/openrouter_expansion_benchmark.json
+            artifacts/ai_army_dynamic_worker_pool.json
           retention-days: 7
