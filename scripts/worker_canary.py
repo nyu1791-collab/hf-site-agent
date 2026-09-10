@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Run a tiny second-sample canary for ranked OpenRouter workers.
+"""Run second-sample canaries for ranked OpenRouter workers.
 
-Canaries are a follow-up project, not another benchmark scorer. They verify that
-a selected role/model still answers on a different task, resolves to the exact
-model, stays on the no-fallback route, and preserves the prior FREE_ACTIVE
-evidence. They never activate a worker or mutate the registry.
+Canaries verify that a selected role/model still answers on a different task,
+resolves to the exact model, stays on the no-provider-fallback route, and remains
+covered by current FREE_ACTIVE evidence. Independent role canaries run with a
+small bounded fan-out. Native JSON mode is intentionally not required: workers
+are prompted for JSON and the response is validated locally, avoiding a brittle
+capability gate that excludes otherwise useful free models.
 """
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
 import json
@@ -20,7 +23,8 @@ import urllib.request
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 TIMEOUT_SECONDS = 25
 MAX_OUTPUT_TOKENS = 128
-MAX_CANARY_CALLS = 4
+MAX_CANARY_CALLS = 6
+MAX_PARALLEL_CANARIES = 6
 
 CANARY_TASKS: dict[str, tuple[str, str]] = {
     "GENERAL_WORKER": (
@@ -95,7 +99,6 @@ def _request(model: str, api_key: str, prompt: str) -> tuple[int, dict[str, Any]
         "max_tokens": MAX_OUTPUT_TOKENS,
         "temperature": 0,
         "stream": False,
-        "response_format": {"type": "json_object"},
         "provider": {"allow_fallbacks": False},
     }
     request = urllib.request.Request(
@@ -126,17 +129,69 @@ def _request(model: str, api_key: str, prompt: str) -> tuple[int, dict[str, Any]
         return 0, None, "network_error", max(1.0, (time.perf_counter() - started) * 1000.0)
 
 
+def _record(role: str, model: str, api_key: str) -> dict[str, Any]:
+    status, payload, error, elapsed_ms = _request(model, api_key, CANARY_TASKS[role][0])
+    result: dict[str, Any] = {
+        "status": "CANARY_FAILED",
+        "model": model,
+        "http_status": status,
+        "latency_ms": round(elapsed_ms, 3),
+        "error": error or None,
+        "exact_model": False,
+        "structured_output": False,
+        "quality_pass": False,
+    }
+    if status != 200 or not isinstance(payload, Mapping):
+        return result
+
+    resolved = str(payload.get("model") or "").strip()
+    usage = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
+    cost = _decimal(usage.get("cost"))
+    content = _content(payload)
+    try:
+        parsed_value = json.loads(content)
+        parsed = parsed_value if isinstance(parsed_value, Mapping) else None
+    except (TypeError, ValueError, json.JSONDecodeError):
+        parsed = None
+    exact = resolved == model
+    structured = parsed is not None
+    quality = bool(parsed is not None and _passes(role, parsed))
+    cost_ok = cost in {None, Decimal("0")}
+    result.update(
+        exact_model=exact,
+        structured_output=structured,
+        quality_pass=quality,
+        usage_cost=str(cost) if cost is not None else None,
+        cost_evidence="THIS_RESPONSE_ZERO" if cost == Decimal("0") else "PRIOR_EXACT_FREE_PROBE",
+    )
+    if exact and structured and quality and cost_ok:
+        result["status"] = "CANARY_OK"
+        result["error"] = None
+    elif not exact:
+        result["error"] = "response_model_mismatch"
+    elif not cost_ok:
+        result["error"] = "nonzero_cost"
+    elif not structured:
+        result["error"] = "invalid_structured_output"
+    else:
+        result["error"] = "quality_assertion_failed"
+    return result
+
+
 def run_worker_canary(*, api_key: str, handoff: Mapping[str, Any], probe_report: Mapping[str, Any]) -> dict[str, Any]:
     selected = handoff.get("selected_workers")
     selected = selected if isinstance(selected, Mapping) else {}
     verified = _verified_models(probe_report)
     report: dict[str, Any] = {
-        "schema_version": "worker-canary-v1",
+        "schema_version": "worker-canary-v2",
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "model_calls": 0,
         "max_calls": MAX_CANARY_CALLS,
         "max_output_tokens_per_call": MAX_OUTPUT_TOKENS,
         "provider_allow_fallbacks": False,
+        "native_json_mode_required": False,
+        "parallel_execution": True,
+        "parallel_worker_limit": MAX_PARALLEL_CANARIES,
         "results": {},
         "automatic_activation": False,
         "paid_fallback": False,
@@ -149,11 +204,12 @@ def run_worker_canary(*, api_key: str, handoff: Mapping[str, Any], probe_report:
         report.update(status="BLOCKED_NO_SELECTED_WORKERS", reason="No ranked worker handoff is available")
         return report
 
+    work_items: list[tuple[str, str]] = []
+    required_roles: list[str] = []
     for role, value in selected.items():
-        if report["model_calls"] >= MAX_CANARY_CALLS:
-            break
         if role not in CANARY_TASKS or not isinstance(value, Mapping):
             continue
+        required_roles.append(str(role))
         model = str(value.get("model") or "").strip()
         if not model or model not in verified:
             report["results"][role] = {
@@ -162,58 +218,52 @@ def run_worker_canary(*, api_key: str, handoff: Mapping[str, Any], probe_report:
                 "reason": "MODEL_NOT_IN_CURRENT_EXACT_FREE_PROBE",
             }
             continue
-        report["model_calls"] += 1
-        status, payload, error, elapsed_ms = _request(model, api_key, CANARY_TASKS[role][0])
-        result: dict[str, Any] = {
-            "status": "CANARY_FAILED",
-            "model": model,
-            "http_status": status,
-            "latency_ms": round(elapsed_ms, 3),
-            "error": error or None,
-            "exact_model": False,
-            "structured_output": False,
-            "quality_pass": False,
-        }
-        if status == 200 and isinstance(payload, Mapping):
-            resolved = str(payload.get("model") or "").strip()
-            usage = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
-            cost = _decimal(usage.get("cost"))
-            content = _content(payload)
-            try:
-                parsed_value = json.loads(content)
-                parsed = parsed_value if isinstance(parsed_value, Mapping) else None
-            except (TypeError, ValueError, json.JSONDecodeError):
-                parsed = None
-            exact = resolved == model
-            structured = parsed is not None
-            quality = bool(parsed is not None and _passes(role, parsed))
-            cost_ok = cost in {None, Decimal("0")}
-            result.update(
-                exact_model=exact,
-                structured_output=structured,
-                quality_pass=quality,
-                usage_cost=str(cost) if cost is not None else None,
-                cost_evidence="THIS_RESPONSE_ZERO" if cost == Decimal("0") else "PRIOR_EXACT_FREE_PROBE",
-            )
-            if exact and structured and quality and cost_ok:
-                result["status"] = "CANARY_OK"
-                result["error"] = None
-            elif not exact:
-                result["error"] = "response_model_mismatch"
-            elif not cost_ok:
-                result["error"] = "nonzero_cost"
-            elif not structured:
-                result["error"] = "invalid_structured_output"
-            else:
-                result["error"] = "quality_assertion_failed"
-        report["results"][role] = result
+        if len(work_items) < MAX_CANARY_CALLS:
+            work_items.append((str(role), model))
+        else:
+            report["results"][role] = {
+                "status": "CANARY_BLOCKED",
+                "model": model,
+                "reason": "CANARY_CALL_BUDGET_EXHAUSTED",
+            }
 
-    required_roles = [role for role in selected if role in CANARY_TASKS]
-    passed_roles = [role for role in required_roles if isinstance(report["results"].get(role), Mapping) and report["results"][role].get("status") == "CANARY_OK"]
+    report["model_calls"] = len(work_items)
+    completed: list[dict[str, Any] | None] = [None] * len(work_items)
+    if work_items:
+        workers = max(1, min(MAX_PARALLEL_CANARIES, len(work_items)))
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="worker-canary") as executor:
+            future_to_index = {
+                executor.submit(_record, role, model, api_key): index
+                for index, (role, model) in enumerate(work_items)
+            }
+            for future in as_completed(future_to_index):
+                index = future_to_index[future]
+                role, model = work_items[index]
+                try:
+                    completed[index] = future.result()
+                except Exception:
+                    completed[index] = {
+                        "status": "CANARY_FAILED",
+                        "model": model,
+                        "http_status": 0,
+                        "error": "canary_exception",
+                        "exact_model": False,
+                        "structured_output": False,
+                        "quality_pass": False,
+                    }
+        for index, (role, _model) in enumerate(work_items):
+            if isinstance(completed[index], Mapping):
+                report["results"][role] = dict(completed[index])
+
+    passed_roles = [
+        role for role in required_roles
+        if isinstance(report["results"].get(role), Mapping)
+        and report["results"][role].get("status") == "CANARY_OK"
+    ]
     report["required_role_count"] = len(required_roles)
     report["passed_role_count"] = len(passed_roles)
     report["status"] = "CANARY_READY" if required_roles and len(passed_roles) == len(required_roles) else "COMPLETED_WITH_BLOCKS"
     return report
 
 
-__all__ = ["MAX_CANARY_CALLS", "run_worker_canary"]
+__all__ = ["MAX_CANARY_CALLS", "MAX_PARALLEL_CANARIES", "run_worker_canary"]
