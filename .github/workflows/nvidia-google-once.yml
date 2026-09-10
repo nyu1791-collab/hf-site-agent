@@ -67,7 +67,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_PROBE_MODEL: gemini-3.8-flash
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          NVIDIA_PROBE_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b
+          NVIDIA_PROBE_MODEL: deepseek-ai/deepseek-v4-flash-0731
         run: >-
           python scripts/probe_providers.py
           --provider nvidia
@@ -126,6 +126,10 @@ jobs:
               },
               "probe_status": {
                   str(item.get("provider")): str(item.get("status"))
+                  for item in probe_items if isinstance(item, dict) and item.get("provider")
+              },
+              "probe_models": {
+                  str(item.get("provider")): str(item.get("model"))
                   for item in probe_items if isinstance(item, dict) and item.get("provider")
               },
               "probe_model_calls": int(probe.get("model_calls", 0) or 0),
