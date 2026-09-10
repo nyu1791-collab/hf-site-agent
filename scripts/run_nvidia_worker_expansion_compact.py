@@ -114,6 +114,90 @@ def _source_head() -> str:
     return str(os.environ.get("SOURCE_HEAD") or os.environ.get("GITHUB_SHA") or "")[:80]
 
 
+def _json_text(payload: Mapping[str, Any]) -> str:
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _bounded_compact_json(payload: Mapping[str, Any]) -> str:
+    """Return valid JSON within the commander context envelope.
+
+    Never slice serialized JSON. If a pathological run exceeds the envelope,
+    shrink successful prose first, then low-value repeated success/health rows,
+    while retaining unresolved lanes, primary failure metrics and blackboard
+    open tasks. The final minimal shape is intentionally tiny and valid JSON.
+    """
+    working = json.loads(_json_text(payload))
+    text = _json_text(working)
+    if len(text) <= MAX_COMPACT_COUNCIL_CHARS:
+        return text
+
+    successes = working.get("successful_specialists")
+    if isinstance(successes, list):
+        for response_limit in (240, 120, 0):
+            for row in successes:
+                if isinstance(row, dict):
+                    row["response"] = str(row.get("response") or "")[:response_limit]
+            text = _json_text(working)
+            if len(text) <= MAX_COMPACT_COUNCIL_CHARS:
+                return text
+        while len(successes) > 2:
+            successes.pop()
+            text = _json_text(working)
+            if len(text) <= MAX_COMPACT_COUNCIL_CHARS:
+                return text
+
+    health = working.get("worker_health")
+    if isinstance(health, list):
+        while len(health) > 2:
+            health.pop()
+            text = _json_text(working)
+            if len(text) <= MAX_COMPACT_COUNCIL_CHARS:
+                return text
+
+    board = working.get("shared_blackboard")
+    if isinstance(board, dict):
+        open_tasks = board.get("open_tasks")
+        if isinstance(open_tasks, list) and len(open_tasks) > 8:
+            board["open_tasks"] = open_tasks[:8]
+        text = _json_text(working)
+        if len(text) <= MAX_COMPACT_COUNCIL_CHARS:
+            return text
+
+    minimal = {
+        "status": working.get("status"),
+        "shared_blackboard": working.get("shared_blackboard", {}),
+        "lane_assignment_policy": working.get("lane_assignment_policy"),
+        "redispatch_selection_policy": working.get("redispatch_selection_policy"),
+        "organization_memory_loaded": working.get("organization_memory_loaded"),
+        "selected_model_count": working.get("selected_model_count", 0),
+        "primary_successful_lane_count": working.get("primary_successful_lane_count", 0),
+        "successful_lane_count": working.get("successful_lane_count", 0),
+        "failed_lane_count": working.get("failed_lane_count", 0),
+        "recovered_lane_count": working.get("recovered_lane_count", 0),
+        "work_stealing_count": working.get("work_stealing_count", 0),
+        "length_exhaustion_count": working.get("length_exhaustion_count", 0),
+        "primary_failure_counts": working.get("primary_failure_counts", {}),
+        "parallel_metrics": working.get("parallel_metrics", {}),
+        "unresolved_lanes": working.get("unresolved_lanes", []),
+        "context_compacted": True,
+    }
+    text = _json_text(minimal)
+    if len(text) > MAX_COMPACT_COUNCIL_CHARS:
+        # Known metric/failure shapes are small, but keep a deterministic last
+        # resort that cannot produce malformed JSON even with hostile metadata.
+        minimal["parallel_metrics"] = {}
+        minimal["primary_failure_counts"] = {}
+        minimal["shared_blackboard"] = {
+            "schema_version": _mapping(minimal.get("shared_blackboard")).get("schema_version"),
+            "early_stop": _mapping(minimal.get("shared_blackboard")).get("early_stop", {}),
+        }
+        minimal["unresolved_lanes"] = list(minimal.get("unresolved_lanes") or [])[:4]
+        text = _json_text(minimal)
+    if len(text) > MAX_COMPACT_COUNCIL_CHARS:
+        raise ValueError("compact commander context cannot fit valid JSON envelope")
+    return text
+
+
 def compact_council_context() -> str:
     raw = _mapping(base._load_mapping(base.COUNCIL_PATH))
     if not raw:
@@ -185,9 +269,7 @@ def compact_council_context() -> str:
         "successful_specialists": successes,
         "unresolved_lanes": failures,
     }
-    text = json.dumps(compact, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    # Values above are already bounded; this last bound is a hard envelope guard.
-    return text[:MAX_COMPACT_COUNCIL_CHARS]
+    return _bounded_compact_json(compact)
 
 
 def _load_json(path: Path) -> Mapping[str, Any]:
