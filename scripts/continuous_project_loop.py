@@ -15,10 +15,11 @@ from typing import Any, Mapping, Sequence
 
 from scripts.worker_canary import run_worker_canary
 
-SCHEMA_VERSION = "continuous-project-loop-v1"
+SCHEMA_VERSION = "continuous-project-loop-v2"
 PROJECT_BOUNDARY = "PROJECT_BOUNDARY"
 AUTO_NEXT_SAFE = "AUTO_NEXT_SAFE"
 MAX_AUTO_PROJECTS = 3
+MAX_CURRENT_STANDBYS_PER_ROLE = 6
 
 PROJECTS: dict[str, dict[str, Any]] = {
     "openrouter-worker-canary-v1": {
@@ -31,7 +32,7 @@ PROJECTS: dict[str, dict[str, Any]] = {
     },
     "worker-resilience-rehearsal-v1": {
         "execution_class": "AUTO_SAFE_LOCAL",
-        "objective": "Simulate primary worker loss and prove the route blocks or reselects only from current exact-free evidence.",
+        "objective": "Simulate primary worker loss and prove explicit reselection stays inside current exact-free benchmarked evidence.",
     },
     "quota-observability-hardening-v1": {
         "execution_class": "INTEGRATOR_REQUIRED",
@@ -57,6 +58,21 @@ def _benchmark(openrouter_report: Mapping[str, Any]) -> Mapping[str, Any]:
 def _probe(openrouter_report: Mapping[str, Any]) -> Mapping[str, Any]:
     value = openrouter_report.get("probe")
     return value if isinstance(value, Mapping) else {}
+
+
+def _current_exact_free_models(openrouter_report: Mapping[str, Any]) -> set[str]:
+    verified: set[str] = set()
+    rows = _probe(openrouter_report).get("results")
+    if not isinstance(rows, list):
+        return verified
+    for row in rows:
+        if not isinstance(row, Mapping) or row.get("status") != "FREE_ACTIVE":
+            continue
+        requested = str(row.get("requested_model") or "").strip()
+        resolved = str(row.get("response_model") or "").strip()
+        if requested and requested == resolved and row.get("fallback_used") is not True:
+            verified.add(requested)
+    return verified
 
 
 def predict_next_projects(
@@ -113,6 +129,7 @@ def predict_next_projects(
 def build_routing_policy(openrouter_report: Mapping[str, Any], canary_report: Mapping[str, Any]) -> dict[str, Any]:
     handoff = _handoff(openrouter_report)
     benchmark = _benchmark(openrouter_report)
+    current_exact_free = _current_exact_free_models(openrouter_report)
     selected = handoff.get("selected_workers")
     selected = selected if isinstance(selected, Mapping) else {}
     canary_results = canary_report.get("results")
@@ -126,7 +143,12 @@ def build_routing_policy(openrouter_report: Mapping[str, Any], canary_report: Ma
             continue
         primary = str(value.get("model") or "").strip()
         canary = canary_results.get(role)
-        canary_ok = isinstance(canary, Mapping) and canary.get("status") == "CANARY_OK" and canary.get("model") == primary
+        canary_ok = (
+            primary in current_exact_free
+            and isinstance(canary, Mapping)
+            and canary.get("status") == "CANARY_OK"
+            and canary.get("model") == primary
+        )
         ranking = rankings.get(role)
         ranking = ranking if isinstance(ranking, list) else []
         standbys: list[dict[str, Any]] = []
@@ -134,31 +156,37 @@ def build_routing_policy(openrouter_report: Mapping[str, Any], canary_report: Ma
             if not isinstance(item, Mapping):
                 continue
             model = str(item.get("model") or "").strip()
-            if model and model != primary:
+            if model and model != primary and model in current_exact_free:
                 standbys.append({
                     "model": model,
                     "score": item.get("score"),
-                    "status": "STANDBY_REQUIRES_FRESH_EXACT_FREE_EVIDENCE",
+                    "status": "CURRENT_EXACT_FREE_BENCHMARKED_STANDBY",
                 })
-            if len(standbys) >= 2:
+            if len(standbys) >= MAX_CURRENT_STANDBYS_PER_ROLE:
                 break
         roles[str(role)] = {
             "primary": primary if canary_ok else "",
             "primary_status": "READY" if canary_ok else "BLOCKED_CANARY_REQUIRED",
             "standby_candidates": standbys,
+            # Provider-side fallback stays off. The orchestrator may explicitly
+            # select a different model only from this same-run verified pool.
             "automatic_fallback": False,
-            "fallback_rule": "BLOCK_AND_RESELECT_FROM_FRESH_EXACT_FREE_EVIDENCE",
+            "orchestrator_reselection": bool(standbys),
+            "reselection_rule": "RESELECT_CURRENT_EXACT_FREE_BENCHMARKED_STANDBY_ON_CONCLUSIVE_FAILURE",
+            "ambiguous_failure_rule": "CHECKPOINT_CURRENT_TASK_NO_REPLAY",
         }
 
     ready_count = sum(1 for value in roles.values() if value.get("primary_status") == "READY")
     return {
-        "schema_version": "worker-routing-policy-v1",
+        "schema_version": "worker-routing-policy-v2",
         "status": "ROUTING_POLICY_READY" if roles and ready_count == len(roles) else "ROUTING_POLICY_BLOCKED",
         "roles": roles,
         "ready_role_count": ready_count,
+        "current_exact_free_model_count": len(current_exact_free),
         "paid_fallback": False,
         "generic_router": False,
-        "automatic_activation": False,
+        "provider_automatic_fallback": False,
+        "same_run_orchestrator_reselection": True,
         "production_active": False,
     }
 
@@ -173,23 +201,35 @@ def run_resilience_rehearsal(routing_policy: Mapping[str, Any]) -> dict[str, Any
             passed = False
             continue
         primary_ready = value.get("primary_status") == "READY" and bool(value.get("primary"))
-        auto_fallback_off = value.get("automatic_fallback") is False
-        rule_safe = value.get("fallback_rule") == "BLOCK_AND_RESELECT_FROM_FRESH_EXACT_FREE_EVIDENCE"
-        role_pass = primary_ready and auto_fallback_off and rule_safe
+        provider_fallback_off = value.get("automatic_fallback") is False
+        standbys = value.get("standby_candidates")
+        standbys = standbys if isinstance(standbys, list) else []
+        all_current = all(
+            isinstance(item, Mapping) and item.get("status") == "CURRENT_EXACT_FREE_BENCHMARKED_STANDBY"
+            for item in standbys
+        )
+        reselection_consistent = value.get("orchestrator_reselection") is bool(standbys)
+        rule_safe = value.get("reselection_rule") == "RESELECT_CURRENT_EXACT_FREE_BENCHMARKED_STANDBY_ON_CONCLUSIVE_FAILURE"
+        ambiguous_safe = value.get("ambiguous_failure_rule") == "CHECKPOINT_CURRENT_TASK_NO_REPLAY"
+        role_pass = primary_ready and provider_fallback_off and all_current and reselection_consistent and rule_safe and ambiguous_safe
         simulations[str(role)] = {
-            "scenario": "PRIMARY_UNAVAILABLE",
-            "expected_action": "BLOCK_AND_RESELECT_FROM_FRESH_EXACT_FREE_EVIDENCE",
+            "scenario": "PRIMARY_CONCLUSIVELY_UNAVAILABLE",
+            "expected_action": "RESELECT_CURRENT_EXACT_FREE_BENCHMARKED_STANDBY" if standbys else "BLOCK_NO_CURRENT_STANDBY",
+            "standby_count": len(standbys),
+            "provider_automatic_fallback": False,
+            "ambiguous_outcome_action": "CHECKPOINT_CURRENT_TASK_NO_REPLAY",
             "paid_fallback": False,
             "generic_router": False,
             "passed": role_pass,
         }
         passed = passed and role_pass
     return {
-        "schema_version": "worker-resilience-rehearsal-v1",
+        "schema_version": "worker-resilience-rehearsal-v2",
         "status": "RESILIENCE_REHEARSAL_READY" if simulations and passed else "RESILIENCE_REHEARSAL_BLOCKED",
         "simulations": simulations,
         "same_mission_resume_required_on_provider_uncertainty": True,
         "duplicate_dispatch_on_uncertain_usage": False,
+        "same_run_exact_free_reselection_allowed_on_conclusive_failure": True,
         "paid_fallback": False,
         "production_active": False,
     }
@@ -346,6 +386,7 @@ def run_continuous_project_loop(
 __all__ = [
     "AUTO_NEXT_SAFE",
     "MAX_AUTO_PROJECTS",
+    "MAX_CURRENT_STANDBYS_PER_ROLE",
     "PROJECT_BOUNDARY",
     "build_routing_policy",
     "predict_next_projects",
