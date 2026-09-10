@@ -26,8 +26,8 @@ from scripts.worker_benchmark_ranking import rank_benchmarked_workers, select_be
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 TIMEOUT_SECONDS = 35
 MAX_OUTPUT_TOKENS = 256
-MAX_CANDIDATES_PER_ROLE = 8
-MAX_BENCHMARK_CALLS = 32
+MAX_CANDIDATES_PER_ROLE = 12
+MAX_BENCHMARK_CALLS = 48
 MAX_PARALLEL_BENCHMARKS = 6
 
 BENCHMARKS: dict[str, dict[str, Any]] = {
