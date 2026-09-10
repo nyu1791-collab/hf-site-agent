@@ -158,7 +158,7 @@ jobs:
               if not isinstance(ranking, list):
                   continue
               entries = []
-              for item in ranking[:5]:
+              for item in ranking[:8]:
                   if not isinstance(item, dict) or not item.get("model"):
                       continue
                   model = str(item["model"])
