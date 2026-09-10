@@ -43,6 +43,24 @@ def _read(path_value: str) -> Mapping[str, Any]:
     return value
 
 
+def _read_optional(path_value: str) -> Mapping[str, Any]:
+    """Read an optional workspace JSON object, treating absence as no proposal.
+
+    A skipped NVIDIA lead step intentionally produces no Result Inbox.  Missing
+    optional output therefore means there is nothing to integrate, not that the
+    Google evidence/probe inputs are invalid.  Malformed or unsafe paths still
+    fail closed through ``_read``.
+    """
+    if not path_value:
+        return {}
+    path = Path(path_value)
+    if path.is_absolute() or ".." in path.parts:
+        raise ValueError("input must stay inside the workspace")
+    if not path.exists():
+        return {}
+    return _read(path_value)
+
+
 def _google_record(evidence: Mapping[str, Any]) -> Mapping[str, Any]:
     providers = _mapping(evidence.get("providers"))
     google = _mapping(providers.get("google"))
@@ -200,7 +218,7 @@ def main() -> int:
     parser.add_argument("--output", default="artifacts/google_staging_readiness.json")
     args = parser.parse_args()
     try:
-        inbox = _read(args.result_inbox) if args.result_inbox else {}
+        inbox = _read_optional(args.result_inbox)
         report = build_google_readiness_packet(_read(args.evidence), _read(args.probe), inbox)
     except Exception:
         report = {
