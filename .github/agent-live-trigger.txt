@@ -1,2 +1,2 @@
-trigger=2026-09-10T19:17:00+09:00
-purpose=validate-focused-google-initial-429-cooldown-recovery-through-nvidia-reviewer-end-to-end
+trigger=2026-09-10T19:27:00+09:00
+purpose=classify-gemini-429-as-transient-daily-or-zero-quota-then-continue-safe-agent-lanes
