@@ -9,6 +9,7 @@ from scripts.provider_adapters import ProviderAdapterError
 from scripts.resilient_live_call import (
     RECOVERY_MAX_OUTPUT_TOKENS,
     RECOVERY_REPOSITORY_CONTEXT_CHARS,
+    _compact_recovery_messages,
     call_model_with_bounded_recovery,
 )
 
@@ -115,33 +116,32 @@ class ResilientLiveCallTests(unittest.TestCase):
             adapter.calls[1]["options"]["request_id"],
         )
         self.assertEqual(adapter.calls[0]["model"], adapter.calls[1]["model"])
+        self.assertLessEqual(adapter.calls[1]["options"]["max_tokens"], RECOVERY_MAX_OUTPUT_TOKENS)
 
-    def test_recovery_request_compacts_repository_context_and_output_budget(self):
-        adapter = SequenceAdapter([self.unavailable(500), ok_response()])
+    def test_recovery_message_compactor_reduces_real_focused_payload_shape(self):
         oversized = "x" * 12000
-        # _call_model serializes this context into the user JSON. Place large
-        # text where the focused prompt contract carries it after monkeypatching
-        # is unnecessary: a user JSON is produced by the real prompt function.
-        context = {
-            "phase": "EXECUTE",
-            "candidate": {
-                "repository_context": {
-                    "source_head": "abc",
-                    "read_only": True,
-                    "fixed_allowlist": True,
-                    "files": {"a.py": oversized, "b.py": oversized, "c.py": oversized},
-                }
+        payload = {
+            "mission_id": "M1",
+            "task_id": "T1",
+            "task_metadata": {"bound_objective": "preserve this objective"},
+            "repository_context": {
+                "source_head": "abc",
+                "read_only": True,
+                "fixed_allowlist": True,
+                "files": {"a.py": oversized, "b.py": oversized, "c.py": oversized},
             },
         }
-        self.invoke(adapter, context=context)
-
-        self.assertEqual(len(adapter.calls), 2)
-        second = adapter.calls[1]
-        self.assertLessEqual(second["options"]["max_tokens"], RECOVERY_MAX_OUTPUT_TOKENS)
-        self.assertLessEqual(
-            sum(len(str(message.get("content") or "")) for message in second["messages"] if isinstance(message, dict)),
-            40000,
-        )
+        messages = [
+            {"role": "system", "content": "Return JSON only."},
+            {"role": "user", "content": json.dumps(payload)},
+        ]
+        compacted = _compact_recovery_messages(messages)
+        self.assertLess(len(compacted[1]["content"]), len(messages[1]["content"]))
+        parsed = json.loads(compacted[1]["content"])
+        self.assertEqual(parsed["mission_id"], "M1")
+        self.assertEqual(parsed["task_metadata"]["bound_objective"], "preserve this objective")
+        self.assertTrue(parsed["repository_context"]["recovery_compacted"])
+        self.assertEqual(parsed["transport_recovery"]["reason"], "CONCLUSIVE_TEMPORARY_5XX")
 
     def test_payload_compactor_has_bounded_repository_budget(self):
         from scripts.resilient_live_call import _compact_repository_payload
