@@ -1,4 +1,4 @@
-name: "Secure staging carrier: NVIDIA + Google"
+name: "Secure staging carrier: NVIDIA Nemotron + Google"
 
 on:
   workflow_dispatch:
@@ -50,7 +50,10 @@ jobs:
             scripts/secure_account_evidence.py \
             scripts/validate_secure_evidence.py \
             scripts/probe_providers.py \
+            scripts/probe_nvidia_google_focused.py \
+            scripts/focused_nvidia_streaming_adapter.py \
             scripts/run_live_staging_from_probe.py \
+            scripts/run_nvidia_google_staging_focused.py \
             scripts/live_staging_runner.py \
             scripts/execution_scope.py \
             scripts/classify_carrier_failure.py \
@@ -61,7 +64,7 @@ jobs:
           from pathlib import Path
 
           report = {
-              "schema_version": "carrier-dispatch-v1",
+              "schema_version": "carrier-dispatch-v2",
               "dispatch_status": "EXECUTED",
               "workflow": "probe-free-models.yml",
               "event": os.environ.get("GITHUB_EVENT_NAME", ""),
@@ -73,6 +76,7 @@ jobs:
               "branch_guard_allows_target": True,
               "required_input_blocker": False,
               "provider_focus": ["nvidia", "google"],
+              "nvidia_selected_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
               "production_active": False,
           }
           Path("artifacts/dispatch_status.json").write_text(
@@ -134,7 +138,7 @@ jobs:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
         run: python scripts/validate_secure_evidence.py --input artifacts/secure_account_evidence.json
 
-      - name: Run bounded exact NVIDIA and Google probes
+      - name: Run bounded exact NVIDIA Nemotron and Google probes
         if: always()
         continue-on-error: true
         env:
@@ -142,14 +146,9 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_PROBE_MODEL: gemini-3.8-flash
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          NVIDIA_PROBE_MODEL: deepseek-ai/deepseek-v4-flash-0731
+          NVIDIA_PROBE_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b
         run: >-
-          python scripts/probe_providers.py
-          --provider nvidia
-          --provider google
-          --network
-          --confirm CHECK
-          --allow-limited-staging-probe
+          python scripts/probe_nvidia_google_focused.py
           --evidence-file artifacts/secure_account_evidence.json
           --output artifacts/provider_probe.json
 
@@ -161,7 +160,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
         run: >-
-          python scripts/run_live_staging_from_probe.py
+          python scripts/run_nvidia_google_staging_focused.py
           --evidence-file artifacts/secure_account_evidence.json
           --probe-file artifacts/provider_probe.json
           --network
@@ -260,6 +259,8 @@ jobs:
           evidence = read("artifacts/secure_account_evidence.json", {})
           probe = read("artifacts/provider_probe.json", {})
           live = read("artifacts/live_staging_report.json", {})
+          mission = read("artifacts/mission_state.json", {})
+          inbox = read("artifacts/result_inbox.json", {})
           classification = read("artifacts/failure_classification.json", {})
           evidence_providers = evidence.get("providers") if isinstance(evidence.get("providers"), dict) else {}
           probe_items = probe.get("providers") if isinstance(probe.get("providers"), list) else []
@@ -274,15 +275,16 @@ jobs:
               if isinstance(lane, dict) and lane.get("secret_present") is True
           )
           probe_calls = int(probe.get("model_calls", 0) or 0)
-          live_calls = int(live.get("total_external_model_calls_in_command", 0) or 0)
+          live_calls = int(live.get("total_external_model_calls_in_command", 0) or live_view.get("external_model_calls", 0) or 0)
           live_agent_count = int(live_view.get("live_agent_count", 2 if live_view.get("operational") is True else 0) or 0)
           live_two_agent = bool(live_view.get("two_agent", live_view.get("operational") is True and live_agent_count >= 2))
           summary = {
-              "schema_version": "carrier-summary-v2",
+              "schema_version": "carrier-summary-v3",
               "dispatch_status": dispatch.get("dispatch_status", "EXECUTED"),
               "carrier_workflow": "probe-free-models.yml",
               "target_branch": dispatch.get("branch", "ai-army/provider-v3"),
               "provider_focus": ["nvidia", "google"],
+              "nvidia_selected_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
               "branch_guard_fixed": dispatch.get("branch_guard_allows_target") is True,
               "input_schema_fixed": dispatch.get("required_input_blocker") is False,
               "secret_presence": presence.get("secret_presence", {}),
@@ -307,9 +309,14 @@ jobs:
               "user_continue_required": False,
               "self_bootstrap_status": bootstrap.get("status", "NOT_STARTED"),
               "self_bootstrap_live": bootstrap.get("proposal_review_passed") is True,
-              "nvidia_bootstrap_status": (live.get("nvidia_bootstrap") or {}).get("status", "NOT_STARTED"),
-              "nvidia_bootstrap_proposal": (live.get("nvidia_bootstrap") or {}).get("proposal_generated") is True,
+              "nvidia_bootstrap_status": (live.get("nvidia_bootstrap") or {}).get("status", "NOT_STARTED") if isinstance(live.get("nvidia_bootstrap"), dict) else "NOT_STARTED",
+              "nvidia_bootstrap_proposal": (live.get("nvidia_bootstrap") or {}).get("proposal_generated") is True if isinstance(live.get("nvidia_bootstrap"), dict) else False,
               "external_model_calls": live_calls,
+              "mission_id": mission.get("mission_id"),
+              "mission_state": mission.get("state"),
+              "mission_result_status": mission.get("result_status"),
+              "result_inbox_status": inbox.get("status"),
+              "result_hash": inbox.get("result_hash"),
               "failure_count": int(classification.get("failure_count", 0) or 0),
               "production_active": False,
               "paid_execution_count": 0,
