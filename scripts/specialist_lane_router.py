@@ -3,12 +3,14 @@
 
 Same-run benchmark role scores describe current capability, while compact
 organization memory records how workers actually behaved on specialist work in
-recent runs.  Routing combines both signals so a high benchmark score cannot
-indefinitely outweigh repeated length exhaustion or extreme live latency.
+recent runs.  Routing combines both signals and solves the small lane/worker
+matching problem globally so an early lane cannot greedily consume the worker
+that creates the most value for a later lane.
 """
 
 from __future__ import annotations
 
+from functools import lru_cache
 import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -27,6 +29,7 @@ DEFAULT_LANE_ROLE_PREFERENCES: Mapping[str, tuple[str, ...]] = {
     "RESULT_AGGREGATION": ("GENERAL_WORKER", "REVIEW_WORKER"),
     "PERFORMANCE_TELEMETRY": ("GENERAL_WORKER", "REVIEW_WORKER"),
 }
+ASSIGNMENT_POLICY = "GLOBAL_MAX_SCORE_ROLE_PLUS_ORGANIZATION_MEMORY"
 
 
 def _number(value: Any, default: float = 0.0) -> float:
@@ -122,6 +125,50 @@ def _assignment_score(
     return (score, history_score, role_fit, role_coverage, best_score, str(worker.get("model") or ""))
 
 
+def _globally_optimal_worker_indices(
+    workers: Sequence[Mapping[str, Any]],
+    lanes: Sequence[Mapping[str, Any]],
+    preferences: Mapping[str, Sequence[str]],
+    memory: Mapping[str, Any],
+) -> tuple[int, ...]:
+    """Solve <=8 lane assignment exactly with a small bitmask DP."""
+    if not lanes:
+        return ()
+    score_matrix = tuple(
+        tuple(
+            float(_assignment_score(worker, str(lane["lane"]), preferences, memory)[0])
+            for worker in workers
+        )
+        for lane in lanes
+    )
+    model_names = tuple(str(worker.get("model") or "") for worker in workers)
+
+    @lru_cache(maxsize=None)
+    def solve(lane_index: int, used_mask: int) -> tuple[float, tuple[int, ...]]:
+        if lane_index >= len(lanes):
+            return 0.0, ()
+        best_score = float("-inf")
+        best_indices: tuple[int, ...] = ()
+        best_names: tuple[str, ...] | None = None
+        for worker_index in range(len(workers)):
+            bit = 1 << worker_index
+            if used_mask & bit:
+                continue
+            tail_score, tail_indices = solve(lane_index + 1, used_mask | bit)
+            total = score_matrix[lane_index][worker_index] + tail_score
+            indices = (worker_index, *tail_indices)
+            names = tuple(model_names[index] for index in indices)
+            if total > best_score + 1e-12 or (
+                abs(total - best_score) <= 1e-12 and (best_names is None or names < best_names)
+            ):
+                best_score = total
+                best_indices = indices
+                best_names = names
+        return best_score, best_indices
+
+    return solve(0, 0)[1]
+
+
 def attach_capability_matched_assignments(
     selected: Sequence[Mapping[str, Any]],
     *,
@@ -129,18 +176,24 @@ def attach_capability_matched_assignments(
     preferences: Mapping[str, Sequence[str]] = DEFAULT_LANE_ROLE_PREFERENCES,
     memory: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Match each unique lane to the strongest remaining evidence-backed worker."""
-    remaining = [dict(item) for item in selected if isinstance(item, Mapping) and item.get("model")]
-    if not remaining:
+    """Globally match unique priority lanes to evidence-backed workers."""
+    workers = sorted(
+        (dict(item) for item in selected if isinstance(item, Mapping) and item.get("model")),
+        key=lambda item: str(item.get("model") or ""),
+    )
+    if not workers:
         return []
+    lanes = list(SPECIALIST_LANES[: min(len(workers), len(SPECIALIST_LANES))])
     memory_payload = memory if isinstance(memory, Mapping) else load_organization_memory(root=root)
+    worker_indices = _globally_optimal_worker_indices(workers, lanes, preferences, memory_payload)
     assignments: list[dict[str, Any]] = []
-    for lane in SPECIALIST_LANES:
-        if not remaining or len(assignments) >= len(selected):
-            break
+    total_score = sum(
+        float(_assignment_score(workers[worker_index], str(lane["lane"]), preferences, memory_payload)[0])
+        for lane, worker_index in zip(lanes, worker_indices)
+    )
+    for lane, worker_index in zip(lanes, worker_indices):
+        worker = dict(workers[worker_index])
         lane_name = str(lane["lane"])
-        worker = max(remaining, key=lambda item: _assignment_score(item, lane_name, preferences, memory_payload))
-        remaining.remove(worker)
         score, history_score, role_fit, coverage, best_score, _ = _assignment_score(worker, lane_name, preferences, memory_payload)
         history = historical_worker_signal(memory_payload, str(worker.get("model") or ""), lane_name)
         worker["specialist_lane"] = lane_name
@@ -151,8 +204,9 @@ def attach_capability_matched_assignments(
             "assigned_lane": dict(history),
         }
         worker["lane_assignment"] = {
-            "policy": "SAME_RUN_ROLE_SCORE_PLUS_ORGANIZATION_MEMORY",
+            "policy": ASSIGNMENT_POLICY,
             "score": round(score, 8),
+            "global_total_score": round(total_score, 8),
             "historical_score": round(history_score, 8),
             "historical_model_attempts": int(history["model_attempts"]),
             "historical_lane_attempts": int(history["lane_attempts"]),
@@ -168,6 +222,7 @@ def attach_capability_matched_assignments(
 
 
 __all__ = [
+    "ASSIGNMENT_POLICY",
     "DEFAULT_LANE_ROLE_PREFERENCES",
     "DEFAULT_MEMORY_PATH",
     "attach_capability_matched_assignments",
