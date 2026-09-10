@@ -1,2 +1,2 @@
-trigger=worker-expansion-v10-resilient-tiered-china-bulk-coding
-purpose=retest-current-exact-free-china-coding-json-resilience-complete-canary-routing-council-and-worker-only-nvidia-synthesis
+trigger=multi-agent-efficiency-v11-parallel-specialist-organization
+purpose=validate-specialist-lane-dispatch-adaptive-concurrency-worker-health-context-isolation-and-nvidia-synthesis
