@@ -23,10 +23,11 @@ import urllib.request
 
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 TIMEOUT_SECONDS = 25
-MAX_OUTPUT_TOKENS = 128
+MAX_OUTPUT_TOKENS = 256
 MAX_CANARY_CALLS = 8
 MAX_PARALLEL_CANARIES = 6
 MAX_CANARY_ATTEMPTS_PER_ROLE = 2
+RESPONSE_REASONING = {"effort": "minimal", "exclude": True}
 
 CANARY_TASKS: dict[str, tuple[str, str]] = {
     "GENERAL_WORKER": (
@@ -81,6 +82,36 @@ def _content(payload: Mapping[str, Any]) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
+def _parse_json_object(content: str) -> Mapping[str, Any] | None:
+    text = str(content or "").strip()
+    if not text:
+        return None
+    candidates = [text]
+    if text.startswith("```") and text.endswith("```"):
+        inner = text[3:-3].strip()
+        if inner.lower().startswith("json"):
+            inner = inner[4:].lstrip("\r\n ")
+        candidates.insert(0, inner)
+    for candidate in candidates:
+        try:
+            value = json.loads(candidate)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            value = None
+        if isinstance(value, Mapping):
+            return value
+    decoder = json.JSONDecoder()
+    for index, character in enumerate(text):
+        if character != "{":
+            continue
+        try:
+            value, _end = decoder.raw_decode(text[index:])
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if isinstance(value, Mapping):
+            return value
+    return None
+
+
 def _passes(role: str, parsed: Mapping[str, Any]) -> bool:
     if role == "GENERAL_WORKER":
         return parsed.get("ordered") == [1, 2, 3] and parsed.get("sum") == 6
@@ -101,6 +132,7 @@ def _request(model: str, api_key: str, prompt: str) -> tuple[int, dict[str, Any]
         "max_tokens": MAX_OUTPUT_TOKENS,
         "temperature": 0,
         "stream": False,
+        "reasoning": dict(RESPONSE_REASONING),
         "provider": {"allow_fallbacks": False},
     }
     request = urllib.request.Request(
@@ -149,12 +181,7 @@ def _record(role: str, model: str, api_key: str) -> dict[str, Any]:
     resolved = str(payload.get("model") or "").strip()
     usage = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
     cost = _decimal(usage.get("cost"))
-    content = _content(payload)
-    try:
-        parsed_value = json.loads(content)
-        parsed = parsed_value if isinstance(parsed_value, Mapping) else None
-    except (TypeError, ValueError, json.JSONDecodeError):
-        parsed = None
+    parsed = _parse_json_object(_content(payload))
     exact = resolved == model
     structured = parsed is not None
     quality = bool(parsed is not None and _passes(role, parsed))
@@ -233,12 +260,13 @@ def run_worker_canary(*, api_key: str, handoff: Mapping[str, Any], probe_report:
     selected = selected if isinstance(selected, Mapping) else {}
     verified = _verified_models(probe_report)
     report: dict[str, Any] = {
-        "schema_version": "worker-canary-v3",
+        "schema_version": "worker-canary-v4",
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "model_calls": 0,
         "max_calls": MAX_CANARY_CALLS,
         "max_attempts_per_role": MAX_CANARY_ATTEMPTS_PER_ROLE,
         "max_output_tokens_per_call": MAX_OUTPUT_TOKENS,
+        "reasoning_policy": "MINIMAL_EXCLUDED_TO_PRESERVE_VISIBLE_JSON",
         "provider_allow_fallbacks": False,
         "native_json_mode_required": False,
         "parallel_execution": True,
@@ -309,9 +337,6 @@ def run_worker_canary(*, api_key: str, handoff: Mapping[str, Any], probe_report:
                 final["attempts"] = list(attempts_by_role[role])
                 report["results"][role] = final
 
-                # Same-run orchestrator reselection is explicit and exact-model.
-                # Mutating the in-memory handoff lets the routing policy use the
-                # canary-proven winner while provider-side fallback stays off.
                 value = selected.get(role)
                 if isinstance(value, dict):
                     chosen = str(attempt.get("model") or "")
