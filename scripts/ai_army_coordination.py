@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Build a deterministic coordination packet for the NVIDIA + Google AI army.
+"""Build the deterministic NVIDIA + Google AI-army coordination packet.
 
-This module never calls a provider and never mutates repository state.  It
-turns redacted evidence/readiness/live-staging reports into one explicit
-chain-of-command decision so callers do not independently invent roles or
-repeat provider calls.
+The packet defines chain of command, adaptive redundancy, and the admission
+plan for subordinate models. It performs no provider call and grants no
+repository-write, deployment, payment, or credential permissions.
 """
 
 from __future__ import annotations
@@ -75,24 +74,26 @@ def build_coordination_packet(
     }
 
     return {
-        "schema_version": "ai-army-coordination-v1",
+        "schema_version": "ai-army-coordination-v2",
         "source_head": source_head,
         "state": state,
         "next_action": next_action,
         "chain_of_command": [
             "WORK_SUPREME_COMMAND",
-            "GOOGLE_EXECUTOR",
+            "GOOGLE_COMMANDER_EXECUTOR",
+            "GOOGLE_SPECIALIST_WORKERS",
             "LOCAL_DETERMINISTIC_VALIDATOR",
-            "NVIDIA_INDEPENDENT_REVIEWER",
+            "NVIDIA_COMMANDER_REVIEWER",
+            "NVIDIA_SPECIALIST_WORKERS",
             "WORK_INTEGRATOR",
         ],
         "models": {
-            "nvidia": NVIDIA_MODEL,
-            "google": GOOGLE_MODEL,
+            "nvidia_commander": NVIDIA_MODEL,
+            "google_commander": GOOGLE_MODEL,
         },
         "roles": {
             "google": {
-                "primary": "EXECUTOR",
+                "primary": "COMMANDER_EXECUTOR",
                 "secondary": "REVISION_ENGINEER",
                 "focus": [
                     "implementation_completeness",
@@ -103,27 +104,86 @@ def build_coordination_packet(
                 "enabled": google_live_ready,
             },
             "nvidia": {
-                "primary": "INDEPENDENT_REVIEWER",
+                "primary": "COMMANDER_INDEPENDENT_REVIEWER",
                 "secondary": "FAST_LEAD_ARCHITECT_WHEN_GOOGLE_BLOCKED",
                 "focus": [
                     "contradiction_detection",
                     "race_and_resume_failures",
                     "scope_and_path_validation",
-                    "minimal_patch_risk",
+                    "performance_and_minimal_patch_risk",
                 ],
                 "enabled": True,
             },
             "local_validator": {
                 "primary": "DETERMINISTIC_GATE",
-                "focus": [
-                    "schema",
-                    "hash_and_head_integrity",
-                    "path_scope",
-                    "free_only_policy",
-                    "duplicate_call_prevention",
-                ],
+                "focus": ["schema", "hash_and_head_integrity", "path_scope", "duplicate_call_prevention"],
                 "enabled": True,
             },
+        },
+        "performance_policy": {
+            "normal": {
+                "executor_attempts": 1,
+                "output_token_ceiling": 4_096,
+                "purpose": "fast routine work",
+            },
+            "important": {
+                "executor_attempts": 2,
+                "output_token_ceiling": 8_192,
+                "execution": "PARALLEL_BEST_OF_N",
+                "purpose": "implementation/integration/repository changes",
+            },
+            "critical": {
+                "executor_attempts": 3,
+                "output_token_ceiling": 12_288,
+                "execution": "PARALLEL_BEST_OF_N",
+                "purpose": "production/race/resume/migration/auth/billing/high-risk changes",
+            },
+            "prompt_char_ceiling": 120_000,
+            "response_char_ceiling": 144_000,
+            "envelope_char_ceiling": 180_000,
+            "mission_token_ceiling": 81_920,
+            "mission_request_ceiling": 24,
+            "max_revisions": 4,
+            "max_iterations": 6,
+            "default_is_not_redundant": True,
+        },
+        "subordinate_model_plan": {
+            "goal": "add cheaper/faster specialist workers below the two commander models without replacing commander judgment",
+            "google_corps": {
+                "commander": GOOGLE_MODEL,
+                "worker_slots": [
+                    {"role": "FAST_IMPLEMENTATION_WORKER", "selection": "AUTO_BENCHMARKED_GOOGLE_CANDIDATE"},
+                    {"role": "TEST_GENERATION_WORKER", "selection": "AUTO_BENCHMARKED_GOOGLE_CANDIDATE"},
+                    {"role": "LONG_CONTEXT_TRIAGE_WORKER", "selection": "AUTO_BENCHMARKED_GOOGLE_CANDIDATE"},
+                ],
+            },
+            "nvidia_corps": {
+                "commander": NVIDIA_MODEL,
+                "worker_slots": [
+                    {"role": "FAST_CODE_REVIEW_WORKER", "selection": "AUTO_BENCHMARKED_NVIDIA_CANDIDATE"},
+                    {"role": "CONCURRENCY_RACE_WORKER", "selection": "AUTO_BENCHMARKED_NVIDIA_CANDIDATE"},
+                    {"role": "FAILURE_RECOVERY_WORKER", "selection": "AUTO_BENCHMARKED_NVIDIA_CANDIDATE"},
+                ],
+            },
+            "admission_sequence": [
+                "DISCOVER_CURRENT_PROVIDER_CATALOG",
+                "FILTER_EXACT_AVAILABLE_MODELS",
+                "RUN_SMALL_CAPABILITY_BENCHMARK",
+                "MEASURE_LATENCY_AND_STRUCTURED_OUTPUT_SUCCESS",
+                "ASSIGN_SPECIALIST_ROLE_BY_SCORE",
+                "CANARY_IN_STAGING",
+                "PROMOTE_TO_SUBORDINATE_REGISTRY",
+            ],
+            "selection_metrics": [
+                "task_quality",
+                "structured_output_success",
+                "latency",
+                "tokens_per_successful_task",
+                "revision_rate",
+                "error_rate",
+            ],
+            "commander_override": True,
+            "worker_direct_repository_write": False,
         },
         "handoff_contract": {
             "executor_output": ["summary", "proposal", "files_affected", "tests", "risks", "next_action"],
@@ -135,9 +195,11 @@ def build_coordination_packet(
         "call_policy": {
             "recommended_nvidia_calls_this_stage": nvidia_calls_recommended,
             "recommended_google_calls_this_stage": google_calls_recommended,
+            "adaptive_duplicate_attempts_allowed": True,
+            "max_independent_executor_attempts": 3,
+            "duplicate_attempts_only_for_important_or_critical": True,
             "repeat_nvidia_for_google_account_blocker": False,
             "google_call_while_external_blocker_present": False,
-            "parallel_duplicate_design_calls": False,
             "extra_fallback_after_two_agent_attempt": False,
             "paid_fallback": False,
         },
@@ -155,12 +217,12 @@ def build_coordination_packet(
             "family_separation_pass": live.get("family_separation_pass") is True,
             "stop_reason": live_report.get("stop_reason"),
         },
-        "safety": {
-            "free_only": True,
-            "paid_execution_allowed": False,
+        "minimum_guards": {
             "paid_fallback_allowed": False,
+            "secret_exposure_allowed": False,
             "production_activation_allowed": False,
             "repository_write_by_external_model_allowed": False,
+            "duplicate_same_request_allowed": False,
         },
     }
 
@@ -180,7 +242,7 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "ai-army-coordination-v1",
+            "schema_version": "ai-army-coordination-v2",
             "source_head": args.source_head,
             "state": "BLOCKED_INVALID_INPUT",
             "next_action": "REFRESH_COORDINATION_INPUTS",
@@ -189,12 +251,12 @@ def main() -> int:
                 "recommended_google_calls_this_stage": 0,
                 "paid_fallback": False,
             },
-            "safety": {
-                "free_only": True,
-                "paid_execution_allowed": False,
+            "minimum_guards": {
                 "paid_fallback_allowed": False,
+                "secret_exposure_allowed": False,
                 "production_activation_allowed": False,
                 "repository_write_by_external_model_allowed": False,
+                "duplicate_same_request_allowed": False,
             },
         }
     output = Path(args.output)
