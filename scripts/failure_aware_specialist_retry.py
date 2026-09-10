@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Adaptive retry policy for the failure-aware specialist council.
 
-Primary specialist calls keep the established 2048-token ceiling.  Only when a
-primary exact-free response ends with finish_reason=length and no visible
-content do bounded work-stealing retries receive a larger 4096-token ceiling.
-There is still only one standby attempt per lane; no provider fallback or third
-retry tier is introduced.
+Primary specialist calls keep the established 2048-token ceiling. Only after an
+exact-free primary response ends with finish_reason=length and no visible
+content does the one allowed work-stealing retry receive more total output room,
+a bounded reasoning budget, and a smaller handoff context. No provider fallback
+or third retry tier is introduced.
 """
 
 from __future__ import annotations
@@ -23,7 +23,11 @@ from scripts import failure_aware_specialist_council as base
 from scripts import parallel_worker_council as council_core
 
 PRIMARY_OUTPUT_TOKENS = int(council_core.MAX_OUTPUT_TOKENS)
+PRIMARY_REASONING = dict(council_core.COUNCIL_REASONING)
 LENGTH_EXHAUSTION_REDISPATCH_TOKENS = 4_096
+REDISPATCH_REASONING_MAX_TOKENS = 768
+MAX_REDISPATCH_CONTEXT_CHARS_PER_FILE = 1_400
+MAX_REDISPATCH_CONTEXT_FILES = 2
 
 
 def is_length_exhaustion(row: Mapping[str, Any]) -> bool:
@@ -44,11 +48,37 @@ def redispatch_output_token_budget(primary_results: Sequence[Mapping[str, Any]])
     return PRIMARY_OUTPUT_TOKENS
 
 
+def redispatch_reasoning_policy(primary_results: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    if length_exhaustion_count(primary_results) > 0:
+        return {"max_tokens": REDISPATCH_REASONING_MAX_TOKENS, "exclude": True}
+    return dict(PRIMARY_REASONING)
+
+
+def _compact_redispatch_assignments(assignments: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    compact: list[dict[str, Any]] = []
+    for item in assignments:
+        row = dict(item)
+        context = row.get("specialist_context") if isinstance(row.get("specialist_context"), Mapping) else {}
+        row["specialist_context"] = {
+            str(path): str(text)[:MAX_REDISPATCH_CONTEXT_CHARS_PER_FILE]
+            for path, text in list(context.items())[:MAX_REDISPATCH_CONTEXT_FILES]
+        }
+        objective = str(row.get("specialist_objective") or "")
+        row["specialist_objective"] = (
+            objective[:700]
+            + " RETRY MODE: return the final implementation recommendation immediately; "
+              "use at most 120 visible tokens and do not repeat repository context."
+        )
+        compact.append(row)
+    return compact
+
+
 def run_failure_aware_council(*, api_key: str, probe: Mapping[str, Any], benchmark: Mapping[str, Any]) -> dict[str, Any]:
     original_execute_wave = base._execute_wave
-    state = {
+    state: dict[str, Any] = {
         "length_exhaustion_count": 0,
         "redispatch_output_token_budget": PRIMARY_OUTPUT_TOKENS,
+        "redispatch_reasoning_policy": dict(PRIMARY_REASONING),
     }
 
     def adaptive_execute_wave(assignments, *, api_key: str, workers: int, phase: str):
@@ -56,13 +86,19 @@ def run_failure_aware_council(*, api_key: str, probe: Mapping[str, Any], benchma
             rows, wall_ms = original_execute_wave(assignments, api_key=api_key, workers=workers, phase=phase)
             state["length_exhaustion_count"] = length_exhaustion_count(rows)
             state["redispatch_output_token_budget"] = redispatch_output_token_budget(rows)
+            state["redispatch_reasoning_policy"] = redispatch_reasoning_policy(rows)
             return rows, wall_ms
+
         previous_budget = int(council_core.MAX_OUTPUT_TOKENS)
+        previous_reasoning = dict(council_core.COUNCIL_REASONING)
         council_core.MAX_OUTPUT_TOKENS = int(state["redispatch_output_token_budget"])
+        council_core.COUNCIL_REASONING = dict(state["redispatch_reasoning_policy"])
+        retry_assignments = _compact_redispatch_assignments(assignments)
         try:
-            return original_execute_wave(assignments, api_key=api_key, workers=workers, phase=phase)
+            return original_execute_wave(retry_assignments, api_key=api_key, workers=workers, phase=phase)
         finally:
             council_core.MAX_OUTPUT_TOKENS = previous_budget
+            council_core.COUNCIL_REASONING = previous_reasoning
 
     base._execute_wave = adaptive_execute_wave
     try:
@@ -70,12 +106,19 @@ def run_failure_aware_council(*, api_key: str, probe: Mapping[str, Any], benchma
     finally:
         base._execute_wave = original_execute_wave
         council_core.MAX_OUTPUT_TOKENS = PRIMARY_OUTPUT_TOKENS
+        council_core.COUNCIL_REASONING = dict(PRIMARY_REASONING)
 
-    report["schema_version"] = "failure-aware-specialist-council-v2"
+    report["schema_version"] = "failure-aware-specialist-council-v3"
     report["primary_output_token_budget"] = PRIMARY_OUTPUT_TOKENS
     report["redispatch_output_token_budget"] = int(state["redispatch_output_token_budget"])
     report["length_exhaustion_count"] = int(state["length_exhaustion_count"])
-    report["output_budget_policy"] = "ESCALATE_ONLY_EMPTY_VISIBLE_CONTENT_WITH_FINISH_REASON_LENGTH"
+    report["redispatch_reasoning_policy"] = dict(state["redispatch_reasoning_policy"])
+    report["redispatch_context_policy"] = {
+        "max_files": MAX_REDISPATCH_CONTEXT_FILES,
+        "max_chars_per_file": MAX_REDISPATCH_CONTEXT_CHARS_PER_FILE,
+        "max_visible_answer_tokens_requested": 120,
+    }
+    report["output_budget_policy"] = "ESCALATE_AND_CAP_REASONING_ONLY_AFTER_VISIBLE_LENGTH_EXHAUSTION"
     report["max_attempts_per_lane"] = 2
     return report
 
@@ -104,7 +147,7 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "failure-aware-specialist-council-v2",
+            "schema_version": "failure-aware-specialist-council-v3",
             "status": "COUNCIL_RUNNER_BLOCKED",
             "model_calls": 0,
             "results": [],
@@ -127,6 +170,7 @@ def main() -> int:
         "recovered_lane_count": report.get("recovered_lane_count", 0),
         "length_exhaustion_count": report.get("length_exhaustion_count", 0),
         "redispatch_output_token_budget": report.get("redispatch_output_token_budget", PRIMARY_OUTPUT_TOKENS),
+        "redispatch_reasoning_policy": report.get("redispatch_reasoning_policy", {}),
         "work_stealing_count": report.get("work_stealing_count", 0),
         "google_calls": 0,
     }, sort_keys=True))
