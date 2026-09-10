@@ -47,6 +47,69 @@ class AIArmyCoordinationTests(unittest.TestCase):
         self.assertEqual(packet["call_policy"]["recommended_google_calls_this_stage"], 0)
         self.assertFalse(packet["call_policy"]["extra_fallback_after_two_agent_attempt"])
 
+    def test_settled_google_outage_authorizes_one_planned_nvidia_degraded_lead(self):
+        packet = build_coordination_packet(
+            {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
+            {
+                "status": "blocked",
+                "runtime": {"stop_reason": "PROVIDER_INTERRUPTED"},
+                "budget": {"requests_used": 3, "unsettled_requests": 0},
+                "live_staging": {
+                    "executor_provider": "google",
+                    "reviewer_provider": "nvidia",
+                    "family_separation_pass": True,
+                    "external_model_calls": 3,
+                    "providers": {"google": 3},
+                },
+                "safety": {
+                    "paid_execution_count": 0,
+                    "paid_fallback_count": 0,
+                    "production_active": False,
+                    "secret_values_displayed": 0,
+                    "secret_values_logged": 0,
+                    "secret_values_persisted": 0,
+                    "secret_values_returned_to_model": 0,
+                },
+            },
+        )
+        self.assertEqual(packet["state"], "GOOGLE_PROVIDER_DEGRADED_NVIDIA_LEAD")
+        self.assertEqual(packet["next_action"], "RUN_AT_MOST_ONE_GUARDED_NVIDIA_LEAD_CALL")
+        self.assertEqual(packet["call_policy"]["recommended_google_calls_this_stage"], 0)
+        self.assertEqual(packet["call_policy"]["recommended_nvidia_calls_this_stage"], 1)
+        self.assertTrue(packet["call_policy"]["planned_degraded_nvidia_lead"])
+        self.assertTrue(packet["google"]["conclusive_provider_outage"])
+        self.assertTrue(packet["roles"]["nvidia"]["degraded_lead_authorized"])
+
+    def test_unsettled_google_interruption_does_not_authorize_degraded_lead(self):
+        packet = build_coordination_packet(
+            {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
+            {
+                "status": "blocked",
+                "runtime": {"stop_reason": "PROVIDER_INTERRUPTED"},
+                "budget": {"requests_used": 2, "unsettled_requests": 1},
+                "live_staging": {
+                    "executor_provider": "google",
+                    "reviewer_provider": "nvidia",
+                    "family_separation_pass": True,
+                    "external_model_calls": 2,
+                    "providers": {"google": 2},
+                },
+                "safety": {
+                    "paid_execution_count": 0,
+                    "paid_fallback_count": 0,
+                    "production_active": False,
+                    "secret_values_displayed": 0,
+                    "secret_values_logged": 0,
+                    "secret_values_persisted": 0,
+                    "secret_values_returned_to_model": 0,
+                },
+            },
+        )
+        self.assertEqual(packet["state"], "TWO_AGENT_ATTEMPT_FAILED")
+        self.assertEqual(packet["next_action"], "STOP_AND_REVIEW_TWO_AGENT_FAILURE")
+        self.assertEqual(packet["call_policy"]["recommended_nvidia_calls_this_stage"], 0)
+        self.assertFalse(packet["call_policy"]["planned_degraded_nvidia_lead"])
+
     def test_operational_two_agent_result_suppresses_extra_stage_calls(self):
         packet = build_coordination_packet(
             {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
@@ -77,7 +140,8 @@ class AIArmyCoordinationTests(unittest.TestCase):
         self.assertEqual(policy["mission_token_ceiling"], 81_920)
         self.assertEqual(policy["important"]["execution"], "SERIAL_SAME_PROVIDER_BEST_OF_N")
         self.assertFalse(packet["call_policy"]["same_provider_independent_attempts_parallel"])
-        self.assertIn("CHECKPOINT_UNSETTLED", policy["provider_interruption_rule"])
+        self.assertIn("CHECKPOINT", policy["provider_interruption_rule"])
+        self.assertIn("SETTLED_REPEATED_5XX", policy["provider_interruption_rule"])
 
     def test_project_continuation_stops_at_project_not_action_boundary(self):
         packet = build_coordination_packet({}, {})
