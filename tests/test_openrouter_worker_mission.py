@@ -10,7 +10,7 @@ class OpenRouterWorkerMissionTests(unittest.TestCase):
         packet = build_mission_packet(source_head="a" * 40)
         self.assertEqual(packet["importance"], "IMPORTANT")
         self.assertEqual(packet["adaptive_redundancy"]["executor_attempts"], 2)
-        self.assertTrue(packet["adaptive_redundancy"]["parallel_executor_attempts"])
+        self.assertFalse(packet["adaptive_redundancy"]["same_provider_attempts_parallel"])
         self.assertIn("GOOGLE_GEMINI_EXECUTOR", packet["chain_of_command"])
         self.assertIn("NVIDIA_NEMOTRON_REVIEWER", packet["chain_of_command"])
 
@@ -25,12 +25,23 @@ class OpenRouterWorkerMissionTests(unittest.TestCase):
         self.assertFalse(benchmark["fixed_model_ids_allowed"])
         self.assertTrue(benchmark["benchmark_only_after_exact_free_probe"])
         self.assertEqual(benchmark["max_candidates_per_role"], 3)
+        self.assertEqual(benchmark["latency_source"], "LOCAL_MONOTONIC_WALL_CLOCK")
+
+    def test_project_contract_continues_until_project_boundary(self):
+        packet = build_mission_packet()
+        policy = packet["project_continuation_contract"]
+        self.assertFalse(policy["stop_between_substeps"])
+        self.assertEqual(policy["current_stop_scope"], "PROJECT_BOUNDARY")
+        self.assertEqual(policy["provider_usage_uncertain"], "CHECKPOINT_WITHOUT_REPLAY")
+        self.assertEqual(policy["after_project_acceptance"], "PREDICT_NEXT_PROJECT")
+        self.assertTrue(policy["auto_continue_safe_followups"])
 
     def test_mission_scope_is_existing_worker_subsystem_only(self):
         packet = build_mission_packet()
         self.assertEqual(set(packet["allowed_paths"]), set(ALLOWED_PATHS))
         self.assertIn("scripts/worker_selection.py", ALLOWED_PATHS)
         self.assertIn("scripts/probe_free_workers.py", ALLOWED_PATHS)
+        self.assertIn("scripts/continuous_project_loop.py", ALLOWED_PATHS)
         self.assertNotIn("config/model_registry.json", ALLOWED_PATHS)
 
     def test_focused_carrier_defaults_to_important_openrouter_trial(self):
