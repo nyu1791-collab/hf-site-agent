@@ -39,7 +39,7 @@ class WorkerSelectionTests(unittest.TestCase):
         self.assertFalse(result["paid_fallback"])
         self.assertFalse(result["generic_router"])
 
-    def test_missing_nonstandard_capability_tags_do_not_block_feature_eligible_candidate(self):
+    def test_missing_nonstandard_capability_tags_do_not_block_candidate(self):
         entry = worker_entry("vendor/current-catalog:free", capabilities=[], context_length=65536)
         candidates = catalog_worker_candidates([entry], "CODING_WORKER")
         self.assertEqual([item["model"] for item in candidates], [entry["id"]])
@@ -50,7 +50,28 @@ class WorkerSelectionTests(unittest.TestCase):
         self.assertFalse(result["capability_hint_match"])
         self.assertTrue(result["role_benchmark_required"])
 
-    def test_explicit_role_tag_is_only_a_deterministic_preference_hint(self):
+    def test_optional_native_features_are_preference_not_hard_gate(self):
+        no_native = worker_entry(
+            "vendor/plain:free",
+            capabilities=[],
+            context_length=131072,
+            parameters=["temperature"],
+        )
+        feature_rich = worker_entry(
+            "vendor/rich:free",
+            capabilities=[],
+            context_length=32768,
+            parameters=["tools", "tool_choice", "response_format"],
+        )
+        candidates = catalog_worker_candidates([no_native, feature_rich], "CODING_WORKER")
+        self.assertEqual([item["model"] for item in candidates], [feature_rich["id"], no_native["id"]])
+        self.assertEqual(candidates[0]["preferred_feature_hits"], 2)
+        self.assertEqual(candidates[1]["preferred_feature_hits"], 0)
+        probes = {entry["id"]: active_probe(entry["id"]) for entry in (no_native, feature_rich)}
+        result = select_free_worker([no_native, feature_rich], probes, "CODING_WORKER")
+        self.assertEqual(result["model"], feature_rich["id"])
+
+    def test_explicit_role_tag_is_strong_preference_hint(self):
         tagged = worker_entry("vendor/tagged:free", capabilities=["coding"], context_length=32768)
         untagged = worker_entry("vendor/untagged:free", capabilities=[], context_length=131072)
         probes = {entry["id"]: active_probe(entry["id"]) for entry in (tagged, untagged)}
@@ -94,17 +115,19 @@ class WorkerSelectionTests(unittest.TestCase):
         )
         self.assertEqual(result["reason"], "generic_free_router_forbidden")
 
-    def test_requested_model_remains_subject_to_standard_role_feature_and_probe_gates(self):
-        no_tools = worker_entry(
-            "vendor/general:free",
+    def test_requested_plain_model_can_enter_probe_stage_without_tool_support(self):
+        plain = worker_entry(
+            "vendor/plain:free",
             capabilities=["general"],
-            parameters=["structured_outputs"],
+            parameters=["temperature"],
         )
         coding = worker_entry("vendor/coding:free", capabilities=["coding"])
-        probes = {entry["id"]: active_probe(entry["id"]) for entry in (no_tools, coding)}
-        result = select_free_worker([no_tools, coding], probes, "CODING_WORKER", requested_model=no_tools["id"])
-        self.assertEqual(result["status"], "blocked")
-        result = select_free_worker([no_tools, coding], probes, "CODING_WORKER", requested_model=coding["id"])
+        probes = {entry["id"]: active_probe(entry["id"]) for entry in (plain, coding)}
+        result = select_free_worker([plain, coding], probes, "CODING_WORKER", requested_model=plain["id"])
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["model"], plain["id"])
+        self.assertEqual(result["preferred_feature_hits"], 0)
+        result = select_free_worker([plain, coding], probes, "CODING_WORKER", requested_model=coding["id"])
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["model"], coding["id"])
 
