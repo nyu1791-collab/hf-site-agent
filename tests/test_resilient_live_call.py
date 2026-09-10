@@ -11,6 +11,8 @@ from scripts.resilient_live_call import (
     FINAL_RECOVERY_MAX_OUTPUT_TOKENS,
     FINAL_RECOVERY_REPOSITORY_CONTEXT_CHARS,
     MAX_CONCLUSIVE_5XX_RECOVERIES,
+    MAX_POST_5XX_RATE_LIMIT_RECOVERIES,
+    POST_5XX_RATE_LIMIT_BACKOFF_SECONDS,
     RECOVERY_MAX_OUTPUT_TOKENS,
     RECOVERY_REPOSITORY_CONTEXT_CHARS,
     _compact_recovery_messages,
@@ -35,6 +37,8 @@ def policy():
         capability_verified=True,
         circuit_closed=True,
         staging_free_route_allowed=True,
+        paid_fallback=False,
+        account_zero_cost_verified=False,
     )
 
 
@@ -82,8 +86,6 @@ class SequenceAdapter:
 
 class ResilientLiveCallTests(unittest.TestCase):
     def setUp(self):
-        # Production uses short bounded backoff; unit tests verify the decision
-        # without paying wall-clock delay.
         self.sleep_patch = patch("scripts.resilient_live_call.time.sleep")
         self.mock_sleep = self.sleep_patch.start()
         self.addCleanup(self.sleep_patch.stop)
@@ -112,6 +114,15 @@ class ResilientLiveCallTests(unittest.TestCase):
             retryable=True,
         )
 
+    @staticmethod
+    def rate_limited(retry_after_seconds=None):
+        return ProviderAdapterError(
+            "RATE_LIMITED",
+            http_status=429,
+            retry_after_seconds=retry_after_seconds,
+            retryable=False,
+        )
+
     def test_one_explicit_503_gets_one_fresh_recovery_attempt(self):
         adapter = SequenceAdapter([self.unavailable(), ok_response()])
         result, metrics = self.invoke(adapter)
@@ -120,14 +131,12 @@ class ResilientLiveCallTests(unittest.TestCase):
         self.assertEqual(result["requests_used"], 2)
         self.assertEqual(result["provider_attempts"], 2)
         self.assertEqual(result["conclusive_5xx_recovery_count"], 1)
+        self.assertEqual(result["post_5xx_rate_limit_recovery_count"], 0)
         self.assertTrue(result["recovery_context_compacted"])
         self.assertEqual(result["recovery_level_reached"], 1)
         self.assertEqual(metrics.snapshot()["external_model_calls"], 2)
         self.assertEqual(len(adapter.calls), 2)
-        self.assertNotEqual(
-            adapter.calls[0]["options"]["request_id"],
-            adapter.calls[1]["options"]["request_id"],
-        )
+        self.assertNotEqual(adapter.calls[0]["options"]["request_id"], adapter.calls[1]["options"]["request_id"])
         self.assertEqual(adapter.calls[0]["model"], adapter.calls[1]["model"])
         self.assertLessEqual(adapter.calls[1]["options"]["max_tokens"], RECOVERY_MAX_OUTPUT_TOKENS)
         self.assertEqual(self.mock_sleep.call_count, 1)
@@ -145,14 +154,42 @@ class ResilientLiveCallTests(unittest.TestCase):
         self.assertEqual(len(adapter.calls), 3)
         self.assertLessEqual(adapter.calls[1]["options"]["max_tokens"], RECOVERY_MAX_OUTPUT_TOKENS)
         self.assertLessEqual(adapter.calls[2]["options"]["max_tokens"], FINAL_RECOVERY_MAX_OUTPUT_TOKENS)
-        self.assertNotEqual(
-            adapter.calls[1]["options"]["request_id"],
-            adapter.calls[2]["options"]["request_id"],
-        )
-        # A tiny base prompt can already be below both recovery context caps.
-        # Progressive shrinking of realistic large payloads is verified by the
-        # dedicated compactor test below; this test focuses on retry sequencing.
+        self.assertNotEqual(adapter.calls[1]["options"]["request_id"], adapter.calls[2]["options"]["request_id"])
         self.assertEqual(self.mock_sleep.call_count, 2)
+
+    def test_observed_503_then_429_gets_one_cooldown_recovery(self):
+        adapter = SequenceAdapter([self.unavailable(), self.rate_limited(), ok_response()])
+        result, metrics = self.invoke(adapter)
+
+        self.assertEqual(result["summary"], "recovered")
+        self.assertEqual(result["requests_used"], 3)
+        self.assertEqual(result["provider_attempts"], 3)
+        self.assertEqual(result["conclusive_5xx_recovery_count"], 1)
+        self.assertEqual(result["post_5xx_rate_limit_recovery_count"], 1)
+        self.assertEqual(MAX_POST_5XX_RATE_LIMIT_RECOVERIES, 1)
+        self.assertEqual(len(adapter.calls), 3)
+        self.assertEqual(metrics.snapshot()["external_model_calls"], 3)
+        self.assertEqual(self.mock_sleep.call_count, 2)
+        delays = [call.args[0] for call in self.mock_sleep.call_args_list]
+        self.assertGreaterEqual(delays[-1], POST_5XX_RATE_LIMIT_BACKOFF_SECONDS)
+        self.assertLessEqual(adapter.calls[2]["options"]["max_tokens"], FINAL_RECOVERY_MAX_OUTPUT_TOKENS)
+        self.assertNotEqual(adapter.calls[1]["options"]["request_id"], adapter.calls[2]["options"]["request_id"])
+
+    def test_first_call_429_remains_fail_closed_without_retry(self):
+        adapter = SequenceAdapter([self.rate_limited(), ok_response()])
+        metrics = LiveCallMetrics()
+        metrics.configure_budgets({"google": 24}, {"google": 81920})
+
+        with self.assertRaises(ProviderInterrupted) as caught:
+            call_model_with_bounded_recovery(
+                self.binding(adapter), task(), {"phase": "EXECUTE"},
+                metrics=metrics, instruction="Return JSON only.",
+            )
+
+        self.assertEqual(len(adapter.calls), 1)
+        self.assertEqual(caught.exception.actual_requests, 1)
+        self.assertEqual(caught.exception.actual_tokens, 0)
+        self.assertEqual(self.mock_sleep.call_count, 0)
 
     def test_recovery_message_compactor_reduces_real_focused_payload_shape(self):
         oversized = "x" * 12000
@@ -180,7 +217,7 @@ class ResilientLiveCallTests(unittest.TestCase):
         self.assertEqual(parsed["mission_id"], "M1")
         self.assertEqual(parsed["task_metadata"]["bound_objective"], "preserve this objective")
         self.assertTrue(parsed["repository_context"]["recovery_compacted"])
-        self.assertEqual(parsed["transport_recovery"]["reason"], "CONCLUSIVE_TEMPORARY_5XX")
+        self.assertEqual(parsed["transport_recovery"]["reason"], "CONCLUSIVE_TEMPORARY_HTTP_FAILURE")
         self.assertEqual(final_parsed["transport_recovery"]["recovery_number"], 2)
 
     def test_payload_compactor_has_bounded_repository_budget(self):
@@ -208,7 +245,7 @@ class ResilientLiveCallTests(unittest.TestCase):
         self.assertTrue(compact["repository_context"]["recovery_compacted"])
         self.assertEqual(compact["mission_id"], "M1")
 
-    def test_three_explicit_503s_stop_without_a_fourth_call_and_are_settleable(self):
+    def test_three_explicit_503s_stop_without_a_fourth_5xx_recovery_and_are_settleable(self):
         adapter = SequenceAdapter([self.unavailable(), self.unavailable(), self.unavailable()])
         metrics = LiveCallMetrics()
         metrics.configure_budgets({"google": 24}, {"google": 81920})
@@ -264,25 +301,6 @@ class ResilientLiveCallTests(unittest.TestCase):
         self.assertIsNone(caught.exception.actual_requests)
         self.assertEqual(metrics.snapshot()["external_model_calls"], 1)
         self.assertEqual(self.mock_sleep.call_count, 1)
-
-    def test_rate_limit_is_conclusive_but_not_auto_retried(self):
-        adapter = SequenceAdapter([
-            ProviderAdapterError("RATE_LIMITED", http_status=429, retry_after_seconds=2, retryable=False),
-            ok_response(),
-        ])
-        metrics = LiveCallMetrics()
-        metrics.configure_budgets({"google": 24}, {"google": 81920})
-
-        with self.assertRaises(ProviderInterrupted) as caught:
-            call_model_with_bounded_recovery(
-                self.binding(adapter), task(), {"phase": "EXECUTE"},
-                metrics=metrics, instruction="Return JSON only.",
-            )
-
-        self.assertEqual(len(adapter.calls), 1)
-        self.assertEqual(caught.exception.actual_requests, 1)
-        self.assertEqual(caught.exception.actual_tokens, 0)
-        self.assertEqual(self.mock_sleep.call_count, 0)
 
 
 if __name__ == "__main__":
