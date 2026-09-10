@@ -27,12 +27,12 @@ class AIArmyCoordinationTests(unittest.TestCase):
         )
         self.assertEqual(packet["state"], "TWO_AGENT_STAGING_READY")
         self.assertEqual(packet["next_action"], "RUN_GOOGLE_EXECUTOR_NVIDIA_REVIEWER")
-        self.assertEqual(packet["roles"]["google"]["primary"], "EXECUTOR")
-        self.assertEqual(packet["roles"]["nvidia"]["primary"], "INDEPENDENT_REVIEWER")
+        self.assertEqual(packet["roles"]["google"]["primary"], "COMMANDER_EXECUTOR")
+        self.assertEqual(packet["roles"]["nvidia"]["primary"], "COMMANDER_INDEPENDENT_REVIEWER")
         self.assertEqual(packet["call_policy"]["recommended_google_calls_this_stage"], 1)
         self.assertEqual(packet["call_policy"]["recommended_nvidia_calls_this_stage"], 1)
 
-    def test_failed_two_agent_attempt_suppresses_fallback_calls(self):
+    def test_failed_two_agent_attempt_suppresses_unplanned_fallback_calls(self):
         packet = build_coordination_packet(
             {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
             {
@@ -47,7 +47,7 @@ class AIArmyCoordinationTests(unittest.TestCase):
         self.assertEqual(packet["call_policy"]["recommended_google_calls_this_stage"], 0)
         self.assertFalse(packet["call_policy"]["extra_fallback_after_two_agent_attempt"])
 
-    def test_operational_two_agent_result_suppresses_extra_calls(self):
+    def test_operational_two_agent_result_suppresses_extra_stage_calls(self):
         packet = build_coordination_packet(
             {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
             {
@@ -66,12 +66,34 @@ class AIArmyCoordinationTests(unittest.TestCase):
         self.assertEqual(packet["call_policy"]["recommended_google_calls_this_stage"], 0)
         self.assertTrue(packet["live_two_agent"]["family_separation_pass"])
 
-    def test_safety_is_always_fail_closed(self):
+    def test_performance_policy_is_adaptive_not_always_redundant(self):
         packet = build_coordination_packet({}, {})
-        self.assertTrue(packet["safety"]["free_only"])
-        self.assertFalse(packet["safety"]["paid_execution_allowed"])
-        self.assertFalse(packet["safety"]["paid_fallback_allowed"])
-        self.assertFalse(packet["safety"]["production_activation_allowed"])
+        policy = packet["performance_policy"]
+        self.assertEqual(policy["normal"]["executor_attempts"], 1)
+        self.assertEqual(policy["important"]["executor_attempts"], 2)
+        self.assertEqual(policy["critical"]["executor_attempts"], 3)
+        self.assertTrue(policy["default_is_not_redundant"])
+        self.assertEqual(policy["critical"]["output_token_ceiling"], 12_288)
+        self.assertEqual(policy["mission_token_ceiling"], 81_920)
+
+    def test_subordinate_model_plan_keeps_commanders_and_benchmarks_workers(self):
+        packet = build_coordination_packet({}, {})
+        plan = packet["subordinate_model_plan"]
+        self.assertEqual(plan["google_corps"]["commander"], "gemini-3.8-flash")
+        self.assertEqual(plan["nvidia_corps"]["commander"], "nvidia/nemotron-3.5-lightning-30b-a3b")
+        self.assertIn("RUN_SMALL_CAPABILITY_BENCHMARK", plan["admission_sequence"])
+        self.assertIn("latency", plan["selection_metrics"])
+        self.assertTrue(plan["commander_override"])
+        self.assertFalse(plan["worker_direct_repository_write"])
+
+    def test_minimum_guards_only_cover_hard_boundaries(self):
+        packet = build_coordination_packet({}, {})
+        guards = packet["minimum_guards"]
+        self.assertFalse(guards["paid_fallback_allowed"])
+        self.assertFalse(guards["secret_exposure_allowed"])
+        self.assertFalse(guards["production_activation_allowed"])
+        self.assertFalse(guards["repository_write_by_external_model_allowed"])
+        self.assertFalse(guards["duplicate_same_request_allowed"])
         self.assertFalse(packet["handoff_contract"]["external_models_may_write_repository"])
 
 
