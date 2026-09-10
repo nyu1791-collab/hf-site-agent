@@ -18,7 +18,7 @@ jobs:
   bootstrap:
     if: ${{ github.ref_name == 'ai-army/provider-v3' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
       - name: Checkout target branch without write credentials
         uses: actions/checkout@v6
@@ -91,6 +91,14 @@ jobs:
           --checkpoint-root artifacts/live_staging_checkpoints
           --output artifacts/live_staging_report.json
 
+      - name: Run repository-grounded NVIDIA Google Lead Engineer mission
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+          NVIDIA_MISSION_MODE: GOOGLE_BOOTSTRAP_SAFE
+        run: python scripts/run_nvidia_orchestrator_mission.py
+
       - name: Build redacted one-shot summary
         if: always()
         run: |
@@ -117,7 +125,7 @@ jobs:
           limited = live.get("nvidia_limited_staging") if isinstance(live.get("nvidia_limited_staging"), dict) else {}
           external_calls = int(live.get("total_external_model_calls_in_command", 0) or live_view.get("external_model_calls", 0) or 0)
           summary = {
-              "schema_version": "nvidia-google-once-v3",
+              "schema_version": "nvidia-google-once-v4",
               "provider_focus": ["nvidia", "google"],
               "nvidia_selected_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
               "nvidia_timeout_seconds": 150,
@@ -148,8 +156,15 @@ jobs:
               "live_external_model_calls": external_calls,
               "nvidia_limited_ready": limited.get("ready_limited") is True,
               "nvidia_bootstrap_status": (live.get("nvidia_bootstrap") or {}).get("status", "NOT_STARTED") if isinstance(live.get("nvidia_bootstrap"), dict) else "NOT_STARTED",
-              "mission_state": mission.get("state"),
-              "result_inbox_status": inbox.get("status"),
+              "lead_mission_id": mission.get("mission_id"),
+              "lead_mission_state": mission.get("state"),
+              "lead_result_status": mission.get("result_status"),
+              "lead_result_complete": mission.get("result_complete") is True,
+              "lead_path_validation": mission.get("path_validation") is True,
+              "lead_result_hash": mission.get("result_hash"),
+              "lead_result_inbox_status": inbox.get("status"),
+              "lead_next_action": inbox.get("next_action"),
+              "lead_nvidia_external_calls": int(mission.get("nvidia_external_calls", 0) or 0),
               "paid_execution_count": int(live.get("paid_execution_count", 0) or 0),
               "paid_fallback_count": int(live.get("paid_fallback_count", 0) or 0),
               "production_active": False,
