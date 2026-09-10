@@ -37,7 +37,7 @@ class ParallelWorkerCouncilTests(unittest.TestCase):
         self.assertEqual(set(selected[0]["roles"]), {"CODING_WORKER", "REVIEW_WORKER"})
 
     def test_parallel_council_uses_only_selected_verified_models(self):
-        def fake_request(model, api_key, roles):
+        def fake_request(model, api_key, roles, evidence=None):
             return {
                 "status": "COUNCIL_OK",
                 "model": model,
@@ -52,6 +52,7 @@ class ParallelWorkerCouncilTests(unittest.TestCase):
             report = run_council(api_key="test-key", probe=self.probe, benchmark=self.benchmark)
 
         self.assertEqual(report["status"], "COUNCIL_READY")
+        self.assertEqual(report["schema_version"], "parallel-worker-council-v2")
         self.assertEqual(report["model_calls"], 3)
         self.assertEqual(report["successful_model_count"], 3)
         self.assertTrue(report["parallel_execution"])
@@ -64,6 +65,34 @@ class ParallelWorkerCouncilTests(unittest.TestCase):
         bad_probe = {"results": self.probe["results"][:-1]}
         selected = select_council_models(bad_probe, self.benchmark)
         self.assertNotIn(self.models[2], [item["model"] for item in selected])
+
+    def test_efficiency_leaders_receive_council_seats(self):
+        models = ["vendor/quality:free", "vendor/fast:free", "vendor/lean:free", "vendor/coverage:free"]
+        probe = {
+            "results": [
+                {"status": "FREE_ACTIVE", "requested_model": model, "response_model": model, "fallback_used": False}
+                for model in models
+            ]
+        }
+        benchmark = {
+            "rankings": {
+                "CODING_WORKER": [
+                    {"model": models[0], "score": 0.99, "latency_ms": 500, "tokens_per_success": 300},
+                    {"model": models[1], "score": 0.80, "latency_ms": 80, "tokens_per_success": 450},
+                    {"model": models[2], "score": 0.79, "latency_ms": 700, "tokens_per_success": 70},
+                    {"model": models[3], "score": 0.78, "latency_ms": 600, "tokens_per_success": 250},
+                ],
+                "REVIEW_WORKER": [
+                    {"model": models[3], "score": 0.88, "latency_ms": 650, "tokens_per_success": 260},
+                ],
+            }
+        }
+        selected = select_council_models(probe, benchmark)
+        by_model = {item["model"]: item for item in selected}
+        self.assertIn("quality_leader", by_model[models[0]]["selection_reasons"])
+        self.assertIn("latency_leader", by_model[models[1]]["selection_reasons"])
+        self.assertIn("token_efficiency_leader", by_model[models[2]]["selection_reasons"])
+        self.assertIn("role_coverage_leader", by_model[models[3]]["selection_reasons"])
 
 
 if __name__ == "__main__":
