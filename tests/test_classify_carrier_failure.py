@@ -109,6 +109,78 @@ class CarrierFailureClassificationTests(unittest.TestCase):
             "QUOTA_UNKNOWN",
         )
 
+    def test_focused_deferred_routes_do_not_turn_unknown_metadata_into_false_failure(self):
+        google = {
+            "status": "OK",
+            "secure_evidence": True,
+            "current": True,
+            "model_verified": True,
+            "endpoint_verified": True,
+            "auth_verified": True,
+            "free_program_available": True,
+            "free_route_selected": True,
+            "selected_route": "FREE_TIER",
+            "zero_price_verified": True,
+            "paid_fallback_possible": False,
+            "paid_transition_possible": None,
+            "billing_enabled_class": None,
+            "account_metadata": {
+                "billing_enabled": None,
+                "current_account_eligible": None,
+                "fallback_to_paid_possible": False,
+                "automatic_paid_transition_possible": None,
+            },
+            "blockers": ["QUOTA_NOT_SAFE", "QUOTA_NOT_VERIFIED", "QUOTA_METADATA_UNAVAILABLE"],
+        }
+        nvidia = {
+            "status": "OK",
+            "secure_evidence": True,
+            "current": True,
+            "model_verified": True,
+            "endpoint_verified": True,
+            "auth_verified": True,
+            "selected_route": "FREE_ENDPOINT",
+            "zero_price_verified": True,
+            "paid_fallback_possible": False,
+            "paid_transition_possible": False,
+            "blockers": ["QUOTA_NOT_SAFE", "QUOTA_METADATA_UNAVAILABLE"],
+        }
+        probe = {"providers": [
+            {"provider": "google", "model": "gemini-3.8-flash", "status": "PROBE_DEFERRED_TO_AGENT"},
+            {"provider": "nvidia", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "status": "PROBE_DEFERRED_TO_AGENT"},
+        ]}
+        result = classify_reports(
+            {"providers": {
+                "google": {"status": "CATALOG_OK", "models": {"gemini-3.8-flash": google}},
+                "nvidia": {"status": "CATALOG_OK", "models": {"nvidia/nemotron-3.5-lightning-30b-a3b": nvidia}},
+            }},
+            probe,
+            {"status": "completed"},
+        )
+        self.assertEqual(result["status"], "SUCCESS")
+        self.assertEqual(result["failure_count"], 0)
+
+    def test_known_paid_fact_on_focused_route_is_not_suppressed(self):
+        record = {
+            "status": "OK",
+            "secure_evidence": True,
+            "current": True,
+            "model_verified": True,
+            "endpoint_verified": True,
+            "auth_verified": True,
+            "selected_route": "FREE_ENDPOINT",
+            "zero_price_verified": True,
+            "paid_fallback_possible": False,
+            "paid_transition_possible": True,
+            "blockers": ["QUOTA_NOT_SAFE", "PAID_ROUTE"],
+        }
+        result = classify_reports(
+            {"providers": {"nvidia": {"status": "CATALOG_OK", "models": {"nvidia/nemotron-3.5-lightning-30b-a3b": record}}}},
+            {"providers": []},
+            {"status": ""},
+        )
+        self.assertEqual(result["failure_signatures"][0]["failure_signature"]["error_type"], "FREE_ROUTE_NOT_VERIFIED")
+
 
 if __name__ == "__main__":
     unittest.main()
