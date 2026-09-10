@@ -83,10 +83,13 @@ class CarrierWorkflowTests(unittest.TestCase):
         self.assertIn("STOP_AND_REVIEW_TWO_AGENT_FAILURE", self.coordination_text)
         self.assertIn('"extra_fallback_after_two_agent_attempt": False', self.coordination_text)
 
-    def test_focused_roles_use_google_executor_nvidia_reviewer_and_larger_bounded_output(self):
+    def test_focused_roles_use_google_executor_nvidia_reviewer_and_performance_budget(self):
         self.assertIn('GOOGLE_EXECUTOR = ("google", "gemini-3.8-flash")', self.focused_text)
         self.assertIn('NVIDIA_REVIEWER = ("nvidia", "nvidia/nemotron-3.5-lightning-30b-a3b")', self.focused_text)
-        self.assertIn("FOCUSED_MAX_OUTPUT_TOKENS = 768", self.focused_text)
+        self.assertIn("FOCUSED_MAX_OUTPUT_TOKENS = 2_048", self.focused_text)
+        self.assertIn("FOCUSED_REQUEST_BUDGET = 10", self.focused_text)
+        self.assertIn("FOCUSED_TOKEN_BUDGET = 12_288", self.focused_text)
+        self.assertIn("REUSED_FRESH_EXACT_MODEL_PROBE", self.focused_text)
 
     def test_carrier_preserves_read_only_actions_permission(self):
         self.assertIn("contents: read", self.text)
