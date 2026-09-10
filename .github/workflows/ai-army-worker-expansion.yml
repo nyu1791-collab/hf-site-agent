@@ -1,0 +1,94 @@
+name: "AI army worker expansion: NVIDIA lead"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/worker-expansion-trigger.txt
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ai-army-worker-expansion-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  nvidia-worker-expansion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ai-army/provider-v3
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Compile expansion runtime
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python -m py_compile \
+            scripts/run_nvidia_worker_expansion.py \
+            scripts/run_nvidia_orchestrator_guarded.py \
+            scripts/run_nvidia_orchestrator_mission.py \
+            scripts/focused_nvidia_streaming_adapter.py \
+            scripts/secure_account_evidence.py \
+            scripts/probe_nvidia_google_focused.py \
+            scripts/worker_selection.py \
+            scripts/probe_free_workers_multi.py \
+            scripts/benchmark_free_workers.py \
+            scripts/worker_benchmark_ranking.py \
+            scripts/openrouter_worker_orchestrator.py \
+            scripts/continuous_project_loop.py
+
+      - name: Collect redacted NVIDIA route evidence
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/secure_account_evidence.py
+          --provider nvidia
+          --output artifacts/secure_account_evidence.json
+
+      - name: Build exact NVIDIA direct-agent admission
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/probe_nvidia_google_focused.py
+          --evidence-file artifacts/secure_account_evidence.json
+          --output artifacts/provider_probe.json
+
+      - name: Run one NVIDIA worker-expansion lead mission
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+          SOURCE_HEAD: ${{ github.sha }}
+        run: python scripts/run_nvidia_worker_expansion.py
+
+      - name: Audit repository and result artifacts
+        run: |
+          set -euo pipefail
+          python scripts/audit_secret_safety.py --root .
+          python -m json.tool artifacts/mission_state.json >/dev/null
+          python -m json.tool artifacts/result_inbox.json >/dev/null
+          python -m json.tool artifacts/nvidia_orchestrator_ledger.json >/dev/null
+
+      - name: Upload NVIDIA expansion result
+        uses: actions/upload-artifact@v6
+        with:
+          name: nvidia-worker-expansion-${{ github.run_id }}
+          path: |
+            artifacts/secure_account_evidence.json
+            artifacts/provider_probe.json
+            artifacts/mission_state.json
+            artifacts/result_inbox.json
+            artifacts/nvidia_orchestrator_ledger.json
+          retention-days: 7
