@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Focused NVIDIA synthesis entrypoint for multi-agent efficiency missions.
 
-The worker-expansion runner remains the execution boundary.  This wrapper gives
-the commander only the modules that explain the current measured bottlenecks,
-then records a deterministic staging-parallel probe and next-run organization
-feedback after synthesis.  Broad provider recovery code is intentionally not
-part of this commander's repository context.
+The worker-expansion runner remains the execution boundary. This wrapper gives
+the commander a compact Shared Blackboard derived from the final specialist
+state instead of forwarding overlapping worker transcripts. Post-synthesis it
+also emits the deterministic staging-parallel and organization-feedback
+artifacts. Broad provider recovery code is intentionally absent.
 """
 
 from __future__ import annotations
@@ -20,17 +20,17 @@ if __package__ in {None, ""}:  # pragma: no cover
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts import run_nvidia_worker_expansion as base
+from scripts.organization_coordination import build_blackboard_from_council
 from scripts.organization_feedback import build_feedback
 from scripts.staging_parallel_scheduler_probe import run_probe as run_staging_parallel_probe
+from scripts.update_worker_organization_memory import merge_run_into_memory
 
-MAX_COMPACT_COUNCIL_CHARS = 14_000
-MAX_SUCCESS_RESPONSE_CHARS = 900
-MAX_HEALTH_ROWS = 8
+MAX_COMPACT_COUNCIL_CHARS = 8_000
+MAX_SUCCESS_RESPONSE_CHARS = 480
+MAX_HEALTH_ROWS = 5
 
-# Order matters: the repository-context builder is bounded, so current
-# bottleneck modules are deliberately first rather than appended behind broad
-# worker-expansion context.
 FOCUSED_FILES = (
+    "scripts/organization_coordination.py",
     "scripts/failure_aware_specialist_retry.py",
     "scripts/failure_aware_specialist_council.py",
     "scripts/specialist_lane_router.py",
@@ -38,6 +38,7 @@ FOCUSED_FILES = (
     "scripts/mission_scheduler.py",
     "scripts/multi_agent_efficiency.py",
     "scripts/organization_feedback.py",
+    "tests/test_organization_coordination.py",
     "tests/test_adaptive_retry_and_compact_nvidia.py",
     "tests/test_failure_aware_specialist_council.py",
     "tests/test_specialist_lane_router.py",
@@ -48,22 +49,27 @@ FOCUSED_FILES = (
 ADDITIONAL_FILES = FOCUSED_FILES
 
 ADDITIONAL_MARKERS = {
+    "scripts/organization_coordination.py": (
+        "class SharedBlackboard",
+        "class PriorityTaskQueue",
+        "class WorkerCircuitBreaker",
+        "build_blackboard_from_council",
+        "should_early_stop",
+    ),
     "scripts/failure_aware_specialist_retry.py": (
         "redispatch_output_token_budget",
         "redispatch_reasoning_policy",
         "run_failure_aware_council",
-        "LENGTH_EXHAUSTION_REDISPATCH_TOKENS",
     ),
     "scripts/failure_aware_specialist_council.py": (
         "classify_failure",
         "build_redispatch_assignments",
         "run_failure_aware_council",
-        "parallel_metrics",
     ),
     "scripts/specialist_lane_router.py": (
-        "DEFAULT_LANE_ROLE_PREFERENCES",
+        "LANE_ASSIGNMENT_WEIGHTS",
         "attach_capability_matched_assignments",
-        "_assignment_score",
+        "historical_worker_signal",
     ),
     "scripts/staging_parallel_scheduler.py": (
         "MAX_STAGING_SUBORDINATE_PARALLEL",
@@ -89,14 +95,14 @@ ADDITIONAL_MARKERS = {
 
 COMPACT_OBJECTIVE = (
     " Current task is commander synthesis of measured multi-agent bottlenecks only. "
-    "Do not redesign the whole AI Army and do not repeat worker analysis. "
+    "Use the Shared Blackboard as the worker source of truth; do not repeat worker analysis. "
     "Do not discuss Google quota, Google recovery, generic provider recovery, deployment, or files absent from the supplied repository context. "
-    "Capability-matched lane routing, length-aware work stealing, bounded reasoning on retry, and a staging-only OpenRouter subordinate scheduler already exist; inspect them before proposing changes. "
-    "Focus only on unresolved specialist lanes, useful parallelism, retry effectiveness, worker utilization, and compact handoffs shown by this run. "
-    "Choose AT MOST 2 files_to_change, AT MOST 4 patch operations total, and AT MOST 3 tests. "
+    "Global critical-path lane routing, organization memory, length-aware work stealing, bounded reasoning on retry, Shared Blackboard coordination, and staging-only OpenRouter parallelism already exist. "
+    "Focus only on unresolved lanes, primary-success improvement, AI-call efficiency, worker utilization, and compact handoffs shown by this run. "
+    "Choose AT MOST 2 files_to_change, AT MOST 3 patch operations total, and AT MOST 2 tests. "
     "Each operation must be compact and implementation-ready: path, symbol/region, exact minimal change, rationale. "
     "Do not emit full-file replacements or large code listings. Preserve exact-free routing, no provider fallback, no production activation, and no secrets. "
-    "Return every required Structured Patch Bundle key completely within the current output budget. If no code change is justified by current evidence, explicitly recommend measurement rather than inventing one."
+    "Return every required Structured Patch Bundle key completely. If no change is justified, recommend measurement rather than inventing work."
 )
 
 
@@ -104,31 +110,42 @@ def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
+def _source_head() -> str:
+    return str(os.environ.get("SOURCE_HEAD") or os.environ.get("GITHUB_SHA") or "")[:80]
+
+
 def compact_council_context() -> str:
     raw = _mapping(base._load_mapping(base.COUNCIL_PATH))
     if not raw:
         return ""
+    board = build_blackboard_from_council(raw, source_head=_source_head())
     successes = []
-    for row in raw.get("results", []) if isinstance(raw.get("results"), list) else []:
-        if not isinstance(row, Mapping) or row.get("status") != "COUNCIL_OK":
-            continue
-        successes.append({
-            "model": str(row.get("model") or "")[:160],
-            "lane": row.get("specialist_lane"),
-            "response": str(row.get("response") or "")[:MAX_SUCCESS_RESPONSE_CHARS],
-            "phase": row.get("phase"),
-        })
     failures = []
-    for row in raw.get("results", []) if isinstance(raw.get("results"), list) else []:
-        if not isinstance(row, Mapping) or row.get("status") == "COUNCIL_OK":
+    open_tasks = []
+    for entry in board.get("entries", []) if isinstance(board.get("entries"), list) else []:
+        if not isinstance(entry, Mapping):
             continue
-        failures.append({
-            "model": str(row.get("model") or "")[:160],
-            "lane": row.get("specialist_lane"),
-            "error": row.get("error"),
-            "finish_reason": row.get("finish_reason"),
-            "phase": row.get("phase"),
-        })
+        kind = str(entry.get("kind") or "")
+        payload = _mapping(entry.get("payload"))
+        if kind == "RESULT":
+            successes.append({
+                "model": str(entry.get("source") or "")[:160],
+                "lane": entry.get("subject"),
+                "response": str(payload.get("response") or "")[:MAX_SUCCESS_RESPONSE_CHARS],
+                "phase": payload.get("phase"),
+                "recovered": payload.get("recovered") is True,
+            })
+        elif kind == "FAILURE":
+            failures.append({
+                "model": str(entry.get("source") or "")[:160],
+                "lane": entry.get("subject"),
+                "error": payload.get("error"),
+                "finish_reason": payload.get("finish_reason"),
+                "phase": payload.get("phase"),
+            })
+        elif kind == "OPEN_TASK":
+            open_tasks.append({"lane": entry.get("subject"), "action": payload.get("action")})
+
     health = []
     for row in raw.get("worker_health", []) if isinstance(raw.get("worker_health"), list) else []:
         if not isinstance(row, Mapping):
@@ -140,23 +157,20 @@ def compact_council_context() -> str:
             "successes": row.get("successes"),
             "attempts": row.get("attempts"),
         })
-        if len(health) >= MAX_HEALTH_ROWS:
-            break
-    bulk = _mapping(raw.get("bulk_coding_pool"))
-    bulk_models = []
-    for row in bulk.get("models", []) if isinstance(bulk.get("models"), list) else []:
-        if isinstance(row, Mapping):
-            bulk_models.append({
-                "model": str(row.get("model") or "")[:160],
-                "rank": row.get("bulk_rank"),
-                "tier": row.get("tier_ja"),
-                "weight": row.get("dispatch_weight"),
-                "score": row.get("bulk_score"),
-            })
+    health.sort(key=lambda row: (-float(row.get("health_score") or 0.0), str(row.get("model") or "")))
+
     compact = {
         "status": raw.get("status"),
-        "execution_mode": raw.get("execution_mode"),
+        "shared_blackboard": {
+            "schema_version": board.get("schema_version"),
+            "entry_count": board.get("entry_count", 0),
+            "duplicate_count": board.get("duplicate_count", 0),
+            "early_stop": board.get("early_stop", {}),
+            "open_tasks": open_tasks,
+        },
         "lane_assignment_policy": raw.get("lane_assignment_policy"),
+        "redispatch_selection_policy": raw.get("redispatch_selection_policy"),
+        "organization_memory_loaded": raw.get("organization_memory_loaded"),
         "capability_matched_lanes": raw.get("capability_matched_lanes"),
         "selected_model_count": raw.get("selected_model_count", 0),
         "primary_successful_lane_count": raw.get("primary_successful_lane_count", 0),
@@ -165,48 +179,66 @@ def compact_council_context() -> str:
         "recovered_lane_count": raw.get("recovered_lane_count", 0),
         "work_stealing_count": raw.get("work_stealing_count", 0),
         "length_exhaustion_count": raw.get("length_exhaustion_count", 0),
-        "redispatch_reasoning_policy": _mapping(raw.get("redispatch_reasoning_policy")),
         "primary_failure_counts": _mapping(raw.get("primary_failure_counts")),
         "parallel_metrics": _mapping(raw.get("parallel_metrics")),
-        "worker_health": health,
+        "worker_health": health[:MAX_HEALTH_ROWS],
         "successful_specialists": successes,
         "unresolved_lanes": failures,
-        "bulk_coding_pool": {
-            "status": bulk.get("status"),
-            "model_count": bulk.get("model_count", 0),
-            "models": bulk_models[:5],
-        },
     }
-    return json.dumps(compact, ensure_ascii=False, sort_keys=True, separators=(",", ":"))[:MAX_COMPACT_COUNCIL_CHARS]
+    text = json.dumps(compact, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    # Values above are already bounded; this last bound is a hard envelope guard.
+    return text[:MAX_COMPACT_COUNCIL_CHARS]
+
+
+def _load_json(path: Path) -> Mapping[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return value if isinstance(value, Mapping) else {}
 
 
 def _write_post_synthesis_feedback() -> None:
     council = dict(_mapping(base._load_mapping(base.COUNCIL_PATH)))
     if not council:
         return
-    result_path = Path("artifacts/result_inbox.json")
-    result = _mapping(base._load_mapping(result_path))
+    source_head = _source_head()
+    board = build_blackboard_from_council(council, source_head=source_head)
+    result = _mapping(base._load_mapping(Path("artifacts/result_inbox.json")))
     staging = run_staging_parallel_probe()
     feedback = build_feedback(
-        source_head=str(os.environ.get("SOURCE_HEAD") or os.environ.get("GITHUB_SHA") or ""),
+        source_head=source_head,
         council=council,
         commander=result,
         staging=staging,
     )
+    run_id_text = str(os.environ.get("GITHUB_RUN_ID") or "0")
+    run_id = int(run_id_text) if run_id_text.isdigit() else 0
+    memory_next = merge_run_into_memory(
+        _load_json(Path("config/worker_organization_memory.json")),
+        council,
+        run_id=run_id,
+        source_head=source_head,
+    )
     council["staging_parallel_probe"] = staging
     council["organization_feedback"] = feedback
-    base.COUNCIL_PATH.write_text(
-        json.dumps(council, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    Path("artifacts/staging_parallel_scheduler_probe.json").write_text(
-        json.dumps(staging, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    Path("artifacts/organization_feedback.json").write_text(
-        json.dumps(feedback, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    council["shared_blackboard_summary"] = {
+        "entry_count": board.get("entry_count", 0),
+        "duplicate_count": board.get("duplicate_count", 0),
+        "early_stop": board.get("early_stop", {}),
+    }
+    base.COUNCIL_PATH.write_text(json.dumps(council, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    outputs = {
+        "organization_blackboard.json": board,
+        "staging_parallel_scheduler_probe.json": staging,
+        "organization_feedback.json": feedback,
+        "worker_organization_memory_next.json": memory_next,
+    }
+    for name, payload in outputs.items():
+        Path("artifacts", name).write_text(
+            json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
 
 def main() -> int:
@@ -215,9 +247,6 @@ def main() -> int:
     original_objective = base.EXPANSION_OBJECTIVE
     original_limit = base.MAX_COUNCIL_PROMPT_CHARS
     original_context = base._council_context
-    # Unlike the broad discovery runner, synthesis sees only the measured
-    # optimization surface. This prevents irrelevant provider-recovery designs
-    # from consuming commander attention and output budget.
     base.EXPANSION_FILES = tuple(FOCUSED_FILES)
     base.WORKER_CONTEXT_MARKERS = dict(ADDITIONAL_MARKERS)
     base.EXPANSION_OBJECTIVE = COMPACT_OBJECTIVE
