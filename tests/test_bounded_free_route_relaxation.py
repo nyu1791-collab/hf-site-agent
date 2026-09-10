@@ -84,6 +84,10 @@ class BoundedFreeRouteRelaxationTests(unittest.TestCase):
     def test_unknown_google_account_metadata_is_soft_when_free_route_is_verified(self):
         self.assertTrue(focused_probe._google_bounded_probe_allowed(google_record()))
 
+    def test_unknown_future_blocker_label_does_not_stop_verified_google_route(self):
+        record = google_record(blockers=["FUTURE_NON_FATAL_METADATA_WARNING"])
+        self.assertTrue(focused_probe._google_bounded_probe_allowed(record))
+
     def test_known_google_billing_enabled_still_blocks(self):
         record = google_record(billing_enabled_class=True)
         record["account_metadata"]["billing_enabled"] = True
@@ -118,6 +122,16 @@ class BoundedFreeRouteRelaxationTests(unittest.TestCase):
         probe = {"providers": [deferred]}
         self.assertTrue(focused_run._focused_candidate_ok(ev, probe, "nvidia", NVIDIA_MODEL))
 
+    def test_derived_nvidia_warning_lists_do_not_override_direct_free_route_facts(self):
+        record = nvidia_record(
+            limited_staging_probe_allowed=False,
+            limited_staging_probe_blockers=["OLD_DERIVED_WARNING"],
+            limited_staging_evidence_severity={"hard_blockers": ["OLD_DERIVED_WARNING"]},
+        )
+        ev = {"providers": {"nvidia": {"models": {NVIDIA_MODEL: record}}}}
+        self.assertTrue(focused_probe._nvidia_deferred_result(ev)["direct_agent_admission"])
+        self.assertTrue(focused_run._focused_nvidia_evidence_ok(record))
+
     def test_known_nvidia_paid_transition_still_blocks_direct_agent(self):
         ev = {"providers": {"nvidia": {"models": {NVIDIA_MODEL: nvidia_record(paid_transition_possible=True)}}}}
         self.assertFalse(focused_probe._nvidia_deferred_result(ev)["direct_agent_admission"])
@@ -136,6 +150,44 @@ class BoundedFreeRouteRelaxationTests(unittest.TestCase):
         result = authorize_execution(provider_config, policy)
         self.assertTrue(result["allowed"])
         self.assertEqual(result["scope"], "STAGING")
+
+    def test_focused_wrapper_accepts_unreported_cost_but_rejects_explicit_nonzero(self):
+        policy = ExecutionPolicy(
+            scope="STAGING", provider_id="google", model_id=GOOGLE_MODEL,
+            technically_ready=True, staging_approved=True,
+            exact_model_verified=True, endpoint_verified=True, auth_verified=True,
+            capability_verified=True, free_verified=False, cost_safe=False,
+            quota_safe=True, circuit_closed=True, paid_fallback=False,
+            auto_top_up=False, max_retries=0, staging_free_route_allowed=True,
+            account_zero_cost_verified=False,
+        )
+
+        class Adapter:
+            provider_id = "google"
+
+            def __init__(self, cost=None):
+                self.cost = cost
+
+            def generate(self, model, messages, **options):
+                self.options = dict(options)
+                usage = {} if self.cost is None else {"cost": self.cost}
+                return {"model": model, "text": "```json\n{\"summary\":\"ok\"}\n```", "usage": usage}
+
+        adapter = Adapter()
+        wrapped = focused_run._ProbeReuseAdapter(adapter)
+        result = wrapped.generate(
+            GOOGLE_MODEL, [{"role": "user", "content": "x"}],
+            execution_policy=policy, require_zero_cost=True,
+        )
+        self.assertFalse(adapter.options["require_zero_cost"])
+        self.assertEqual(result["text"], '{"summary":"ok"}')
+        self.assertTrue(result["local_format_repair"])
+
+        with self.assertRaises(Exception):
+            focused_run._ProbeReuseAdapter(Adapter("0.01")).generate(
+                GOOGLE_MODEL, [{"role": "user", "content": "x"}],
+                execution_policy=policy, require_zero_cost=True,
+            )
 
     def test_agent_timeouts_are_large_but_finite(self):
         self.assertEqual(focused_probe.GOOGLE_BOUNDED_TIMEOUT_SECONDS, 120.0)
