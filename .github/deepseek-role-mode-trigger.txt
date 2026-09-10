@@ -1,0 +1,7 @@
+trigger=deepseek-role-mode-benchmark-1
+purpose=compare-thinking-8192-vs-direct-4096-for-coding-debugging-and-code-review-after-trial-3-length-exhaustion
+approved_paid_trial=true
+max_estimated_cost_usd=0.15
+max_parallel=2
+production_routing=false
+generic_paid_fallback=false
