@@ -194,6 +194,44 @@ class LiveStagingRunnerTests(unittest.TestCase):
         self.assertTrue(adapter.calls[0]["options"]["execution_policy"].limited_staging)
         self.assertTrue(all(item["state"] == "settled" for item in ledger["reservations"].values()))
 
+    def test_nvidia_limited_bootstrap_accepts_bounded_plain_text_proposal(self):
+        model = "nvidia/nemotron-3.5-lightning-30b-a3b"
+        adapter = FakeLiveAdapter("nvidia", self.registry["providers"]["nvidia"], [
+            {"text": "Review Google adapter and propose the smallest staging-only patch."}
+        ])
+        policy = ExecutionPolicy(
+            scope="STAGING",
+            provider_id="nvidia",
+            model_id=model,
+            model_family="NEMOTRON",
+            staging_approved=True,
+            exact_model_verified=True,
+            endpoint_verified=True,
+            auth_verified=True,
+            circuit_closed=True,
+            staging_free_route_allowed=True,
+            account_zero_cost_verified=False,
+            limited_staging=True,
+            limited_operation="BOOTSTRAP_PROPOSAL",
+        )
+        binding = LiveAgentBinding("EXECUTOR", "nvidia", model, "NEMOTRON", adapter, policy)
+        with tempfile.TemporaryDirectory() as directory:
+            plan = build_nvidia_limited_bootstrap_plan(
+                mission_id="NVIDIA-LIMITED-PLAIN-TEXT-TEST",
+                request_budget=1,
+                token_budget=2_048,
+            )
+            report = run_nvidia_limited_bootstrap_mission(
+                plan,
+                binding,
+                ledger_path=Path(directory) / "ledger.json",
+                checkpoint_root=Path(directory) / "checkpoints",
+                network_enabled=True,
+            )
+        self.assertEqual(report["status"], "completed")
+        self.assertTrue(report["nvidia_bootstrap"]["proposal_generated"])
+        self.assertTrue(report["nvidia_bootstrap"]["local_integrator_review"])
+
 
 if __name__ == "__main__":
     unittest.main()

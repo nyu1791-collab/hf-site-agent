@@ -268,6 +268,30 @@ def _call_model(
         "output_tokens": completion_tokens,
     }
     if parsed is None:
+        # Nemotron may return a concise plain-text proposal even when the
+        # bounded bootstrap requested JSON.  Keep the strict JSON contract
+        # for the normal multi-agent path, but preserve a non-empty limited
+        # NVIDIA bootstrap response as an explicitly bounded proposal
+        # envelope.  It remains proposal-only and is still checked by the
+        # deterministic validator before Work can integrate anything.
+        if (
+            binding.provider_id == "nvidia"
+            and binding.execution_policy.limited_staging is True
+            and binding.execution_policy.limited_operation == "BOOTSTRAP_PROPOSAL"
+        ):
+            plain_text = safe_text(response.get("text") or "", 2_000).strip()
+            if plain_text:
+                return {
+                    **base,
+                    "summary": "bounded plain-text bootstrap proposal",
+                    "proposal": plain_text,
+                    "files_affected": [],
+                    "tests": [],
+                    "risks": [],
+                    "next_action": "WORK_REVIEW_AND_INTEGRATE",
+                    "output_invalid": False,
+                    "structured_envelope": "LIMITED_TEXT_PROPOSAL",
+                }
         return {
             **base,
             "summary": "provider returned no valid structured result",
