@@ -4,10 +4,10 @@
 The council is subordinate evidence for NVIDIA, not an authority boundary. It
 selects benchmarked exact-free models, fans one organization-design question out
 in parallel, and records bounded responses. Selection is portfolio-oriented: a
-high-quality worker, a low-latency worker, a token-efficient worker, and a broad
-role-coverage worker are represented when benchmark evidence exists. No worker
-can write the repository, choose a paid route, or switch to another model through
-provider fallback.
+high-quality worker, a low-latency worker, a token-efficient worker, a broad
+role-coverage worker, and the newest benchmarked exact-free worker are represented
+when evidence exists. No worker can write the repository, choose a paid route, or
+switch to another model through provider fallback.
 """
 
 from __future__ import annotations
@@ -38,6 +38,7 @@ COUNCIL_DECISION_AXES = (
     "latency",
     "token_efficiency",
     "role_coverage",
+    "catalog_recency",
     "model_diversity",
     "current_exact_free_availability",
 )
@@ -47,8 +48,8 @@ COUNCIL_OBJECTIVE = (
     "Google Gemini is reserved for critical implementation and final critical review. "
     "Review the CURRENT live-verified free-worker portfolio and debate the best practical routing design. "
     "Use the supplied same-run benchmark evidence rather than model reputation or a static model list. "
-    "Prefer a Pareto-efficient portfolio across role quality, latency, token efficiency, role coverage, and model diversity. "
-    "A newly released model should be promoted only when it is exact FREE_ACTIVE and benchmarked in this run; do not reward novelty alone. "
+    "Prefer a Pareto-efficient portfolio across role quality, latency, token efficiency, role coverage, catalog recency, and model diversity. "
+    "The newest candidate gets a challenge seat only after exact FREE_ACTIVE verification and same-run benchmarking; never reward novelty alone. "
     "Recommend a primary plus a distinct standby for a role when evidence supports it, and avoid single-model bottlenecks. "
     "Prefer simple robust changes over defensive complexity. Do not propose paid fallback, generic model fallback, secrets access, "
     "deployment, or direct repository writes. Return only your final implementation advice in at most 250 tokens, grounded in the "
@@ -70,6 +71,17 @@ def _finite_number(value: Any) -> float | None:
     if number != number or number in {float("inf"), float("-inf")}:
         return None
     return number
+
+
+def _catalog_created_epoch(probe: Mapping[str, Any], model: str) -> int | None:
+    metadata = probe.get("catalog_model_metadata")
+    metadata = metadata if isinstance(metadata, Mapping) else {}
+    value = metadata.get(model)
+    value = value if isinstance(value, Mapping) else {}
+    created = value.get("catalog_created_epoch")
+    if isinstance(created, bool) or not isinstance(created, int) or created <= 0:
+        return None
+    return created
 
 
 def _verified_probe_models(probe: Mapping[str, Any]) -> set[str]:
@@ -108,8 +120,8 @@ def select_council_models(probe: Mapping[str, Any], benchmark: Mapping[str, Any]
     """Build a bounded evidence-diverse council from exact-free benchmark winners.
 
     Quality remains the default ordering, but the council also reserves seats for
-    the lowest-latency, lowest-token, and widest-role-coverage verified workers.
-    This prevents a single aggregate score from hiding an efficient specialist.
+    the lowest-latency, lowest-token, widest-role-coverage, and newest benchmarked
+    exact-free workers. Recency never bypasses live verification or benchmarking.
     """
     verified = _verified_probe_models(probe)
     rankings = benchmark.get("rankings") if isinstance(benchmark.get("rankings"), Mapping) else {}
@@ -132,6 +144,7 @@ def select_council_models(probe: Mapping[str, Any], benchmark: Mapping[str, Any]
                     "best_score": 0.0,
                     "best_latency_ms": None,
                     "best_tokens_per_success": None,
+                    "catalog_created_epoch": _catalog_created_epoch(probe, model),
                     "role_scores": {},
                 },
             )
@@ -185,6 +198,17 @@ def select_council_models(probe: Mapping[str, Any], benchmark: Mapping[str, Any]
     )
     _add_selection(ordered, selected_models, reasons, coverage, "role_coverage_leader")
 
+    recency_candidates = [
+        item for item in ranked
+        if isinstance(item.get("catalog_created_epoch"), int) and not isinstance(item.get("catalog_created_epoch"), bool)
+    ]
+    if recency_candidates:
+        newest = max(
+            recency_candidates,
+            key=lambda item: (int(item["catalog_created_epoch"]), float(item["best_score"]), str(item["model"])),
+        )
+        _add_selection(ordered, selected_models, reasons, newest, "recency_leader")
+
     for item in ranked:
         _add_selection(ordered, selected_models, reasons, item, "quality_pool")
         if len(ordered) >= MAX_COUNCIL_MODELS:
@@ -207,6 +231,7 @@ def _request(model: str, api_key: str, roles: list[str], evidence: Mapping[str, 
         "best_score": (evidence or {}).get("best_score"),
         "best_latency_ms": (evidence or {}).get("best_latency_ms"),
         "best_tokens_per_success": (evidence or {}).get("best_tokens_per_success"),
+        "catalog_created_epoch": (evidence or {}).get("catalog_created_epoch"),
         "role_scores": (evidence or {}).get("role_scores", {}),
         "selection_reasons": (evidence or {}).get("selection_reasons", []),
     }
@@ -274,6 +299,7 @@ def _request(model: str, api_key: str, roles: list[str], evidence: Mapping[str, 
                     "best_score": compact_evidence["best_score"],
                     "best_latency_ms": compact_evidence["best_latency_ms"],
                     "best_tokens_per_success": compact_evidence["best_tokens_per_success"],
+                    "catalog_created_epoch": compact_evidence["catalog_created_epoch"],
                     "role_scores": compact_evidence["role_scores"],
                 },
                 "http_status": int(response.status),
@@ -300,7 +326,7 @@ def run_council(*, api_key: str, probe: Mapping[str, Any], benchmark: Mapping[st
         "schema_version": "parallel-worker-council-v3",
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "decision_axes": list(COUNCIL_DECISION_AXES),
-        "selection_policy": "QUALITY_PLUS_LATENCY_PLUS_TOKEN_EFFICIENCY_PLUS_ROLE_COVERAGE",
+        "selection_policy": "QUALITY_PLUS_LATENCY_PLUS_TOKEN_EFFICIENCY_PLUS_ROLE_COVERAGE_PLUS_RECENCY",
         "selected_models": selected,
         "selected_model_count": len(selected),
         "parallel_execution": True,
