@@ -27,8 +27,8 @@ from scripts.probe_free_workers import (
 )
 from scripts.worker_selection import WORKER_ROLES, catalog_worker_candidates
 
-CANDIDATES_PER_ROLE = 12
-MAX_UNIQUE_PROBES = 40
+CANDIDATES_PER_ROLE = 24
+MAX_UNIQUE_PROBES = 64
 MAX_PARALLEL_PROBES = 6
 
 
