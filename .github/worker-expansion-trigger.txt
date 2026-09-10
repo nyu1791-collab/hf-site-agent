@@ -1,2 +1,2 @@
-trigger=multi-agent-efficiency-v15-capability-routing-bounded-reasoning-focused-commander-feedback
-purpose=validate-capability-matched-specialists-length-retry-recovery-focused-nvidia-context-staging-parallelism-and-organization-feedback
+trigger=multi-agent-efficiency-v16-organization-memory-routing
+purpose=validate-history-aware-lane-routing-and-standby-selection-reduce-length-critical-path-preserve-focused-nvidia-and-staging-parallelism
