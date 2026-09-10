@@ -1,0 +1,100 @@
+name: "One-shot NVIDIA mission resume"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/nvidia-resume.once
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvidia-resume-once-ai-army-provider-v3
+  cancel-in-progress: false
+
+jobs:
+  resume-nvidia-mission:
+    if: ${{ github.ref_name == 'ai-army/provider-v3' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout target branch without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ai-army/provider-v3
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Compile bounded NVIDIA resume path
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python -m py_compile \
+            scripts/secure_account_evidence.py \
+            scripts/validate_secure_evidence.py \
+            scripts/probe_providers.py \
+            scripts/run_nvidia_orchestrator_mission.py
+
+      - name: Collect NVIDIA-only redacted evidence
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/secure_account_evidence.py
+          --provider nvidia
+          --output artifacts/secure_account_evidence.json
+
+      - name: Validate evidence
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: python scripts/validate_secure_evidence.py --input artifacts/secure_account_evidence.json
+
+      - name: Probe exact Nemotron once
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_PROBE_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b
+        run: >-
+          python scripts/probe_providers.py
+          --provider nvidia
+          --network
+          --confirm CHECK
+          --allow-limited-staging-probe
+          --evidence-file artifacts/secure_account_evidence.json
+          --output artifacts/provider_probe.json
+
+      - name: Resume existing NVIDIA mission once
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+          RESUME_MISSION_ID: nvidia-autonomous-orchestrator-34427151942
+          RESUME_RUN_ID: "34427151942"
+          RESUME_RESULT_HASH: 4f3de5f70462746d1858b7d9
+          RESUME_REVISION: "2"
+        run: python scripts/run_nvidia_orchestrator_mission.py
+
+      - name: Validate redacted outputs
+        if: always()
+        run: |
+          set -euo pipefail
+          python scripts/audit_secret_safety.py --root .
+          python -m json.tool artifacts/mission_state.json >/dev/null
+          python -m json.tool artifacts/result_inbox.json >/dev/null
+
+      - name: Upload one-shot result artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: nvidia-resume-once-${{ github.run_id }}
+          path: |
+            artifacts/secure_account_evidence.json
+            artifacts/provider_probe.json
+            artifacts/mission_state.json
+            artifacts/result_inbox.json
+          if-no-files-found: error
+          retention-days: 7
