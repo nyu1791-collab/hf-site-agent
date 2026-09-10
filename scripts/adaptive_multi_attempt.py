@@ -2,11 +2,15 @@
 """Best-of-N executor callbacks for important AI-army tasks.
 
 Normal work remains single-shot. Important work gets two independent executor
-attempts and critical work gets three. Attempts are intentionally serialized
-for one provider binding so this layer cannot bypass the scheduler's
-same-provider concurrency invariant or amplify rate-limit failures. Independent
-provider corps may still run in parallel at the mission scheduler layer.
-The independent reviewer remains a separate model-family step.
+attempts and critical work gets three. Attempts are serialized for one provider
+binding so this layer cannot bypass the scheduler's same-provider concurrency
+invariant. Independent provider corps may still run in parallel.
+
+If a later optional attempt is interrupted after at least one valid executor
+result already exists, the runtime keeps that completed result, stops issuing
+more attempts, and records the interruption as uncertainty. It never replays
+the interrupted call. If no valid result exists yet, the interruption still
+propagates and checkpoints normally.
 """
 
 from __future__ import annotations
@@ -79,14 +83,25 @@ def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=No
             )
 
         indexed_results: list[tuple[int, dict[str, Any]]] = []
+        interrupted_after_success = False
+        interrupted_signature = ""
         for index in range(1, attempts + 1):
             try:
                 indexed_results.append((index, one(index)))
-            except ProviderInterrupted:
-                # Unknown or interrupted provider usage must stay unsettled in
-                # the outer runtime. Never convert it into a fake zero-token
-                # failed candidate and then dispatch another attempt.
-                raise
+            except ProviderInterrupted as exc:
+                valid_so_far = [
+                    item for _, item in indexed_results
+                    if item.get("output_invalid") is not True
+                ]
+                if not valid_so_far:
+                    # No usable work exists. Preserve the original checkpoint
+                    # semantics and never replay an uncertain call.
+                    raise
+                # A valid result already exists. Keep it, stop optional
+                # redundancy, and do not send another provider request.
+                interrupted_after_success = True
+                interrupted_signature = str(exc)[:240]
+                break
             except Exception as exc:
                 indexed_results.append((index, {
                     "output_invalid": True,
@@ -112,17 +127,18 @@ def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=No
         chosen["independent_attempts_completed"] = len(valid)
         chosen["attempt_execution_mode"] = "SERIAL_SAME_PROVIDER"
         chosen["selection_method"] = "DETERMINISTIC_BEST_OF_N"
+        chosen["optional_attempt_interrupted_after_valid_result"] = interrupted_after_success
+        if interrupted_after_success:
+            chosen["optional_attempt_interruption"] = interrupted_signature
+            chosen["further_attempts_suppressed"] = True
         chosen["alternative_attempt_summaries"] = [
             str(item.get("summary") or "")[:400]
-            for index, item in indexed_results
-            if index != chosen_index
+            for result_index, item in indexed_results
+            if result_index != chosen_index
         ][:2]
         return chosen
 
     def revise(task, context: Mapping[str, Any]) -> dict[str, Any]:
-        # Revision is already informed by validator/reviewer findings. It gets
-        # the same importance policy, so critical repairs can independently
-        # explore alternatives instead of repeatedly refining one bad branch.
         return execute(task, context)
 
     def validate(task, context: Mapping[str, Any]) -> dict[str, Any]:
