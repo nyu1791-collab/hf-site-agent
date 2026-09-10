@@ -13,8 +13,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
+from pathlib import Path
+import sys
 import time
 from typing import Any, Callable, Mapping, Sequence
+
+if __package__ in {None, ""}:  # pragma: no cover - direct workflow entrypoint
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.agent_runtime import safe_json, stable_hash
 
@@ -363,7 +368,6 @@ def build_blackboard_from_council(
 
 def main() -> int:
     import argparse
-    from pathlib import Path
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--council", default="artifacts/worker_council.json")
