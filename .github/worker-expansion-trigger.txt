@@ -1,2 +1,2 @@
-trigger=multi-agent-efficiency-v16-organization-memory-routing
-purpose=validate-history-aware-lane-routing-and-standby-selection-reduce-length-critical-path-preserve-focused-nvidia-and-staging-parallelism
+trigger=multi-agent-efficiency-v17-global-critical-routing-blackboard-feedback-memory
+purpose=validate-primary-success-critical-path-global-assignment-shared-blackboard-valid-compact-commander-exact-sha-feedback-and-next-memory-loop
