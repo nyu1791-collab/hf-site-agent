@@ -25,6 +25,7 @@ from scripts.adaptive_multi_attempt import build_adaptive_executor_reviewer_call
 from scripts.adaptive_performance_policy import profile_for_task, profile_metadata
 from scripts.autonomous_mission import AutonomousBounds as _AutonomousBounds
 from scripts.execution_scope import ExecutionPolicy
+from scripts.focused_google_native_adapter import FocusedGoogleNativeAdapter
 from scripts.focused_nvidia_streaming_adapter import FocusedNvidiaStreamingAdapter
 from scripts.nvidia_google_bugfix_mission import build_bugfix_project
 from scripts.provider_adapters import ProviderAdapterError, nvidia_model_options
@@ -34,6 +35,7 @@ import scripts.run_live_staging_from_probe as staging
 _ORIGINAL_FACTORY = staging.create_provider_adapter
 _ORIGINAL_PLAN_BUILDER = staging.build_minimal_staging_plan
 _ORIGINAL_SAFE_JSON = live_runner.safe_json
+_ORIGINAL_PROMPT_CONTEXT = live_runner._prompt_context
 _ORIGINAL_CANDIDATE_OK = staging._candidate_ok
 _ORIGINAL_CAPABILITY_POLICY = staging._capability_policy
 GOOGLE_EXECUTOR = ("google", "gemini-3.8-flash")
@@ -51,11 +53,19 @@ FOCUSED_TOKEN_BUDGET = 81_920
 FOCUSED_GOOGLE_TIMEOUT_SECONDS = 600.0
 FOCUSED_NVIDIA_TIMEOUT_SECONDS = 600.0
 FOCUSED_MAX_ELAPSED_SECONDS = 1_800.0
+FOCUSED_REPOSITORY_CONTEXT_CHARS = 72_000
+FOCUSED_REPOSITORY_CONTEXT_PATHS = (
+    "scripts/run_live_staging_from_probe.py",
+    "scripts/provider_adapters.py",
+    "scripts/live_staging_runner.py",
+    "scripts/mission_scheduler.py",
+    "scripts/adaptive_multi_attempt.py",
+    "tests/test_live_staging_runner.py",
+)
 _DIAGNOSTIC_PATH = Path("artifacts/provider_interruptions.jsonl")
 
 
 def _compact_json_text(value: Any) -> str | None:
-    """Locally recover a JSON object from harmless model wrappers/prose."""
     if not isinstance(value, str):
         return None
     text = value.strip()
@@ -88,7 +98,6 @@ def _record_provider_diagnostic(
     retryable: bool = False,
     request_id: str = "",
 ) -> None:
-    """Persist only redacted transport metadata; never raw responses or secrets."""
     try:
         _DIAGNOSTIC_PATH.parent.mkdir(parents=True, exist_ok=True)
         record = {
@@ -104,13 +113,49 @@ def _record_provider_diagnostic(
         with _DIAGNOSTIC_PATH.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
     except OSError:
-        # Diagnostics must never create a second failure mode.
         pass
 
 
-class _ProbeReuseAdapter:
-    """Focused wrapper: no redundant capability calls and tolerant free-route output."""
+def _focused_prompt_context(task: Any, context: Mapping[str, Any]) -> str:
+    """Attach bounded current source evidence to the bugfix commander task."""
+    base_text = _ORIGINAL_PROMPT_CONTEXT(task, context)
+    try:
+        payload = json.loads(base_text)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return base_text[:FOCUSED_MAX_PROMPT_CHARS]
+    metadata = task.metadata if isinstance(getattr(task, "metadata", None), Mapping) else {}
+    if metadata.get("trial_mission") != DEFAULT_PROJECT_ID:
+        return base_text[:FOCUSED_MAX_PROMPT_CHARS]
 
+    root = Path(__file__).resolve().parents[1]
+    remaining = FOCUSED_REPOSITORY_CONTEXT_CHARS
+    files: dict[str, str] = {}
+    for relative in FOCUSED_REPOSITORY_CONTEXT_PATHS:
+        if remaining <= 0:
+            break
+        path = root / relative
+        try:
+            resolved = path.resolve()
+            if root not in resolved.parents or not resolved.is_file():
+                continue
+            text = resolved.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            continue
+        # Fixed allowlist only; never include config, artifacts, env, credentials,
+        # or arbitrary model-selected paths.
+        chunk = text[: min(12_000, remaining)]
+        files[relative] = chunk
+        remaining -= len(chunk)
+    payload["repository_context"] = {
+        "source_head": str(os.environ.get("GITHUB_SHA") or os.environ.get("SOURCE_HEAD") or "")[:64],
+        "read_only": True,
+        "fixed_allowlist": True,
+        "files": files,
+    }
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))[:FOCUSED_MAX_PROMPT_CHARS]
+
+
+class _ProbeReuseAdapter:
     def __init__(self, adapter: Any) -> None:
         self._adapter = adapter
 
@@ -137,18 +182,12 @@ class _ProbeReuseAdapter:
             and policy.scope == "STAGING"
             and policy.staging_free_route_allowed is True
         )
-
         if require_zero_cost and trusted_staging_free_route:
             options["require_zero_cost"] = False
-
         if provider == "nvidia":
             for key, value in nvidia_model_options(model).items():
                 options.setdefault(key, value)
-
         if provider == "google":
-            # JSON wrappers are repaired locally. Avoid optional compatibility
-            # features and deterministic-temperature forcing on the live Gemini
-            # lane; the native model defaults are more robust for Gemini 3.x.
             options.pop("response_format", None)
             options.pop("temperature", None)
 
@@ -187,14 +226,12 @@ class _ProbeReuseAdapter:
             _record_provider_diagnostic(provider, model, "INVALID_PROVIDER_RESPONSE", request_id=request_id)
             raise ProviderAdapterError("INVALID_PROVIDER_RESPONSE")
         result = dict(result)
-
         if require_zero_cost and trusted_staging_free_route:
             usage = result.get("usage") if isinstance(result.get("usage"), Mapping) else {}
             raw_cost = usage.get("cost")
             if raw_cost is not None and str(raw_cost).strip() not in {"", "0", "0.0", "0.00"}:
                 _record_provider_diagnostic(provider, model, "FREE_COST_NONZERO", request_id=request_id)
                 raise ProviderAdapterError("FREE_COST_NONZERO")
-
         compact = _compact_json_text(result.get("text"))
         if compact:
             result["text"] = compact
@@ -320,17 +357,20 @@ def _focused_capability_policy(provider: str, model: str, family: str, record: M
 
 def _focused_factory(registry, provider_id, **kwargs):
     if provider_id == "nvidia":
-        adapter = FocusedNvidiaStreamingAdapter(
-            registry,
-            network_enabled=bool(kwargs.get("network_enabled", False)),
-        )
+        adapter = FocusedNvidiaStreamingAdapter(registry, network_enabled=bool(kwargs.get("network_enabled", False)))
         adapter.timeout_seconds = FOCUSED_NVIDIA_TIMEOUT_SECONDS
+    elif provider_id == "google":
+        adapter = FocusedGoogleNativeAdapter(
+            registry,
+            "google",
+            network_enabled=bool(kwargs.get("network_enabled", False)),
+            timeout_seconds=FOCUSED_GOOGLE_TIMEOUT_SECONDS,
+        )
+        # The generic constructor remains conservatively clamped; this focused
+        # instance has an independently bounded live-agent deadline.
+        adapter.timeout_seconds = FOCUSED_GOOGLE_TIMEOUT_SECONDS
     else:
-        if provider_id == "google":
-            kwargs["timeout_seconds"] = max(float(kwargs.get("timeout_seconds", 0) or 0), FOCUSED_GOOGLE_TIMEOUT_SECONDS)
         adapter = _ORIGINAL_FACTORY(registry, provider_id, **kwargs)
-        if provider_id == "google":
-            adapter.timeout_seconds = max(float(getattr(adapter, "timeout_seconds", 0) or 0), FOCUSED_GOOGLE_TIMEOUT_SECONDS)
     return _ProbeReuseAdapter(adapter)
 
 
@@ -383,6 +423,7 @@ def _install_focused_roles() -> None:
     live_runner.MAX_OUTPUT_TOKENS = FOCUSED_MAX_OUTPUT_TOKENS
     live_runner.MAX_PROMPT_CHARS = FOCUSED_MAX_PROMPT_CHARS
     live_runner.MAX_RESPONSE_CHARS = FOCUSED_MAX_RESPONSE_CHARS
+    live_runner._prompt_context = _focused_prompt_context
     live_runner.safe_json = _expanded_safe_json
     autonomous_mission.safe_json = _expanded_safe_json
 
