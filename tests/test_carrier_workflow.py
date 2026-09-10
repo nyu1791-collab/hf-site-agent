@@ -23,20 +23,25 @@ class CarrierWorkflowTests(unittest.TestCase):
             "secure_account_evidence.py",
             "validate_secure_evidence.py",
             "probe_providers.py",
+            "probe_nvidia_google_focused.py",
+            "focused_nvidia_streaming_adapter.py",
             "run_live_staging_from_probe.py",
+            "run_nvidia_google_staging_focused.py",
             "classify_carrier_failure.py",
             "actions/upload-artifact@v6",
             "if: always()",
         ):
             self.assertIn(required, self.text)
 
-    def test_carrier_focuses_only_on_nvidia_and_google(self):
+    def test_carrier_focuses_only_on_nvidia_nemotron_and_google(self):
         self.assertIn("--provider nvidia", self.text)
         self.assertIn("--provider google", self.text)
-        self.assertIn("NVIDIA_PROBE_MODEL: deepseek-ai/deepseek-v4-flash-0731", self.text)
+        self.assertIn("NVIDIA_PROBE_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b", self.text)
         self.assertIn("GOOGLE_PROBE_MODEL: gemini-3.8-flash", self.text)
         self.assertIn("GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}", self.text)
-        self.assertIn("--allow-limited-staging-probe", self.text)
+        self.assertIn("probe_nvidia_google_focused.py", self.text)
+        self.assertIn("run_nvidia_google_staging_focused.py", self.text)
+        self.assertNotIn("NVIDIA_PROBE_MODEL: deepseek-ai/deepseek-v4-flash-0731", self.text)
         self.assertNotIn("--provider groq", self.text)
         self.assertNotIn("GROQ_API_KEY", self.text)
         self.assertNotIn("--provider openrouter", self.text)
