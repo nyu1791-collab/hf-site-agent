@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the length-aware failure council with capability-matched primary lanes."""
+"""Compatibility entrypoint for the history-aware capability council."""
 
 from __future__ import annotations
 
@@ -17,6 +17,9 @@ from scripts import failure_aware_specialist_retry as retry_base
 from scripts.specialist_lane_router import attach_capability_matched_assignments
 
 
+ROUTING_POLICY = "SAME_RUN_ROLE_SCORE_PLUS_ORGANIZATION_MEMORY"
+
+
 def run_capability_matched_council(*, api_key: str, probe: Mapping, benchmark: Mapping) -> dict:
     original_attach = failure_base.attach_specialist_assignments
     failure_base.attach_specialist_assignments = attach_capability_matched_assignments
@@ -24,8 +27,8 @@ def run_capability_matched_council(*, api_key: str, probe: Mapping, benchmark: M
         report = dict(retry_base.run_failure_aware_council(api_key=api_key, probe=probe, benchmark=benchmark))
     finally:
         failure_base.attach_specialist_assignments = original_attach
-    report["schema_version"] = "capability-matched-specialist-council-v1"
-    report["lane_assignment_policy"] = "SAME_RUN_ROLE_SCORE_GREEDY_MATCH"
+    report["schema_version"] = "capability-matched-specialist-council-v2"
+    report["lane_assignment_policy"] = ROUTING_POLICY
     report["capability_matched_lanes"] = True
     return report
 
@@ -53,11 +56,11 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "capability-matched-specialist-council-v1",
+            "schema_version": "capability-matched-specialist-council-v2",
             "status": "COUNCIL_RUNNER_BLOCKED",
             "model_calls": 0,
             "results": [],
-            "lane_assignment_policy": "SAME_RUN_ROLE_SCORE_GREEDY_MATCH",
+            "lane_assignment_policy": ROUTING_POLICY,
             "capability_matched_lanes": True,
             "paid_fallback": False,
             "provider_allow_fallbacks": False,
