@@ -1,2 +1,2 @@
-trigger=2026-09-10T17:34:00+09:00
-purpose=validate-conclusive-5xx-recovery-google-executor-nvidia-reviewer-openrouter
+trigger=2026-09-10T17:43:00+09:00
+purpose=validate-degraded-context-recovery-google-executor-nvidia-reviewer-openrouter
