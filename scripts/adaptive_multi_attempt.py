@@ -20,6 +20,7 @@ from typing import Any, Mapping
 from scripts.adaptive_performance_policy import profile_for_task
 from scripts.autonomous_mission import TaskLoopCallbacks
 from scripts.mission_scheduler import ProviderInterrupted
+from scripts.resilient_live_call import call_model_with_bounded_recovery
 import scripts.live_staging_runner as live_runner
 
 
@@ -67,7 +68,7 @@ def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=No
             attempt_context["phase"] = f"{phase}:independent-attempt-{index}"
             attempt_context["performance_attempt"] = index
             attempt_context["performance_attempts"] = attempts
-            return live_runner._call_model(
+            return call_model_with_bounded_recovery(
                 executor,
                 task,
                 attempt_context,
@@ -157,7 +158,7 @@ def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=No
         }
 
     def review(task, context: Mapping[str, Any]) -> dict[str, Any]:
-        result = live_runner._call_model(
+        result = call_model_with_bounded_recovery(
             reviewer,
             task,
             context,
