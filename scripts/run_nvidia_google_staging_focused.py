@@ -9,6 +9,8 @@ redundant peers:
 * Normal tasks use one executor attempt; important tasks use best-of-2;
   critical tasks use best-of-3. Same-provider attempts are serialized.
 * Exact-model probe results are reused instead of repeated network probes.
+* A bounded Google FREE_TIER lane may proceed when the provider cannot expose
+  account/quota metadata, but only when no known paid-risk signal is present.
 * Context, response and mission budgets are expanded together so a larger
   model output is not rejected by a smaller downstream envelope limit.
 * The current default project is the orchestration bugfix cycle. OpenRouter
@@ -25,7 +27,7 @@ from dataclasses import replace
 import os
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Any, Mapping
 
 if __package__ in {None, ""}:  # pragma: no cover - script invocation path
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -34,6 +36,7 @@ import scripts.autonomous_mission as autonomous_mission
 from scripts.adaptive_multi_attempt import build_adaptive_executor_reviewer_callbacks
 from scripts.adaptive_performance_policy import profile_for_task, profile_metadata
 from scripts.autonomous_mission import AutonomousBounds as _AutonomousBounds
+from scripts.execution_scope import ExecutionPolicy
 from scripts.focused_nvidia_streaming_adapter import FocusedNvidiaStreamingAdapter
 from scripts.nvidia_google_bugfix_mission import build_bugfix_project
 import scripts.live_staging_runner as live_runner
@@ -43,6 +46,8 @@ import scripts.run_live_staging_from_probe as staging
 _ORIGINAL_FACTORY = staging.create_provider_adapter
 _ORIGINAL_PLAN_BUILDER = staging.build_minimal_staging_plan
 _ORIGINAL_SAFE_JSON = live_runner.safe_json
+_ORIGINAL_CANDIDATE_OK = staging._candidate_ok
+_ORIGINAL_CAPABILITY_POLICY = staging._capability_policy
 GOOGLE_EXECUTOR = ("google", "gemini-3.8-flash")
 NVIDIA_REVIEWER = ("nvidia", "nvidia/nemotron-3.5-lightning-30b-a3b")
 DEFAULT_TRIAL_ROLE = "ORCHESTRATION_BUGFIX_PROJECT"
@@ -57,6 +62,7 @@ FOCUSED_MAX_RESPONSE_CHARS = 144_000
 FOCUSED_ENVELOPE_CHARS = 180_000
 FOCUSED_REQUEST_BUDGET = 24
 FOCUSED_TOKEN_BUDGET = 81_920
+FOCUSED_GOOGLE_TIMEOUT_SECONDS = 90.0
 
 
 class _ProbeReuseAdapter:
@@ -83,6 +89,86 @@ def _expanded_safe_json(value: Any, limit: int = FOCUSED_ENVELOPE_CHARS) -> Any:
     return _ORIGINAL_SAFE_JSON(value, limit=max(int(limit), FOCUSED_ENVELOPE_CHARS))
 
 
+def _focused_google_evidence_ok(record: Mapping[str, Any]) -> bool:
+    account = record.get("account_metadata") if isinstance(record.get("account_metadata"), Mapping) else {}
+    return (
+        record.get("secure_evidence") is True
+        and record.get("current") is True
+        and staging._fresh(record)
+        and record.get("model_verified") is True
+        and record.get("endpoint_verified") is True
+        and record.get("auth_verified") is True
+        and record.get("free_program_available") is True
+        and record.get("free_route_selected") is True
+        and record.get("selected_route") == "FREE_TIER"
+        and record.get("zero_price_verified") is True
+        and record.get("paid_fallback_possible") is False
+        and record.get("paid_transition_possible") is not True
+        and record.get("billing_enabled_class") is not True
+        and account.get("billing_enabled") is not True
+        and account.get("current_account_eligible") is not False
+        and account.get("fallback_to_paid_possible") is not True
+        and account.get("automatic_paid_transition_possible") is not True
+    )
+
+
+def _focused_candidate_ok(
+    evidence: Mapping[str, Any],
+    probe: Mapping[str, Any],
+    provider: str,
+    model: str,
+) -> bool:
+    if provider != "google":
+        return _ORIGINAL_CANDIDATE_OK(evidence, probe, provider, model)
+    record = staging._model_record(evidence, provider, model)
+    probe_record = staging._probe_record(probe, provider, model)
+    response_model = str(probe_record.get("response_model") or "").removeprefix("models/")
+    usage_cost = probe_record.get("usage_cost")
+    zero_or_unreported_cost = usage_cost in (None, "0", "0.0", "0.00", 0, 0.0)
+    http_status = probe_record.get("http_status")
+    return (
+        model == GOOGLE_EXECUTOR[1]
+        and _focused_google_evidence_ok(record)
+        and probe_record.get("status") == "PROBE_OK"
+        and probe_record.get("probe_mode") == "BOUNDED_FREE_TIER_PROBE"
+        and probe_record.get("bounded_free_tier_probe_allowed") is True
+        and probe_record.get("model_calls") == 1
+        and (http_status is None or (isinstance(http_status, int) and 200 <= http_status < 300))
+        and (not response_model or response_model == model)
+        and probe_record.get("staging_only") is True
+        and probe_record.get("automatic_model_fallback") is False
+        and probe_record.get("generic_paid_router_disabled") is True
+        and zero_or_unreported_cost
+    )
+
+
+def _focused_capability_policy(provider: str, model: str, family: str, record: Mapping[str, Any]) -> ExecutionPolicy:
+    if provider != "google" or not _focused_google_evidence_ok(record):
+        return _ORIGINAL_CAPABILITY_POLICY(provider, model, family, record)
+    account_zero_cost = record.get("zero_cost_verified") is True
+    return ExecutionPolicy(
+        scope="STAGING",
+        provider_id=provider,
+        model_id=model,
+        model_family=family,
+        technically_ready=True,
+        staging_approved=True,
+        exact_model_verified=record.get("model_verified") is True,
+        endpoint_verified=record.get("endpoint_verified") is True,
+        auth_verified=record.get("auth_verified") is True,
+        capability_verified=True,
+        free_verified=account_zero_cost,
+        cost_safe=account_zero_cost,
+        quota_safe=record.get("quota_safe") is True,
+        circuit_closed=True,
+        paid_fallback=False,
+        auto_top_up=False,
+        max_retries=0,
+        staging_free_route_allowed=True,
+        account_zero_cost_verified=account_zero_cost,
+    )
+
+
 def _focused_factory(registry, provider_id, **kwargs):
     if provider_id == "nvidia":
         adapter = FocusedNvidiaStreamingAdapter(
@@ -90,6 +176,8 @@ def _focused_factory(registry, provider_id, **kwargs):
             network_enabled=bool(kwargs.get("network_enabled", False)),
         )
     else:
+        if provider_id == "google":
+            kwargs["timeout_seconds"] = max(float(kwargs.get("timeout_seconds", 0) or 0), FOCUSED_GOOGLE_TIMEOUT_SECONDS)
         adapter = _ORIGINAL_FACTORY(registry, provider_id, **kwargs)
     return _ProbeReuseAdapter(adapter)
 
@@ -145,6 +233,8 @@ def _install_focused_roles() -> None:
         NVIDIA_REVIEWER,
         GOOGLE_EXECUTOR,
     )
+    staging._candidate_ok = _focused_candidate_ok
+    staging._capability_policy = _focused_capability_policy
     staging.build_minimal_staging_plan = _performance_plan_builder
     staging.AutonomousBounds = _performance_bounds
     live_runner.build_executor_reviewer_callbacks = build_adaptive_executor_reviewer_callbacks
