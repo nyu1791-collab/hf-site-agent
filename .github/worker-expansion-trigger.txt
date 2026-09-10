@@ -1,2 +1,2 @@
-trigger=worker-expansion-v7-current-catalog-canary-routing
-purpose=sweep-current-exact-free-models-benchmark-role-pools-canary-current-winners-build-same-run-routing-run-worker-council-and-nvidia-synthesis
+trigger=worker-expansion-v8-efficient-current-catalog-council
+purpose=sweep-current-exact-free-models-benchmark-quality-latency-token-efficiency-role-coverage-build-same-run-portfolio-run-parallel-worker-council-and-nvidia-synthesis
