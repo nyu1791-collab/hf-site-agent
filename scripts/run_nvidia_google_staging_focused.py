@@ -54,7 +54,10 @@ FOCUSED_MAX_RESPONSE_CHARS = 144_000
 FOCUSED_ENVELOPE_CHARS = 180_000
 FOCUSED_REQUEST_BUDGET = 24
 FOCUSED_TOKEN_BUDGET = 81_920
-FOCUSED_GOOGLE_TIMEOUT_SECONDS = 120.0
+# The successful tiny Google probe itself can take close to a minute. Real
+# Executor work is much larger, so give the single request enough time instead
+# of converting normal provider latency into an ambiguous interrupted call.
+FOCUSED_GOOGLE_TIMEOUT_SECONDS = 600.0
 FOCUSED_NVIDIA_TIMEOUT_SECONDS = 600.0
 FOCUSED_MAX_ELAPSED_SECONDS = 1_800.0
 
@@ -124,10 +127,13 @@ class _ProbeReuseAdapter:
             for key, value in nvidia_model_options(model).items():
                 options.setdefault(key, value)
 
-        # Gemini supports native JSON output; use it to reduce needless
-        # revision loops caused only by formatting noise.
+        # Do not force provider-specific response_format on Gemini. The exact
+        # free endpoint already proved basic generation, while compatibility
+        # layers can reject otherwise valid requests solely because of this
+        # optional field. JSON is requested in the prompt and harmless wrappers
+        # are repaired locally below, which avoids an unnecessary second call.
         if provider == "google":
-            options.setdefault("response_format", {"type": "json_object"})
+            options.pop("response_format", None)
 
         result = self._adapter.generate(model, messages, **options)
         if not isinstance(result, Mapping):
@@ -177,8 +183,6 @@ def _focused_google_evidence_ok(record: Mapping[str, Any]) -> bool:
 
 
 def _focused_nvidia_evidence_ok(record: Mapping[str, Any]) -> bool:
-    # Use direct facts only. Derived quota/account warning lists are deliberately
-    # not admission gates because their vocabulary may change independently.
     return (
         record.get("secure_evidence") is True
         and record.get("current") is True
@@ -273,8 +277,6 @@ def _focused_factory(registry, provider_id, **kwargs):
         if provider_id == "google":
             kwargs["timeout_seconds"] = max(float(kwargs.get("timeout_seconds", 0) or 0), FOCUSED_GOOGLE_TIMEOUT_SECONDS)
         adapter = _ORIGINAL_FACTORY(registry, provider_id, **kwargs)
-        # Base adapters clamp constructor timeouts. Focused staging deliberately
-        # raises only this instance after construction.
         if provider_id == "google":
             adapter.timeout_seconds = max(float(getattr(adapter, "timeout_seconds", 0) or 0), FOCUSED_GOOGLE_TIMEOUT_SECONDS)
     return _ProbeReuseAdapter(adapter)
