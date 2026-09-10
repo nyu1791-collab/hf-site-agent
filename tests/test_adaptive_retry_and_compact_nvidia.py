@@ -104,6 +104,48 @@ class CompactNvidiaScopeTests(unittest.TestCase):
         self.assertLessEqual(len(parsed["successful_specialists"][0]["response"]), compact_nvidia.MAX_SUCCESS_RESPONSE_CHARS)
         self.assertLessEqual(len(text), compact_nvidia.MAX_COMPACT_COUNCIL_CHARS)
 
+    def test_hard_envelope_compacts_without_slicing_json(self):
+        payload = {
+            "status": "COUNCIL_READY",
+            "shared_blackboard": {
+                "schema_version": "ai-army-shared-blackboard-v1",
+                "entry_count": 20,
+                "duplicate_count": 0,
+                "early_stop": {"stop": False, "reason": "UNRESOLVED_REQUIRED_LANES"},
+                "open_tasks": [{"lane": f"lane-{i}", "action": "resolve"} for i in range(20)],
+            },
+            "lane_assignment_policy": "GLOBAL_CRITICAL_PATH_WEIGHTED_ROLE_PLUS_ORGANIZATION_MEMORY",
+            "redispatch_selection_policy": "SAME_RUN_SUCCESS_PLUS_LANE_ORGANIZATION_MEMORY",
+            "organization_memory_loaded": True,
+            "selected_model_count": 20,
+            "primary_successful_lane_count": 10,
+            "successful_lane_count": 15,
+            "failed_lane_count": 5,
+            "recovered_lane_count": 5,
+            "work_stealing_count": 5,
+            "length_exhaustion_count": 3,
+            "primary_failure_counts": {"EMPTY_RESPONSE": 3},
+            "parallel_metrics": {"parallel_speedup": 2.4},
+            "worker_health": [
+                {"model": f"vendor/model-{i}:free", "health_score": 0.9, "health_state": "ACTIVE", "successes": 1, "attempts": 1}
+                for i in range(20)
+            ],
+            "successful_specialists": [
+                {"model": f"vendor/model-{i}:free", "lane": f"lane-{i}", "response": "x" * 5000, "phase": "PRIMARY", "recovered": False}
+                for i in range(20)
+            ],
+            "unresolved_lanes": [
+                {"model": f"vendor/fail-{i}:free", "lane": f"failed-{i}", "error": "empty_visible_content", "finish_reason": "length", "phase": "PRIMARY"}
+                for i in range(5)
+            ],
+        }
+        text = compact_nvidia._bounded_compact_json(payload)
+        parsed = json.loads(text)
+        self.assertIsInstance(parsed, dict)
+        self.assertLessEqual(len(text), compact_nvidia.MAX_COMPACT_COUNCIL_CHARS)
+        self.assertIn("unresolved_lanes", parsed)
+        self.assertIn("shared_blackboard", parsed)
+
 
 if __name__ == "__main__":
     unittest.main()
