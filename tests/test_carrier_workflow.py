@@ -4,6 +4,8 @@ import unittest
 
 WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "probe-free-models.yml"
 GUARDED = Path(__file__).resolve().parents[1] / "scripts" / "run_nvidia_orchestrator_guarded.py"
+FOCUSED = Path(__file__).resolve().parents[1] / "scripts" / "run_nvidia_google_staging_focused.py"
+COORDINATION = Path(__file__).resolve().parents[1] / "scripts" / "ai_army_coordination.py"
 
 
 class CarrierWorkflowTests(unittest.TestCase):
@@ -11,6 +13,8 @@ class CarrierWorkflowTests(unittest.TestCase):
     def setUpClass(cls):
         cls.text = WORKFLOW.read_text(encoding="utf-8")
         cls.guarded_text = GUARDED.read_text(encoding="utf-8")
+        cls.focused_text = FOCUSED.read_text(encoding="utf-8")
+        cls.coordination_text = COORDINATION.read_text(encoding="utf-8")
 
     def test_registered_carrier_allows_only_target_dispatch_branch(self):
         self.assertIn("workflow_dispatch:", self.text)
@@ -29,6 +33,8 @@ class CarrierWorkflowTests(unittest.TestCase):
             "focused_nvidia_streaming_adapter.py",
             "run_live_staging_from_probe.py",
             "run_nvidia_google_staging_focused.py",
+            "google_staging_readiness.py",
+            "ai_army_coordination.py",
             "classify_carrier_failure.py",
             "actions/upload-artifact@v6",
             "if: always()",
@@ -69,6 +75,18 @@ class CarrierWorkflowTests(unittest.TestCase):
         self.assertNotIn("run: python scripts/run_nvidia_orchestrator_mission.py", self.text)
         self.assertNotIn("--allow-limited-nvidia-bootstrap", self.text)
         self.assertIn("SKIPPED_TWO_AGENT_STAGING_ALREADY_OPERATIONAL", self.text)
+
+    def test_coordination_packet_controls_fallback_instead_of_raw_live_flag(self):
+        self.assertIn("artifacts/ai_army_coordination.json", self.text)
+        self.assertIn("RUN_AT_MOST_ONE_GUARDED_NVIDIA_LEAD_CALL", self.text)
+        self.assertIn("SKIPPED_BY_COORDINATION", self.text)
+        self.assertIn("STOP_AND_REVIEW_TWO_AGENT_FAILURE", self.coordination_text)
+        self.assertIn('"extra_fallback_after_two_agent_attempt": False', self.coordination_text)
+
+    def test_focused_roles_use_google_executor_nvidia_reviewer_and_larger_bounded_output(self):
+        self.assertIn('GOOGLE_EXECUTOR = ("google", "gemini-3.8-flash")', self.focused_text)
+        self.assertIn('NVIDIA_REVIEWER = ("nvidia", "nvidia/nemotron-3.5-lightning-30b-a3b")', self.focused_text)
+        self.assertIn("FOCUSED_MAX_OUTPUT_TOKENS = 768", self.focused_text)
 
     def test_carrier_preserves_read_only_actions_permission(self):
         self.assertIn("contents: read", self.text)
