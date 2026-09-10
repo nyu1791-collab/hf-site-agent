@@ -57,15 +57,13 @@ DEFAULT_TRIAL_ROLE = "ORCHESTRATION_BUGFIX_PROJECT"
 DEFAULT_TRIAL_OBJECTIVE = str(build_bugfix_project().get("objective") or "")
 DEFAULT_PROJECT_ID = str(build_bugfix_project().get("project_id") or "orchestration-bugfix-cycle-v1")
 
-# Critical ceiling. Per-task profiles decide whether one, two or three attempts
-# are actually spent. A high ceiling does not force every response to consume it.
 FOCUSED_MAX_OUTPUT_TOKENS = 12_288
 FOCUSED_MAX_PROMPT_CHARS = 120_000
 FOCUSED_MAX_RESPONSE_CHARS = 144_000
 FOCUSED_ENVELOPE_CHARS = 180_000
 FOCUSED_REQUEST_BUDGET = 24
 FOCUSED_TOKEN_BUDGET = 81_920
-FOCUSED_GOOGLE_TIMEOUT_SECONDS = 90.0
+FOCUSED_GOOGLE_TIMEOUT_SECONDS = 120.0
 FOCUSED_NVIDIA_TIMEOUT_SECONDS = 240.0
 FOCUSED_MAX_ELAPSED_SECONDS = 900.0
 
@@ -90,11 +88,11 @@ class _ProbeReuseAdapter:
 
 
 def _expanded_safe_json(value: Any, limit: int = FOCUSED_ENVELOPE_CHARS) -> Any:
-    """Keep secret scanning while removing the old tiny-envelope bottleneck."""
     return _ORIGINAL_SAFE_JSON(value, limit=max(int(limit), FOCUSED_ENVELOPE_CHARS))
 
 
 def _focused_google_evidence_ok(record: Mapping[str, Any]) -> bool:
+    """Unknown account/quota metadata is soft; known paid/bad facts are hard."""
     account = record.get("account_metadata") if isinstance(record.get("account_metadata"), Mapping) else {}
     return (
         record.get("secure_evidence") is True
@@ -142,20 +140,27 @@ def _focused_candidate_ok(
     provider: str,
     model: str,
 ) -> bool:
+    # Only the selected Nemotron path gets the relaxed fixed-free-endpoint
+    # admission. Other NVIDIA models retain the original semantics so focused
+    # mode cannot accidentally alter unrelated/legacy candidate selection.
     if provider == "nvidia":
-        return model == NVIDIA_REVIEWER[1] and staging._limited_nvidia_candidate_ok(evidence, probe, model)
+        if model != NVIDIA_REVIEWER[1]:
+            return _ORIGINAL_CANDIDATE_OK(evidence, probe, provider, model)
+        return staging._limited_nvidia_candidate_ok(evidence, probe, model)
     if provider != "google":
         return _ORIGINAL_CANDIDATE_OK(evidence, probe, provider, model)
+
     record = staging._model_record(evidence, provider, model)
     probe_record = staging._probe_record(probe, provider, model)
     response_model = str(probe_record.get("response_model") or "").removeprefix("models/")
     usage_cost = probe_record.get("usage_cost")
     zero_or_unreported_cost = usage_cost in (None, "0", "0.0", "0.00", 0, 0.0)
     http_status = probe_record.get("http_status")
+    status = str(probe_record.get("status") or "")
     return (
         model == GOOGLE_EXECUTOR[1]
         and _focused_google_evidence_ok(record)
-        and probe_record.get("status") == "PROBE_OK"
+        and status in {"PROBE_OK", "PROBE_OK_MODEL_FIELD_UNREPORTED"}
         and probe_record.get("probe_mode") == "BOUNDED_FREE_TIER_PROBE"
         and probe_record.get("bounded_free_tier_probe_allowed") is True
         and probe_record.get("model_calls") == 1
@@ -169,10 +174,7 @@ def _focused_candidate_ok(
 
 
 def _focused_capability_policy(provider: str, model: str, family: str, record: Mapping[str, Any]) -> ExecutionPolicy:
-    if provider == "nvidia" and _focused_nvidia_evidence_ok(record):
-        # ``quota_safe`` here means the bounded staging admission has already
-        # passed the one-call fixed-free-endpoint probe. It is deliberately not
-        # a claim that NVIDIA exposed account quota metadata.
+    if provider == "nvidia" and model == NVIDIA_REVIEWER[1] and _focused_nvidia_evidence_ok(record):
         return ExecutionPolicy(
             scope="STAGING",
             provider_id=provider,
@@ -196,9 +198,8 @@ def _focused_capability_policy(provider: str, model: str, family: str, record: M
         )
     if provider != "google" or not _focused_google_evidence_ok(record):
         return _ORIGINAL_CAPABILITY_POLICY(provider, model, family, record)
+
     account_zero_cost = record.get("zero_cost_verified") is True
-    # The successful bounded FREE_TIER probe is the runtime admission signal.
-    # Missing quota headers stay a warning rather than blocking the Executor.
     return ExecutionPolicy(
         scope="STAGING",
         provider_id=provider,
@@ -237,7 +238,6 @@ def _focused_factory(registry, provider_id, **kwargs):
 
 
 def _performance_plan_builder(*args, **kwargs):
-    """Allocate attempts/tokens from task importance instead of a flat cap."""
     env_role = str(os.environ.get("AI_ARMY_TASK_ROLE") or DEFAULT_TRIAL_ROLE).strip()
     env_objective = str(os.environ.get("AI_ARMY_OBJECTIVE") or DEFAULT_TRIAL_OBJECTIVE).strip()
     kwargs["task_role"] = env_role[:160]
@@ -267,7 +267,6 @@ def _performance_plan_builder(*args, **kwargs):
 
 
 def _performance_bounds(*args, **kwargs):
-    """Expose enough loop depth for critical work while retaining a finite cap."""
     kwargs["max_iterations"] = max(int(kwargs.get("max_iterations", 0) or 0), 6)
     kwargs["max_revisions"] = max(int(kwargs.get("max_revisions", 0) or 0), 4)
     kwargs["max_replans"] = max(int(kwargs.get("max_replans", 0) or 0), 2)
@@ -278,7 +277,6 @@ def _performance_bounds(*args, **kwargs):
 
 
 def _install_focused_roles() -> None:
-    """Install carrier-local performance behavior without touching production."""
     staging.EXECUTOR_PREFERENCE = (
         GOOGLE_EXECUTOR,
         NVIDIA_REVIEWER,
@@ -293,7 +291,6 @@ def _install_focused_roles() -> None:
     staging.AutonomousBounds = _performance_bounds
     live_runner.build_executor_reviewer_callbacks = build_adaptive_executor_reviewer_callbacks
 
-    # Keep parser/validator limits aligned with the larger generation window.
     live_runner.MAX_OUTPUT_TOKENS = FOCUSED_MAX_OUTPUT_TOKENS
     live_runner.MAX_PROMPT_CHARS = FOCUSED_MAX_PROMPT_CHARS
     live_runner.MAX_RESPONSE_CHARS = FOCUSED_MAX_RESPONSE_CHARS
