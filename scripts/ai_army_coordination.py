@@ -41,12 +41,18 @@ def build_coordination_packet(
 ) -> dict[str, Any]:
     live = _mapping(live_report.get("live_staging"))
     two_agent_operational = live.get("operational") is True and live.get("live_model_family_count", 0) >= 2
+    two_agent_attempted = bool(live_report) and str(live_report.get("status") or "").strip() != ""
     google_live_ready = google_readiness.get("live_ready") is True
     google_state = str(google_readiness.get("state") or "UNKNOWN")
 
     if two_agent_operational:
         state = "TWO_AGENT_OPERATIONAL"
         next_action = "USE_VALIDATED_TWO_AGENT_RESULT"
+        nvidia_calls_recommended = 0
+        google_calls_recommended = 0
+    elif google_live_ready and two_agent_attempted:
+        state = "TWO_AGENT_ATTEMPT_FAILED"
+        next_action = "STOP_AND_REVIEW_TWO_AGENT_FAILURE"
         nvidia_calls_recommended = 0
         google_calls_recommended = 0
     elif google_live_ready:
@@ -132,6 +138,7 @@ def build_coordination_packet(
             "repeat_nvidia_for_google_account_blocker": False,
             "google_call_while_external_blocker_present": False,
             "parallel_duplicate_design_calls": False,
+            "extra_fallback_after_two_agent_attempt": False,
             "paid_fallback": False,
         },
         "google": {
@@ -141,10 +148,12 @@ def build_coordination_packet(
             "required_evidence": list(google_readiness.get("required_evidence") or []),
         },
         "live_two_agent": {
+            "attempted": two_agent_attempted,
             "operational": two_agent_operational,
             "executor_provider": live.get("executor_provider"),
             "reviewer_provider": live.get("reviewer_provider"),
             "family_separation_pass": live.get("family_separation_pass") is True,
+            "stop_reason": live_report.get("stop_reason"),
         },
         "safety": {
             "free_only": True,
