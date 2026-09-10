@@ -27,9 +27,9 @@ from scripts.probe_free_workers import (
 )
 from scripts.worker_selection import WORKER_ROLES, catalog_worker_candidates
 
-CANDIDATES_PER_ROLE = 8
-MAX_UNIQUE_PROBES = 24
-MAX_PARALLEL_PROBES = 4
+CANDIDATES_PER_ROLE = 12
+MAX_UNIQUE_PROBES = 40
+MAX_PARALLEL_PROBES = 6
 
 
 def _parallel_probe(probe_ids: list[str], api_key: str) -> list[dict[str, Any]]:
