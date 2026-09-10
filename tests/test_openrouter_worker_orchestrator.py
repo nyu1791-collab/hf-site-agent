@@ -24,9 +24,9 @@ class OpenRouterWorkerOrchestratorTests(unittest.TestCase):
         )
         self.assertEqual(result["state"], "WAITING_FOR_TWO_AGENT_COMPLETION")
         self.assertEqual(result["probe"], {})
-        self.assertTrue(result["next_action"].startswith("RESUME_SAME_MISSION"))
+        self.assertTrue(result["next_action"].startswith("RESUME_SAME_PROJECT"))
 
-    def test_completed_two_agent_result_continues_without_user_action(self):
+    def test_completed_two_agent_result_continues_through_project_boundary_without_user_action(self):
         probe = {
             "status": "FREE_ACTIVE",
             "model_calls": 2,
@@ -48,9 +48,21 @@ class OpenRouterWorkerOrchestratorTests(unittest.TestCase):
                 },
             },
         }
+        project_loop = {
+            "state": "PROJECT_BATCH_COMPLETE",
+            "next_action": "WORK_INTEGRATE_PREDICTED_PROJECT",
+            "completed_project_ids": [
+                "openrouter-worker-army-v1",
+                "openrouter-worker-canary-v1",
+                "worker-routing-policy-v1",
+                "worker-resilience-rehearsal-v1",
+            ],
+        }
         with patch("scripts.openrouter_worker_orchestrator.run_multi_probe", return_value=probe) as probe_call, patch(
             "scripts.openrouter_worker_orchestrator.run_benchmarks", return_value=benchmark
-        ) as benchmark_call:
+        ) as benchmark_call, patch(
+            "scripts.openrouter_worker_orchestrator.run_continuous_project_loop", return_value=project_loop
+        ) as project_call:
             result = run_pipeline(
                 source_head="b" * 40,
                 live_report=live_completed(),
@@ -59,15 +71,17 @@ class OpenRouterWorkerOrchestratorTests(unittest.TestCase):
             )
         probe_call.assert_called_once()
         benchmark_call.assert_called_once()
-        self.assertEqual(result["state"], "READY_FOR_WORK_INTEGRATION")
+        project_call.assert_called_once()
+        self.assertEqual(result["state"], "PROJECT_BATCH_COMPLETE")
         self.assertEqual(result["handoff"]["ready_role_count"], 2)
         self.assertFalse(result["automatic_activation"])
+        self.assertEqual(result["next_action"], "WORK_INTEGRATE_PREDICTED_PROJECT")
         self.assertEqual(
             [event["stage"] for event in result["events"]],
-            ["TWO_AGENT_RESULT_GATE", "OPENROUTER_PROBE", "WORKER_BENCHMARK", "COMMANDER_HANDOFF"],
+            ["TWO_AGENT_RESULT_GATE", "OPENROUTER_PROBE", "WORKER_BENCHMARK", "COMMANDER_HANDOFF", "PROJECT_CONTINUATION"],
         )
 
-    def test_missing_openrouter_secret_waits_without_restarting_mission(self):
+    def test_missing_openrouter_secret_waits_without_restarting_project(self):
         result = run_pipeline(
             source_head="c" * 40,
             live_report=live_completed(),
@@ -75,9 +89,9 @@ class OpenRouterWorkerOrchestratorTests(unittest.TestCase):
             network_enabled=True,
         )
         self.assertEqual(result["state"], "WAITING_FOR_OPENROUTER_SECRET")
-        self.assertEqual(result["next_action"], "RESUME_SAME_MISSION_WHEN_SECRET_IS_AVAILABLE")
+        self.assertEqual(result["next_action"], "RESUME_SAME_PROJECT_WHEN_SECRET_IS_AVAILABLE")
 
-    def test_no_benchmark_winner_preserves_same_mission_resume(self):
+    def test_no_benchmark_winner_preserves_same_project_resume(self):
         probe = {"status": "FREE_ACTIVE", "model_calls": 1, "results": [], "role_probe_candidates": {}}
         benchmark = {"status": "COMPLETED_WITH_BLOCKS", "assignments": {}}
         with patch("scripts.openrouter_worker_orchestrator.run_multi_probe", return_value=probe), patch(
@@ -90,7 +104,7 @@ class OpenRouterWorkerOrchestratorTests(unittest.TestCase):
                 network_enabled=True,
             )
         self.assertEqual(result["state"], "WAITING_FOR_BENCHMARK_RECOVERY")
-        self.assertEqual(result["next_action"], "RESUME_SAME_MISSION_WITH_EXISTING_PROBE_EVIDENCE")
+        self.assertEqual(result["next_action"], "RESUME_SAME_PROJECT_WITH_EXISTING_PROBE_EVIDENCE")
 
 
 if __name__ == "__main__":
