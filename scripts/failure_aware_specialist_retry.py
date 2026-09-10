@@ -2,10 +2,10 @@
 """Adaptive retry policy for the failure-aware specialist council.
 
 Primary specialists are matched by same-run role evidence plus recent
-organization memory.  Only visible length exhaustion receives the larger,
-reasoning-bounded compact retry.  Work stealing also consults recent lane-level
+organization memory. Only visible length exhaustion receives the larger,
+reasoning-bounded compact retry. Work stealing also consults recent lane-level
 execution history so repeatedly poor donors are less likely to receive the same
-kind of failed task.  There remains only one standby attempt per lane.
+kind of failed task. There remains only one standby attempt per lane.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ if __package__ in {None, ""}:  # pragma: no cover
 from scripts import failure_aware_specialist_council as base
 from scripts import parallel_worker_council as council_core
 from scripts.specialist_lane_router import (
+    ASSIGNMENT_POLICY,
     attach_capability_matched_assignments,
     historical_worker_signal,
     load_organization_memory,
@@ -33,6 +34,7 @@ LENGTH_EXHAUSTION_REDISPATCH_TOKENS = 4_096
 REDISPATCH_REASONING_MAX_TOKENS = 768
 MAX_REDISPATCH_CONTEXT_CHARS_PER_FILE = 1_400
 MAX_REDISPATCH_CONTEXT_FILES = 2
+REDISPATCH_SELECTION_POLICY = "SAME_RUN_SUCCESS_PLUS_LANE_ORGANIZATION_MEMORY"
 
 
 def is_length_exhaustion(row: Mapping[str, Any]) -> bool:
@@ -137,8 +139,8 @@ def run_failure_aware_council(*, api_key: str, probe: Mapping[str, Any], benchma
         "max_visible_answer_tokens_requested": 120,
     }
     report["output_budget_policy"] = "ESCALATE_AND_CAP_REASONING_ONLY_AFTER_VISIBLE_LENGTH_EXHAUSTION"
-    report["lane_assignment_policy"] = "SAME_RUN_ROLE_SCORE_PLUS_ORGANIZATION_MEMORY"
-    report["redispatch_selection_policy"] = "SAME_RUN_SUCCESS_PLUS_LANE_ORGANIZATION_MEMORY"
+    report["lane_assignment_policy"] = ASSIGNMENT_POLICY
+    report["redispatch_selection_policy"] = REDISPATCH_SELECTION_POLICY
     report["organization_memory_loaded"] = bool(memory)
     report["capability_matched_lanes"] = True
     report["max_attempts_per_lane"] = 2
@@ -177,8 +179,8 @@ def main() -> int:
             "primary_output_token_budget": PRIMARY_OUTPUT_TOKENS,
             "redispatch_output_token_budget": PRIMARY_OUTPUT_TOKENS,
             "length_exhaustion_count": 0,
-            "lane_assignment_policy": "SAME_RUN_ROLE_SCORE_PLUS_ORGANIZATION_MEMORY",
-            "redispatch_selection_policy": "SAME_RUN_SUCCESS_PLUS_LANE_ORGANIZATION_MEMORY",
+            "lane_assignment_policy": ASSIGNMENT_POLICY,
+            "redispatch_selection_policy": REDISPATCH_SELECTION_POLICY,
             "capability_matched_lanes": True,
             "paid_fallback": False,
             "provider_allow_fallbacks": False,
