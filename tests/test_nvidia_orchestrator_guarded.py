@@ -1,3 +1,5 @@
+import json
+import os
 import tempfile
 from pathlib import Path
 import unittest
@@ -6,6 +8,8 @@ from scripts.mission_scheduler import MissionReservationLedger
 from scripts.provider_adapters import ProviderAdapterError
 from scripts.run_nvidia_orchestrator_guarded import (
     DurableNvidiaAdapter,
+    _current_recovery_context,
+    _latest_provider_diagnostic,
     _promote_deferred_nvidia_admission,
 )
 
@@ -171,6 +175,73 @@ class GuardedNvidiaAdapterTests(unittest.TestCase):
         result = _promote_deferred_nvidia_admission(original, secure_evidence())
         self.assertEqual(result["providers"][0]["status"], "PROBE_DEFERRED_TO_AGENT")
         self.assertNotIn("nvidia_deferred_admission_bridged", result)
+
+    def test_current_recovery_context_exposes_safe_daily_quota_class(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifacts = root / "artifacts"
+            artifacts.mkdir()
+            (artifacts / "ai_army_coordination.json").write_text(
+                json.dumps({"state": "GOOGLE_PROVIDER_DEGRADED_NVIDIA_LEAD", "next_action": "RUN_AT_MOST_ONE_GUARDED_NVIDIA_LEAD_CALL"}),
+                encoding="utf-8",
+            )
+            (artifacts / "live_staging_report.json").write_text(
+                json.dumps({
+                    "status": "blocked",
+                    "runtime": {"stop_reason": "PROVIDER_INTERRUPTED", "revision_count": 0},
+                    "budget": {"requests_used": 1, "unsettled_requests": 0},
+                    "live_staging": {"providers": {"google": 1}, "executor_provider": "google", "reviewer_provider": "nvidia"},
+                }),
+                encoding="utf-8",
+            )
+            (artifacts / "google_staging_readiness.json").write_text(
+                json.dumps({"readiness_mode": "PROBE_DEFERRED_RECOVERY", "deferred_recovery_ready": True}),
+                encoding="utf-8",
+            )
+            (artifacts / "provider_interruptions.jsonl").write_text(
+                json.dumps({
+                    "provider": "google",
+                    "model": "gemini-3.8-flash",
+                    "error_class": "GOOGLE_DAILY_QUOTA_EXHAUSTED",
+                    "http_status": 429,
+                    "retry_after_seconds": None,
+                    "retryable": False,
+                    "raw_response_retained": False,
+                    "ignored_secret": "must-not-propagate",
+                }) + "\n",
+                encoding="utf-8",
+            )
+            previous = Path.cwd()
+            try:
+                os.chdir(root)
+                diagnostic = _latest_provider_diagnostic("google")
+                context = _current_recovery_context()
+            finally:
+                os.chdir(previous)
+            self.assertEqual(diagnostic["error_class"], "GOOGLE_DAILY_QUOTA_EXHAUSTED")
+            self.assertEqual(diagnostic["http_status"], 429)
+            self.assertNotIn("ignored_secret", diagnostic)
+            self.assertTrue(context["google_daily_quota_exhausted"])
+            self.assertFalse(context["google_quota_limit_zero"])
+            self.assertEqual(context["google_readiness_mode"], "PROBE_DEFERRED_RECOVERY")
+            self.assertEqual(context["google_provider_diagnostic"]["model"], "gemini-3.8-flash")
+
+    def test_unknown_diagnostic_class_is_redacted_before_nvidia_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifacts = root / "artifacts"
+            artifacts.mkdir()
+            (artifacts / "provider_interruptions.jsonl").write_text(
+                json.dumps({"provider": "google", "model": "gemini-3.8-flash", "error_class": "UNTRUSTED_LONG_DETAIL"}) + "\n",
+                encoding="utf-8",
+            )
+            previous = Path.cwd()
+            try:
+                os.chdir(root)
+                diagnostic = _latest_provider_diagnostic("google")
+            finally:
+                os.chdir(previous)
+            self.assertEqual(diagnostic["error_class"], "OTHER_REDACTED_PROVIDER_ERROR")
 
 
 if __name__ == "__main__":
