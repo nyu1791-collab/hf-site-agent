@@ -167,11 +167,11 @@ def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str
         "max_calls": MAX_BENCHMARK_CALLS,
         "max_output_tokens_per_call": MAX_OUTPUT_TOKENS,
         "provider_allow_fallbacks": False,
+        "paid_fallback": False,
         "records": [],
         "rankings": {},
         "assignments": {},
         "automatic_activation": False,
-        "paid_fallback": False,
         "metric_provenance": {
             "task_quality": "DETERMINISTIC_TASK_ASSERTIONS",
             "schema_success_rate": "OBSERVED_SINGLE_TASK",
@@ -196,7 +196,8 @@ def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str
         candidates = role_candidates.get(role)
         if not isinstance(candidates, list):
             candidates = []
-        for model in [str(item) for item in candidates[:MAX_CANDIDATES_PER_ROLE] if str(item) in active]:
+        active_candidates = [str(item) for item in candidates if str(item) in active][:MAX_CANDIDATES_PER_ROLE]
+        for model in active_candidates:
             if report["model_calls"] >= MAX_BENCHMARK_CALLS:
                 break
             report["model_calls"] += 1
@@ -226,9 +227,6 @@ def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str
                 except (TypeError, ValueError, json.JSONDecodeError):
                     parsed = None
                 exact = response_model == model
-                # The model must already have passed the exact FREE_ACTIVE
-                # probe. If this benchmark response omits cost we retain the
-                # prior free-route evidence but never auto-activate from it.
                 zero_cost_or_prior_verified = cost in {None, Decimal("0")}
                 if exact and zero_cost_or_prior_verified and parsed is not None:
                     completion_tokens = usage.get("completion_tokens")
