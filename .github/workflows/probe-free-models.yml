@@ -2,6 +2,19 @@ name: "Secure staging carrier: evidence, probe, two-agent"
 
 on:
   workflow_dispatch:
+    inputs:
+      resume_mission_id:
+        description: "Existing Mission ID to resume"
+        required: false
+        type: string
+      resume_run_id:
+        description: "Existing Run ID to resume"
+        required: false
+        type: string
+      resume_result_hash:
+        description: "Previous Result Inbox hash"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -166,6 +179,9 @@ jobs:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_SHA: ${{ github.sha }}
+          RESUME_MISSION_ID: ${{ inputs.resume_mission_id }}
+          RESUME_RUN_ID: ${{ inputs.resume_run_id }}
+          RESUME_RESULT_HASH: ${{ inputs.resume_result_hash }}
         run: python scripts/run_nvidia_orchestrator_mission.py
 
       - name: Ensure redacted reports and classify failures

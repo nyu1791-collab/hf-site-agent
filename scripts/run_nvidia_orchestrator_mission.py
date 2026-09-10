@@ -49,7 +49,17 @@ def _digest(value: Any) -> str:
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()[:24]
 
 
-def _mission_prompt() -> str:
+def _mission_prompt(*, resume: bool, previous_hash: str) -> str:
+    if resume:
+        return (
+            "Continue the same NVIDIA Lead Engineer mission. Do not repeat the previous analysis "
+            f"or change the mission identity. Previous RESULT_HASH={previous_hash}. "
+            "Return only the implementation-ready Structured Patch Bundle continuation. "
+            "Required keys: files_to_change, exact_changes, patch_bundle, tests, resume_logic, "
+            "result_inbox_logic, failure_packet_logic, next_action. Keep explanations minimal. "
+            "Do not edit the repository, access credentials, spend money, deploy, merge, publish, "
+            "or weaken paid/production/secret safeguards."
+        )
     return (
         "You are NVIDIA Nemotron, the Lead Engineer for the AI Army. "
         "Analyze only the compact mission below and return a bounded JSON proposal. "
@@ -65,15 +75,25 @@ def _mission_prompt() -> str:
 
 def main() -> int:
     run_id = os.environ.get("GITHUB_RUN_ID", "local")
-    mission_id = f"{MISSION_ID_PREFIX}-{run_id}"
+    resume_mission_id = os.environ.get("RESUME_MISSION_ID", "").strip()
+    resume_run_id = os.environ.get("RESUME_RUN_ID", "").strip()
+    previous_hash = os.environ.get("RESUME_RESULT_HASH", "").strip()
+    resume = bool(resume_mission_id and resume_run_id and previous_hash)
+    mission_id = resume_mission_id if resume else f"{MISSION_ID_PREFIX}-{run_id}"
+    logical_run_id = resume_run_id if resume else run_id
+    revision = 1 if resume else 0
+    output_tokens = 1_024 if resume else MAX_OUTPUT_TOKENS
     started = _now()
     state = {
         "schema_version": "mission-state-v1",
         "mission_id": mission_id,
         "task_id": "lead-engineer-build",
-        "run_id": run_id,
+        "run_id": logical_run_id,
+        "carrier_run_id": run_id,
+        "revision": revision,
         "model": NVIDIA_NEMOTRON_MODEL,
         "state": "RUNNING",
+        "result_status": "PARTIAL_TRUNCATED" if resume else "RUNNING",
         "delivery_state": "DELIVERY_PENDING",
         "started_at": started,
         "last_heartbeat_at": started,
@@ -92,7 +112,7 @@ def main() -> int:
     if not allowed or not os.environ.get("NVIDIA_API_KEY"):
         state.update({"state": "BLOCKED", "stop_reason": "NVIDIA_LIMITED_STAGING_EVIDENCE_OR_SECRET_UNAVAILABLE", "finished_at": _now()})
         _write(MISSION_STATE, state)
-        _write(RESULT_INBOX, {"schema_version": "result-inbox-v1", "mission_id": mission_id, "run_id": run_id, "status": "BLOCKED", "created_at": _now(), "nvidia_external_calls": 0})
+        _write(RESULT_INBOX, {"schema_version": "result-inbox-v1", "mission_id": mission_id, "run_id": logical_run_id, "revision": revision, "status": "BLOCKED", "created_at": _now(), "nvidia_external_calls": 0})
         return 0
     try:
         policy = ExecutionPolicy(
@@ -105,13 +125,14 @@ def main() -> int:
         adapter = create_provider_adapter(load_provider_registry(), "nvidia", network_enabled=True, timeout_seconds=60.0)
         response = adapter.generate(
             NVIDIA_NEMOTRON_MODEL,
-            [{"role": "system", "content": _mission_prompt()}, {"role": "user", "content": json.dumps({
-                "mission_id": mission_id, "current_head": os.environ.get("GITHUB_SHA", ""),
+            [{"role": "system", "content": _mission_prompt(resume=resume, previous_hash=previous_hash)}, {"role": "user", "content": json.dumps({
+                "mission_id": mission_id, "run_id": logical_run_id, "revision": revision,
+                "previous_result_hash": previous_hash, "current_head": os.environ.get("GITHUB_SHA", ""),
                 "existing_state": "NVIDIA probe passed; Google is not live; Work is single writer.",
                 "constraints": {"repository_write": False, "paid": False, "production": False, "secret_access": False},
             }, sort_keys=True)}],
             execution_policy=policy, require_zero_cost=True, request_id=f"{mission_id}:1",
-            mission_id=mission_id, agent_id="lead-engineer-nvidia", max_tokens=MAX_OUTPUT_TOKENS,
+            mission_id=mission_id, agent_id="lead-engineer-nvidia", max_tokens=output_tokens,
             temperature=0, **nvidia_model_options(NVIDIA_NEMOTRON_MODEL),
         )
         text = response.get("text") if isinstance(response, Mapping) else ""
@@ -123,23 +144,27 @@ def main() -> int:
             parsed = {"summary": bounded_text, "proposal": bounded_text, "structured_envelope": "LIMITED_TEXT_PROPOSAL"}
         if not isinstance(parsed, Mapping):
             parsed = {"summary": bounded_text, "proposal": bounded_text, "structured_envelope": "LIMITED_TEXT_PROPOSAL"}
-        state.update({"state": "RESULT_READY", "delivery_state": "DELIVERY_PENDING", "finished_at": _now(), "nvidia_external_calls": 1, "result_hash": _digest(parsed)})
+        required = ("files_to_change", "exact_changes", "patch_bundle", "tests", "resume_logic", "result_inbox_logic", "failure_packet_logic", "next_action")
+        patch_complete = resume and all(key in parsed and parsed.get(key) not in (None, "", [], {}) for key in required)
+        result_status = "COMPLETE" if patch_complete else ("PARTIAL_TRUNCATED" if resume else "RESULT_READY")
+        state.update({"state": "RESULT_READY", "result_status": result_status, "delivery_state": "DELIVERY_PENDING", "finished_at": _now(), "nvidia_external_calls": 1, "result_hash": _digest(parsed)})
         _write(MISSION_STATE, state)
         _write(RESULT_INBOX, {
             "schema_version": "result-inbox-v1", "mission_id": mission_id, "task_id": "lead-engineer-build",
-            "run_id": run_id, "trace_id": _digest({"mission_id": mission_id, "run_id": run_id}),
+            "run_id": logical_run_id, "carrier_run_id": run_id, "revision": revision,
+            "previous_result_hash": previous_hash, "trace_id": _digest({"mission_id": mission_id, "run_id": logical_run_id, "revision": revision}),
             "model": NVIDIA_NEMOTRON_MODEL, "result_type": "LEAD_ENGINEER_PROPOSAL", "result_hash": _digest(parsed),
-            "status": "RESULT_READY", "proposal": dict(parsed), "patch_bundle": parsed.get("patch_bundle", {}),
+            "status": result_status, "result_status": result_status, "proposal": dict(parsed), "patch_bundle": parsed.get("patch_bundle", {}),
             "test_plan": parsed.get("tests", []), "next_action": parsed.get("next_action", "WORK_REVIEW"),
             "created_at": _now(), "secret_values_persisted": 0, "production_active": False,
         })
-        print(json.dumps({"mission_id": mission_id, "run_id": run_id, "nvidia_external_calls": 1, "state": "RESULT_READY", "result_hash": _digest(parsed)}, sort_keys=True))
+        print(json.dumps({"mission_id": mission_id, "run_id": logical_run_id, "revision": revision, "nvidia_external_calls": 1, "result_status": result_status, "result_hash": _digest(parsed)}, sort_keys=True))
         return 0
     except Exception as exc:
         state.update({"state": "FAILED", "stop_reason": type(exc).__name__, "finished_at": _now(), "nvidia_external_calls": 0})
         _write(MISSION_STATE, state)
-        _write(RESULT_INBOX, {"schema_version": "result-inbox-v1", "mission_id": mission_id, "run_id": run_id, "status": "FAILED", "error_class": type(exc).__name__, "created_at": _now(), "secret_values_persisted": 0})
-        print(json.dumps({"mission_id": mission_id, "run_id": run_id, "nvidia_external_calls": 0, "state": "FAILED", "error_class": type(exc).__name__}, sort_keys=True))
+        _write(RESULT_INBOX, {"schema_version": "result-inbox-v1", "mission_id": mission_id, "run_id": logical_run_id, "revision": revision, "status": "FAILED", "error_class": type(exc).__name__, "created_at": _now(), "secret_values_persisted": 0})
+        print(json.dumps({"mission_id": mission_id, "run_id": logical_run_id, "revision": revision, "nvidia_external_calls": 0, "state": "FAILED", "error_class": type(exc).__name__}, sort_keys=True))
         return 0
 
 
