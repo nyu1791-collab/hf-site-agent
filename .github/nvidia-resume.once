@@ -1,4 +1,0 @@
-mode: google-bootstrap
-lead: nvidia/nemotron-3.5-lightning-30b-a3b
-attempt: 1
-objective: grounded-minimal-google-staging-plan
