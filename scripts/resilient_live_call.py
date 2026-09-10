@@ -102,7 +102,7 @@ class _ConclusiveRecoveryAdapter:
 
 
 def call_model_with_bounded_recovery(
-    binding: live_runner.LiveAgentBinding,
+    binding: Any,
     task: Any,
     context: Mapping[str, Any],
     *,
@@ -117,6 +117,20 @@ def call_model_with_bounded_recovery(
     instead of incorrectly retaining them as usage-unknown.  Any ambiguous
     transport failure keeps the existing unsettled/no-replay behavior.
     """
+    # Adaptive callback unit tests and third-party callback adapters may supply
+    # lightweight binding doubles. They must continue through the established
+    # live-call seam; only a real LiveAgentBinding is eligible for transport
+    # recovery because only it carries verified execution policy and adapter
+    # identity.
+    if not isinstance(binding, live_runner.LiveAgentBinding):
+        return live_runner._call_model(
+            binding,
+            task,
+            context,
+            metrics=metrics,
+            instruction=instruction,
+        )
+
     proxy = _ConclusiveRecoveryAdapter(binding.adapter, metrics=metrics)
     proxy_binding = replace(binding, adapter=proxy)
     try:
