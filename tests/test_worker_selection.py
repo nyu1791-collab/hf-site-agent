@@ -1,15 +1,15 @@
 import unittest
 
-from scripts.worker_selection import WorkerSelectionError, select_free_worker
+from scripts.worker_selection import WorkerSelectionError, catalog_worker_candidates, select_free_worker
 
 
-def worker_entry(model_id, *, capabilities, context_length=65536, parameters=None, prompt="0", completion="0"):
+def worker_entry(model_id, *, capabilities=None, context_length=65536, parameters=None, prompt="0", completion="0"):
     return {
         "id": model_id,
         "pricing": {"prompt": prompt, "completion": completion},
         "context_length": context_length,
         "supported_parameters": parameters or ["tools", "tool_choice", "structured_outputs"],
-        "capability_tags": capabilities,
+        "capability_tags": capabilities or [],
     }
 
 
@@ -35,8 +35,28 @@ class WorkerSelectionTests(unittest.TestCase):
         result = select_free_worker(catalog, probes, "CODING_WORKER")
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["model"], "vendor/large:free")
+        self.assertTrue(result["role_benchmark_required"])
         self.assertFalse(result["paid_fallback"])
         self.assertFalse(result["generic_router"])
+
+    def test_missing_nonstandard_capability_tags_do_not_block_feature_eligible_candidate(self):
+        entry = worker_entry("vendor/current-catalog:free", capabilities=[], context_length=65536)
+        candidates = catalog_worker_candidates([entry], "CODING_WORKER")
+        self.assertEqual([item["model"] for item in candidates], [entry["id"]])
+        self.assertFalse(candidates[0]["capability_hint_match"])
+        probes = {entry["id"]: active_probe(entry["id"])}
+        result = select_free_worker([entry], probes, "CODING_WORKER")
+        self.assertEqual(result["status"], "ready")
+        self.assertFalse(result["capability_hint_match"])
+        self.assertTrue(result["role_benchmark_required"])
+
+    def test_explicit_role_tag_is_only_a_deterministic_preference_hint(self):
+        tagged = worker_entry("vendor/tagged:free", capabilities=["coding"], context_length=32768)
+        untagged = worker_entry("vendor/untagged:free", capabilities=[], context_length=131072)
+        probes = {entry["id"]: active_probe(entry["id"]) for entry in (tagged, untagged)}
+        result = select_free_worker([untagged, tagged], probes, "CODING_WORKER")
+        self.assertEqual(result["model"], tagged["id"])
+        self.assertTrue(result["capability_hint_match"])
 
     def test_catalog_only_candidate_is_not_active(self):
         entry = worker_entry("vendor/candidate:free", capabilities=["general"])
@@ -74,13 +94,17 @@ class WorkerSelectionTests(unittest.TestCase):
         )
         self.assertEqual(result["reason"], "generic_free_router_forbidden")
 
-    def test_requested_model_remains_subject_to_role_and_probe_gates(self):
-        general = worker_entry("vendor/general:free", capabilities=["general"])
+    def test_requested_model_remains_subject_to_standard_role_feature_and_probe_gates(self):
+        no_tools = worker_entry(
+            "vendor/general:free",
+            capabilities=["general"],
+            parameters=["structured_outputs"],
+        )
         coding = worker_entry("vendor/coding:free", capabilities=["coding"])
-        probes = {entry["id"]: active_probe(entry["id"]) for entry in (general, coding)}
-        result = select_free_worker([general, coding], probes, "CODING_WORKER", requested_model=general["id"])
+        probes = {entry["id"]: active_probe(entry["id"]) for entry in (no_tools, coding)}
+        result = select_free_worker([no_tools, coding], probes, "CODING_WORKER", requested_model=no_tools["id"])
         self.assertEqual(result["status"], "blocked")
-        result = select_free_worker([general, coding], probes, "CODING_WORKER", requested_model=coding["id"])
+        result = select_free_worker([no_tools, coding], probes, "CODING_WORKER", requested_model=coding["id"])
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["model"], coding["id"])
 
