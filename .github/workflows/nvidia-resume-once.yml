@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Compile bounded NVIDIA resume path
+      - name: Compile bounded NVIDIA Google bootstrap path
         run: |
           set -euo pipefail
           mkdir -p artifacts
@@ -39,7 +39,7 @@ jobs:
             scripts/secure_account_evidence.py \
             scripts/validate_secure_evidence.py \
             scripts/probe_providers.py \
-            scripts/run_nvidia_orchestrator_mission.py
+            scripts/run_nvidia_google_bootstrap_mission.py
 
       - name: Collect NVIDIA-only redacted evidence
         env:
@@ -67,34 +67,30 @@ jobs:
           --evidence-file artifacts/secure_account_evidence.json
           --output artifacts/provider_probe.json
 
-      - name: Resume existing NVIDIA mission once
+      - name: Ask NVIDIA to design the Google bootstrap patch
         env:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_SHA: ${{ github.sha }}
-          RESUME_MISSION_ID: nvidia-autonomous-orchestrator-34427151942
-          RESUME_RUN_ID: "34427151942"
-          RESUME_RESULT_HASH: 4f3de5f70462746d1858b7d9
-          RESUME_REVISION: "2"
-        run: python scripts/run_nvidia_orchestrator_mission.py
+        run: python scripts/run_nvidia_google_bootstrap_mission.py
 
       - name: Validate redacted outputs
         if: always()
         run: |
           set -euo pipefail
           python scripts/audit_secret_safety.py --root .
-          python -m json.tool artifacts/mission_state.json >/dev/null
-          python -m json.tool artifacts/result_inbox.json >/dev/null
+          python -m json.tool artifacts/google_bootstrap_state.json >/dev/null
+          python -m json.tool artifacts/google_bootstrap_proposal.json >/dev/null
 
       - name: Upload one-shot result artifacts
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: nvidia-resume-once-${{ github.run_id }}
+          name: nvidia-google-bootstrap-${{ github.run_id }}
           path: |
             artifacts/secure_account_evidence.json
             artifacts/provider_probe.json
-            artifacts/mission_state.json
-            artifacts/result_inbox.json
+            artifacts/google_bootstrap_state.json
+            artifacts/google_bootstrap_proposal.json
           if-no-files-found: error
           retention-days: 7
