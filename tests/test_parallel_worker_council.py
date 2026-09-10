@@ -54,6 +54,7 @@ class ParallelWorkerCouncilTests(unittest.TestCase):
         self.assertEqual(report["status"], "COUNCIL_READY")
         self.assertEqual(report["schema_version"], "parallel-worker-council-v3")
         self.assertEqual(report["reasoning_policy"], "MINIMAL_EXCLUDED_TO_PRESERVE_VISIBLE_FINAL")
+        self.assertEqual(report["selection_policy"], "QUALITY_PLUS_LATENCY_PLUS_TOKEN_EFFICIENCY_PLUS_ROLE_COVERAGE_PLUS_RECENCY")
         self.assertEqual(report["model_calls"], 3)
         self.assertEqual(report["successful_model_count"], 3)
         self.assertTrue(report["parallel_execution"])
@@ -67,13 +68,26 @@ class ParallelWorkerCouncilTests(unittest.TestCase):
         selected = select_council_models(bad_probe, self.benchmark)
         self.assertNotIn(self.models[2], [item["model"] for item in selected])
 
-    def test_efficiency_leaders_receive_council_seats(self):
-        models = ["vendor/quality:free", "vendor/fast:free", "vendor/lean:free", "vendor/coverage:free"]
+    def test_efficiency_and_recency_leaders_receive_council_seats(self):
+        models = [
+            "vendor/quality:free",
+            "vendor/fast:free",
+            "vendor/lean:free",
+            "vendor/coverage:free",
+            "vendor/newest:free",
+        ]
         probe = {
             "results": [
                 {"status": "FREE_ACTIVE", "requested_model": model, "response_model": model, "fallback_used": False}
                 for model in models
-            ]
+            ],
+            "catalog_model_metadata": {
+                models[0]: {"catalog_created_epoch": 100},
+                models[1]: {"catalog_created_epoch": 200},
+                models[2]: {"catalog_created_epoch": 300},
+                models[3]: {"catalog_created_epoch": 400},
+                models[4]: {"catalog_created_epoch": 999},
+            },
         }
         benchmark = {
             "rankings": {
@@ -82,6 +96,7 @@ class ParallelWorkerCouncilTests(unittest.TestCase):
                     {"model": models[1], "score": 0.80, "latency_ms": 80, "tokens_per_success": 450},
                     {"model": models[2], "score": 0.79, "latency_ms": 700, "tokens_per_success": 70},
                     {"model": models[3], "score": 0.78, "latency_ms": 600, "tokens_per_success": 250},
+                    {"model": models[4], "score": 0.76, "latency_ms": 550, "tokens_per_success": 240},
                 ],
                 "REVIEW_WORKER": [
                     {"model": models[3], "score": 0.88, "latency_ms": 650, "tokens_per_success": 260},
@@ -94,6 +109,28 @@ class ParallelWorkerCouncilTests(unittest.TestCase):
         self.assertIn("latency_leader", by_model[models[1]]["selection_reasons"])
         self.assertIn("token_efficiency_leader", by_model[models[2]]["selection_reasons"])
         self.assertIn("role_coverage_leader", by_model[models[3]]["selection_reasons"])
+        self.assertIn("recency_leader", by_model[models[4]]["selection_reasons"])
+        self.assertEqual(by_model[models[4]]["catalog_created_epoch"], 999)
+
+    def test_newest_unverified_model_does_not_get_recency_seat(self):
+        models = ["vendor/old:free", "vendor/new:free"]
+        probe = {
+            "results": [
+                {"status": "FREE_ACTIVE", "requested_model": models[0], "response_model": models[0], "fallback_used": False},
+                {"status": "FREE_ENDPOINT_UNAVAILABLE", "requested_model": models[1], "response_model": None, "fallback_used": False},
+            ],
+            "catalog_model_metadata": {
+                models[0]: {"catalog_created_epoch": 100},
+                models[1]: {"catalog_created_epoch": 999},
+            },
+        }
+        benchmark = {"rankings": {"GENERAL_WORKER": [
+            {"model": models[0], "score": 0.8},
+            {"model": models[1], "score": 0.99},
+        ]}}
+        selected = select_council_models(probe, benchmark)
+        self.assertEqual([item["model"] for item in selected], [models[0]])
+        self.assertIn("recency_leader", selected[0]["selection_reasons"])
 
 
 if __name__ == "__main__":
