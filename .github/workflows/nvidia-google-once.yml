@@ -76,15 +76,42 @@ jobs:
           --evidence-file artifacts/secure_account_evidence.json
           --output artifacts/provider_probe.json
 
-      - name: Replan malformed NVIDIA Google Lead Engineer output with compact context
+      - name: Evaluate Google blockers before any additional NVIDIA design call
+        id: google_preflight
+        run: |
+          set -euo pipefail
+          python scripts/google_staging_readiness.py \
+            --evidence artifacts/secure_account_evidence.json \
+            --probe artifacts/provider_probe.json \
+            --output artifacts/google_preflight_readiness.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          data = json.loads(Path("artifacts/google_preflight_readiness.json").read_text(encoding="utf-8"))
+          allowed = data.get("repeat_nvidia_call_allowed") is True
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"nvidia_needed={'true' if allowed else 'false'}\n")
+              handle.write(f"google_state={data.get('state', 'UNKNOWN')}\n")
+          print(json.dumps({
+              "google_state": data.get("state"),
+              "next_action": data.get("next_action"),
+              "nvidia_needed": allowed,
+              "external_model_calls_recommended": data.get("external_model_calls_recommended", 0),
+          }, sort_keys=True))
+          PY
+
+      - name: Continue NVIDIA Google Lead Engineer mission only when code work can change the blocker
+        if: ${{ steps.google_preflight.outputs.nvidia_needed == 'true' }}
         env:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_SHA: ${{ github.sha }}
           RESUME_MISSION_ID: nvidia-autonomous-orchestrator-34433295732
           RESUME_RUN_ID: "34433295732"
-          RESUME_RESULT_HASH: 654883ae88b32f138cf6b9ff
-          RESUME_REVISION: "3"
+          RESUME_RESULT_HASH: 0fd4d74c4a2c71171748aed3
+          RESUME_REVISION: "4"
         run: python scripts/run_nvidia_google_compact_mission.py
 
       - name: Deterministically review Google readiness and NVIDIA integration scope
@@ -115,15 +142,17 @@ jobs:
           probe = read("artifacts/provider_probe.json", {})
           mission = read("artifacts/mission_state.json", {})
           inbox = read("artifacts/result_inbox.json", {})
+          preflight = read("artifacts/google_preflight_readiness.json", {})
           readiness = read("artifacts/google_staging_readiness.json", {})
           providers = evidence.get("providers") if isinstance(evidence.get("providers"), dict) else {}
           probe_items = probe.get("providers") if isinstance(probe.get("providers"), list) else []
           integration = readiness.get("lead_integration") if isinstance(readiness.get("lead_integration"), dict) else {}
           summary = {
-              "schema_version": "nvidia-google-once-v8",
+              "schema_version": "nvidia-google-once-v9",
               "provider_focus": ["nvidia", "google"],
-              "run_mode": "LEAD_MISSION_COMPACT_REPLAN",
+              "run_mode": "GOOGLE_BLOCKER_GATED_LEAD_MISSION",
               "nvidia_selected_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+              "previous_complete_result_hash": "0fd4d74c4a2c71171748aed3",
               "secret_presence": {
                   name: bool(isinstance(lane, dict) and lane.get("secret_present") is True)
                   for name, lane in providers.items()
@@ -141,6 +170,9 @@ jobs:
                   for item in probe_items if isinstance(item, dict) and item.get("provider")
               },
               "probe_model_calls": int(probe.get("model_calls", 0) or 0),
+              "google_preflight_state": preflight.get("state"),
+              "google_preflight_next_action": preflight.get("next_action"),
+              "nvidia_call_skipped_for_external_blocker": preflight.get("repeat_nvidia_call_allowed") is False,
               "lead_mission_id": mission.get("mission_id"),
               "lead_mission_state": mission.get("state"),
               "lead_revision": mission.get("revision"),
@@ -178,6 +210,7 @@ jobs:
           path: |
             artifacts/secure_account_evidence.json
             artifacts/provider_probe.json
+            artifacts/google_preflight_readiness.json
             artifacts/google_staging_readiness.json
             artifacts/nvidia_google_once_summary.json
             artifacts/mission_state.json
