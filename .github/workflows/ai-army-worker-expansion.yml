@@ -20,10 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - name: Checkout source without write credentials
+      - name: Checkout exact triggering source without write credentials
         uses: actions/checkout@v6
         with:
-          ref: ai-army/provider-v3
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Set up Python
@@ -49,7 +49,12 @@ jobs:
             scripts/parallel_worker_council.py \
             scripts/failure_aware_specialist_council.py \
             scripts/failure_aware_specialist_retry.py \
+            scripts/specialist_lane_router.py \
+            scripts/organization_coordination.py \
+            scripts/organization_feedback.py \
+            scripts/update_worker_organization_memory.py \
             scripts/staging_parallel_scheduler.py \
+            scripts/staging_parallel_scheduler_probe.py \
             scripts/worker_canary.py \
             scripts/worker_benchmark_ranking.py \
             scripts/openrouter_worker_orchestrator.py \
@@ -167,7 +172,7 @@ jobs:
           }, sort_keys=True))
           PY
 
-      - name: Run length-aware failure specialist council
+      - name: Run history-aware parallel specialist corps
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: >-
@@ -175,6 +180,16 @@ jobs:
           --probe artifacts/openrouter_expansion_probe.json
           --benchmark artifacts/openrouter_expansion_benchmark.json
           --output artifacts/worker_council.json
+
+      - name: Build shared blackboard before commander
+        env:
+          SOURCE_HEAD: ${{ github.sha }}
+        run: >-
+          python scripts/organization_coordination.py
+          --council artifacts/worker_council.json
+          --source-head "${SOURCE_HEAD}"
+          --mission-id worker-efficiency-${{ github.run_id }}
+          --output artifacts/organization_blackboard.json
 
       - name: Run compact NVIDIA lead synthesis
         env:
@@ -196,6 +211,10 @@ jobs:
           canary = json.loads(Path("artifacts/worker_canary.json").read_text(encoding="utf-8"))
           routing = json.loads(Path("artifacts/worker_routing_policy.json").read_text(encoding="utf-8"))
           resilience = json.loads(Path("artifacts/worker_resilience_rehearsal.json").read_text(encoding="utf-8"))
+          feedback_path = Path("artifacts/organization_feedback.json")
+          feedback = json.loads(feedback_path.read_text(encoding="utf-8")) if feedback_path.exists() else {}
+          blackboard_path = Path("artifacts/organization_blackboard.json")
+          blackboard = json.loads(blackboard_path.read_text(encoding="utf-8")) if blackboard_path.exists() else {}
           verified = []
           for row in probe.get("results", []):
               if not isinstance(row, dict) or row.get("status") != "FREE_ACTIVE":
@@ -223,22 +242,29 @@ jobs:
               if entries:
                   pools[str(role)] = entries
           report = {
-              "schema_version": "ai-army-dynamic-worker-pool-v5",
+              "schema_version": "ai-army-dynamic-worker-pool-v6",
               "source_head": "${{ github.sha }}",
               "nvidia_commander": "nvidia/nemotron-3.5-lightning-30b-a3b",
               "google_policy": "CRITICAL_IMPLEMENTATION_DIFFICULT_DESIGN_FINAL_CRITICAL_REVIEW_ONLY",
-              "execution_policy": "PARALLEL_SPECIALISTS_LENGTH_AWARE_WORK_STEALING_COMPACT_NVIDIA_SYNTHESIS",
+              "execution_policy": "GLOBAL_HISTORY_ROUTING_PARALLEL_SPECIALISTS_WORK_STEALING_BLACKBOARD_FEEDBACK",
               "verified_free_models": sorted(set(verified)),
               "verified_free_model_count": len(set(verified)),
               "benchmarked_unique_models": sorted(unique_ranked),
               "benchmarked_unique_model_count": len(unique_ranked),
-              "council_successful_model_count": int(council.get("successful_model_count", 0) or 0),
+              "council_primary_successful_lane_count": int(council.get("primary_successful_lane_count", 0) or 0),
               "council_successful_lane_count": int(council.get("successful_lane_count", 0) or 0),
               "council_recovered_lane_count": int(council.get("recovered_lane_count", 0) or 0),
               "council_work_stealing_count": int(council.get("work_stealing_count", 0) or 0),
-              "council_length_exhaustion_count": int(council.get("length_exhaustion_count", 0) or 0),
-              "council_redispatch_output_token_budget": int(council.get("redispatch_output_token_budget", 0) or 0),
               "council_parallel_metrics": council.get("parallel_metrics", {}),
+              "lane_assignment_policy": council.get("lane_assignment_policy"),
+              "redispatch_selection_policy": council.get("redispatch_selection_policy"),
+              "organization_memory_loaded": council.get("organization_memory_loaded") is True,
+              "blackboard_status": blackboard.get("status"),
+              "blackboard_entry_count": int(blackboard.get("entry_count", 0) or 0),
+              "blackboard_early_stop": blackboard.get("early_stop", {}),
+              "organization_feedback_status": feedback.get("status"),
+              "recommended_parallel_worker_limit": feedback.get("recommended_parallel_worker_limit"),
+              "next_goals": feedback.get("next_goals", []),
               "worker_health": council.get("worker_health", []),
               "canary_status": canary.get("status"),
               "routing_status": routing.get("status"),
@@ -264,16 +290,12 @@ jobs:
           print(json.dumps({
               "verified_free_model_count": report["verified_free_model_count"],
               "benchmarked_unique_model_count": report["benchmarked_unique_model_count"],
-              "council_successful_lane_count": report["council_successful_lane_count"],
-              "council_recovered_lane_count": report["council_recovered_lane_count"],
-              "council_work_stealing_count": report["council_work_stealing_count"],
-              "council_length_exhaustion_count": report["council_length_exhaustion_count"],
-              "council_redispatch_output_token_budget": report["council_redispatch_output_token_budget"],
-              "canary_status": report["canary_status"],
-              "routing_status": report["routing_status"],
-              "resilience_status": report["resilience_status"],
+              "primary_successful_lane_count": report["council_primary_successful_lane_count"],
+              "successful_lane_count": report["council_successful_lane_count"],
+              "recovered_lane_count": report["council_recovered_lane_count"],
+              "blackboard_status": report["blackboard_status"],
+              "feedback_status": report["organization_feedback_status"],
               "parallel_worker_limit": report["parallel_worker_limit"],
-              "roles": sorted(report["role_pools"]),
           }, sort_keys=True))
           PY
 
@@ -281,16 +303,23 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/audit_secret_safety.py --root .
-          python -m json.tool artifacts/mission_state.json >/dev/null
-          python -m json.tool artifacts/result_inbox.json >/dev/null
-          python -m json.tool artifacts/nvidia_orchestrator_ledger.json >/dev/null
-          python -m json.tool artifacts/openrouter_expansion_probe.json >/dev/null
-          python -m json.tool artifacts/openrouter_expansion_benchmark.json >/dev/null
-          python -m json.tool artifacts/worker_canary.json >/dev/null
-          python -m json.tool artifacts/worker_routing_policy.json >/dev/null
-          python -m json.tool artifacts/worker_resilience_rehearsal.json >/dev/null
-          python -m json.tool artifacts/worker_council.json >/dev/null
-          python -m json.tool artifacts/ai_army_dynamic_worker_pool.json >/dev/null
+          for file in \
+            artifacts/mission_state.json \
+            artifacts/result_inbox.json \
+            artifacts/nvidia_orchestrator_ledger.json \
+            artifacts/openrouter_expansion_probe.json \
+            artifacts/openrouter_expansion_benchmark.json \
+            artifacts/worker_canary.json \
+            artifacts/worker_routing_policy.json \
+            artifacts/worker_resilience_rehearsal.json \
+            artifacts/worker_council.json \
+            artifacts/organization_blackboard.json \
+            artifacts/staging_parallel_scheduler_probe.json \
+            artifacts/organization_feedback.json \
+            artifacts/worker_organization_memory_next.json \
+            artifacts/ai_army_dynamic_worker_pool.json; do
+            python -m json.tool "$file" >/dev/null
+          done
 
       - name: Upload NVIDIA and OpenRouter expansion result
         uses: actions/upload-artifact@v6
@@ -308,5 +337,9 @@ jobs:
             artifacts/worker_routing_policy.json
             artifacts/worker_resilience_rehearsal.json
             artifacts/worker_council.json
+            artifacts/organization_blackboard.json
+            artifacts/staging_parallel_scheduler_probe.json
+            artifacts/organization_feedback.json
+            artifacts/worker_organization_memory_next.json
             artifacts/ai_army_dynamic_worker_pool.json
           retention-days: 7
