@@ -1,5 +1,8 @@
 import copy
+from io import BytesIO
+import json
 import unittest
+from urllib.error import HTTPError
 
 from scripts.execution_scope import ExecutionPolicy
 from scripts.focused_google_native_adapter import (
@@ -12,6 +15,16 @@ from scripts.provider_registry import load_provider_registry
 
 
 MODEL = "gemini-3.8-flash"
+
+
+def _http_429(payload):
+    return HTTPError(
+        "https://generativelanguage.googleapis.com/v1beta/models/x:generateContent",
+        429,
+        "Too Many Requests",
+        {},
+        BytesIO(json.dumps(payload).encode("utf-8")),
+    )
 
 
 class FocusedGoogleNativeAdapterTests(unittest.TestCase):
@@ -63,6 +76,64 @@ class FocusedGoogleNativeAdapterTests(unittest.TestCase):
         with self.assertRaises(ProviderAdapterError) as caught:
             adapter.generate(MODEL, [{"role": "user", "content": "x"}], execution_policy=policy)
         self.assertEqual(caught.exception.error_class, "MODEL_MISMATCH")
+
+    def test_daily_quota_429_is_not_misclassified_as_transient_rate_limit(self):
+        adapter = FocusedGoogleNativeAdapter(self.registry, "google", network_enabled=True)
+        error = _http_429({
+            "error": {
+                "code": 429,
+                "status": "RESOURCE_EXHAUSTED",
+                "details": [{
+                    "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                    "violations": [{
+                        "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+                        "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+                        "quotaValue": "20",
+                    }],
+                }],
+            }
+        })
+        normalized = adapter.normalize_error(error)
+        self.assertEqual(normalized.error_class, "GOOGLE_DAILY_QUOTA_EXHAUSTED")
+        self.assertEqual(normalized.http_status, 429)
+        self.assertFalse(normalized.retryable)
+        self.assertIsNone(normalized.retry_after_seconds)
+
+    def test_zero_quota_429_is_fail_closed_without_retry(self):
+        adapter = FocusedGoogleNativeAdapter(self.registry, "google", network_enabled=True)
+        error = _http_429({
+            "error": {
+                "code": 429,
+                "details": [{
+                    "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                    "violations": [{
+                        "quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier",
+                        "quotaValue": "0",
+                    }],
+                }],
+            }
+        })
+        normalized = adapter.normalize_error(error)
+        self.assertEqual(normalized.error_class, "GOOGLE_QUOTA_LIMIT_ZERO")
+        self.assertFalse(normalized.retryable)
+
+    def test_transient_429_extracts_retry_info_without_retaining_message(self):
+        adapter = FocusedGoogleNativeAdapter(self.registry, "google", network_enabled=True)
+        error = _http_429({
+            "error": {
+                "code": 429,
+                "message": "arbitrary provider message that must not be retained",
+                "details": [{
+                    "@type": "type.googleapis.com/google.rpc.RetryInfo",
+                    "retryDelay": "39.2s",
+                }],
+            }
+        })
+        normalized = adapter.normalize_error(error)
+        self.assertEqual(normalized.error_class, "RATE_LIMITED")
+        self.assertTrue(normalized.retryable)
+        self.assertEqual(normalized.retry_after_seconds, 40)
+        self.assertNotIn("arbitrary", repr(normalized))
 
 
 if __name__ == "__main__":
