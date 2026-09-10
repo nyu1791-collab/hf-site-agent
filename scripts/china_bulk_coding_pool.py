@@ -30,7 +30,31 @@ CHINA_VALUE_CODING_PREFIXES: dict[str, str] = {
     "01-ai/": "YI",
 }
 
-MAX_BULK_CODING_MODELS = 6
+# Preferred discovery cohort. These IDs are never activated by declaration:
+# every run still requires current catalog :free/zero price, exact-model probe,
+# role benchmark and normal canary/routing evidence.
+PREFERRED_BULK_CODING_TARGETS: tuple[str, ...] = (
+    "z-ai/glm-5.2:free",
+    "minimax/minimax-m3:free",
+    "inclusionai/ling-3.0-flash:free",
+    "tencent/hy3:free",
+    "inclusionai/ling-2.6-1t:free",
+    "inclusionai/ling-3.0-flash-sante:free",
+    "tencent/hy3-preview:free",
+    "tencent/hunyuan-a13b-instruct:free",
+    "deepseek/deepseek-v4-flash:free",
+    "inclusionai/ling-3.0-flash-fin:free",
+)
+
+# Strong models that are useful to watch but must never enter FREE_ONLY routing
+# unless a concrete current :free endpoint appears in the catalog.
+WATCH_ONLY_MODEL_FAMILIES: tuple[str, ...] = (
+    "qwen/qwen3.8-flash",
+    "qwen/qwen3.8-max",
+    "deepseek/deepseek-v4-flash-0731",
+)
+
+MAX_BULK_CODING_MODELS = 10
 RECOMMENDED_PARALLEL_LIMIT = 4
 MIN_TASK_QUALITY = 0.75
 MIN_SCHEMA_SUCCESS_RATE = 1.0
@@ -64,6 +88,14 @@ def china_coding_family(model_id: str) -> str:
         if model.startswith(prefix):
             return family
     return ""
+
+
+def _tier_for_rank(rank: int) -> tuple[str, str, int]:
+    if rank <= 3:
+        return "LOWER_UPPER", "下の上", 5
+    if rank <= 7:
+        return "LOWER_MIDDLE", "下の中", 3
+    return "LOWER_LOWER", "下の下", 1
 
 
 def _number(value: Any) -> float | None:
@@ -132,6 +164,7 @@ def _eligible_rows(probe: Mapping[str, Any], benchmark: Mapping[str, Any]) -> li
         eligible.append({
             "model": model,
             "family": family,
+            "preferred_target": model in PREFERRED_BULK_CODING_TARGETS,
             "coding_rank": row.get("rank"),
             "coding_score": role_score,
             "task_quality": quality,
@@ -142,6 +175,29 @@ def _eligible_rows(probe: Mapping[str, Any], benchmark: Mapping[str, Any]) -> li
             "error_rate": error,
         })
     return eligible
+
+
+def _target_statuses(probe: Mapping[str, Any], benchmark: Mapping[str, Any], ranked_models: set[str]) -> list[dict[str, Any]]:
+    verified = _current_exact_free_models(probe)
+    rankings = benchmark.get("rankings") if isinstance(benchmark.get("rankings"), Mapping) else {}
+    coding_rows = rankings.get("CODING_WORKER") if isinstance(rankings.get("CODING_WORKER"), list) else []
+    benchmarked = {
+        str(row.get("model") or "").strip()
+        for row in coding_rows
+        if isinstance(row, Mapping) and row.get("model")
+    }
+    result = []
+    for priority, model in enumerate(PREFERRED_BULK_CODING_TARGETS, start=1):
+        if model in ranked_models:
+            status = "ACTIVE_RANKED"
+        elif model in verified and model in benchmarked:
+            status = "VERIFIED_BENCHMARKED_BELOW_FLOOR"
+        elif model in verified:
+            status = "VERIFIED_NOT_CODING_BENCHMARKED"
+        else:
+            status = "NOT_CURRENT_EXACT_FREE_OR_NOT_PROBED"
+        result.append({"priority": priority, "model": model, "status": status})
+    return result
 
 
 def build_bulk_coding_pool(
@@ -191,23 +247,39 @@ def build_bulk_coding_pool(
     canary_results = canary.get("results") if isinstance(canary, Mapping) and isinstance(canary.get("results"), Mapping) else {}
     coding_canary = canary_results.get("CODING_WORKER") if isinstance(canary_results.get("CODING_WORKER"), Mapping) else {}
     canary_model = str(coding_canary.get("model") or "").strip() if coding_canary.get("status") == "CANARY_OK" else ""
+    tier_counts = {"下の上": 0, "下の中": 0, "下の下": 0}
     for index, item in enumerate(selected, start=1):
+        tier, tier_ja, dispatch_weight = _tier_for_rank(index)
         item["bulk_rank"] = index
+        item["tier"] = tier
+        item["tier_ja"] = tier_ja
+        item["dispatch_weight"] = dispatch_weight
         item["status"] = "CURRENT_EXACT_FREE_CODING_BENCHMARKED"
         item["coding_canary_verified"] = bool(canary_model and item["model"] == canary_model)
+        tier_counts[tier_ja] += 1
 
     family_count = len({str(item["family"]) for item in selected})
     recommended_parallel = min(RECOMMENDED_PARALLEL_LIMIT, len(selected))
     status = "BULK_CODING_POOL_READY" if selected else "BULK_CODING_POOL_BLOCKED"
+    ranked_models = {str(item["model"]) for item in selected}
     return {
-        "schema_version": "china-bulk-coding-pool-v1",
+        "schema_version": "china-bulk-coding-pool-v2",
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "status": status,
         "selection_policy": "CURRENT_EXACT_FREE_PLUS_CODING_QUALITY_FLOOR_THEN_THROUGHPUT_EFFICIENCY",
         "family_preference": "CHINA_VALUE_CODING_FAMILIES",
+        "preferred_target_models": list(PREFERRED_BULK_CODING_TARGETS),
+        "preferred_target_statuses": _target_statuses(probe, benchmark, ranked_models),
+        "watch_only_nonfree_or_unverified_models": list(WATCH_ONLY_MODEL_FAMILIES),
         "models": selected,
         "model_count": len(selected),
         "family_count": family_count,
+        "tier_counts": tier_counts,
+        "tier_policy": {
+            "1-3": {"tier": "下の上", "dispatch_weight": 5},
+            "4-7": {"tier": "下の中", "dispatch_weight": 3},
+            "8-10": {"tier": "下の下", "dispatch_weight": 1},
+        },
         "primary": selected[0]["model"] if selected else "",
         "standbys": [item["model"] for item in selected[1:]],
         "recommended_parallelism": recommended_parallel,
@@ -252,7 +324,7 @@ def main() -> int:
         report = build_bulk_coding_pool(probe=probe, benchmark=benchmark, canary=canary)
     except Exception:
         report = {
-            "schema_version": "china-bulk-coding-pool-v1",
+            "schema_version": "china-bulk-coding-pool-v2",
             "status": "BULK_CODING_POOL_RUNNER_BLOCKED",
             "models": [],
             "model_count": 0,
@@ -269,10 +341,11 @@ def main() -> int:
         "status": report.get("status"),
         "model_count": report.get("model_count", 0),
         "family_count": report.get("family_count", 0),
+        "tier_counts": report.get("tier_counts", {}),
         "recommended_parallelism": report.get("recommended_parallelism", 0),
         "additional_benchmark_calls": 0,
         "paid_fallback": False,
-    }, sort_keys=True))
+    }, ensure_ascii=False, sort_keys=True))
     return 0
 
 
