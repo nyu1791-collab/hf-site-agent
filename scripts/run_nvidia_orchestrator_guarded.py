@@ -11,6 +11,8 @@ The underlying mission prompt/parser remains unchanged. This wrapper adds:
   NVIDIA liveness probe is intentionally deferred to the first real Lead call.
 * A larger bounded output envelope and current redacted runtime facts for the
   degraded Lead path so the agent can return a complete structured proposal.
+* Exact safe provider-interruption classification from the current carrier so
+  the Lead cannot reason from stale bootstrap labels.
 
 It never enables production, paid fallback, repository writes, deploy, publish,
 or secret persistence.
@@ -46,6 +48,22 @@ CALL_TOKEN_RESERVATION = 32_768
 MAX_MISSION_TOKEN_BUDGET = MAX_MISSION_REQUESTS * CALL_TOKEN_RESERVATION
 DEGRADED_INITIAL_OUTPUT_TOKENS = 4_096
 DEGRADED_RESUME_OUTPUT_TOKENS = 8_192
+MAX_DIAGNOSTIC_LINES = 64
+SAFE_DIAGNOSTIC_CLASSES = frozenset({
+    "AUTH_ERROR",
+    "PERMISSION_ERROR",
+    "MODEL_UNAVAILABLE",
+    "CREDIT_EXHAUSTED",
+    "RATE_LIMITED",
+    "TEMPORARY_PROVIDER_ERROR",
+    "NETWORK_TIMEOUT",
+    "NETWORK_ERROR",
+    "MODEL_OUTPUT_INVALID",
+    "GOOGLE_DAILY_QUOTA_EXHAUSTED",
+    "GOOGLE_QUOTA_LIMIT_ZERO",
+    "FREE_COST_NONZERO",
+    "MODEL_MISMATCH",
+})
 
 
 def _read(path: Path) -> Mapping[str, Any]:
@@ -63,14 +81,48 @@ def _write(path: Path, value: Mapping[str, Any]) -> None:
     temp.replace(path)
 
 
+def _latest_provider_diagnostic(provider: str) -> dict[str, Any]:
+    """Return the newest bounded, already-redacted diagnostic for one provider."""
+    path = Path("artifacts/provider_interruptions.jsonl")
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()[-MAX_DIAGNOSTIC_LINES:]
+    except (OSError, UnicodeError):
+        return {}
+    for line in reversed(lines):
+        try:
+            value = json.loads(line)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if not isinstance(value, Mapping) or str(value.get("provider") or "") != provider:
+            continue
+        error_class = str(value.get("error_class") or "")[:120]
+        if error_class not in SAFE_DIAGNOSTIC_CLASSES:
+            error_class = "OTHER_REDACTED_PROVIDER_ERROR"
+        status = value.get("http_status")
+        retry_after = value.get("retry_after_seconds")
+        return {
+            "provider": provider,
+            "model": str(value.get("model") or "")[:160],
+            "error_class": error_class,
+            "http_status": status if isinstance(status, int) else None,
+            "retry_after_seconds": retry_after if isinstance(retry_after, int) else None,
+            "retryable": value.get("retryable") is True,
+            "raw_response_retained": False,
+        }
+    return {}
+
+
 def _current_recovery_context() -> dict[str, Any]:
     """Return only redacted coordination/runtime facts already written locally."""
     coordination = _read(Path("artifacts/ai_army_coordination.json"))
     live_report = _read(Path("artifacts/live_staging_report.json"))
+    readiness = _read(Path("artifacts/google_staging_readiness.json"))
     runtime = live_report.get("runtime") if isinstance(live_report.get("runtime"), Mapping) else {}
     live = live_report.get("live_staging") if isinstance(live_report.get("live_staging"), Mapping) else {}
     budget = live_report.get("budget") if isinstance(live_report.get("budget"), Mapping) else {}
     providers = live.get("providers") if isinstance(live.get("providers"), Mapping) else {}
+    google_diagnostic = _latest_provider_diagnostic("google")
+    google_error = str(google_diagnostic.get("error_class") or "")
     return {
         "coordination_state": str(coordination.get("state") or ""),
         "coordination_next_action": str(coordination.get("next_action") or ""),
@@ -84,6 +136,11 @@ def _current_recovery_context() -> dict[str, Any]:
         "executor_provider": str(live.get("executor_provider") or ""),
         "reviewer_provider": str(live.get("reviewer_provider") or ""),
         "family_separation_pass": live.get("family_separation_pass") is True,
+        "google_readiness_mode": str(readiness.get("readiness_mode") or ""),
+        "google_deferred_recovery_ready": readiness.get("deferred_recovery_ready") is True,
+        "google_provider_diagnostic": google_diagnostic,
+        "google_daily_quota_exhausted": google_error == "GOOGLE_DAILY_QUOTA_EXHAUSTED",
+        "google_quota_limit_zero": google_error == "GOOGLE_QUOTA_LIMIT_ZERO",
         "production_active": False,
         "paid_fallback": False,
     }
@@ -399,8 +456,15 @@ def main() -> int:
         "scripts/mission_integrity.py",
         "scripts/run_nvidia_orchestrator_guarded.py",
         "scripts/google_staging_readiness.py",
+        "scripts/focused_google_native_adapter.py",
+        "scripts/resilient_live_call.py",
+        "scripts/run_nvidia_google_staging_focused.py",
+        "scripts/ai_army_coordination.py",
         "tests/test_mission_integrity.py",
         "tests/test_google_staging_readiness.py",
+        "tests/test_focused_google_native_adapter.py",
+        "tests/test_google_backpressure_recovery.py",
+        "tests/test_ai_army_coordination.py",
     )
     mission.ALLOWED_FILES = tuple(dict.fromkeys((*extra_context, *mission.ALLOWED_FILES)))
     mission.CONTEXT_MARKERS = {
@@ -412,15 +476,36 @@ def main() -> int:
         ),
         "scripts/run_nvidia_orchestrator_guarded.py": (
             "def _current_recovery_context",
+            "def _latest_provider_diagnostic",
             "def _promote_deferred_nvidia_admission",
             "class DurableNvidiaAdapter",
             "def _enrich_artifacts",
             "def main",
         ),
         "scripts/google_staging_readiness.py": (
+            "def _deferred_recovery_ready",
             "def build_google_readiness_packet",
             "validate_result_inbox",
             "repeat_nvidia_call_allowed",
+        ),
+        "scripts/focused_google_native_adapter.py": (
+            "def _safe_429_diagnostic",
+            "def normalize_error",
+            "focused_commander_transport",
+        ),
+        "scripts/resilient_live_call.py": (
+            "def _focused_google_primary_rate_limit_recovery_allowed",
+            "def call_model_with_bounded_recovery",
+            "MAX_PRIMARY_RATE_LIMIT_RECOVERIES",
+        ),
+        "scripts/run_nvidia_google_staging_focused.py": (
+            "def _focused_google_evidence_ok",
+            "def _focused_factory",
+            "def _install_focused_roles",
+        ),
+        "scripts/ai_army_coordination.py": (
+            "def _conclusive_google_constraint",
+            "def build_coordination_packet",
         ),
     }
 
@@ -445,6 +530,19 @@ def main() -> int:
         if not recovery_context:
             return base
         facts = json.dumps(recovery_context, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        quota_instruction = ""
+        if recovery_context.get("google_daily_quota_exhausted") is True:
+            quota_instruction = (
+                " The exact current Google blocker is a conclusive settled DAILY quota refusal. "
+                "Do not recommend retrying the same model before quota reset. Evaluate only repository-grounded "
+                "ways to preserve Google Commander availability, such as an exact separately-evidenced FREE_TIER "
+                "secondary Gemini model, and require fail-closed behavior if that alternate is also unavailable."
+            )
+        elif recovery_context.get("google_quota_limit_zero") is True:
+            quota_instruction = (
+                " The exact current Google blocker is a conclusive zero quota limit. Do not recommend blind retry. "
+                "Evaluate only repository-grounded exact FREE_TIER alternatives or checkpoint behavior."
+            )
         return (
             base
             + " The following redacted carrier facts are current and authoritative for this run: "
@@ -453,6 +551,7 @@ def main() -> int:
               "do not use them to override these current facts. Focus on a minimal recovery/resilience "
               "improvement for the actual current stop reason while preserving exact-model, free-route, "
               "no-paid-fallback and no-duplicate-call invariants."
+            + quota_instruction
         )
 
     def guarded_factory(registry: Mapping[str, Any], provider_id: str, **kwargs: Any) -> Any:
