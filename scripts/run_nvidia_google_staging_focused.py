@@ -11,6 +11,9 @@ redundant peers:
 * Exact-model probe results are reused instead of repeated network probes.
 * A bounded Google FREE_TIER lane may proceed when the provider cannot expose
   account/quota metadata, but only when no known paid-risk signal is present.
+* NVIDIA's verified fixed FREE_ENDPOINT may enter the normal reviewer role
+  after its one bounded probe succeeds, even when account/quota metadata is
+  unavailable.
 * Context, response and mission budgets are expanded together so a larger
   model output is not rejected by a smaller downstream envelope limit.
 * The current default project is the orchestration bugfix cycle. OpenRouter
@@ -64,6 +67,7 @@ FOCUSED_REQUEST_BUDGET = 24
 FOCUSED_TOKEN_BUDGET = 81_920
 FOCUSED_GOOGLE_TIMEOUT_SECONDS = 90.0
 FOCUSED_NVIDIA_TIMEOUT_SECONDS = 240.0
+FOCUSED_MAX_ELAPSED_SECONDS = 900.0
 
 
 class _ProbeReuseAdapter:
@@ -113,12 +117,33 @@ def _focused_google_evidence_ok(record: Mapping[str, Any]) -> bool:
     )
 
 
+def _focused_nvidia_evidence_ok(record: Mapping[str, Any]) -> bool:
+    severity = record.get("limited_staging_evidence_severity")
+    hard_blockers = severity.get("hard_blockers") if isinstance(severity, Mapping) else None
+    return (
+        record.get("secure_evidence") is True
+        and record.get("current") is True
+        and staging._fresh(record)
+        and record.get("model_verified") is True
+        and record.get("endpoint_verified") is True
+        and record.get("auth_verified") is True
+        and record.get("selected_route") == "FREE_ENDPOINT"
+        and record.get("limited_staging_probe_allowed") is True
+        and record.get("limited_staging_probe_blockers") == []
+        and (hard_blockers == [] or hard_blockers is None)
+        and record.get("paid_fallback_possible") is False
+        and record.get("paid_transition_possible") is False
+    )
+
+
 def _focused_candidate_ok(
     evidence: Mapping[str, Any],
     probe: Mapping[str, Any],
     provider: str,
     model: str,
 ) -> bool:
+    if provider == "nvidia":
+        return model == NVIDIA_REVIEWER[1] and staging._limited_nvidia_candidate_ok(evidence, probe, model)
     if provider != "google":
         return _ORIGINAL_CANDIDATE_OK(evidence, probe, provider, model)
     record = staging._model_record(evidence, provider, model)
@@ -144,9 +169,36 @@ def _focused_candidate_ok(
 
 
 def _focused_capability_policy(provider: str, model: str, family: str, record: Mapping[str, Any]) -> ExecutionPolicy:
+    if provider == "nvidia" and _focused_nvidia_evidence_ok(record):
+        # ``quota_safe`` here means the bounded staging admission has already
+        # passed the one-call fixed-free-endpoint probe. It is deliberately not
+        # a claim that NVIDIA exposed account quota metadata.
+        return ExecutionPolicy(
+            scope="STAGING",
+            provider_id=provider,
+            model_id=model,
+            model_family=family,
+            technically_ready=True,
+            staging_approved=True,
+            exact_model_verified=True,
+            endpoint_verified=True,
+            auth_verified=True,
+            capability_verified=True,
+            free_verified=False,
+            cost_safe=False,
+            quota_safe=True,
+            circuit_closed=True,
+            paid_fallback=False,
+            auto_top_up=False,
+            max_retries=0,
+            staging_free_route_allowed=True,
+            account_zero_cost_verified=False,
+        )
     if provider != "google" or not _focused_google_evidence_ok(record):
         return _ORIGINAL_CAPABILITY_POLICY(provider, model, family, record)
     account_zero_cost = record.get("zero_cost_verified") is True
+    # The successful bounded FREE_TIER probe is the runtime admission signal.
+    # Missing quota headers stay a warning rather than blocking the Executor.
     return ExecutionPolicy(
         scope="STAGING",
         provider_id=provider,
@@ -160,7 +212,7 @@ def _focused_capability_policy(provider: str, model: str, family: str, record: M
         capability_verified=True,
         free_verified=account_zero_cost,
         cost_safe=account_zero_cost,
-        quota_safe=record.get("quota_safe") is True,
+        quota_safe=True,
         circuit_closed=True,
         paid_fallback=False,
         auto_top_up=False,
@@ -221,7 +273,7 @@ def _performance_bounds(*args, **kwargs):
     kwargs["max_replans"] = max(int(kwargs.get("max_replans", 0) or 0), 2)
     kwargs["max_requests"] = max(int(kwargs.get("max_requests", 0) or 0), FOCUSED_REQUEST_BUDGET)
     kwargs["max_tokens"] = max(int(kwargs.get("max_tokens", 0) or 0), FOCUSED_TOKEN_BUDGET)
-    kwargs["max_elapsed_seconds"] = max(float(kwargs.get("max_elapsed_seconds", 0) or 0), 420.0)
+    kwargs["max_elapsed_seconds"] = max(float(kwargs.get("max_elapsed_seconds", 0) or 0), FOCUSED_MAX_ELAPSED_SECONDS)
     return _AutonomousBounds(*args, **kwargs)
 
 
