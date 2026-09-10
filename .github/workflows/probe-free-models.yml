@@ -44,6 +44,7 @@ jobs:
             scripts/live_staging_runner.py \
             scripts/execution_scope.py \
             scripts/classify_carrier_failure.py \
+            scripts/run_nvidia_orchestrator_mission.py \
             tests/test_classify_carrier_failure.py
           python - <<'PY'
           import json
@@ -157,6 +158,15 @@ jobs:
           --ledger artifacts/live_staging_ledger.json
           --checkpoint-root artifacts/live_staging_checkpoints
           --output artifacts/live_staging_report.json
+
+      - name: Run one bounded NVIDIA autonomous orchestrator mission
+        if: always()
+        continue-on-error: true
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: python scripts/run_nvidia_orchestrator_mission.py
 
       - name: Ensure redacted reports and classify failures
         if: always()
@@ -318,5 +328,7 @@ jobs:
             artifacts/live_staging_report.json
             artifacts/failure_classification.json
             artifacts/carrier_summary.json
+            artifacts/mission_state.json
+            artifacts/result_inbox.json
           if-no-files-found: ignore
           retention-days: 7
