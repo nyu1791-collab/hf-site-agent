@@ -40,6 +40,7 @@ jobs:
             scripts/validate_secure_evidence.py \
             scripts/probe_providers.py \
             scripts/probe_nvidia_google_focused.py \
+            scripts/focused_nvidia_streaming_adapter.py \
             scripts/run_live_staging_from_probe.py \
             scripts/run_nvidia_google_staging_focused.py \
             scripts/live_staging_runner.py \
@@ -63,13 +64,13 @@ jobs:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
         run: python scripts/validate_secure_evidence.py --input artifacts/secure_account_evidence.json
 
-      - name: Probe exact NVIDIA and Google candidates through focused gates
+      - name: Probe exact NVIDIA Nemotron and Google candidates through focused gates
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_PROBE_MODEL: gemini-3.8-flash
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          NVIDIA_PROBE_MODEL: deepseek-ai/deepseek-v4-flash-0731
+          NVIDIA_PROBE_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b
         run: >-
           python scripts/probe_nvidia_google_focused.py
           --evidence-file artifacts/secure_account_evidence.json
@@ -108,11 +109,17 @@ jobs:
           evidence = read("artifacts/secure_account_evidence.json", {})
           probe = read("artifacts/provider_probe.json", {})
           live = read("artifacts/live_staging_report.json", {})
+          mission = read("artifacts/mission_state.json", {})
+          inbox = read("artifacts/result_inbox.json", {})
           providers = evidence.get("providers") if isinstance(evidence.get("providers"), dict) else {}
           probe_items = probe.get("providers") if isinstance(probe.get("providers"), list) else []
+          live_view = live.get("live_staging") if isinstance(live.get("live_staging"), dict) else {}
+          limited = live.get("nvidia_limited_staging") if isinstance(live.get("nvidia_limited_staging"), dict) else {}
+          external_calls = int(live.get("total_external_model_calls_in_command", 0) or live_view.get("external_model_calls", 0) or 0)
           summary = {
-              "schema_version": "nvidia-google-once-v2",
+              "schema_version": "nvidia-google-once-v3",
               "provider_focus": ["nvidia", "google"],
+              "nvidia_selected_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
               "nvidia_timeout_seconds": 150,
               "secret_presence": {
                   name: bool(isinstance(lane, dict) and lane.get("secret_present") is True)
@@ -126,14 +133,23 @@ jobs:
                   str(item.get("provider")): str(item.get("status"))
                   for item in probe_items if isinstance(item, dict) and item.get("provider")
               },
+              "probe_http_status": {
+                  str(item.get("provider")): item.get("http_status")
+                  for item in probe_items if isinstance(item, dict) and item.get("provider")
+              },
               "probe_models": {
                   str(item.get("provider")): str(item.get("model"))
                   for item in probe_items if isinstance(item, dict) and item.get("provider")
               },
               "probe_model_calls": int(probe.get("model_calls", 0) or 0),
               "live_status": live.get("status", "blocked"),
-              "live_agent_count": int(((live.get("live_staging") or {}).get("live_agent_count", 0)) or 0) if isinstance(live.get("live_staging"), dict) else 0,
+              "live_stop_reason": live.get("stop_reason"),
+              "live_agent_count": int(live_view.get("live_agent_count", 1 if limited.get("ready_limited") is True else 0) or 0),
+              "live_external_model_calls": external_calls,
+              "nvidia_limited_ready": limited.get("ready_limited") is True,
               "nvidia_bootstrap_status": (live.get("nvidia_bootstrap") or {}).get("status", "NOT_STARTED") if isinstance(live.get("nvidia_bootstrap"), dict) else "NOT_STARTED",
+              "mission_state": mission.get("state"),
+              "result_inbox_status": inbox.get("status"),
               "paid_execution_count": int(live.get("paid_execution_count", 0) or 0),
               "paid_fallback_count": int(live.get("paid_fallback_count", 0) or 0),
               "production_active": False,
