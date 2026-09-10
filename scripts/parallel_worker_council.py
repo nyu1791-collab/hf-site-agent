@@ -25,10 +25,13 @@ import urllib.request
 
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 TIMEOUT_SECONDS = 45
-MAX_COUNCIL_MODELS = 12
-MAX_PARALLEL_COUNCIL = 6
-MAX_OUTPUT_TOKENS = 768
-MAX_TEXT_CHARS = 6_000
+MAX_COUNCIL_MODELS = 8
+MAX_PARALLEL_COUNCIL = 4
+# Reasoning-capable models count thinking inside the completion budget. Keep the
+# visible advice concise while leaving enough headroom for a final answer.
+MAX_OUTPUT_TOKENS = 2_048
+MAX_TEXT_CHARS = 4_000
+COUNCIL_REASONING = {"effort": "minimal", "exclude": True}
 
 COUNCIL_DECISION_AXES = (
     "role_quality",
@@ -48,7 +51,8 @@ COUNCIL_OBJECTIVE = (
     "A newly released model should be promoted only when it is exact FREE_ACTIVE and benchmarked in this run; do not reward novelty alone. "
     "Recommend a primary plus a distinct standby for a role when evidence supports it, and avoid single-model bottlenecks. "
     "Prefer simple robust changes over defensive complexity. Do not propose paid fallback, generic model fallback, secrets access, "
-    "deployment, or direct repository writes. Return concise implementation advice grounded in the provided evidence."
+    "deployment, or direct repository writes. Return only your final implementation advice in at most 250 tokens, grounded in the "
+    "provided evidence; do not spend the whole completion budget on analysis."
 )
 
 
@@ -218,6 +222,7 @@ def _request(model: str, api_key: str, roles: list[str], evidence: Mapping[str, 
         "max_tokens": MAX_OUTPUT_TOKENS,
         "temperature": 0.1,
         "stream": False,
+        "reasoning": dict(COUNCIL_REASONING),
         "provider": {"allow_fallbacks": False},
     }
     request = urllib.request.Request(
@@ -246,12 +251,20 @@ def _request(model: str, api_key: str, roles: list[str], evidence: Mapping[str, 
             resolved = str(payload.get("model") or "").strip()
             usage = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
             cost = _decimal(usage.get("cost"))
+            completion_tokens = usage.get("completion_tokens") if isinstance(usage.get("completion_tokens"), int) else None
             choices = payload.get("choices")
             first = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], Mapping) else {}
             message = first.get("message") if isinstance(first.get("message"), Mapping) else {}
             text = str(message.get("content") or "")[:MAX_TEXT_CHARS].strip()
             exact = resolved == model
             cost_ok = cost in {None, Decimal("0")}
+            error = None
+            if not exact:
+                error = "response_model_mismatch"
+            elif not cost_ok:
+                error = "nonzero_cost"
+            elif not text:
+                error = "empty_visible_content"
             return {
                 "status": "COUNCIL_OK" if exact and cost_ok and bool(text) else "COUNCIL_FAILED",
                 "model": model,
@@ -266,8 +279,13 @@ def _request(model: str, api_key: str, roles: list[str], evidence: Mapping[str, 
                 "http_status": int(response.status),
                 "latency_ms": round(elapsed_ms, 3),
                 "exact_model": exact,
+                "finish_reason": first.get("finish_reason"),
+                "completion_tokens": completion_tokens,
+                "reasoning_effort": "minimal",
+                "reasoning_excluded": True,
                 "usage_cost": str(cost) if cost is not None else None,
                 "cost_evidence": "THIS_RESPONSE_ZERO" if cost == Decimal("0") else "PRIOR_EXACT_FREE_PROBE",
+                "error": error,
                 "response": text,
             }
     except urllib.error.HTTPError as exc:
@@ -279,7 +297,7 @@ def _request(model: str, api_key: str, roles: list[str], evidence: Mapping[str, 
 def run_council(*, api_key: str, probe: Mapping[str, Any], benchmark: Mapping[str, Any]) -> dict[str, Any]:
     selected = select_council_models(probe, benchmark)
     report: dict[str, Any] = {
-        "schema_version": "parallel-worker-council-v2",
+        "schema_version": "parallel-worker-council-v3",
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "decision_axes": list(COUNCIL_DECISION_AXES),
         "selection_policy": "QUALITY_PLUS_LATENCY_PLUS_TOKEN_EFFICIENCY_PLUS_ROLE_COVERAGE",
@@ -287,6 +305,8 @@ def run_council(*, api_key: str, probe: Mapping[str, Any], benchmark: Mapping[st
         "selected_model_count": len(selected),
         "parallel_execution": True,
         "parallel_worker_limit": MAX_PARALLEL_COUNCIL,
+        "max_output_tokens_per_call": MAX_OUTPUT_TOKENS,
+        "reasoning_policy": "MINIMAL_EXCLUDED_TO_PRESERVE_VISIBLE_FINAL",
         "model_calls": 0,
         "results": [],
         "paid_fallback": False,
@@ -354,7 +374,7 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "parallel-worker-council-v2",
+            "schema_version": "parallel-worker-council-v3",
             "status": "COUNCIL_RUNNER_BLOCKED",
             "decision_axes": list(COUNCIL_DECISION_AXES),
             "model_calls": 0,
