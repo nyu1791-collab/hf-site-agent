@@ -2,6 +2,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from scripts.execution_scope import ExecutionPolicy, authorize_execution
+from scripts.provider_adapters import NormalizedProviderError, ProviderAdapterError
 import scripts.probe_nvidia_google_focused as focused_probe
 import scripts.run_nvidia_google_staging_focused as focused_run
 
@@ -62,12 +63,25 @@ class BoundedFreeRouteRelaxationTests(unittest.TestCase):
     def test_known_paid_transition_still_blocks(self):
         self.assertFalse(focused_probe._google_bounded_probe_allowed(google_record(paid_transition_possible=True)))
 
+    def test_google_liveness_is_deferred_to_real_executor_without_probe_call(self):
+        report = focused_probe.run_focused_probe(evidence())
+        google = next(item for item in report["providers"] if item["provider"] == "google")
+        self.assertEqual(report["model_calls"], 0)
+        self.assertTrue(report["google_liveness_deferred_to_first_agent_task"])
+        self.assertEqual(google["status"], "PROBE_DEFERRED_TO_AGENT")
+        self.assertEqual(google["model_calls"], 0)
+        self.assertTrue(google["direct_agent_admission"])
+
     def test_bounded_google_probe_can_be_selected_for_staging(self):
         probe = {"providers": [{"provider": "google", "model": GOOGLE_MODEL, "status": "PROBE_OK",
             "probe_mode": "BOUNDED_FREE_TIER_PROBE", "bounded_free_tier_probe_allowed": True,
             "model_calls": 1, "http_status": 200, "response_model": GOOGLE_MODEL, "usage_cost": None,
             "staging_only": True, "automatic_model_fallback": False, "generic_paid_router_disabled": True}]}
         self.assertTrue(focused_run._focused_candidate_ok(evidence(), probe, "google", GOOGLE_MODEL))
+
+    def test_deferred_google_probe_can_be_selected_for_staging(self):
+        deferred = focused_probe._google_deferred_result(evidence())
+        self.assertTrue(focused_run._focused_candidate_ok(evidence(), {"providers": [deferred]}, "google", GOOGLE_MODEL))
 
     def test_nvidia_separate_probe_is_deferred_to_first_real_agent_task(self):
         ev = {"providers": {"nvidia": {"models": {NVIDIA_MODEL: nvidia_record()}}}}
@@ -118,14 +132,36 @@ class BoundedFreeRouteRelaxationTests(unittest.TestCase):
         adapter = Adapter()
         result = focused_run._ProbeReuseAdapter(adapter).generate(
             GOOGLE_MODEL, [{"role": "user", "content": "x"}], execution_policy=policy,
-            require_zero_cost=True, response_format={"type": "json_object"})
+            require_zero_cost=True, response_format={"type": "json_object"}, temperature=0)
         self.assertFalse(adapter.options["require_zero_cost"])
         self.assertNotIn("response_format", adapter.options)
+        self.assertNotIn("temperature", adapter.options)
         self.assertEqual(result["text"], '{"summary":"ok"}')
         self.assertTrue(result["local_format_repair"])
         with self.assertRaises(Exception):
             focused_run._ProbeReuseAdapter(Adapter("0.01")).generate(
                 GOOGLE_MODEL, [{"role": "user", "content": "x"}], execution_policy=policy, require_zero_cost=True)
+
+    def test_focused_wrapper_normalizes_raw_transport_error(self):
+        policy = ExecutionPolicy(scope="STAGING", provider_id="google", model_id=GOOGLE_MODEL,
+            technically_ready=True, staging_approved=True, exact_model_verified=True,
+            endpoint_verified=True, auth_verified=True, capability_verified=True,
+            free_verified=False, cost_safe=False, quota_safe=True, circuit_closed=True,
+            paid_fallback=False, auto_top_up=False, max_retries=0,
+            staging_free_route_allowed=True, account_zero_cost_verified=False)
+
+        class Adapter:
+            provider_id = "google"
+            def generate(self, model, messages, **options):
+                raise TimeoutError("redacted")
+            def normalize_error(self, exc):
+                return NormalizedProviderError("NETWORK_TIMEOUT", None, None, True)
+
+        with self.assertRaises(ProviderAdapterError) as caught:
+            focused_run._ProbeReuseAdapter(Adapter()).generate(
+                GOOGLE_MODEL, [{"role": "user", "content": "x"}], execution_policy=policy, require_zero_cost=True)
+        self.assertEqual(caught.exception.error_class, "NETWORK_TIMEOUT")
+        self.assertTrue(caught.exception.retryable)
 
     def test_agent_timeouts_are_large_but_finite(self):
         self.assertEqual(focused_probe.GOOGLE_BOUNDED_TIMEOUT_SECONDS, 120.0)
