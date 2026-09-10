@@ -16,7 +16,7 @@ from typing import Any, Mapping
 
 NVIDIA_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
 GOOGLE_MODEL = "gemini-3.8-flash"
-MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS = 3
+MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS = 1
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:
@@ -34,15 +34,16 @@ def _read(path_value: str) -> Mapping[str, Any]:
 
 
 def _conclusive_google_constraint(live_report: Mapping[str, Any]) -> bool:
-    """Recognize a settled Google failure without misclassifying reviewer loss.
+    """Recognize a settled Google interruption without misclassifying reviewer loss.
 
     Ambiguous transport failures retain an unsettled reservation and never
-    enter this path. Before any reviewer call, three settled Google failures are
-    enough to prove the focused recovery sequence ended conclusively. If an
-    NVIDIA reviewer already ran, a nonzero revision count proves the reviewer
-    completed far enough for the runtime to enter the Google reviser phase; a
-    later settled interruption can therefore be treated as a Google-side
-    constraint without scheduling a duplicate NVIDIA reviewer/lead call.
+    enter this path. The resilient call layer records concrete HTTP failures as
+    real provider calls and supplies settled actual-request accounting; thus one
+    or more Google calls plus zero unsettled reservations is sufficient to prove
+    that the terminal interruption was conclusive, not an unknown duplicate-risk
+    state. If NVIDIA already ran, revision_count must exactly match the number of
+    completed reviewer rounds; this proves the runtime was in the Google reviser
+    phase instead of failing inside an NVIDIA review attempt.
     """
     if live_report.get("status") != "blocked":
         return False
@@ -54,7 +55,7 @@ def _conclusive_google_constraint(live_report: Mapping[str, Any]) -> bool:
     google_calls = int(providers.get("google", 0) or 0)
     nvidia_calls = int(providers.get("nvidia", 0) or 0)
     revision_count = int(runtime.get("revision_count", 0) or 0)
-    failure_phase_proven = nvidia_calls == 0 or (nvidia_calls >= 1 and revision_count >= 1)
+    failure_phase_proven = nvidia_calls == 0 or (revision_count >= 1 and nvidia_calls == revision_count)
     return (
         str(runtime.get("stop_reason") or live_report.get("stop_reason") or "").upper() == "PROVIDER_INTERRUPTED"
         and int(budget.get("unsettled_requests", 0) or 0) == 0
@@ -89,7 +90,7 @@ def build_coordination_packet(
     conclusive_google_constraint = _conclusive_google_constraint(live_report)
     nvidia_calls = int(providers.get("nvidia", 0) or 0)
     revision_count = int(runtime.get("revision_count", 0) or 0)
-    reviewer_already_participated = nvidia_calls >= 1 and revision_count >= 1
+    reviewer_already_participated = revision_count >= 1 and nvidia_calls == revision_count
     degraded_nvidia_lead_needed = conclusive_google_constraint and not reviewer_already_participated
 
     if two_agent_operational:
@@ -133,7 +134,7 @@ def build_coordination_packet(
     nested_stop_reason = str(runtime.get("stop_reason") or live_report.get("stop_reason") or "")
 
     return {
-        "schema_version": "ai-army-coordination-v5",
+        "schema_version": "ai-army-coordination-v6",
         "source_head": source_head,
         "state": state,
         "next_action": next_action,
@@ -330,7 +331,7 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "ai-army-coordination-v5",
+            "schema_version": "ai-army-coordination-v6",
             "source_head": args.source_head,
             "state": "BLOCKED_INVALID_INPUT",
             "next_action": "REFRESH_COORDINATION_INPUTS",
