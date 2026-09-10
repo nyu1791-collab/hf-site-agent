@@ -35,13 +35,14 @@ class CarrierWorkflowTests(unittest.TestCase):
             "run_nvidia_google_staging_focused.py",
             "google_staging_readiness.py",
             "ai_army_coordination.py",
+            "openrouter_worker_orchestrator.py",
             "classify_carrier_failure.py",
             "actions/upload-artifact@v6",
             "if: always()",
         ):
             self.assertIn(required, self.text)
 
-    def test_carrier_focuses_only_on_nvidia_nemotron_and_google(self):
+    def test_carrier_keeps_nvidia_google_as_commanders_and_openrouter_worker_only(self):
         self.assertIn("--provider nvidia", self.text)
         self.assertIn("--provider google", self.text)
         self.assertIn("NVIDIA_PROBE_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b", self.text)
@@ -53,7 +54,19 @@ class CarrierWorkflowTests(unittest.TestCase):
         self.assertNotIn("--provider groq", self.text)
         self.assertNotIn("GROQ_API_KEY", self.text)
         self.assertNotIn("--provider openrouter", self.text)
-        self.assertNotIn("OPENROUTER_API_KEY", self.text)
+        self.assertIn("OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}", self.text)
+        self.assertIn("openrouter-worker", self.text)
+        self.assertIn("dynamic-current-catalog", self.text)
+
+    def test_openrouter_stage_is_continuous_worker_pipeline_not_commander_route(self):
+        two_agent = self.text.index("Run two-agent staging only when both providers pass normal free-only gates")
+        worker_stage = self.text.index("Continue same mission through OpenRouter worker probe benchmark and handoff")
+        coordination = self.text.index("Build deterministic AI army coordination packet")
+        self.assertLess(two_agent, worker_stage)
+        self.assertLess(worker_stage, coordination)
+        self.assertIn("--live-report artifacts/live_staging_report.json", self.text)
+        self.assertIn("openrouter_worker_orchestrator.json", self.text)
+        self.assertIn('"continuous_pipeline":True', self.text)
 
     def test_carrier_does_not_use_legacy_openrouter_secret_or_production_write(self):
         self.assertNotIn("secrets.AI_API_KEY", self.text)
