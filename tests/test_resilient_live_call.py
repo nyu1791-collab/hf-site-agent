@@ -145,10 +145,13 @@ class ResilientLiveCallTests(unittest.TestCase):
         self.assertEqual(len(adapter.calls), 3)
         self.assertLessEqual(adapter.calls[1]["options"]["max_tokens"], RECOVERY_MAX_OUTPUT_TOKENS)
         self.assertLessEqual(adapter.calls[2]["options"]["max_tokens"], FINAL_RECOVERY_MAX_OUTPUT_TOKENS)
-        self.assertLess(
-            len(adapter.calls[2]["messages"][1]["content"]),
-            len(adapter.calls[1]["messages"][1]["content"]),
+        self.assertNotEqual(
+            adapter.calls[1]["options"]["request_id"],
+            adapter.calls[2]["options"]["request_id"],
         )
+        # A tiny base prompt can already be below both recovery context caps.
+        # Progressive shrinking of realistic large payloads is verified by the
+        # dedicated compactor test below; this test focuses on retry sequencing.
         self.assertEqual(self.mock_sleep.call_count, 2)
 
     def test_recovery_message_compactor_reduces_real_focused_payload_shape(self):
