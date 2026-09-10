@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 """Focused streaming transport for NVIDIA's hosted FREE_ENDPOINT.
 
-The normal provider adapter intentionally stays conservative and non-streaming.
-GitHub-hosted runners have repeatedly timed out waiting for a complete NVIDIA
-response, so this staging-only adapter asks the same exact model/endpoint for
-SSE streaming and normalizes the completed stream back into the existing
-OpenAI-compatible AdapterResponse contract.
-
-It does not select another model, endpoint, paid route, retry an inference, or
-persist provider response bodies. A documented NVIDIA 202 response is polled
-only through /v1/status/{requestId}, within the same bounded invocation.
+This staging-only adapter is optimized for real Reviewer work rather than a
+tiny liveness probe. It remains exact-model, no-fallback, no-retry and bounded,
+but gives the hosted free endpoint enough time and output room to complete a
+useful review on GitHub-hosted runners.
 """
 
 from __future__ import annotations
@@ -20,31 +15,21 @@ from typing import Any, Mapping, Sequence
 from urllib.parse import quote, urljoin
 from urllib.request import Request, urlopen
 
-from scripts.provider_adapters import (
-    AdapterResponse,
-    OpenAICompatibleAdapter,
-    ProviderAdapterError,
-)
+from scripts.provider_adapters import AdapterResponse, OpenAICompatibleAdapter, ProviderAdapterError
 
-
-FOCUSED_NVIDIA_TIMEOUT_SECONDS = 150.0
-MAX_FOCUSED_OUTPUT_TOKENS = 2_048
-MAX_STREAM_BYTES = 1_000_000
-MAX_STATUS_POLLS = 12
+FOCUSED_NVIDIA_TIMEOUT_SECONDS = 600.0
+MAX_FOCUSED_OUTPUT_TOKENS = 8_192
+MAX_STREAM_BYTES = 4_000_000
+MAX_STATUS_POLLS = 120
 STATUS_POLL_SECONDS = 3.0
+MAX_NORMALIZED_TEXT_CHARS = 120_000
 
 
 class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
     """NVIDIA-only SSE transport that preserves the core adapter contract."""
 
     def __init__(self, registry: Mapping[str, Any], *, network_enabled: bool = False):
-        super().__init__(
-            registry,
-            "nvidia",
-            network_enabled=network_enabled,
-            timeout_seconds=60.0,
-        )
-        # Deliberately instance-scoped. The ordinary adapter keeps its 60 s cap.
+        super().__init__(registry, "nvidia", network_enabled=network_enabled, timeout_seconds=60.0)
         self.timeout_seconds = FOCUSED_NVIDIA_TIMEOUT_SECONDS
 
     def _request_status_result(self, request_id: str, *, deadline: float) -> AdapterResponse:
@@ -54,7 +39,7 @@ class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
         headers = {
             "Accept": "application/json",
             "Authorization": f"Bearer {self._api_key()}",
-            "User-Agent": "hf-site-agent-focused-nvidia/1",
+            "User-Agent": "hf-site-agent-focused-nvidia/2",
         }
         for _ in range(MAX_STATUS_POLLS):
             remaining = deadline - time.monotonic()
@@ -62,7 +47,7 @@ class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
                 raise TimeoutError("bounded NVIDIA status polling expired")
             response_started = time.monotonic()
             request = Request(urljoin(self._base_url, status_path), headers=headers, method="GET")
-            with urlopen(request, timeout=min(self.timeout_seconds, max(1.0, remaining))) as response:  # nosec B310 - validated HTTPS base URL
+            with urlopen(request, timeout=min(self.timeout_seconds, max(1.0, remaining))) as response:  # nosec B310
                 status = int(response.getcode() or 0)
                 body = response.read(MAX_STREAM_BYTES + 1)
                 if len(body) > MAX_STREAM_BYTES:
@@ -108,7 +93,7 @@ class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
         if not messages or len(messages) > 64:
             raise ProviderAdapterError("INPUT_INVALID")
 
-        max_tokens = int(options.get("max_tokens", 256))
+        max_tokens = int(options.get("max_tokens", 1024))
         payload: dict[str, Any] = {
             "model": model_id.strip(),
             "messages": [dict(message) for message in messages],
@@ -131,17 +116,12 @@ class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
             "Accept": "text/event-stream",
             "Authorization": f"Bearer {self._api_key()}",
             "Content-Type": "application/json",
-            "User-Agent": "hf-site-agent-focused-nvidia/1",
+            "User-Agent": "hf-site-agent-focused-nvidia/2",
         }
-        request = Request(
-            urljoin(self._base_url, "chat/completions"),
-            data=body,
-            headers=headers,
-            method="POST",
-        )
+        request = Request(urljoin(self._base_url, "chat/completions"), data=body, headers=headers, method="POST")
         started = time.monotonic()
         deadline = started + self.timeout_seconds
-        with urlopen(request, timeout=self.timeout_seconds) as response:  # nosec B310 - validated HTTPS base URL
+        with urlopen(request, timeout=self.timeout_seconds) as response:  # nosec B310
             status = int(response.getcode() or 0)
             response_headers = {str(key).lower(): str(value) for key, value in response.headers.items()}
             if status == 202:
@@ -163,9 +143,7 @@ class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
                 if consumed > MAX_STREAM_BYTES:
                     raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
                 line = raw_line.decode("utf-8", errors="strict").strip()
-                if not line or line.startswith(":"):
-                    continue
-                if not line.startswith("data:"):
+                if not line or line.startswith(":") or not line.startswith("data:"):
                     continue
                 data = line[5:].strip()
                 if data == "[DONE]":
@@ -199,7 +177,7 @@ class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
             raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
         normalized = {
             "model": resolved_model or model_id,
-            "choices": [{"message": {"role": "assistant", "content": text[:20_000]}}],
+            "choices": [{"message": {"role": "assistant", "content": text[:MAX_NORMALIZED_TEXT_CHARS]}}],
             "usage": usage,
         }
         return AdapterResponse(normalized, response_headers, int((time.monotonic() - started) * 1000))
