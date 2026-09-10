@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Classify bounded carrier failures without retaining provider responses.
 
-The carrier may encounter several independent provider failures in one run.
-This adapter turns already-redacted evidence/probe/live reports into stable
-failure signatures and next actions. Derived quota/account uncertainty is not
-reported as a failure for the two focused commander routes when current direct
-facts already verify the exact zero-priced route and exclude paid fallback.
-Raw provider responses and exception text are never copied to the report.
+Only redacted facts are consumed. When the current probe names exact focused
+models, stale/irrelevant sibling-model warnings are excluded from the current
+carrier diagnosis. Nested runtime/task stop reasons are inspected so a settled
+three-attempt Google 5xx recovery is reported as the provider outage it really
+is instead of as generic quota uncertainty.
 """
 
 from __future__ import annotations
@@ -30,7 +29,7 @@ ERROR_ACTIONS: dict[str, str] = {
     "QUOTA_EXHAUSTED": "wait or route to an independently verified eligible provider",
     "QUOTA_UNKNOWN": "keep the provider in bounded staging or wait for quota evidence; do not infer exhaustion",
     "RATE_LIMITED": "stop new calls for this provider; do not start a retry storm",
-    "PROVIDER_5XX": "isolate the provider circuit and resume from checkpoint when safe",
+    "PROVIDER_5XX": "treat the provider as degraded and continue only independent verified lanes until it recovers",
     "CATALOG_CONFLICT": "keep this provider blocked until official catalog evidence agrees",
     "MODEL_MISMATCH": "discard the response and revalidate the exact requested model",
     "SCHEMA_INVALID": "discard the malformed result and stop the affected step",
@@ -165,15 +164,35 @@ def _append_failure(failures: list[dict[str, Any]], error_type: str | None, *, p
         })
 
 
-def _evidence_failures(report: Mapping[str, Any], failures: list[dict[str, Any]]) -> None:
+def _probe_pairs(report: Mapping[str, Any]) -> set[tuple[str, str]]:
+    values = report.get("providers")
+    if not isinstance(values, list):
+        return set()
+    return {
+        (str(item.get("provider") or ""), str(item.get("model") or ""))
+        for item in values
+        if isinstance(item, Mapping) and item.get("provider") and item.get("model")
+    }
+
+
+def _evidence_failures(
+    report: Mapping[str, Any],
+    failures: list[dict[str, Any]],
+    *,
+    active_pairs: set[tuple[str, str]] | None = None,
+) -> None:
     providers = report.get("providers")
     if not isinstance(providers, Mapping):
         _append_failure(failures, _classify((report.get("status"),)), step="secure_account_evidence")
         return
+    active_pairs = active_pairs or set()
+    active_providers = {provider for provider, _ in active_pairs}
     for provider, lane in providers.items():
         if not isinstance(lane, Mapping):
             continue
         provider_name = str(provider)
+        if active_pairs and provider_name not in active_providers:
+            continue
         lane_type = _classify((lane.get("status"), lane.get("http_status")))
         models = lane.get("models") if isinstance(lane.get("models"), Mapping) else {}
         if not models:
@@ -183,17 +202,14 @@ def _evidence_failures(report: Mapping[str, Any], failures: list[dict[str, Any]]
             if not isinstance(record, Mapping):
                 continue
             model_name = str(model)
+            if active_pairs and (provider_name, model_name) not in active_pairs:
+                continue
             status_values: list[Any] = [record.get("status"), record.get("http_status")]
             if isinstance(record.get("blockers"), list):
                 status_values.extend(record["blockers"])
             error_type = _classify(status_values)
-            # Unknown quota/account metadata is an admitted soft condition for
-            # the two exact focused free routes. Do not turn that warning into
-            # a false carrier failure after direct route verification.
             if error_type == "QUOTA_UNKNOWN" and _focused_route_directly_verified(provider_name, model_name, record):
                 error_type = None
-            # A lane-level transport/auth failure is more specific than any
-            # derived quota/account warning added to each model record.
             if lane_type in {"AUTH_FAILED", "RATE_LIMITED", "PROVIDER_5XX", "CATALOG_CONFLICT", "PROVIDER_HTTP_ERROR"}:
                 error_type = lane_type
             _append_failure(
@@ -221,11 +237,58 @@ def _probe_failures(report: Mapping[str, Any], failures: list[dict[str, Any]]) -
             continue
         _append_failure(
             failures,
-            _classify((item.get("status"),)),
+            _classify((item.get("status"), item.get("http_status"))),
             provider=str(item.get("provider") or ""),
             model=str(item.get("model") or ""),
             step="probe_providers",
         )
+
+
+def _live_failure(live: Mapping[str, Any], failures: list[dict[str, Any]]) -> None:
+    live_status = _safe_text(live.get("status"))
+    if live_status in {"", "completed"}:
+        return
+    runtime = live.get("runtime") if isinstance(live.get("runtime"), Mapping) else {}
+    budget = live.get("budget") if isinstance(live.get("budget"), Mapping) else {}
+    view = live.get("live_staging") if isinstance(live.get("live_staging"), Mapping) else {}
+    providers = view.get("providers") if isinstance(view.get("providers"), Mapping) else {}
+    stop_reason = runtime.get("stop_reason") or live.get("stop_reason")
+    task_values: list[Any] = []
+    tasks = runtime.get("tasks") if isinstance(runtime.get("tasks"), Mapping) else {}
+    for task in tasks.values():
+        if not isinstance(task, Mapping):
+            continue
+        task_values.append(task.get("summary"))
+        errors = task.get("errors")
+        if isinstance(errors, list):
+            task_values.extend(errors)
+
+    error_type = _classify((live_status, stop_reason, *task_values))
+    provider = str(view.get("executor_provider") or "")
+    model = str(live.get("executor_model") or "")
+
+    # The focused recovery wrapper uses three total calls only for explicit,
+    # retryable 5xx responses. A zero-unsettled 3-call Google interruption is
+    # therefore conclusive provider-5xx evidence even if the scheduler's
+    # compact task envelope retained only PROVIDER_INTERRUPTED.
+    if (
+        error_type is None
+        and str(stop_reason or "").upper() == "PROVIDER_INTERRUPTED"
+        and int(budget.get("unsettled_requests", 0) or 0) == 0
+        and int(budget.get("requests_used", 0) or 0) >= 3
+        and provider == "google"
+        and int(providers.get("google", 0) or 0) >= 3
+    ):
+        error_type = "PROVIDER_5XX"
+        model = model or "gemini-3.8-flash"
+
+    _append_failure(
+        failures,
+        error_type,
+        provider=provider,
+        model=model,
+        step="run_live_staging_from_probe",
+    )
 
 
 def classify_reports(
@@ -236,20 +299,14 @@ def classify_reports(
     branch: str = "ai-army/provider-v3",
 ) -> dict[str, Any]:
     failures: list[dict[str, Any]] = []
-    _evidence_failures(evidence, failures)
+    active_pairs = _probe_pairs(probe)
+    _evidence_failures(evidence, failures, active_pairs=active_pairs)
     _probe_failures(probe, failures)
+    _live_failure(live, failures)
     live_status = _safe_text(live.get("status"))
-    if live_status not in {"", "completed"}:
-        _append_failure(
-            failures,
-            _classify((live_status, live.get("stop_reason"))),
-            provider="",
-            model=str(live.get("executor_model") or ""),
-            step="run_live_staging_from_probe",
-        )
     status = "SUCCESS" if not failures and live_status in {"", "completed"} else ("PARTIAL" if failures else "BLOCKED")
     return {
-        "schema_version": "carrier-failure-classification-v2",
+        "schema_version": "carrier-failure-classification-v3",
         "status": status,
         "branch": _safe_text(branch, 120),
         "workflow": "probe-free-models.yml",
@@ -272,7 +329,7 @@ def main(argv: list[str] | None = None) -> int:
         report = classify_reports(_read(args.evidence), _read(args.probe), _read(args.live), branch=args.branch)
     except Exception:
         report = {
-            "schema_version": "carrier-failure-classification-v2",
+            "schema_version": "carrier-failure-classification-v3",
             "status": "BLOCKED",
             "branch": _safe_text(args.branch, 120),
             "workflow": "probe-free-models.yml",
