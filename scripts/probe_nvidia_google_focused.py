@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Focused NVIDIA + Google staging probe with a bounded NVIDIA cold-start window.
+"""Focused NVIDIA + Google staging probe.
 
-This wrapper does not weaken the existing free-evidence gate. It only gives the
-already-approved single NVIDIA FREE_ENDPOINT probe more time to return from a
-cold hosted endpoint. Google still goes through the normal zero-cost preflight
-and is never called when its current project billing route is unverified.
+The existing free-evidence gate remains authoritative. NVIDIA uses the exact
+fixed FREE_ENDPOINT through a bounded streaming transport because complete
+non-streaming responses repeatedly timed out on GitHub-hosted runners. Google
+still goes through the normal zero-cost preflight and is never called while its
+current project billing route is unverified.
 """
 
 from __future__ import annotations
@@ -19,12 +20,9 @@ from typing import Any, Mapping
 if __package__ in {None, ""}:  # pragma: no cover - script invocation path
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.focused_nvidia_streaming_adapter import FocusedNvidiaStreamingAdapter
 from scripts.probe_providers import run_probe
-from scripts.provider_adapters import create_provider_adapter
 from scripts.provider_registry import load_provider_registry
-
-
-NVIDIA_FOCUSED_TIMEOUT_SECONDS = 150.0
 
 
 def _read_json(path_value: str) -> Mapping[str, Any]:
@@ -42,20 +40,9 @@ def run_focused_probe(
     *,
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Run exactly the existing NVIDIA+Google gates, extending NVIDIA timeout only."""
     env = os.environ if environ is None else environ
     registry = load_provider_registry()
-    nvidia = create_provider_adapter(
-        registry,
-        "nvidia",
-        network_enabled=True,
-        timeout_seconds=60.0,
-    )
-    # The core adapter caps constructor values at 60 seconds for ordinary use.
-    # This focused staging carrier deliberately overrides the instance only;
-    # request count, model ID, route, token cap and paid-fallback rules remain
-    # enforced by run_probe() and the adapter itself.
-    nvidia.timeout_seconds = NVIDIA_FOCUSED_TIMEOUT_SECONDS
+    nvidia = FocusedNvidiaStreamingAdapter(registry, network_enabled=True)
     return run_probe(
         registry,
         ("nvidia", "google"),
