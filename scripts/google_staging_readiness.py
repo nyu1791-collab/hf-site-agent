@@ -2,10 +2,10 @@
 """Build a deterministic Google staging readiness / integration packet.
 
 The packet separates public model/free-tier availability from current
-account/billing/quota evidence, while allowing a bounded FREE_TIER staging mode
-when the provider simply does not expose account/quota metadata. Known paid
-routing, known billing enablement, non-zero pricing, stale evidence or model
-mismatch remain hard blockers.
+account/billing/quota evidence. A verified fixed FREE_TIER route may defer its
+inference liveness check to the first real Executor task, avoiding a redundant
+request immediately before agent work. Known paid routing, billing enablement,
+non-zero pricing, stale evidence or model mismatch remain hard blockers.
 
 This module performs no provider call and never reads credential values.
 """
@@ -19,10 +19,6 @@ from pathlib import Path
 import sys
 from typing import Any, Mapping
 
-# ``python scripts/google_staging_readiness.py`` sets sys.path[0] to the
-# scripts directory rather than the repository root.  Bootstrap the package
-# path explicitly so direct GitHub Actions entrypoints behave the same as
-# ``python -m scripts.google_staging_readiness`` without relying on PYTHONPATH.
 if __package__ in {None, ""}:  # pragma: no cover - direct script entrypoint
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -77,11 +73,7 @@ def _google_probe(probe: Mapping[str, Any]) -> Mapping[str, Any]:
     if not isinstance(items, list):
         return {}
     for item in items:
-        if (
-            isinstance(item, Mapping)
-            and item.get("provider") == "google"
-            and item.get("model") == GOOGLE_MODEL
-        ):
+        if isinstance(item, Mapping) and item.get("provider") == "google" and item.get("model") == GOOGLE_MODEL:
             return item
     return {}
 
@@ -130,6 +122,19 @@ def _bounded_free_tier_evidence(record: Mapping[str, Any]) -> bool:
     )
 
 
+def _deferred_agent_ready(record: Mapping[str, Any], probe_record: Mapping[str, Any]) -> bool:
+    return (
+        _bounded_free_tier_evidence(record)
+        and probe_record.get("status") == "PROBE_DEFERRED_TO_AGENT"
+        and probe_record.get("probe_mode") == "DIRECT_AGENT_LIVENESS"
+        and probe_record.get("direct_agent_admission") is True
+        and probe_record.get("model_calls") == 0
+        and probe_record.get("automatic_model_fallback") is False
+        and probe_record.get("generic_paid_router_disabled") is True
+        and probe_record.get("staging_only") is True
+    )
+
+
 def build_google_readiness_packet(
     evidence: Mapping[str, Any],
     probe: Mapping[str, Any],
@@ -173,12 +178,8 @@ def build_google_readiness_packet(
 
     transport_ready = model_verified and endpoint_verified and auth_verified
     strict_live_ready = (
-        transport_ready
-        and secure_evidence
-        and evidence_fresh
-        and zero_cost_verified
-        and quota_safe
-        and probe_status == "PROBE_OK"
+        transport_ready and secure_evidence and evidence_fresh and zero_cost_verified
+        and quota_safe and probe_status == "PROBE_OK"
     )
     bounded_probe_ready = (
         _bounded_free_tier_evidence(record)
@@ -189,25 +190,26 @@ def build_google_readiness_packet(
         and probe_record.get("automatic_model_fallback") is False
         and probe_record.get("generic_paid_router_disabled") is True
     )
-    live_ready = strict_live_ready or bounded_probe_ready
-    readiness_mode = "STRICT_ZERO_COST" if strict_live_ready else ("BOUNDED_FREE_TIER" if bounded_probe_ready else "BLOCKED")
+    deferred_agent_ready = _deferred_agent_ready(record, probe_record)
+    live_ready = strict_live_ready or bounded_probe_ready or deferred_agent_ready
+    readiness_mode = (
+        "STRICT_ZERO_COST" if strict_live_ready
+        else "BOUNDED_FREE_TIER" if bounded_probe_ready
+        else "DIRECT_AGENT_LIVENESS" if deferred_agent_ready
+        else "BLOCKED"
+    )
 
     if live_ready:
         state = "READY_FOR_TWO_AGENT_STAGING"
         next_action = "BIND_GOOGLE_STAGING_AGENT"
-    elif any(
-        item in required_evidence
-        for item in (
-            "CURRENT_GOOGLE_ACCOUNT_TIER",
-            "CURRENT_GOOGLE_BILLING_STATE",
-            "NO_AUTOMATIC_PAID_TRANSITION",
-        )
-    ):
+    elif any(item in required_evidence for item in (
+        "CURRENT_GOOGLE_ACCOUNT_TIER", "CURRENT_GOOGLE_BILLING_STATE", "NO_AUTOMATIC_PAID_TRANSITION"
+    )):
         state = "ACCOUNT_EVIDENCE_REQUIRED"
-        next_action = "RUN_BOUNDED_FREE_TIER_PROBE_OR_REFRESH_ACCOUNT_EVIDENCE"
+        next_action = "REFRESH_ACCOUNT_EVIDENCE_OR_VERIFY_FIXED_FREE_ROUTE"
     elif "CURRENT_GOOGLE_QUOTA" in required_evidence:
         state = "QUOTA_EVIDENCE_REQUIRED"
-        next_action = "RUN_BOUNDED_FREE_TIER_PROBE_OR_REFRESH_QUOTA_EVIDENCE"
+        next_action = "REFRESH_QUOTA_EVIDENCE_OR_VERIFY_FIXED_FREE_ROUTE"
     elif "FRESH_SECURE_GOOGLE_EVIDENCE" in required_evidence:
         state = "EVIDENCE_REFRESH_REQUIRED"
         next_action = "REFRESH_GOOGLE_EVIDENCE"
@@ -216,19 +218,14 @@ def build_google_readiness_packet(
         next_action = "REFRESH_GOOGLE_CATALOG_AUTH_EVIDENCE"
     else:
         state = "PROBE_REQUIRED"
-        next_action = "RUN_BOUNDED_GOOGLE_PROBE"
+        next_action = "VERIFY_GOOGLE_FIXED_FREE_ROUTE"
 
     inbox = _mapping(result_inbox)
     proposal_files = _proposal_files(inbox)
     out_of_scope_files = sorted(set(proposal_files) - GOOGLE_EVIDENCE_PATCH_PATHS)
 
     if not inbox:
-        integrity = {
-            "valid": False,
-            "reason": "NO_PROPOSAL",
-            "result_hash_verified": False,
-            "source_head_verified": False,
-        }
+        integrity = {"valid": False, "reason": "NO_PROPOSAL", "result_hash_verified": False, "source_head_verified": False}
         integration_decision = "NO_PROPOSAL"
         integration_reason = "NO_PATCH_BUNDLE_TO_REVIEW"
         proposal_safe_to_integrate = False
@@ -259,10 +256,8 @@ def build_google_readiness_packet(
             proposal_safe_to_integrate = True
 
     repeat_nvidia_call_allowed = state not in {
-        "ACCOUNT_EVIDENCE_REQUIRED",
-        "QUOTA_EVIDENCE_REQUIRED",
-        "EVIDENCE_REFRESH_REQUIRED",
-    } or bounded_probe_ready
+        "ACCOUNT_EVIDENCE_REQUIRED", "QUOTA_EVIDENCE_REQUIRED", "EVIDENCE_REFRESH_REQUIRED"
+    } or bounded_probe_ready or deferred_agent_ready
 
     return {
         "schema_version": "google-staging-readiness-v3",
@@ -275,6 +270,7 @@ def build_google_readiness_packet(
         "live_ready": live_ready,
         "strict_live_ready": strict_live_ready,
         "bounded_probe_ready": bounded_probe_ready,
+        "deferred_agent_ready": deferred_agent_ready,
         "probe_status": probe_status,
         "model_verified": model_verified,
         "endpoint_verified": endpoint_verified,
@@ -307,6 +303,7 @@ def build_google_readiness_packet(
             "unknown_account_metadata_may_use_bounded_free_tier": True,
             "known_billing_enabled_blocks_bounded_route": True,
             "known_paid_transition_blocks_bounded_route": True,
+            "redundant_liveness_probe_required": False,
         },
     }
 
@@ -325,9 +322,7 @@ def main() -> int:
     try:
         inbox = _read_optional(args.result_inbox)
         report = build_google_readiness_packet(
-            _read(args.evidence),
-            _read(args.probe),
-            inbox,
+            _read(args.evidence), _read(args.probe), inbox,
             expected_source_head=args.expected_head or None,
             expected_mission_id=args.expected_mission_id or None,
             expected_run_id=args.expected_run_id or None,
@@ -335,19 +330,10 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "google-staging-readiness-v3",
-            "provider": "google",
-            "model": GOOGLE_MODEL,
-            "state": "BLOCKED_INVALID_INPUT",
-            "next_action": "REFRESH_GOOGLE_EVIDENCE",
-            "live_ready": False,
-            "repeat_nvidia_call_allowed": False,
-            "external_model_calls_recommended": 0,
-            "safety": {
-                "paid_execution_allowed": False,
-                "paid_fallback_allowed": False,
-                "production_activation_allowed": False,
-            },
+            "schema_version": "google-staging-readiness-v3", "provider": "google", "model": GOOGLE_MODEL,
+            "state": "BLOCKED_INVALID_INPUT", "next_action": "REFRESH_GOOGLE_EVIDENCE", "live_ready": False,
+            "repeat_nvidia_call_allowed": False, "external_model_calls_recommended": 0,
+            "safety": {"paid_execution_allowed": False, "paid_fallback_allowed": False, "production_activation_allowed": False},
         }
     output = Path(args.output)
     if output.is_absolute() or ".." in output.parts:
