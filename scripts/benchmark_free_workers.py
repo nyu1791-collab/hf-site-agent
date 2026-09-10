@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Benchmark already-probed OpenRouter free workers with tiny role-specific tasks.
+"""Benchmark exact-free OpenRouter workers with role-specific tasks.
 
-The runner never discovers paid siblings and never uses provider fallback. It
-benchmarks only exact model IDs that were previously marked FREE_ACTIVE by
-``probe_free_workers``. Each role/model pair receives one small request. The
-result is data for ``worker_benchmark_ranking``; it never activates a worker.
+Only models that already passed the exact FREE_ACTIVE probe are benchmarked.
+Independent role/model tasks are executed with a small bounded fan-out. Native
+JSON mode is deliberately not required; each model is simply instructed to emit
+JSON and the result is validated locally. This widens the usable free GPU pool
+without weakening exact-model, cost, or no-fallback checks.
 """
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
 import json
@@ -22,10 +24,11 @@ import urllib.request
 from scripts.worker_benchmark_ranking import rank_benchmarked_workers, select_benchmarked_worker
 
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
-TIMEOUT_SECONDS = 30
+TIMEOUT_SECONDS = 35
 MAX_OUTPUT_TOKENS = 256
-MAX_CANDIDATES_PER_ROLE = 3
-MAX_BENCHMARK_CALLS = 12
+MAX_CANDIDATES_PER_ROLE = 5
+MAX_BENCHMARK_CALLS = 20
+MAX_PARALLEL_BENCHMARKS = 4
 
 BENCHMARKS: dict[str, dict[str, Any]] = {
     "GENERAL_WORKER": {
@@ -73,7 +76,6 @@ def _safe_json_request(model: str, api_key: str, prompt: str) -> tuple[int, dict
         "max_tokens": MAX_OUTPUT_TOKENS,
         "temperature": 0,
         "stream": False,
-        "response_format": {"type": "json_object"},
         "provider": {"allow_fallbacks": False},
     }
     request = urllib.request.Request(
@@ -159,13 +161,72 @@ def _active_probe_models(probe_report: Mapping[str, Any]) -> set[str]:
     return result
 
 
+def _record_for(role: str, model: str, api_key: str) -> dict[str, Any]:
+    status, payload, error, elapsed_ms = _safe_json_request(model, api_key, BENCHMARKS[role]["prompt"])
+    record: dict[str, Any] = {
+        "status": "BENCHMARK_FAILED",
+        "worker_role": role,
+        "model": model,
+        "task_quality": 0.0,
+        "schema_success_rate": 0.0,
+        "latency_ms": round(elapsed_ms, 3),
+        "tokens_per_success": 1.0,
+        "revision_rate": 1.0,
+        "error_rate": 1.0,
+        "http_status": status,
+        "error": error or None,
+    }
+    if status != 200 or not isinstance(payload, Mapping):
+        return record
+
+    response_model = str(payload.get("model") or "").strip()
+    usage = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
+    cost = _decimal(usage.get("cost"))
+    content = _content(payload)
+    parsed = None
+    try:
+        parsed_value = json.loads(content)
+        parsed = parsed_value if isinstance(parsed_value, Mapping) else None
+    except (TypeError, ValueError, json.JSONDecodeError):
+        parsed = None
+    exact = response_model == model
+    zero_cost_or_prior_verified = cost in {None, Decimal("0")}
+    if exact and zero_cost_or_prior_verified and parsed is not None:
+        completion_tokens = usage.get("completion_tokens")
+        total_tokens = usage.get("total_tokens")
+        token_count = total_tokens if isinstance(total_tokens, int) and total_tokens > 0 else completion_tokens
+        token_count = token_count if isinstance(token_count, int) and token_count > 0 else max(1, len(content) // 4)
+        quality = _quality(role, parsed)
+        record.update(
+            status="BENCHMARK_OK",
+            task_quality=round(quality, 4),
+            schema_success_rate=1.0,
+            tokens_per_success=float(token_count),
+            revision_rate=0.0 if quality >= 0.75 else 0.5,
+            error_rate=0.0,
+            response_model=response_model,
+            usage_cost=str(cost) if cost is not None else None,
+            cost_evidence="THIS_RESPONSE_ZERO" if cost == Decimal("0") else "PRIOR_EXACT_FREE_PROBE",
+        )
+    elif not exact:
+        record["error"] = "response_model_mismatch"
+    elif not zero_cost_or_prior_verified:
+        record["error"] = "nonzero_cost"
+    else:
+        record["error"] = "invalid_structured_output"
+    return record
+
+
 def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str, Any]:
     report: dict[str, Any] = {
-        "schema_version": "free-worker-benchmark-v2",
+        "schema_version": "free-worker-benchmark-v3",
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "model_calls": 0,
         "max_calls": MAX_BENCHMARK_CALLS,
         "max_output_tokens_per_call": MAX_OUTPUT_TOKENS,
+        "parallel_execution": True,
+        "parallel_worker_limit": MAX_PARALLEL_BENCHMARKS,
+        "native_json_mode_required": False,
         "provider_allow_fallbacks": False,
         "paid_fallback": False,
         "records": [],
@@ -174,7 +235,7 @@ def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str
         "automatic_activation": False,
         "metric_provenance": {
             "task_quality": "DETERMINISTIC_TASK_ASSERTIONS",
-            "schema_success_rate": "OBSERVED_SINGLE_TASK",
+            "schema_success_rate": "LOCALLY_PARSED_JSON",
             "latency_ms": "LOCAL_MONOTONIC_WALL_CLOCK",
             "tokens_per_success": "PROVIDER_USAGE_OR_CONTENT_ESTIMATE",
             "revision_rate": "DERIVED_FROM_SINGLE_TASK_QUALITY",
@@ -191,67 +252,47 @@ def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str
     active = _active_probe_models(probe_report)
     role_candidates = probe_report.get("role_probe_candidates")
     role_candidates = role_candidates if isinstance(role_candidates, Mapping) else {}
-
+    work_items: list[tuple[str, str]] = []
     for role in BENCHMARKS:
         candidates = role_candidates.get(role)
-        if not isinstance(candidates, list):
-            candidates = []
+        candidates = candidates if isinstance(candidates, list) else []
         active_candidates = [str(item) for item in candidates if str(item) in active][:MAX_CANDIDATES_PER_ROLE]
         for model in active_candidates:
-            if report["model_calls"] >= MAX_BENCHMARK_CALLS:
+            if len(work_items) >= MAX_BENCHMARK_CALLS:
                 break
-            report["model_calls"] += 1
-            status, payload, error, elapsed_ms = _safe_json_request(model, api_key, BENCHMARKS[role]["prompt"])
-            record: dict[str, Any] = {
-                "status": "BENCHMARK_FAILED",
-                "worker_role": role,
-                "model": model,
-                "task_quality": 0.0,
-                "schema_success_rate": 0.0,
-                "latency_ms": round(elapsed_ms, 3),
-                "tokens_per_success": 1.0,
-                "revision_rate": 1.0,
-                "error_rate": 1.0,
-                "http_status": status,
-                "error": error or None,
+            work_items.append((role, model))
+        if len(work_items) >= MAX_BENCHMARK_CALLS:
+            break
+
+    report["model_calls"] = len(work_items)
+    records: list[dict[str, Any] | None] = [None] * len(work_items)
+    if work_items:
+        workers = max(1, min(MAX_PARALLEL_BENCHMARKS, len(work_items)))
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="worker-benchmark") as executor:
+            future_to_index = {
+                executor.submit(_record_for, role, model, api_key): index
+                for index, (role, model) in enumerate(work_items)
             }
-            if status == 200 and isinstance(payload, Mapping):
-                response_model = str(payload.get("model") or "").strip()
-                usage = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
-                cost = _decimal(usage.get("cost"))
-                content = _content(payload)
-                parsed = None
+            for future in as_completed(future_to_index):
+                index = future_to_index[future]
+                role, model = work_items[index]
                 try:
-                    parsed_value = json.loads(content)
-                    parsed = parsed_value if isinstance(parsed_value, Mapping) else None
-                except (TypeError, ValueError, json.JSONDecodeError):
-                    parsed = None
-                exact = response_model == model
-                zero_cost_or_prior_verified = cost in {None, Decimal("0")}
-                if exact and zero_cost_or_prior_verified and parsed is not None:
-                    completion_tokens = usage.get("completion_tokens")
-                    total_tokens = usage.get("total_tokens")
-                    token_count = total_tokens if isinstance(total_tokens, int) and total_tokens > 0 else completion_tokens
-                    token_count = token_count if isinstance(token_count, int) and token_count > 0 else max(1, len(content) // 4)
-                    quality = _quality(role, parsed)
-                    record.update(
-                        status="BENCHMARK_OK",
-                        task_quality=round(quality, 4),
-                        schema_success_rate=1.0,
-                        tokens_per_success=float(token_count),
-                        revision_rate=0.0 if quality >= 0.75 else 0.5,
-                        error_rate=0.0,
-                        response_model=response_model,
-                        usage_cost=str(cost) if cost is not None else None,
-                        cost_evidence="THIS_RESPONSE_ZERO" if cost == Decimal("0") else "PRIOR_EXACT_FREE_PROBE",
-                    )
-                elif not exact:
-                    record["error"] = "response_model_mismatch"
-                elif not zero_cost_or_prior_verified:
-                    record["error"] = "nonzero_cost"
-                else:
-                    record["error"] = "invalid_structured_output"
-            report["records"].append(record)
+                    records[index] = future.result()
+                except Exception:
+                    records[index] = {
+                        "status": "BENCHMARK_FAILED",
+                        "worker_role": role,
+                        "model": model,
+                        "task_quality": 0.0,
+                        "schema_success_rate": 0.0,
+                        "latency_ms": 1.0,
+                        "tokens_per_success": 1.0,
+                        "revision_rate": 1.0,
+                        "error_rate": 1.0,
+                        "http_status": 0,
+                        "error": "benchmark_exception",
+                    }
+    report["records"] = [dict(item) for item in records if isinstance(item, Mapping)]
 
     for role in BENCHMARKS:
         ranking = rank_benchmarked_workers(report["records"], role)
@@ -261,6 +302,7 @@ def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str
     ready = [value for value in report["assignments"].values() if isinstance(value, Mapping) and value.get("status") == "ready_for_commander_review"]
     report["status"] = "BENCHMARK_READY" if ready else "COMPLETED_WITH_BLOCKS"
     report["ready_role_count"] = len(ready)
+    report["benchmarked_unique_model_count"] = len({str(item.get("model")) for item in report["records"] if item.get("status") == "BENCHMARK_OK"})
     return report
 
 
@@ -285,18 +327,26 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "free-worker-benchmark-v2",
+            "schema_version": "free-worker-benchmark-v3",
             "status": "BENCHMARK_RUNNER_BLOCKED",
             "model_calls": 0,
             "records": [],
             "rankings": {},
             "assignments": {},
+            "parallel_execution": True,
+            "parallel_worker_limit": MAX_PARALLEL_BENCHMARKS,
             "automatic_activation": False,
             "paid_fallback": False,
         }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps(report, sort_keys=True))
+    print(json.dumps({
+        "status": report.get("status"),
+        "model_calls": report.get("model_calls", 0),
+        "ready_role_count": report.get("ready_role_count", 0),
+        "benchmarked_unique_model_count": report.get("benchmarked_unique_model_count", 0),
+        "parallel_worker_limit": report.get("parallel_worker_limit", MAX_PARALLEL_BENCHMARKS),
+    }, sort_keys=True))
     return 0
 
 
