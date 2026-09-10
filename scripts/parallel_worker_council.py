@@ -3,8 +3,11 @@
 
 The council is subordinate evidence for NVIDIA, not an authority boundary. It
 selects benchmarked exact-free models, fans one organization-design question out
-in parallel, and records bounded responses. No worker can write the repository,
-choose a paid route, or switch to another model through provider fallback.
+in parallel, and records bounded responses. Selection is portfolio-oriented: a
+high-quality worker, a low-latency worker, a token-efficient worker, and a broad
+role-coverage worker are represented when benchmark evidence exists. No worker
+can write the repository, choose a paid route, or switch to another model through
+provider fallback.
 """
 
 from __future__ import annotations
@@ -27,13 +30,25 @@ MAX_PARALLEL_COUNCIL = 6
 MAX_OUTPUT_TOKENS = 768
 MAX_TEXT_CHARS = 6_000
 
+COUNCIL_DECISION_AXES = (
+    "role_quality",
+    "latency",
+    "token_efficiency",
+    "role_coverage",
+    "model_diversity",
+    "current_exact_free_availability",
+)
+
 COUNCIL_OBJECTIVE = (
     "You are a subordinate engineer in an AI organization led by NVIDIA Nemotron. "
     "Google Gemini is reserved for critical implementation and final critical review. "
-    "Review the current free-worker architecture and propose concrete improvements that increase "
-    "the number of useful free GPU workers, improve parallel role routing, and avoid single-model bottlenecks. "
-    "Prefer simple robust changes over defensive complexity. Do not propose paid fallback, generic model "
-    "fallback, secrets access, deployment, or direct repository writes. Return concise implementation advice."
+    "Review the CURRENT live-verified free-worker portfolio and debate the best practical routing design. "
+    "Use the supplied same-run benchmark evidence rather than model reputation or a static model list. "
+    "Prefer a Pareto-efficient portfolio across role quality, latency, token efficiency, role coverage, and model diversity. "
+    "A newly released model should be promoted only when it is exact FREE_ACTIVE and benchmarked in this run; do not reward novelty alone. "
+    "Recommend a primary plus a distinct standby for a role when evidence supports it, and avoid single-model bottlenecks. "
+    "Prefer simple robust changes over defensive complexity. Do not propose paid fallback, generic model fallback, secrets access, "
+    "deployment, or direct repository writes. Return concise implementation advice grounded in the provided evidence."
 )
 
 
@@ -42,6 +57,15 @@ def _decimal(value: Any) -> Decimal | None:
         return Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
         return None
+
+
+def _finite_number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    if number != number or number in {float("inf"), float("-inf")}:
+        return None
+    return number
 
 
 def _verified_probe_models(probe: Mapping[str, Any]) -> set[str]:
@@ -56,34 +80,138 @@ def _verified_probe_models(probe: Mapping[str, Any]) -> set[str]:
     return verified
 
 
+def _add_selection(
+    ordered: list[dict[str, Any]],
+    selected_models: set[str],
+    reasons: dict[str, list[str]],
+    item: Mapping[str, Any] | None,
+    reason: str,
+) -> None:
+    if not isinstance(item, Mapping):
+        return
+    model = str(item.get("model") or "").strip()
+    if not model:
+        return
+    reason_list = reasons.setdefault(model, [])
+    if reason not in reason_list:
+        reason_list.append(reason)
+    if model not in selected_models and len(ordered) < MAX_COUNCIL_MODELS:
+        ordered.append(dict(item))
+        selected_models.add(model)
+
+
 def select_council_models(probe: Mapping[str, Any], benchmark: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Build a bounded evidence-diverse council from exact-free benchmark winners.
+
+    Quality remains the default ordering, but the council also reserves seats for
+    the lowest-latency, lowest-token, and widest-role-coverage verified workers.
+    This prevents a single aggregate score from hiding an efficient specialist.
+    """
     verified = _verified_probe_models(probe)
     rankings = benchmark.get("rankings") if isinstance(benchmark.get("rankings"), Mapping) else {}
     by_model: dict[str, dict[str, Any]] = {}
     for role, rows in rankings.items():
         if not isinstance(rows, list):
             continue
+        role_name = str(role)
         for item in rows[:8]:
             if not isinstance(item, Mapping):
                 continue
             model = str(item.get("model") or "").strip()
             if not model or model not in verified:
                 continue
-            entry = by_model.setdefault(model, {"model": model, "roles": [], "best_score": 0.0})
-            if str(role) not in entry["roles"]:
-                entry["roles"].append(str(role))
-            score = item.get("score")
-            if isinstance(score, (int, float)) and not isinstance(score, bool):
-                entry["best_score"] = max(float(entry["best_score"]), float(score))
-    selected = sorted(
+            entry = by_model.setdefault(
+                model,
+                {
+                    "model": model,
+                    "roles": [],
+                    "best_score": 0.0,
+                    "best_latency_ms": None,
+                    "best_tokens_per_success": None,
+                    "role_scores": {},
+                },
+            )
+            if role_name not in entry["roles"]:
+                entry["roles"].append(role_name)
+            score = _finite_number(item.get("score"))
+            if score is not None:
+                entry["best_score"] = max(float(entry["best_score"]), score)
+                entry["role_scores"][role_name] = score
+            latency = _finite_number(item.get("latency_ms"))
+            if latency is not None and latency > 0:
+                previous = _finite_number(entry.get("best_latency_ms"))
+                entry["best_latency_ms"] = latency if previous is None else min(previous, latency)
+            tokens = _finite_number(item.get("tokens_per_success"))
+            if tokens is not None and tokens > 0:
+                previous = _finite_number(entry.get("best_tokens_per_success"))
+                entry["best_tokens_per_success"] = tokens if previous is None else min(previous, tokens)
+
+    ranked = sorted(
         by_model.values(),
         key=lambda item: (-float(item["best_score"]), -len(item["roles"]), str(item["model"])),
-    )[:MAX_COUNCIL_MODELS]
-    return selected
+    )
+    if not ranked:
+        return []
+
+    ordered: list[dict[str, Any]] = []
+    selected_models: set[str] = set()
+    reasons: dict[str, list[str]] = {}
+
+    _add_selection(ordered, selected_models, reasons, ranked[0], "quality_leader")
+
+    latency_candidates = [item for item in ranked if _finite_number(item.get("best_latency_ms")) is not None]
+    if latency_candidates:
+        fastest = min(
+            latency_candidates,
+            key=lambda item: (float(item["best_latency_ms"]), -float(item["best_score"]), str(item["model"])),
+        )
+        _add_selection(ordered, selected_models, reasons, fastest, "latency_leader")
+
+    token_candidates = [item for item in ranked if _finite_number(item.get("best_tokens_per_success")) is not None]
+    if token_candidates:
+        leanest = min(
+            token_candidates,
+            key=lambda item: (float(item["best_tokens_per_success"]), -float(item["best_score"]), str(item["model"])),
+        )
+        _add_selection(ordered, selected_models, reasons, leanest, "token_efficiency_leader")
+
+    coverage = max(
+        ranked,
+        key=lambda item: (len(item["roles"]), float(item["best_score"]), str(item["model"])),
+    )
+    _add_selection(ordered, selected_models, reasons, coverage, "role_coverage_leader")
+
+    for item in ranked:
+        _add_selection(ordered, selected_models, reasons, item, "quality_pool")
+        if len(ordered) >= MAX_COUNCIL_MODELS:
+            break
+
+    for item in ordered:
+        item["roles"] = sorted(str(role) for role in item.get("roles") or [])
+        item["role_scores"] = {
+            key: round(float(value), 8)
+            for key, value in sorted((item.get("role_scores") or {}).items())
+            if _finite_number(value) is not None
+        }
+        item["selection_reasons"] = list(reasons.get(str(item["model"]), []))
+    return ordered
 
 
-def _request(model: str, api_key: str, roles: list[str]) -> dict[str, Any]:
-    prompt = COUNCIL_OBJECTIVE + " Your benchmarked roles: " + ", ".join(roles[:8]) + "."
+def _request(model: str, api_key: str, roles: list[str], evidence: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    compact_evidence = {
+        "roles": roles[:8],
+        "best_score": (evidence or {}).get("best_score"),
+        "best_latency_ms": (evidence or {}).get("best_latency_ms"),
+        "best_tokens_per_success": (evidence or {}).get("best_tokens_per_success"),
+        "role_scores": (evidence or {}).get("role_scores", {}),
+        "selection_reasons": (evidence or {}).get("selection_reasons", []),
+    }
+    prompt = COUNCIL_OBJECTIVE + " Your same-run evidence: " + json.dumps(
+        compact_evidence,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ) + "."
     body = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
@@ -128,6 +256,13 @@ def _request(model: str, api_key: str, roles: list[str]) -> dict[str, Any]:
                 "status": "COUNCIL_OK" if exact and cost_ok and bool(text) else "COUNCIL_FAILED",
                 "model": model,
                 "roles": roles,
+                "selection_reasons": compact_evidence["selection_reasons"],
+                "benchmark_evidence": {
+                    "best_score": compact_evidence["best_score"],
+                    "best_latency_ms": compact_evidence["best_latency_ms"],
+                    "best_tokens_per_success": compact_evidence["best_tokens_per_success"],
+                    "role_scores": compact_evidence["role_scores"],
+                },
                 "http_status": int(response.status),
                 "latency_ms": round(elapsed_ms, 3),
                 "exact_model": exact,
@@ -144,8 +279,10 @@ def _request(model: str, api_key: str, roles: list[str]) -> dict[str, Any]:
 def run_council(*, api_key: str, probe: Mapping[str, Any], benchmark: Mapping[str, Any]) -> dict[str, Any]:
     selected = select_council_models(probe, benchmark)
     report: dict[str, Any] = {
-        "schema_version": "parallel-worker-council-v1",
+        "schema_version": "parallel-worker-council-v2",
         "checked_at": datetime.now(timezone.utc).isoformat(),
+        "decision_axes": list(COUNCIL_DECISION_AXES),
+        "selection_policy": "QUALITY_PLUS_LATENCY_PLUS_TOKEN_EFFICIENCY_PLUS_ROLE_COVERAGE",
         "selected_models": selected,
         "selected_model_count": len(selected),
         "parallel_execution": True,
@@ -169,7 +306,13 @@ def run_council(*, api_key: str, probe: Mapping[str, Any], benchmark: Mapping[st
     workers = max(1, min(MAX_PARALLEL_COUNCIL, len(selected)))
     with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="worker-council") as executor:
         future_to_index = {
-            executor.submit(_request, str(item["model"]), api_key, list(item.get("roles") or [])): index
+            executor.submit(
+                _request,
+                str(item["model"]),
+                api_key,
+                list(item.get("roles") or []),
+                item,
+            ): index
             for index, item in enumerate(selected)
         }
         for future in as_completed(future_to_index):
@@ -211,8 +354,9 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "parallel-worker-council-v1",
+            "schema_version": "parallel-worker-council-v2",
             "status": "COUNCIL_RUNNER_BLOCKED",
+            "decision_axes": list(COUNCIL_DECISION_AXES),
             "model_calls": 0,
             "results": [],
             "paid_fallback": False,
@@ -224,6 +368,7 @@ def main() -> int:
     output.write_text(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({
         "status": report.get("status"),
+        "selection_policy": report.get("selection_policy"),
         "model_calls": report.get("model_calls", 0),
         "successful_model_count": report.get("successful_model_count", 0),
         "parallel_worker_limit": report.get("parallel_worker_limit", MAX_PARALLEL_COUNCIL),
