@@ -6,6 +6,7 @@ from scripts.continuous_project_loop import (
     PROJECT_BOUNDARY,
     build_routing_policy,
     run_continuous_project_loop,
+    run_resilience_rehearsal,
 )
 
 
@@ -26,7 +27,13 @@ def openrouter_ready():
                     "requested_model": "vendor/code:free",
                     "response_model": "vendor/code:free",
                     "fallback_used": False,
-                }
+                },
+                {
+                    "status": "FREE_ACTIVE",
+                    "requested_model": "vendor/standby:free",
+                    "response_model": "vendor/standby:free",
+                    "fallback_used": False,
+                },
             ],
         },
         "benchmark": {
@@ -34,6 +41,7 @@ def openrouter_ready():
                 "CODING_WORKER": [
                     {"model": "vendor/code:free", "score": 0.91},
                     {"model": "vendor/standby:free", "score": 0.84},
+                    {"model": "vendor/stale:free", "score": 0.80},
                 ]
             }
         },
@@ -93,7 +101,7 @@ class ContinuousProjectLoopTests(unittest.TestCase):
         self.assertTrue(result["next_action"].startswith("RESUME_SAME_PROJECT"))
         self.assertEqual(result["completed_project_ids"], ["openrouter-worker-army-v1"])
 
-    def test_routing_policy_never_enables_automatic_fallback(self):
+    def test_routing_policy_reselects_only_from_same_run_exact_free_benchmarked_pool(self):
         canary = {
             "status": "CANARY_READY",
             "results": {
@@ -104,8 +112,33 @@ class ContinuousProjectLoopTests(unittest.TestCase):
         role = policy["roles"]["CODING_WORKER"]
         self.assertEqual(policy["status"], "ROUTING_POLICY_READY")
         self.assertFalse(role["automatic_fallback"])
-        self.assertEqual(role["fallback_rule"], "BLOCK_AND_RESELECT_FROM_FRESH_EXACT_FREE_EVIDENCE")
-        self.assertEqual(role["standby_candidates"][0]["status"], "STANDBY_REQUIRES_FRESH_EXACT_FREE_EVIDENCE")
+        self.assertTrue(role["orchestrator_reselection"])
+        self.assertEqual(
+            role["reselection_rule"],
+            "RESELECT_CURRENT_EXACT_FREE_BENCHMARKED_STANDBY_ON_CONCLUSIVE_FAILURE",
+        )
+        self.assertEqual(role["ambiguous_failure_rule"], "CHECKPOINT_CURRENT_TASK_NO_REPLAY")
+        self.assertEqual(role["standby_candidates"][0]["model"], "vendor/standby:free")
+        self.assertEqual(
+            role["standby_candidates"][0]["status"],
+            "CURRENT_EXACT_FREE_BENCHMARKED_STANDBY",
+        )
+        self.assertNotIn("vendor/stale:free", [item["model"] for item in role["standby_candidates"]])
+
+    def test_resilience_rehearsal_allows_explicit_reselection_but_not_provider_fallback(self):
+        canary = {
+            "status": "CANARY_READY",
+            "results": {
+                "CODING_WORKER": {"status": "CANARY_OK", "model": "vendor/code:free"},
+            },
+        }
+        policy = build_routing_policy(openrouter_ready(), canary)
+        rehearsal = run_resilience_rehearsal(policy)
+        self.assertEqual(rehearsal["status"], "RESILIENCE_REHEARSAL_READY")
+        simulation = rehearsal["simulations"]["CODING_WORKER"]
+        self.assertEqual(simulation["expected_action"], "RESELECT_CURRENT_EXACT_FREE_BENCHMARKED_STANDBY")
+        self.assertFalse(simulation["provider_automatic_fallback"])
+        self.assertEqual(simulation["ambiguous_outcome_action"], "CHECKPOINT_CURRENT_TASK_NO_REPLAY")
 
 
 if __name__ == "__main__":
