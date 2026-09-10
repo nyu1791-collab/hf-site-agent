@@ -1,2 +1,2 @@
-trigger=worker-expansion-v6-full-current-catalog
-purpose=sweep-all-current-exact-free-candidates-with-six-way-parallelism-benchmark-deeper-role-pools-and-feed-results-to-nvidia
+trigger=worker-expansion-v7-current-catalog-canary-routing
+purpose=sweep-current-exact-free-models-benchmark-role-pools-canary-current-winners-build-same-run-routing-run-worker-council-and-nvidia-synthesis
