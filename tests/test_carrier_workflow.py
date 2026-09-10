@@ -30,14 +30,17 @@ class CarrierWorkflowTests(unittest.TestCase):
         ):
             self.assertIn(required, self.text)
 
-    def test_carrier_focuses_only_on_nvidia(self):
+    def test_carrier_focuses_only_on_nvidia_and_google(self):
         self.assertIn("--provider nvidia", self.text)
+        self.assertIn("--provider google", self.text)
         self.assertIn("NVIDIA_PROBE_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b", self.text)
+        self.assertIn("GOOGLE_PROBE_MODEL: gemini-3.8-flash", self.text)
+        self.assertIn("GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}", self.text)
         self.assertIn("--allow-limited-staging-probe", self.text)
-        self.assertNotIn("--provider google", self.text)
-        self.assertNotIn("GOOGLE_PROBE_MODEL", self.text)
         self.assertNotIn("--provider groq", self.text)
         self.assertNotIn("GROQ_API_KEY", self.text)
+        self.assertNotIn("--provider openrouter", self.text)
+        self.assertNotIn("OPENROUTER_API_KEY", self.text)
 
     def test_carrier_does_not_use_legacy_openrouter_secret_or_production_write(self):
         self.assertNotIn("secrets.AI_API_KEY", self.text)
