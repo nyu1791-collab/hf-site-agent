@@ -19,11 +19,13 @@ MISSION_ID = "openrouter-worker-army-v1"
 MISSION_IMPORTANCE = "IMPORTANT"
 ALLOWED_PATHS = (
     "scripts/worker_selection.py",
+    "scripts/worker_benchmark_ranking.py",
     "scripts/probe_free_workers.py",
     "scripts/agent_executor.py",
     "scripts/commander_routing.py",
     "scripts/model_registry.py",
     "tests/test_worker_selection.py",
+    "tests/test_worker_benchmark_ranking.py",
     "tests/test_probe_free_workers.py",
     "tests/test_agent_executor.py",
     "tests/test_commander_routing.py",
@@ -57,18 +59,20 @@ def build_mission_packet(*, source_head: str = "") -> dict[str, Any]:
         ],
         "objective": (
             "Complete the existing OpenRouter free-worker subsystem without replacing it. "
-            "Add performance-aware candidate benchmarking and role assignment so current "
-            "free exact-model candidates can be measured for quality, structured-output "
-            "reliability, latency and token efficiency, then assigned to the four existing "
-            "worker roles. Preserve dynamic catalog selection and do not hard-code a model ID."
+            "Use the existing deterministic worker_benchmark_ranking layer as the baseline "
+            "instead of inventing a second scorer. Integrate measured benchmark evidence into "
+            "role assignment so current free exact-model candidates are compared for quality, "
+            "structured-output reliability, latency and token efficiency. Preserve dynamic "
+            "catalog selection and do not hard-code a model ID."
         ),
         "google_executor": {
             "responsibilities": [
-                "inspect existing worker selection and probe contracts",
-                "design the smallest compatible benchmark/ranking extension",
+                "inspect existing worker selection, exact probe and worker_benchmark_ranking contracts",
+                "integrate the existing role-weighted scorer with the smallest compatible change",
                 "propose exact code changes and regression tests",
                 "prefer reuse of existing probe/catalog data",
                 "keep latency low by benchmarking only competitive candidates",
+                "do not create a competing benchmark scorer unless a concrete defect is demonstrated",
             ],
             "required_output": [
                 "summary",
@@ -86,7 +90,8 @@ def build_mission_packet(*, source_head: str = "") -> dict[str, Any]:
                 "detect race, duplicate probe and quota-waste paths",
                 "check that speed is measured independently from quality",
                 "check role misassignment and stale-catalog behavior",
-                "reject unnecessary rewrites or fixed model IDs",
+                "verify worker_benchmark_ranking remains deterministic and role-scoped",
+                "reject unnecessary rewrites, duplicate scorers or fixed model IDs",
             ],
             "required_output": [
                 "decision",
@@ -113,6 +118,7 @@ def build_mission_packet(*, source_head: str = "") -> dict[str, Any]:
         },
         "benchmark_contract": {
             "candidate_source": "CURRENT_OPENROUTER_CATALOG_ONLY",
+            "ranking_baseline": "scripts/worker_benchmark_ranking.py",
             "generic_router_allowed": False,
             "fixed_model_ids_allowed": False,
             "benchmark_only_after_exact_free_probe": True,
@@ -132,7 +138,8 @@ def build_mission_packet(*, source_head: str = "") -> dict[str, Any]:
         "allowed_paths": list(ALLOWED_PATHS),
         "acceptance": [
             "existing OpenRouter worker tests remain green",
-            "new ranking is deterministic for identical benchmark evidence",
+            "worker_benchmark_ranking tests remain green",
+            "ranking is deterministic for identical benchmark evidence",
             "no generic openrouter/free route",
             "no fixed free model ID becomes mandatory",
             "no duplicate catalog or exact-probe request is introduced",
