@@ -84,13 +84,15 @@ jobs:
             scripts/execution_scope.py \
             scripts/classify_carrier_failure.py \
             scripts/mission_integrity.py \
+            scripts/google_staging_readiness.py \
+            scripts/ai_army_coordination.py \
             scripts/run_nvidia_orchestrator_mission.py \
             scripts/run_nvidia_orchestrator_guarded.py
           python - <<'PY'
           import json, os
           from pathlib import Path
           report = {
-              "schema_version": "carrier-dispatch-v3",
+              "schema_version": "carrier-dispatch-v4",
               "dispatch_status": "EXECUTED",
               "workflow": "probe-free-models.yml",
               "event": os.environ.get("GITHUB_EVENT_NAME", ""),
@@ -99,6 +101,7 @@ jobs:
               "required_input_blocker": False,
               "provider_focus": ["nvidia", "google"],
               "nvidia_selected_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+              "google_selected_model": "gemini-3.8-flash",
               "production_active": False,
               "paid_execution_count": 0,
           }
@@ -166,6 +169,16 @@ jobs:
           --evidence-file artifacts/secure_account_evidence.json
           --output artifacts/provider_probe.json
 
+      - name: Build fail-closed Google readiness gate
+        if: always()
+        continue-on-error: true
+        run: >-
+          python scripts/google_staging_readiness.py
+          --evidence artifacts/secure_account_evidence.json
+          --probe artifacts/provider_probe.json
+          --expected-head "$GITHUB_SHA"
+          --output artifacts/google_staging_readiness.json
+
       - name: Run two-agent staging only when both providers pass normal free-only gates
         if: always()
         continue-on-error: true
@@ -182,7 +195,16 @@ jobs:
           --checkpoint-root artifacts/live_staging_checkpoints
           --output artifacts/live_staging_report.json
 
-      - name: Run at most one guarded NVIDIA Lead Engineer call when two-agent staging did not run
+      - name: Build deterministic AI army coordination packet
+        if: always()
+        run: >-
+          python scripts/ai_army_coordination.py
+          --google-readiness artifacts/google_staging_readiness.json
+          --live-report artifacts/live_staging_report.json
+          --source-head "$GITHUB_SHA"
+          --output artifacts/ai_army_coordination.json
+
+      - name: Run guarded NVIDIA Lead only when coordination authorizes it
         if: always()
         continue-on-error: true
         env:
@@ -196,21 +218,27 @@ jobs:
           RESUME_REVISION: ${{ inputs.resume_revision }}
         run: |
           set -euo pipefail
-          if python - <<'PY'
+          action="$(python - <<'PY'
           import json
           from pathlib import Path
           try:
-              value = json.loads(Path("artifacts/live_staging_report.json").read_text(encoding="utf-8"))
+              value = json.loads(Path("artifacts/ai_army_coordination.json").read_text(encoding="utf-8"))
           except Exception:
               value = {}
-          live = value.get("live_staging") if isinstance(value.get("live_staging"), dict) else {}
-          raise SystemExit(1 if live.get("operational") is True else 0)
+          print(str(value.get("next_action") or "BLOCK_INVALID_COORDINATION"))
           PY
-          then
-            python scripts/run_nvidia_orchestrator_guarded.py
-          else
-            echo '{"guarded_nvidia_mission":"SKIPPED_TWO_AGENT_STAGING_ALREADY_OPERATIONAL"}'
-          fi
+          )"
+          case "$action" in
+            RUN_AT_MOST_ONE_GUARDED_NVIDIA_LEAD_CALL)
+              python scripts/run_nvidia_orchestrator_guarded.py
+              ;;
+            USE_VALIDATED_TWO_AGENT_RESULT)
+              echo '{"guarded_nvidia_mission":"SKIPPED_TWO_AGENT_STAGING_ALREADY_OPERATIONAL"}'
+              ;;
+            *)
+              printf '{"guarded_nvidia_mission":"SKIPPED_BY_COORDINATION","next_action":"%s"}\n' "$action"
+              ;;
+          esac
 
       - name: Ensure redacted reports and classify failures
         if: always()
@@ -222,7 +250,9 @@ jobs:
           defaults = {
               "artifacts/secure_account_evidence.json": {"schema_version":"secure-account-evidence-v1","status":"RUNNER_FAILED_CLOSED","providers":{},"secret_values_in_bundle":False},
               "artifacts/provider_probe.json": {"schema_version":"provider-probe-v1","network_enabled":True,"model_calls":0,"retry_count":0,"paid_fallback":False,"providers":[]},
+              "artifacts/google_staging_readiness.json": {"schema_version":"google-staging-readiness-v2","state":"BLOCKED_INVALID_INPUT","live_ready":False,"repeat_nvidia_call_allowed":False,"external_model_calls_recommended":0},
               "artifacts/live_staging_report.json": {"status":"blocked","stop_reason":"CARRIER_INPUT_UNAVAILABLE","live_staging":False,"model_calls":0,"paid_execution_count":0,"paid_fallback_count":0,"production_active":False},
+              "artifacts/ai_army_coordination.json": {"schema_version":"ai-army-coordination-v1","state":"BLOCKED_INVALID_INPUT","next_action":"REFRESH_COORDINATION_INPUTS","call_policy":{"recommended_nvidia_calls_this_stage":0,"recommended_google_calls_this_stage":0,"paid_fallback":False}},
           }
           for name, default in defaults.items():
               path = Path(name)
@@ -254,24 +284,33 @@ jobs:
               except Exception: return {}
           probe=read("artifacts/provider_probe.json")
           live=read("artifacts/live_staging_report.json")
+          ready=read("artifacts/google_staging_readiness.json")
+          coordination=read("artifacts/ai_army_coordination.json")
           state=read("artifacts/mission_state.json")
           inbox=read("artifacts/result_inbox.json")
           ledger=read("artifacts/nvidia_orchestrator_ledger.json")
           items=probe.get("providers") if isinstance(probe.get("providers"),list) else []
           live_view=live.get("live_staging") if isinstance(live.get("live_staging"),dict) else {}
           summary={
-              "schema_version":"carrier-summary-v4",
+              "schema_version":"carrier-summary-v5",
               "provider_focus":["nvidia","google"],
+              "nvidia_model":"nvidia/nemotron-3.5-lightning-30b-a3b",
+              "google_model":"gemini-3.8-flash",
+              "google_readiness_state":ready.get("state"),
+              "coordination_state":coordination.get("state"),
+              "coordination_next_action":coordination.get("next_action"),
               "probe_model_calls":int(probe.get("model_calls",0) or 0),
               "probe_status_by_provider":{str(i.get("provider")):str(i.get("status")) for i in items if isinstance(i,dict) and i.get("provider")},
               "live_two_agent":bool(live_view.get("operational") is True),
               "live_agent_count":int(live_view.get("live_agent_count",0) or 0),
+              "executor_provider":live_view.get("executor_provider"),
+              "reviewer_provider":live_view.get("reviewer_provider"),
               "mission_id":state.get("mission_id"),
               "mission_state":state.get("state"),
               "mission_result_status":state.get("result_status"),
               "result_hash":inbox.get("result_hash"),
               "result_hash_verified":inbox.get("result_hash_verified") is True,
-              "source_head":inbox.get("source_head") or state.get("source_head"),
+              "source_head":inbox.get("source_head") or state.get("source_head") or coordination.get("source_head"),
               "nvidia_external_calls":int(state.get("nvidia_external_calls",0) or 0),
               "nvidia_external_calls_uncertain":int(state.get("nvidia_external_calls_uncertain",0) or 0),
               "nvidia_ledger_present":bool(ledger),
@@ -292,7 +331,7 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/audit_secret_safety.py --root .
-          for report in artifacts/secure_account_evidence.json artifacts/provider_probe.json artifacts/live_staging_report.json artifacts/failure_classification.json artifacts/carrier_summary.json; do
+          for report in artifacts/secure_account_evidence.json artifacts/provider_probe.json artifacts/google_staging_readiness.json artifacts/live_staging_report.json artifacts/ai_army_coordination.json artifacts/failure_classification.json artifacts/carrier_summary.json; do
             python -m json.tool "$report" >/dev/null
           done
 
@@ -306,7 +345,9 @@ jobs:
             artifacts/secret_presence.json
             artifacts/secure_account_evidence.json
             artifacts/provider_probe.json
+            artifacts/google_staging_readiness.json
             artifacts/live_staging_report.json
+            artifacts/ai_army_coordination.json
             artifacts/failure_classification.json
             artifacts/carrier_summary.json
             artifacts/mission_state.json
