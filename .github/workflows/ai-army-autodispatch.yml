@@ -1,0 +1,32 @@
+name: "AI army live dispatch bridge"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/agent-live-trigger.txt
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: ai-army-live-dispatch-bridge
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Dispatch secure staging carrier on the exact branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api \
+            --method POST \
+            "repos/${TARGET_REPOSITORY}/actions/workflows/probe-free-models.yml/dispatches" \
+            -f ref=ai-army/provider-v3
