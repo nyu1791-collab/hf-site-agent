@@ -200,7 +200,7 @@ def run_from_reports(
             model = "deepseek-ai/deepseek-v4-flash-0731"
             record = _model_record(evidence, "nvidia", model)
             registry = load_provider_registry()
-            adapter = create_provider_adapter(registry, "nvidia", network_enabled=True, timeout_seconds=8.0)
+            adapter = create_provider_adapter(registry, "nvidia", network_enabled=True, timeout_seconds=60.0)
             policy = ExecutionPolicy(
                 scope="STAGING",
                 provider_id="nvidia",
@@ -235,7 +235,7 @@ def run_from_reports(
             plan = build_nvidia_limited_bootstrap_plan(
                 mission_id="phase9-nvidia-google-bootstrap",
                 request_budget=1,
-                token_budget=2_048,
+                token_budget=256,
                 objective=(
                     "Review the Google provider adapter and propose one minimal, low-risk change "
                     "that can move Google toward a fail-closed staging probe. Return a proposal only."

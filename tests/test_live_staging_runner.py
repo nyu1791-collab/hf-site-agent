@@ -186,7 +186,8 @@ class LiveStagingRunnerTests(unittest.TestCase):
         self.assertTrue(report["nvidia_bootstrap"]["local_integrator_review"])
         self.assertFalse(report["safety"]["account_specific_zero_cost_proven"])
         self.assertEqual(len(adapter.calls), 1)
-        self.assertEqual(adapter.calls[0]["options"]["max_tokens"], 8)
+        self.assertEqual(adapter.calls[0]["options"]["max_tokens"], 256)
+        self.assertEqual(adapter.calls[0]["options"]["reasoning_effort"], "none")
         self.assertTrue(adapter.calls[0]["options"]["execution_policy"].limited_staging)
         self.assertTrue(all(item["state"] == "settled" for item in ledger["reservations"].values()))
 

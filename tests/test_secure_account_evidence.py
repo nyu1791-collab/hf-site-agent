@@ -428,7 +428,8 @@ class SecureAccountEvidenceTests(unittest.TestCase):
         self.assertTrue(report["nvidia_limited_staging"]["ready_limited"])
         self.assertEqual(report["live_staging"]["external_model_calls"], 1)
         self.assertEqual(report["total_external_model_calls_in_command"], 1)
-        self.assertEqual(holder["nvidia"].calls[0]["options"]["max_tokens"], 8)
+        self.assertEqual(holder["nvidia"].calls[0]["options"]["max_tokens"], 256)
+        self.assertEqual(holder["nvidia"].calls[0]["options"]["reasoning_effort"], "none")
         self.assertFalse(report["safety"]["zero_cost_all_live_calls"])
 
 

@@ -96,6 +96,19 @@ class CarrierFailureClassificationTests(unittest.TestCase):
             "PROVIDER_HTTP_ERROR",
         )
 
+    def test_unknown_quota_is_not_reported_as_exhaustion(self):
+        result = classify_reports(
+            {"providers": {"nvidia": {"status": "CATALOG_OK", "models": {
+                "deepseek-ai/deepseek-v4-flash-0731": {"status": "OK", "blockers": ["QUOTA_NOT_SAFE"]}
+            }}}},
+            {"providers": []},
+            {"status": ""},
+        )
+        self.assertEqual(
+            result["failure_signatures"][0]["failure_signature"]["error_type"],
+            "QUOTA_UNKNOWN",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

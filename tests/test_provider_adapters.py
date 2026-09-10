@@ -82,6 +82,20 @@ class ProviderAdapterTests(unittest.TestCase):
         self.assertEqual(result["status"], "MODEL_MISMATCH")
         self.assertNotIn("fallback_model", result)
 
+    def test_nvidia_probe_disables_reasoning_and_keeps_eight_token_cap(self):
+        adapter = OpenAICompatibleAdapter(self.registry, "nvidia", network_enabled=True)
+        seen = {}
+        def fake_chat(model_id, messages, **options):
+            seen.update(options)
+            return AdapterResponse(
+                {"model": model_id, "choices": [{"message": {"content": "{}"}}], "usage": {"cost": "0"}}, {}, 4
+            )
+        adapter._chat = fake_chat
+        result = adapter.probe("requested/model")
+        self.assertEqual(result["status"], "PROBE_OK")
+        self.assertEqual(seen["max_tokens"], 8)
+        self.assertEqual(seen["reasoning_effort"], "none")
+
     def test_probe_requires_zero_reported_cost(self):
         adapter = OpenAICompatibleAdapter(self.registry, "openrouter", network_enabled=True)
         adapter._chat = lambda model_id, messages, **options: AdapterResponse(

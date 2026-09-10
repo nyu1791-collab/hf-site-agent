@@ -25,6 +25,7 @@ from .execution_scope import ExecutionPolicy, ExecutionScopeError, authorize_exe
 
 
 LIMITED_STAGING_MAX_OUTPUT_TOKENS = 8
+LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS = 256
 
 
 MISSION_PROMPTS: dict[str, str] = {
@@ -315,6 +316,9 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             "max_tokens": int(options.get("max_tokens", 256)),
             "stream": False,
         }
+        reasoning_effort = options.get("reasoning_effort")
+        if self.provider_id == "nvidia" and reasoning_effort in {"none", "high", "max"}:
+            payload["reasoning_effort"] = reasoning_effort
         if tools:
             payload["tools"] = [dict(tool) for tool in tools[:32]]
             payload["tool_choice"] = options.get("tool_choice", "auto")
@@ -399,7 +403,12 @@ class OpenAICompatibleAdapter(ProviderAdapter):
                 requested_max_tokens = int(options.get("max_tokens", LIMITED_STAGING_MAX_OUTPUT_TOKENS))
             except (TypeError, ValueError):
                 requested_max_tokens = LIMITED_STAGING_MAX_OUTPUT_TOKENS
-            options["max_tokens"] = min(max(1, requested_max_tokens), LIMITED_STAGING_MAX_OUTPUT_TOKENS)
+            token_limit = (
+                LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS
+                if execution_policy.limited_operation == "BOOTSTRAP_PROPOSAL"
+                else LIMITED_STAGING_MAX_OUTPUT_TOKENS
+            )
+            options["max_tokens"] = min(max(1, requested_max_tokens), token_limit)
         require_zero_cost = bool(options.pop("require_zero_cost", False))
         result = self._normalized_generation(self._chat(model_id, messages, **options), model_id)
         if self.provider_id == "openrouter" and result["model"] != model_id:
@@ -442,7 +451,12 @@ class OpenAICompatibleAdapter(ProviderAdapter):
 
     def probe(self, model_id: str) -> dict[str, Any]:
         try:
-            response = self._chat(model_id, [{"role": "user", "content": "Return JSON: {\"ok\":true}"}], max_tokens=8)
+            response = self._chat(
+                model_id,
+                [{"role": "user", "content": "Return JSON: {\"ok\":true}"}],
+                max_tokens=8,
+                reasoning_effort="none" if self.provider_id == "nvidia" else None,
+            )
             self._validate_chat_payload(response.payload)
         except Exception as exc:
             normalized = self.normalize_error(exc)

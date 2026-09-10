@@ -212,7 +212,8 @@ def run_probe(
             continue
         adapter = adapters.get(provider_id) if adapters else None
         if adapter is None:
-            adapter = create_provider_adapter(registry, provider_id, network_enabled=True, timeout_seconds=8.0)
+            probe_timeout = 60.0 if provider_id == "nvidia" and limited_staging_probe_allowed else 8.0
+            adapter = create_provider_adapter(registry, provider_id, network_enabled=True, timeout_seconds=probe_timeout)
         try:
             raw = adapter.probe(model)
         except Exception:
@@ -225,7 +226,16 @@ def run_probe(
             status = "FREE_COST_NONZERO"
         elif provider_id == "openrouter" and usage_cost is None:
             status = "FREE_COST_UNVERIFIED"
-        if provider_id in {"openrouter", "nvidia"} and raw.get("response_model") != model:
+        response_model = raw.get("response_model")
+        response_http_status = raw.get("http_status")
+        response_is_success = (
+            status == "PROBE_OK"
+            and isinstance(response_http_status, int)
+            and 200 <= response_http_status < 300
+            and isinstance(response_model, str)
+            and bool(response_model.strip())
+        )
+        if provider_id in {"openrouter", "nvidia"} and response_is_success and response_model != model:
             status = "MODEL_MISMATCH"
         results.append(_provider_result(
             provider_id,

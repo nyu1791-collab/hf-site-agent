@@ -31,13 +31,16 @@ from scripts.mission_scheduler import (
     MissionTask,
     ProviderInterrupted,
 )
-from scripts.provider_adapters import ProviderAdapterError
+from scripts.provider_adapters import (
+    LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS,
+    LIMITED_STAGING_MAX_OUTPUT_TOKENS,
+    ProviderAdapterError,
+)
 
 
 MAX_PROMPT_CHARS = 14_000
 MAX_RESPONSE_CHARS = 20_000
 MAX_OUTPUT_TOKENS = 256
-LIMITED_STAGING_MAX_OUTPUT_TOKENS = 8
 PROVIDER_TO_CORPS = {"google": "GOOGLE", "groq": "GROQ", "nvidia": "NVIDIA"}
 
 
@@ -207,11 +210,13 @@ def _call_model(
     metrics: LiveCallMetrics,
     instruction: str,
 ) -> dict[str, Any]:
-    output_token_limit = (
-        LIMITED_STAGING_MAX_OUTPUT_TOKENS
-        if binding.execution_policy.limited_staging is True
-        else MAX_OUTPUT_TOKENS
-    )
+    output_token_limit = MAX_OUTPUT_TOKENS
+    if binding.execution_policy.limited_staging is True:
+        output_token_limit = (
+            LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS
+            if binding.execution_policy.limited_operation == "BOOTSTRAP_PROPOSAL"
+            else LIMITED_STAGING_MAX_OUTPUT_TOKENS
+        )
     if not metrics.may_call(binding.provider_id, reserved_output_tokens=output_token_limit):
         raise ProviderInterrupted(f"{binding.provider_id}:PROVIDER_BUDGET_EXHAUSTED")
     prompt = _prompt_context(task, context)
@@ -238,6 +243,7 @@ def _call_model(
             agent_id=f"{binding.role.lower()}-{binding.provider_id}",
             max_tokens=output_token_limit,
             temperature=0,
+            **({"reasoning_effort": "none"} if binding.execution_policy.limited_staging is True else {}),
         )
     except ProviderAdapterError as exc:
         raise ProviderInterrupted(f"{binding.provider_id}:{exc.error_class}") from None
@@ -392,7 +398,7 @@ def build_nvidia_limited_bootstrap_plan(
     *,
     mission_id: str,
     request_budget: int = 1,
-    token_budget: int = 2_048,
+    token_budget: int = LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS,
     objective: str = "Return a read-only proposal for completing the Google staging adapter.",
 ) -> MissionPlan:
     """Build one NVIDIA-only bootstrap proposal plan.
@@ -414,7 +420,7 @@ def build_nvidia_limited_bootstrap_plan(
         complexity_level=1,
         deadline=None,
         request_budget=request_budget,
-        token_budget=token_budget,
+        token_budget=min(max(1, token_budget), LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS),
         estimated_cost=0,
         idempotency_key=f"{mission_id}:NVIDIA-GOOGLE-BOOTSTRAP-1:v1",
         response_version=1,
@@ -433,10 +439,10 @@ def build_nvidia_limited_bootstrap_plan(
         mission_id=mission_id,
         tasks=(task,),
         max_total_requests=request_budget,
-        max_total_tokens=token_budget,
+        max_total_tokens=min(max(1, token_budget), LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS),
         max_parallel=1,
         provider_request_budgets={"nvidia": request_budget},
-        provider_token_budgets={"nvidia": token_budget},
+        provider_token_budgets={"nvidia": min(max(1, token_budget), LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS)},
         free_only=True,
     )
 

@@ -150,6 +150,25 @@ class ProviderProbeTests(unittest.TestCase):
         self.assertEqual(report["providers"][0]["status"], "PROBE_FAILED")
         self.assertNotIn("provider response body", str(report))
 
+    def test_transport_failure_with_empty_response_model_is_not_masked(self):
+        fake = FakeAdapter(result={
+            "status": "NETWORK_TIMEOUT",
+            "response_model": None,
+            "usage_cost": None,
+            "http_status": None,
+        })
+        report = run_probe(
+            self.registry,
+            ["nvidia"],
+            network_enabled=True,
+            adapters={"nvidia": fake},
+            environ={"NVIDIA_API_KEY": "test-key", "NVIDIA_PROBE_MODEL": "vendor/model"},
+            free_evidence=self.evidence("nvidia", "vendor/model"),
+            explicit_approval=True,
+        )
+        self.assertEqual(report["providers"][0]["status"], "NETWORK_TIMEOUT")
+        self.assertNotEqual(report["providers"][0]["status"], "MODEL_MISMATCH")
+
     def test_missing_probe_approval_blocks_before_provider_call(self):
         fake = FakeAdapter()
         report = run_probe(
