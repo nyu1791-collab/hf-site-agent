@@ -3,9 +3,10 @@
 
 Same-run benchmark role scores describe current capability, while compact
 organization memory records how workers actually behaved on specialist work in
-recent runs.  Routing combines both signals and solves the small lane/worker
+recent runs. Routing combines both signals and solves the small lane/worker
 matching problem globally so an early lane cannot greedily consume the worker
-that creates the most value for a later lane.
+that creates the most value for a later lane. When two assignments have the
+same global total, stronger evidence is preferred on earlier priority lanes.
 """
 
 from __future__ import annotations
@@ -131,7 +132,7 @@ def _globally_optimal_worker_indices(
     preferences: Mapping[str, Sequence[str]],
     memory: Mapping[str, Any],
 ) -> tuple[int, ...]:
-    """Solve <=8 lane assignment exactly with a small bitmask DP."""
+    """Solve <=8 lane assignment exactly with a priority-aware bitmask DP."""
     if not lanes:
         return ()
     score_matrix = tuple(
@@ -144,29 +145,36 @@ def _globally_optimal_worker_indices(
     model_names = tuple(str(worker.get("model") or "") for worker in workers)
 
     @lru_cache(maxsize=None)
-    def solve(lane_index: int, used_mask: int) -> tuple[float, tuple[int, ...]]:
+    def solve(lane_index: int, used_mask: int) -> tuple[float, tuple[float, ...], tuple[int, ...]]:
         if lane_index >= len(lanes):
-            return 0.0, ()
-        best_score = float("-inf")
+            return 0.0, (), ()
+        best_total = float("-inf")
+        best_lane_scores: tuple[float, ...] = ()
         best_indices: tuple[int, ...] = ()
         best_names: tuple[str, ...] | None = None
         for worker_index in range(len(workers)):
             bit = 1 << worker_index
             if used_mask & bit:
                 continue
-            tail_score, tail_indices = solve(lane_index + 1, used_mask | bit)
-            total = score_matrix[lane_index][worker_index] + tail_score
+            tail_total, tail_lane_scores, tail_indices = solve(lane_index + 1, used_mask | bit)
+            current_score = score_matrix[lane_index][worker_index]
+            total = current_score + tail_total
+            lane_scores = (current_score, *tail_lane_scores)
             indices = (worker_index, *tail_indices)
             names = tuple(model_names[index] for index in indices)
-            if total > best_score + 1e-12 or (
-                abs(total - best_score) <= 1e-12 and (best_names is None or names < best_names)
-            ):
-                best_score = total
+            better_total = total > best_total + 1e-12
+            equal_total = abs(total - best_total) <= 1e-12
+            better_priority_profile = equal_total and lane_scores > best_lane_scores
+            equal_priority_profile = equal_total and lane_scores == best_lane_scores
+            better_stable_name = equal_priority_profile and (best_names is None or names < best_names)
+            if better_total or better_priority_profile or better_stable_name:
+                best_total = total
+                best_lane_scores = lane_scores
                 best_indices = indices
                 best_names = names
-        return best_score, best_indices
+        return best_total, best_lane_scores, best_indices
 
-    return solve(0, 0)[1]
+    return solve(0, 0)[2]
 
 
 def attach_capability_matched_assignments(
