@@ -2,9 +2,10 @@
 """Build a deterministic Google staging readiness / integration packet.
 
 The packet separates public model/free-tier availability from current
-account/billing/quota evidence, blocks repeated model calls for external
-account blockers, and accepts NVIDIA Result Inbox proposals only after
-mission/run/revision/hash/source-HEAD integrity validation.
+account/billing/quota evidence, while allowing a bounded FREE_TIER staging mode
+when the provider simply does not expose account/quota metadata. Known paid
+routing, known billing enablement, non-zero pricing, stale evidence or model
+mismatch remain hard blockers.
 
 This module performs no provider call and never reads credential values.
 """
@@ -46,7 +47,6 @@ def _read(path_value: str) -> Mapping[str, Any]:
 
 
 def _read_optional(path_value: str) -> Mapping[str, Any]:
-    """Read optional Result Inbox; absence means NO_PROPOSAL, not bad input."""
     if not path_value:
         return {}
     path = Path(path_value)
@@ -99,6 +99,29 @@ def _fresh(record: Mapping[str, Any]) -> bool:
     return parsed > datetime.now(timezone.utc)
 
 
+def _bounded_free_tier_evidence(record: Mapping[str, Any]) -> bool:
+    account = _mapping(record.get("account_metadata"))
+    return (
+        record.get("secure_evidence") is True
+        and record.get("current") is True
+        and _fresh(record)
+        and record.get("model_verified") is True
+        and record.get("endpoint_verified") is True
+        and record.get("auth_verified") is True
+        and record.get("free_program_available") is True
+        and record.get("free_route_selected") is True
+        and record.get("selected_route") == "FREE_TIER"
+        and record.get("zero_price_verified") is True
+        and record.get("paid_fallback_possible") is False
+        and record.get("paid_transition_possible") is not True
+        and record.get("billing_enabled_class") is not True
+        and account.get("billing_enabled") is not True
+        and account.get("current_account_eligible") is not False
+        and account.get("fallback_to_paid_possible") is not True
+        and account.get("automatic_paid_transition_possible") is not True
+    )
+
+
 def build_google_readiness_packet(
     evidence: Mapping[str, Any],
     probe: Mapping[str, Any],
@@ -141,7 +164,7 @@ def build_google_readiness_packet(
         required_evidence.append("FRESH_SECURE_GOOGLE_EVIDENCE")
 
     transport_ready = model_verified and endpoint_verified and auth_verified
-    live_ready = (
+    strict_live_ready = (
         transport_ready
         and secure_evidence
         and evidence_fresh
@@ -149,6 +172,17 @@ def build_google_readiness_packet(
         and quota_safe
         and probe_status == "PROBE_OK"
     )
+    bounded_probe_ready = (
+        _bounded_free_tier_evidence(record)
+        and probe_status == "PROBE_OK"
+        and probe_record.get("probe_mode") == "BOUNDED_FREE_TIER_PROBE"
+        and probe_record.get("bounded_free_tier_probe_allowed") is True
+        and probe_record.get("model_calls") == 1
+        and probe_record.get("automatic_model_fallback") is False
+        and probe_record.get("generic_paid_router_disabled") is True
+    )
+    live_ready = strict_live_ready or bounded_probe_ready
+    readiness_mode = "STRICT_ZERO_COST" if strict_live_ready else ("BOUNDED_FREE_TIER" if bounded_probe_ready else "BLOCKED")
 
     if live_ready:
         state = "READY_FOR_TWO_AGENT_STAGING"
@@ -162,10 +196,10 @@ def build_google_readiness_packet(
         )
     ):
         state = "ACCOUNT_EVIDENCE_REQUIRED"
-        next_action = "PROVIDE_CURRENT_GOOGLE_PLAN_AND_BILLING_EVIDENCE"
+        next_action = "RUN_BOUNDED_FREE_TIER_PROBE_OR_REFRESH_ACCOUNT_EVIDENCE"
     elif "CURRENT_GOOGLE_QUOTA" in required_evidence:
         state = "QUOTA_EVIDENCE_REQUIRED"
-        next_action = "REFRESH_CURRENT_GOOGLE_QUOTA_EVIDENCE"
+        next_action = "RUN_BOUNDED_FREE_TIER_PROBE_OR_REFRESH_QUOTA_EVIDENCE"
     elif "FRESH_SECURE_GOOGLE_EVIDENCE" in required_evidence:
         state = "EVIDENCE_REFRESH_REQUIRED"
         next_action = "REFRESH_GOOGLE_EVIDENCE"
@@ -220,16 +254,19 @@ def build_google_readiness_packet(
         "ACCOUNT_EVIDENCE_REQUIRED",
         "QUOTA_EVIDENCE_REQUIRED",
         "EVIDENCE_REFRESH_REQUIRED",
-    }
+    } or bounded_probe_ready
 
     return {
-        "schema_version": "google-staging-readiness-v2",
+        "schema_version": "google-staging-readiness-v3",
         "provider": "google",
         "model": GOOGLE_MODEL,
         "state": state,
         "next_action": next_action,
+        "readiness_mode": readiness_mode,
         "transport_ready": transport_ready,
         "live_ready": live_ready,
+        "strict_live_ready": strict_live_ready,
+        "bounded_probe_ready": bounded_probe_ready,
         "probe_status": probe_status,
         "model_verified": model_verified,
         "endpoint_verified": endpoint_verified,
@@ -259,7 +296,9 @@ def build_google_readiness_packet(
             "paid_execution_allowed": False,
             "paid_fallback_allowed": False,
             "production_activation_allowed": False,
-            "google_probe_allowed_while_account_evidence_missing": False,
+            "unknown_account_metadata_may_use_bounded_free_tier": True,
+            "known_billing_enabled_blocks_bounded_route": True,
+            "known_paid_transition_blocks_bounded_route": True,
         },
     }
 
@@ -288,7 +327,7 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "google-staging-readiness-v2",
+            "schema_version": "google-staging-readiness-v3",
             "provider": "google",
             "model": GOOGLE_MODEL,
             "state": "BLOCKED_INVALID_INPUT",
@@ -300,7 +339,6 @@ def main() -> int:
                 "paid_execution_allowed": False,
                 "paid_fallback_allowed": False,
                 "production_activation_allowed": False,
-                "google_probe_allowed_while_account_evidence_missing": False,
             },
         }
     output = Path(args.output)
