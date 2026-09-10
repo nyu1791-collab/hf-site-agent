@@ -14,18 +14,21 @@ def live_completed():
     }
 
 
-def settled_google_outage():
+def settled_google_outage(*, google_calls=3, nvidia_calls=0, revision_count=0):
+    providers = {"google": google_calls}
+    if nvidia_calls:
+        providers["nvidia"] = nvidia_calls
     return {
         "status": "blocked",
-        "runtime": {"stop_reason": "PROVIDER_INTERRUPTED"},
-        "budget": {"requests_used": 3, "unsettled_requests": 0},
+        "runtime": {"stop_reason": "PROVIDER_INTERRUPTED", "revision_count": revision_count},
+        "budget": {"requests_used": google_calls, "unsettled_requests": 0},
         "live_staging": {
             "operational": False,
             "executor_provider": "google",
             "reviewer_provider": "nvidia",
             "family_separation_pass": True,
-            "external_model_calls": 3,
-            "providers": {"google": 3},
+            "external_model_calls": google_calls + nvidia_calls,
+            "providers": providers,
         },
         "safety": {
             "paid_execution_count": 0,
@@ -104,10 +107,65 @@ class OpenRouterWorkerOrchestratorTests(unittest.TestCase):
         project_call.assert_called_once()
         self.assertEqual(result["commander_gate_mode"], "DEGRADED_WORKER_BOOTSTRAP")
         self.assertTrue(result["commander_acceptance_pending"])
+        self.assertFalse(result.get("reviewer_already_participated", False))
         self.assertTrue(result["handoff"]["commander_acceptance_pending"])
         self.assertFalse(result["automatic_activation"])
         self.assertEqual(result["handoff"]["ready_role_count"], 1)
         self.assertEqual(result["next_action_after_commander_recovery"], "REVIEW_STAGED_WORKER_HANDOFF_WITH_GOOGLE_AND_NVIDIA")
+
+    def test_settled_google_revision_failure_bootstraps_workers_without_replaying_nvidia(self):
+        probe = {
+            "status": "FREE_ACTIVE",
+            "model_calls": 1,
+            "results": [],
+            "role_probe_candidates": {},
+        }
+        benchmark = {
+            "status": "BENCHMARK_READY",
+            "assignments": {
+                "CODING_WORKER": {
+                    "status": "ready_for_commander_review",
+                    "model": "vendor/code:free",
+                    "score": 0.93,
+                },
+            },
+        }
+        project_loop = {
+            "state": "PROJECT_BATCH_COMPLETE",
+            "next_action": "WORK_INTEGRATE_PREDICTED_PROJECT",
+            "completed_project_ids": ["openrouter-worker-army-v1"],
+        }
+        with patch("scripts.openrouter_worker_orchestrator.run_multi_probe", return_value=probe) as probe_call, patch(
+            "scripts.openrouter_worker_orchestrator.run_benchmarks", return_value=benchmark
+        ) as benchmark_call, patch(
+            "scripts.openrouter_worker_orchestrator.run_continuous_project_loop", return_value=project_loop
+        ) as project_call:
+            result = run_pipeline(
+                source_head="f" * 40,
+                live_report=settled_google_outage(google_calls=6, nvidia_calls=1, revision_count=1),
+                api_key="secret-placeholder",
+                network_enabled=True,
+            )
+        probe_call.assert_called_once()
+        benchmark_call.assert_called_once()
+        project_call.assert_called_once()
+        self.assertEqual(result["commander_gate_mode"], "DEGRADED_WORKER_BOOTSTRAP")
+        self.assertTrue(result["commander_acceptance_pending"])
+        self.assertTrue(result["reviewer_already_participated"])
+        self.assertEqual(result["handoff"]["ready_role_count"], 1)
+        self.assertFalse(result["automatic_activation"])
+
+    def test_nvidia_failure_without_revision_proof_does_not_bypass_gate(self):
+        live = settled_google_outage(google_calls=3, nvidia_calls=1, revision_count=0)
+        with patch("scripts.openrouter_worker_orchestrator.run_multi_probe") as probe_call:
+            result = run_pipeline(
+                source_head="g" * 40,
+                live_report=live,
+                api_key="secret-placeholder",
+                network_enabled=True,
+            )
+        probe_call.assert_not_called()
+        self.assertEqual(result["state"], "WAITING_FOR_TWO_AGENT_COMPLETION")
 
     def test_completed_two_agent_result_continues_through_project_boundary_without_user_action(self):
         probe = {
