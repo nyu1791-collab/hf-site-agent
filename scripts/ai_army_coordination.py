@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build the deterministic NVIDIA + Google AI-army coordination packet.
 
-The packet defines chain of command, adaptive redundancy, and the admission
-plan for subordinate models. It performs no provider call and grants no
-repository-write, deployment, payment, or credential permissions.
+The packet defines chain of command, adaptive redundancy, project-level
+continuation, and subordinate-model admission. It performs no provider call and
+grants no repository-write, deployment, payment, or credential permissions.
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ def build_coordination_packet(
     }
 
     return {
-        "schema_version": "ai-army-coordination-v2",
+        "schema_version": "ai-army-coordination-v3",
         "source_head": source_head,
         "state": state,
         "next_action": next_action,
@@ -100,6 +100,7 @@ def build_coordination_packet(
                     "repository_context_reasoning",
                     "structured_patch_proposal",
                     "tests_and_edge_cases",
+                    "same_project_continuation",
                 ],
                 "enabled": google_live_ready,
             },
@@ -111,6 +112,7 @@ def build_coordination_packet(
                     "race_and_resume_failures",
                     "scope_and_path_validation",
                     "performance_and_minimal_patch_risk",
+                    "whole_project_acceptance",
                 ],
                 "enabled": True,
             },
@@ -129,15 +131,17 @@ def build_coordination_packet(
             "important": {
                 "executor_attempts": 2,
                 "output_token_ceiling": 8_192,
-                "execution": "PARALLEL_BEST_OF_N",
+                "execution": "SERIAL_SAME_PROVIDER_BEST_OF_N",
                 "purpose": "implementation/integration/repository changes",
             },
             "critical": {
                 "executor_attempts": 3,
                 "output_token_ceiling": 12_288,
-                "execution": "PARALLEL_BEST_OF_N",
+                "execution": "SERIAL_SAME_PROVIDER_BEST_OF_N",
                 "purpose": "production/race/resume/migration/auth/billing/high-risk changes",
             },
+            "parallelism_rule": "PARALLELIZE_DIFFERENT_PROVIDER_CORPS_ONLY_UNLESS_SAME_PROVIDER_SAFETY_IS_EXPLICITLY_PROVEN",
+            "provider_interruption_rule": "CHECKPOINT_UNSETTLED_AND_DO_NOT_DISPATCH_NEXT_ATTEMPT",
             "prompt_char_ceiling": 120_000,
             "response_char_ceiling": 144_000,
             "envelope_char_ceiling": 180_000,
@@ -146,6 +150,20 @@ def build_coordination_packet(
             "max_revisions": 4,
             "max_iterations": 6,
             "default_is_not_redundant": True,
+        },
+        "project_continuation_policy": {
+            "stop_between_actions": False,
+            "stop_between_mission_phases": False,
+            "current_stop_scope": "PROJECT_BOUNDARY",
+            "validation_failure": "REVISE_SAME_PROJECT",
+            "review_failure": "REVISE_SAME_PROJECT",
+            "provider_usage_uncertain": "CHECKPOINT_AND_RESUME_SAME_PROJECT_WITHOUT_REPLAY",
+            "after_project_acceptance": "PREDICT_NEXT_PROJECT",
+            "auto_continue_safe_followups": True,
+            "max_auto_followup_projects_per_carrier": 3,
+            "auto_followup_classes": ["AUTO_SAFE_LOCAL", "AUTO_SAFE_NETWORK"],
+            "source_mutation_project": "WORK_INTEGRATOR_REQUIRED",
+            "infinite_loop_allowed": False,
         },
         "subordinate_model_plan": {
             "goal": "add cheaper/faster specialist workers below the two commander models without replacing commander judgment",
@@ -169,25 +187,26 @@ def build_coordination_packet(
                 "DISCOVER_CURRENT_PROVIDER_CATALOG",
                 "FILTER_EXACT_AVAILABLE_MODELS",
                 "RUN_SMALL_CAPABILITY_BENCHMARK",
-                "MEASURE_LATENCY_AND_STRUCTURED_OUTPUT_SUCCESS",
+                "MEASURE_REAL_LATENCY_AND_STRUCTURED_OUTPUT_SUCCESS",
                 "ASSIGN_SPECIALIST_ROLE_BY_SCORE",
-                "CANARY_IN_STAGING",
-                "PROMOTE_TO_SUBORDINATE_REGISTRY",
+                "CANARY_ON_SECOND_SAMPLE_IN_STAGING",
+                "RUN_FAILURE_REHEARSAL",
+                "PROMOTE_TO_SUBORDINATE_REGISTRY_ONLY_AFTER_INTEGRATOR_APPROVAL",
             ],
             "selection_metrics": [
                 "task_quality",
                 "structured_output_success",
-                "latency",
+                "measured_latency",
                 "tokens_per_successful_task",
-                "revision_rate",
+                "revision_rate_with_provenance",
                 "error_rate",
             ],
             "commander_override": True,
             "worker_direct_repository_write": False,
         },
         "handoff_contract": {
-            "executor_output": ["summary", "proposal", "files_affected", "tests", "risks", "next_action"],
-            "reviewer_output": ["decision", "summary", "findings", "required_changes", "risks", "failure_signature"],
+            "executor_output": ["summary", "proposal", "files_affected", "tests", "risks", "project_completion_state", "next_project_candidates", "next_action"],
+            "reviewer_output": ["decision", "summary", "findings", "required_changes", "risks", "project_acceptance_gaps", "failure_signature"],
             "reviewer_decisions": ["PASS", "FAIL"],
             "work_integration_required": True,
             "external_models_may_write_repository": False,
@@ -197,6 +216,7 @@ def build_coordination_packet(
             "recommended_google_calls_this_stage": google_calls_recommended,
             "adaptive_duplicate_attempts_allowed": True,
             "max_independent_executor_attempts": 3,
+            "same_provider_independent_attempts_parallel": False,
             "duplicate_attempts_only_for_important_or_critical": True,
             "repeat_nvidia_for_google_account_blocker": False,
             "google_call_while_external_blocker_present": False,
@@ -242,7 +262,7 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "ai-army-coordination-v2",
+            "schema_version": "ai-army-coordination-v3",
             "source_head": args.source_head,
             "state": "BLOCKED_INVALID_INPUT",
             "next_action": "REFRESH_COORDINATION_INPUTS",
