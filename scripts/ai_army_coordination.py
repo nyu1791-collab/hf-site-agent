@@ -16,6 +16,7 @@ from typing import Any, Mapping
 
 NVIDIA_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
 GOOGLE_MODEL = "gemini-3.8-flash"
+MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS = 3
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:
@@ -32,6 +33,39 @@ def _read(path_value: str) -> Mapping[str, Any]:
     return value
 
 
+def _conclusive_google_outage(live_report: Mapping[str, Any]) -> bool:
+    """Recognize the bounded, settled Google failure path without guessing.
+
+    Ambiguous transport failures retain an unsettled reservation and never
+    enter this path. The fallback is eligible only after the focused runtime
+    has consumed the full three-attempt conclusive recovery sequence on Google,
+    with no NVIDIA request already made in that mission.
+    """
+    if live_report.get("status") != "blocked":
+        return False
+    runtime = _mapping(live_report.get("runtime"))
+    budget = _mapping(live_report.get("budget"))
+    live = _mapping(live_report.get("live_staging"))
+    providers = _mapping(live.get("providers"))
+    safety = _mapping(live_report.get("safety"))
+    return (
+        str(runtime.get("stop_reason") or live_report.get("stop_reason") or "").upper() == "PROVIDER_INTERRUPTED"
+        and int(budget.get("unsettled_requests", 0) or 0) == 0
+        and int(budget.get("requests_used", 0) or 0) >= MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS
+        and live.get("executor_provider") == "google"
+        and int(providers.get("google", 0) or 0) >= MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS
+        and int(providers.get("nvidia", 0) or 0) == 0
+        and int(live.get("external_model_calls", 0) or 0) >= MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS
+        and int(safety.get("paid_execution_count", 0) or 0) == 0
+        and int(safety.get("paid_fallback_count", 0) or 0) == 0
+        and safety.get("production_active") is not True
+        and int(safety.get("secret_values_displayed", 0) or 0) == 0
+        and int(safety.get("secret_values_logged", 0) or 0) == 0
+        and int(safety.get("secret_values_persisted", 0) or 0) == 0
+        and int(safety.get("secret_values_returned_to_model", 0) or 0) == 0
+    )
+
+
 def build_coordination_packet(
     google_readiness: Mapping[str, Any],
     live_report: Mapping[str, Any],
@@ -43,11 +77,17 @@ def build_coordination_packet(
     two_agent_attempted = bool(live_report) and str(live_report.get("status") or "").strip() != ""
     google_live_ready = google_readiness.get("live_ready") is True
     google_state = str(google_readiness.get("state") or "UNKNOWN")
+    conclusive_google_outage = _conclusive_google_outage(live_report)
 
     if two_agent_operational:
         state = "TWO_AGENT_OPERATIONAL"
         next_action = "USE_VALIDATED_TWO_AGENT_RESULT"
         nvidia_calls_recommended = 0
+        google_calls_recommended = 0
+    elif google_live_ready and two_agent_attempted and conclusive_google_outage:
+        state = "GOOGLE_PROVIDER_DEGRADED_NVIDIA_LEAD"
+        next_action = "RUN_AT_MOST_ONE_GUARDED_NVIDIA_LEAD_CALL"
+        nvidia_calls_recommended = 1
         google_calls_recommended = 0
     elif google_live_ready and two_agent_attempted:
         state = "TWO_AGENT_ATTEMPT_FAILED"
@@ -72,9 +112,10 @@ def build_coordination_packet(
         "TRANSPORT_EVIDENCE_REQUIRED",
         "BLOCKED_INVALID_INPUT",
     }
+    nested_stop_reason = str(_mapping(live_report.get("runtime")).get("stop_reason") or live_report.get("stop_reason") or "")
 
     return {
-        "schema_version": "ai-army-coordination-v3",
+        "schema_version": "ai-army-coordination-v4",
         "source_head": source_head,
         "state": state,
         "next_action": next_action,
@@ -103,6 +144,7 @@ def build_coordination_packet(
                     "same_project_continuation",
                 ],
                 "enabled": google_live_ready,
+                "temporarily_degraded": conclusive_google_outage,
             },
             "nvidia": {
                 "primary": "COMMANDER_INDEPENDENT_REVIEWER",
@@ -115,6 +157,7 @@ def build_coordination_packet(
                     "whole_project_acceptance",
                 ],
                 "enabled": True,
+                "degraded_lead_authorized": conclusive_google_outage or not google_live_ready,
             },
             "local_validator": {
                 "primary": "DETERMINISTIC_GATE",
@@ -141,7 +184,7 @@ def build_coordination_packet(
                 "purpose": "production/race/resume/migration/auth/billing/high-risk changes",
             },
             "parallelism_rule": "PARALLELIZE_DIFFERENT_PROVIDER_CORPS_ONLY_UNLESS_SAME_PROVIDER_SAFETY_IS_EXPLICITLY_PROVEN",
-            "provider_interruption_rule": "CHECKPOINT_UNSETTLED_AND_DO_NOT_DISPATCH_NEXT_ATTEMPT",
+            "provider_interruption_rule": "UNSETTLED=>CHECKPOINT_NO_REPLAY;SETTLED_REPEATED_5XX=>ONE_PLANNED_NVIDIA_DEGRADED_LEAD",
             "prompt_char_ceiling": 120_000,
             "response_char_ceiling": 144_000,
             "envelope_char_ceiling": 180_000,
@@ -158,6 +201,7 @@ def build_coordination_packet(
             "validation_failure": "REVISE_SAME_PROJECT",
             "review_failure": "REVISE_SAME_PROJECT",
             "provider_usage_uncertain": "CHECKPOINT_AND_RESUME_SAME_PROJECT_WITHOUT_REPLAY",
+            "provider_conclusive_outage": "CONTINUE_SAFE_INDEPENDENT_LANES_AND_ONE_PLANNED_DEGRADED_COMMANDER_CALL",
             "after_project_acceptance": "PREDICT_NEXT_PROJECT",
             "auto_continue_safe_followups": True,
             "max_auto_followup_projects_per_carrier": 3,
@@ -221,12 +265,14 @@ def build_coordination_packet(
             "repeat_nvidia_for_google_account_blocker": False,
             "google_call_while_external_blocker_present": False,
             "extra_fallback_after_two_agent_attempt": False,
+            "planned_degraded_nvidia_lead": conclusive_google_outage,
             "paid_fallback": False,
         },
         "google": {
             "readiness_state": google_state,
             "live_ready": google_live_ready,
             "external_blocker": external_blocker,
+            "conclusive_provider_outage": conclusive_google_outage,
             "required_evidence": list(google_readiness.get("required_evidence") or []),
         },
         "live_two_agent": {
@@ -235,7 +281,7 @@ def build_coordination_packet(
             "executor_provider": live.get("executor_provider"),
             "reviewer_provider": live.get("reviewer_provider"),
             "family_separation_pass": live.get("family_separation_pass") is True,
-            "stop_reason": live_report.get("stop_reason"),
+            "stop_reason": nested_stop_reason,
         },
         "minimum_guards": {
             "paid_fallback_allowed": False,
@@ -262,7 +308,7 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "ai-army-coordination-v3",
+            "schema_version": "ai-army-coordination-v4",
             "source_head": args.source_head,
             "state": "BLOCKED_INVALID_INPUT",
             "next_action": "REFRESH_COORDINATION_INPUTS",
