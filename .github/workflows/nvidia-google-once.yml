@@ -1,0 +1,160 @@
+name: "One-shot NVIDIA + Google bootstrap"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/nvidia-google.once
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvidia-google-once-ai-army-provider-v3
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    if: ${{ github.ref_name == 'ai-army/provider-v3' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout target branch without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ai-army/provider-v3
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Compile focused runtime
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python -m py_compile \
+            scripts/secure_account_evidence.py \
+            scripts/validate_secure_evidence.py \
+            scripts/probe_providers.py \
+            scripts/run_live_staging_from_probe.py \
+            scripts/live_staging_runner.py \
+            scripts/run_nvidia_orchestrator_mission.py
+
+      - name: Collect current redacted NVIDIA and Google evidence
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/secure_account_evidence.py
+          --provider nvidia
+          --provider google
+          --output artifacts/secure_account_evidence.json
+
+      - name: Validate evidence
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: python scripts/validate_secure_evidence.py --input artifacts/secure_account_evidence.json
+
+      - name: Probe exact NVIDIA and Google candidates through existing gates
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_PROBE_MODEL: gemini-3.8-flash
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_PROBE_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b
+        run: >-
+          python scripts/probe_providers.py
+          --provider nvidia
+          --provider google
+          --network
+          --confirm CHECK
+          --allow-limited-staging-probe
+          --evidence-file artifacts/secure_account_evidence.json
+          --output artifacts/provider_probe.json
+
+      - name: Continue into safe live staging or NVIDIA bootstrap
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/run_live_staging_from_probe.py
+          --evidence-file artifacts/secure_account_evidence.json
+          --probe-file artifacts/provider_probe.json
+          --network
+          --allow-limited-nvidia-bootstrap
+          --ledger artifacts/live_staging_ledger.json
+          --checkpoint-root artifacts/live_staging_checkpoints
+          --output artifacts/live_staging_report.json
+
+      - name: Build redacted one-shot summary
+        if: always()
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          def read(path, default):
+              try:
+                  value = json.loads(Path(path).read_text(encoding="utf-8"))
+                  return value if isinstance(value, dict) else default
+              except Exception:
+                  return default
+
+          evidence = read("artifacts/secure_account_evidence.json", {})
+          probe = read("artifacts/provider_probe.json", {})
+          live = read("artifacts/live_staging_report.json", {})
+          providers = evidence.get("providers") if isinstance(evidence.get("providers"), dict) else {}
+          probe_items = probe.get("providers") if isinstance(probe.get("providers"), list) else []
+          summary = {
+              "schema_version": "nvidia-google-once-v1",
+              "provider_focus": ["nvidia", "google"],
+              "secret_presence": {
+                  name: bool(isinstance(lane, dict) and lane.get("secret_present") is True)
+                  for name, lane in providers.items()
+              },
+              "catalog_status": {
+                  name: lane.get("status") if isinstance(lane, dict) else "MISSING"
+                  for name, lane in providers.items()
+              },
+              "probe_status": {
+                  str(item.get("provider")): str(item.get("status"))
+                  for item in probe_items if isinstance(item, dict) and item.get("provider")
+              },
+              "probe_model_calls": int(probe.get("model_calls", 0) or 0),
+              "live_status": live.get("status", "blocked"),
+              "live_agent_count": int(((live.get("live_staging") or {}).get("live_agent_count", 0)) or 0) if isinstance(live.get("live_staging"), dict) else 0,
+              "nvidia_bootstrap_status": (live.get("nvidia_bootstrap") or {}).get("status", "NOT_STARTED") if isinstance(live.get("nvidia_bootstrap"), dict) else "NOT_STARTED",
+              "paid_execution_count": int(live.get("paid_execution_count", 0) or 0),
+              "paid_fallback_count": int(live.get("paid_fallback_count", 0) or 0),
+              "production_active": False,
+              "secret_values_persisted": 0,
+          }
+          Path("artifacts/nvidia_google_once_summary.json").write_text(
+              json.dumps(summary, sort_keys=True, indent=2) + "\n", encoding="utf-8"
+          )
+          print(json.dumps(summary, sort_keys=True))
+          PY
+          python scripts/audit_secret_safety.py --root .
+
+      - name: Upload redacted one-shot artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: nvidia-google-once-${{ github.run_id }}
+          path: |
+            artifacts/secure_account_evidence.json
+            artifacts/provider_probe.json
+            artifacts/live_staging_report.json
+            artifacts/nvidia_google_once_summary.json
+            artifacts/mission_state.json
+            artifacts/result_inbox.json
+          if-no-files-found: ignore
+          retention-days: 7
