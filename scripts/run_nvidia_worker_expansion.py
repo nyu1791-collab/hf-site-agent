@@ -33,6 +33,7 @@ EXPANSION_FILES = (
     "scripts/probe_free_workers.py",
     "scripts/probe_free_workers_multi.py",
     "scripts/benchmark_free_workers.py",
+    "scripts/worker_canary.py",
     "scripts/worker_benchmark_ranking.py",
     "scripts/china_bulk_coding_pool.py",
     "scripts/parallel_worker_council.py",
@@ -41,6 +42,8 @@ EXPANSION_FILES = (
     "scripts/model_registry.py",
     "tests/test_worker_selection.py",
     "tests/test_benchmark_free_workers_active_filter.py",
+    "tests/test_worker_canary_relaxation.py",
+    "tests/test_worker_canary_reselection.py",
     "tests/test_china_bulk_coding_pool.py",
     "tests/test_parallel_worker_council.py",
     "tests/test_openrouter_worker_orchestrator.py",
@@ -69,6 +72,71 @@ EXPANSION_OBJECTIVE = (
     "and routing; do not spend the proposal on Google quota recovery. Return a complete implementation-ready Structured "
     "Patch Bundle grounded only in the provided worker-corp repository files."
 )
+
+WORKER_CONTEXT_MARKERS = {
+    "scripts/worker_selection.py": (
+        "WORKER_ROLES",
+        "catalog_worker_candidates",
+        "select_free_worker",
+    ),
+    "scripts/probe_free_workers.py": (
+        "def _probe_one",
+        "provider",
+        "allow_fallbacks",
+    ),
+    "scripts/probe_free_workers_multi.py": (
+        "PREFERRED_BULK_CODING_TARGETS",
+        "CANDIDATES_PER_ROLE",
+        "RECENT_CANDIDATES_PER_ROLE",
+        "MAX_UNIQUE_PROBES",
+        "MAX_PARALLEL_PROBES",
+        "run_multi_probe",
+    ),
+    "scripts/benchmark_free_workers.py": (
+        "MAX_CANDIDATES_PER_ROLE",
+        "MAX_BENCHMARK_CALLS",
+        "MAX_PARALLEL_BENCHMARKS",
+        "RESPONSE_REASONING",
+        "BENCHMARKS",
+        "_parse_json_object",
+        "run_benchmarks",
+    ),
+    "scripts/worker_canary.py": (
+        "MAX_CANARY_CALLS",
+        "MAX_PARALLEL_CANARIES",
+        "RESPONSE_REASONING",
+        "_parse_json_object",
+        "run_worker_canary",
+    ),
+    "scripts/china_bulk_coding_pool.py": (
+        "PREFERRED_BULK_CODING_TARGETS",
+        "WATCH_ONLY_MODEL_FAMILIES",
+        "MIN_TASK_QUALITY",
+        "RECOMMENDED_PARALLEL_LIMIT",
+        "_tier_for_rank",
+        "build_bulk_coding_pool",
+    ),
+    "scripts/parallel_worker_council.py": (
+        "MAX_COUNCIL_MODELS",
+        "MAX_PARALLEL_COUNCIL",
+        "COUNCIL_DECISION_AXES",
+        "select_council_models",
+        "run_council",
+    ),
+    "scripts/worker_benchmark_ranking.py": (
+        "ROLE_WEIGHTS",
+        "rank_benchmarked_workers",
+        "select_benchmarked_worker",
+    ),
+    "scripts/openrouter_worker_orchestrator.py": (
+        "def _handoff",
+        "def run_pipeline",
+    ),
+    "scripts/continuous_project_loop.py": (
+        "def build_routing_policy",
+        "def run_resilience_rehearsal",
+    ),
+}
 
 
 def _load_mapping(path: Path) -> Mapping[str, Any]:
@@ -133,6 +201,8 @@ def _council_context() -> str:
             continue
         compact_bulk_models.append({
             "bulk_rank": row.get("bulk_rank"),
+            "tier_ja": row.get("tier_ja"),
+            "dispatch_weight": row.get("dispatch_weight"),
             "model": str(row.get("model") or "")[:180],
             "family": row.get("family"),
             "bulk_score": row.get("bulk_score"),
@@ -156,7 +226,9 @@ def _council_context() -> str:
             "selection_policy": bulk.get("selection_policy"),
             "model_count": bulk.get("model_count", 0),
             "family_count": bulk.get("family_count", 0),
+            "tier_counts": bulk.get("tier_counts", {}),
             "recommended_parallelism": bulk.get("recommended_parallelism", 0),
+            "preferred_target_statuses": list(bulk.get("preferred_target_statuses") or [])[:10],
             "models": compact_bulk_models,
         },
     }
@@ -190,60 +262,15 @@ def main() -> int:
         return base + EXPANSION_OBJECTIVE + council_instruction
 
     mission._mission_prompt = expansion_prompt
-    mission.ALLOWED_FILES = tuple(dict.fromkeys((*EXPANSION_FILES, *original_allowed)))
+    # Critical isolation: this mission must not inherit Google-recovery files or
+    # markers from the generic NVIDIA orchestrator. Run #9 proved that inherited
+    # context can distract the model into an unrelated Google-readiness patch.
+    mission.ALLOWED_FILES = tuple(EXPANSION_FILES)
     mission.MAX_REPOSITORY_CONTEXT_CHARS = max(original_context_budget, 100_000)
     mission.MAX_CONTEXT_CHARS_PER_FILE = max(original_file_budget, 7_000)
     mission.INITIAL_OUTPUT_TOKENS = max(original_initial_tokens, 8_192)
     mission.RESUME_OUTPUT_TOKENS = max(original_resume_tokens, 8_192)
-    mission.CONTEXT_MARKERS = {
-        **original_markers,
-        "scripts/worker_selection.py": (
-            "WORKER_ROLES",
-            "catalog_worker_candidates",
-            "select_free_worker",
-        ),
-        "scripts/probe_free_workers_multi.py": (
-            "CANDIDATES_PER_ROLE",
-            "MAX_UNIQUE_PROBES",
-            "MAX_PARALLEL_PROBES",
-            "run_multi_probe",
-        ),
-        "scripts/benchmark_free_workers.py": (
-            "MAX_CANDIDATES_PER_ROLE",
-            "MAX_BENCHMARK_CALLS",
-            "MAX_PARALLEL_BENCHMARKS",
-            "BENCHMARKS",
-            "run_benchmarks",
-        ),
-        "scripts/china_bulk_coding_pool.py": (
-            "CHINA_VALUE_CODING_PREFIXES",
-            "MIN_TASK_QUALITY",
-            "RECOMMENDED_PARALLEL_LIMIT",
-            "build_bulk_coding_pool",
-        ),
-        "scripts/parallel_worker_council.py": (
-            "MAX_COUNCIL_MODELS",
-            "MAX_PARALLEL_COUNCIL",
-            "COUNCIL_DECISION_AXES",
-            "select_council_models",
-            "run_council",
-        ),
-        "scripts/worker_benchmark_ranking.py": (
-            "ROLE_WEIGHTS",
-            "rank_benchmarked_workers",
-            "select_benchmarked_worker",
-        ),
-        "scripts/openrouter_worker_orchestrator.py": (
-            "def _handoff",
-            "def run_pipeline",
-        ),
-        "scripts/continuous_project_loop.py": (
-            "def build_routing_policy",
-            "def run_resilience_rehearsal",
-        ),
-    }
-    # This mission is independent from current Google provider recovery. Do not
-    # let old Google recovery facts distract the worker-expansion lead.
+    mission.CONTEXT_MARKERS = dict(WORKER_CONTEXT_MARKERS)
     guarded._current_recovery_context = lambda: {}
     os.environ["NVIDIA_MISSION_MODE"] = "WORKER_CORPS_EXPANSION"
     try:
