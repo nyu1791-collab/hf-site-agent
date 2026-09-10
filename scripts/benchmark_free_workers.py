@@ -25,10 +25,11 @@ from scripts.worker_benchmark_ranking import rank_benchmarked_workers, select_be
 
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 TIMEOUT_SECONDS = 35
-MAX_OUTPUT_TOKENS = 256
+MAX_OUTPUT_TOKENS = 512
 MAX_CANDIDATES_PER_ROLE = 12
 MAX_BENCHMARK_CALLS = 48
 MAX_PARALLEL_BENCHMARKS = 6
+RESPONSE_REASONING = {"effort": "minimal", "exclude": True}
 
 BENCHMARKS: dict[str, dict[str, Any]] = {
     "GENERAL_WORKER": {
@@ -76,6 +77,7 @@ def _safe_json_request(model: str, api_key: str, prompt: str) -> tuple[int, dict
         "max_tokens": MAX_OUTPUT_TOKENS,
         "temperature": 0,
         "stream": False,
+        "reasoning": dict(RESPONSE_REASONING),
         "provider": {"allow_fallbacks": False},
     }
     request = urllib.request.Request(
@@ -115,6 +117,42 @@ def _content(payload: Mapping[str, Any]) -> str:
         return ""
     value = message.get("content")
     return value.strip() if isinstance(value, str) else ""
+
+
+def _parse_json_object(content: str) -> Mapping[str, Any] | None:
+    """Accept plain JSON and harmless formatting without native JSON mode.
+
+    Some otherwise capable workers wrap the requested object in a Markdown JSON
+    fence or a short preface. We still validate the decoded object locally and do
+    not relax any exact-model/cost/quality gate.
+    """
+    text = str(content or "").strip()
+    if not text:
+        return None
+    candidates = [text]
+    if text.startswith("```") and text.endswith("```"):
+        inner = text[3:-3].strip()
+        if inner.lower().startswith("json"):
+            inner = inner[4:].lstrip("\r\n ")
+        candidates.insert(0, inner)
+    for candidate in candidates:
+        try:
+            value = json.loads(candidate)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            value = None
+        if isinstance(value, Mapping):
+            return value
+    decoder = json.JSONDecoder()
+    for index, character in enumerate(text):
+        if character != "{":
+            continue
+        try:
+            value, _end = decoder.raw_decode(text[index:])
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if isinstance(value, Mapping):
+            return value
+    return None
 
 
 def _quality(role: str, parsed: Mapping[str, Any]) -> float:
@@ -183,12 +221,7 @@ def _record_for(role: str, model: str, api_key: str) -> dict[str, Any]:
     usage = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
     cost = _decimal(usage.get("cost"))
     content = _content(payload)
-    parsed = None
-    try:
-        parsed_value = json.loads(content)
-        parsed = parsed_value if isinstance(parsed_value, Mapping) else None
-    except (TypeError, ValueError, json.JSONDecodeError):
-        parsed = None
+    parsed = _parse_json_object(content)
     exact = response_model == model
     zero_cost_or_prior_verified = cost in {None, Decimal("0")}
     if exact and zero_cost_or_prior_verified and parsed is not None:
@@ -219,11 +252,12 @@ def _record_for(role: str, model: str, api_key: str) -> dict[str, Any]:
 
 def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str, Any]:
     report: dict[str, Any] = {
-        "schema_version": "free-worker-benchmark-v3",
+        "schema_version": "free-worker-benchmark-v4",
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "model_calls": 0,
         "max_calls": MAX_BENCHMARK_CALLS,
         "max_output_tokens_per_call": MAX_OUTPUT_TOKENS,
+        "reasoning_policy": "MINIMAL_EXCLUDED_TO_PRESERVE_VISIBLE_JSON",
         "parallel_execution": True,
         "parallel_worker_limit": MAX_PARALLEL_BENCHMARKS,
         "native_json_mode_required": False,
@@ -235,7 +269,7 @@ def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str
         "automatic_activation": False,
         "metric_provenance": {
             "task_quality": "DETERMINISTIC_TASK_ASSERTIONS",
-            "schema_success_rate": "LOCALLY_PARSED_JSON",
+            "schema_success_rate": "LOCALLY_PARSED_JSON_OR_FENCED_JSON",
             "latency_ms": "LOCAL_MONOTONIC_WALL_CLOCK",
             "tokens_per_success": "PROVIDER_USAGE_OR_CONTENT_ESTIMATE",
             "revision_rate": "DERIVED_FROM_SINGLE_TASK_QUALITY",
@@ -327,7 +361,7 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "free-worker-benchmark-v3",
+            "schema_version": "free-worker-benchmark-v4",
             "status": "BENCHMARK_RUNNER_BLOCKED",
             "model_calls": 0,
             "records": [],
