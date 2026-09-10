@@ -3,12 +3,14 @@ import unittest
 
 
 WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "probe-free-models.yml"
+GUARDED = Path(__file__).resolve().parents[1] / "scripts" / "run_nvidia_orchestrator_guarded.py"
 
 
 class CarrierWorkflowTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.text = WORKFLOW.read_text(encoding="utf-8")
+        cls.guarded_text = GUARDED.read_text(encoding="utf-8")
 
     def test_registered_carrier_allows_only_target_dispatch_branch(self):
         self.assertIn("workflow_dispatch:", self.text)
@@ -72,6 +74,12 @@ class CarrierWorkflowTests(unittest.TestCase):
         self.assertIn("contents: read", self.text)
         self.assertIn("actions: read", self.text)
         self.assertNotIn("contents: write", self.text)
+
+    def test_guard_keeps_ambiguous_provider_dispatch_unsettled(self):
+        self.assertIn("mark_unsettled", self.guarded_text)
+        self.assertIn("DUPLICATE_NVIDIA_CALL_BLOCKED", self.guarded_text)
+        self.assertIn("validate_resume_bundle", self.guarded_text)
+        self.assertIn("source_head", self.guarded_text)
 
 
 if __name__ == "__main__":
