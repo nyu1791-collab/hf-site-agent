@@ -33,7 +33,7 @@ class CarrierWorkflowTests(unittest.TestCase):
     def test_carrier_focuses_only_on_nvidia_and_google(self):
         self.assertIn("--provider nvidia", self.text)
         self.assertIn("--provider google", self.text)
-        self.assertIn("NVIDIA_PROBE_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b", self.text)
+        self.assertIn("NVIDIA_PROBE_MODEL: deepseek-ai/deepseek-v4-flash-0731", self.text)
         self.assertIn("GOOGLE_PROBE_MODEL: gemini-3.8-flash", self.text)
         self.assertIn("GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}", self.text)
         self.assertIn("--allow-limited-staging-probe", self.text)
