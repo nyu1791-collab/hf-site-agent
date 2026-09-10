@@ -6,6 +6,13 @@ OpenRouter discovery, exact-free probing, role benchmarks, deterministic
 ranking, commander handoff, and bounded follow-up projects. No user action is
 required between stages. External/budget uncertainty checkpoints the same
 project instead of creating a new mission or replaying an uncertain request.
+
+If the Google commander is conclusively unavailable after the bounded focused
+recovery sequence, worker *bootstrap only* may continue in a clearly marked
+degraded mode. That mode never claims two-agent acceptance, never activates a
+worker automatically, and never grants repository or production authority; it
+only avoids wasting an otherwise healthy exact-free worker lane while the
+primary commander provider recovers.
 """
 
 from __future__ import annotations
@@ -27,8 +34,9 @@ from scripts.continuous_project_loop import AUTO_NEXT_SAFE, PROJECT_BOUNDARY, ru
 from scripts.openrouter_worker_mission import build_mission_packet
 from scripts.probe_free_workers_multi import run_multi_probe
 
-SCHEMA_VERSION = "openrouter-worker-orchestrator-v2"
+SCHEMA_VERSION = "openrouter-worker-orchestrator-v3"
 MAX_STAGE_EVENTS = 20
+MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS = 3
 
 
 def _event(stage: str, status: str, summary: str) -> dict[str, Any]:
@@ -40,6 +48,24 @@ def _event(stage: str, status: str, summary: str) -> dict[str, Any]:
     }
 
 
+def _mapping(value: Any) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _hard_safety_clean(live: Mapping[str, Any]) -> bool:
+    safety = _mapping(live.get("safety"))
+    return (
+        int(live.get("paid_execution_count", safety.get("paid_execution_count", 0)) or 0) == 0
+        and int(live.get("paid_fallback_count", safety.get("paid_fallback_count", 0)) or 0) == 0
+        and live.get("production_active") is not True
+        and safety.get("production_active") is not True
+        and int(safety.get("secret_values_displayed", 0) or 0) == 0
+        and int(safety.get("secret_values_logged", 0) or 0) == 0
+        and int(safety.get("secret_values_persisted", 0) or 0) == 0
+        and int(safety.get("secret_values_returned_to_model", 0) or 0) == 0
+    )
+
+
 def _live_result_accepted(live: Mapping[str, Any]) -> bool:
     if live.get("status") != "completed":
         return False
@@ -49,10 +75,38 @@ def _live_result_accepted(live: Mapping[str, Any]) -> bool:
             return False
         if int(view.get("live_agent_count", 0) or 0) < 2:
             return False
+    return _hard_safety_clean(live)
+
+
+def _degraded_worker_bootstrap_allowed(live: Mapping[str, Any]) -> bool:
+    """Allow only a settled, repeated Google outage to bypass the worker gate.
+
+    This is intentionally stricter than checking ``status=blocked``. Ambiguous
+    provider outcomes remain in the normal checkpoint/no-replay path. Three or
+    more *settled* Google attempts with zero unsettled reservations prove that
+    the bounded recovery sequence finished conclusively; the worker lane may
+    then perform discovery/benchmark/canary work while commander acceptance
+    remains pending.
+    """
+    if live.get("status") != "blocked" or not _hard_safety_clean(live):
+        return False
+    runtime = _mapping(live.get("runtime"))
+    budget = _mapping(live.get("budget"))
+    view = _mapping(live.get("live_staging"))
+    providers = _mapping(view.get("providers"))
+    requests_used = int(budget.get("requests_used", 0) or 0)
+    unsettled = int(budget.get("unsettled_requests", 0) or 0)
+    google_calls = int(providers.get("google", 0) or 0)
+    nvidia_calls = int(providers.get("nvidia", 0) or 0)
     return (
-        int(live.get("paid_execution_count", 0) or 0) == 0
-        and int(live.get("paid_fallback_count", 0) or 0) == 0
-        and live.get("production_active") is not True
+        str(runtime.get("stop_reason") or live.get("stop_reason") or "").upper() == "PROVIDER_INTERRUPTED"
+        and unsettled == 0
+        and requests_used >= MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS
+        and view.get("executor_provider") == "google"
+        and view.get("family_separation_pass") is True
+        and google_calls >= MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS
+        and nvidia_calls == 0
+        and int(view.get("external_model_calls", 0) or 0) >= MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS
     )
 
 
@@ -70,7 +124,7 @@ def _handoff(benchmark: Mapping[str, Any]) -> dict[str, Any]:
                 "status": "READY_FOR_COMMANDER_HANDOFF",
             }
     return {
-        "schema_version": "openrouter-worker-handoff-v1",
+        "schema_version": "openrouter-worker-handoff-v2",
         "selected_workers": selected,
         "ready_role_count": len(selected),
         "automatic_activation": False,
@@ -100,14 +154,24 @@ def run_pipeline(
         "paid_fallback": False,
         "production_active": False,
         "automatic_activation": False,
+        "commander_gate_mode": "PENDING",
+        "commander_acceptance_pending": False,
         "probe": {},
         "benchmark": {},
         "handoff": {},
         "project_loop": {},
     }
 
-    if not _live_result_accepted(live_report):
-        reason = str(live_report.get("stop_reason") or live_report.get("status") or "two_agent_result_not_accepted")
+    two_agent_accepted = _live_result_accepted(live_report)
+    degraded_bootstrap = _degraded_worker_bootstrap_allowed(live_report)
+    if not two_agent_accepted and not degraded_bootstrap:
+        runtime = _mapping(live_report.get("runtime"))
+        reason = str(
+            runtime.get("stop_reason")
+            or live_report.get("stop_reason")
+            or live_report.get("status")
+            or "two_agent_result_not_accepted"
+        )
         events.append(_event("TWO_AGENT_RESULT_GATE", "BLOCKED", reason))
         report.update(
             state="WAITING_FOR_TWO_AGENT_COMPLETION",
@@ -117,7 +181,18 @@ def run_pipeline(
         )
         return report
 
-    events.append(_event("TWO_AGENT_RESULT_GATE", "PASSED", "Google executor and NVIDIA reviewer result accepted"))
+    if two_agent_accepted:
+        report["commander_gate_mode"] = "TWO_AGENT_ACCEPTED"
+        events.append(_event("TWO_AGENT_RESULT_GATE", "PASSED", "Google executor and NVIDIA reviewer result accepted"))
+    else:
+        report["commander_gate_mode"] = "DEGRADED_WORKER_BOOTSTRAP"
+        report["commander_acceptance_pending"] = True
+        events.append(_event(
+            "TWO_AGENT_RESULT_GATE",
+            "DEGRADED_BOOTSTRAP",
+            "Google bounded recovery ended conclusively; worker discovery/benchmark may continue while commander acceptance remains pending",
+        ))
+
     if not network_enabled:
         events.append(_event("OPENROUTER_PROBE", "BLOCKED", "network not enabled for this carrier"))
         report.update(
@@ -165,8 +240,14 @@ def run_pipeline(
         )
         return report
 
+    handoff["commander_acceptance_pending"] = degraded_bootstrap
     events.append(_event("WORKER_BENCHMARK", "PASSED", f"{handoff['ready_role_count']} worker roles have ranked winners"))
-    events.append(_event("COMMANDER_HANDOFF", "READY", "role-scoped worker assignments ready for project continuation"))
+    handoff_summary = (
+        "role-scoped worker assignments staged; final commander acceptance pending Google recovery"
+        if degraded_bootstrap
+        else "role-scoped worker assignments ready for project continuation"
+    )
+    events.append(_event("COMMANDER_HANDOFF", "STAGED" if degraded_bootstrap else "READY", handoff_summary))
 
     seed_report = dict(report)
     seed_report.update(state="PROJECT_COMPLETE", current_stage="COMMANDER_HANDOFF")
@@ -186,6 +267,8 @@ def run_pipeline(
         stop_reason="PROJECT_LEVEL_STOP_BOUNDARY",
         next_action=str(project_loop.get("next_action") or "NO_NEXT_PROJECT_PREDICTED"),
     )
+    if degraded_bootstrap:
+        report["next_action_after_commander_recovery"] = "REVIEW_STAGED_WORKER_HANDOFF_WITH_GOOGLE_AND_NVIDIA"
     report["events"] = events[-MAX_STAGE_EVENTS:]
     return report
 
@@ -232,6 +315,8 @@ def main() -> int:
             "paid_fallback": False,
             "production_active": False,
             "automatic_activation": False,
+            "commander_gate_mode": "BLOCKED",
+            "commander_acceptance_pending": True,
             "events": [],
         }
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -240,6 +325,7 @@ def main() -> int:
     print(json.dumps({
         "state": report.get("state"),
         "current_stage": report.get("current_stage"),
+        "commander_gate_mode": report.get("commander_gate_mode"),
         "next_action": report.get("next_action"),
         "ready_role_count": ((report.get("handoff") or {}).get("ready_role_count", 0) if isinstance(report.get("handoff"), Mapping) else 0),
         "completed_project_count": len(project_loop.get("completed_project_ids", [])) if isinstance(project_loop.get("completed_project_ids"), list) else 0,
