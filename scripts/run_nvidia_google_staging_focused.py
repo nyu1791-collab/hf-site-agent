@@ -11,6 +11,8 @@ redundant peers:
 * Exact-model probe results are reused instead of repeated network probes.
 * Context, response and mission budgets are expanded together so a larger
   model output is not rejected by a smaller downstream envelope limit.
+* An explicit carrier objective/role can bind the two-agent loop to one real
+  implementation mission instead of the generic staging fixture objective.
 
 The remaining hard guards do not reduce reasoning quality: no paid fallback,
 no secret exposure, no production activation, no external repository writes,
@@ -20,6 +22,7 @@ and duplicate/idempotency protection.
 from __future__ import annotations
 
 from dataclasses import replace
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -89,6 +92,13 @@ def _focused_factory(registry, provider_id, **kwargs):
 
 def _performance_plan_builder(*args, **kwargs):
     """Allocate attempts/tokens from task importance instead of a flat cap."""
+    env_role = str(os.environ.get("AI_ARMY_TASK_ROLE") or "").strip()
+    env_objective = str(os.environ.get("AI_ARMY_OBJECTIVE") or "").strip()
+    if env_role:
+        kwargs["task_role"] = env_role[:160]
+    if env_objective:
+        kwargs["objective"] = env_objective[:20_000]
+
     role = str(kwargs.get("task_role") or "LIVE_STAGING_EXECUTOR")
     objective = str(kwargs.get("objective") or "")
     profile = profile_for_task(
@@ -104,6 +114,7 @@ def _performance_plan_builder(*args, **kwargs):
     for task in plan.tasks:
         metadata = dict(task.metadata)
         metadata.update(profile_metadata(profile))
+        metadata["bound_objective"] = objective[:20_000]
         tasks.append(replace(task, metadata=metadata))
     return replace(plan, tasks=tuple(tasks))
 
