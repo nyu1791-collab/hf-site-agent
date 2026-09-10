@@ -29,7 +29,11 @@ from scripts.live_staging_runner import (
     run_live_staging_mission,
     run_nvidia_limited_bootstrap_mission,
 )
-from scripts.provider_adapters import create_provider_adapter
+from scripts.provider_adapters import (
+    NVIDIA_DEEPSEEK_MODEL,
+    NVIDIA_NEMOTRON_MODEL,
+    create_provider_adapter,
+)
 from scripts.provider_registry import load_provider_registry
 from scripts.validate_secure_evidence import validate_report
 
@@ -115,10 +119,15 @@ def _candidate_ok(evidence: Mapping[str, Any], probe: Mapping[str, Any], provide
     )
 
 
-def _limited_nvidia_candidate_ok(evidence: Mapping[str, Any], probe: Mapping[str, Any]) -> bool:
+NVIDIA_LIMITED_BOOTSTRAP_MODELS = (NVIDIA_NEMOTRON_MODEL, NVIDIA_DEEPSEEK_MODEL)
+NVIDIA_LIMITED_PROBE_SUCCESS_STATUSES = {"PROBE_OK", "PROBE_OK_MODEL_FIELD_UNREPORTED"}
+
+
+def _limited_nvidia_candidate_ok(
+    evidence: Mapping[str, Any], probe: Mapping[str, Any], model: str
+) -> bool:
     """Allow only the post-probe, one-call NVIDIA bootstrap exception."""
     provider = "nvidia"
-    model = "deepseek-ai/deepseek-v4-flash-0731"
     record = _model_record(evidence, provider, model)
     probe_record = _probe_record(probe, provider, model)
     severity = record.get("limited_staging_evidence_severity")
@@ -138,10 +147,13 @@ def _limited_nvidia_candidate_ok(evidence: Mapping[str, Any], probe: Mapping[str
         and record.get("selected_route") == "FREE_ENDPOINT"
         and record.get("paid_fallback_possible") is False
         and record.get("paid_transition_possible") is False
-        and probe_record.get("status") == "PROBE_OK"
+        and probe_record.get("status") in NVIDIA_LIMITED_PROBE_SUCCESS_STATUSES
         and probe_record.get("model_calls") == 1
         and probe_record.get("http_status", 0) in range(200, 300)
-        and probe_record.get("response_model") == model
+        and (
+            not probe_record.get("response_model")
+            or probe_record.get("response_model") == model
+        )
         and probe_record.get("staging_only") is True
         and cost_is_zero_or_unreported
     )
@@ -196,8 +208,16 @@ def run_from_reports(
         return {"status": "blocked", "stop_reason": "NETWORK_NOT_EXPLICITLY_ENABLED", "live_staging": False, "model_calls": 0}
     executor_choice, reviewer_choice = select_live_candidates(evidence, probe)
     if not executor_choice or not reviewer_choice:
-        if allow_limited_nvidia_bootstrap and _limited_nvidia_candidate_ok(evidence, probe):
-            model = "deepseek-ai/deepseek-v4-flash-0731"
+        selected_limited_model = next(
+            (
+                candidate
+                for candidate in NVIDIA_LIMITED_BOOTSTRAP_MODELS
+                if _limited_nvidia_candidate_ok(evidence, probe, candidate)
+            ),
+            None,
+        )
+        if allow_limited_nvidia_bootstrap and selected_limited_model:
+            model = selected_limited_model
             record = _model_record(evidence, "nvidia", model)
             registry = load_provider_registry()
             adapter = create_provider_adapter(registry, "nvidia", network_enabled=True, timeout_seconds=60.0)

@@ -131,7 +131,7 @@ jobs:
         continue-on-error: true
         env:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          NVIDIA_PROBE_MODEL: deepseek-ai/deepseek-v4-flash-0731
+          NVIDIA_PROBE_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b
         run: >-
           python scripts/probe_providers.py
           --provider nvidia

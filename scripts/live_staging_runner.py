@@ -35,6 +35,7 @@ from scripts.provider_adapters import (
     LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS,
     LIMITED_STAGING_MAX_OUTPUT_TOKENS,
     ProviderAdapterError,
+    nvidia_model_options,
 )
 
 
@@ -243,7 +244,11 @@ def _call_model(
             agent_id=f"{binding.role.lower()}-{binding.provider_id}",
             max_tokens=output_token_limit,
             temperature=0,
-            **({"reasoning_effort": "none"} if binding.execution_policy.limited_staging is True else {}),
+            **(
+                nvidia_model_options(binding.model_id)
+                if binding.execution_policy.limited_staging is True and binding.provider_id == "nvidia"
+                else {}
+            ),
         )
     except ProviderAdapterError as exc:
         raise ProviderInterrupted(f"{binding.provider_id}:{exc.error_class}") from None

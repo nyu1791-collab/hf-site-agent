@@ -293,10 +293,11 @@ jobs:
               '"retry_count": 0',
               '"paid_fallback": False',
               '"registry_changed": False',
-              "timeout_seconds=8.0",
+              "timeout_seconds: float = 8.0",
+              "probe_timeout = 60.0",
               'model == "openrouter/free"',
           ]:
-              if marker not in compatibility + probe:
+              if marker not in compatibility + probe + adapter:
                   raise SystemExit(f"provider probe is missing: {marker}")
           for marker in [
               'headers[header_name] = f"Bearer {credential}" if header_name.lower() == "authorization" else credential',
@@ -307,6 +308,8 @@ jobs:
               '"FREE_COST_UNVERIFIED"',
               '"FREE_COST_NONZERO"',
               'self.config.get("generate_path")',
+              'LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS = 256',
+              'chat_template_kwargs',
           ]:
               if marker not in adapter:
                   raise SystemExit(f"provider adapter is missing: {marker}")

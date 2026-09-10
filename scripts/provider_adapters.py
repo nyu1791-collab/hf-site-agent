@@ -26,6 +26,17 @@ from .execution_scope import ExecutionPolicy, ExecutionScopeError, authorize_exe
 
 LIMITED_STAGING_MAX_OUTPUT_TOKENS = 8
 LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS = 256
+NVIDIA_DEEPSEEK_MODEL = "deepseek-ai/deepseek-v4-flash-0731"
+NVIDIA_NEMOTRON_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
+
+
+def nvidia_model_options(model_id: str) -> dict[str, Any]:
+    """Return only the model-specific NVIDIA inference option."""
+    if model_id == NVIDIA_NEMOTRON_MODEL:
+        return {"chat_template_kwargs": {"enable_thinking": False}}
+    if model_id == NVIDIA_DEEPSEEK_MODEL:
+        return {"reasoning_effort": "none"}
+    return {}
 
 
 MISSION_PROMPTS: dict[str, str] = {
@@ -319,6 +330,8 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         reasoning_effort = options.get("reasoning_effort")
         if self.provider_id == "nvidia" and reasoning_effort in {"none", "high", "max"}:
             payload["reasoning_effort"] = reasoning_effort
+        if self.provider_id == "nvidia" and isinstance(options.get("chat_template_kwargs"), Mapping):
+            payload["chat_template_kwargs"] = dict(options["chat_template_kwargs"])
         if tools:
             payload["tools"] = [dict(tool) for tool in tools[:32]]
             payload["tool_choice"] = options.get("tool_choice", "auto")
@@ -451,11 +464,12 @@ class OpenAICompatibleAdapter(ProviderAdapter):
 
     def probe(self, model_id: str) -> dict[str, Any]:
         try:
+            model_options = nvidia_model_options(model_id) if self.provider_id == "nvidia" else {}
             response = self._chat(
                 model_id,
                 [{"role": "user", "content": "Return JSON: {\"ok\":true}"}],
-                max_tokens=8,
-                reasoning_effort="none" if self.provider_id == "nvidia" else None,
+                max_tokens=16 if model_id == NVIDIA_NEMOTRON_MODEL else 8,
+                **model_options,
             )
             self._validate_chat_payload(response.payload)
         except Exception as exc:

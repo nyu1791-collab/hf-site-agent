@@ -167,7 +167,9 @@ def _probe_failures(report: Mapping[str, Any], failures: list[dict[str, Any]]) -
         _append_failure(failures, _classify((report.get("status"),)), step="probe_providers")
         return
     for item in providers:
-        if not isinstance(item, Mapping) or item.get("status") in {"PROBE_OK", "DRY_RUN_NO_REQUEST"}:
+        if not isinstance(item, Mapping) or item.get("status") in {
+            "PROBE_OK", "PROBE_OK_MODEL_FIELD_UNREPORTED", "DRY_RUN_NO_REQUEST"
+        }:
             continue
         _append_failure(
             failures,

@@ -82,7 +82,7 @@ class ProviderAdapterTests(unittest.TestCase):
         self.assertEqual(result["status"], "MODEL_MISMATCH")
         self.assertNotIn("fallback_model", result)
 
-    def test_nvidia_probe_disables_reasoning_and_keeps_eight_token_cap(self):
+    def test_deepseek_probe_disables_reasoning_and_keeps_eight_token_cap(self):
         adapter = OpenAICompatibleAdapter(self.registry, "nvidia", network_enabled=True)
         seen = {}
         def fake_chat(model_id, messages, **options):
@@ -91,10 +91,43 @@ class ProviderAdapterTests(unittest.TestCase):
                 {"model": model_id, "choices": [{"message": {"content": "{}"}}], "usage": {"cost": "0"}}, {}, 4
             )
         adapter._chat = fake_chat
-        result = adapter.probe("requested/model")
+        result = adapter.probe("deepseek-ai/deepseek-v4-flash-0731")
         self.assertEqual(result["status"], "PROBE_OK")
         self.assertEqual(seen["max_tokens"], 8)
         self.assertEqual(seen["reasoning_effort"], "none")
+
+    def test_nemotron_probe_disables_thinking_without_reasoning_effort(self):
+        adapter = OpenAICompatibleAdapter(self.registry, "nvidia", network_enabled=True)
+        seen = {}
+
+        def fake_chat(model_id, messages, **options):
+            seen.update(options)
+            return AdapterResponse(
+                {"model": model_id, "choices": [{"message": {"content": "{}"}}], "usage": {"cost": "0"}}, {}, 4
+            )
+
+        adapter._chat = fake_chat
+        result = adapter.probe("nvidia/nemotron-3.5-lightning-30b-a3b")
+        self.assertEqual(result["status"], "PROBE_OK")
+        self.assertEqual(seen["max_tokens"], 16)
+        self.assertEqual(seen["chat_template_kwargs"], {"enable_thinking": False})
+        self.assertNotIn("reasoning_effort", seen)
+
+    def test_nvidia_chat_template_kwargs_are_added_to_payload(self):
+        adapter = OpenAICompatibleAdapter(self.registry, "nvidia", network_enabled=True)
+        captured = {}
+        adapter._request_json = lambda path, **kwargs: (
+            captured.update(kwargs) or AdapterResponse(
+                {"model": "nvidia/nemotron-3.5-lightning-30b-a3b", "choices": [{"message": {"content": "{}"}}]}, {}, 1
+            )
+        )
+        adapter._chat(
+            "nvidia/nemotron-3.5-lightning-30b-a3b",
+            [{"role": "user", "content": "x"}],
+            max_tokens=16,
+            chat_template_kwargs={"enable_thinking": False},
+        )
+        self.assertEqual(captured["payload"]["chat_template_kwargs"], {"enable_thinking": False})
 
     def test_probe_requires_zero_reported_cost(self):
         adapter = OpenAICompatibleAdapter(self.registry, "openrouter", network_enabled=True)

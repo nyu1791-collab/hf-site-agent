@@ -59,6 +59,26 @@ class ProviderProbeTests(unittest.TestCase):
             }
         }
 
+    @staticmethod
+    def limited_evidence(model):
+        payload = ProviderProbeTests.evidence("nvidia", model)
+        record = payload["nvidia"][model]
+        record.update({
+            "current": True,
+            "secure_evidence": True,
+            "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
+            "evidence_generation": 1,
+            "evidence_provenance": ["OFFICIAL_API"],
+            "catalog": [{"id": model}],
+            "pricing_metadata": {
+                "fixed_free_endpoint": True,
+                "endpoint_verified": True,
+                "auth_verified": True,
+                "paid_fallback_disabled": True,
+            },
+        })
+        return payload
+
     def test_default_mode_is_dry_run_and_sends_no_request(self):
         report = run_probe(self.registry, network_enabled=False, environ={})
         self.assertEqual(report["model_calls"], 0)
@@ -144,7 +164,7 @@ class ProviderProbeTests(unittest.TestCase):
                 "NVIDIA_API_KEY": "test-key",
                 "NVIDIA_PROBE_MODEL": "vendor/model",
             },
-            free_evidence=self.evidence("nvidia", "vendor/model"),
+            free_evidence=self.limited_evidence("vendor/model"),
             explicit_approval=True,
         )
         self.assertEqual(report["providers"][0]["status"], "PROBE_FAILED")
@@ -163,11 +183,49 @@ class ProviderProbeTests(unittest.TestCase):
             network_enabled=True,
             adapters={"nvidia": fake},
             environ={"NVIDIA_API_KEY": "test-key", "NVIDIA_PROBE_MODEL": "vendor/model"},
-            free_evidence=self.evidence("nvidia", "vendor/model"),
+            free_evidence=self.limited_evidence("vendor/model"),
             explicit_approval=True,
         )
         self.assertEqual(report["providers"][0]["status"], "NETWORK_TIMEOUT")
         self.assertNotEqual(report["providers"][0]["status"], "MODEL_MISMATCH")
+
+    def test_limited_nvidia_success_without_response_model_is_explicitly_unreported(self):
+        fake = FakeAdapter(result={
+            "status": "PROBE_OK",
+            "response_model": "",
+            "usage_cost": None,
+            "http_status": 200,
+        })
+        report = run_probe(
+            self.registry,
+            ["nvidia"],
+            network_enabled=True,
+            adapters={"nvidia": fake},
+            environ={"NVIDIA_API_KEY": "test-key", "NVIDIA_PROBE_MODEL": "vendor/model"},
+            free_evidence=self.limited_evidence("vendor/model"),
+            explicit_approval=True,
+            allow_limited_staging_probe=True,
+        )
+        self.assertEqual(report["providers"][0]["status"], "PROBE_OK_MODEL_FIELD_UNREPORTED")
+
+    def test_explicit_different_nvidia_model_remains_mismatch(self):
+        fake = FakeAdapter(result={
+            "status": "PROBE_OK",
+            "response_model": "other/model",
+            "usage_cost": None,
+            "http_status": 200,
+        })
+        report = run_probe(
+            self.registry,
+            ["nvidia"],
+            network_enabled=True,
+            adapters={"nvidia": fake},
+            environ={"NVIDIA_API_KEY": "test-key", "NVIDIA_PROBE_MODEL": "vendor/model"},
+            free_evidence=self.limited_evidence("vendor/model"),
+            explicit_approval=True,
+            allow_limited_staging_probe=True,
+        )
+        self.assertEqual(report["providers"][0]["status"], "MODEL_MISMATCH")
 
     def test_missing_probe_approval_blocks_before_provider_call(self):
         fake = FakeAdapter()

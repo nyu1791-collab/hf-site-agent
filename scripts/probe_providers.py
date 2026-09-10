@@ -20,7 +20,7 @@ from typing import Any, Mapping, Sequence
 if __package__ in {None, ""}:  # pragma: no cover - script invocation path
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.provider_adapters import create_provider_adapter
+from scripts.provider_adapters import NVIDIA_NEMOTRON_MODEL, create_provider_adapter
 from scripts.free_evidence import resolve_free_evidence
 from scripts.provider_registry import PROVIDER_IDS, load_provider_registry
 
@@ -237,6 +237,15 @@ def run_probe(
         )
         if provider_id in {"openrouter", "nvidia"} and response_is_success and response_model != model:
             status = "MODEL_MISMATCH"
+        if (
+            provider_id == "nvidia"
+            and limited_staging_probe_allowed
+            and status == "PROBE_OK"
+            and isinstance(response_http_status, int)
+            and 200 <= response_http_status < 300
+            and not (isinstance(response_model, str) and response_model.strip())
+        ):
+            status = "PROBE_OK_MODEL_FIELD_UNREPORTED"
         results.append(_provider_result(
             provider_id,
             model=model,
@@ -248,10 +257,8 @@ def run_probe(
             staging_only=not zero_cost_verified,
             probe_mode="LIMITED_STAGING_PROBE" if limited_staging_probe_allowed else "STANDARD_PROBE",
             request_hard_limit=1,
-            max_output_tokens=(
-                int(evidence.get("limited_staging_probe_max_output_tokens") or 8)
-                if limited_staging_probe_allowed else None
-            ),
+            max_output_tokens=(16 if provider_id == "nvidia" and model == NVIDIA_NEMOTRON_MODEL else 8)
+            if limited_staging_probe_allowed else None,
             automatic_model_fallback=False,
             generic_paid_router_disabled=True,
             auto_top_up=False,

@@ -348,7 +348,7 @@ class SecureAccountEvidenceTests(unittest.TestCase):
 
     def test_limited_nvidia_report_path_runs_one_bootstrap_call_after_probe(self):
         expiry = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
-        model = "deepseek-ai/deepseek-v4-flash-0731"
+        model = "nvidia/nemotron-3.5-lightning-30b-a3b"
         evidence = {
             "schema_version": SCHEMA_VERSION,
             "secret_values_in_bundle": False,
@@ -429,7 +429,10 @@ class SecureAccountEvidenceTests(unittest.TestCase):
         self.assertEqual(report["live_staging"]["external_model_calls"], 1)
         self.assertEqual(report["total_external_model_calls_in_command"], 1)
         self.assertEqual(holder["nvidia"].calls[0]["options"]["max_tokens"], 256)
-        self.assertEqual(holder["nvidia"].calls[0]["options"]["reasoning_effort"], "none")
+        self.assertEqual(
+            holder["nvidia"].calls[0]["options"]["chat_template_kwargs"],
+            {"enable_thinking": False},
+        )
         self.assertFalse(report["safety"]["zero_cost_all_live_calls"])
 
 
