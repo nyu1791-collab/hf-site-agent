@@ -28,8 +28,39 @@ from scripts.probe_free_workers import (
 from scripts.worker_selection import WORKER_ROLES, catalog_worker_candidates
 
 CANDIDATES_PER_ROLE = 24
+RECENT_CANDIDATES_PER_ROLE = 6
 MAX_UNIQUE_PROBES = 64
 MAX_PARALLEL_PROBES = 6
+
+
+def _created_epoch(candidate: Mapping[str, Any]) -> int:
+    value = candidate.get("catalog_created_epoch")
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return 0
+    return value
+
+
+def _portfolio_candidates(candidates: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
+    """Preserve normal quality ordering while reserving discovery room for new models."""
+    quality_budget = max(1, CANDIDATES_PER_ROLE - RECENT_CANDIDATES_PER_ROLE)
+    selected = [dict(item) for item in candidates[:quality_budget]]
+    selected_ids = {str(item.get("model") or "") for item in selected}
+    newest = sorted(
+        (item for item in candidates if _created_epoch(item) > 0),
+        key=lambda item: (-_created_epoch(item), str(item.get("model") or "")),
+    )
+    recent_ids = [str(item.get("model") or "") for item in newest[:RECENT_CANDIDATES_PER_ROLE]]
+    for item in newest:
+        model = str(item.get("model") or "")
+        if model and model not in selected_ids and len(selected) < CANDIDATES_PER_ROLE:
+            selected.append(dict(item))
+            selected_ids.add(model)
+    for item in candidates:
+        model = str(item.get("model") or "")
+        if model and model not in selected_ids and len(selected) < CANDIDATES_PER_ROLE:
+            selected.append(dict(item))
+            selected_ids.add(model)
+    return selected[:CANDIDATES_PER_ROLE], recent_ids
 
 
 def _parallel_probe(probe_ids: list[str], api_key: str) -> list[dict[str, Any]]:
@@ -79,13 +110,31 @@ def run_multi_probe(*, api_key: str = "", registry: Mapping[str, Any] | None = N
     entries, catalog_error = _catalog()
     metadata = registry.get("models") if isinstance(registry.get("models"), Mapping) else {}
     role_candidates: dict[str, list[str]] = {}
+    recent_role_candidates: dict[str, list[str]] = {}
     catalog_candidate_counts: dict[str, int] = {}
+    catalog_model_metadata: dict[str, dict[str, Any]] = {}
     for role in WORKER_ROLES:
         candidates = catalog_worker_candidates(entries, role, registry_metadata=metadata)
         catalog_candidate_counts[role] = len(candidates)
-        role_candidates[role] = [str(item["model"]) for item in candidates[:CANDIDATES_PER_ROLE]]
+        selected, recent = _portfolio_candidates(candidates)
+        role_candidates[role] = [str(item["model"]) for item in selected]
+        recent_role_candidates[role] = recent
+        for item in candidates:
+            model = str(item.get("model") or "")
+            if not model or model in catalog_model_metadata:
+                continue
+            catalog_model_metadata[model] = {
+                "catalog_created_epoch": item.get("catalog_created_epoch"),
+                "context_length": item.get("context_length"),
+            }
 
     probe_ids: list[str] = []
+    # Probe current-catalog newcomers before the normal quality pool so a hard
+    # global cap cannot silently exclude every newly released model.
+    for role in WORKER_ROLES:
+        for model in recent_role_candidates[role]:
+            if model not in probe_ids:
+                probe_ids.append(model)
     for role in WORKER_ROLES:
         for model in role_candidates[role]:
             if model not in probe_ids:
@@ -99,9 +148,14 @@ def run_multi_probe(*, api_key: str = "", registry: Mapping[str, Any] | None = N
         "network_enabled": True,
         "worker_roles": list(WORKER_ROLES),
         "candidates_per_role": CANDIDATES_PER_ROLE,
+        "recent_candidates_per_role": RECENT_CANDIDATES_PER_ROLE,
         "catalog_candidate_counts": catalog_candidate_counts,
         "role_probe_candidates": role_candidates,
+        "recent_role_probe_candidates": recent_role_candidates,
         "selected_probe_models": probe_ids,
+        "catalog_model_metadata": {
+            model: catalog_model_metadata.get(model, {}) for model in probe_ids
+        },
         "model_calls": 0,
         "probe_max_tokens": MAX_TOKENS,
         "retries": 0,
@@ -190,6 +244,8 @@ def main() -> int:
             "results": [],
             "selections": {},
             "role_probe_candidates": {},
+            "recent_role_probe_candidates": {},
+            "catalog_model_metadata": {},
             "parallel_execution": True,
             "parallel_worker_limit": MAX_PARALLEL_PROBES,
             "paid_fallback": False,
@@ -210,6 +266,8 @@ def main() -> int:
                 "results": [],
                 "selections": {},
                 "role_probe_candidates": {},
+                "recent_role_probe_candidates": {},
+                "catalog_model_metadata": {},
                 "parallel_execution": True,
                 "parallel_worker_limit": MAX_PARALLEL_PROBES,
                 "paid_fallback": False,
@@ -222,6 +280,7 @@ def main() -> int:
         "model_calls": report.get("model_calls", 0),
         "verified_free_model_count": report.get("verified_free_model_count", 0),
         "parallel_worker_limit": report.get("parallel_worker_limit", MAX_PARALLEL_PROBES),
+        "recent_role_probe_candidates": report.get("recent_role_probe_candidates", {}),
         "role_probe_candidates": report.get("role_probe_candidates", {}),
         "paid_fallback": False,
     }, sort_keys=True))
