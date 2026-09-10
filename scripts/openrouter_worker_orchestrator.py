@@ -9,10 +9,11 @@ project instead of creating a new mission or replaying an uncertain request.
 
 If the Google commander is conclusively unavailable after the bounded focused
 recovery sequence, worker *bootstrap only* may continue in a clearly marked
-degraded mode. That mode never claims two-agent acceptance, never activates a
-worker automatically, and never grants repository or production authority; it
-only avoids wasting an otherwise healthy exact-free worker lane while the
-primary commander provider recovers.
+degraded mode. This also covers a settled Google revision failure after an
+NVIDIA review: a nonzero revision count proves the reviewer completed and the
+failure occurred after the runtime entered the Google reviser phase. Degraded
+mode never claims two-agent acceptance, never activates a worker automatically,
+and never grants repository or production authority.
 """
 
 from __future__ import annotations
@@ -34,7 +35,7 @@ from scripts.continuous_project_loop import AUTO_NEXT_SAFE, PROJECT_BOUNDARY, ru
 from scripts.openrouter_worker_mission import build_mission_packet
 from scripts.probe_free_workers_multi import run_multi_probe
 
-SCHEMA_VERSION = "openrouter-worker-orchestrator-v3"
+SCHEMA_VERSION = "openrouter-worker-orchestrator-v4"
 MAX_STAGE_EVENTS = 20
 MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS = 3
 
@@ -79,14 +80,16 @@ def _live_result_accepted(live: Mapping[str, Any]) -> bool:
 
 
 def _degraded_worker_bootstrap_allowed(live: Mapping[str, Any]) -> bool:
-    """Allow only a settled, repeated Google outage to bypass the worker gate.
+    """Allow a conclusively settled Google constraint to bypass the worker gate.
 
-    This is intentionally stricter than checking ``status=blocked``. Ambiguous
-    provider outcomes remain in the normal checkpoint/no-replay path. Three or
-    more *settled* Google attempts with zero unsettled reservations prove that
-    the bounded recovery sequence finished conclusively; the worker lane may
-    then perform discovery/benchmark/canary work while commander acceptance
-    remains pending.
+    Ambiguous provider outcomes remain in the checkpoint/no-replay path. Three
+    or more settled Google attempts with zero unsettled reservations prove the
+    bounded recovery sequence finished conclusively. If NVIDIA has not run,
+    this is the pre-review Google outage case. If NVIDIA has run, a nonzero
+    revision count proves its review completed and the runtime entered the
+    Google reviser phase before the later interruption. Both cases may safely
+    continue independent worker discovery/benchmark work, while commander
+    acceptance remains pending.
     """
     if live.get("status") != "blocked" or not _hard_safety_clean(live):
         return False
@@ -98,6 +101,8 @@ def _degraded_worker_bootstrap_allowed(live: Mapping[str, Any]) -> bool:
     unsettled = int(budget.get("unsettled_requests", 0) or 0)
     google_calls = int(providers.get("google", 0) or 0)
     nvidia_calls = int(providers.get("nvidia", 0) or 0)
+    revision_count = int(runtime.get("revision_count", 0) or 0)
+    failure_phase_proven = nvidia_calls == 0 or (nvidia_calls >= 1 and revision_count >= 1)
     return (
         str(runtime.get("stop_reason") or live.get("stop_reason") or "").upper() == "PROVIDER_INTERRUPTED"
         and unsettled == 0
@@ -105,7 +110,7 @@ def _degraded_worker_bootstrap_allowed(live: Mapping[str, Any]) -> bool:
         and view.get("executor_provider") == "google"
         and view.get("family_separation_pass") is True
         and google_calls >= MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS
-        and nvidia_calls == 0
+        and failure_phase_proven
         and int(view.get("external_model_calls", 0) or 0) >= MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS
     )
 
@@ -185,12 +190,20 @@ def run_pipeline(
         report["commander_gate_mode"] = "TWO_AGENT_ACCEPTED"
         events.append(_event("TWO_AGENT_RESULT_GATE", "PASSED", "Google executor and NVIDIA reviewer result accepted"))
     else:
+        runtime = _mapping(live_report.get("runtime"))
+        providers = _mapping(_mapping(live_report.get("live_staging")).get("providers"))
+        reviewer_present = int(providers.get("nvidia", 0) or 0) >= 1 and int(runtime.get("revision_count", 0) or 0) >= 1
         report["commander_gate_mode"] = "DEGRADED_WORKER_BOOTSTRAP"
         report["commander_acceptance_pending"] = True
+        report["reviewer_already_participated"] = reviewer_present
         events.append(_event(
             "TWO_AGENT_RESULT_GATE",
             "DEGRADED_BOOTSTRAP",
-            "Google bounded recovery ended conclusively; worker discovery/benchmark may continue while commander acceptance remains pending",
+            (
+                "Google revision became conclusively constrained after NVIDIA review; independent worker bootstrap may continue"
+                if reviewer_present
+                else "Google bounded recovery ended conclusively; worker discovery/benchmark may continue while commander acceptance remains pending"
+            ),
         ))
 
     if not network_enabled:
