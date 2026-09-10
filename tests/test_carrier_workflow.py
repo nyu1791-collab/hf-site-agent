@@ -53,6 +53,26 @@ class CarrierWorkflowTests(unittest.TestCase):
         self.assertIn('"production_active": False', self.text)
         self.assertIn('"paid_execution_count": 0', self.text)
 
+    def test_resume_restores_previous_redacted_artifact_before_nvidia_call(self):
+        self.assertIn("actions/download-artifact@v6", self.text)
+        self.assertIn("run-id: ${{ inputs.resume_run_id }}", self.text)
+        self.assertIn("artifacts/resume/", self.text)
+        self.assertIn("nvidia_orchestrator_ledger.json", self.text)
+        restore_index = self.text.index("Restore prior redacted mission artifact")
+        guarded_index = self.text.index("python scripts/run_nvidia_orchestrator_guarded.py")
+        self.assertLess(restore_index, guarded_index)
+
+    def test_carrier_uses_guarded_orchestrator_not_direct_legacy_entrypoint(self):
+        self.assertIn("run_nvidia_orchestrator_guarded.py", self.text)
+        self.assertNotIn("run: python scripts/run_nvidia_orchestrator_mission.py", self.text)
+        self.assertNotIn("--allow-limited-nvidia-bootstrap", self.text)
+        self.assertIn("SKIPPED_TWO_AGENT_STAGING_ALREADY_OPERATIONAL", self.text)
+
+    def test_carrier_preserves_read_only_actions_permission(self):
+        self.assertIn("contents: read", self.text)
+        self.assertIn("actions: read", self.text)
+        self.assertNotIn("contents: write", self.text)
+
 
 if __name__ == "__main__":
     unittest.main()
