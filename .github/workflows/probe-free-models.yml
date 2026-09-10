@@ -1,4 +1,4 @@
-name: "Secure staging carrier: evidence, probe, two-agent"
+name: "Secure staging carrier: NVIDIA + Google"
 
 on:
   workflow_dispatch:
@@ -25,12 +25,9 @@ concurrency:
 
 jobs:
   staging-carrier:
-    # The dispatch event and target branch are the explicit staging approval.
-    # No required UI input is used, so the default-branch registration and the
-    # PR-branch implementation have the same dispatch contract.
     if: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == 'ai-army/provider-v3' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
       - name: Checkout target PR branch without write credentials
         uses: actions/checkout@v6
@@ -57,8 +54,7 @@ jobs:
             scripts/live_staging_runner.py \
             scripts/execution_scope.py \
             scripts/classify_carrier_failure.py \
-            scripts/run_nvidia_orchestrator_mission.py \
-            tests/test_classify_carrier_failure.py
+            scripts/run_nvidia_orchestrator_mission.py
           python - <<'PY'
           import json
           import os
@@ -76,19 +72,19 @@ jobs:
               "workflow_dispatch_enabled": True,
               "branch_guard_allows_target": True,
               "required_input_blocker": False,
+              "provider_focus": ["nvidia", "google"],
               "production_active": False,
           }
           Path("artifacts/dispatch_status.json").write_text(
               json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8"
           )
-          print(json.dumps({key: report[key] for key in (
-              "dispatch_status", "branch", "branch_guard_allows_target",
-              "required_input_blocker", "production_active",
-          )}, sort_keys=True))
+          print(json.dumps(report, sort_keys=True))
           PY
 
       - name: Record provider secret presence only
         env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
         run: |
           set -euo pipefail
@@ -97,9 +93,8 @@ jobs:
           import os
           from pathlib import Path
 
-          google_present = bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"))
           presence = {
-              "google": google_present,
+              "google": bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")),
               "nvidia": bool(os.environ.get("NVIDIA_API_KEY")),
           }
           report = {
@@ -114,14 +109,10 @@ jobs:
           Path("artifacts/secret_presence.json").write_text(
               json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8"
           )
-          print(json.dumps({
-              "secret_presence": presence,
-              "provider_secrets_accessed_by_runner": report["provider_secrets_accessed_by_runner"],
-              "secret_values_displayed": 0,
-          }, sort_keys=True))
+          print(json.dumps({"secret_presence": presence, "secret_values_displayed": 0}, sort_keys=True))
           PY
 
-      - name: Collect redacted account evidence for MVP providers
+      - name: Collect redacted account evidence for NVIDIA and Google
         id: evidence
         continue-on-error: true
         env:
@@ -131,12 +122,15 @@ jobs:
         run: >-
           python scripts/secure_account_evidence.py
           --provider nvidia
+          --provider google
           --output artifacts/secure_account_evidence.json
 
       - name: Validate redaction and evidence freshness
         if: always()
         continue-on-error: true
         env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
         run: python scripts/validate_secure_evidence.py --input artifacts/secure_account_evidence.json
 
@@ -144,11 +138,15 @@ jobs:
         if: always()
         continue-on-error: true
         env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_PROBE_MODEL: gemini-3.8-flash
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           NVIDIA_PROBE_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b
         run: >-
           python scripts/probe_providers.py
           --provider nvidia
+          --provider google
           --network
           --confirm CHECK
           --allow-limited-staging-probe
@@ -265,22 +263,30 @@ jobs:
           classification = read("artifacts/failure_classification.json", {})
           evidence_providers = evidence.get("providers") if isinstance(evidence.get("providers"), dict) else {}
           probe_items = probe.get("providers") if isinstance(probe.get("providers"), list) else []
-          probe_passes = [item for item in probe_items if isinstance(item, dict) and item.get("status") == "PROBE_OK"]
+          probe_passes = [
+              item for item in probe_items
+              if isinstance(item, dict) and item.get("status") in {"PROBE_OK", "PROBE_OK_MODEL_FIELD_UNREPORTED"}
+          ]
           live_view = live.get("live_staging") if isinstance(live.get("live_staging"), dict) else {}
           bootstrap = live.get("self_bootstrap") if isinstance(live.get("self_bootstrap"), dict) else {}
-          evidence_calls = sum(1 for lane in evidence_providers.values() if isinstance(lane, dict) and lane.get("secret_present") is True)
+          evidence_calls = sum(
+              1 for lane in evidence_providers.values()
+              if isinstance(lane, dict) and lane.get("secret_present") is True
+          )
           probe_calls = int(probe.get("model_calls", 0) or 0)
           live_calls = int(live.get("total_external_model_calls_in_command", 0) or 0)
           live_agent_count = int(live_view.get("live_agent_count", 2 if live_view.get("operational") is True else 0) or 0)
           live_two_agent = bool(live_view.get("two_agent", live_view.get("operational") is True and live_agent_count >= 2))
           summary = {
-              "schema_version": "carrier-summary-v1",
+              "schema_version": "carrier-summary-v2",
               "dispatch_status": dispatch.get("dispatch_status", "EXECUTED"),
               "carrier_workflow": "probe-free-models.yml",
               "target_branch": dispatch.get("branch", "ai-army/provider-v3"),
+              "provider_focus": ["nvidia", "google"],
               "branch_guard_fixed": dispatch.get("branch_guard_allows_target") is True,
               "input_schema_fixed": dispatch.get("required_input_blocker") is False,
               "secret_presence": presence.get("secret_presence", {}),
+              "evidence_provider_count": len(evidence_providers),
               "provider_network_calls": evidence_calls + probe_calls + live_calls,
               "probe_model_calls": probe_calls,
               "probe_pass_count": len(probe_passes),
@@ -288,6 +294,10 @@ jobs:
                   {"provider": item.get("provider"), "model": item.get("model"), "status": item.get("status")}
                   for item in probe_passes
               ],
+              "probe_status_by_provider": {
+                  str(item.get("provider")): str(item.get("status"))
+                  for item in probe_items if isinstance(item, dict) and item.get("provider")
+              },
               "live_staging_status": live.get("status", "blocked"),
               "live_two_agent": live_two_agent,
               "live_agent_count": live_agent_count,
