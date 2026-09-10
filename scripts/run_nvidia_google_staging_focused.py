@@ -63,6 +63,7 @@ FOCUSED_ENVELOPE_CHARS = 180_000
 FOCUSED_REQUEST_BUDGET = 24
 FOCUSED_TOKEN_BUDGET = 81_920
 FOCUSED_GOOGLE_TIMEOUT_SECONDS = 90.0
+FOCUSED_NVIDIA_TIMEOUT_SECONDS = 240.0
 
 
 class _ProbeReuseAdapter:
@@ -175,6 +176,7 @@ def _focused_factory(registry, provider_id, **kwargs):
             registry,
             network_enabled=bool(kwargs.get("network_enabled", False)),
         )
+        adapter.timeout_seconds = FOCUSED_NVIDIA_TIMEOUT_SECONDS
     else:
         if provider_id == "google":
             kwargs["timeout_seconds"] = max(float(kwargs.get("timeout_seconds", 0) or 0), FOCUSED_GOOGLE_TIMEOUT_SECONDS)
