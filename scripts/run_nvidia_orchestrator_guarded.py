@@ -159,10 +159,7 @@ class DurableNvidiaAdapter:
             requested_tokens=CALL_TOKEN_RESERVATION,
         )
         self.current_reservation_id = str(reservation.get("reservation_id") or "")
-        if (
-            reservation.get("dispatch_started") is True
-            or reservation.get("state") in {"settled", "unsettled"}
-        ):
+        if reservation.get("dispatch_started") is True or reservation.get("state") in {"settled", "unsettled"}:
             self.current_state = str(reservation.get("state") or "UNKNOWN").upper()
             raise ProviderAdapterError("DUPLICATE_NVIDIA_CALL_BLOCKED")
 
@@ -173,18 +170,12 @@ class DurableNvidiaAdapter:
         try:
             result = self.underlying.generate(model_id, messages, **options)
         except Exception:
-            self.ledger.mark_unsettled(
-                self.current_reservation_id,
-                reason="provider_dispatch_completed_but_result_unknown",
-            )
+            self.ledger.mark_unsettled(self.current_reservation_id, reason="provider_dispatch_completed_but_result_unknown")
             self.current_state = "UNSETTLED"
             raise
 
         if not isinstance(result, Mapping):
-            self.ledger.mark_unsettled(
-                self.current_reservation_id,
-                reason="provider_response_not_mapping",
-            )
+            self.ledger.mark_unsettled(self.current_reservation_id, reason="provider_response_not_mapping")
             self.current_state = "UNSETTLED"
             raise ProviderAdapterError("INVALID_PROVIDER_RESPONSE")
 
@@ -229,11 +220,7 @@ def _enrich_artifacts(source_head: str, adapter: DurableNvidiaAdapter | None, re
             inbox["head_advanced_on_resume"] = resume_report.get("head_advanced") is True
         proposal = inbox.get("proposal")
         digest = str(inbox.get("result_hash") or "")
-        inbox["result_hash_verified"] = (
-            isinstance(proposal, Mapping)
-            and bool(digest)
-            and result_hash(proposal) == digest
-        )
+        inbox["result_hash_verified"] = isinstance(proposal, Mapping) and bool(digest) and result_hash(proposal) == digest
         if adapter is not None:
             inbox["provider_reservation_state"] = adapter.current_state
             if adapter.current_dispatch_started:
@@ -276,14 +263,36 @@ def main() -> int:
 
     os.environ["GITHUB_SHA"] = source_head
 
+    extra_context = (
+        "scripts/mission_integrity.py",
+        "scripts/run_nvidia_orchestrator_guarded.py",
+        "scripts/google_staging_readiness.py",
+        "tests/test_mission_integrity.py",
+        "tests/test_google_staging_readiness.py",
+    )
+    mission.ALLOWED_FILES = tuple(dict.fromkeys((*extra_context, *mission.ALLOWED_FILES)))
+    mission.CONTEXT_MARKERS = {
+        **dict(mission.CONTEXT_MARKERS),
+        "scripts/mission_integrity.py": (
+            "def validate_result_inbox",
+            "def validate_resume_bundle",
+            "def acknowledge_result_inbox",
+        ),
+        "scripts/run_nvidia_orchestrator_guarded.py": (
+            "class DurableNvidiaAdapter",
+            "def _enrich_artifacts",
+            "def main",
+        ),
+        "scripts/google_staging_readiness.py": (
+            "def build_google_readiness_packet",
+            "validate_result_inbox",
+            "repeat_nvidia_call_allowed",
+        ),
+    }
+
     ledger = MissionReservationLedger(
         LEDGER_PATH,
-        provider_limits={
-            "nvidia": {
-                "requests": MAX_MISSION_REQUESTS,
-                "tokens": MAX_MISSION_TOKEN_BUDGET,
-            }
-        },
+        provider_limits={"nvidia": {"requests": MAX_MISSION_REQUESTS, "tokens": MAX_MISSION_TOKEN_BUDGET}},
     )
     original_factory = mission.create_provider_adapter
     wrappers: list[DurableNvidiaAdapter] = []
