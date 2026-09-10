@@ -1,2 +1,2 @@
-trigger=multi-agent-efficiency-v13-failure-aware-work-stealing
-purpose=measure-primary-vs-redispatch-lane-success-backpressure-worker-health-parallel-speedup-and-nvidia-synthesis
+trigger=multi-agent-efficiency-v14-length-aware-retry-compact-synthesis-staging-parallel
+purpose=live-validate-length-aware-work-stealing-compact-nvidia-completion-and-staging-openrouter-subordinate-parallelism
