@@ -34,15 +34,15 @@ jobs:
           python-version: "3.12"
 
       - name: Compile DeepSeek specialist trial
-        run: python -m py_compile scripts/deepseek_specialist_trial.py
+        run: python -m py_compile scripts/deepseek_specialist_trial.py scripts/deepseek_specialist_trial_v2.py
 
       - name: Run deterministic DeepSeek routing and budget tests
-        run: python -m unittest tests.test_deepseek_specialist_trial -v
+        run: python -m unittest tests.test_deepseek_specialist_trial tests.test_deepseek_specialist_trial_v2 -v
 
       - name: Verify dry-run stays offline
         run: |
           set -euo pipefail
-          python scripts/deepseek_specialist_trial.py --output artifacts/deepseek_specialist_dry_run.json
+          python scripts/deepseek_specialist_trial_v2.py --output artifacts/deepseek_specialist_dry_run.json
           python -m json.tool artifacts/deepseek_specialist_dry_run.json >/dev/null
 
       - name: Run explicitly approved paid DeepSeek engineering trial
@@ -50,7 +50,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           set -euo pipefail
-          python scripts/deepseek_specialist_trial.py \
+          python scripts/deepseek_specialist_trial_v2.py \
             --network \
             --confirm DEEPSEEK_PAID_TRIAL \
             --output artifacts/deepseek_specialist_trial.json
@@ -67,6 +67,7 @@ jobs:
               "selected_task_count": report.get("selected_task_count", 0),
               "average_quality_score": report.get("average_quality_score", 0),
               "parallel_speedup": report.get("parallel_speedup", 0),
+              "prompt_cache_hit_rate": report.get("prompt_cache_hit_rate", 0),
               "estimated_current_cost_usd": report.get("estimated_current_cost_usd", 0),
               "conservative_cost_usd": report.get("conservative_cost_usd", 0),
               "placement_recommendation": report.get("placement_recommendation"),
@@ -75,6 +76,8 @@ jobs:
           }, sort_keys=True))
           assert report.get("generic_paid_fallback") is False
           assert report.get("production_routing_changed") is False
+          assert report.get("failure_usage_preserved") is True
+          assert report.get("robust_json_parser") is True
           assert float(report.get("conservative_cost_usd", 0)) <= float(report.get("max_estimated_cost_usd", 0.25))
           PY
 
