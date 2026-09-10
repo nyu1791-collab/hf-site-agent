@@ -66,7 +66,7 @@ class AIArmyCoordinationTests(unittest.TestCase):
         self.assertEqual(packet["call_policy"]["recommended_google_calls_this_stage"], 0)
         self.assertTrue(packet["live_two_agent"]["family_separation_pass"])
 
-    def test_performance_policy_is_adaptive_not_always_redundant(self):
+    def test_performance_policy_is_adaptive_and_same_provider_safe(self):
         packet = build_coordination_packet({}, {})
         policy = packet["performance_policy"]
         self.assertEqual(policy["normal"]["executor_attempts"], 1)
@@ -75,6 +75,20 @@ class AIArmyCoordinationTests(unittest.TestCase):
         self.assertTrue(policy["default_is_not_redundant"])
         self.assertEqual(policy["critical"]["output_token_ceiling"], 12_288)
         self.assertEqual(policy["mission_token_ceiling"], 81_920)
+        self.assertEqual(policy["important"]["execution"], "SERIAL_SAME_PROVIDER_BEST_OF_N")
+        self.assertFalse(packet["call_policy"]["same_provider_independent_attempts_parallel"])
+        self.assertIn("CHECKPOINT_UNSETTLED", policy["provider_interruption_rule"])
+
+    def test_project_continuation_stops_at_project_not_action_boundary(self):
+        packet = build_coordination_packet({}, {})
+        policy = packet["project_continuation_policy"]
+        self.assertFalse(policy["stop_between_actions"])
+        self.assertFalse(policy["stop_between_mission_phases"])
+        self.assertEqual(policy["current_stop_scope"], "PROJECT_BOUNDARY")
+        self.assertEqual(policy["after_project_acceptance"], "PREDICT_NEXT_PROJECT")
+        self.assertTrue(policy["auto_continue_safe_followups"])
+        self.assertEqual(policy["max_auto_followup_projects_per_carrier"], 3)
+        self.assertFalse(policy["infinite_loop_allowed"])
 
     def test_subordinate_model_plan_keeps_commanders_and_benchmarks_workers(self):
         packet = build_coordination_packet({}, {})
@@ -82,7 +96,8 @@ class AIArmyCoordinationTests(unittest.TestCase):
         self.assertEqual(plan["google_corps"]["commander"], "gemini-3.8-flash")
         self.assertEqual(plan["nvidia_corps"]["commander"], "nvidia/nemotron-3.5-lightning-30b-a3b")
         self.assertIn("RUN_SMALL_CAPABILITY_BENCHMARK", plan["admission_sequence"])
-        self.assertIn("latency", plan["selection_metrics"])
+        self.assertIn("measured_latency", plan["selection_metrics"])
+        self.assertIn("CANARY_ON_SECOND_SAMPLE_IN_STAGING", plan["admission_sequence"])
         self.assertTrue(plan["commander_override"])
         self.assertFalse(plan["worker_direct_repository_write"])
 
