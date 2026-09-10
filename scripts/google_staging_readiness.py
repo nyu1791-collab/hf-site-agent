@@ -16,7 +16,15 @@ import argparse
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import sys
 from typing import Any, Mapping
+
+# ``python scripts/google_staging_readiness.py`` sets sys.path[0] to the
+# scripts directory rather than the repository root.  Bootstrap the package
+# path explicitly so direct GitHub Actions entrypoints behave the same as
+# ``python -m scripts.google_staging_readiness`` without relying on PYTHONPATH.
+if __package__ in {None, ""}:  # pragma: no cover - direct script entrypoint
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.mission_integrity import validate_result_inbox
 
