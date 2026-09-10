@@ -44,17 +44,18 @@ class OpenRouterWorkerMissionTests(unittest.TestCase):
         self.assertIn("scripts/continuous_project_loop.py", ALLOWED_PATHS)
         self.assertNotIn("config/model_registry.json", ALLOWED_PATHS)
 
-    def test_focused_carrier_defaults_to_important_openrouter_trial(self):
+    def test_openrouter_worker_project_is_not_current_default_before_bugfix_passes(self):
         profile = profile_for_task(
             role=focused.DEFAULT_TRIAL_ROLE,
             risk_level="LOW",
             complexity_level=1,
             metadata={"objective": focused.DEFAULT_TRIAL_OBJECTIVE},
         )
-        self.assertEqual(profile.name, "IMPORTANT")
-        self.assertEqual(profile.attempts, 2)
-        self.assertEqual(profile.output_tokens, 8_192)
-        self.assertEqual(profile.mission_token_budget, 49_152)
+        self.assertEqual(focused.DEFAULT_TRIAL_ROLE, "ORCHESTRATION_BUGFIX_PROJECT")
+        self.assertEqual(profile.name, "CRITICAL")
+        self.assertEqual(profile.attempts, 3)
+        self.assertEqual(profile.output_tokens, 12_288)
+        self.assertEqual(profile.mission_token_budget, 81_920)
 
 
 if __name__ == "__main__":
