@@ -4,9 +4,10 @@
 Canaries verify that a selected role/model still answers on a different task,
 resolves to the exact model, stays on the no-provider-fallback route, and remains
 covered by current FREE_ACTIVE evidence. Independent role canaries run with a
-small bounded fan-out. Native JSON mode is intentionally not required: workers
-are prompted for JSON and the response is validated locally, avoiding a brittle
-capability gate that excludes otherwise useful free models.
+small bounded fan-out. If a ranked primary fails, the orchestrator may explicitly
+reselect one same-run benchmarked standby and canary that exact model. This is
+not provider fallback. Native JSON mode is intentionally not required: workers
+are prompted for JSON and the response is validated locally.
 """
 
 from __future__ import annotations
@@ -23,8 +24,9 @@ import urllib.request
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 TIMEOUT_SECONDS = 25
 MAX_OUTPUT_TOKENS = 128
-MAX_CANARY_CALLS = 6
+MAX_CANARY_CALLS = 8
 MAX_PARALLEL_CANARIES = 6
+MAX_CANARY_ATTEMPTS_PER_ROLE = 2
 
 CANARY_TASKS: dict[str, tuple[str, str]] = {
     "GENERAL_WORKER": (
@@ -178,20 +180,70 @@ def _record(role: str, model: str, api_key: str) -> dict[str, Any]:
     return result
 
 
+def _ranked_candidates(value: Mapping[str, Any], verified: set[str]) -> list[dict[str, Any]]:
+    ordered: list[dict[str, Any]] = []
+
+    def add(model: str, *, score: Any = None, rank: Any = None) -> None:
+        model = str(model or "").strip()
+        if not model or model not in verified or any(item["model"] == model for item in ordered):
+            return
+        ordered.append({"model": model, "score": score, "rank": rank})
+
+    add(str(value.get("model") or ""), score=value.get("score"), rank=1)
+    ranked = value.get("ranked_candidates")
+    if isinstance(ranked, list):
+        for item in ranked:
+            if isinstance(item, Mapping):
+                add(str(item.get("model") or ""), score=item.get("score"), rank=item.get("rank"))
+            elif isinstance(item, str):
+                add(item)
+    return ordered
+
+
+def _run_round(work_items: list[tuple[str, str]], api_key: str) -> list[dict[str, Any]]:
+    if not work_items:
+        return []
+    completed: list[dict[str, Any] | None] = [None] * len(work_items)
+    workers = max(1, min(MAX_PARALLEL_CANARIES, len(work_items)))
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="worker-canary") as executor:
+        future_to_index = {
+            executor.submit(_record, role, model, api_key): index
+            for index, (role, model) in enumerate(work_items)
+        }
+        for future in as_completed(future_to_index):
+            index = future_to_index[future]
+            _role, model = work_items[index]
+            try:
+                completed[index] = future.result()
+            except Exception:
+                completed[index] = {
+                    "status": "CANARY_FAILED",
+                    "model": model,
+                    "http_status": 0,
+                    "error": "canary_exception",
+                    "exact_model": False,
+                    "structured_output": False,
+                    "quality_pass": False,
+                }
+    return [dict(item) for item in completed if isinstance(item, Mapping)]
+
+
 def run_worker_canary(*, api_key: str, handoff: Mapping[str, Any], probe_report: Mapping[str, Any]) -> dict[str, Any]:
     selected = handoff.get("selected_workers")
     selected = selected if isinstance(selected, Mapping) else {}
     verified = _verified_models(probe_report)
     report: dict[str, Any] = {
-        "schema_version": "worker-canary-v2",
+        "schema_version": "worker-canary-v3",
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "model_calls": 0,
         "max_calls": MAX_CANARY_CALLS,
+        "max_attempts_per_role": MAX_CANARY_ATTEMPTS_PER_ROLE,
         "max_output_tokens_per_call": MAX_OUTPUT_TOKENS,
         "provider_allow_fallbacks": False,
         "native_json_mode_required": False,
         "parallel_execution": True,
         "parallel_worker_limit": MAX_PARALLEL_CANARIES,
+        "orchestrator_reselection": True,
         "results": {},
         "automatic_activation": False,
         "paid_fallback": False,
@@ -204,66 +256,124 @@ def run_worker_canary(*, api_key: str, handoff: Mapping[str, Any], probe_report:
         report.update(status="BLOCKED_NO_SELECTED_WORKERS", reason="No ranked worker handoff is available")
         return report
 
-    work_items: list[tuple[str, str]] = []
-    required_roles: list[str] = []
-    for role, value in selected.items():
-        if role not in CANARY_TASKS or not isinstance(value, Mapping):
-            continue
-        required_roles.append(str(role))
-        model = str(value.get("model") or "").strip()
-        if not model or model not in verified:
+    required_roles = [str(role) for role in selected if role in CANARY_TASKS and isinstance(selected[role], Mapping)]
+    candidates_by_role: dict[str, list[dict[str, Any]]] = {}
+    original_by_role: dict[str, str] = {}
+    attempts_by_role: dict[str, list[dict[str, Any]]] = {role: [] for role in required_roles}
+
+    for role in required_roles:
+        value = selected[role]
+        original_by_role[role] = str(value.get("model") or "").strip()
+        candidates = _ranked_candidates(value, verified)
+        candidates_by_role[role] = candidates
+        if not candidates:
             report["results"][role] = {
                 "status": "CANARY_BLOCKED",
-                "model": model,
-                "reason": "MODEL_NOT_IN_CURRENT_EXACT_FREE_PROBE",
+                "model": original_by_role[role],
+                "reason": "NO_CURRENT_EXACT_FREE_RANKED_CANDIDATE",
+                "attempts": [],
             }
+
+    pending_roles = [role for role in required_roles if candidates_by_role.get(role)]
+    attempt_index = 0
+    while pending_roles and attempt_index < MAX_CANARY_ATTEMPTS_PER_ROLE and report["model_calls"] < MAX_CANARY_CALLS:
+        budget = MAX_CANARY_CALLS - int(report["model_calls"])
+        work_items: list[tuple[str, str]] = []
+        scheduled_roles: list[str] = []
+        for role in pending_roles:
+            candidates = candidates_by_role.get(role, [])
+            if attempt_index >= len(candidates) or len(work_items) >= budget:
+                continue
+            work_items.append((role, str(candidates[attempt_index]["model"])))
+            scheduled_roles.append(role)
+        if not work_items:
+            break
+
+        round_results = _run_round(work_items, api_key)
+        report["model_calls"] += len(work_items)
+        next_pending: list[str] = []
+        by_role = {role: result for role, result in zip(scheduled_roles, round_results)}
+        for role in pending_roles:
+            result = by_role.get(role)
+            if not isinstance(result, Mapping):
+                if attempt_index + 1 < len(candidates_by_role.get(role, [])):
+                    next_pending.append(role)
+                continue
+            attempt = dict(result)
+            attempts_by_role[role].append(attempt)
+            if attempt.get("status") == "CANARY_OK":
+                final = dict(attempt)
+                final["original_model"] = original_by_role[role]
+                final["reselected"] = str(attempt.get("model") or "") != original_by_role[role]
+                final["attempt_count"] = len(attempts_by_role[role])
+                final["attempts"] = list(attempts_by_role[role])
+                report["results"][role] = final
+
+                # Same-run orchestrator reselection is explicit and exact-model.
+                # Mutating the in-memory handoff lets the routing policy use the
+                # canary-proven winner while provider-side fallback stays off.
+                value = selected.get(role)
+                if isinstance(value, dict):
+                    chosen = str(attempt.get("model") or "")
+                    value["model"] = chosen
+                    for candidate in candidates_by_role.get(role, []):
+                        if candidate.get("model") == chosen:
+                            if candidate.get("score") is not None:
+                                value["score"] = candidate.get("score")
+                            break
+                    value["status"] = "CANARY_VERIFIED_FOR_ROUTING"
+                    value["reselected_after_canary"] = final["reselected"]
+            elif attempt_index + 1 < len(candidates_by_role.get(role, [])):
+                next_pending.append(role)
+            else:
+                final = dict(attempt)
+                final["original_model"] = original_by_role[role]
+                final["reselected"] = False
+                final["attempt_count"] = len(attempts_by_role[role])
+                final["attempts"] = list(attempts_by_role[role])
+                report["results"][role] = final
+        pending_roles = next_pending
+        attempt_index += 1
+
+    for role in required_roles:
+        if role in report["results"]:
             continue
-        if len(work_items) < MAX_CANARY_CALLS:
-            work_items.append((str(role), model))
+        attempts = attempts_by_role.get(role, [])
+        if attempts:
+            final = dict(attempts[-1])
+            final["original_model"] = original_by_role[role]
+            final["reselected"] = False
+            final["attempt_count"] = len(attempts)
+            final["attempts"] = list(attempts)
+            report["results"][role] = final
         else:
             report["results"][role] = {
                 "status": "CANARY_BLOCKED",
-                "model": model,
+                "model": original_by_role[role],
                 "reason": "CANARY_CALL_BUDGET_EXHAUSTED",
+                "attempts": [],
             }
-
-    report["model_calls"] = len(work_items)
-    completed: list[dict[str, Any] | None] = [None] * len(work_items)
-    if work_items:
-        workers = max(1, min(MAX_PARALLEL_CANARIES, len(work_items)))
-        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="worker-canary") as executor:
-            future_to_index = {
-                executor.submit(_record, role, model, api_key): index
-                for index, (role, model) in enumerate(work_items)
-            }
-            for future in as_completed(future_to_index):
-                index = future_to_index[future]
-                role, model = work_items[index]
-                try:
-                    completed[index] = future.result()
-                except Exception:
-                    completed[index] = {
-                        "status": "CANARY_FAILED",
-                        "model": model,
-                        "http_status": 0,
-                        "error": "canary_exception",
-                        "exact_model": False,
-                        "structured_output": False,
-                        "quality_pass": False,
-                    }
-        for index, (role, _model) in enumerate(work_items):
-            if isinstance(completed[index], Mapping):
-                report["results"][role] = dict(completed[index])
 
     passed_roles = [
         role for role in required_roles
         if isinstance(report["results"].get(role), Mapping)
         and report["results"][role].get("status") == "CANARY_OK"
     ]
+    reselected_roles = [
+        role for role in passed_roles
+        if report["results"][role].get("reselected") is True
+    ]
     report["required_role_count"] = len(required_roles)
     report["passed_role_count"] = len(passed_roles)
+    report["reselected_role_count"] = len(reselected_roles)
+    report["reselected_roles"] = reselected_roles
     report["status"] = "CANARY_READY" if required_roles and len(passed_roles) == len(required_roles) else "COMPLETED_WITH_BLOCKS"
     return report
 
 
-__all__ = ["MAX_CANARY_CALLS", "MAX_PARALLEL_CANARIES", "run_worker_canary"]
+__all__ = [
+    "MAX_CANARY_CALLS",
+    "MAX_CANARY_ATTEMPTS_PER_ROLE",
+    "MAX_PARALLEL_CANARIES",
+    "run_worker_canary",
+]

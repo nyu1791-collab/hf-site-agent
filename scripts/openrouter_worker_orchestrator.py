@@ -36,6 +36,7 @@ from scripts.probe_free_workers_multi import run_multi_probe
 SCHEMA_VERSION = "openrouter-worker-orchestrator-v5"
 MAX_STAGE_EVENTS = 20
 MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS = 1
+MAX_HANDOFF_CANDIDATES_PER_ROLE = 7
 
 
 def _event(stage: str, status: str, summary: str) -> dict[str, Any]:
@@ -122,16 +123,30 @@ def _handoff(benchmark: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(value, Mapping):
             continue
         if value.get("status") == "ready_for_commander_review" and value.get("model"):
+            ranked_candidates: list[dict[str, Any]] = []
+            ranking = value.get("ranking")
+            if isinstance(ranking, list):
+                for item in ranking[:MAX_HANDOFF_CANDIDATES_PER_ROLE]:
+                    if not isinstance(item, Mapping) or not item.get("model"):
+                        continue
+                    ranked_candidates.append({
+                        "model": str(item.get("model")),
+                        "score": item.get("score"),
+                        "rank": item.get("rank"),
+                    })
             selected[str(role)] = {
                 "model": str(value.get("model")),
                 "score": value.get("score"),
                 "status": "READY_FOR_COMMANDER_HANDOFF",
+                "ranked_candidates": ranked_candidates,
             }
     return {
-        "schema_version": "openrouter-worker-handoff-v2",
+        "schema_version": "openrouter-worker-handoff-v3",
         "selected_workers": selected,
         "ready_role_count": len(selected),
         "automatic_activation": False,
+        "orchestrator_reselection": True,
+        "provider_automatic_fallback": False,
         "next_action": "CONTINUE_PROJECT_PIPELINE" if selected else "NO_WORKER_ASSIGNMENT_AVAILABLE",
     }
 
