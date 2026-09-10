@@ -2,15 +2,16 @@
 """Bounded recovery wrapper for live staging provider calls.
 
 Ambiguous transport failures may have reached the provider and are never
-replayed here. An explicit retryable HTTP 5xx is different: the provider has
-conclusively rejected that request. For that narrow case only, this module
-permits two fresh, separately identified recovery attempts.
+replayed here. Explicit HTTP failures are different because the attempt has a
+confirmed terminal response. Retryable 5xx failures get bounded, progressively
+smaller recovery attempts. A 429 is normally not retried; the only exception is
+one explicit 429 that immediately follows an already-confirmed 5xx recovery in
+the same logical call. That pattern is treated as retry-pressure backoff rather
+than as evidence that the original request result is unknown.
 
-Recovery is progressive rather than a retry storm. The first recovery keeps a
-moderate repository slice; the second keeps only the mission-critical slice and
-uses a smaller output budget. Both stay on the exact same provider/model/free
-route, and short bounded backoff gives a temporarily overloaded service time to
-recover.
+Recovery stays on the exact same provider/model/free route, uses fresh request
+identities, progressively smaller context/output, bounded cooldown, and never
+replays an ambiguous timeout/network failure.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ import scripts.live_staging_runner as live_runner
 
 
 MAX_CONCLUSIVE_5XX_RECOVERIES = 2
+MAX_POST_5XX_RATE_LIMIT_RECOVERIES = 1
 RECOVERY_MAX_OUTPUT_TOKENS = 4_096
 RECOVERY_REPOSITORY_CONTEXT_CHARS = 20_000
 RECOVERY_FILE_CHARS = 4_000
@@ -35,8 +37,12 @@ FINAL_RECOVERY_MAX_OUTPUT_TOKENS = 2_048
 FINAL_RECOVERY_REPOSITORY_CONTEXT_CHARS = 8_000
 FINAL_RECOVERY_FILE_CHARS = 2_000
 FINAL_RECOVERY_USER_MESSAGE_CHARS = 16_000
-RECOVERY_BACKOFF_SECONDS = (2.0, 5.0)
-MAX_PROVIDER_RETRY_AFTER_SECONDS = 10.0
+# The former 2s/5s retry was too aggressive for the observed Gemini 503 -> 429
+# sequence. Keep recovery bounded but give shared free-tier capacity time to
+# settle before a fresh request.
+RECOVERY_BACKOFF_SECONDS = (15.0, 30.0)
+POST_5XX_RATE_LIMIT_BACKOFF_SECONDS = 65.0
+MAX_PROVIDER_RETRY_AFTER_SECONDS = 120.0
 
 
 def _is_conclusive_retryable_5xx(exc: ProviderAdapterError) -> bool:
@@ -46,6 +52,15 @@ def _is_conclusive_retryable_5xx(exc: ProviderAdapterError) -> bool:
         and 500 <= status <= 599
         and exc.retryable is True
         and exc.error_class == "TEMPORARY_PROVIDER_ERROR"
+    )
+
+
+def _is_post_5xx_rate_limit(exc: ProviderAdapterError, *, prior_5xx_failures: int) -> bool:
+    """Allow only the observed retry-pressure 429 pattern, never a first-call 429."""
+    return (
+        prior_5xx_failures > 0
+        and exc.http_status == 429
+        and exc.error_class == "RATE_LIMITED"
     )
 
 
@@ -71,6 +86,15 @@ def _recovery_delay_seconds(recovery_number: int, retry_after_seconds: int | Non
     if isinstance(retry_after_seconds, int) and retry_after_seconds >= 0:
         return min(MAX_PROVIDER_RETRY_AFTER_SECONDS, max(base, float(retry_after_seconds)))
     return base
+
+
+def _rate_limit_delay_seconds(retry_after_seconds: int | None) -> float:
+    if isinstance(retry_after_seconds, int) and retry_after_seconds >= 0:
+        return min(
+            MAX_PROVIDER_RETRY_AFTER_SECONDS,
+            max(POST_5XX_RATE_LIMIT_BACKOFF_SECONDS, float(retry_after_seconds)),
+        )
+    return POST_5XX_RATE_LIMIT_BACKOFF_SECONDS
 
 
 def _compact_repository_payload(payload: Mapping[str, Any], *, recovery_number: int = 1) -> dict[str, Any]:
@@ -106,7 +130,7 @@ def _compact_repository_payload(payload: Mapping[str, Any], *, recovery_number: 
     compact_repository["recovery_context_char_ceiling"] = repository_limit
     compact["repository_context"] = compact_repository
     compact["transport_recovery"] = {
-        "reason": "CONCLUSIVE_TEMPORARY_5XX",
+        "reason": "CONCLUSIVE_TEMPORARY_HTTP_FAILURE",
         "same_model": True,
         "same_provider": True,
         "same_route": True,
@@ -134,8 +158,6 @@ def _compact_recovery_messages(messages: Any, *, recovery_number: int = 1) -> An
             continue
         content = str(message["content"])
         if role in {"system", "developer"}:
-            # Keep the contract/instruction but prevent an oversized static
-            # instruction from defeating the aggressive final recovery.
             system_limit = 2_000 if recovery_number <= 1 else 1_200
             message["content"] = content[:system_limit]
             output.append(message)
@@ -163,7 +185,7 @@ def _compact_recovery_messages(messages: Any, *, recovery_number: int = 1) -> An
 
 
 class _ConclusiveRecoveryAdapter:
-    """Proxy one adapter and recover only after explicit retryable HTTP 5xx."""
+    """Proxy one adapter and recover only after confirmed terminal HTTP failures."""
 
     def __init__(self, adapter: Any, *, metrics: live_runner.LiveCallMetrics) -> None:
         self._adapter = adapter
@@ -173,6 +195,7 @@ class _ConclusiveRecoveryAdapter:
         self.attempts_started = 0
         self.confirmed_http_failures = 0
         self.conclusive_5xx_failures = 0
+        self.post_5xx_rate_limit_failures = 0
         self.ambiguous_failures = 0
         self.last_http_status: int | None = None
         self.recovery_compacted = False
@@ -187,8 +210,15 @@ class _ConclusiveRecoveryAdapter:
         return stable_hash({
             "base_request_id": base_request_id,
             "recovery_attempt": attempt,
-            "reason": "CONCLUSIVE_TEMPORARY_5XX",
+            "reason": "CONCLUSIVE_HTTP_RECOVERY",
         })[:32]
+
+    def _may_recover(self, *, reserved_output_tokens: int, recovery_number: int) -> bool:
+        profile = _recovery_profile(recovery_number)
+        return self._metrics.may_call(
+            self.provider_id,
+            reserved_output_tokens=min(reserved_output_tokens, profile["max_output_tokens"]),
+        )
 
     def generate(self, model_id: str, messages: Any, **options: Any) -> dict[str, Any]:
         base_request_id = str(options.get("request_id") or "")[:64]
@@ -197,7 +227,7 @@ class _ConclusiveRecoveryAdapter:
         except (TypeError, ValueError):
             reserved_output_tokens = 256
 
-        max_attempts = 1 + MAX_CONCLUSIVE_5XX_RECOVERIES
+        max_attempts = 1 + MAX_CONCLUSIVE_5XX_RECOVERIES + MAX_POST_5XX_RATE_LIMIT_RECOVERIES
         for attempt in range(1, max_attempts + 1):
             call_options = dict(options)
             call_messages = messages
@@ -226,18 +256,36 @@ class _ConclusiveRecoveryAdapter:
 
                 if _is_conclusive_retryable_5xx(exc):
                     self.conclusive_5xx_failures += 1
-                    recovery_number = attempt
-                    if attempt < max_attempts:
-                        profile = _recovery_profile(recovery_number)
-                        if self._metrics.may_call(
-                            self.provider_id,
-                            reserved_output_tokens=min(reserved_output_tokens, profile["max_output_tokens"]),
-                        ):
-                            delay = _recovery_delay_seconds(recovery_number, exc.retry_after_seconds)
-                            if delay > 0:
-                                time.sleep(delay)
-                                self.total_backoff_seconds += delay
-                            continue
+                    recovery_number = self.conclusive_5xx_failures
+                    if (
+                        self.conclusive_5xx_failures <= MAX_CONCLUSIVE_5XX_RECOVERIES
+                        and attempt < max_attempts
+                        and self._may_recover(
+                            reserved_output_tokens=reserved_output_tokens,
+                            recovery_number=recovery_number,
+                        )
+                    ):
+                        delay = _recovery_delay_seconds(recovery_number, exc.retry_after_seconds)
+                        if delay > 0:
+                            time.sleep(delay)
+                            self.total_backoff_seconds += delay
+                        continue
+
+                if _is_post_5xx_rate_limit(exc, prior_5xx_failures=self.conclusive_5xx_failures):
+                    if (
+                        self.post_5xx_rate_limit_failures < MAX_POST_5XX_RATE_LIMIT_RECOVERIES
+                        and attempt < max_attempts
+                        and self._may_recover(
+                            reserved_output_tokens=reserved_output_tokens,
+                            recovery_number=max(2, attempt),
+                        )
+                    ):
+                        self.post_5xx_rate_limit_failures += 1
+                        delay = _rate_limit_delay_seconds(exc.retry_after_seconds)
+                        if delay > 0:
+                            time.sleep(delay)
+                            self.total_backoff_seconds += delay
+                        continue
                 raise
             except Exception:
                 self.ambiguous_failures += 1
@@ -254,7 +302,7 @@ def call_model_with_bounded_recovery(
     metrics: live_runner.LiveCallMetrics,
     instruction: str,
 ) -> dict[str, Any]:
-    """Call the normal live path with bounded progressive 5xx recovery."""
+    """Call the normal live path with bounded progressive HTTP recovery."""
     # Lightweight callback doubles must continue through the established seam.
     # Only a real binding carries enough verified policy/identity for transport
     # recovery to be authorized.
@@ -299,6 +347,10 @@ def call_model_with_bounded_recovery(
             proxy.conclusive_5xx_failures,
             MAX_CONCLUSIVE_5XX_RECOVERIES,
         )
+        result["post_5xx_rate_limit_recovery_count"] = min(
+            proxy.post_5xx_rate_limit_failures,
+            MAX_POST_5XX_RATE_LIMIT_RECOVERIES,
+        )
         result["recovery_context_compacted"] = proxy.recovery_compacted
         result["recovery_level_reached"] = proxy.recovery_level_reached
         result["recovery_backoff_seconds"] = proxy.total_backoff_seconds
@@ -307,10 +359,12 @@ def call_model_with_bounded_recovery(
 
 __all__ = [
     "MAX_CONCLUSIVE_5XX_RECOVERIES",
+    "MAX_POST_5XX_RATE_LIMIT_RECOVERIES",
     "RECOVERY_MAX_OUTPUT_TOKENS",
     "RECOVERY_REPOSITORY_CONTEXT_CHARS",
     "FINAL_RECOVERY_MAX_OUTPUT_TOKENS",
     "FINAL_RECOVERY_REPOSITORY_CONTEXT_CHARS",
     "RECOVERY_BACKOFF_SECONDS",
+    "POST_5XX_RATE_LIMIT_BACKOFF_SECONDS",
     "call_model_with_bounded_recovery",
 ]
