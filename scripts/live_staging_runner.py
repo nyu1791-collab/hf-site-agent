@@ -42,6 +42,7 @@ from scripts.provider_adapters import (
 MAX_PROMPT_CHARS = 14_000
 MAX_RESPONSE_CHARS = 20_000
 MAX_OUTPUT_TOKENS = 256
+LIMITED_BOOTSTRAP_TOTAL_TOKEN_BUDGET = 1_024
 PROVIDER_TO_CORPS = {"google": "GOOGLE", "groq": "GROQ", "nvidia": "NVIDIA"}
 
 
@@ -425,7 +426,7 @@ def build_nvidia_limited_bootstrap_plan(
         complexity_level=1,
         deadline=None,
         request_budget=request_budget,
-        token_budget=min(max(1, token_budget), LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS),
+        token_budget=min(max(1, token_budget), LIMITED_BOOTSTRAP_TOTAL_TOKEN_BUDGET),
         estimated_cost=0,
         idempotency_key=f"{mission_id}:NVIDIA-GOOGLE-BOOTSTRAP-1:v1",
         response_version=1,
@@ -444,10 +445,10 @@ def build_nvidia_limited_bootstrap_plan(
         mission_id=mission_id,
         tasks=(task,),
         max_total_requests=request_budget,
-        max_total_tokens=min(max(1, token_budget), LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS),
+        max_total_tokens=min(max(1, token_budget), LIMITED_BOOTSTRAP_TOTAL_TOKEN_BUDGET),
         max_parallel=1,
         provider_request_budgets={"nvidia": request_budget},
-        provider_token_budgets={"nvidia": min(max(1, token_budget), LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS)},
+        provider_token_budgets={"nvidia": min(max(1, token_budget), LIMITED_BOOTSTRAP_TOTAL_TOKEN_BUDGET)},
         free_only=True,
     )
 

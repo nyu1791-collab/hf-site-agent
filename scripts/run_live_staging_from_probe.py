@@ -255,7 +255,7 @@ def run_from_reports(
             plan = build_nvidia_limited_bootstrap_plan(
                 mission_id="phase9-nvidia-google-bootstrap",
                 request_budget=1,
-                token_budget=256,
+                token_budget=1_024,
                 objective=(
                     "Review the Google provider adapter and propose one minimal, low-risk change "
                     "that can move Google toward a fail-closed staging probe. Return a proposal only."
