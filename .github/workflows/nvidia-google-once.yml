@@ -42,7 +42,8 @@ jobs:
             scripts/probe_nvidia_google_focused.py \
             scripts/focused_nvidia_streaming_adapter.py \
             scripts/run_nvidia_orchestrator_mission.py \
-            scripts/run_nvidia_orchestrator_mission_focused.py
+            scripts/run_nvidia_orchestrator_mission_focused.py \
+            scripts/run_nvidia_google_compact_mission.py
 
       - name: Collect current redacted NVIDIA and Google evidence
         env:
@@ -74,17 +75,16 @@ jobs:
           --evidence-file artifacts/secure_account_evidence.json
           --output artifacts/provider_probe.json
 
-      - name: Resume repository-grounded NVIDIA Google Lead Engineer mission
+      - name: Replan malformed NVIDIA Google Lead Engineer output with compact context
         env:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_SHA: ${{ github.sha }}
-          NVIDIA_MISSION_MODE: GOOGLE_BOOTSTRAP_SAFE
           RESUME_MISSION_ID: nvidia-autonomous-orchestrator-34433295732
           RESUME_RUN_ID: "34433295732"
-          RESUME_RESULT_HASH: 374f53b95a61313c0a747ed0
-          RESUME_REVISION: "2"
-        run: python scripts/run_nvidia_orchestrator_mission_focused.py
+          RESUME_RESULT_HASH: 654883ae88b32f138cf6b9ff
+          RESUME_REVISION: "3"
+        run: python scripts/run_nvidia_google_compact_mission.py
 
       - name: Build redacted one-shot summary
         if: always()
@@ -108,9 +108,9 @@ jobs:
           providers = evidence.get("providers") if isinstance(evidence.get("providers"), dict) else {}
           probe_items = probe.get("providers") if isinstance(probe.get("providers"), list) else []
           summary = {
-              "schema_version": "nvidia-google-once-v6",
+              "schema_version": "nvidia-google-once-v7",
               "provider_focus": ["nvidia", "google"],
-              "run_mode": "LEAD_MISSION_RESUME_FOCUSED_STREAMING",
+              "run_mode": "LEAD_MISSION_COMPACT_REPLAN",
               "nvidia_selected_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
               "secret_presence": {
                   name: bool(isinstance(lane, dict) and lane.get("secret_present") is True)
@@ -132,9 +132,10 @@ jobs:
               "lead_mission_id": mission.get("mission_id"),
               "lead_mission_state": mission.get("state"),
               "lead_revision": mission.get("revision"),
+              "lead_replan_count": mission.get("replan_count"),
+              "lead_replan_reason": mission.get("replan_reason"),
               "lead_result_status": mission.get("result_status"),
               "lead_result_complete": mission.get("result_complete") is True,
-              "lead_path_validation": mission.get("path_validation") is True,
               "lead_result_hash": mission.get("result_hash"),
               "lead_result_inbox_status": inbox.get("status"),
               "lead_next_action": inbox.get("next_action"),
