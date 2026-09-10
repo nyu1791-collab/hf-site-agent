@@ -7,6 +7,13 @@ inference liveness check to the first real Executor task, avoiding a redundant
 request immediately before agent work. Known paid routing, billing enablement,
 non-zero pricing, stale evidence or model mismatch remain hard blockers.
 
+A verified deferred admission is represented explicitly as
+``PROBE_DEFERRED_RECOVERY``. This mode was recommended by the live NVIDIA Lead
+Engineer after the Google quota/backpressure run. It does not relax any
+execution gate: it only distinguishes a deliberately deferred first-agent
+liveness check from a missing probe, while keeping the exact free route,
+no-paid-fallback and billing-transition guards intact.
+
 This module performs no provider call and never reads credential values.
 """
 
@@ -135,6 +142,31 @@ def _deferred_agent_ready(record: Mapping[str, Any], probe_record: Mapping[str, 
     )
 
 
+def _deferred_recovery_ready(
+    record: Mapping[str, Any],
+    probe_record: Mapping[str, Any],
+    account: Mapping[str, Any],
+) -> bool:
+    """Identify the exact NVIDIA-reviewed deferred Google recovery lane.
+
+    This is deliberately stricter than a generic missing-probe state.  It
+    requires the existing deferred-agent admission plus the absence of every
+    known billing/fallback transition signal. Unknown account metadata is not
+    treated as proof of safety by itself; the fixed FREE_TIER evidence remains
+    mandatory through ``_deferred_agent_ready``.
+    """
+    return (
+        _deferred_agent_ready(record, probe_record)
+        and int(probe_record.get("model_calls", 0) or 0) == 0
+        and record.get("billing_enabled_class") is not True
+        and record.get("paid_fallback_possible") is False
+        and record.get("paid_transition_possible") is not True
+        and account.get("billing_enabled") is not True
+        and account.get("fallback_to_paid_possible") is not True
+        and account.get("automatic_paid_transition_possible") is not True
+    )
+
+
 def build_google_readiness_packet(
     evidence: Mapping[str, Any],
     probe: Mapping[str, Any],
@@ -191,10 +223,12 @@ def build_google_readiness_packet(
         and probe_record.get("generic_paid_router_disabled") is True
     )
     deferred_agent_ready = _deferred_agent_ready(record, probe_record)
+    deferred_recovery_ready = _deferred_recovery_ready(record, probe_record, account)
     live_ready = strict_live_ready or bounded_probe_ready or deferred_agent_ready
     readiness_mode = (
         "STRICT_ZERO_COST" if strict_live_ready
         else "BOUNDED_FREE_TIER" if bounded_probe_ready
+        else "PROBE_DEFERRED_RECOVERY" if deferred_recovery_ready
         else "DIRECT_AGENT_LIVENESS" if deferred_agent_ready
         else "BLOCKED"
     )
@@ -271,6 +305,7 @@ def build_google_readiness_packet(
         "strict_live_ready": strict_live_ready,
         "bounded_probe_ready": bounded_probe_ready,
         "deferred_agent_ready": deferred_agent_ready,
+        "deferred_recovery_ready": deferred_recovery_ready,
         "probe_status": probe_status,
         "model_verified": model_verified,
         "endpoint_verified": endpoint_verified,
@@ -304,6 +339,7 @@ def build_google_readiness_packet(
             "known_billing_enabled_blocks_bounded_route": True,
             "known_paid_transition_blocks_bounded_route": True,
             "redundant_liveness_probe_required": False,
+            "nvidia_reviewed_deferred_recovery_mode": deferred_recovery_ready,
         },
     }
 
