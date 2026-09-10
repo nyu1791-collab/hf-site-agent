@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import time
 from typing import Any, Mapping
 import urllib.error
 import urllib.request
@@ -65,7 +66,7 @@ def _decimal(value: Any) -> Decimal | None:
         return None
 
 
-def _safe_json_request(model: str, api_key: str, prompt: str) -> tuple[int, dict[str, Any] | None, str]:
+def _safe_json_request(model: str, api_key: str, prompt: str) -> tuple[int, dict[str, Any] | None, str, float]:
     body = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
@@ -87,18 +88,20 @@ def _safe_json_request(model: str, api_key: str, prompt: str) -> tuple[int, dict
         },
         method="POST",
     )
+    started = time.perf_counter()
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
             raw = response.read(1_000_000).decode("utf-8", errors="replace")
+            elapsed_ms = max(1.0, (time.perf_counter() - started) * 1000.0)
             try:
                 payload = json.loads(raw)
             except (TypeError, ValueError, json.JSONDecodeError):
                 payload = None
-            return int(response.status), payload if isinstance(payload, dict) else None, ""
+            return int(response.status), payload if isinstance(payload, dict) else None, "", elapsed_ms
     except urllib.error.HTTPError as exc:
-        return int(exc.code), None, "http_error"
+        return int(exc.code), None, "http_error", max(1.0, (time.perf_counter() - started) * 1000.0)
     except (urllib.error.URLError, TimeoutError, OSError):
-        return 0, None, "network_error"
+        return 0, None, "network_error", max(1.0, (time.perf_counter() - started) * 1000.0)
 
 
 def _content(payload: Mapping[str, Any]) -> str:
@@ -158,7 +161,7 @@ def _active_probe_models(probe_report: Mapping[str, Any]) -> set[str]:
 
 def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str, Any]:
     report: dict[str, Any] = {
-        "schema_version": "free-worker-benchmark-v1",
+        "schema_version": "free-worker-benchmark-v2",
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "model_calls": 0,
         "max_calls": MAX_BENCHMARK_CALLS,
@@ -169,6 +172,14 @@ def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str
         "assignments": {},
         "automatic_activation": False,
         "paid_fallback": False,
+        "metric_provenance": {
+            "task_quality": "DETERMINISTIC_TASK_ASSERTIONS",
+            "schema_success_rate": "OBSERVED_SINGLE_TASK",
+            "latency_ms": "LOCAL_MONOTONIC_WALL_CLOCK",
+            "tokens_per_success": "PROVIDER_USAGE_OR_CONTENT_ESTIMATE",
+            "revision_rate": "DERIVED_FROM_SINGLE_TASK_QUALITY",
+            "error_rate": "OBSERVED_SINGLE_TASK",
+        },
     }
     if not api_key:
         report.update(status="BLOCKED_MISSING_SECRET", reason="OpenRouter API secret is unavailable")
@@ -189,14 +200,14 @@ def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str
             if report["model_calls"] >= MAX_BENCHMARK_CALLS:
                 break
             report["model_calls"] += 1
-            status, payload, error = _safe_json_request(model, api_key, BENCHMARKS[role]["prompt"])
+            status, payload, error, elapsed_ms = _safe_json_request(model, api_key, BENCHMARKS[role]["prompt"])
             record: dict[str, Any] = {
                 "status": "BENCHMARK_FAILED",
                 "worker_role": role,
                 "model": model,
                 "task_quality": 0.0,
                 "schema_success_rate": 0.0,
-                "latency_ms": 1.0,
+                "latency_ms": round(elapsed_ms, 3),
                 "tokens_per_success": 1.0,
                 "revision_rate": 1.0,
                 "error_rate": 1.0,
@@ -215,8 +226,11 @@ def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str
                 except (TypeError, ValueError, json.JSONDecodeError):
                     parsed = None
                 exact = response_model == model
-                zero_cost = cost in {None, Decimal("0")}
-                if exact and zero_cost and parsed is not None:
+                # The model must already have passed the exact FREE_ACTIVE
+                # probe. If this benchmark response omits cost we retain the
+                # prior free-route evidence but never auto-activate from it.
+                zero_cost_or_prior_verified = cost in {None, Decimal("0")}
+                if exact and zero_cost_or_prior_verified and parsed is not None:
                     completion_tokens = usage.get("completion_tokens")
                     total_tokens = usage.get("total_tokens")
                     token_count = total_tokens if isinstance(total_tokens, int) and total_tokens > 0 else completion_tokens
@@ -226,16 +240,16 @@ def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str
                         status="BENCHMARK_OK",
                         task_quality=round(quality, 4),
                         schema_success_rate=1.0,
-                        latency_ms=float(max(1, int(payload.get("latency_ms") or 1))),
                         tokens_per_success=float(token_count),
                         revision_rate=0.0 if quality >= 0.75 else 0.5,
                         error_rate=0.0,
                         response_model=response_model,
                         usage_cost=str(cost) if cost is not None else None,
+                        cost_evidence="THIS_RESPONSE_ZERO" if cost == Decimal("0") else "PRIOR_EXACT_FREE_PROBE",
                     )
                 elif not exact:
                     record["error"] = "response_model_mismatch"
-                elif not zero_cost:
+                elif not zero_cost_or_prior_verified:
                     record["error"] = "nonzero_cost"
                 else:
                     record["error"] = "invalid_structured_output"
@@ -273,7 +287,7 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "free-worker-benchmark-v1",
+            "schema_version": "free-worker-benchmark-v2",
             "status": "BENCHMARK_RUNNER_BLOCKED",
             "model_calls": 0,
             "records": [],
