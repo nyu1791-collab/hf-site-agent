@@ -4,12 +4,16 @@ import unittest
 
 from scripts.mission_scheduler import MissionReservationLedger
 from scripts.provider_adapters import ProviderAdapterError
-from scripts.run_nvidia_orchestrator_guarded import DurableNvidiaAdapter
+from scripts.run_nvidia_orchestrator_guarded import (
+    DurableNvidiaAdapter,
+    _promote_deferred_nvidia_admission,
+)
 
 
 HEAD = "a" * 40
 MISSION = "nvidia-autonomous-orchestrator-123"
 REQUEST = "nvidia-autonomous-orchestrator-123:rev1:abcdef12"
+MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
 
 
 class FakeSuccessAdapter:
@@ -38,13 +42,63 @@ def ledger_at(path):
     )
 
 
+def deferred_probe():
+    return {
+        "providers": [{
+            "provider": "nvidia",
+            "model": MODEL,
+            "status": "PROBE_DEFERRED_TO_AGENT",
+            "probe_mode": "DIRECT_AGENT_LIVENESS",
+            "direct_agent_admission": True,
+            "selected_route": "FREE_ENDPOINT",
+            "staging_only": True,
+            "paid_fallback": False,
+            "automatic_model_fallback": False,
+            "generic_paid_router_disabled": True,
+            "model_calls": 0,
+            "request_hard_limit": 0,
+        }]
+    }
+
+
+def secure_evidence(*, paid_transition=False):
+    return {
+        "providers": {
+            "nvidia": {
+                "models": {
+                    MODEL: {
+                        "model_verified": True,
+                        "auth_verified": True,
+                        "endpoint_verified": True,
+                        "current": True,
+                        "free_access_type": "FREE_ENDPOINT",
+                        "free_route_selected": True,
+                        "limited_staging_probe_allowed": True,
+                        "limited_staging_probe_blockers": [],
+                        "paid_fallback_possible": False,
+                        "paid_transition_possible": paid_transition,
+                        "pricing_metadata": {
+                            "exact_model_verified": True,
+                            "fixed_free_endpoint": True,
+                            "free_endpoint_available": True,
+                            "free_price_verified": True,
+                            "paid_fallback_disabled": True,
+                            "selected_route": "FREE_ENDPOINT",
+                        },
+                    }
+                }
+            }
+        }
+    }
+
+
 class GuardedNvidiaAdapterTests(unittest.TestCase):
     def test_success_settles_exactly_one_request(self):
         with tempfile.TemporaryDirectory() as tmp:
             ledger = ledger_at(Path(tmp) / "ledger.json")
             adapter = DurableNvidiaAdapter(FakeSuccessAdapter(), ledger, HEAD)
             result = adapter.generate(
-                "nvidia/nemotron-3.5-lightning-30b-a3b",
+                MODEL,
                 [{"role": "user", "content": "x"}],
                 request_id=REQUEST,
                 mission_id=MISSION,
@@ -63,7 +117,7 @@ class GuardedNvidiaAdapterTests(unittest.TestCase):
             adapter = DurableNvidiaAdapter(FakeTimeoutAdapter(), ledger, HEAD)
             with self.assertRaises(TimeoutError):
                 adapter.generate(
-                    "nvidia/nemotron-3.5-lightning-30b-a3b",
+                    MODEL,
                     [{"role": "user", "content": "x"}],
                     request_id=REQUEST,
                     mission_id=MISSION,
@@ -79,7 +133,7 @@ class GuardedNvidiaAdapterTests(unittest.TestCase):
             path = Path(tmp) / "ledger.json"
             first = DurableNvidiaAdapter(FakeSuccessAdapter(), ledger_at(path), HEAD)
             first.generate(
-                "nvidia/nemotron-3.5-lightning-30b-a3b",
+                MODEL,
                 [{"role": "user", "content": "x"}],
                 request_id=REQUEST,
                 mission_id=MISSION,
@@ -87,13 +141,36 @@ class GuardedNvidiaAdapterTests(unittest.TestCase):
             second = DurableNvidiaAdapter(FakeSuccessAdapter(), ledger_at(path), HEAD)
             with self.assertRaises(ProviderAdapterError):
                 second.generate(
-                    "nvidia/nemotron-3.5-lightning-30b-a3b",
+                    MODEL,
                     [{"role": "user", "content": "x"}],
                     request_id=REQUEST,
                     mission_id=MISSION,
                 )
             self.assertEqual(second.calls_this_carrier, 0)
             self.assertEqual(second.current_state, "SETTLED")
+
+    def test_verified_deferred_admission_is_bridged_without_persisted_probe_call(self):
+        original = deferred_probe()
+        result = _promote_deferred_nvidia_admission(original, secure_evidence())
+        row = result["providers"][0]
+        self.assertEqual(row["status"], "PROBE_OK")
+        self.assertEqual(row["source_status"], "PROBE_DEFERRED_TO_AGENT")
+        self.assertEqual(row["compatibility_admission"], "FIRST_REAL_AGENT_CALL_IS_LIVENESS")
+        self.assertTrue(result["nvidia_deferred_admission_bridged"])
+        self.assertEqual(original["providers"][0]["status"], "PROBE_DEFERRED_TO_AGENT")
+
+    def test_deferred_admission_never_bridges_known_paid_transition(self):
+        original = deferred_probe()
+        result = _promote_deferred_nvidia_admission(original, secure_evidence(paid_transition=True))
+        self.assertEqual(result["providers"][0]["status"], "PROBE_DEFERRED_TO_AGENT")
+        self.assertNotIn("nvidia_deferred_admission_bridged", result)
+
+    def test_deferred_admission_never_bridges_wrong_route(self):
+        original = deferred_probe()
+        original["providers"][0]["selected_route"] = "PARTNER_ENDPOINT"
+        result = _promote_deferred_nvidia_admission(original, secure_evidence())
+        self.assertEqual(result["providers"][0]["status"], "PROBE_DEFERRED_TO_AGENT")
+        self.assertNotIn("nvidia_deferred_admission_bridged", result)
 
 
 if __name__ == "__main__":
