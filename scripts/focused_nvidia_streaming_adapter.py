@@ -28,6 +28,7 @@ from scripts.provider_adapters import (
 
 
 FOCUSED_NVIDIA_TIMEOUT_SECONDS = 150.0
+MAX_FOCUSED_OUTPUT_TOKENS = 2_048
 MAX_STREAM_BYTES = 1_000_000
 MAX_STATUS_POLLS = 12
 STATUS_POLL_SECONDS = 3.0
@@ -111,7 +112,7 @@ class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
         payload: dict[str, Any] = {
             "model": model_id.strip(),
             "messages": [dict(message) for message in messages],
-            "max_tokens": max(1, min(max_tokens, 256)),
+            "max_tokens": max(1, min(max_tokens, MAX_FOCUSED_OUTPUT_TOKENS)),
             "stream": True,
         }
         reasoning_effort = options.get("reasoning_effort")
@@ -204,4 +205,8 @@ class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
         return AdapterResponse(normalized, response_headers, int((time.monotonic() - started) * 1000))
 
 
-__all__ = ["FocusedNvidiaStreamingAdapter", "FOCUSED_NVIDIA_TIMEOUT_SECONDS"]
+__all__ = [
+    "FocusedNvidiaStreamingAdapter",
+    "FOCUSED_NVIDIA_TIMEOUT_SECONDS",
+    "MAX_FOCUSED_OUTPUT_TOKENS",
+]
