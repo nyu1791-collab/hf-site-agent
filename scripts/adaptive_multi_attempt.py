@@ -2,18 +2,20 @@
 """Best-of-N executor callbacks for important AI-army tasks.
 
 Normal work remains single-shot. Important work gets two independent executor
-attempts and critical work gets three. Attempts run concurrently to preserve
-speed, then a deterministic scorer selects the strongest structured proposal.
+attempts and critical work gets three. Attempts are intentionally serialized
+for one provider binding so this layer cannot bypass the scheduler's
+same-provider concurrency invariant or amplify rate-limit failures. Independent
+provider corps may still run in parallel at the mission scheduler layer.
 The independent reviewer remains a separate model-family step.
 """
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Mapping
 
 from scripts.adaptive_performance_policy import profile_for_task
 from scripts.autonomous_mission import TaskLoopCallbacks
+from scripts.mission_scheduler import ProviderInterrupted
 import scripts.live_staging_runner as live_runner
 
 
@@ -37,7 +39,7 @@ def _candidate_score(candidate: Mapping[str, Any]) -> tuple[int, int, int, int, 
 
 
 def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=None) -> TaskLoopCallbacks:
-    """Build callbacks with importance-aware parallel executor redundancy."""
+    """Build callbacks with importance-aware, provider-safe executor redundancy."""
     executor.validate()
     reviewer.validate()
     if executor.role != "EXECUTOR" or reviewer.role != "REVIEWER":
@@ -68,46 +70,52 @@ def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=No
                 metrics=metrics,
                 instruction=(
                     "You are the staging Executor. Produce an independent solution, not a paraphrase of "
-                    "another attempt. Return JSON only with summary, proposal, files_affected, tests, risks, "
-                    "and next_action. Optimize for correctness, implementation completeness, maintainability, "
-                    "performance and test coverage. Do not claim repository writes or execution."
+                    "another attempt. Continue through the current project until its acceptance gates are "
+                    "satisfied; do not stop merely because one substep finished. Return JSON only with "
+                    "summary, proposal, files_affected, tests, risks, and next_action. Optimize for "
+                    "correctness, implementation completeness, maintainability, performance and test "
+                    "coverage. Do not claim repository writes or execution."
                 ),
             )
 
-        results: list[dict[str, Any]] = []
-        if attempts == 1:
-            results.append(one(1))
-        else:
-            with ThreadPoolExecutor(max_workers=attempts, thread_name_prefix="ai-army-bestof") as pool:
-                futures = [pool.submit(one, index) for index in range(1, attempts + 1)]
-                for future in as_completed(futures):
-                    try:
-                        results.append(future.result())
-                    except Exception as exc:
-                        results.append({
-                            "output_invalid": True,
-                            "summary": "independent attempt failed",
-                            "failure_signature": type(exc).__name__,
-                            "requests_used": 1,
-                            "input_tokens": 0,
-                            "output_tokens": 0,
-                        })
+        indexed_results: list[tuple[int, dict[str, Any]]] = []
+        for index in range(1, attempts + 1):
+            try:
+                indexed_results.append((index, one(index)))
+            except ProviderInterrupted:
+                # Unknown or interrupted provider usage must stay unsettled in
+                # the outer runtime. Never convert it into a fake zero-token
+                # failed candidate and then dispatch another attempt.
+                raise
+            except Exception as exc:
+                indexed_results.append((index, {
+                    "output_invalid": True,
+                    "summary": "independent attempt failed before a provider result was adopted",
+                    "failure_signature": type(exc).__name__,
+                    "requests_used": 0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                }))
 
-        valid = [item for item in results if item.get("output_invalid") is not True]
-        chosen = max(valid or results, key=_candidate_score)
+        valid = [(index, item) for index, item in indexed_results if item.get("output_invalid") is not True]
+        chosen_index, chosen_value = max(valid or indexed_results, key=lambda pair: _candidate_score(pair[1]))
+        results = [item for _, item in indexed_results]
         total_requests = sum(int(item.get("requests_used", 0) or 0) for item in results)
         total_input = sum(int(item.get("input_tokens", 0) or 0) for item in results)
         total_output = sum(int(item.get("output_tokens", 0) or 0) for item in results)
-        chosen = dict(chosen)
+        chosen = dict(chosen_value)
         chosen["requests_used"] = total_requests
         chosen["input_tokens"] = total_input
         chosen["output_tokens"] = total_output
         chosen["performance_profile"] = profile.name
         chosen["independent_attempts_requested"] = attempts
         chosen["independent_attempts_completed"] = len(valid)
+        chosen["attempt_execution_mode"] = "SERIAL_SAME_PROVIDER"
         chosen["selection_method"] = "DETERMINISTIC_BEST_OF_N"
         chosen["alternative_attempt_summaries"] = [
-            str(item.get("summary") or "")[:400] for item in results if item is not chosen
+            str(item.get("summary") or "")[:400]
+            for index, item in indexed_results
+            if index != chosen_index
         ][:2]
         return chosen
 
@@ -141,7 +149,8 @@ def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=No
             instruction=(
                 "You are the independent staging Reviewer. Aggressively test the chosen proposal for "
                 "correctness, races, stale-state bugs, performance regressions, missing tests and simpler "
-                "alternatives. Return JSON only with decision PASS or FAIL, summary, findings, "
+                "alternatives. Review the whole current-project acceptance contract, not only the most "
+                "recent substep. Return JSON only with decision PASS or FAIL, summary, findings, "
                 "required_changes, risks, and failure_signature."
             ),
         )
