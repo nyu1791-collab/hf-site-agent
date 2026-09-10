@@ -1,6 +1,6 @@
 import unittest
 
-from scripts.google_staging_readiness import build_google_readiness_packet
+from scripts.google_staging_readiness import _read_optional, build_google_readiness_packet
 
 
 MODEL = "gemini-3.8-flash"
@@ -45,6 +45,14 @@ class GoogleStagingReadinessTests(unittest.TestCase):
         self.assertFalse(report["live_ready"])
         self.assertIn("CURRENT_GOOGLE_ACCOUNT_TIER", report["required_evidence"])
         self.assertIn("CURRENT_GOOGLE_BILLING_STATE", report["required_evidence"])
+
+    def test_missing_optional_result_inbox_is_treated_as_no_proposal(self):
+        self.assertEqual(_read_optional("artifacts/definitely-missing-result-inbox.json"), {})
+        report = build_google_readiness_packet(evidence(), probe(), {})
+        self.assertEqual(report["state"], "ACCOUNT_EVIDENCE_REQUIRED")
+        self.assertEqual(report["lead_integration"]["decision"], "NO_PROPOSAL")
+        self.assertEqual(report["lead_integration"]["reason"], "NO_PATCH_BUNDLE_TO_REVIEW")
+        self.assertFalse(report["repeat_nvidia_call_allowed"])
 
     def test_structurally_complete_out_of_scope_lead_patch_is_rejected(self):
         inbox = {
