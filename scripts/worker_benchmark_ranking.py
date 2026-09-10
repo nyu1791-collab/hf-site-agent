@@ -14,27 +14,27 @@ from typing import Any, Mapping, Sequence
 
 ROLE_WEIGHTS: dict[str, dict[str, float]] = {
     "GENERAL_WORKER": {
-        "task_quality": 0.36,
+        "task_quality": 0.46,
         "schema_success_rate": 0.24,
-        "latency": 0.10,
-        "token_efficiency": 0.10,
+        "latency": 0.05,
+        "token_efficiency": 0.05,
         "revision_efficiency": 0.10,
         "error_resilience": 0.10,
     },
     "CODING_WORKER": {
-        "task_quality": 0.40,
+        "task_quality": 0.48,
         "schema_success_rate": 0.22,
-        "latency": 0.08,
-        "token_efficiency": 0.08,
-        "revision_efficiency": 0.12,
+        "latency": 0.05,
+        "token_efficiency": 0.05,
+        "revision_efficiency": 0.10,
         "error_resilience": 0.10,
     },
     "REVIEW_WORKER": {
-        "task_quality": 0.38,
+        "task_quality": 0.46,
         "schema_success_rate": 0.24,
-        "latency": 0.08,
-        "token_efficiency": 0.08,
-        "revision_efficiency": 0.10,
+        "latency": 0.05,
+        "token_efficiency": 0.05,
+        "revision_efficiency": 0.08,
         "error_resilience": 0.12,
     },
     "FAST_WORKER": {
