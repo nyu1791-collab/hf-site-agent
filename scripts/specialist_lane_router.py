@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-"""Capability-aware specialist lane assignment for the AI Army.
+"""Capability- and history-aware specialist lane assignment for the AI Army.
 
-The worker council already benchmarks each exact-free model by role.  This
-module uses that same-run evidence to pair specialists with lanes instead of
-assigning lanes by list position.  It is provider-call agnostic and does not
-create new model routes.
+Same-run benchmark role scores describe current capability, while compact
+organization memory records how workers actually behaved on specialist work in
+recent runs.  Routing combines both signals so a high benchmark score cannot
+indefinitely outweigh repeated length exhaustion or extreme live latency.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from scripts.multi_agent_efficiency import SPECIALIST_LANES, build_specialist_context
 
 
+DEFAULT_MEMORY_PATH = Path("config/worker_organization_memory.json")
 DEFAULT_LANE_ROLE_PREFERENCES: Mapping[str, tuple[str, ...]] = {
     "SCHEDULER_DAG": ("CODING_WORKER", "GENERAL_WORKER"),
     "CAPABILITY_ROUTING": ("GENERAL_WORKER", "CODING_WORKER"),
@@ -36,7 +38,70 @@ def _number(value: Any, default: float = 0.0) -> float:
     return number
 
 
-def _assignment_score(worker: Mapping[str, Any], lane_name: str, preferences: Mapping[str, Sequence[str]]) -> tuple[float, float, float, float, str]:
+def load_organization_memory(*, root: Path | str = Path(".")) -> Mapping[str, Any]:
+    path = Path(root) / DEFAULT_MEMORY_PATH
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, Mapping) or payload.get("schema_version") != "worker-organization-memory-v1":
+        return {}
+    models = payload.get("models")
+    return payload if isinstance(models, Mapping) else {}
+
+
+def _smoothed_rate(successes: int, attempts: int) -> float:
+    # Small Beta prior prevents one old success/failure from dominating routing.
+    return (max(0, successes) + 1.0) / (max(0, attempts) + 2.0)
+
+
+def historical_worker_signal(memory: Mapping[str, Any], model: str, lane_name: str) -> dict[str, float | int]:
+    models = memory.get("models") if isinstance(memory.get("models"), Mapping) else {}
+    model_row = models.get(model) if isinstance(models.get(model), Mapping) else {}
+    if not model_row:
+        return {
+            "score": 0.60,
+            "model_attempts": 0,
+            "lane_attempts": 0,
+            "length_failure_rate": 0.0,
+            "rate_limit_rate": 0.0,
+        }
+    lanes = model_row.get("lanes") if isinstance(model_row.get("lanes"), Mapping) else {}
+    lane_row = lanes.get(lane_name) if isinstance(lanes.get(lane_name), Mapping) else {}
+    model_attempts = max(0, int(model_row.get("attempts", 0) or 0))
+    model_successes = max(0, int(model_row.get("successes", 0) or 0))
+    lane_attempts = max(0, int(lane_row.get("attempts", 0) or 0))
+    lane_successes = max(0, int(lane_row.get("successes", 0) or 0))
+    overall_reliability = _smoothed_rate(model_successes, model_attempts)
+    lane_reliability = _smoothed_rate(lane_successes, lane_attempts) if lane_attempts else overall_reliability
+    source = lane_row if lane_attempts else model_row
+    source_attempts = max(1, int(source.get("attempts", 0) or 0))
+    length_rate = max(0.0, min(1.0, int(source.get("length_failures", 0) or 0) / source_attempts))
+    rate_limit_rate = max(0.0, min(1.0, int(source.get("rate_limits", 0) or 0) / source_attempts))
+    latency_ms = _number(source.get("avg_latency_ms"), _number(model_row.get("avg_latency_ms"), 20_000.0))
+    latency_factor = 1.0 / (1.0 + max(1.0, latency_ms) / 12_000.0)
+    score = (
+        0.60 * lane_reliability
+        + 0.25 * overall_reliability
+        + 0.15 * latency_factor
+        - 0.25 * length_rate
+        - 0.15 * rate_limit_rate
+    )
+    return {
+        "score": round(max(0.0, min(1.0, score)), 8),
+        "model_attempts": model_attempts,
+        "lane_attempts": lane_attempts,
+        "length_failure_rate": round(length_rate, 8),
+        "rate_limit_rate": round(rate_limit_rate, 8),
+    }
+
+
+def _assignment_score(
+    worker: Mapping[str, Any],
+    lane_name: str,
+    preferences: Mapping[str, Sequence[str]],
+    memory: Mapping[str, Any],
+) -> tuple[float, float, float, float, float, str]:
     role_scores = worker.get("role_scores") if isinstance(worker.get("role_scores"), Mapping) else {}
     preferred_roles = tuple(str(role) for role in preferences.get(lane_name, ()))
     preferred_scores = [_number(role_scores.get(role)) for role in preferred_roles]
@@ -45,8 +110,16 @@ def _assignment_score(worker: Mapping[str, Any], lane_name: str, preferences: Ma
     best_score = max(0.0, min(1.0, _number(worker.get("best_score"))))
     latency_ms = _number(worker.get("best_latency_ms"), 60_000.0)
     latency_factor = 1.0 / (1.0 + max(1.0, latency_ms) / 8_000.0)
-    score = 0.55 * role_fit + 0.20 * role_coverage + 0.20 * best_score + 0.05 * latency_factor
-    return (score, role_fit, role_coverage, best_score, str(worker.get("model") or ""))
+    history = historical_worker_signal(memory, str(worker.get("model") or ""), lane_name)
+    history_score = float(history["score"])
+    score = (
+        0.42 * role_fit
+        + 0.14 * role_coverage
+        + 0.14 * best_score
+        + 0.05 * latency_factor
+        + 0.25 * history_score
+    )
+    return (score, history_score, role_fit, role_coverage, best_score, str(worker.get("model") or ""))
 
 
 def attach_capability_matched_assignments(
@@ -54,29 +127,37 @@ def attach_capability_matched_assignments(
     *,
     root: Path | str = Path("."),
     preferences: Mapping[str, Sequence[str]] = DEFAULT_LANE_ROLE_PREFERENCES,
+    memory: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Greedily match each lane to the strongest remaining role-fit worker.
-
-    Every selected worker is used at most once and every emitted lane is unique.
-    The function is deterministic for the same benchmark evidence.
-    """
+    """Match each unique lane to the strongest remaining evidence-backed worker."""
     remaining = [dict(item) for item in selected if isinstance(item, Mapping) and item.get("model")]
     if not remaining:
         return []
+    memory_payload = memory if isinstance(memory, Mapping) else load_organization_memory(root=root)
     assignments: list[dict[str, Any]] = []
     for lane in SPECIALIST_LANES:
         if not remaining or len(assignments) >= len(selected):
             break
         lane_name = str(lane["lane"])
-        worker = max(remaining, key=lambda item: _assignment_score(item, lane_name, preferences))
+        worker = max(remaining, key=lambda item: _assignment_score(item, lane_name, preferences, memory_payload))
         remaining.remove(worker)
-        score, role_fit, coverage, best_score, _ = _assignment_score(worker, lane_name, preferences)
+        score, history_score, role_fit, coverage, best_score, _ = _assignment_score(worker, lane_name, preferences, memory_payload)
+        history = historical_worker_signal(memory_payload, str(worker.get("model") or ""), lane_name)
         worker["specialist_lane"] = lane_name
         worker["specialist_objective"] = str(lane["objective"])
         worker["specialist_context"] = build_specialist_context(lane, root=root)
+        worker["organization_memory"] = {
+            "overall": historical_worker_signal(memory_payload, str(worker.get("model") or ""), "__OVERALL__"),
+            "assigned_lane": dict(history),
+        }
         worker["lane_assignment"] = {
-            "policy": "SAME_RUN_ROLE_SCORE_GREEDY_MATCH",
+            "policy": "SAME_RUN_ROLE_SCORE_PLUS_ORGANIZATION_MEMORY",
             "score": round(score, 8),
+            "historical_score": round(history_score, 8),
+            "historical_model_attempts": int(history["model_attempts"]),
+            "historical_lane_attempts": int(history["lane_attempts"]),
+            "historical_length_failure_rate": float(history["length_failure_rate"]),
+            "historical_rate_limit_rate": float(history["rate_limit_rate"]),
             "role_fit": round(role_fit, 8),
             "preferred_role_coverage": round(coverage, 8),
             "best_score": round(best_score, 8),
@@ -88,5 +169,8 @@ def attach_capability_matched_assignments(
 
 __all__ = [
     "DEFAULT_LANE_ROLE_PREFERENCES",
+    "DEFAULT_MEMORY_PATH",
     "attach_capability_matched_assignments",
+    "historical_worker_signal",
+    "load_organization_memory",
 ]
