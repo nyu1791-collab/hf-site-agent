@@ -1,5 +1,4 @@
-trigger: nvidia-autonomous-orchestrator-34427151942
-revision: 2
-previous_result_hash: 4f3de5f70462746d1858b7d9
-attempt: 2
-reason: transient-network-timeout
+mode: google-bootstrap
+lead: nvidia/nemotron-3.5-lightning-30b-a3b
+attempt: 1
+objective: grounded-minimal-google-staging-plan
