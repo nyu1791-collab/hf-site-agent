@@ -1,2 +1,2 @@
-trigger=2026-09-10T19:27:00+09:00
-purpose=classify-gemini-429-as-transient-daily-or-zero-quota-then-continue-safe-agent-lanes
+trigger=2026-09-10T19:31:00+09:00
+purpose=validate-nvidia-reviewed-google-deferred-recovery-mode-and-continue-google-nvidia-agent-lanes
