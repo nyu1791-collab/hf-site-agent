@@ -4,7 +4,9 @@
 This staging-only adapter is optimized for real Reviewer work rather than a
 tiny liveness probe. It remains exact-model, no-fallback, no-retry and bounded,
 but gives the hosted free endpoint enough time and output room to complete a
-useful review on GitHub-hosted runners.
+useful review on GitHub-hosted runners. If a stream times out only after useful
+content arrived, that content is preserved instead of being discarded; the
+inference is never re-sent.
 """
 
 from __future__ import annotations
@@ -58,7 +60,9 @@ class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
                     return AdapterResponse(payload, response_headers, int((time.monotonic() - response_started) * 1000))
                 if status != 202:
                     raise ProviderAdapterError("PROVIDER_HTTP_ERROR", http_status=status)
-            time.sleep(min(STATUS_POLL_SECONDS, max(0.0, deadline - time.monotonic())))
+            sleep_for = min(STATUS_POLL_SECONDS, max(0.0, deadline - time.monotonic()))
+            if sleep_for:
+                time.sleep(sleep_for)
         raise TimeoutError("bounded NVIDIA status polling exhausted")
 
     @staticmethod
@@ -79,6 +83,17 @@ class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
                 return value
         return ""
 
+    @staticmethod
+    def _normalized(model_id: str, resolved_model: str, chunks: Sequence[str], usage: Mapping[str, Any]) -> Mapping[str, Any]:
+        text = "".join(chunks)
+        if not text.strip():
+            raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
+        return {
+            "model": resolved_model or model_id,
+            "choices": [{"message": {"role": "assistant", "content": text[:MAX_NORMALIZED_TEXT_CHARS]}}],
+            "usage": dict(usage),
+        }
+
     def _chat(
         self,
         model_id: str,
@@ -93,7 +108,10 @@ class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
         if not messages or len(messages) > 64:
             raise ProviderAdapterError("INPUT_INVALID")
 
-        max_tokens = int(options.get("max_tokens", 1024))
+        try:
+            max_tokens = int(options.get("max_tokens", 1024))
+        except (TypeError, ValueError):
+            max_tokens = 1024
         payload: dict[str, Any] = {
             "model": model_id.strip(),
             "messages": [dict(message) for message in messages],
@@ -121,65 +139,66 @@ class FocusedNvidiaStreamingAdapter(OpenAICompatibleAdapter):
         request = Request(urljoin(self._base_url, "chat/completions"), data=body, headers=headers, method="POST")
         started = time.monotonic()
         deadline = started + self.timeout_seconds
-        with urlopen(request, timeout=self.timeout_seconds) as response:  # nosec B310
-            status = int(response.getcode() or 0)
-            response_headers = {str(key).lower(): str(value) for key, value in response.headers.items()}
-            if status == 202:
-                raw = response.read(MAX_STREAM_BYTES + 1)
-                if len(raw) > MAX_STREAM_BYTES:
-                    raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
-                pending = json.loads(raw.decode("utf-8")) if raw else {}
-                result = self._request_status_result(self._request_id(pending), deadline=deadline)
-                return AdapterResponse(result.payload, result.headers, int((time.monotonic() - started) * 1000))
-            if status != 200:
-                raise ProviderAdapterError("PROVIDER_HTTP_ERROR", http_status=status)
+        chunks: list[str] = []
+        resolved_model = ""
+        usage: dict[str, Any] = {}
+        consumed = 0
+        response_headers: dict[str, str] = {}
 
-            chunks: list[str] = []
-            resolved_model = ""
-            usage: dict[str, Any] = {}
-            consumed = 0
-            for raw_line in response:
-                consumed += len(raw_line)
-                if consumed > MAX_STREAM_BYTES:
-                    raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
-                line = raw_line.decode("utf-8", errors="strict").strip()
-                if not line or line.startswith(":") or not line.startswith("data:"):
-                    continue
-                data = line[5:].strip()
-                if data == "[DONE]":
-                    break
-                event = json.loads(data)
-                if not isinstance(event, Mapping):
-                    continue
-                if isinstance(event.get("model"), str) and event.get("model"):
-                    resolved_model = str(event["model"])
-                if isinstance(event.get("usage"), Mapping):
-                    usage = dict(event["usage"])
-                choices = event.get("choices")
-                if not isinstance(choices, list):
-                    continue
-                for choice in choices[:4]:
-                    if not isinstance(choice, Mapping):
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:  # nosec B310
+                status = int(response.getcode() or 0)
+                response_headers = {str(key).lower(): str(value) for key, value in response.headers.items()}
+                if status == 202:
+                    raw = response.read(MAX_STREAM_BYTES + 1)
+                    if len(raw) > MAX_STREAM_BYTES:
+                        raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
+                    pending = json.loads(raw.decode("utf-8")) if raw else {}
+                    result = self._request_status_result(self._request_id(pending), deadline=deadline)
+                    return AdapterResponse(result.payload, result.headers, int((time.monotonic() - started) * 1000))
+                if status != 200:
+                    raise ProviderAdapterError("PROVIDER_HTTP_ERROR", http_status=status)
+
+                for raw_line in response:
+                    consumed += len(raw_line)
+                    if consumed > MAX_STREAM_BYTES:
+                        raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
+                    line = raw_line.decode("utf-8", errors="strict").strip()
+                    if not line or line.startswith(":") or not line.startswith("data:"):
                         continue
-                    delta = choice.get("delta")
-                    if isinstance(delta, Mapping):
-                        text = self._delta_text(delta)
-                        if text:
-                            chunks.append(text)
-                    message = choice.get("message")
-                    if isinstance(message, Mapping):
-                        value = message.get("content")
-                        if isinstance(value, str) and value:
-                            chunks.append(value)
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        break
+                    event = json.loads(data)
+                    if not isinstance(event, Mapping):
+                        continue
+                    if isinstance(event.get("model"), str) and event.get("model"):
+                        resolved_model = str(event["model"])
+                    if isinstance(event.get("usage"), Mapping):
+                        usage = dict(event["usage"])
+                    choices = event.get("choices")
+                    if not isinstance(choices, list):
+                        continue
+                    for choice in choices[:4]:
+                        if not isinstance(choice, Mapping):
+                            continue
+                        delta = choice.get("delta")
+                        if isinstance(delta, Mapping):
+                            text = self._delta_text(delta)
+                            if text:
+                                chunks.append(text)
+                        message = choice.get("message")
+                        if isinstance(message, Mapping):
+                            value = message.get("content")
+                            if isinstance(value, str) and value:
+                                chunks.append(value)
+        except (TimeoutError, OSError):
+            # No retry: preserve only content already delivered by this exact
+            # request. Local JSON recovery will decide whether it is usable.
+            if not chunks:
+                raise
 
-        text = "".join(chunks)
-        if not text.strip():
-            raise ProviderAdapterError("MODEL_OUTPUT_INVALID")
-        normalized = {
-            "model": resolved_model or model_id,
-            "choices": [{"message": {"role": "assistant", "content": text[:MAX_NORMALIZED_TEXT_CHARS]}}],
-            "usage": usage,
-        }
+        normalized = self._normalized(model_id, resolved_model, chunks, usage)
         return AdapterResponse(normalized, response_headers, int((time.monotonic() - started) * 1000))
 
 
