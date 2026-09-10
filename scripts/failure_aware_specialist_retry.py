@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Adaptive retry policy for the failure-aware specialist council.
 
-Primary specialist calls keep the established 2048-token ceiling. Only after an
-exact-free primary response ends with finish_reason=length and no visible
-content does the one allowed work-stealing retry receive more total output room,
-a bounded reasoning budget, and a smaller handoff context. No provider fallback
-or third retry tier is introduced.
+Primary specialist calls keep the established 2048-token ceiling and workers
+are matched to lanes from same-run role scores instead of list position. Only
+after an exact-free primary response ends with finish_reason=length and no
+visible content does the one allowed work-stealing retry receive more total
+output room, a bounded reasoning budget, and a smaller handoff context. No
+provider fallback or third retry tier is introduced.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ if __package__ in {None, ""}:  # pragma: no cover
 
 from scripts import failure_aware_specialist_council as base
 from scripts import parallel_worker_council as council_core
+from scripts.specialist_lane_router import attach_capability_matched_assignments
 
 PRIMARY_OUTPUT_TOKENS = int(council_core.MAX_OUTPUT_TOKENS)
 PRIMARY_REASONING = dict(council_core.COUNCIL_REASONING)
@@ -75,6 +77,7 @@ def _compact_redispatch_assignments(assignments: Sequence[Mapping[str, Any]]) ->
 
 def run_failure_aware_council(*, api_key: str, probe: Mapping[str, Any], benchmark: Mapping[str, Any]) -> dict[str, Any]:
     original_execute_wave = base._execute_wave
+    original_attach = base.attach_specialist_assignments
     state: dict[str, Any] = {
         "length_exhaustion_count": 0,
         "redispatch_output_token_budget": PRIMARY_OUTPUT_TOKENS,
@@ -101,10 +104,12 @@ def run_failure_aware_council(*, api_key: str, probe: Mapping[str, Any], benchma
             council_core.COUNCIL_REASONING = previous_reasoning
 
     base._execute_wave = adaptive_execute_wave
+    base.attach_specialist_assignments = attach_capability_matched_assignments
     try:
         report = dict(base.run_failure_aware_council(api_key=api_key, probe=probe, benchmark=benchmark))
     finally:
         base._execute_wave = original_execute_wave
+        base.attach_specialist_assignments = original_attach
         council_core.MAX_OUTPUT_TOKENS = PRIMARY_OUTPUT_TOKENS
         council_core.COUNCIL_REASONING = dict(PRIMARY_REASONING)
 
@@ -119,6 +124,8 @@ def run_failure_aware_council(*, api_key: str, probe: Mapping[str, Any], benchma
         "max_visible_answer_tokens_requested": 120,
     }
     report["output_budget_policy"] = "ESCALATE_AND_CAP_REASONING_ONLY_AFTER_VISIBLE_LENGTH_EXHAUSTION"
+    report["lane_assignment_policy"] = "SAME_RUN_ROLE_SCORE_GREEDY_MATCH"
+    report["capability_matched_lanes"] = True
     report["max_attempts_per_lane"] = 2
     return report
 
@@ -155,6 +162,8 @@ def main() -> int:
             "primary_output_token_budget": PRIMARY_OUTPUT_TOKENS,
             "redispatch_output_token_budget": PRIMARY_OUTPUT_TOKENS,
             "length_exhaustion_count": 0,
+            "lane_assignment_policy": "SAME_RUN_ROLE_SCORE_GREEDY_MATCH",
+            "capability_matched_lanes": True,
             "paid_fallback": False,
             "provider_allow_fallbacks": False,
             "repository_write": False,
@@ -171,6 +180,7 @@ def main() -> int:
         "length_exhaustion_count": report.get("length_exhaustion_count", 0),
         "redispatch_output_token_budget": report.get("redispatch_output_token_budget", PRIMARY_OUTPUT_TOKENS),
         "redispatch_reasoning_policy": report.get("redispatch_reasoning_policy", {}),
+        "lane_assignment_policy": report.get("lane_assignment_policy"),
         "work_stealing_count": report.get("work_stealing_count", 0),
         "google_calls": 0,
     }, sort_keys=True))
