@@ -96,6 +96,13 @@ def _feature_names(entry: Mapping[str, Any]) -> set[str]:
     return features
 
 
+def _catalog_created_epoch(entry: Mapping[str, Any]) -> int | None:
+    value = entry.get("created")
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return None
+    return value
+
+
 def _probe_is_active(model_id: str, probe: Mapping[str, Any]) -> bool:
     if probe.get("status") != "FREE_ACTIVE":
         return False
@@ -122,6 +129,9 @@ def catalog_worker_candidates(
     Optional provider capabilities are hints, not eligibility blockers. This keeps
     the organization from becoming brittle when a useful free model omits
     nonstandard metadata or does not implement native JSON/tool parameters.
+    Catalog creation time is preserved as evidence so downstream probing can
+    reserve a bounded discovery lane for newly released exact-free candidates
+    without making novelty itself an activation criterion.
     """
     role_name = str(worker_role or "").strip().upper()
     requirements = WORKER_ROLES.get(role_name)
@@ -152,6 +162,7 @@ def catalog_worker_candidates(
         candidates.append({
             "model": model_id,
             "context_length": context_length,
+            "catalog_created_epoch": _catalog_created_epoch(entry),
             "capability_tags": sorted(capabilities),
             "capability_hint_match": hint_match,
             "available_features": sorted(features),
