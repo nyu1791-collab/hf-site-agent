@@ -1,2 +1,2 @@
-trigger=2026-09-10T18:38:00+09:00
-purpose=validate-single-settled-google-constraint-dynamic-openrouter-worker-probe-benchmark-and-nvidia-degraded-lead
+trigger=2026-09-10T18:42:00+09:00
+purpose=validate-deferred-nvidia-direct-agent-lead-google-recovery-and-two-commander-connectivity
