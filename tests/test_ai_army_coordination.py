@@ -4,6 +4,33 @@ from scripts.ai_army_coordination import build_coordination_packet
 
 
 class AIArmyCoordinationTests(unittest.TestCase):
+    @staticmethod
+    def settled_google_report(*, google_calls=3, nvidia_calls=0, revision_count=0, unsettled=0):
+        providers = {"google": google_calls}
+        if nvidia_calls:
+            providers["nvidia"] = nvidia_calls
+        return {
+            "status": "blocked",
+            "runtime": {"stop_reason": "PROVIDER_INTERRUPTED", "revision_count": revision_count},
+            "budget": {"requests_used": google_calls, "unsettled_requests": unsettled},
+            "live_staging": {
+                "executor_provider": "google",
+                "reviewer_provider": "nvidia",
+                "family_separation_pass": True,
+                "external_model_calls": google_calls + nvidia_calls,
+                "providers": providers,
+            },
+            "safety": {
+                "paid_execution_count": 0,
+                "paid_fallback_count": 0,
+                "production_active": False,
+                "secret_values_displayed": 0,
+                "secret_values_logged": 0,
+                "secret_values_persisted": 0,
+                "secret_values_returned_to_model": 0,
+            },
+        }
+
     def test_google_blocker_uses_one_nvidia_lead_and_zero_google_calls(self):
         packet = build_coordination_packet(
             {
@@ -50,65 +77,53 @@ class AIArmyCoordinationTests(unittest.TestCase):
     def test_settled_google_outage_authorizes_one_planned_nvidia_degraded_lead(self):
         packet = build_coordination_packet(
             {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
-            {
-                "status": "blocked",
-                "runtime": {"stop_reason": "PROVIDER_INTERRUPTED"},
-                "budget": {"requests_used": 3, "unsettled_requests": 0},
-                "live_staging": {
-                    "executor_provider": "google",
-                    "reviewer_provider": "nvidia",
-                    "family_separation_pass": True,
-                    "external_model_calls": 3,
-                    "providers": {"google": 3},
-                },
-                "safety": {
-                    "paid_execution_count": 0,
-                    "paid_fallback_count": 0,
-                    "production_active": False,
-                    "secret_values_displayed": 0,
-                    "secret_values_logged": 0,
-                    "secret_values_persisted": 0,
-                    "secret_values_returned_to_model": 0,
-                },
-            },
+            self.settled_google_report(),
         )
         self.assertEqual(packet["state"], "GOOGLE_PROVIDER_DEGRADED_NVIDIA_LEAD")
         self.assertEqual(packet["next_action"], "RUN_AT_MOST_ONE_GUARDED_NVIDIA_LEAD_CALL")
         self.assertEqual(packet["call_policy"]["recommended_google_calls_this_stage"], 0)
         self.assertEqual(packet["call_policy"]["recommended_nvidia_calls_this_stage"], 1)
         self.assertTrue(packet["call_policy"]["planned_degraded_nvidia_lead"])
-        self.assertTrue(packet["google"]["conclusive_provider_outage"])
+        self.assertTrue(packet["call_policy"]["safe_independent_lane_continuation"])
+        self.assertTrue(packet["google"]["conclusive_provider_constraint"])
         self.assertTrue(packet["roles"]["nvidia"]["degraded_lead_authorized"])
+        self.assertFalse(packet["roles"]["nvidia"]["reviewer_already_participated"])
+
+    def test_settled_google_revision_failure_continues_workers_without_second_nvidia_call(self):
+        packet = build_coordination_packet(
+            {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
+            self.settled_google_report(google_calls=6, nvidia_calls=1, revision_count=1),
+        )
+        self.assertEqual(packet["state"], "GOOGLE_REVISION_DEGRADED_REVIEWER_PRESENT")
+        self.assertEqual(packet["next_action"], "CONTINUE_INDEPENDENT_WORKER_BOOTSTRAP")
+        self.assertEqual(packet["call_policy"]["recommended_google_calls_this_stage"], 0)
+        self.assertEqual(packet["call_policy"]["recommended_nvidia_calls_this_stage"], 0)
+        self.assertFalse(packet["call_policy"]["planned_degraded_nvidia_lead"])
+        self.assertTrue(packet["call_policy"]["safe_independent_lane_continuation"])
+        self.assertTrue(packet["google"]["conclusive_provider_constraint"])
+        self.assertTrue(packet["roles"]["nvidia"]["reviewer_already_participated"])
+        self.assertFalse(packet["roles"]["nvidia"]["degraded_lead_authorized"])
+        self.assertEqual(packet["live_two_agent"]["revision_count"], 1)
+
+    def test_nvidia_call_without_revision_proof_does_not_misclassify_failure_as_google(self):
+        packet = build_coordination_packet(
+            {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
+            self.settled_google_report(google_calls=3, nvidia_calls=1, revision_count=0),
+        )
+        self.assertEqual(packet["state"], "TWO_AGENT_ATTEMPT_FAILED")
+        self.assertEqual(packet["next_action"], "STOP_AND_REVIEW_TWO_AGENT_FAILURE")
+        self.assertFalse(packet["call_policy"]["safe_independent_lane_continuation"])
 
     def test_unsettled_google_interruption_does_not_authorize_degraded_lead(self):
         packet = build_coordination_packet(
             {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
-            {
-                "status": "blocked",
-                "runtime": {"stop_reason": "PROVIDER_INTERRUPTED"},
-                "budget": {"requests_used": 2, "unsettled_requests": 1},
-                "live_staging": {
-                    "executor_provider": "google",
-                    "reviewer_provider": "nvidia",
-                    "family_separation_pass": True,
-                    "external_model_calls": 2,
-                    "providers": {"google": 2},
-                },
-                "safety": {
-                    "paid_execution_count": 0,
-                    "paid_fallback_count": 0,
-                    "production_active": False,
-                    "secret_values_displayed": 0,
-                    "secret_values_logged": 0,
-                    "secret_values_persisted": 0,
-                    "secret_values_returned_to_model": 0,
-                },
-            },
+            self.settled_google_report(google_calls=3, unsettled=1),
         )
         self.assertEqual(packet["state"], "TWO_AGENT_ATTEMPT_FAILED")
         self.assertEqual(packet["next_action"], "STOP_AND_REVIEW_TWO_AGENT_FAILURE")
         self.assertEqual(packet["call_policy"]["recommended_nvidia_calls_this_stage"], 0)
         self.assertFalse(packet["call_policy"]["planned_degraded_nvidia_lead"])
+        self.assertFalse(packet["call_policy"]["safe_independent_lane_continuation"])
 
     def test_operational_two_agent_result_suppresses_extra_stage_calls(self):
         packet = build_coordination_packet(
@@ -141,7 +156,7 @@ class AIArmyCoordinationTests(unittest.TestCase):
         self.assertEqual(policy["important"]["execution"], "SERIAL_SAME_PROVIDER_BEST_OF_N")
         self.assertFalse(packet["call_policy"]["same_provider_independent_attempts_parallel"])
         self.assertIn("CHECKPOINT", policy["provider_interruption_rule"])
-        self.assertIn("SETTLED_REPEATED_5XX", policy["provider_interruption_rule"])
+        self.assertIn("SETTLED_GOOGLE_CONSTRAINT", policy["provider_interruption_rule"])
 
     def test_project_continuation_stops_at_project_not_action_boundary(self):
         packet = build_coordination_packet({}, {})
