@@ -23,7 +23,7 @@ class AIArmyCoordinationTests(unittest.TestCase):
     def test_two_agent_ready_assigns_google_executor_and_nvidia_reviewer(self):
         packet = build_coordination_packet(
             {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True, "required_evidence": []},
-            {"live_staging": False},
+            {},
         )
         self.assertEqual(packet["state"], "TWO_AGENT_STAGING_READY")
         self.assertEqual(packet["next_action"], "RUN_GOOGLE_EXECUTOR_NVIDIA_REVIEWER")
@@ -32,17 +32,33 @@ class AIArmyCoordinationTests(unittest.TestCase):
         self.assertEqual(packet["call_policy"]["recommended_google_calls_this_stage"], 1)
         self.assertEqual(packet["call_policy"]["recommended_nvidia_calls_this_stage"], 1)
 
+    def test_failed_two_agent_attempt_suppresses_fallback_calls(self):
+        packet = build_coordination_packet(
+            {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
+            {
+                "status": "blocked",
+                "stop_reason": "CAPABILITY_BENCHMARK_FAILED",
+                "live_staging": False,
+            },
+        )
+        self.assertEqual(packet["state"], "TWO_AGENT_ATTEMPT_FAILED")
+        self.assertEqual(packet["next_action"], "STOP_AND_REVIEW_TWO_AGENT_FAILURE")
+        self.assertEqual(packet["call_policy"]["recommended_nvidia_calls_this_stage"], 0)
+        self.assertEqual(packet["call_policy"]["recommended_google_calls_this_stage"], 0)
+        self.assertFalse(packet["call_policy"]["extra_fallback_after_two_agent_attempt"])
+
     def test_operational_two_agent_result_suppresses_extra_calls(self):
         packet = build_coordination_packet(
             {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
             {
+                "status": "completed",
                 "live_staging": {
                     "operational": True,
                     "live_model_family_count": 2,
                     "executor_provider": "google",
                     "reviewer_provider": "nvidia",
                     "family_separation_pass": True,
-                }
+                },
             },
         )
         self.assertEqual(packet["state"], "TWO_AGENT_OPERATIONAL")
