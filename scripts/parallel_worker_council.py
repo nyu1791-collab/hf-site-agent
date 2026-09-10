@@ -16,10 +16,14 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import sys
 import time
 from typing import Any, Mapping
 import urllib.error
 import urllib.request
+
+if __package__ in {None, ""}:  # pragma: no cover - direct script entrypoint
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.multi_agent_efficiency import adaptive_parallel_limit, attach_specialist_assignments
 
