@@ -1,27 +1,15 @@
 #!/usr/bin/env python3
 """Run NVIDIA + Google staging with adaptive, performance-first inference.
 
-The focused profile uses the selected models as a hierarchy rather than as
-redundant peers:
+Google is the Executor and NVIDIA Nemotron is the independent Reviewer.
+Unknown provider metadata is not treated as danger. The focused lane blocks
+only known paid/bad routing facts, stale or missing exact-model/auth evidence,
+and duplicate/uncertain replays.
 
-* Google Gemini 3.8 Flash: primary Executor / revision engineer.
-* NVIDIA Nemotron 3.5 Lightning: independent Reviewer / critic.
-* Normal tasks use one executor attempt; important tasks use best-of-2;
-  critical tasks use best-of-3. Same-provider attempts are serialized.
-* Exact-model probe results are reused instead of repeated network probes.
-* A bounded Google FREE_TIER lane may proceed when the provider cannot expose
-  account/quota metadata, but only when no known paid-risk signal is present.
-* NVIDIA's verified fixed FREE_ENDPOINT may enter the normal reviewer role
-  after its one bounded probe succeeds, even when account/quota metadata is
-  unavailable.
-* Context, response and mission budgets are expanded together so a larger
-  model output is not rejected by a smaller downstream envelope limit.
-* The current default project is the orchestration bugfix cycle. OpenRouter
-  worker expansion resumes only after this project passes its gates.
-
-The remaining hard guards do not reduce reasoning quality: no paid fallback,
-no secret exposure, no production activation, no external repository writes,
-and duplicate/idempotency protection.
+Google keeps one small endpoint probe. NVIDIA skips the redundant liveness
+probe entirely: once the exact hosted FREE_ENDPOINT is freshly verified, its
+first real Reviewer request is the liveness check. This avoids spending several
+minutes on a request that does no project work.
 """
 
 from __future__ import annotations
@@ -32,7 +20,7 @@ from pathlib import Path
 import sys
 from typing import Any, Mapping
 
-if __package__ in {None, ""}:  # pragma: no cover - script invocation path
+if __package__ in {None, ""}:  # pragma: no cover
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import scripts.autonomous_mission as autonomous_mission
@@ -44,7 +32,6 @@ from scripts.focused_nvidia_streaming_adapter import FocusedNvidiaStreamingAdapt
 from scripts.nvidia_google_bugfix_mission import build_bugfix_project
 import scripts.live_staging_runner as live_runner
 import scripts.run_live_staging_from_probe as staging
-
 
 _ORIGINAL_FACTORY = staging.create_provider_adapter
 _ORIGINAL_PLAN_BUILDER = staging.build_minimal_staging_plan
@@ -64,13 +51,11 @@ FOCUSED_ENVELOPE_CHARS = 180_000
 FOCUSED_REQUEST_BUDGET = 24
 FOCUSED_TOKEN_BUDGET = 81_920
 FOCUSED_GOOGLE_TIMEOUT_SECONDS = 120.0
-FOCUSED_NVIDIA_TIMEOUT_SECONDS = 240.0
-FOCUSED_MAX_ELAPSED_SECONDS = 900.0
+FOCUSED_NVIDIA_TIMEOUT_SECONDS = 600.0
+FOCUSED_MAX_ELAPSED_SECONDS = 1_800.0
 
 
 class _ProbeReuseAdapter:
-    """Reuse the carrier's successful exact-model probe for capability admission."""
-
     def __init__(self, adapter: Any) -> None:
         self._adapter = adapter
 
@@ -82,7 +67,7 @@ class _ProbeReuseAdapter:
             "status": "CAPABILITY_OK",
             "model": model,
             "capability": capability,
-            "source": "REUSED_FRESH_EXACT_MODEL_PROBE",
+            "source": "REUSED_OR_DEFERRED_EXACT_MODEL_ADMISSION",
             "network_call": False,
         }
 
@@ -92,7 +77,6 @@ def _expanded_safe_json(value: Any, limit: int = FOCUSED_ENVELOPE_CHARS) -> Any:
 
 
 def _focused_google_evidence_ok(record: Mapping[str, Any]) -> bool:
-    """Unknown account/quota metadata is soft; known paid/bad facts are hard."""
     account = record.get("account_metadata") if isinstance(record.get("account_metadata"), Mapping) else {}
     return (
         record.get("secure_evidence") is True
@@ -117,36 +101,45 @@ def _focused_google_evidence_ok(record: Mapping[str, Any]) -> bool:
 
 def _focused_nvidia_evidence_ok(record: Mapping[str, Any]) -> bool:
     severity = record.get("limited_staging_evidence_severity")
-    hard_blockers = severity.get("hard_blockers") if isinstance(severity, Mapping) else None
+    hard = severity.get("hard_blockers") if isinstance(severity, Mapping) else None
     return (
         record.get("secure_evidence") is True
         and record.get("current") is True
         and staging._fresh(record)
         and record.get("model_verified") is True
+        and record.get("catalog_verified") is True
         and record.get("endpoint_verified") is True
         and record.get("auth_verified") is True
         and record.get("selected_route") == "FREE_ENDPOINT"
+        and record.get("zero_price_verified") is True
         and record.get("limited_staging_probe_allowed") is True
         and record.get("limited_staging_probe_blockers") == []
-        and (hard_blockers == [] or hard_blockers is None)
+        and (hard == [] or hard is None)
         and record.get("paid_fallback_possible") is False
         and record.get("paid_transition_possible") is False
     )
 
 
-def _focused_candidate_ok(
-    evidence: Mapping[str, Any],
-    probe: Mapping[str, Any],
-    provider: str,
-    model: str,
-) -> bool:
-    # Only the selected Nemotron path gets the relaxed fixed-free-endpoint
-    # admission. Other NVIDIA models retain the original semantics so focused
-    # mode cannot accidentally alter unrelated/legacy candidate selection.
+def _focused_candidate_ok(evidence: Mapping[str, Any], probe: Mapping[str, Any], provider: str, model: str) -> bool:
     if provider == "nvidia":
         if model != NVIDIA_REVIEWER[1]:
             return _ORIGINAL_CANDIDATE_OK(evidence, probe, provider, model)
-        return staging._limited_nvidia_candidate_ok(evidence, probe, model)
+        record = staging._model_record(evidence, provider, model)
+        probe_record = staging._probe_record(probe, provider, model)
+        # Either an older successful bounded probe or the newer zero-call
+        # deferred admission may authorize the selected exact reviewer.
+        if staging._limited_nvidia_candidate_ok(evidence, probe, model):
+            return True
+        return (
+            _focused_nvidia_evidence_ok(record)
+            and probe_record.get("status") == "PROBE_DEFERRED_TO_AGENT"
+            and probe_record.get("probe_mode") == "DIRECT_AGENT_LIVENESS"
+            and probe_record.get("direct_agent_admission") is True
+            and probe_record.get("model_calls") == 0
+            and probe_record.get("automatic_model_fallback") is False
+            and probe_record.get("generic_paid_router_disabled") is True
+            and probe_record.get("staging_only") is True
+        )
     if provider != "google":
         return _ORIGINAL_CANDIDATE_OK(evidence, probe, provider, model)
 
@@ -154,9 +147,8 @@ def _focused_candidate_ok(
     probe_record = staging._probe_record(probe, provider, model)
     response_model = str(probe_record.get("response_model") or "").removeprefix("models/")
     usage_cost = probe_record.get("usage_cost")
-    zero_or_unreported_cost = usage_cost in (None, "0", "0.0", "0.00", 0, 0.0)
-    http_status = probe_record.get("http_status")
     status = str(probe_record.get("status") or "")
+    http_status = probe_record.get("http_status")
     return (
         model == GOOGLE_EXECUTOR[1]
         and _focused_google_evidence_ok(record)
@@ -166,58 +158,34 @@ def _focused_candidate_ok(
         and probe_record.get("model_calls") == 1
         and (http_status is None or (isinstance(http_status, int) and 200 <= http_status < 300))
         and (not response_model or response_model == model)
+        and usage_cost in (None, "0", "0.0", "0.00", 0, 0.0)
         and probe_record.get("staging_only") is True
         and probe_record.get("automatic_model_fallback") is False
         and probe_record.get("generic_paid_router_disabled") is True
-        and zero_or_unreported_cost
     )
 
 
 def _focused_capability_policy(provider: str, model: str, family: str, record: Mapping[str, Any]) -> ExecutionPolicy:
     if provider == "nvidia" and model == NVIDIA_REVIEWER[1] and _focused_nvidia_evidence_ok(record):
         return ExecutionPolicy(
-            scope="STAGING",
-            provider_id=provider,
-            model_id=model,
-            model_family=family,
-            technically_ready=True,
-            staging_approved=True,
-            exact_model_verified=True,
-            endpoint_verified=True,
-            auth_verified=True,
-            capability_verified=True,
-            free_verified=False,
-            cost_safe=False,
-            quota_safe=True,
-            circuit_closed=True,
-            paid_fallback=False,
-            auto_top_up=False,
-            max_retries=0,
-            staging_free_route_allowed=True,
+            scope="STAGING", provider_id=provider, model_id=model, model_family=family,
+            technically_ready=True, staging_approved=True,
+            exact_model_verified=True, endpoint_verified=True, auth_verified=True,
+            capability_verified=True, free_verified=False, cost_safe=False,
+            quota_safe=True, circuit_closed=True, paid_fallback=False,
+            auto_top_up=False, max_retries=0, staging_free_route_allowed=True,
             account_zero_cost_verified=False,
         )
     if provider != "google" or not _focused_google_evidence_ok(record):
         return _ORIGINAL_CAPABILITY_POLICY(provider, model, family, record)
-
     account_zero_cost = record.get("zero_cost_verified") is True
     return ExecutionPolicy(
-        scope="STAGING",
-        provider_id=provider,
-        model_id=model,
-        model_family=family,
-        technically_ready=True,
-        staging_approved=True,
-        exact_model_verified=record.get("model_verified") is True,
-        endpoint_verified=record.get("endpoint_verified") is True,
-        auth_verified=record.get("auth_verified") is True,
-        capability_verified=True,
-        free_verified=account_zero_cost,
-        cost_safe=account_zero_cost,
-        quota_safe=True,
-        circuit_closed=True,
-        paid_fallback=False,
-        auto_top_up=False,
-        max_retries=0,
+        scope="STAGING", provider_id=provider, model_id=model, model_family=family,
+        technically_ready=True, staging_approved=True,
+        exact_model_verified=True, endpoint_verified=True, auth_verified=True,
+        capability_verified=True, free_verified=account_zero_cost,
+        cost_safe=account_zero_cost, quota_safe=True, circuit_closed=True,
+        paid_fallback=False, auto_top_up=False, max_retries=0,
         staging_free_route_allowed=True,
         account_zero_cost_verified=account_zero_cost,
     )
@@ -242,7 +210,6 @@ def _performance_plan_builder(*args, **kwargs):
     env_objective = str(os.environ.get("AI_ARMY_OBJECTIVE") or DEFAULT_TRIAL_OBJECTIVE).strip()
     kwargs["task_role"] = env_role[:160]
     kwargs["objective"] = env_objective[:20_000]
-
     role = str(kwargs.get("task_role") or "LIVE_STAGING_EXECUTOR")
     objective = str(kwargs.get("objective") or "")
     profile = profile_for_task(
@@ -277,20 +244,13 @@ def _performance_bounds(*args, **kwargs):
 
 
 def _install_focused_roles() -> None:
-    staging.EXECUTOR_PREFERENCE = (
-        GOOGLE_EXECUTOR,
-        NVIDIA_REVIEWER,
-    )
-    staging.REVIEWER_PREFERENCE = (
-        NVIDIA_REVIEWER,
-        GOOGLE_EXECUTOR,
-    )
+    staging.EXECUTOR_PREFERENCE = (GOOGLE_EXECUTOR, NVIDIA_REVIEWER)
+    staging.REVIEWER_PREFERENCE = (NVIDIA_REVIEWER, GOOGLE_EXECUTOR)
     staging._candidate_ok = _focused_candidate_ok
     staging._capability_policy = _focused_capability_policy
     staging.build_minimal_staging_plan = _performance_plan_builder
     staging.AutonomousBounds = _performance_bounds
     live_runner.build_executor_reviewer_callbacks = build_adaptive_executor_reviewer_callbacks
-
     live_runner.MAX_OUTPUT_TOKENS = FOCUSED_MAX_OUTPUT_TOKENS
     live_runner.MAX_PROMPT_CHARS = FOCUSED_MAX_PROMPT_CHARS
     live_runner.MAX_RESPONSE_CHARS = FOCUSED_MAX_RESPONSE_CHARS
