@@ -2,16 +2,10 @@
 """Run NVIDIA + Google staging with adaptive, performance-first inference.
 
 Google is the Executor and NVIDIA Nemotron is the independent Reviewer.
-Unknown provider metadata is not treated as danger. The focused lane blocks
-only known paid/bad routing facts, stale or missing exact-model/auth evidence,
-and duplicate/uncertain replays.
-
-Google keeps one small endpoint probe. NVIDIA skips the redundant liveness
-probe entirely: once the exact hosted FREE_ENDPOINT is freshly verified, its
-first real Reviewer request is the liveness check. Missing quota/cost/model
-metadata is tolerated when the fixed route is already verified; explicit
-non-zero cost, paid routing, auth failure, stale evidence and model mismatch
-remain hard stops.
+Unknown provider metadata is not treated as danger. Both exact free routes may
+skip redundant inference liveness probes so the first real agent task provides
+liveness evidence. Known paid/bad routing, stale/missing exact-model or auth
+evidence, and duplicate/uncertain replays remain hard stops.
 """
 
 from __future__ import annotations
@@ -54,12 +48,10 @@ FOCUSED_MAX_RESPONSE_CHARS = 144_000
 FOCUSED_ENVELOPE_CHARS = 180_000
 FOCUSED_REQUEST_BUDGET = 24
 FOCUSED_TOKEN_BUDGET = 81_920
-# The successful tiny Google probe itself can take close to a minute. Real
-# Executor work is much larger, so give the single request enough time instead
-# of converting normal provider latency into an ambiguous interrupted call.
 FOCUSED_GOOGLE_TIMEOUT_SECONDS = 600.0
 FOCUSED_NVIDIA_TIMEOUT_SECONDS = 600.0
 FOCUSED_MAX_ELAPSED_SECONDS = 1_800.0
+_DIAGNOSTIC_PATH = Path("artifacts/provider_interruptions.jsonl")
 
 
 def _compact_json_text(value: Any) -> str | None:
@@ -86,6 +78,36 @@ def _compact_json_text(value: Any) -> str | None:
     return None
 
 
+def _record_provider_diagnostic(
+    provider: str,
+    model: str,
+    error_class: str,
+    *,
+    http_status: int | None = None,
+    retry_after_seconds: int | None = None,
+    retryable: bool = False,
+    request_id: str = "",
+) -> None:
+    """Persist only redacted transport metadata; never raw responses or secrets."""
+    try:
+        _DIAGNOSTIC_PATH.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "provider": provider[:40],
+            "model": model[:160],
+            "error_class": str(error_class or "PROVIDER_ERROR")[:120],
+            "http_status": http_status if isinstance(http_status, int) else None,
+            "retry_after_seconds": retry_after_seconds if isinstance(retry_after_seconds, int) else None,
+            "retryable": bool(retryable),
+            "request_id": str(request_id or "")[:64],
+            "raw_response_retained": False,
+        }
+        with _DIAGNOSTIC_PATH.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+    except OSError:
+        # Diagnostics must never create a second failure mode.
+        pass
+
+
 class _ProbeReuseAdapter:
     """Focused wrapper: no redundant capability calls and tolerant free-route output."""
 
@@ -109,34 +131,60 @@ class _ProbeReuseAdapter:
         provider = str(getattr(self._adapter, "provider_id", ""))
         policy = options.get("execution_policy")
         require_zero_cost = bool(options.get("require_zero_cost", False))
+        request_id = str(options.get("request_id") or "")
         trusted_staging_free_route = (
             isinstance(policy, ExecutionPolicy)
             and policy.scope == "STAGING"
             and policy.staging_free_route_allowed is True
         )
 
-        # Providers commonly omit per-response cost. Once the focused admission
-        # has already fixed a verified free route, absence is a warning rather
-        # than a second hard gate. Explicit non-zero cost is still rejected.
         if require_zero_cost and trusted_staging_free_route:
             options["require_zero_cost"] = False
 
-        # Keep Nemotron's known fast/stable template settings for normal
-        # Reviewer work too, not only the historical limited-bootstrap path.
         if provider == "nvidia":
             for key, value in nvidia_model_options(model).items():
                 options.setdefault(key, value)
 
-        # Do not force provider-specific response_format on Gemini. The exact
-        # free endpoint already proved basic generation, while compatibility
-        # layers can reject otherwise valid requests solely because of this
-        # optional field. JSON is requested in the prompt and harmless wrappers
-        # are repaired locally below, which avoids an unnecessary second call.
         if provider == "google":
+            # JSON wrappers are repaired locally. Avoid optional compatibility
+            # features and deterministic-temperature forcing on the live Gemini
+            # lane; the native model defaults are more robust for Gemini 3.x.
             options.pop("response_format", None)
+            options.pop("temperature", None)
 
-        result = self._adapter.generate(model, messages, **options)
+        try:
+            result = self._adapter.generate(model, messages, **options)
+        except ProviderAdapterError as exc:
+            _record_provider_diagnostic(
+                provider, model, exc.error_class,
+                http_status=exc.http_status,
+                retry_after_seconds=exc.retry_after_seconds,
+                retryable=exc.retryable,
+                request_id=request_id,
+            )
+            raise
+        except Exception as exc:
+            normalizer = getattr(self._adapter, "normalize_error", None)
+            if callable(normalizer):
+                normalized = normalizer(exc)
+                _record_provider_diagnostic(
+                    provider, model, normalized.error_class,
+                    http_status=normalized.http_status,
+                    retry_after_seconds=normalized.retry_after_seconds,
+                    retryable=normalized.retryable,
+                    request_id=request_id,
+                )
+                raise ProviderAdapterError(
+                    normalized.error_class,
+                    http_status=normalized.http_status,
+                    retry_after_seconds=normalized.retry_after_seconds,
+                    retryable=normalized.retryable,
+                ) from None
+            _record_provider_diagnostic(provider, model, "PROVIDER_CALL_FAILED", request_id=request_id)
+            raise ProviderAdapterError("PROVIDER_CALL_FAILED") from None
+
         if not isinstance(result, Mapping):
+            _record_provider_diagnostic(provider, model, "INVALID_PROVIDER_RESPONSE", request_id=request_id)
             raise ProviderAdapterError("INVALID_PROVIDER_RESPONSE")
         result = dict(result)
 
@@ -144,10 +192,9 @@ class _ProbeReuseAdapter:
             usage = result.get("usage") if isinstance(result.get("usage"), Mapping) else {}
             raw_cost = usage.get("cost")
             if raw_cost is not None and str(raw_cost).strip() not in {"", "0", "0.0", "0.00"}:
+                _record_provider_diagnostic(provider, model, "FREE_COST_NONZERO", request_id=request_id)
                 raise ProviderAdapterError("FREE_COST_NONZERO")
 
-        # Do not spend another model call merely to repair markdown/prose
-        # around an otherwise valid JSON object.
         compact = _compact_json_text(result.get("text"))
         if compact:
             result["text"] = compact
@@ -197,6 +244,18 @@ def _focused_nvidia_evidence_ok(record: Mapping[str, Any]) -> bool:
     )
 
 
+def _deferred_agent_probe_ok(probe_record: Mapping[str, Any]) -> bool:
+    return (
+        probe_record.get("status") == "PROBE_DEFERRED_TO_AGENT"
+        and probe_record.get("probe_mode") == "DIRECT_AGENT_LIVENESS"
+        and probe_record.get("direct_agent_admission") is True
+        and probe_record.get("model_calls") == 0
+        and probe_record.get("automatic_model_fallback") is False
+        and probe_record.get("generic_paid_router_disabled") is True
+        and probe_record.get("staging_only") is True
+    )
+
+
 def _focused_candidate_ok(evidence: Mapping[str, Any], probe: Mapping[str, Any], provider: str, model: str) -> bool:
     if provider == "nvidia":
         if model != NVIDIA_REVIEWER[1]:
@@ -205,29 +264,22 @@ def _focused_candidate_ok(evidence: Mapping[str, Any], probe: Mapping[str, Any],
         probe_record = staging._probe_record(probe, provider, model)
         if staging._limited_nvidia_candidate_ok(evidence, probe, model):
             return True
-        return (
-            _focused_nvidia_evidence_ok(record)
-            and probe_record.get("status") == "PROBE_DEFERRED_TO_AGENT"
-            and probe_record.get("probe_mode") == "DIRECT_AGENT_LIVENESS"
-            and probe_record.get("direct_agent_admission") is True
-            and probe_record.get("model_calls") == 0
-            and probe_record.get("automatic_model_fallback") is False
-            and probe_record.get("generic_paid_router_disabled") is True
-            and probe_record.get("staging_only") is True
-        )
+        return _focused_nvidia_evidence_ok(record) and _deferred_agent_probe_ok(probe_record)
     if provider != "google":
         return _ORIGINAL_CANDIDATE_OK(evidence, probe, provider, model)
 
     record = staging._model_record(evidence, provider, model)
     probe_record = staging._probe_record(probe, provider, model)
+    if model != GOOGLE_EXECUTOR[1] or not _focused_google_evidence_ok(record):
+        return False
+    if _deferred_agent_probe_ok(probe_record):
+        return True
     response_model = str(probe_record.get("response_model") or "").removeprefix("models/")
     usage_cost = probe_record.get("usage_cost")
     status = str(probe_record.get("status") or "")
     http_status = probe_record.get("http_status")
     return (
-        model == GOOGLE_EXECUTOR[1]
-        and _focused_google_evidence_ok(record)
-        and status in {"PROBE_OK", "PROBE_OK_MODEL_FIELD_UNREPORTED"}
+        status in {"PROBE_OK", "PROBE_OK_MODEL_FIELD_UNREPORTED"}
         and probe_record.get("probe_mode") == "BOUNDED_FREE_TIER_PROBE"
         and probe_record.get("bounded_free_tier_probe_allowed") is True
         and probe_record.get("model_calls") == 1
