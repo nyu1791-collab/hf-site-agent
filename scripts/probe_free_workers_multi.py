@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Probe up to three dynamic OpenRouter free candidates per worker role.
+"""Probe up to five dynamic OpenRouter free candidates per worker role.
 
 This extends the existing single-candidate probe without changing its public
 contract. Candidate IDs come only from the current catalog and the existing
@@ -25,8 +25,8 @@ from scripts.probe_free_workers import (
 )
 from scripts.worker_selection import WORKER_ROLES, catalog_worker_candidates, select_free_worker
 
-CANDIDATES_PER_ROLE = 3
-MAX_UNIQUE_PROBES = 12
+CANDIDATES_PER_ROLE = 5
+MAX_UNIQUE_PROBES = 20
 
 
 def run_multi_probe(*, api_key: str = "", registry: Mapping[str, Any] | None = None, explicit_approval: bool = False) -> dict[str, Any]:
