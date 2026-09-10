@@ -1,2 +1,2 @@
-trigger=2026-09-10T20:24:00+09:00
-purpose=parallel-free-worker-expansion-with-broader-openrouter-pool-and-nvidia-council-synthesis
+trigger=worker-expansion-v5-broader-six-way
+purpose=probe-more-exact-free-gpu-models-benchmark-deeper-role-pools-run-six-way-worker-council-and-nvidia-synthesis
