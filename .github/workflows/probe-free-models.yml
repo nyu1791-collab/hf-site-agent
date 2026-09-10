@@ -8,16 +8,21 @@ on:
         required: false
         type: string
       resume_run_id:
-        description: "Existing Run ID to resume"
+        description: "Existing carrier/logical Run ID to resume"
         required: false
         type: string
       resume_result_hash:
         description: "Previous Result Inbox hash"
         required: false
         type: string
+      resume_revision:
+        description: "Optional exact next revision"
+        required: false
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: secure-staging-carrier-${{ github.ref }}
@@ -40,6 +45,27 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Restore prior redacted mission artifact for verified resume
+        if: ${{ inputs.resume_mission_id != '' && inputs.resume_run_id != '' && inputs.resume_result_hash != '' }}
+        uses: actions/download-artifact@v6
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.resume_run_id }}
+          pattern: secure-staging-carrier-*
+          path: restored-resume
+          merge-multiple: true
+
+      - name: Normalize restored resume state
+        if: ${{ inputs.resume_mission_id != '' && inputs.resume_run_id != '' && inputs.resume_result_hash != '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/resume
+          for name in mission_state.json result_inbox.json nvidia_orchestrator_ledger.json; do
+            src="$(find restored-resume -type f -name "$name" -print -quit)"
+            test -n "$src"
+            cp "$src" "artifacts/resume/$name"
+          done
+
       - name: Carrier preflight and compile
         run: |
           set -euo pipefail
@@ -57,32 +83,26 @@ jobs:
             scripts/live_staging_runner.py \
             scripts/execution_scope.py \
             scripts/classify_carrier_failure.py \
-            scripts/run_nvidia_orchestrator_mission.py
+            scripts/mission_integrity.py \
+            scripts/run_nvidia_orchestrator_mission.py \
+            scripts/run_nvidia_orchestrator_guarded.py
           python - <<'PY'
-          import json
-          import os
+          import json, os
           from pathlib import Path
-
           report = {
-              "schema_version": "carrier-dispatch-v2",
+              "schema_version": "carrier-dispatch-v3",
               "dispatch_status": "EXECUTED",
               "workflow": "probe-free-models.yml",
               "event": os.environ.get("GITHUB_EVENT_NAME", ""),
               "branch": os.environ.get("GITHUB_REF_NAME", ""),
-              "carrier_registered_on_main": True,
-              "target_branch_exists": True,
-              "target_branch_workflow_exists": True,
-              "workflow_dispatch_enabled": True,
               "branch_guard_allows_target": True,
               "required_input_blocker": False,
               "provider_focus": ["nvidia", "google"],
               "nvidia_selected_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
               "production_active": False,
+              "paid_execution_count": 0,
           }
-          Path("artifacts/dispatch_status.json").write_text(
-              json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8"
-          )
-          print(json.dumps(report, sort_keys=True))
+          Path("artifacts/dispatch_status.json").write_text(json.dumps(report, sort_keys=True, indent=2)+"\n", encoding="utf-8")
           PY
 
       - name: Record provider secret presence only
@@ -93,10 +113,8 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
-          import json
-          import os
+          import json, os
           from pathlib import Path
-
           presence = {
               "google": bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")),
               "nvidia": bool(os.environ.get("NVIDIA_API_KEY")),
@@ -104,20 +122,16 @@ jobs:
           report = {
               "schema_version": "carrier-secret-presence-v1",
               "secret_presence": presence,
-              "provider_secrets_accessed_by_runner": any(presence.values()),
               "secret_values_displayed": 0,
               "secret_values_logged": 0,
               "secret_values_persisted": 0,
               "secret_values_returned_to_model": 0,
           }
-          Path("artifacts/secret_presence.json").write_text(
-              json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8"
-          )
+          Path("artifacts/secret_presence.json").write_text(json.dumps(report, sort_keys=True, indent=2)+"\n", encoding="utf-8")
           print(json.dumps({"secret_presence": presence, "secret_values_displayed": 0}, sort_keys=True))
           PY
 
       - name: Collect redacted account evidence for NVIDIA and Google
-        id: evidence
         continue-on-error: true
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
@@ -152,7 +166,7 @@ jobs:
           --evidence-file artifacts/secure_account_evidence.json
           --output artifacts/provider_probe.json
 
-      - name: Continue automatically into bounded NVIDIA bootstrap or two-agent staging
+      - name: Run two-agent staging only when both providers pass normal free-only gates
         if: always()
         continue-on-error: true
         env:
@@ -164,22 +178,39 @@ jobs:
           --evidence-file artifacts/secure_account_evidence.json
           --probe-file artifacts/provider_probe.json
           --network
-          --allow-limited-nvidia-bootstrap
           --ledger artifacts/live_staging_ledger.json
           --checkpoint-root artifacts/live_staging_checkpoints
           --output artifacts/live_staging_report.json
 
-      - name: Run one bounded NVIDIA autonomous orchestrator mission
+      - name: Run at most one guarded NVIDIA Lead Engineer call when two-agent staging did not run
         if: always()
         continue-on-error: true
         env:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_SHA: ${{ github.sha }}
+          SOURCE_HEAD: ${{ github.sha }}
           RESUME_MISSION_ID: ${{ inputs.resume_mission_id }}
           RESUME_RUN_ID: ${{ inputs.resume_run_id }}
           RESUME_RESULT_HASH: ${{ inputs.resume_result_hash }}
-        run: python scripts/run_nvidia_orchestrator_mission.py
+          RESUME_REVISION: ${{ inputs.resume_revision }}
+        run: |
+          set -euo pipefail
+          if python - <<'PY'
+          import json
+          from pathlib import Path
+          try:
+              value = json.loads(Path("artifacts/live_staging_report.json").read_text(encoding="utf-8"))
+          except Exception:
+              value = {}
+          live = value.get("live_staging") if isinstance(value.get("live_staging"), dict) else {}
+          raise SystemExit(1 if live.get("operational") is True else 0)
+          PY
+          then
+            python scripts/run_nvidia_orchestrator_guarded.py
+          else
+            echo '{"guarded_nvidia_mission":"SKIPPED_TWO_AGENT_STAGING_ALREADY_OPERATIONAL"}'
+          fi
 
       - name: Ensure redacted reports and classify failures
         if: always()
@@ -188,39 +219,10 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-
           defaults = {
-              "artifacts/secure_account_evidence.json": {
-                  "schema_version": "secure-account-evidence-v1",
-                  "secure_runner": True,
-                  "secret_safe_execution": True,
-                  "secret_values_in_bundle": False,
-                  "observed_at": "1970-01-01T00:00:00+00:00",
-                  "expires_at": "1970-01-01T00:00:00+00:00",
-                  "evidence_generation": 1,
-                  "provider_count": 0,
-                  "status": "RUNNER_FAILED_CLOSED",
-                  "providers": {},
-              },
-              "artifacts/provider_probe.json": {
-                  "schema_version": "provider-probe-v1",
-                  "network_enabled": True,
-                  "model_calls": 0,
-                  "retry_count": 0,
-                  "paid_fallback": False,
-                  "registry_changed": False,
-                  "explicit_probe_approval": True,
-                  "providers": [],
-              },
-              "artifacts/live_staging_report.json": {
-                  "status": "blocked",
-                  "stop_reason": "CARRIER_INPUT_UNAVAILABLE",
-                  "live_staging": False,
-                  "model_calls": 0,
-                  "paid_execution_count": 0,
-                  "paid_fallback_count": 0,
-                  "production_active": False,
-              },
+              "artifacts/secure_account_evidence.json": {"schema_version":"secure-account-evidence-v1","status":"RUNNER_FAILED_CLOSED","providers":{},"secret_values_in_bundle":False},
+              "artifacts/provider_probe.json": {"schema_version":"provider-probe-v1","network_enabled":True,"model_calls":0,"retry_count":0,"paid_fallback":False,"providers":[]},
+              "artifacts/live_staging_report.json": {"status":"blocked","stop_reason":"CARRIER_INPUT_UNAVAILABLE","live_staging":False,"model_calls":0,"paid_execution_count":0,"paid_fallback_count":0,"production_active":False},
           }
           for name, default in defaults.items():
               path = Path(name)
@@ -230,7 +232,7 @@ jobs:
               except Exception:
                   valid = False
               if not valid:
-                  path.write_text(json.dumps(default, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+                  path.write_text(json.dumps(default, sort_keys=True, indent=2)+"\n", encoding="utf-8")
           PY
           python scripts/classify_carrier_failure.py \
             --evidence artifacts/secure_account_evidence.json \
@@ -246,90 +248,43 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-
-          def read(name, default):
+          def read(name):
               try:
-                  value = json.loads(Path(name).read_text(encoding="utf-8"))
-                  return value if isinstance(value, dict) else default
-              except Exception:
-                  return default
-
-          dispatch = read("artifacts/dispatch_status.json", {})
-          presence = read("artifacts/secret_presence.json", {})
-          evidence = read("artifacts/secure_account_evidence.json", {})
-          probe = read("artifacts/provider_probe.json", {})
-          live = read("artifacts/live_staging_report.json", {})
-          mission = read("artifacts/mission_state.json", {})
-          inbox = read("artifacts/result_inbox.json", {})
-          classification = read("artifacts/failure_classification.json", {})
-          evidence_providers = evidence.get("providers") if isinstance(evidence.get("providers"), dict) else {}
-          probe_items = probe.get("providers") if isinstance(probe.get("providers"), list) else []
-          probe_passes = [
-              item for item in probe_items
-              if isinstance(item, dict) and item.get("status") in {"PROBE_OK", "PROBE_OK_MODEL_FIELD_UNREPORTED"}
-          ]
-          live_view = live.get("live_staging") if isinstance(live.get("live_staging"), dict) else {}
-          bootstrap = live.get("self_bootstrap") if isinstance(live.get("self_bootstrap"), dict) else {}
-          evidence_calls = sum(
-              1 for lane in evidence_providers.values()
-              if isinstance(lane, dict) and lane.get("secret_present") is True
-          )
-          probe_calls = int(probe.get("model_calls", 0) or 0)
-          live_calls = int(live.get("total_external_model_calls_in_command", 0) or live_view.get("external_model_calls", 0) or 0)
-          live_agent_count = int(live_view.get("live_agent_count", 2 if live_view.get("operational") is True else 0) or 0)
-          live_two_agent = bool(live_view.get("two_agent", live_view.get("operational") is True and live_agent_count >= 2))
-          summary = {
-              "schema_version": "carrier-summary-v3",
-              "dispatch_status": dispatch.get("dispatch_status", "EXECUTED"),
-              "carrier_workflow": "probe-free-models.yml",
-              "target_branch": dispatch.get("branch", "ai-army/provider-v3"),
-              "provider_focus": ["nvidia", "google"],
-              "nvidia_selected_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
-              "branch_guard_fixed": dispatch.get("branch_guard_allows_target") is True,
-              "input_schema_fixed": dispatch.get("required_input_blocker") is False,
-              "secret_presence": presence.get("secret_presence", {}),
-              "evidence_provider_count": len(evidence_providers),
-              "provider_network_calls": evidence_calls + probe_calls + live_calls,
-              "probe_model_calls": probe_calls,
-              "probe_pass_count": len(probe_passes),
-              "probe_models": [
-                  {"provider": item.get("provider"), "model": item.get("model"), "status": item.get("status")}
-                  for item in probe_passes
-              ],
-              "probe_status_by_provider": {
-                  str(item.get("provider")): str(item.get("status"))
-                  for item in probe_items if isinstance(item, dict) and item.get("provider")
-              },
-              "live_staging_status": live.get("status", "blocked"),
-              "live_two_agent": live_two_agent,
-              "live_agent_count": live_agent_count,
-              "live_model_family_count": int(live_view.get("live_model_family_count", 0) or 0),
-              "live_task_loop": bool(live_view.get("operational") is True),
-              "live_mission_loop": False,
-              "user_continue_required": False,
-              "self_bootstrap_status": bootstrap.get("status", "NOT_STARTED"),
-              "self_bootstrap_live": bootstrap.get("proposal_review_passed") is True,
-              "nvidia_bootstrap_status": (live.get("nvidia_bootstrap") or {}).get("status", "NOT_STARTED") if isinstance(live.get("nvidia_bootstrap"), dict) else "NOT_STARTED",
-              "nvidia_bootstrap_proposal": (live.get("nvidia_bootstrap") or {}).get("proposal_generated") is True if isinstance(live.get("nvidia_bootstrap"), dict) else False,
-              "external_model_calls": live_calls,
-              "mission_id": mission.get("mission_id"),
-              "mission_state": mission.get("state"),
-              "mission_result_status": mission.get("result_status"),
-              "result_inbox_status": inbox.get("status"),
-              "result_hash": inbox.get("result_hash"),
-              "failure_count": int(classification.get("failure_count", 0) or 0),
-              "production_active": False,
-              "paid_execution_count": 0,
-              "paid_fallback_count": 0,
-              "secret_values_displayed": 0,
-              "secret_values_logged": 0,
-              "secret_values_persisted": 0,
-              "secret_values_returned_to_model": 0,
+                  v=json.loads(Path(name).read_text(encoding="utf-8")); return v if isinstance(v,dict) else {}
+              except Exception: return {}
+          probe=read("artifacts/provider_probe.json")
+          live=read("artifacts/live_staging_report.json")
+          state=read("artifacts/mission_state.json")
+          inbox=read("artifacts/result_inbox.json")
+          ledger=read("artifacts/nvidia_orchestrator_ledger.json")
+          items=probe.get("providers") if isinstance(probe.get("providers"),list) else []
+          live_view=live.get("live_staging") if isinstance(live.get("live_staging"),dict) else {}
+          summary={
+              "schema_version":"carrier-summary-v4",
+              "provider_focus":["nvidia","google"],
+              "probe_model_calls":int(probe.get("model_calls",0) or 0),
+              "probe_status_by_provider":{str(i.get("provider")):str(i.get("status")) for i in items if isinstance(i,dict) and i.get("provider")},
+              "live_two_agent":bool(live_view.get("operational") is True),
+              "live_agent_count":int(live_view.get("live_agent_count",0) or 0),
+              "mission_id":state.get("mission_id"),
+              "mission_state":state.get("state"),
+              "mission_result_status":state.get("result_status"),
+              "result_hash":inbox.get("result_hash"),
+              "result_hash_verified":inbox.get("result_hash_verified") is True,
+              "source_head":inbox.get("source_head") or state.get("source_head"),
+              "nvidia_external_calls":int(state.get("nvidia_external_calls",0) or 0),
+              "nvidia_external_calls_uncertain":int(state.get("nvidia_external_calls_uncertain",0) or 0),
+              "nvidia_ledger_present":bool(ledger),
+              "production_active":False,
+              "paid_execution_count":0,
+              "paid_fallback_count":0,
+              "secret_values_displayed":0,
+              "secret_values_logged":0,
+              "secret_values_persisted":0,
+              "secret_values_returned_to_model":0,
           }
-          Path("artifacts/carrier_summary.json").write_text(
-              json.dumps(summary, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8"
-          )
-          print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
+          Path("artifacts/carrier_summary.json").write_text(json.dumps(summary,ensure_ascii=False,sort_keys=True,indent=2)+"\n",encoding="utf-8")
+          print(json.dumps(summary,ensure_ascii=False,sort_keys=True))
           PY
 
       - name: Audit redacted artifacts and repository
@@ -337,14 +292,7 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/audit_secret_safety.py --root .
-          for report in \
-            artifacts/dispatch_status.json \
-            artifacts/secret_presence.json \
-            artifacts/secure_account_evidence.json \
-            artifacts/provider_probe.json \
-            artifacts/live_staging_report.json \
-            artifacts/failure_classification.json \
-            artifacts/carrier_summary.json; do
+          for report in artifacts/secure_account_evidence.json artifacts/provider_probe.json artifacts/live_staging_report.json artifacts/failure_classification.json artifacts/carrier_summary.json; do
             python -m json.tool "$report" >/dev/null
           done
 
@@ -363,5 +311,6 @@ jobs:
             artifacts/carrier_summary.json
             artifacts/mission_state.json
             artifacts/result_inbox.json
+            artifacts/nvidia_orchestrator_ledger.json
           if-no-files-found: ignore
           retention-days: 7
