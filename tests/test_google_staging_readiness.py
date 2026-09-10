@@ -50,6 +50,43 @@ def probe(status="ZERO_COST_PREFLIGHT_BLOCKED"):
     return {"providers": [{"provider": "google", "model": MODEL, "status": status, "model_calls": 0}]}
 
 
+def deferred_ready_inputs(*, billing=None):
+    value = evidence(
+        tier="UNKNOWN",
+        eligible=None,
+        billing=billing,
+        auto_paid=None,
+        billing_risk="UNKNOWN",
+        quota=False,
+        zero_cost=False,
+    )
+    record = value["providers"]["google"]["models"][MODEL]
+    record.update({
+        "current": True,
+        "free_program_available": True,
+        "free_route_selected": True,
+        "selected_route": "FREE_TIER",
+        "zero_price_verified": True,
+        "paid_fallback_possible": False,
+        "paid_transition_possible": False,
+        "billing_enabled_class": billing,
+    })
+    probe_value = {
+        "providers": [{
+            "provider": "google",
+            "model": MODEL,
+            "status": "PROBE_DEFERRED_TO_AGENT",
+            "probe_mode": "DIRECT_AGENT_LIVENESS",
+            "direct_agent_admission": True,
+            "model_calls": 0,
+            "automatic_model_fallback": False,
+            "generic_paid_router_disabled": True,
+            "staging_only": True,
+        }]
+    }
+    return value, probe_value
+
+
 def result_inbox(path="scripts/secure_account_evidence.py", *, head=HEAD, revision=2):
     proposal = {
         "files_to_change": [path],
@@ -150,6 +187,25 @@ class GoogleStagingReadinessTests(unittest.TestCase):
         self.assertEqual(report["state"], "QUOTA_EVIDENCE_REQUIRED")
         self.assertEqual(report["external_model_calls_recommended"], 0)
         self.assertFalse(report["repeat_nvidia_call_allowed"])
+
+    def test_nvidia_reviewed_deferred_admission_has_explicit_recovery_mode(self):
+        evidence_value, probe_value = deferred_ready_inputs()
+        report = build_google_readiness_packet(evidence_value, probe_value)
+        self.assertEqual(report["state"], "READY_FOR_TWO_AGENT_STAGING")
+        self.assertEqual(report["readiness_mode"], "PROBE_DEFERRED_RECOVERY")
+        self.assertTrue(report["deferred_agent_ready"])
+        self.assertTrue(report["deferred_recovery_ready"])
+        self.assertTrue(report["live_ready"])
+        self.assertTrue(report["repeat_nvidia_call_allowed"])
+        self.assertEqual(report["external_model_calls_recommended"], 1)
+        self.assertTrue(report["safety"]["nvidia_reviewed_deferred_recovery_mode"])
+
+    def test_known_billing_enabled_cannot_enter_deferred_recovery_mode(self):
+        evidence_value, probe_value = deferred_ready_inputs(billing=True)
+        report = build_google_readiness_packet(evidence_value, probe_value)
+        self.assertFalse(report["deferred_recovery_ready"])
+        self.assertFalse(report["live_ready"])
+        self.assertNotEqual(report["readiness_mode"], "PROBE_DEFERRED_RECOVERY")
 
 
 if __name__ == "__main__":
