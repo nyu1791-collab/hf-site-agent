@@ -160,6 +160,52 @@ class CarrierFailureClassificationTests(unittest.TestCase):
         self.assertEqual(result["status"], "SUCCESS")
         self.assertEqual(result["failure_count"], 0)
 
+    def test_current_probe_scope_ignores_inactive_sibling_quota_warning(self):
+        selected = {
+            "status": "OK",
+            "secure_evidence": True,
+            "current": True,
+            "model_verified": True,
+            "endpoint_verified": True,
+            "auth_verified": True,
+            "selected_route": "FREE_ENDPOINT",
+            "zero_price_verified": True,
+            "paid_fallback_possible": False,
+            "paid_transition_possible": False,
+            "blockers": ["QUOTA_METADATA_UNAVAILABLE"],
+        }
+        evidence = {"providers": {"nvidia": {"status": "CATALOG_OK", "models": {
+            "nvidia/nemotron-3.5-lightning-30b-a3b": selected,
+            "deepseek-ai/deepseek-v4-flash-0731": {"status": "OK", "blockers": ["QUOTA_NOT_SAFE"]},
+        }}}}
+        probe = {"providers": [
+            {"provider": "nvidia", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "status": "PROBE_DEFERRED_TO_AGENT"},
+        ]}
+        result = classify_reports(evidence, probe, {"status": "completed"})
+        self.assertEqual(result["status"], "SUCCESS")
+        self.assertEqual(result["failure_count"], 0)
+
+    def test_settled_three_call_google_interruption_is_classified_as_provider_5xx(self):
+        probe = {"providers": [
+            {"provider": "google", "model": "gemini-3.8-flash", "status": "PROBE_DEFERRED_TO_AGENT"},
+        ]}
+        live = {
+            "status": "blocked",
+            "runtime": {"stop_reason": "PROVIDER_INTERRUPTED", "tasks": {}},
+            "budget": {"requests_used": 3, "unsettled_requests": 0},
+            "live_staging": {
+                "executor_provider": "google",
+                "external_model_calls": 3,
+                "providers": {"google": 3},
+            },
+        }
+        result = classify_reports({"providers": {}}, probe, live)
+        self.assertEqual(result["failure_count"], 1)
+        signature = result["failure_signatures"][0]["failure_signature"]
+        self.assertEqual(signature["error_type"], "PROVIDER_5XX")
+        self.assertEqual(signature["provider"], "google")
+        self.assertEqual(signature["model"], "gemini-3.8-flash")
+
     def test_known_paid_fact_on_focused_route_is_not_suppressed(self):
         record = {
             "status": "OK",
