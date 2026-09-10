@@ -1,5 +1,5 @@
-trigger=deepseek-v4-1-specialist-trial-2
-purpose=retest-six-engineering-specialists-with-4096-thinking-aware-budget-robust-json-and-failure-cost-evidence
+trigger=deepseek-v4-1-specialist-trial-3
+purpose=validate-non-recursive-4096-thinking-aware-six-specialist-calls-with-cache-cost-quality-evidence
 approved_paid_trial=true
 max_estimated_cost_usd=0.25
 production_routing=false
