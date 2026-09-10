@@ -4,9 +4,9 @@
 Same-run benchmark role scores describe current capability, while compact
 organization memory records how workers actually behaved on specialist work in
 recent runs. Routing combines both signals and solves the small lane/worker
-matching problem globally so an early lane cannot greedily consume the worker
-that creates the most value for a later lane. When two assignments have the
-same global total, stronger evidence is preferred on earlier priority lanes.
+matching problem globally. Critical-path lanes receive a modest assignment
+weight so a tiny gain on a later lane cannot sacrifice a proven worker on an
+upstream scheduler/failure-recovery task.
 """
 
 from __future__ import annotations
@@ -30,7 +30,20 @@ DEFAULT_LANE_ROLE_PREFERENCES: Mapping[str, tuple[str, ...]] = {
     "RESULT_AGGREGATION": ("GENERAL_WORKER", "REVIEW_WORKER"),
     "PERFORMANCE_TELEMETRY": ("GENERAL_WORKER", "REVIEW_WORKER"),
 }
-ASSIGNMENT_POLICY = "GLOBAL_MAX_SCORE_ROLE_PLUS_ORGANIZATION_MEMORY"
+# These weights are organization priorities, not model-quality multipliers.
+# They are deliberately modest: capability/history still determine the worker,
+# but critical-path lanes win close global trade-offs.
+LANE_ASSIGNMENT_WEIGHTS: Mapping[str, float] = {
+    "SCHEDULER_DAG": 1.20,
+    "FAILURE_RETRY": 1.15,
+    "TEST_VALIDATION": 1.05,
+    "WORKER_HEALTH": 1.05,
+    "CAPABILITY_ROUTING": 1.05,
+    "CONTEXT_EFFICIENCY": 1.00,
+    "RESULT_AGGREGATION": 1.00,
+    "PERFORMANCE_TELEMETRY": 1.00,
+}
+ASSIGNMENT_POLICY = "GLOBAL_CRITICAL_PATH_WEIGHTED_ROLE_PLUS_ORGANIZATION_MEMORY"
 
 
 def _number(value: Any, default: float = 0.0) -> float:
@@ -55,7 +68,6 @@ def load_organization_memory(*, root: Path | str = Path(".")) -> Mapping[str, An
 
 
 def _smoothed_rate(successes: int, attempts: int) -> float:
-    # Small Beta prior prevents one old success/failure from dominating routing.
     return (max(0, successes) + 1.0) / (max(0, attempts) + 2.0)
 
 
@@ -126,13 +138,17 @@ def _assignment_score(
     return (score, history_score, role_fit, role_coverage, best_score, str(worker.get("model") or ""))
 
 
+def _lane_weight(lane_name: str) -> float:
+    return max(1.0, float(LANE_ASSIGNMENT_WEIGHTS.get(lane_name, 1.0)))
+
+
 def _globally_optimal_worker_indices(
     workers: Sequence[Mapping[str, Any]],
     lanes: Sequence[Mapping[str, Any]],
     preferences: Mapping[str, Sequence[str]],
     memory: Mapping[str, Any],
 ) -> tuple[int, ...]:
-    """Solve <=8 lane assignment exactly with a priority-aware bitmask DP."""
+    """Solve <=8 lane assignment exactly with critical-path weighted bitmask DP."""
     if not lanes:
         return ()
     score_matrix = tuple(
@@ -142,6 +158,7 @@ def _globally_optimal_worker_indices(
         )
         for lane in lanes
     )
+    lane_weights = tuple(_lane_weight(str(lane["lane"])) for lane in lanes)
     model_names = tuple(str(worker.get("model") or "") for worker in workers)
 
     @lru_cache(maxsize=None)
@@ -158,7 +175,8 @@ def _globally_optimal_worker_indices(
                 continue
             tail_total, tail_lane_scores, tail_indices = solve(lane_index + 1, used_mask | bit)
             current_score = score_matrix[lane_index][worker_index]
-            total = current_score + tail_total
+            weighted_score = current_score * lane_weights[lane_index]
+            total = weighted_score + tail_total
             lane_scores = (current_score, *tail_lane_scores)
             indices = (worker_index, *tail_indices)
             names = tuple(model_names[index] for index in indices)
@@ -195,8 +213,9 @@ def attach_capability_matched_assignments(
     memory_payload = memory if isinstance(memory, Mapping) else load_organization_memory(root=root)
     worker_indices = _globally_optimal_worker_indices(workers, lanes, preferences, memory_payload)
     assignments: list[dict[str, Any]] = []
-    total_score = sum(
+    weighted_total_score = sum(
         float(_assignment_score(workers[worker_index], str(lane["lane"]), preferences, memory_payload)[0])
+        * _lane_weight(str(lane["lane"]))
         for lane, worker_index in zip(lanes, worker_indices)
     )
     for lane, worker_index in zip(lanes, worker_indices):
@@ -214,7 +233,10 @@ def attach_capability_matched_assignments(
         worker["lane_assignment"] = {
             "policy": ASSIGNMENT_POLICY,
             "score": round(score, 8),
-            "global_total_score": round(total_score, 8),
+            "lane_weight": _lane_weight(lane_name),
+            "global_weighted_total_score": round(weighted_total_score, 8),
+            # compatibility alias for existing artifacts/tests
+            "global_total_score": round(weighted_total_score, 8),
             "historical_score": round(history_score, 8),
             "historical_model_attempts": int(history["model_attempts"]),
             "historical_lane_attempts": int(history["lane_attempts"]),
@@ -233,6 +255,7 @@ __all__ = [
     "ASSIGNMENT_POLICY",
     "DEFAULT_LANE_ROLE_PREFERENCES",
     "DEFAULT_MEMORY_PATH",
+    "LANE_ASSIGNMENT_WEIGHTS",
     "attach_capability_matched_assignments",
     "historical_worker_signal",
     "load_organization_memory",
