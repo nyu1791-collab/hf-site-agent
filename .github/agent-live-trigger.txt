@@ -1,2 +1,2 @@
-trigger=2026-09-10T19:05:00+09:00
-purpose=validate-google-503-429-cooldown-recovery-single-primary-and-nvidia-reviewer-end-to-end
+trigger=2026-09-10T19:12:00+09:00
+purpose=validate-google-503-503-429-429-extended-cooldown-and-nvidia-reviewer-end-to-end
