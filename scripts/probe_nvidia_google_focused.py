@@ -32,6 +32,7 @@ from scripts.provider_registry import load_provider_registry
 
 GOOGLE_MODEL = "gemini-3.8-flash"
 GOOGLE_BOUNDED_TIMEOUT_SECONDS = 90.0
+NVIDIA_BOUNDED_TIMEOUT_SECONDS = 240.0
 GOOGLE_SOFT_BLOCKERS = frozenset({
     "ACCOUNT_TIER_API_UNAVAILABLE",
     "AUTOMATIC_PAID_TRANSITION_UNKNOWN",
@@ -193,6 +194,10 @@ def run_focused_probe(
     env["NVIDIA_PROBE_MODEL"] = NVIDIA_NEMOTRON_MODEL
     registry = load_provider_registry()
     nvidia = FocusedNvidiaStreamingAdapter(registry, network_enabled=True)
+    # The previous 150 s cap was reached by a real hosted-runner probe. Extend
+    # the same invocation instead of issuing a retry, preserving no-replay on
+    # uncertain provider usage.
+    nvidia.timeout_seconds = NVIDIA_BOUNDED_TIMEOUT_SECONDS
     nvidia_report = run_probe(
         registry,
         ("nvidia",),
@@ -211,6 +216,7 @@ def run_focused_probe(
     report["focused_nvidia_model"] = NVIDIA_NEMOTRON_MODEL
     report["focused_google_model"] = GOOGLE_MODEL
     report["google_bounded_free_tier_probe"] = True
+    report["nvidia_bounded_timeout_seconds"] = NVIDIA_BOUNDED_TIMEOUT_SECONDS
     return report
 
 
@@ -234,6 +240,7 @@ def main() -> int:
             "focused_nvidia_model": NVIDIA_NEMOTRON_MODEL,
             "focused_google_model": GOOGLE_MODEL,
             "google_bounded_free_tier_probe": True,
+            "nvidia_bounded_timeout_seconds": NVIDIA_BOUNDED_TIMEOUT_SECONDS,
             "status": "FOCUSED_PROBE_INVALID",
             "providers": [],
         }
