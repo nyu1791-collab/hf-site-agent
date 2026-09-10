@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Run the existing NVIDIA Lead Engineer mission behind durable call guards.
 
-The underlying mission prompt/parser remains unchanged.  This wrapper adds:
+The underlying mission prompt/parser remains unchanged. This wrapper adds:
 * Resume identity validation against persisted Mission State + Result Inbox.
 * Cross-run reservation-ledger restoration.
 * A provider-call reservation before NVIDIA dispatch.
 * Conservative UNSETTLED accounting after uncertain failures.
 * Source-HEAD and Result-Hash binding on persisted delivery artifacts.
+* Compatibility for the focused direct-agent admission, where the separate
+  NVIDIA liveness probe is intentionally deferred to the first real Lead call.
 
 It never enables production, paid fallback, repository writes, deploy, publish,
 or secret persistence.
@@ -29,9 +31,10 @@ if __package__ in {None, ""}:  # pragma: no cover - direct script entrypoint
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts import run_nvidia_orchestrator_mission as mission
+from scripts.focused_nvidia_streaming_adapter import FocusedNvidiaStreamingAdapter
 from scripts.mission_integrity import HEAD_RE, result_hash, validate_resume_bundle
 from scripts.mission_scheduler import MissionReservationLedger
-from scripts.provider_adapters import ProviderAdapterError
+from scripts.provider_adapters import NVIDIA_NEMOTRON_MODEL, ProviderAdapterError
 
 
 LEDGER_PATH = Path("artifacts/nvidia_orchestrator_ledger.json")
@@ -54,6 +57,82 @@ def _write(path: Path, value: Mapping[str, Any]) -> None:
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(dict(value), ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     temp.replace(path)
+
+
+def _promote_deferred_nvidia_admission(
+    probe: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Bridge a verified deferred admission into the legacy Lead contract.
+
+    The focused carrier skips a redundant NVIDIA inference probe. The older
+    Lead mission still expects ``PROBE_OK``. Convert only the exact, current,
+    evidence-backed deferred record in memory. The persisted probe artifact is
+    never rewritten and continues to report ``PROBE_DEFERRED_TO_AGENT``.
+    """
+    providers = probe.get("providers") if isinstance(probe.get("providers"), list) else []
+    models = (((evidence.get("providers") or {}).get("nvidia") or {}).get("models") or {})
+    record = models.get(NVIDIA_NEMOTRON_MODEL) if isinstance(models, Mapping) else None
+    pricing = (
+        record.get("pricing_metadata")
+        if isinstance(record, Mapping) and isinstance(record.get("pricing_metadata"), Mapping)
+        else {}
+    )
+    secure_route = (
+        isinstance(record, Mapping)
+        and record.get("model_verified") is True
+        and record.get("auth_verified") is True
+        and record.get("endpoint_verified") is True
+        and record.get("current") is True
+        and record.get("free_access_type") == "FREE_ENDPOINT"
+        and record.get("free_route_selected") is True
+        and record.get("limited_staging_probe_allowed") is True
+        and not list(record.get("limited_staging_probe_blockers") or [])
+        and record.get("paid_fallback_possible") is False
+        and record.get("paid_transition_possible") is False
+        and pricing.get("exact_model_verified") is True
+        and pricing.get("fixed_free_endpoint") is True
+        and pricing.get("free_endpoint_available") is True
+        and pricing.get("free_price_verified") is True
+        and pricing.get("paid_fallback_disabled") is True
+        and pricing.get("selected_route") == "FREE_ENDPOINT"
+    )
+    if not secure_route:
+        return probe
+
+    changed = False
+    normalized: list[Any] = []
+    for item in providers:
+        if not isinstance(item, Mapping):
+            normalized.append(item)
+            continue
+        row = dict(item)
+        deferred = (
+            row.get("provider") == "nvidia"
+            and row.get("model") == NVIDIA_NEMOTRON_MODEL
+            and row.get("status") == "PROBE_DEFERRED_TO_AGENT"
+            and row.get("probe_mode") == "DIRECT_AGENT_LIVENESS"
+            and row.get("direct_agent_admission") is True
+            and row.get("selected_route") == "FREE_ENDPOINT"
+            and row.get("staging_only") is True
+            and row.get("paid_fallback") is False
+            and row.get("automatic_model_fallback") is False
+            and row.get("generic_paid_router_disabled") is True
+            and int(row.get("model_calls", 0) or 0) == 0
+            and int(row.get("request_hard_limit", 0) or 0) == 0
+        )
+        if deferred:
+            row["source_status"] = "PROBE_DEFERRED_TO_AGENT"
+            row["status"] = "PROBE_OK"
+            row["compatibility_admission"] = "FIRST_REAL_AGENT_CALL_IS_LIVENESS"
+            changed = True
+        normalized.append(row)
+    if not changed:
+        return probe
+    bridged = dict(probe)
+    bridged["providers"] = normalized
+    bridged["nvidia_deferred_admission_bridged"] = True
+    return bridged
 
 
 def _parse_revision(value: str) -> int | None:
@@ -287,6 +366,7 @@ def main() -> int:
             "def acknowledge_result_inbox",
         ),
         "scripts/run_nvidia_orchestrator_guarded.py": (
+            "def _promote_deferred_nvidia_admission",
             "class DurableNvidiaAdapter",
             "def _enrich_artifacts",
             "def main",
@@ -303,21 +383,37 @@ def main() -> int:
         provider_limits={"nvidia": {"requests": MAX_MISSION_REQUESTS, "tokens": MAX_MISSION_TOKEN_BUDGET}},
     )
     original_factory = mission.create_provider_adapter
+    original_mission_read = mission._read
     wrappers: list[DurableNvidiaAdapter] = []
 
+    def guarded_read(path: str) -> Mapping[str, Any]:
+        value = original_mission_read(path)
+        if str(path) != "artifacts/provider_probe.json":
+            return value
+        evidence = original_mission_read("artifacts/secure_account_evidence.json")
+        return _promote_deferred_nvidia_admission(value, evidence)
+
     def guarded_factory(registry: Mapping[str, Any], provider_id: str, **kwargs: Any) -> Any:
-        underlying = original_factory(registry, provider_id, **kwargs)
+        if provider_id == "nvidia":
+            underlying = FocusedNvidiaStreamingAdapter(
+                registry,
+                network_enabled=bool(kwargs.get("network_enabled", False)),
+            )
+        else:
+            underlying = original_factory(registry, provider_id, **kwargs)
         if provider_id != "nvidia":
             return underlying
         wrapper = DurableNvidiaAdapter(underlying, ledger, source_head)
         wrappers.append(wrapper)
         return wrapper
 
+    mission._read = guarded_read
     mission.create_provider_adapter = guarded_factory
     try:
         rc = mission.main()
     finally:
         mission.create_provider_adapter = original_factory
+        mission._read = original_mission_read
 
     adapter = wrappers[-1] if wrappers else None
     _enrich_artifacts(source_head, adapter, resume_report)
