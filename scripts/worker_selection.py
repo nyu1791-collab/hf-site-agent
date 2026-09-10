@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
-"""Select OpenRouter workers from a current catalog and exact probe records.
+"""Select OpenRouter workers from current exact-free catalog evidence.
 
-This module is deliberately data-driven: it contains worker *roles*, never a
-hard-coded free model ID. A catalog entry is not executable until its exact
-endpoint probe confirms the requested model, zero usage cost, unchanged
-credits, and no provider fallback. Role eligibility is based on provider-
-reported context/features; optional capability tags are ranking hints only.
-Actual coding/review/general/fast suitability is measured by the downstream
-role-specific benchmark rather than guessed from nonstandard catalog metadata.
-The selector is read-only and never changes the model registry or activates a
-role.
+The worker pool is intentionally permissive on optional model features: subordinate
+workers do not need tool calling or native structured-output support merely to be
+eligible. Those capabilities are ranking hints. Real suitability is established by
+live exact-model probing and role-specific benchmarks. Hard gates stay small:
+current ``:free`` pricing, enough context, exact response model, unchanged credits,
+no provider fallback, and a passing benchmark before role use.
 """
 
 from __future__ import annotations
@@ -23,23 +20,23 @@ ZERO_PRICES = {"0", "0.0", "0.00"}
 WORKER_ROLES: dict[str, dict[str, Any]] = {
     "GENERAL_WORKER": {
         "capability_tags": {"general"},
-        "required_features": {"structured_output"},
-        "minimum_context_length": 16_000,
+        "preferred_features": {"structured_output"},
+        "minimum_context_length": 8_000,
     },
     "CODING_WORKER": {
         "capability_tags": {"coding"},
-        "required_features": {"tool_calling", "structured_output"},
-        "minimum_context_length": 32_000,
+        "preferred_features": {"tool_calling", "structured_output"},
+        "minimum_context_length": 16_000,
     },
     "REVIEW_WORKER": {
         "capability_tags": {"review"},
-        "required_features": {"structured_output"},
-        "minimum_context_length": 16_000,
+        "preferred_features": {"structured_output"},
+        "minimum_context_length": 8_000,
     },
     "FAST_WORKER": {
         "capability_tags": {"fast"},
-        "required_features": {"structured_output"},
-        "minimum_context_length": 8_000,
+        "preferred_features": set(),
+        "minimum_context_length": 4_000,
     },
 }
 
@@ -89,13 +86,14 @@ def _zero_priced(entry: Mapping[str, Any]) -> bool:
     )
 
 
-def _supports_features(entry: Mapping[str, Any], required: set[str]) -> bool:
-    parameters = set(entry.get("supported_parameters") or [])
-    if "tool_calling" in required and not {"tools", "tool_choice"} <= parameters:
-        return False
-    if "structured_output" in required and not ({"structured_outputs", "response_format"} & parameters):
-        return False
-    return True
+def _feature_names(entry: Mapping[str, Any]) -> set[str]:
+    parameters = {str(item) for item in (entry.get("supported_parameters") or [])}
+    features: set[str] = set()
+    if {"tools", "tool_choice"} <= parameters:
+        features.add("tool_calling")
+    if {"structured_outputs", "response_format"} & parameters:
+        features.add("structured_output")
+    return features
 
 
 def _probe_is_active(model_id: str, probe: Mapping[str, Any]) -> bool:
@@ -119,12 +117,11 @@ def catalog_worker_candidates(
     registry_metadata: Mapping[str, Mapping[str, Any]] | None = None,
     minimum_context_length: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Return safe, unprobed candidates from the current catalog only.
+    """Return broad current free candidates for live probe + benchmark.
 
-    OpenRouter's standard catalog exposes pricing, context length, and supported
-    parameters, but capability tags are not guaranteed. Therefore tags are an
-    advisory ordering hint. Role competence is established by the role-specific
-    benchmark after the exact-free endpoint probe.
+    Optional provider capabilities are hints, not eligibility blockers. This keeps
+    the organization from becoming brittle when a useful free model omits
+    nonstandard metadata or does not implement native JSON/tool parameters.
     """
     role_name = str(worker_role or "").strip().upper()
     requirements = WORKER_ROLES.get(role_name)
@@ -133,6 +130,7 @@ def catalog_worker_candidates(
     required_context = max(int(requirements["minimum_context_length"]), int(minimum_context_length or 0))
     metadata_map = registry_metadata or {}
     desired_tags = set(requirements["capability_tags"])
+    preferred_features = set(requirements.get("preferred_features") or set())
     candidates: list[dict[str, Any]] = []
     for entry in catalog:
         if not isinstance(entry, Mapping) or not _zero_priced(entry):
@@ -141,8 +139,6 @@ def catalog_worker_candidates(
         context_length = entry.get("context_length")
         if not isinstance(context_length, int) or context_length < required_context:
             continue
-        if not _supports_features(entry, set(requirements["required_features"])):
-            continue
         metadata = metadata_map.get(model_id) if isinstance(metadata_map, Mapping) else None
         metadata = metadata if isinstance(metadata, Mapping) else {}
         capabilities = {
@@ -150,15 +146,26 @@ def catalog_worker_candidates(
             for item in (*list(entry.get("capability_tags") or []), *list(metadata.get("capability_tags") or []))
             if str(item).strip()
         }
+        features = _feature_names(entry)
         hint_match = bool(desired_tags) and desired_tags <= capabilities
+        preferred_feature_hits = len(preferred_features & features)
         candidates.append({
             "model": model_id,
             "context_length": context_length,
             "capability_tags": sorted(capabilities),
             "capability_hint_match": hint_match,
-            "role_eligibility_source": "CATALOG_FEATURES_THEN_ROLE_BENCHMARK",
+            "available_features": sorted(features),
+            "preferred_feature_hits": preferred_feature_hits,
+            "role_eligibility_source": "FREE_PRICE_CONTEXT_THEN_EXACT_PROBE_AND_ROLE_BENCHMARK",
         })
-    candidates.sort(key=lambda item: (-int(bool(item["capability_hint_match"])), -int(item["context_length"]), str(item["model"])))
+    candidates.sort(
+        key=lambda item: (
+            -int(bool(item["capability_hint_match"])),
+            -int(item["preferred_feature_hits"]),
+            -int(item["context_length"]),
+            str(item["model"]),
+        )
+    )
     return candidates
 
 
@@ -171,17 +178,9 @@ def select_free_worker(
     minimum_context_length: int | None = None,
     registry_metadata: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Return one currently verified pre-benchmark worker candidate.
-
-    Selection is deterministic among verified candidates. It prefers an
-    explicit capability-tag hint when available, then the largest context, then
-    lexical model ID. Missing nonstandard capability tags never override the
-    standard feature/context gates or the exact-free probe. ``requested_model``
-    is an allow-list restriction, not a way to bypass those gates.
-    """
+    """Return one exact-free pre-benchmark candidate deterministically."""
     role_name = str(worker_role or "").strip().upper()
-    requirements = WORKER_ROLES.get(role_name)
-    if requirements is None:
+    if role_name not in WORKER_ROLES:
         raise WorkerSelectionError(f"unknown worker role: {role_name}")
     requested = str(requested_model or "").strip()
     if requested and requested in GENERIC_FREE_IDS:
@@ -208,11 +207,13 @@ def select_free_worker(
             continue
         candidates.append((
             int(bool(candidate.get("capability_hint_match"))),
+            int(candidate.get("preferred_feature_hits", 0)),
             int(candidate["context_length"]),
             model_id,
             set(candidate["capability_tags"]),
+            list(candidate.get("available_features") or []),
         ))
-    candidates.sort(key=lambda item: (-item[0], -item[1], item[2]))
+    candidates.sort(key=lambda item: (-item[0], -item[1], -item[2], item[3]))
     if not candidates:
         return {
             "status": "blocked",
@@ -222,7 +223,7 @@ def select_free_worker(
             "candidates": [],
             "paid_fallback": False,
         }
-    hint_match, context_length, model_id, capabilities = candidates[0]
+    hint_match, feature_hits, context_length, model_id, capabilities, available_features = candidates[0]
     return {
         "status": "ready",
         "reason": "exact_free_endpoint_verified_pending_role_benchmark",
@@ -232,8 +233,10 @@ def select_free_worker(
         "context_length": context_length,
         "capability_tags": sorted(capabilities),
         "capability_hint_match": bool(hint_match),
+        "preferred_feature_hits": feature_hits,
+        "available_features": available_features,
         "role_benchmark_required": True,
-        "candidates": [item[2] for item in candidates],
+        "candidates": [item[3] for item in candidates],
         "paid_fallback": False,
         "generic_router": False,
         "execution_allowed": False,
