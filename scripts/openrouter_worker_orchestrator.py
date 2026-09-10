@@ -7,13 +7,11 @@ ranking, commander handoff, and bounded follow-up projects. No user action is
 required between stages. External/budget uncertainty checkpoints the same
 project instead of creating a new mission or replaying an uncertain request.
 
-If the Google commander is conclusively unavailable after the bounded focused
-recovery sequence, worker *bootstrap only* may continue in a clearly marked
-degraded mode. This also covers a settled Google revision failure after an
-NVIDIA review: a nonzero revision count proves the reviewer completed and the
-failure occurred after the runtime entered the Google reviser phase. Degraded
-mode never claims two-agent acceptance, never activates a worker automatically,
-and never grants repository or production authority.
+If the Google commander is conclusively unavailable after a settled provider
+response, worker *bootstrap only* may continue in a clearly marked degraded
+mode. This also covers a settled Google revision failure after NVIDIA review.
+Degraded mode never claims two-agent acceptance, never activates a worker
+automatically, and never grants repository or production authority.
 """
 
 from __future__ import annotations
@@ -35,9 +33,9 @@ from scripts.continuous_project_loop import AUTO_NEXT_SAFE, PROJECT_BOUNDARY, ru
 from scripts.openrouter_worker_mission import build_mission_packet
 from scripts.probe_free_workers_multi import run_multi_probe
 
-SCHEMA_VERSION = "openrouter-worker-orchestrator-v4"
+SCHEMA_VERSION = "openrouter-worker-orchestrator-v5"
 MAX_STAGE_EVENTS = 20
-MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS = 3
+MIN_CONCLUSIVE_GOOGLE_FAILURE_CALLS = 1
 
 
 def _event(stage: str, status: str, summary: str) -> dict[str, Any]:
@@ -82,14 +80,15 @@ def _live_result_accepted(live: Mapping[str, Any]) -> bool:
 def _degraded_worker_bootstrap_allowed(live: Mapping[str, Any]) -> bool:
     """Allow a conclusively settled Google constraint to bypass the worker gate.
 
-    Ambiguous provider outcomes remain in the checkpoint/no-replay path. Three
-    or more settled Google attempts with zero unsettled reservations prove the
-    bounded recovery sequence finished conclusively. If NVIDIA has not run,
-    this is the pre-review Google outage case. If NVIDIA has run, a nonzero
-    revision count proves its review completed and the runtime entered the
-    Google reviser phase before the later interruption. Both cases may safely
-    continue independent worker discovery/benchmark work, while commander
-    acceptance remains pending.
+    Ambiguous provider outcomes remain in the checkpoint/no-replay path. The
+    resilient live-call layer records a concrete HTTP failure as a real request
+    and settles it; therefore at least one Google call with zero unsettled
+    requests proves the terminal interruption is not a duplicate-risk unknown.
+    If NVIDIA has not run, this is a pre-review Google constraint. If NVIDIA has
+    run, its call count must exactly equal revision_count, proving completed
+    review rounds and a later failure in the Google reviser phase. Both cases
+    may safely continue independent worker discovery/benchmark work while
+    commander acceptance remains pending.
     """
     if live.get("status") != "blocked" or not _hard_safety_clean(live):
         return False
@@ -102,7 +101,7 @@ def _degraded_worker_bootstrap_allowed(live: Mapping[str, Any]) -> bool:
     google_calls = int(providers.get("google", 0) or 0)
     nvidia_calls = int(providers.get("nvidia", 0) or 0)
     revision_count = int(runtime.get("revision_count", 0) or 0)
-    failure_phase_proven = nvidia_calls == 0 or (nvidia_calls >= 1 and revision_count >= 1)
+    failure_phase_proven = nvidia_calls == 0 or (revision_count >= 1 and nvidia_calls == revision_count)
     return (
         str(runtime.get("stop_reason") or live.get("stop_reason") or "").upper() == "PROVIDER_INTERRUPTED"
         and unsettled == 0
@@ -192,7 +191,9 @@ def run_pipeline(
     else:
         runtime = _mapping(live_report.get("runtime"))
         providers = _mapping(_mapping(live_report.get("live_staging")).get("providers"))
-        reviewer_present = int(providers.get("nvidia", 0) or 0) >= 1 and int(runtime.get("revision_count", 0) or 0) >= 1
+        nvidia_calls = int(providers.get("nvidia", 0) or 0)
+        revision_count = int(runtime.get("revision_count", 0) or 0)
+        reviewer_present = revision_count >= 1 and nvidia_calls == revision_count
         report["commander_gate_mode"] = "DEGRADED_WORKER_BOOTSTRAP"
         report["commander_acceptance_pending"] = True
         report["reviewer_already_participated"] = reviewer_present
@@ -202,7 +203,7 @@ def run_pipeline(
             (
                 "Google revision became conclusively constrained after NVIDIA review; independent worker bootstrap may continue"
                 if reviewer_present
-                else "Google bounded recovery ended conclusively; worker discovery/benchmark may continue while commander acceptance remains pending"
+                else "Google request ended conclusively; worker discovery/benchmark may continue while commander acceptance remains pending"
             ),
         ))
 
