@@ -2,7 +2,7 @@
 """Focused high-context Gemini adapter for the staging commander lane.
 
 The generic adapter intentionally uses conservative 20k-character content
-bounds.  The focused AI-army lane has independently bounded 120k prompt and
+bounds. The focused AI-army lane has independently bounded 120k prompt and
 144k response envelopes, so this adapter preserves that useful context while
 keeping the native Gemini contract, exact-model checks, no fallback, and no
 provider retries.
@@ -22,6 +22,12 @@ FOCUSED_GOOGLE_MAX_RESPONSE_CHARS = 144_000
 
 class FocusedGoogleNativeAdapter(GeminiNativeAdapter):
     """Gemini-native adapter with bounded large context for commander work."""
+
+    # Explicit transport marker consumed by the bounded recovery layer. It
+    # authorizes no call on its own; recovery also requires the verified
+    # Google STAGING/free-route ExecutionPolicy. Keeping this marker on the
+    # focused adapter prevents generic/provider-agnostic 429 replay behavior.
+    focused_commander_transport = True
 
     @staticmethod
     def _parts(content: Any) -> list[dict[str, Any]]:
