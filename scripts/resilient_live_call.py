@@ -4,10 +4,10 @@
 Ambiguous transport failures may have reached the provider and are never
 replayed here. Explicit HTTP failures are different because the attempt has a
 confirmed terminal response. Retryable 5xx failures get bounded, progressively
-smaller recovery attempts. A 429 is normally not retried; the only exception is
-one explicit 429 that immediately follows an already-confirmed 5xx recovery in
-the same logical call. That pattern is treated as retry-pressure backoff rather
-than as evidence that the original request result is unknown.
+smaller recovery attempts. A first-call 429 remains fail-closed. When a 429
+appears only after confirmed 5xx recovery pressure, one normal cooldown and one
+final extended cooldown are allowed because both 429 responses are conclusive
+HTTP refusals, not ambiguous inference outcomes.
 
 Recovery stays on the exact same provider/model/free route, uses fresh request
 identities, progressively smaller context/output, bounded cooldown, and never
@@ -29,6 +29,7 @@ import scripts.live_staging_runner as live_runner
 
 MAX_CONCLUSIVE_5XX_RECOVERIES = 2
 MAX_POST_5XX_RATE_LIMIT_RECOVERIES = 1
+MAX_TRAILING_RATE_LIMIT_RECOVERIES = 1
 RECOVERY_MAX_OUTPUT_TOKENS = 4_096
 RECOVERY_REPOSITORY_CONTEXT_CHARS = 20_000
 RECOVERY_FILE_CHARS = 4_000
@@ -42,6 +43,7 @@ FINAL_RECOVERY_USER_MESSAGE_CHARS = 16_000
 # settle before a fresh request.
 RECOVERY_BACKOFF_SECONDS = (15.0, 30.0)
 POST_5XX_RATE_LIMIT_BACKOFF_SECONDS = 65.0
+TRAILING_RATE_LIMIT_BACKOFF_SECONDS = 120.0
 MAX_PROVIDER_RETRY_AFTER_SECONDS = 120.0
 
 
@@ -88,13 +90,14 @@ def _recovery_delay_seconds(recovery_number: int, retry_after_seconds: int | Non
     return base
 
 
-def _rate_limit_delay_seconds(retry_after_seconds: int | None) -> float:
+def _rate_limit_delay_seconds(retry_after_seconds: int | None, *, trailing: bool = False) -> float:
+    base = TRAILING_RATE_LIMIT_BACKOFF_SECONDS if trailing else POST_5XX_RATE_LIMIT_BACKOFF_SECONDS
     if isinstance(retry_after_seconds, int) and retry_after_seconds >= 0:
         return min(
             MAX_PROVIDER_RETRY_AFTER_SECONDS,
-            max(POST_5XX_RATE_LIMIT_BACKOFF_SECONDS, float(retry_after_seconds)),
+            max(base, float(retry_after_seconds)),
         )
-    return POST_5XX_RATE_LIMIT_BACKOFF_SECONDS
+    return base
 
 
 def _compact_repository_payload(payload: Mapping[str, Any], *, recovery_number: int = 1) -> dict[str, Any]:
@@ -196,6 +199,7 @@ class _ConclusiveRecoveryAdapter:
         self.confirmed_http_failures = 0
         self.conclusive_5xx_failures = 0
         self.post_5xx_rate_limit_failures = 0
+        self.trailing_rate_limit_failures = 0
         self.ambiguous_failures = 0
         self.last_http_status: int | None = None
         self.recovery_compacted = False
@@ -227,7 +231,12 @@ class _ConclusiveRecoveryAdapter:
         except (TypeError, ValueError):
             reserved_output_tokens = 256
 
-        max_attempts = 1 + MAX_CONCLUSIVE_5XX_RECOVERIES + MAX_POST_5XX_RATE_LIMIT_RECOVERIES
+        max_attempts = (
+            1
+            + MAX_CONCLUSIVE_5XX_RECOVERIES
+            + MAX_POST_5XX_RATE_LIMIT_RECOVERIES
+            + MAX_TRAILING_RATE_LIMIT_RECOVERIES
+        )
         for attempt in range(1, max_attempts + 1):
             call_options = dict(options)
             call_messages = messages
@@ -282,6 +291,26 @@ class _ConclusiveRecoveryAdapter:
                     ):
                         self.post_5xx_rate_limit_failures += 1
                         delay = _rate_limit_delay_seconds(exc.retry_after_seconds)
+                        if delay > 0:
+                            time.sleep(delay)
+                            self.total_backoff_seconds += delay
+                        continue
+                    if (
+                        self.post_5xx_rate_limit_failures >= MAX_POST_5XX_RATE_LIMIT_RECOVERIES
+                        and self.trailing_rate_limit_failures < MAX_TRAILING_RATE_LIMIT_RECOVERIES
+                        and attempt < max_attempts
+                        and self._may_recover(
+                            reserved_output_tokens=reserved_output_tokens,
+                            recovery_number=max(2, attempt),
+                        )
+                    ):
+                        # The previous 429 already had the normal cooldown and
+                        # still returned another explicit terminal 429. Permit
+                        # exactly one longer cooldown with a fresh request ID.
+                        # This is safe to replay because no ambiguous model
+                        # result exists for either rate-limited request.
+                        self.trailing_rate_limit_failures += 1
+                        delay = _rate_limit_delay_seconds(exc.retry_after_seconds, trailing=True)
                         if delay > 0:
                             time.sleep(delay)
                             self.total_backoff_seconds += delay
@@ -351,6 +380,10 @@ def call_model_with_bounded_recovery(
             proxy.post_5xx_rate_limit_failures,
             MAX_POST_5XX_RATE_LIMIT_RECOVERIES,
         )
+        result["trailing_rate_limit_recovery_count"] = min(
+            proxy.trailing_rate_limit_failures,
+            MAX_TRAILING_RATE_LIMIT_RECOVERIES,
+        )
         result["recovery_context_compacted"] = proxy.recovery_compacted
         result["recovery_level_reached"] = proxy.recovery_level_reached
         result["recovery_backoff_seconds"] = proxy.total_backoff_seconds
@@ -360,11 +393,13 @@ def call_model_with_bounded_recovery(
 __all__ = [
     "MAX_CONCLUSIVE_5XX_RECOVERIES",
     "MAX_POST_5XX_RATE_LIMIT_RECOVERIES",
+    "MAX_TRAILING_RATE_LIMIT_RECOVERIES",
     "RECOVERY_MAX_OUTPUT_TOKENS",
     "RECOVERY_REPOSITORY_CONTEXT_CHARS",
     "FINAL_RECOVERY_MAX_OUTPUT_TOKENS",
     "FINAL_RECOVERY_REPOSITORY_CONTEXT_CHARS",
     "RECOVERY_BACKOFF_SECONDS",
     "POST_5XX_RATE_LIMIT_BACKOFF_SECONDS",
+    "TRAILING_RATE_LIMIT_BACKOFF_SECONDS",
     "call_model_with_bounded_recovery",
 ]
