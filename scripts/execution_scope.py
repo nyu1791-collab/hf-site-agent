@@ -54,9 +54,11 @@ class ExecutionPolicy:
     auto_top_up: bool = False
     max_retries: int = 0
     # A trusted, ephemeral staging run may use a fixed provider free route
-    # when account-tier evidence is unavailable.  This is deliberately
+    # when account-tier or quota evidence is unavailable.  This is deliberately
     # separate from ``free_verified``/``cost_safe`` so it cannot masquerade
-    # as account-specific zero-cost proof.
+    # as account-specific zero-cost proof.  Callers may set it only after they
+    # have rejected known paid routing, known billing enablement, non-zero
+    # price evidence, model mismatch, stale evidence and provider fallback.
     staging_free_route_allowed: bool = False
     account_zero_cost_verified: bool = False
     # Explicit one-call NVIDIA bootstrap exception after a bounded fixed-free
@@ -185,6 +187,15 @@ def authorize_execution(
             (policy.free_verified is True and policy.cost_safe is True)
             or policy.staging_free_route_allowed is True
         )
+        # A verified, bounded free route is itself the admission mechanism when
+        # the provider exposes no account/quota API.  Unknown quota must not
+        # deadlock staging forever.  Known-unsafe quota never reaches this
+        # policy because the focused route selector refuses it before policy
+        # construction.
+        quota_or_bounded_free_route = (
+            policy.quota_safe is True
+            or policy.staging_free_route_allowed is True
+        )
         required = {
             "technically_ready": policy.technically_ready,
             "staging_approved": policy.staging_approved,
@@ -193,7 +204,7 @@ def authorize_execution(
             "auth_verified": policy.auth_verified,
             "capability_verified": policy.capability_verified,
             "free_route_or_zero_cost": free_route_or_zero_cost,
-            "quota_safe": policy.quota_safe,
+            "quota_safe_or_bounded_free_route": quota_or_bounded_free_route,
             "circuit_closed": policy.circuit_closed,
         }
         missing = [name for name, value in required.items() if value is not True]
