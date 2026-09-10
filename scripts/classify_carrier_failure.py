@@ -2,10 +2,11 @@
 """Classify bounded carrier failures without retaining provider responses.
 
 The carrier may encounter several independent provider failures in one run.
-This adapter turns the already-redacted evidence/probe/live reports into
-stable failure signatures and next actions.  It deliberately accepts only
-status-shaped fields; raw responses and exception text are never copied to
-the report.
+This adapter turns already-redacted evidence/probe/live reports into stable
+failure signatures and next actions. Derived quota/account uncertainty is not
+reported as a failure for the two focused commander routes when current direct
+facts already verify the exact zero-priced route and exclude paid fallback.
+Raw provider responses and exception text are never copied to the report.
 """
 
 from __future__ import annotations
@@ -57,6 +58,11 @@ _TOKENS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("LOCAL_TEST_FAILED", ("LOCAL_TEST_FAILED", "LOCAL_VALIDATION_FAILED", "TEST_FAILED")),
 )
 
+_FOCUSED_MODELS = {
+    ("google", "gemini-3.8-flash"): "FREE_TIER",
+    ("nvidia", "nvidia/nemotron-3.5-lightning-30b-a3b"): "FREE_ENDPOINT",
+}
+
 
 def _safe_text(value: Any, limit: int = 160) -> str:
     if not isinstance(value, str):
@@ -105,6 +111,37 @@ def _classify(values: Iterable[Any]) -> str | None:
     return None
 
 
+def _focused_route_directly_verified(provider: str, model: str, record: Mapping[str, Any]) -> bool:
+    route = _FOCUSED_MODELS.get((provider, model))
+    if not route:
+        return False
+    account = record.get("account_metadata") if isinstance(record.get("account_metadata"), Mapping) else {}
+    common = (
+        record.get("secure_evidence") is True
+        and record.get("current") is True
+        and record.get("model_verified") is True
+        and record.get("endpoint_verified") is True
+        and record.get("auth_verified") is True
+        and record.get("selected_route") == route
+        and record.get("zero_price_verified") is True
+        and record.get("paid_fallback_possible") is False
+        and record.get("paid_transition_possible") is not True
+    )
+    if not common:
+        return False
+    if provider == "google":
+        return (
+            record.get("free_program_available") is True
+            and record.get("free_route_selected") is True
+            and record.get("billing_enabled_class") is not True
+            and account.get("billing_enabled") is not True
+            and account.get("current_account_eligible") is not False
+            and account.get("fallback_to_paid_possible") is not True
+            and account.get("automatic_paid_transition_possible") is not True
+        )
+    return record.get("paid_transition_possible") is False
+
+
 def _signature(error_type: str, provider: str = "", model: str = "", step: str = "") -> dict[str, str]:
     return {
         "error_type": error_type,
@@ -136,27 +173,34 @@ def _evidence_failures(report: Mapping[str, Any], failures: list[dict[str, Any]]
     for provider, lane in providers.items():
         if not isinstance(lane, Mapping):
             continue
+        provider_name = str(provider)
         lane_type = _classify((lane.get("status"), lane.get("http_status")))
         models = lane.get("models") if isinstance(lane.get("models"), Mapping) else {}
         if not models:
-            _append_failure(failures, lane_type, provider=str(provider), step="secure_account_evidence")
+            _append_failure(failures, lane_type, provider=provider_name, step="secure_account_evidence")
             continue
         for model, record in models.items():
             if not isinstance(record, Mapping):
                 continue
+            model_name = str(model)
             status_values: list[Any] = [record.get("status"), record.get("http_status")]
             if isinstance(record.get("blockers"), list):
                 status_values.extend(record["blockers"])
             error_type = _classify(status_values)
-            # A lane-level transport/auth failure is more specific than the
-            # derived quota/account blockers added to each model record.
+            # Unknown quota/account metadata is an admitted soft condition for
+            # the two exact focused free routes. Do not turn that warning into
+            # a false carrier failure after direct route verification.
+            if error_type == "QUOTA_UNKNOWN" and _focused_route_directly_verified(provider_name, model_name, record):
+                error_type = None
+            # A lane-level transport/auth failure is more specific than any
+            # derived quota/account warning added to each model record.
             if lane_type in {"AUTH_FAILED", "RATE_LIMITED", "PROVIDER_5XX", "CATALOG_CONFLICT", "PROVIDER_HTTP_ERROR"}:
                 error_type = lane_type
             _append_failure(
                 failures,
                 error_type or lane_type,
-                provider=str(provider),
-                model=str(model),
+                provider=provider_name,
+                model=model_name,
                 step="secure_account_evidence",
             )
 
@@ -166,10 +210,14 @@ def _probe_failures(report: Mapping[str, Any], failures: list[dict[str, Any]]) -
     if not isinstance(providers, list):
         _append_failure(failures, _classify((report.get("status"),)), step="probe_providers")
         return
+    accepted = {
+        "PROBE_OK",
+        "PROBE_OK_MODEL_FIELD_UNREPORTED",
+        "PROBE_DEFERRED_TO_AGENT",
+        "DRY_RUN_NO_REQUEST",
+    }
     for item in providers:
-        if not isinstance(item, Mapping) or item.get("status") in {
-            "PROBE_OK", "PROBE_OK_MODEL_FIELD_UNREPORTED", "DRY_RUN_NO_REQUEST"
-        }:
+        if not isinstance(item, Mapping) or item.get("status") in accepted:
             continue
         _append_failure(
             failures,
@@ -187,7 +235,6 @@ def classify_reports(
     *,
     branch: str = "ai-army/provider-v3",
 ) -> dict[str, Any]:
-    """Return a redacted carrier status and stable failure signatures."""
     failures: list[dict[str, Any]] = []
     _evidence_failures(evidence, failures)
     _probe_failures(probe, failures)
@@ -202,7 +249,7 @@ def classify_reports(
         )
     status = "SUCCESS" if not failures and live_status in {"", "completed"} else ("PARTIAL" if failures else "BLOCKED")
     return {
-        "schema_version": "carrier-failure-classification-v1",
+        "schema_version": "carrier-failure-classification-v2",
         "status": status,
         "branch": _safe_text(branch, 120),
         "workflow": "probe-free-models.yml",
@@ -225,7 +272,7 @@ def main(argv: list[str] | None = None) -> int:
         report = classify_reports(_read(args.evidence), _read(args.probe), _read(args.live), branch=args.branch)
     except Exception:
         report = {
-            "schema_version": "carrier-failure-classification-v1",
+            "schema_version": "carrier-failure-classification-v2",
             "status": "BLOCKED",
             "branch": _safe_text(args.branch, 120),
             "workflow": "probe-free-models.yml",
