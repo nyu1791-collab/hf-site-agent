@@ -52,7 +52,8 @@ class ParallelWorkerCouncilTests(unittest.TestCase):
             report = run_council(api_key="test-key", probe=self.probe, benchmark=self.benchmark)
 
         self.assertEqual(report["status"], "COUNCIL_READY")
-        self.assertEqual(report["schema_version"], "parallel-worker-council-v2")
+        self.assertEqual(report["schema_version"], "parallel-worker-council-v3")
+        self.assertEqual(report["reasoning_policy"], "MINIMAL_EXCLUDED_TO_PRESERVE_VISIBLE_FINAL")
         self.assertEqual(report["model_calls"], 3)
         self.assertEqual(report["successful_model_count"], 3)
         self.assertTrue(report["parallel_execution"])
