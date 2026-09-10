@@ -57,6 +57,7 @@ class AdaptiveMultiAttemptTests(unittest.TestCase):
         self.assertEqual(result["attempt_execution_mode"], "SERIAL_SAME_PROVIDER")
         self.assertEqual(result["requests_used"], 2)
         self.assertEqual(result["alternative_attempt_summaries"], ["weaker"])
+        self.assertFalse(result["optional_attempt_interrupted_after_valid_result"])
 
     def test_provider_interruption_stops_before_another_independent_attempt(self):
         executor = FakeBinding("EXECUTOR", "GEMINI")
@@ -69,6 +70,32 @@ class AdaptiveMultiAttemptTests(unittest.TestCase):
             with self.assertRaises(ProviderInterrupted):
                 callbacks.executor(self.task(), {"phase": "EXECUTE"})
         self.assertEqual(call.call_count, 1)
+
+    def test_later_interruption_keeps_completed_attempt_and_suppresses_more_calls(self):
+        executor = FakeBinding("EXECUTOR", "GEMINI")
+        reviewer = FakeBinding("REVIEWER", "NEMOTRON")
+        first = {
+            "summary": "usable first result",
+            "proposal": "complete enough",
+            "tests": ["test_a"],
+            "risks": [],
+            "files_affected": ["a.py"],
+            "requests_used": 1,
+            "input_tokens": 10,
+            "output_tokens": 20,
+        }
+        with patch(
+            "scripts.adaptive_multi_attempt.live_runner._call_model",
+            side_effect=[first, ProviderInterrupted("google:NETWORK_TIMEOUT")],
+        ) as call:
+            callbacks = build_adaptive_executor_reviewer_callbacks(executor, reviewer)
+            result = callbacks.executor(self.task(), {"phase": "EXECUTE"})
+        self.assertEqual(call.call_count, 2)
+        self.assertEqual(result["summary"], "usable first result")
+        self.assertTrue(result["optional_attempt_interrupted_after_valid_result"])
+        self.assertTrue(result["further_attempts_suppressed"])
+        self.assertIn("NETWORK_TIMEOUT", result["optional_attempt_interruption"])
+        self.assertEqual(result["requests_used"], 1)
 
 
 if __name__ == "__main__":
