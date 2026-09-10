@@ -74,6 +74,16 @@ class AIArmyCoordinationTests(unittest.TestCase):
         self.assertEqual(packet["call_policy"]["recommended_google_calls_this_stage"], 0)
         self.assertFalse(packet["call_policy"]["extra_fallback_after_two_agent_attempt"])
 
+    def test_single_settled_google_constraint_can_continue_independent_lane(self):
+        packet = build_coordination_packet(
+            {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
+            self.settled_google_report(google_calls=1),
+        )
+        self.assertEqual(packet["state"], "GOOGLE_PROVIDER_DEGRADED_NVIDIA_LEAD")
+        self.assertEqual(packet["call_policy"]["recommended_nvidia_calls_this_stage"], 1)
+        self.assertTrue(packet["call_policy"]["safe_independent_lane_continuation"])
+        self.assertTrue(packet["google"]["conclusive_provider_constraint"])
+
     def test_settled_google_outage_authorizes_one_planned_nvidia_degraded_lead(self):
         packet = build_coordination_packet(
             {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
@@ -105,13 +115,21 @@ class AIArmyCoordinationTests(unittest.TestCase):
         self.assertFalse(packet["roles"]["nvidia"]["degraded_lead_authorized"])
         self.assertEqual(packet["live_two_agent"]["revision_count"], 1)
 
-    def test_nvidia_call_without_revision_proof_does_not_misclassify_failure_as_google(self):
+    def test_nvidia_failure_without_revision_proof_does_not_misclassify_failure_as_google(self):
         packet = build_coordination_packet(
             {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
             self.settled_google_report(google_calls=3, nvidia_calls=1, revision_count=0),
         )
         self.assertEqual(packet["state"], "TWO_AGENT_ATTEMPT_FAILED")
         self.assertEqual(packet["next_action"], "STOP_AND_REVIEW_TWO_AGENT_FAILURE")
+        self.assertFalse(packet["call_policy"]["safe_independent_lane_continuation"])
+
+    def test_extra_nvidia_failure_after_one_completed_review_does_not_misclassify_google(self):
+        packet = build_coordination_packet(
+            {"state": "READY_FOR_TWO_AGENT_STAGING", "live_ready": True},
+            self.settled_google_report(google_calls=4, nvidia_calls=2, revision_count=1),
+        )
+        self.assertEqual(packet["state"], "TWO_AGENT_ATTEMPT_FAILED")
         self.assertFalse(packet["call_policy"]["safe_independent_lane_continuation"])
 
     def test_unsettled_google_interruption_does_not_authorize_degraded_lead(self):
