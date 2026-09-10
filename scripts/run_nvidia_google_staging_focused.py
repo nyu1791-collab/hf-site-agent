@@ -11,8 +11,8 @@ redundant peers:
 * Exact-model probe results are reused instead of repeated network probes.
 * Context, response and mission budgets are expanded together so a larger
   model output is not rejected by a smaller downstream envelope limit.
-* An explicit carrier objective/role can bind the two-agent loop to one real
-  implementation mission instead of the generic staging fixture objective.
+* The current default trial is the OpenRouter worker implementation mission;
+  an explicit environment objective/role can override it later.
 
 The remaining hard guards do not reduce reasoning quality: no paid fallback,
 no secret exposure, no production activation, no external repository writes,
@@ -35,6 +35,7 @@ from scripts.adaptive_multi_attempt import build_adaptive_executor_reviewer_call
 from scripts.adaptive_performance_policy import profile_for_task, profile_metadata
 from scripts.autonomous_mission import AutonomousBounds as _AutonomousBounds
 from scripts.focused_nvidia_streaming_adapter import FocusedNvidiaStreamingAdapter
+from scripts.openrouter_worker_mission import build_mission_packet
 import scripts.live_staging_runner as live_runner
 import scripts.run_live_staging_from_probe as staging
 
@@ -44,6 +45,8 @@ _ORIGINAL_PLAN_BUILDER = staging.build_minimal_staging_plan
 _ORIGINAL_SAFE_JSON = live_runner.safe_json
 GOOGLE_EXECUTOR = ("google", "gemini-3.8-flash")
 NVIDIA_REVIEWER = ("nvidia", "nvidia/nemotron-3.5-lightning-30b-a3b")
+DEFAULT_TRIAL_ROLE = "OPENROUTER_WORKER_IMPLEMENTATION"
+DEFAULT_TRIAL_OBJECTIVE = str(build_mission_packet().get("objective") or "")
 
 # Critical ceiling. Per-task profiles decide whether one, two or three attempts
 # are actually spent. A high ceiling does not force every response to consume it.
@@ -92,12 +95,10 @@ def _focused_factory(registry, provider_id, **kwargs):
 
 def _performance_plan_builder(*args, **kwargs):
     """Allocate attempts/tokens from task importance instead of a flat cap."""
-    env_role = str(os.environ.get("AI_ARMY_TASK_ROLE") or "").strip()
-    env_objective = str(os.environ.get("AI_ARMY_OBJECTIVE") or "").strip()
-    if env_role:
-        kwargs["task_role"] = env_role[:160]
-    if env_objective:
-        kwargs["objective"] = env_objective[:20_000]
+    env_role = str(os.environ.get("AI_ARMY_TASK_ROLE") or DEFAULT_TRIAL_ROLE).strip()
+    env_objective = str(os.environ.get("AI_ARMY_OBJECTIVE") or DEFAULT_TRIAL_OBJECTIVE).strip()
+    kwargs["task_role"] = env_role[:160]
+    kwargs["objective"] = env_objective[:20_000]
 
     role = str(kwargs.get("task_role") or "LIVE_STAGING_EXECUTOR")
     objective = str(kwargs.get("objective") or "")
@@ -115,6 +116,7 @@ def _performance_plan_builder(*args, **kwargs):
         metadata = dict(task.metadata)
         metadata.update(profile_metadata(profile))
         metadata["bound_objective"] = objective[:20_000]
+        metadata["trial_mission"] = "openrouter-worker-army-v1" if env_role == DEFAULT_TRIAL_ROLE else "custom"
         tasks.append(replace(task, metadata=metadata))
     return replace(plan, tasks=tuple(tasks))
 
