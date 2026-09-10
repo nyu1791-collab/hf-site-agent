@@ -9,6 +9,8 @@ The underlying mission prompt/parser remains unchanged. This wrapper adds:
 * Source-HEAD and Result-Hash binding on persisted delivery artifacts.
 * Compatibility for the focused direct-agent admission, where the separate
   NVIDIA liveness probe is intentionally deferred to the first real Lead call.
+* A larger bounded output envelope and current redacted runtime facts for the
+  degraded Lead path so the agent can return a complete structured proposal.
 
 It never enables production, paid fallback, repository writes, deploy, publish,
 or secret persistence.
@@ -42,6 +44,8 @@ RESUME_ROOT = Path("artifacts/resume")
 MAX_MISSION_REQUESTS = 8
 CALL_TOKEN_RESERVATION = 32_768
 MAX_MISSION_TOKEN_BUDGET = MAX_MISSION_REQUESTS * CALL_TOKEN_RESERVATION
+DEGRADED_INITIAL_OUTPUT_TOKENS = 4_096
+DEGRADED_RESUME_OUTPUT_TOKENS = 8_192
 
 
 def _read(path: Path) -> Mapping[str, Any]:
@@ -57,6 +61,32 @@ def _write(path: Path, value: Mapping[str, Any]) -> None:
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(dict(value), ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     temp.replace(path)
+
+
+def _current_recovery_context() -> dict[str, Any]:
+    """Return only redacted coordination/runtime facts already written locally."""
+    coordination = _read(Path("artifacts/ai_army_coordination.json"))
+    live_report = _read(Path("artifacts/live_staging_report.json"))
+    runtime = live_report.get("runtime") if isinstance(live_report.get("runtime"), Mapping) else {}
+    live = live_report.get("live_staging") if isinstance(live_report.get("live_staging"), Mapping) else {}
+    budget = live_report.get("budget") if isinstance(live_report.get("budget"), Mapping) else {}
+    providers = live.get("providers") if isinstance(live.get("providers"), Mapping) else {}
+    return {
+        "coordination_state": str(coordination.get("state") or ""),
+        "coordination_next_action": str(coordination.get("next_action") or ""),
+        "two_agent_status": str(live_report.get("status") or ""),
+        "stop_reason": str(runtime.get("stop_reason") or live_report.get("stop_reason") or ""),
+        "revision_count": int(runtime.get("revision_count", 0) or 0),
+        "requests_used": int(budget.get("requests_used", 0) or 0),
+        "unsettled_requests": int(budget.get("unsettled_requests", 0) or 0),
+        "google_calls": int(providers.get("google", 0) or 0),
+        "nvidia_calls": int(providers.get("nvidia", 0) or 0),
+        "executor_provider": str(live.get("executor_provider") or ""),
+        "reviewer_provider": str(live.get("reviewer_provider") or ""),
+        "family_separation_pass": live.get("family_separation_pass") is True,
+        "production_active": False,
+        "paid_fallback": False,
+    }
 
 
 def _promote_deferred_nvidia_admission(
@@ -350,6 +380,21 @@ def main() -> int:
 
     os.environ["GITHUB_SHA"] = source_head
 
+    # This runner is entered only after coordination authorizes a bounded
+    # NVIDIA Lead. Give that one real call enough output room to finish the
+    # structured patch contract; the focused adapter still caps output at 8192.
+    mission.INITIAL_OUTPUT_TOKENS = max(
+        int(getattr(mission, "INITIAL_OUTPUT_TOKENS", 0) or 0),
+        DEGRADED_INITIAL_OUTPUT_TOKENS,
+    )
+    mission.RESUME_OUTPUT_TOKENS = max(
+        int(getattr(mission, "RESUME_OUTPUT_TOKENS", 0) or 0),
+        DEGRADED_RESUME_OUTPUT_TOKENS,
+    )
+    recovery_context = _current_recovery_context()
+    if not os.environ.get("NVIDIA_MISSION_MODE", "").strip():
+        os.environ["NVIDIA_MISSION_MODE"] = "PROVIDER_RECOVERY"
+
     extra_context = (
         "scripts/mission_integrity.py",
         "scripts/run_nvidia_orchestrator_guarded.py",
@@ -366,6 +411,7 @@ def main() -> int:
             "def acknowledge_result_inbox",
         ),
         "scripts/run_nvidia_orchestrator_guarded.py": (
+            "def _current_recovery_context",
             "def _promote_deferred_nvidia_admission",
             "class DurableNvidiaAdapter",
             "def _enrich_artifacts",
@@ -384,6 +430,7 @@ def main() -> int:
     )
     original_factory = mission.create_provider_adapter
     original_mission_read = mission._read
+    original_prompt = mission._mission_prompt
     wrappers: list[DurableNvidiaAdapter] = []
 
     def guarded_read(path: str) -> Mapping[str, Any]:
@@ -392,6 +439,21 @@ def main() -> int:
             return value
         evidence = original_mission_read("artifacts/secure_account_evidence.json")
         return _promote_deferred_nvidia_admission(value, evidence)
+
+    def guarded_prompt(*, resume: bool, previous_hash: str, mission_mode: str) -> str:
+        base = original_prompt(resume=resume, previous_hash=previous_hash, mission_mode=mission_mode)
+        if not recovery_context:
+            return base
+        facts = json.dumps(recovery_context, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        return (
+            base
+            + " The following redacted carrier facts are current and authoritative for this run: "
+            + facts
+            + ". Legacy observed_runtime labels in the user payload may describe an older bootstrap state; "
+              "do not use them to override these current facts. Focus on a minimal recovery/resilience "
+              "improvement for the actual current stop reason while preserving exact-model, free-route, "
+              "no-paid-fallback and no-duplicate-call invariants."
+        )
 
     def guarded_factory(registry: Mapping[str, Any], provider_id: str, **kwargs: Any) -> Any:
         if provider_id == "nvidia":
@@ -408,11 +470,13 @@ def main() -> int:
         return wrapper
 
     mission._read = guarded_read
+    mission._mission_prompt = guarded_prompt
     mission.create_provider_adapter = guarded_factory
     try:
         rc = mission.main()
     finally:
         mission.create_provider_adapter = original_factory
+        mission._mission_prompt = original_prompt
         mission._read = original_mission_read
 
     adapter = wrappers[-1] if wrappers else None
