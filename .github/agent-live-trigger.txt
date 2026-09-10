@@ -1,2 +1,2 @@
-trigger=2026-09-10T19:31:00+09:00
-purpose=validate-nvidia-reviewed-google-deferred-recovery-mode-and-continue-google-nvidia-agent-lanes
+trigger=2026-09-10T19:55:00+09:00
+purpose=feed-exact-google-daily-quota-diagnostic-to-nvidia-lead-and-design-safe-google-availability-recovery
