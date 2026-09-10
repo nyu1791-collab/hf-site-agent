@@ -1,2 +1,2 @@
-trigger=multi-agent-efficiency-v11-parallel-specialist-organization
-purpose=validate-specialist-lane-dispatch-adaptive-concurrency-worker-health-context-isolation-and-nvidia-synthesis
+trigger=multi-agent-efficiency-v12-direct-script-bootstrap
+purpose=validate-specialist-lane-dispatch-adaptive-concurrency-worker-health-context-isolation-nvidia-synthesis-after-direct-runner-fix
