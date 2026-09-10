@@ -35,7 +35,7 @@
     "max_parallel_calls": 2,
     "max_estimated_cost_usd": 0.25,
     "stop_before_estimated_budget_exceeded": true,
-    "max_output_tokens_per_call": 1024
+    "max_output_tokens_per_call": 4096
   },
   "pricing": {
     "currency": "USD",
@@ -50,7 +50,7 @@
       "prompt_cache_miss": 0.44,
       "output": 1.32
     },
-    "note": "Budget guard intentionally uses rates no lower than the recently published public API-doc rates even when the authenticated dashboard shows lower V4.1 pricing."
+    "note": "Budget guard intentionally uses conservative peak-equivalent public rates even when the authenticated dashboard shows lower V4.1 pricing."
   },
   "reasoning": {
     "CODING_DEEP": "high",
@@ -58,7 +58,7 @@
     "CODE_REVIEW": "low",
     "ARCHITECTURE": "high",
     "TEST_STRATEGY": "low",
-    "INTEGRATION_REVIEW": "high"
+    "INTEGRATION_REVIEW": "low"
   },
   "safety_boundary": {
     "repository_write": false,
