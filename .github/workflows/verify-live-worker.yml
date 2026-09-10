@@ -302,7 +302,7 @@ jobs:
           for marker in [
               'headers[header_name] = f"Bearer {credential}" if header_name.lower() == "authorization" else credential',
               '"provider"] = {"allow_fallbacks": False}',
-              'max_tokens=8',
+              'LIMITED_STAGING_MAX_OUTPUT_TOKENS = 8',
               'status in {429}',
               '"RATE_LIMITED"',
               '"FREE_COST_UNVERIFIED"',
