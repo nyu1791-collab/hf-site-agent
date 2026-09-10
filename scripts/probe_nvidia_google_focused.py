@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Focused NVIDIA + Google staging probe.
 
-The existing free-evidence gate remains authoritative. NVIDIA uses the exact
-fixed FREE_ENDPOINT through a bounded streaming transport because complete
-non-streaming responses repeatedly timed out on GitHub-hosted runners. Google
-still goes through the normal zero-cost preflight and is never called while its
-current project billing route is unverified.
+The existing free-evidence gate remains authoritative. NVIDIA is pinned to the
+already verified Nemotron FREE_ENDPOINT candidate and uses a bounded streaming
+transport. Google still goes through the normal zero-cost preflight and is
+never called while its current project billing route is unverified.
 """
 
 from __future__ import annotations
@@ -22,6 +21,7 @@ if __package__ in {None, ""}:  # pragma: no cover - script invocation path
 
 from scripts.focused_nvidia_streaming_adapter import FocusedNvidiaStreamingAdapter
 from scripts.probe_providers import run_probe
+from scripts.provider_adapters import NVIDIA_NEMOTRON_MODEL
 from scripts.provider_registry import load_provider_registry
 
 
@@ -40,10 +40,14 @@ def run_focused_probe(
     *,
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    env = os.environ if environ is None else environ
+    # Copy instead of mutating os.environ/the caller mapping.  The focused lane
+    # deliberately pins the proven Nemotron model so an old workflow variable
+    # cannot silently reintroduce the slower/failed DeepSeek bootstrap path.
+    env = dict(os.environ if environ is None else environ)
+    env["NVIDIA_PROBE_MODEL"] = NVIDIA_NEMOTRON_MODEL
     registry = load_provider_registry()
     nvidia = FocusedNvidiaStreamingAdapter(registry, network_enabled=True)
-    return run_probe(
+    report = run_probe(
         registry,
         ("nvidia", "google"),
         network_enabled=True,
@@ -53,6 +57,8 @@ def run_focused_probe(
         explicit_approval=True,
         allow_limited_staging_probe=True,
     )
+    report["focused_nvidia_model"] = NVIDIA_NEMOTRON_MODEL
+    return report
 
 
 def main() -> int:
@@ -72,6 +78,7 @@ def main() -> int:
             "registry_changed": False,
             "explicit_probe_approval": True,
             "limited_staging_probe_approval": True,
+            "focused_nvidia_model": NVIDIA_NEMOTRON_MODEL,
             "status": "FOCUSED_PROBE_INVALID",
             "providers": [],
         }
