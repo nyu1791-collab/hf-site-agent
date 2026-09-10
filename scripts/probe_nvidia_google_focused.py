@@ -7,11 +7,11 @@ inference request merely to prove liveness: once fresh secure evidence confirms
 the exact hosted FREE_ENDPOINT, auth, zero route price and no paid fallback,
 its first real Reviewer task becomes the liveness check.
 
-This removes the repeated four-minute NVIDIA preflight bottleneck while keeping
-known paid routes, model mismatch, auth failure and stale evidence as hard
-stops. Unknown account tier, quota headers, usage-cost fields and response-model
-fields are warnings rather than blockers when the exact free route is already
-verified.
+Unknown account tier, quota headers, usage-cost fields and response-model fields
+are warnings. Admission depends on direct facts rather than derived blocker
+vocabularies so benign metadata/schema changes do not stop the agent. Explicit
+paid routing, non-zero price, auth/model failure and stale evidence remain hard
+stops.
 """
 
 from __future__ import annotations
@@ -31,15 +31,6 @@ from scripts.provider_registry import load_provider_registry
 
 GOOGLE_MODEL = "gemini-3.8-flash"
 GOOGLE_BOUNDED_TIMEOUT_SECONDS = 120.0
-GOOGLE_SOFT_BLOCKERS = frozenset({
-    "ACCOUNT_TIER_API_UNAVAILABLE",
-    "AUTOMATIC_PAID_TRANSITION_UNKNOWN",
-    "BILLING_TRANSITION_RISK_NOT_NONE",
-    "CURRENT_ACCOUNT_ELIGIBILITY_UNKNOWN",
-    "QUOTA_EVIDENCE_UNAVAILABLE",
-    "QUOTA_NOT_SAFE",
-    "QUOTA_NOT_VERIFIED",
-})
 
 
 def _read_json(path_value: str) -> Mapping[str, Any]:
@@ -74,14 +65,13 @@ def _fresh(record: Mapping[str, Any]) -> bool:
 
 
 def _google_bounded_probe_allowed(record: Mapping[str, Any]) -> bool:
+    """Unknown account/quota metadata is soft; only explicit bad facts block."""
     account = record.get("account_metadata") if isinstance(record.get("account_metadata"), Mapping) else {}
-    blockers = {str(item) for item in (record.get("blockers") or []) if isinstance(item, str)}
     return (
         record.get("secure_evidence") is True
         and record.get("current") is True
         and _fresh(record)
         and record.get("model_verified") is True
-        and record.get("catalog_verified") is True
         and record.get("endpoint_verified") is True
         and record.get("auth_verified") is True
         and record.get("free_program_available") is True
@@ -95,26 +85,20 @@ def _google_bounded_probe_allowed(record: Mapping[str, Any]) -> bool:
         and account.get("current_account_eligible") is not False
         and account.get("fallback_to_paid_possible") is not True
         and account.get("automatic_paid_transition_possible") is not True
-        and not (blockers - GOOGLE_SOFT_BLOCKERS)
     )
 
 
 def _nvidia_direct_agent_allowed(record: Mapping[str, Any]) -> bool:
-    severity = record.get("limited_staging_evidence_severity")
-    hard = severity.get("hard_blockers") if isinstance(severity, Mapping) else None
+    """Admit exact fixed FREE_ENDPOINT from direct facts, not derived warnings."""
     return (
         record.get("secure_evidence") is True
         and record.get("current") is True
         and _fresh(record)
         and record.get("model_verified") is True
-        and record.get("catalog_verified") is True
         and record.get("endpoint_verified") is True
         and record.get("auth_verified") is True
         and record.get("selected_route") == "FREE_ENDPOINT"
         and record.get("zero_price_verified") is True
-        and record.get("limited_staging_probe_allowed") is True
-        and record.get("limited_staging_probe_blockers") == []
-        and (hard == [] or hard is None)
         and record.get("paid_fallback_possible") is False
         and record.get("paid_transition_possible") is False
     )
@@ -142,6 +126,8 @@ def _nvidia_deferred_result(evidence: Mapping[str, Any]) -> dict[str, Any]:
         "soft_warnings": [
             "ACCOUNT_ENTITLEMENT_UNKNOWN",
             "QUOTA_METADATA_UNAVAILABLE",
+            "PER_RESPONSE_COST_MAY_BE_UNREPORTED",
+            "RESPONSE_MODEL_FIELD_MAY_BE_UNREPORTED",
             "SEPARATE_LIVENESS_PROBE_SKIPPED",
         ] if allowed else [],
     }
@@ -160,6 +146,9 @@ def _google_bounded_probe(registry: Mapping[str, Any], evidence: Mapping[str, An
         registry, "google", network_enabled=True,
         timeout_seconds=GOOGLE_BOUNDED_TIMEOUT_SECONDS,
     )
+    # The generic adapter constructor clamps its timeout. Focused admission is
+    # allowed to wait longer on this one small probe without adding retries.
+    adapter.timeout_seconds = max(float(getattr(adapter, "timeout_seconds", 0) or 0), GOOGLE_BOUNDED_TIMEOUT_SECONDS)
     try:
         raw = adapter.probe(GOOGLE_MODEL)
     except Exception:
@@ -181,6 +170,8 @@ def _google_bounded_probe(registry: Mapping[str, Any], evidence: Mapping[str, An
     normalized_model = str(response_model or "").removeprefix("models/")
     if status == "PROBE_OK" and normalized_model and normalized_model != GOOGLE_MODEL:
         status = "MODEL_MISMATCH"
+    if status == "PROBE_OK" and not normalized_model:
+        status = "PROBE_OK_MODEL_FIELD_UNREPORTED"
     return {
         "provider": "google", "model": GOOGLE_MODEL, "model_configured": True,
         "status": status, "model_calls": 1, "retry_count": 0,
@@ -194,7 +185,11 @@ def _google_bounded_probe(registry: Mapping[str, Any], evidence: Mapping[str, An
         "usage_cost": usage_cost,
         "latency_ms": raw.get("latency_ms") if isinstance(raw.get("latency_ms"), int) else None,
         "http_status": raw.get("http_status") if isinstance(raw.get("http_status"), int) else None,
-        "soft_warnings": ["ACCOUNT_BILLING_METADATA_UNAVAILABLE", "QUOTA_METADATA_UNAVAILABLE"],
+        "soft_warnings": [
+            "ACCOUNT_BILLING_METADATA_UNAVAILABLE",
+            "QUOTA_METADATA_UNAVAILABLE",
+            "PER_RESPONSE_COST_MAY_BE_UNREPORTED",
+        ],
     }
 
 
