@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one bounded NVIDIA Lead Engineer mission and persist its result."""
+"""Run one bounded, repository-grounded NVIDIA Lead Engineer mission."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import json
 import os
 from pathlib import Path
 import sys
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 if __package__ in {None, ""}:  # pragma: no cover
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -23,25 +23,67 @@ from scripts.provider_registry import load_provider_registry
 MISSION_ID_PREFIX = "nvidia-autonomous-orchestrator"
 MISSION_STATE = "artifacts/mission_state.json"
 RESULT_INBOX = "artifacts/result_inbox.json"
-MAX_OUTPUT_TOKENS = 256
+INITIAL_OUTPUT_TOKENS = 1_024
 RESUME_OUTPUT_TOKENS = 2_048
 MAX_REPOSITORY_CONTEXT_CHARS = 30_000
+MAX_CONTEXT_CHARS_PER_FILE = 4_000
+DEFAULT_MISSION_MODE = "GOOGLE_BOOTSTRAP_SAFE"
 ALLOWED_FILES = (
     ".github/workflows/probe-free-models.yml",
+    ".github/workflows/nvidia-google-once.yml",
     "scripts/run_nvidia_orchestrator_mission.py",
     "scripts/provider_adapters.py",
+    "scripts/focused_nvidia_streaming_adapter.py",
     "scripts/free_evidence.py",
     "scripts/secure_account_evidence.py",
     "scripts/probe_providers.py",
+    "scripts/probe_nvidia_google_focused.py",
     "scripts/run_live_staging_from_probe.py",
+    "scripts/run_nvidia_google_staging_focused.py",
     "scripts/live_staging_runner.py",
     "scripts/execution_scope.py",
     "tests/test_carrier_workflow.py",
     "tests/test_free_evidence.py",
     "tests/test_probe_providers.py",
     "tests/test_secure_account_evidence.py",
-    "tests/test_autonomous_mission.py",
+    "tests/test_live_staging_runner.py",
+    "tests/test_execution_scope.py",
 )
+CONTEXT_MARKERS: Mapping[str, Sequence[str]] = {
+    "scripts/provider_adapters.py": (
+        "class GeminiNativeAdapter",
+        "def nvidia_model_options",
+        "def create_provider_adapter",
+    ),
+    "scripts/free_evidence.py": (
+        'provider_id == "google"',
+        "limited_staging_probe_allowed",
+        "zero_cost_verified",
+    ),
+    "scripts/secure_account_evidence.py": (
+        "def _account_defaults",
+        "def _pricing_metadata",
+        "GOOGLE_API_KEY",
+    ),
+    "scripts/probe_providers.py": (
+        'provider_id == "google"',
+        "allow_limited_staging_probe",
+        "ZERO_COST_PREFLIGHT_BLOCKED",
+    ),
+    "scripts/execution_scope.py": (
+        "LIMITED_STAGING_NVIDIA_ONLY",
+        "limited_staging",
+    ),
+    "scripts/run_live_staging_from_probe.py": (
+        "def _candidate_ok",
+        "def _limited_nvidia_candidate_ok",
+        "build_nvidia_limited_bootstrap_plan",
+    ),
+    "scripts/live_staging_runner.py": (
+        "def build_nvidia_limited_bootstrap_plan",
+        "def run_nvidia_limited_bootstrap_mission",
+    ),
+}
 
 
 def _now() -> str:
@@ -68,8 +110,34 @@ def _digest(value: Any) -> str:
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()[:24]
 
 
+def _compact_file_context(text: str, markers: Sequence[str], budget: int) -> str:
+    """Prefer windows around relevant symbols instead of blind head/tail snippets."""
+    budget = max(0, int(budget))
+    if budget == 0:
+        return ""
+    windows: list[str] = []
+    present = [marker for marker in markers if marker and marker in text]
+    if present:
+        per_marker = max(500, budget // max(1, len(present)))
+        for marker in present:
+            index = text.find(marker)
+            before = max(180, per_marker // 3)
+            start = max(0, index - before)
+            end = min(len(text), start + per_marker)
+            if end - start < per_marker and start > 0:
+                start = max(0, end - per_marker)
+            windows.append(f"# context around: {marker}\n{text[start:end]}")
+        compact = "\n...<context-window>...\n".join(windows)
+        return compact[:budget]
+    if len(text) <= budget:
+        return text
+    head = max(250, int(budget * 0.65))
+    tail = max(0, budget - head)
+    return text[:head] + "\n...<snip>...\n" + (text[-tail:] if tail else "")
+
+
 def _repository_context() -> dict[str, str]:
-    """Return compact real repository context so the model cannot invent paths."""
+    """Return bounded real repository context with symbol-focused windows."""
     remaining = MAX_REPOSITORY_CONTEXT_CHARS
     context: dict[str, str] = {}
     for name in ALLOWED_FILES:
@@ -80,47 +148,52 @@ def _repository_context() -> dict[str, str]:
             text = path.read_text(encoding="utf-8")
         except Exception:
             continue
-        budget = min(3_000, remaining)
-        if len(text) > budget and budget >= 600:
-            head = max(300, int(budget * 0.72))
-            tail = budget - head
-            compact = text[:head] + "\n...<snip>...\n" + text[-tail:]
-        else:
-            compact = text[:budget]
+        budget = min(MAX_CONTEXT_CHARS_PER_FILE, remaining)
+        compact = _compact_file_context(text, CONTEXT_MARKERS.get(name, ()), budget)
+        if not compact:
+            continue
         context[name] = compact
         remaining -= len(compact)
     return context
 
 
-def _mission_prompt(*, resume: bool, previous_hash: str) -> str:
+def _mission_prompt(*, resume: bool, previous_hash: str, mission_mode: str) -> str:
     common = (
         "You are NVIDIA Nemotron, the Lead Engineer for the AI Army. "
-        "Use only file paths present in repository_context. Never invent files, packages, symbols, "
-        "or directories. If required context is missing, set next_action to REQUEST_CONTEXT instead. "
-        "Return exactly one compact JSON object with no markdown fences and no prose outside JSON. "
-        "Do not edit the repository, access credentials, spend money, deploy, merge, publish, or "
-        "weaken paid/production/secret safeguards. patch_bundle must be an object with an operations "
-        "array; every operation must name a real allowed path and describe a minimal deterministic edit. "
-        "Prefer existing files and smallest changes."
+        "Use only paths listed in allowed_files and code shown in repository_context. Never invent a file, "
+        "package, symbol, API, account fact, or capability. If required code is missing, set next_action "
+        "to REQUEST_CONTEXT. Return exactly one compact JSON object with no markdown and no prose outside "
+        "the JSON. Do not edit the repository, access credentials, spend money, deploy, merge, publish, "
+        "or weaken paid/production/secret safeguards. patch_bundle must be an object containing an "
+        "operations array. Each operation must name one real allowed path and describe a minimal, "
+        "deterministic edit grounded in the provided code."
+    )
+    google_objective = (
+        " Google is currently fail-closed because the current project/account tier, quota safety, and "
+        "automatic paid-transition state are not sufficiently verified. Preserve that invariant: do NOT "
+        "bypass the Google zero-cost preflight and do NOT infer a free project from public FREE_TIER "
+        "pricing alone. Find the smallest implementation-ready improvement that moves Google toward a "
+        "trustworthy free-only staging connection, preferably by improving redacted account-tier/quota "
+        "evidence or by adding an explicit, expiring, provenance-labelled operator assertion that cannot "
+        "silently enable paid execution. Reuse existing files and tests."
+    )
+    durable_objective = (
+        " Preserve the existing durable Mission State, Result Inbox, checkpoint/resume, idempotency, and "
+        "bounded integration behavior while making only the smallest necessary change."
+    )
+    objective = google_objective if mission_mode == "GOOGLE_BOOTSTRAP_SAFE" else durable_objective
+    required = (
+        " Required non-empty keys: files_to_change, exact_changes, patch_bundle, tests, safety_invariants, "
+        "next_action. files_to_change must contain only real allowed paths."
     )
     if resume:
         return (
             common
-            + " Continue the same mission without repeating prior analysis. "
-            + f"Previous RESULT_HASH={previous_hash}. "
-            + "Complete the implementation-ready continuation. Required non-empty keys: "
-            + "files_to_change, exact_changes, patch_bundle, tests, resume_logic, result_inbox_logic, "
-            + "failure_packet_logic, next_action. The current objective is to finish the durable mission "
-            + "controller/result-inbox/controlled-integration design using the repository that actually "
-            + "exists, then identify the smallest next step for Google bootstrap."
+            + objective
+            + f" Continue the same mission; previous RESULT_HASH={previous_hash}. Do not repeat broad analysis."
+            + required
         )
-    return (
-        common
-        + " Design the smallest implementation for persistent mission state, resume-first behavior, "
-        + "a redacted Result Inbox, structured patch bundles, bounded staging-only integration, "
-        + "checkpoints, idempotency, heartbeat, failure packets, and continuation of Google bootstrap. "
-        + "Return keys: summary, root_cause, proposal, files_affected, tests, risks, next_action."
-    )
+    return common + objective + required
 
 
 def _parse_json_response(text: str) -> Mapping[str, Any]:
@@ -150,11 +223,12 @@ def _parse_json_response(text: str) -> Mapping[str, Any]:
 
 def _paths_valid(parsed: Mapping[str, Any], context: Mapping[str, str]) -> bool:
     allowed = set(context)
-    files = parsed.get("files_to_change")
-    if isinstance(files, list):
-        for item in files:
-            if not isinstance(item, str) or item not in allowed:
-                return False
+    for key in ("files_to_change", "files_affected"):
+        files = parsed.get(key)
+        if isinstance(files, list):
+            for item in files:
+                if not isinstance(item, str) or item not in allowed:
+                    return False
     bundle = parsed.get("patch_bundle")
     if isinstance(bundle, Mapping):
         operations = bundle.get("operations")
@@ -168,11 +242,32 @@ def _paths_valid(parsed: Mapping[str, Any], context: Mapping[str, str]) -> bool:
     return True
 
 
+def _result_complete(parsed: Mapping[str, Any], *, path_ok: bool) -> bool:
+    required = (
+        "files_to_change",
+        "exact_changes",
+        "patch_bundle",
+        "tests",
+        "safety_invariants",
+        "next_action",
+    )
+    if not path_ok:
+        return False
+    if not all(key in parsed and parsed.get(key) not in (None, "", [], {}) for key in required):
+        return False
+    bundle = parsed.get("patch_bundle")
+    if not isinstance(bundle, Mapping):
+        return False
+    operations = bundle.get("operations")
+    return isinstance(operations, list) and bool(operations)
+
+
 def main() -> int:
     run_id = os.environ.get("GITHUB_RUN_ID", "local")
     resume_mission_id = os.environ.get("RESUME_MISSION_ID", "").strip()
     resume_run_id = os.environ.get("RESUME_RUN_ID", "").strip()
     previous_hash = os.environ.get("RESUME_RESULT_HASH", "").strip()
+    mission_mode = os.environ.get("NVIDIA_MISSION_MODE", DEFAULT_MISSION_MODE).strip() or DEFAULT_MISSION_MODE
     resume = bool(resume_mission_id and resume_run_id and previous_hash)
     mission_id = resume_mission_id if resume else f"{MISSION_ID_PREFIX}-{run_id}"
     logical_run_id = resume_run_id if resume else run_id
@@ -180,18 +275,19 @@ def main() -> int:
         revision = max(1, int(os.environ.get("RESUME_REVISION", "1"))) if resume else 0
     except ValueError:
         revision = 1 if resume else 0
-    output_tokens = RESUME_OUTPUT_TOKENS if resume else MAX_OUTPUT_TOKENS
+    output_tokens = RESUME_OUTPUT_TOKENS if resume else INITIAL_OUTPUT_TOKENS
     started = _now()
     state = {
-        "schema_version": "mission-state-v1",
+        "schema_version": "mission-state-v2",
         "mission_id": mission_id,
         "task_id": "lead-engineer-build",
         "run_id": logical_run_id,
         "carrier_run_id": run_id,
         "revision": revision,
+        "mission_mode": mission_mode,
         "model": NVIDIA_NEMOTRON_MODEL,
         "state": "RUNNING",
-        "result_status": "PARTIAL_TRUNCATED" if resume else "RUNNING",
+        "result_status": "RUNNING",
         "delivery_state": "DELIVERY_PENDING",
         "started_at": started,
         "last_heartbeat_at": started,
@@ -230,6 +326,7 @@ def main() -> int:
         state.update(
             {
                 "state": "BLOCKED",
+                "result_status": "BLOCKED",
                 "stop_reason": "NVIDIA_LIMITED_STAGING_EVIDENCE_OR_SECRET_UNAVAILABLE",
                 "finished_at": _now(),
             }
@@ -238,10 +335,11 @@ def main() -> int:
         _write(
             RESULT_INBOX,
             {
-                "schema_version": "result-inbox-v1",
+                "schema_version": "result-inbox-v2",
                 "mission_id": mission_id,
                 "run_id": logical_run_id,
                 "revision": revision,
+                "mission_mode": mission_mode,
                 "status": "BLOCKED",
                 "created_at": _now(),
                 "nvidia_external_calls": 0,
@@ -266,18 +364,26 @@ def main() -> int:
             limited_operation="BOOTSTRAP_PROPOSAL",
         )
         adapter = create_provider_adapter(
-            load_provider_registry(), "nvidia", network_enabled=True, timeout_seconds=60.0
+            load_provider_registry(), "nvidia", network_enabled=True, timeout_seconds=90.0
         )
         repository_context = _repository_context()
 
+        # The provider adapter enforces a conservative bootstrap ceiling. Raise
+        # it only for this one bounded lead-engineer request, then restore it.
         previous_bootstrap_cap = provider_adapters_module.LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS
-        if resume:
-            provider_adapters_module.LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS = RESUME_OUTPUT_TOKENS
+        provider_adapters_module.LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS = output_tokens
         try:
             response = adapter.generate(
                 NVIDIA_NEMOTRON_MODEL,
                 [
-                    {"role": "system", "content": _mission_prompt(resume=resume, previous_hash=previous_hash)},
+                    {
+                        "role": "system",
+                        "content": _mission_prompt(
+                            resume=resume,
+                            previous_hash=previous_hash,
+                            mission_mode=mission_mode,
+                        ),
+                    },
                     {
                         "role": "user",
                         "content": json.dumps(
@@ -285,9 +391,15 @@ def main() -> int:
                                 "mission_id": mission_id,
                                 "run_id": logical_run_id,
                                 "revision": revision,
+                                "mission_mode": mission_mode,
                                 "previous_result_hash": previous_hash,
                                 "current_head": os.environ.get("GITHUB_SHA", ""),
-                                "existing_state": "NVIDIA probe passed; Google is not live; durable mission state/result inbox already exist.",
+                                "observed_runtime": {
+                                    "nvidia_probe": "PROBE_OK",
+                                    "nvidia_live_agent_count": 1,
+                                    "google_probe": "ZERO_COST_PREFLIGHT_BLOCKED",
+                                    "google_secret_present": True,
+                                },
                                 "repository_context": repository_context,
                                 "allowed_files": sorted(repository_context),
                                 "constraints": {
@@ -297,6 +409,7 @@ def main() -> int:
                                     "secret_access": False,
                                     "max_files": 5,
                                     "prefer_existing_files": True,
+                                    "google_zero_cost_gate_must_remain_fail_closed": True,
                                 },
                             },
                             ensure_ascii=False,
@@ -318,40 +431,28 @@ def main() -> int:
 
         text = response.get("text") if isinstance(response, Mapping) else ""
         parsed = _parse_json_response(str(text or ""))
-        required = (
-            "files_to_change",
-            "exact_changes",
-            "patch_bundle",
-            "tests",
-            "resume_logic",
-            "result_inbox_logic",
-            "failure_packet_logic",
-            "next_action",
-        )
         path_ok = _paths_valid(parsed, repository_context)
-        patch_complete = (
-            resume
-            and path_ok
-            and all(key in parsed and parsed.get(key) not in (None, "", [], {}) for key in required)
-        )
-        if patch_complete:
+        complete = _result_complete(parsed, path_ok=path_ok)
+        if complete:
             result_status = "COMPLETE"
-        elif resume and not path_ok:
+        elif not path_ok:
             result_status = "INVALID_PATHS"
         else:
-            result_status = "PARTIAL_TRUNCATED" if resume else "RESULT_READY"
+            result_status = "PARTIAL_TRUNCATED"
         next_action = parsed.get("next_action") if isinstance(parsed.get("next_action"), str) else ""
         if result_status != "COMPLETE" and not next_action:
             next_action = "NVIDIA_CONTINUE"
 
+        result_hash = _digest(parsed)
         state.update(
             {
                 "state": "RESULT_READY",
                 "result_status": result_status,
+                "result_complete": complete,
                 "delivery_state": "DELIVERY_PENDING",
                 "finished_at": _now(),
                 "nvidia_external_calls": 1,
-                "result_hash": _digest(parsed),
+                "result_hash": result_hash,
                 "repository_context_files": len(repository_context),
                 "path_validation": path_ok,
             }
@@ -360,24 +461,27 @@ def main() -> int:
         _write(
             RESULT_INBOX,
             {
-                "schema_version": "result-inbox-v1",
+                "schema_version": "result-inbox-v2",
                 "mission_id": mission_id,
                 "task_id": "lead-engineer-build",
                 "run_id": logical_run_id,
                 "carrier_run_id": run_id,
                 "revision": revision,
+                "mission_mode": mission_mode,
                 "previous_result_hash": previous_hash,
                 "trace_id": _digest(
                     {"mission_id": mission_id, "run_id": logical_run_id, "revision": revision}
                 ),
                 "model": NVIDIA_NEMOTRON_MODEL,
-                "result_type": "LEAD_ENGINEER_PROPOSAL",
-                "result_hash": _digest(parsed),
+                "result_type": "LEAD_ENGINEER_PATCH_PROPOSAL",
+                "result_hash": result_hash,
                 "status": result_status,
                 "result_status": result_status,
+                "result_complete": complete,
                 "proposal": dict(parsed),
                 "patch_bundle": parsed.get("patch_bundle", {}),
                 "test_plan": parsed.get("tests", []),
+                "safety_invariants": parsed.get("safety_invariants", []),
                 "next_action": next_action or "WORK_REVIEW",
                 "path_validation": path_ok,
                 "repository_context_files": sorted(repository_context),
@@ -392,10 +496,12 @@ def main() -> int:
                     "mission_id": mission_id,
                     "run_id": logical_run_id,
                     "revision": revision,
+                    "mission_mode": mission_mode,
                     "nvidia_external_calls": 1,
                     "result_status": result_status,
+                    "result_complete": complete,
                     "path_validation": path_ok,
-                    "result_hash": _digest(parsed),
+                    "result_hash": result_hash,
                 },
                 sort_keys=True,
             )
@@ -405,6 +511,7 @@ def main() -> int:
         state.update(
             {
                 "state": "FAILED",
+                "result_status": "FAILED",
                 "stop_reason": type(exc).__name__,
                 "finished_at": _now(),
                 "nvidia_external_calls": 0,
@@ -414,10 +521,11 @@ def main() -> int:
         _write(
             RESULT_INBOX,
             {
-                "schema_version": "result-inbox-v1",
+                "schema_version": "result-inbox-v2",
                 "mission_id": mission_id,
                 "run_id": logical_run_id,
                 "revision": revision,
+                "mission_mode": mission_mode,
                 "status": "FAILED",
                 "error_class": type(exc).__name__,
                 "created_at": _now(),
