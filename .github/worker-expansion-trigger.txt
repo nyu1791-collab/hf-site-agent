@@ -1,2 +1,2 @@
-trigger=worker-expansion-v8-efficient-current-catalog-council
-purpose=sweep-current-exact-free-models-benchmark-quality-latency-token-efficiency-role-coverage-build-same-run-portfolio-run-parallel-worker-council-and-nvidia-synthesis
+trigger=worker-expansion-v9-tiered-china-bulk-coding
+purpose=probe-10-priority-current-exact-free-china-value-coding-models-rank-lower-upper-middle-lower-run-parallel-worker-council-and-nvidia-synthesis
