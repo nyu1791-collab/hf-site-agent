@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import unittest
 
 from scripts.organization_coordination import (
@@ -77,6 +79,17 @@ class BlackboardTests(unittest.TestCase):
         self.assertIn("FAILURE", kinds)
         self.assertIn("OPEN_TASK", kinds)
         self.assertFalse(report["early_stop"]["stop"])
+
+    def test_direct_script_entrypoint_bootstraps_repository_package(self):
+        completed = subprocess.run(
+            [sys.executable, "scripts/organization_coordination.py", "--help"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("--council", completed.stdout)
 
 
 class WorkerCircuitTests(unittest.TestCase):
