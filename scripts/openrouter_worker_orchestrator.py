@@ -14,7 +14,13 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import sys
 from typing import Any, Mapping
+
+# Direct GitHub Actions invocation uses the scripts directory as sys.path[0].
+# Add the repository root explicitly before importing the scripts package.
+if __package__ in {None, ""}:  # pragma: no cover - direct script entrypoint
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.benchmark_free_workers import run_benchmarks
 from scripts.continuous_project_loop import AUTO_NEXT_SAFE, PROJECT_BOUNDARY, run_continuous_project_loop
@@ -162,9 +168,6 @@ def run_pipeline(
     events.append(_event("WORKER_BENCHMARK", "PASSED", f"{handoff['ready_role_count']} worker roles have ranked winners"))
     events.append(_event("COMMANDER_HANDOFF", "READY", "role-scoped worker assignments ready for project continuation"))
 
-    # The first project is complete at this point. The project loop raises the
-    # stop boundary and can run bounded safe follow-up projects without a user
-    # click. Source-changing predicted projects still return to Work Integrator.
     seed_report = dict(report)
     seed_report.update(state="PROJECT_COMPLETE", current_stage="COMMANDER_HANDOFF")
     project_loop = run_continuous_project_loop(
