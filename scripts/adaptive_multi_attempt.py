@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+"""Best-of-N executor callbacks for important AI-army tasks.
+
+Normal work remains single-shot. Important work gets two independent executor
+attempts and critical work gets three. Attempts run concurrently to preserve
+speed, then a deterministic scorer selects the strongest structured proposal.
+The independent reviewer remains a separate model-family step.
+"""
+
+from __future__ import annotations
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Mapping
+
+from scripts.adaptive_performance_policy import profile_for_task
+from scripts.autonomous_mission import TaskLoopCallbacks
+import scripts.live_staging_runner as live_runner
+
+
+def _sequence_len(value: Any) -> int:
+    return len(value) if isinstance(value, (list, tuple)) else 0
+
+
+def _candidate_score(candidate: Mapping[str, Any]) -> tuple[int, int, int, int, int]:
+    """Prefer valid, actionable, tested proposals without model self-scoring."""
+    if candidate.get("output_invalid") is True:
+        return (-1, 0, 0, 0, 0)
+    proposal = str(candidate.get("proposal") or "")
+    summary = str(candidate.get("summary") or "")
+    return (
+        1,
+        min(_sequence_len(candidate.get("tests")), 8),
+        min(_sequence_len(candidate.get("risks")), 8),
+        min(_sequence_len(candidate.get("files_affected")), 12),
+        min(len(proposal) + len(summary), 20_000),
+    )
+
+
+def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=None) -> TaskLoopCallbacks:
+    """Build callbacks with importance-aware parallel executor redundancy."""
+    executor.validate()
+    reviewer.validate()
+    if executor.role != "EXECUTOR" or reviewer.role != "REVIEWER":
+        raise live_runner.LiveStagingError("EXECUTOR_REVIEWER_ROLE_MISMATCH")
+    if executor.model_family == reviewer.model_family:
+        raise live_runner.LiveStagingError("REVIEWER_MODEL_FAMILY_MUST_DIFFER")
+    metrics = metrics or live_runner.LiveCallMetrics()
+
+    def execute(task, context: Mapping[str, Any]) -> dict[str, Any]:
+        profile = profile_for_task(
+            role=task.role,
+            risk_level=task.risk_level,
+            complexity_level=task.complexity_level,
+            metadata=task.metadata,
+        )
+        attempts = max(1, min(3, profile.attempts))
+
+        def one(index: int) -> dict[str, Any]:
+            attempt_context = dict(context)
+            phase = str(context.get("phase") or "EXECUTE")
+            attempt_context["phase"] = f"{phase}:independent-attempt-{index}"
+            attempt_context["performance_attempt"] = index
+            attempt_context["performance_attempts"] = attempts
+            return live_runner._call_model(
+                executor,
+                task,
+                attempt_context,
+                metrics=metrics,
+                instruction=(
+                    "You are the staging Executor. Produce an independent solution, not a paraphrase of "
+                    "another attempt. Return JSON only with summary, proposal, files_affected, tests, risks, "
+                    "and next_action. Optimize for correctness, implementation completeness, maintainability, "
+                    "performance and test coverage. Do not claim repository writes or execution."
+                ),
+            )
+
+        results: list[dict[str, Any]] = []
+        if attempts == 1:
+            results.append(one(1))
+        else:
+            with ThreadPoolExecutor(max_workers=attempts, thread_name_prefix="ai-army-bestof") as pool:
+                futures = [pool.submit(one, index) for index in range(1, attempts + 1)]
+                for future in as_completed(futures):
+                    try:
+                        results.append(future.result())
+                    except Exception as exc:
+                        results.append({
+                            "output_invalid": True,
+                            "summary": "independent attempt failed",
+                            "failure_signature": type(exc).__name__,
+                            "requests_used": 1,
+                            "input_tokens": 0,
+                            "output_tokens": 0,
+                        })
+
+        valid = [item for item in results if item.get("output_invalid") is not True]
+        chosen = max(valid or results, key=_candidate_score)
+        total_requests = sum(int(item.get("requests_used", 0) or 0) for item in results)
+        total_input = sum(int(item.get("input_tokens", 0) or 0) for item in results)
+        total_output = sum(int(item.get("output_tokens", 0) or 0) for item in results)
+        chosen = dict(chosen)
+        chosen["requests_used"] = total_requests
+        chosen["input_tokens"] = total_input
+        chosen["output_tokens"] = total_output
+        chosen["performance_profile"] = profile.name
+        chosen["independent_attempts_requested"] = attempts
+        chosen["independent_attempts_completed"] = len(valid)
+        chosen["selection_method"] = "DETERMINISTIC_BEST_OF_N"
+        chosen["alternative_attempt_summaries"] = [
+            str(item.get("summary") or "")[:400] for item in results if item is not chosen
+        ][:2]
+        return chosen
+
+    def revise(task, context: Mapping[str, Any]) -> dict[str, Any]:
+        # Revision is already informed by validator/reviewer findings. It gets
+        # the same importance policy, so critical repairs can independently
+        # explore alternatives instead of repeatedly refining one bad branch.
+        return execute(task, context)
+
+    def validate(task, context: Mapping[str, Any]) -> dict[str, Any]:
+        candidate = context.get("candidate") if isinstance(context.get("candidate"), Mapping) else {}
+        forbidden = any(bool(candidate.get(key)) for key in ("repository_write", "deploy", "publish", "payment", "credential_access"))
+        passed = bool(candidate.get("response_digest")) and not forbidden and candidate.get("output_invalid") is not True
+        return {
+            "passed": passed,
+            "summary": "deterministic structured-envelope validation passed" if passed else "structured-envelope validation failed",
+            "failure_signature": "LOCAL_VALIDATION_FAILED" if not passed else "",
+            "requests_used": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "provider": "local",
+            "model": "deterministic-validator",
+        }
+
+    def review(task, context: Mapping[str, Any]) -> dict[str, Any]:
+        result = live_runner._call_model(
+            reviewer,
+            task,
+            context,
+            metrics=metrics,
+            instruction=(
+                "You are the independent staging Reviewer. Aggressively test the chosen proposal for "
+                "correctness, races, stale-state bugs, performance regressions, missing tests and simpler "
+                "alternatives. Return JSON only with decision PASS or FAIL, summary, findings, "
+                "required_changes, risks, and failure_signature."
+            ),
+        )
+        decision = str(result.get("decision") or result.get("verdict") or "").upper()
+        if decision not in {"PASS", "FAIL"}:
+            result["decision"] = "FAIL"
+            result["failure_signature"] = "REVIEW_SCHEMA_INVALID"
+            result["summary"] = "reviewer returned an invalid decision"
+        else:
+            result["decision"] = decision
+        return result
+
+    return TaskLoopCallbacks(executor=execute, validator=validate, reviewer=review, reviser=revise)
+
+
+__all__ = ["build_adaptive_executor_reviewer_callbacks"]
