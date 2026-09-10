@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from scripts.china_bulk_coding_pool import PREFERRED_BULK_CODING_TARGETS
 from scripts.model_registry import DEFAULT_REGISTRY_PATH, load_registry
 from scripts.probe_free_workers import (
     MAX_TOKENS,
@@ -61,6 +62,42 @@ def _portfolio_candidates(candidates: list[dict[str, Any]]) -> tuple[list[dict[s
             selected.append(dict(item))
             selected_ids.add(model)
     return selected[:CANDIDATES_PER_ROLE], recent_ids
+
+
+def _prioritize_bulk_targets(
+    selected: list[dict[str, Any]],
+    candidates: list[dict[str, Any]],
+    role: str,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Reserve CODING probe/benchmark seats for the requested value cohort.
+
+    The target list cannot bypass catalog/free/context gates because only models
+    already present in ``catalog_worker_candidates`` are considered here.
+    """
+    if role != "CODING_WORKER":
+        return selected[:CANDIDATES_PER_ROLE], []
+    by_model = {
+        str(item.get("model") or ""): dict(item)
+        for item in candidates
+        if str(item.get("model") or "")
+    }
+    preferred_present = [model for model in PREFERRED_BULK_CODING_TARGETS if model in by_model]
+    ordered: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for model in preferred_present:
+        ordered.append(by_model[model])
+        seen.add(model)
+    for item in selected:
+        model = str(item.get("model") or "")
+        if model and model not in seen and len(ordered) < CANDIDATES_PER_ROLE:
+            ordered.append(dict(item))
+            seen.add(model)
+    for item in candidates:
+        model = str(item.get("model") or "")
+        if model and model not in seen and len(ordered) < CANDIDATES_PER_ROLE:
+            ordered.append(dict(item))
+            seen.add(model)
+    return ordered[:CANDIDATES_PER_ROLE], preferred_present
 
 
 def _parallel_probe(probe_ids: list[str], api_key: str) -> list[dict[str, Any]]:
@@ -111,12 +148,16 @@ def run_multi_probe(*, api_key: str = "", registry: Mapping[str, Any] | None = N
     metadata = registry.get("models") if isinstance(registry.get("models"), Mapping) else {}
     role_candidates: dict[str, list[str]] = {}
     recent_role_candidates: dict[str, list[str]] = {}
+    preferred_bulk_targets_present: list[str] = []
     catalog_candidate_counts: dict[str, int] = {}
     catalog_model_metadata: dict[str, dict[str, Any]] = {}
     for role in WORKER_ROLES:
         candidates = catalog_worker_candidates(entries, role, registry_metadata=metadata)
         catalog_candidate_counts[role] = len(candidates)
         selected, recent = _portfolio_candidates(candidates)
+        selected, preferred_present = _prioritize_bulk_targets(selected, candidates, role)
+        if preferred_present:
+            preferred_bulk_targets_present = preferred_present
         role_candidates[role] = [str(item["model"]) for item in selected]
         recent_role_candidates[role] = recent
         for item in candidates:
@@ -129,8 +170,13 @@ def run_multi_probe(*, api_key: str = "", registry: Mapping[str, Any] | None = N
             }
 
     probe_ids: list[str] = []
-    # Probe current-catalog newcomers before the normal quality pool so a hard
-    # global cap cannot silently exclude every newly released model.
+    # Operator-requested value targets get the first seats, but only when the
+    # current catalog already proved they are concrete zero-priced :free IDs.
+    for model in preferred_bulk_targets_present:
+        if model not in probe_ids:
+            probe_ids.append(model)
+    # Probe current-catalog newcomers next so a hard global cap cannot silently
+    # exclude every newly released model.
     for role in WORKER_ROLES:
         for model in recent_role_candidates[role]:
             if model not in probe_ids:
@@ -142,13 +188,15 @@ def run_multi_probe(*, api_key: str = "", registry: Mapping[str, Any] | None = N
     probe_ids = probe_ids[:MAX_UNIQUE_PROBES]
 
     report: dict[str, Any] = {
-        "schema_version": "free-worker-probe-v3",
+        "schema_version": "free-worker-probe-v4",
         "catalog_url": "https://openrouter.ai/api/v1/models",
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "network_enabled": True,
         "worker_roles": list(WORKER_ROLES),
         "candidates_per_role": CANDIDATES_PER_ROLE,
         "recent_candidates_per_role": RECENT_CANDIDATES_PER_ROLE,
+        "preferred_bulk_coding_targets": list(PREFERRED_BULK_CODING_TARGETS),
+        "preferred_bulk_targets_present_in_current_free_catalog": preferred_bulk_targets_present,
         "catalog_candidate_counts": catalog_candidate_counts,
         "role_probe_candidates": role_candidates,
         "recent_role_probe_candidates": recent_role_candidates,
@@ -220,6 +268,11 @@ def run_multi_probe(*, api_key: str = "", registry: Mapping[str, Any] | None = N
         }
 
     report["verified_free_model_count"] = sum(1 for item in probes.values() if item.get("status") == "FREE_ACTIVE")
+    report["verified_preferred_bulk_target_count"] = sum(
+        1
+        for model in preferred_bulk_targets_present
+        if isinstance(probes.get(model), Mapping) and probes[model].get("status") == "FREE_ACTIVE"
+    )
     report["status"] = "FREE_ACTIVE" if any(item.get("status") == "ready" for item in report["selections"].values()) else "COMPLETED_WITH_BLOCKS"
     return report
 
@@ -237,7 +290,7 @@ def main() -> int:
         raise SystemExit("output must stay inside workspace")
     if not args.network:
         report = {
-            "schema_version": "free-worker-probe-v3",
+            "schema_version": "free-worker-probe-v4",
             "status": "DRY_RUN_NO_REQUEST",
             "network_enabled": False,
             "model_calls": 0,
@@ -245,6 +298,8 @@ def main() -> int:
             "selections": {},
             "role_probe_candidates": {},
             "recent_role_probe_candidates": {},
+            "preferred_bulk_coding_targets": list(PREFERRED_BULK_CODING_TARGETS),
+            "preferred_bulk_targets_present_in_current_free_catalog": [],
             "catalog_model_metadata": {},
             "parallel_execution": True,
             "parallel_worker_limit": MAX_PARALLEL_PROBES,
@@ -259,7 +314,7 @@ def main() -> int:
             )
         except Exception:
             report = {
-                "schema_version": "free-worker-probe-v3",
+                "schema_version": "free-worker-probe-v4",
                 "status": "PROBE_RUNNER_BLOCKED",
                 "network_enabled": True,
                 "model_calls": 0,
@@ -267,6 +322,8 @@ def main() -> int:
                 "selections": {},
                 "role_probe_candidates": {},
                 "recent_role_probe_candidates": {},
+                "preferred_bulk_coding_targets": list(PREFERRED_BULK_CODING_TARGETS),
+                "preferred_bulk_targets_present_in_current_free_catalog": [],
                 "catalog_model_metadata": {},
                 "parallel_execution": True,
                 "parallel_worker_limit": MAX_PARALLEL_PROBES,
@@ -279,9 +336,10 @@ def main() -> int:
         "status": report.get("status"),
         "model_calls": report.get("model_calls", 0),
         "verified_free_model_count": report.get("verified_free_model_count", 0),
+        "verified_preferred_bulk_target_count": report.get("verified_preferred_bulk_target_count", 0),
         "parallel_worker_limit": report.get("parallel_worker_limit", MAX_PARALLEL_PROBES),
+        "preferred_bulk_targets_present_in_current_free_catalog": report.get("preferred_bulk_targets_present_in_current_free_catalog", []),
         "recent_role_probe_candidates": report.get("recent_role_probe_candidates", {}),
-        "role_probe_candidates": report.get("role_probe_candidates", {}),
         "paid_fallback": False,
     }, sort_keys=True))
     return 0
