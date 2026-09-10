@@ -22,8 +22,8 @@ import urllib.request
 
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 TIMEOUT_SECONDS = 45
-MAX_COUNCIL_MODELS = 8
-MAX_PARALLEL_COUNCIL = 4
+MAX_COUNCIL_MODELS = 12
+MAX_PARALLEL_COUNCIL = 6
 MAX_OUTPUT_TOKENS = 768
 MAX_TEXT_CHARS = 6_000
 
@@ -63,7 +63,7 @@ def select_council_models(probe: Mapping[str, Any], benchmark: Mapping[str, Any]
     for role, rows in rankings.items():
         if not isinstance(rows, list):
             continue
-        for item in rows[:5]:
+        for item in rows[:8]:
             if not isinstance(item, Mapping):
                 continue
             model = str(item.get("model") or "").strip()
