@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Build a deterministic Google staging readiness / integration packet.
 
-The packet separates model availability from account/billing/quota evidence and
-prevents repeated model calls when the external blocker has not changed.  It
-also performs a narrow integration-scope review of the NVIDIA Google bootstrap
-proposal: a mission whose objective is Google free-only evidence/diagnostics is
-not allowed to silently rewrite execution authorization policy.
+The packet separates public model/free-tier availability from current
+account/billing/quota evidence, blocks repeated model calls for external
+account blockers, and accepts NVIDIA Result Inbox proposals only after
+mission/run/revision/hash/source-HEAD integrity validation.
 
 This module performs no provider call and never reads credential values.
 """
@@ -13,9 +12,12 @@ This module performs no provider call and never reads credential values.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 from typing import Any, Mapping
+
+from scripts.mission_integrity import validate_result_inbox
 
 
 GOOGLE_MODEL = "gemini-3.8-flash"
@@ -44,13 +46,7 @@ def _read(path_value: str) -> Mapping[str, Any]:
 
 
 def _read_optional(path_value: str) -> Mapping[str, Any]:
-    """Read an optional workspace JSON object, treating absence as no proposal.
-
-    A skipped NVIDIA lead step intentionally produces no Result Inbox.  Missing
-    optional output therefore means there is nothing to integrate, not that the
-    Google evidence/probe inputs are invalid.  Malformed or unsafe paths still
-    fail closed through ``_read``.
-    """
+    """Read optional Result Inbox; absence means NO_PROPOSAL, not bad input."""
     if not path_value:
         return {}
     path = Path(path_value)
@@ -90,10 +86,28 @@ def _proposal_files(result_inbox: Mapping[str, Any]) -> list[str]:
     return [str(item) for item in files if isinstance(item, str) and item]
 
 
+def _fresh(record: Mapping[str, Any]) -> bool:
+    expiry = record.get("expires_at")
+    if not isinstance(expiry, str) or not expiry.strip():
+        return False
+    try:
+        parsed = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed > datetime.now(timezone.utc)
+
+
 def build_google_readiness_packet(
     evidence: Mapping[str, Any],
     probe: Mapping[str, Any],
     result_inbox: Mapping[str, Any] | None = None,
+    *,
+    expected_source_head: str | None = None,
+    expected_mission_id: str | None = None,
+    expected_run_id: str | None = None,
+    expected_revision: int | None = None,
 ) -> dict[str, Any]:
     record = _google_record(evidence)
     probe_record = _google_probe(probe)
@@ -110,6 +124,8 @@ def build_google_readiness_packet(
     endpoint_verified = record.get("endpoint_verified") is True
     auth_verified = record.get("auth_verified") is True
     zero_cost_verified = record.get("zero_cost_verified") is True
+    secure_evidence = record.get("secure_evidence") is True
+    evidence_fresh = _fresh(record)
     probe_status = str(probe_record.get("status") or "NOT_RUN")
 
     required_evidence: list[str] = []
@@ -121,9 +137,18 @@ def build_google_readiness_packet(
         required_evidence.append("NO_AUTOMATIC_PAID_TRANSITION")
     if not quota_verified or not quota_safe:
         required_evidence.append("CURRENT_GOOGLE_QUOTA")
+    if not secure_evidence or not evidence_fresh:
+        required_evidence.append("FRESH_SECURE_GOOGLE_EVIDENCE")
 
     transport_ready = model_verified and endpoint_verified and auth_verified
-    live_ready = zero_cost_verified and quota_safe and probe_status == "PROBE_OK"
+    live_ready = (
+        transport_ready
+        and secure_evidence
+        and evidence_fresh
+        and zero_cost_verified
+        and quota_safe
+        and probe_status == "PROBE_OK"
+    )
 
     if live_ready:
         state = "READY_FOR_TWO_AGENT_STAGING"
@@ -141,6 +166,9 @@ def build_google_readiness_packet(
     elif "CURRENT_GOOGLE_QUOTA" in required_evidence:
         state = "QUOTA_EVIDENCE_REQUIRED"
         next_action = "REFRESH_CURRENT_GOOGLE_QUOTA_EVIDENCE"
+    elif "FRESH_SECURE_GOOGLE_EVIDENCE" in required_evidence:
+        state = "EVIDENCE_REFRESH_REQUIRED"
+        next_action = "REFRESH_GOOGLE_EVIDENCE"
     elif not transport_ready:
         state = "TRANSPORT_EVIDENCE_REQUIRED"
         next_action = "REFRESH_GOOGLE_CATALOG_AUTH_EVIDENCE"
@@ -151,28 +179,51 @@ def build_google_readiness_packet(
     inbox = _mapping(result_inbox)
     proposal_files = _proposal_files(inbox)
     out_of_scope_files = sorted(set(proposal_files) - GOOGLE_EVIDENCE_PATCH_PATHS)
-    proposal_claims_complete = inbox.get("result_complete") is True and inbox.get("status") == "COMPLETE"
-    proposal_safe_to_integrate = bool(proposal_claims_complete and proposal_files and not out_of_scope_files)
-    if not proposal_files:
+
+    if not inbox:
+        integrity = {
+            "valid": False,
+            "reason": "NO_PROPOSAL",
+            "result_hash_verified": False,
+            "source_head_verified": False,
+        }
         integration_decision = "NO_PROPOSAL"
         integration_reason = "NO_PATCH_BUNDLE_TO_REVIEW"
-    elif out_of_scope_files:
-        integration_decision = "REJECT"
-        integration_reason = "GOOGLE_EVIDENCE_MISSION_OUT_OF_SCOPE_PATH"
-    elif not proposal_claims_complete:
-        integration_decision = "REJECT"
-        integration_reason = "LEAD_RESULT_NOT_COMPLETE"
+        proposal_safe_to_integrate = False
     else:
-        integration_decision = "ELIGIBLE_FOR_CODE_REVIEW"
-        integration_reason = "PATH_SCOPE_PASS"
+        integrity = validate_result_inbox(
+            inbox,
+            expected_mission_id=expected_mission_id,
+            expected_run_id=expected_run_id,
+            expected_revision=expected_revision,
+            expected_source_head=expected_source_head,
+            require_complete=True,
+        )
+        if not integrity.get("valid"):
+            integration_decision = "REJECT"
+            integration_reason = str(integrity.get("reason") or "RESULT_INTEGRITY_FAILED")
+            proposal_safe_to_integrate = False
+        elif out_of_scope_files:
+            integration_decision = "REJECT"
+            integration_reason = "GOOGLE_EVIDENCE_MISSION_OUT_OF_SCOPE_PATH"
+            proposal_safe_to_integrate = False
+        elif not proposal_files:
+            integration_decision = "REJECT"
+            integration_reason = "PATCH_FILE_SET_MISSING"
+            proposal_safe_to_integrate = False
+        else:
+            integration_decision = "ELIGIBLE_FOR_CODE_REVIEW"
+            integration_reason = "RESULT_INTEGRITY_AND_PATH_SCOPE_PASS"
+            proposal_safe_to_integrate = True
 
-    # When Google is blocked by unchanged external account/billing evidence,
-    # another NVIDIA design call cannot resolve the external fact.  Stop the
-    # model loop and preserve the remaining provider quota / Work budget.
-    repeat_nvidia_call_allowed = state not in {"ACCOUNT_EVIDENCE_REQUIRED", "QUOTA_EVIDENCE_REQUIRED"}
+    repeat_nvidia_call_allowed = state not in {
+        "ACCOUNT_EVIDENCE_REQUIRED",
+        "QUOTA_EVIDENCE_REQUIRED",
+        "EVIDENCE_REFRESH_REQUIRED",
+    }
 
     return {
-        "schema_version": "google-staging-readiness-v1",
+        "schema_version": "google-staging-readiness-v2",
         "provider": "google",
         "model": GOOGLE_MODEL,
         "state": state,
@@ -183,6 +234,8 @@ def build_google_readiness_packet(
         "model_verified": model_verified,
         "endpoint_verified": endpoint_verified,
         "auth_verified": auth_verified,
+        "secure_evidence": secure_evidence,
+        "evidence_fresh": evidence_fresh,
         "zero_cost_verified": zero_cost_verified,
         "quota_verified": quota_verified,
         "quota_safe": quota_safe,
@@ -200,6 +253,7 @@ def build_google_readiness_packet(
             "proposal_safe_to_integrate": proposal_safe_to_integrate,
             "proposal_files": proposal_files,
             "out_of_scope_files": out_of_scope_files,
+            "result_integrity": integrity,
         },
         "safety": {
             "paid_execution_allowed": False,
@@ -215,14 +269,26 @@ def main() -> int:
     parser.add_argument("--evidence", required=True)
     parser.add_argument("--probe", required=True)
     parser.add_argument("--result-inbox", default="")
+    parser.add_argument("--expected-head", default="")
+    parser.add_argument("--expected-mission-id", default="")
+    parser.add_argument("--expected-run-id", default="")
+    parser.add_argument("--expected-revision", type=int)
     parser.add_argument("--output", default="artifacts/google_staging_readiness.json")
     args = parser.parse_args()
     try:
         inbox = _read_optional(args.result_inbox)
-        report = build_google_readiness_packet(_read(args.evidence), _read(args.probe), inbox)
+        report = build_google_readiness_packet(
+            _read(args.evidence),
+            _read(args.probe),
+            inbox,
+            expected_source_head=args.expected_head or None,
+            expected_mission_id=args.expected_mission_id or None,
+            expected_run_id=args.expected_run_id or None,
+            expected_revision=args.expected_revision,
+        )
     except Exception:
         report = {
-            "schema_version": "google-staging-readiness-v1",
+            "schema_version": "google-staging-readiness-v2",
             "provider": "google",
             "model": GOOGLE_MODEL,
             "state": "BLOCKED_INVALID_INPUT",
