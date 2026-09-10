@@ -43,7 +43,8 @@ jobs:
             scripts/focused_nvidia_streaming_adapter.py \
             scripts/run_nvidia_orchestrator_mission.py \
             scripts/run_nvidia_orchestrator_mission_focused.py \
-            scripts/run_nvidia_google_compact_mission.py
+            scripts/run_nvidia_google_compact_mission.py \
+            scripts/google_staging_readiness.py
 
       - name: Collect current redacted NVIDIA and Google evidence
         env:
@@ -86,6 +87,15 @@ jobs:
           RESUME_REVISION: "3"
         run: python scripts/run_nvidia_google_compact_mission.py
 
+      - name: Deterministically review Google readiness and NVIDIA integration scope
+        if: always()
+        run: >-
+          python scripts/google_staging_readiness.py
+          --evidence artifacts/secure_account_evidence.json
+          --probe artifacts/provider_probe.json
+          --result-inbox artifacts/result_inbox.json
+          --output artifacts/google_staging_readiness.json
+
       - name: Build redacted one-shot summary
         if: always()
         run: |
@@ -105,10 +115,12 @@ jobs:
           probe = read("artifacts/provider_probe.json", {})
           mission = read("artifacts/mission_state.json", {})
           inbox = read("artifacts/result_inbox.json", {})
+          readiness = read("artifacts/google_staging_readiness.json", {})
           providers = evidence.get("providers") if isinstance(evidence.get("providers"), dict) else {}
           probe_items = probe.get("providers") if isinstance(probe.get("providers"), list) else []
+          integration = readiness.get("lead_integration") if isinstance(readiness.get("lead_integration"), dict) else {}
           summary = {
-              "schema_version": "nvidia-google-once-v7",
+              "schema_version": "nvidia-google-once-v8",
               "provider_focus": ["nvidia", "google"],
               "run_mode": "LEAD_MISSION_COMPACT_REPLAN",
               "nvidia_selected_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
@@ -140,6 +152,12 @@ jobs:
               "lead_result_inbox_status": inbox.get("status"),
               "lead_next_action": inbox.get("next_action"),
               "lead_nvidia_external_calls": int(mission.get("nvidia_external_calls", 0) or 0),
+              "lead_integration_decision": integration.get("decision"),
+              "lead_integration_reason": integration.get("reason"),
+              "google_readiness_state": readiness.get("state"),
+              "google_readiness_next_action": readiness.get("next_action"),
+              "google_repeat_nvidia_call_allowed": readiness.get("repeat_nvidia_call_allowed") is True,
+              "google_external_model_calls_recommended": int(readiness.get("external_model_calls_recommended", 0) or 0),
               "paid_execution_count": int(mission.get("paid_execution_count", 0) or 0),
               "paid_fallback_count": 0,
               "production_active": False,
@@ -160,6 +178,7 @@ jobs:
           path: |
             artifacts/secure_account_evidence.json
             artifacts/provider_probe.json
+            artifacts/google_staging_readiness.json
             artifacts/nvidia_google_once_summary.json
             artifacts/mission_state.json
             artifacts/result_inbox.json
