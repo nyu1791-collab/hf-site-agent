@@ -2,15 +2,23 @@
 """Best-of-N executor callbacks for important AI-army tasks.
 
 Normal work remains single-shot. Important work gets two independent executor
-attempts and critical work gets three. Attempts are serialized for one provider
-binding so this layer cannot bypass the scheduler's same-provider concurrency
-invariant. Independent provider corps may still run in parallel.
+attempts and critical work gets three when provider evidence supports that
+redundancy. Attempts are serialized for one provider binding so this layer
+cannot bypass the scheduler's same-provider concurrency invariant. Independent
+provider corps may still run in parallel.
+
+For Google's focused FREE_TIER route, when account-specific zero-cost evidence
+is still unavailable, the first real commander task is deliberately one primary
+attempt with bounded transport recovery instead of Best-of-N. This avoids using
+optional quality redundancy to create a rate-limit storm on an unknown-quota
+free route. Once stronger account evidence exists, normal adaptive redundancy is
+restored automatically.
 
 If a later optional attempt is interrupted after at least one valid executor
-result already exists, the runtime keeps that completed result, stops issuing
-more attempts, and records the interruption as uncertainty. It never replays
-the interrupted call. If no valid result exists yet, the interruption still
-propagates and checkpoints normally.
+result already exists, the runtime keeps that completed result and stops. A
+successful result that already required transport recovery also suppresses
+optional Best-of-N calls for that task. Ambiguous interrupted calls are never
+replayed.
 """
 
 from __future__ import annotations
@@ -43,6 +51,29 @@ def _candidate_score(candidate: Mapping[str, Any]) -> tuple[int, int, int, int, 
     )
 
 
+def _google_free_route_single_primary(executor: Any) -> bool:
+    """Return true only for the real focused Google route with unknown account cost."""
+    if not isinstance(executor, live_runner.LiveAgentBinding):
+        return False
+    policy = executor.execution_policy
+    return (
+        executor.provider_id == "google"
+        and policy.scope == "STAGING"
+        and policy.staging_free_route_allowed is True
+        and policy.account_zero_cost_verified is not True
+        and policy.paid_fallback is False
+    )
+
+
+def _used_transport_recovery(result: Mapping[str, Any]) -> bool:
+    attempts = result.get("provider_attempts")
+    return (
+        (isinstance(attempts, int) and not isinstance(attempts, bool) and attempts > 1)
+        or int(result.get("conclusive_5xx_recovery_count", 0) or 0) > 0
+        or int(result.get("post_5xx_rate_limit_recovery_count", 0) or 0) > 0
+    )
+
+
 def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=None) -> TaskLoopCallbacks:
     """Build callbacks with importance-aware, provider-safe executor redundancy."""
     executor.validate()
@@ -60,7 +91,9 @@ def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=No
             complexity_level=task.complexity_level,
             metadata=task.metadata,
         )
-        attempts = max(1, min(3, profile.attempts))
+        profile_attempts = max(1, min(3, profile.attempts))
+        free_route_single_primary = _google_free_route_single_primary(executor)
+        attempts = 1 if free_route_single_primary else profile_attempts
 
         def one(index: int) -> dict[str, Any]:
             attempt_context = dict(context)
@@ -86,9 +119,17 @@ def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=No
         indexed_results: list[tuple[int, dict[str, Any]]] = []
         interrupted_after_success = False
         interrupted_signature = ""
+        transport_recovery_suppressed_optional = False
         for index in range(1, attempts + 1):
             try:
-                indexed_results.append((index, one(index)))
+                value = one(index)
+                indexed_results.append((index, value))
+                if _used_transport_recovery(value) and index < attempts:
+                    # The provider already needed extra network attempts to
+                    # produce one usable answer. Treat that as enough sampling
+                    # for this task and preserve quota for later project phases.
+                    transport_recovery_suppressed_optional = True
+                    break
             except ProviderInterrupted as exc:
                 valid_so_far = [
                     item for _, item in indexed_results
@@ -98,8 +139,6 @@ def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=No
                     # No usable work exists. Preserve the original checkpoint
                     # semantics and never replay an uncertain call.
                     raise
-                # A valid result already exists. Keep it, stop optional
-                # redundancy, and do not send another provider request.
                 interrupted_after_success = True
                 interrupted_signature = str(exc)[:240]
                 break
@@ -124,13 +163,18 @@ def build_adaptive_executor_reviewer_callbacks(executor, reviewer, *, metrics=No
         chosen["input_tokens"] = total_input
         chosen["output_tokens"] = total_output
         chosen["performance_profile"] = profile.name
+        chosen["independent_attempts_profile_requested"] = profile_attempts
         chosen["independent_attempts_requested"] = attempts
         chosen["independent_attempts_completed"] = len(valid)
         chosen["attempt_execution_mode"] = "SERIAL_SAME_PROVIDER"
         chosen["selection_method"] = "DETERMINISTIC_BEST_OF_N"
+        chosen["google_free_route_single_primary"] = free_route_single_primary
         chosen["optional_attempt_interrupted_after_valid_result"] = interrupted_after_success
+        chosen["optional_attempts_suppressed_after_transport_recovery"] = transport_recovery_suppressed_optional
         if interrupted_after_success:
             chosen["optional_attempt_interruption"] = interrupted_signature
+            chosen["further_attempts_suppressed"] = True
+        elif transport_recovery_suppressed_optional:
             chosen["further_attempts_suppressed"] = True
         chosen["alternative_attempt_summaries"] = [
             str(item.get("summary") or "")[:400]
