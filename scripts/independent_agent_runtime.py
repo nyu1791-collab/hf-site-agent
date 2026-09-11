@@ -12,6 +12,11 @@ advances the durable session cursor. The scheduler acknowledges the packet only
 after the handler returns a parseable result, so an exception cannot silently
 lose CRITICAL/HIGH peer deltas before a retry or failover.
 
+Generation v3 also retains a bounded replay window of already-acknowledged peer
+signals. A second task owned by the same stable role therefore still sees recent
+failures, failovers and high-priority decisions even after another task advanced
+that role's new-event cursor.
+
 The registry is provider-agnostic and performs no network calls, repository
 writes, secret reads, payments, deploys, publishes, or generic paid fallback.
 """
@@ -30,6 +35,7 @@ from scripts.replaceable_agent_scheduler import AgentTask
 
 DEFAULT_MEMORY_ITEMS = 6
 DEFAULT_INBOX_EVENTS = 16
+DEFAULT_PEER_REPLAY_EVENTS = 12
 MAX_BINDING_HISTORY = 8
 
 
@@ -49,6 +55,26 @@ def _bounded_summary(value: Any, limit: int = 700) -> str:
     return str(value or "")[: max(80, min(2000, int(limit)))]
 
 
+def _compact_peer_event(value: Mapping[str, Any]) -> dict[str, Any]:
+    payload = value.get("payload") if isinstance(value.get("payload"), Mapping) else {}
+    return {
+        "seq": int(value.get("seq") or 0),
+        "kind": str(value.get("kind") or "")[:80],
+        "priority": str(value.get("priority") or "")[:24],
+        "subject": str(value.get("subject") or "")[:160],
+        "source": str(value.get("source") or "")[:100],
+        "task_id": str(value.get("task_id") or "")[:128],
+        "payload": {
+            str(key)[:80]: (
+                item
+                if item is None or isinstance(item, (bool, int, float))
+                else str(item)[:360]
+            )
+            for key, item in list(payload.items())[:10]
+        },
+    }
+
+
 @dataclass
 class AgentSession:
     agent_id: str
@@ -64,6 +90,7 @@ class AgentSession:
     active_tasks: set[str] = field(default_factory=set)
     binding_history: deque[dict[str, str]] = field(default_factory=lambda: deque(maxlen=MAX_BINDING_HISTORY))
     working_memory: deque[dict[str, Any]] = field(default_factory=lambda: deque(maxlen=DEFAULT_MEMORY_ITEMS))
+    peer_context: deque[dict[str, Any]] = field(default_factory=lambda: deque(maxlen=DEFAULT_PEER_REPLAY_EVENTS))
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -81,6 +108,7 @@ class AgentSession:
             "inbox_cursor": self.inbox_cursor,
             "binding_history": list(self.binding_history),
             "working_memory": list(self.working_memory),
+            "recent_peer_context": list(self.peer_context),
         }
 
 
@@ -98,9 +126,14 @@ class IndependentAgentRegistry:
         communication = config.get("communication") if isinstance(config.get("communication"), Mapping) else {}
         self.memory_items = max(2, min(12, int(communication.get("agent_session_memory_items") or DEFAULT_MEMORY_ITEMS)))
         self.inbox_events = max(4, min(48, int(communication.get("agent_inbox_max_events") or DEFAULT_INBOX_EVENTS)))
+        self.peer_replay_events = max(
+            4,
+            min(32, int(communication.get("agent_peer_context_replay_events") or DEFAULT_PEER_REPLAY_EVENTS)),
+        )
         self._lock = threading.RLock()
         self._sessions: dict[str, AgentSession] = {}
         self._peer_delta_deliveries = 0
+        self._peer_context_replays = 0
         self._local_decision_turns = 0
 
     def _session(self, slot: str) -> AgentSession:
@@ -112,6 +145,7 @@ class IndependentAgentRegistry:
                     agent_id=stable_agent_id(key),
                     slot=key,
                     working_memory=deque(maxlen=self.memory_items),
+                    peer_context=deque(maxlen=self.peer_replay_events),
                 )
                 self._sessions[key] = session
             return session
@@ -143,10 +177,8 @@ class IndependentAgentRegistry:
         with self._lock:
             cursor = session.inbox_cursor
             memory = list(session.working_memory)
+            recent_peer_context = list(session.peer_context)
 
-        # High-priority coordination deltas are intentionally broad so a role
-        # agent learns about failures/failovers elsewhere without commander
-        # relay. Direct dependency contents remain in the handoff packet.
         deltas = self.fabric.deltas_since(
             cursor,
             priorities=("CRITICAL", "HIGH"),
@@ -181,6 +213,7 @@ class IndependentAgentRegistry:
             "mission_role": str(slot_cfg.get("mission") or "")[:1200],
             "working_memory": memory,
             "peer_deltas": deltas,
+            "recent_peer_context": recent_peer_context,
             "direct_dependency_handoff": dict(handoff),
             "inbox_cursor": latest,
         }
@@ -190,17 +223,31 @@ class IndependentAgentRegistry:
         *,
         task: AgentTask,
         inbox_cursor: int,
-        peer_delta_count: int,
+        peer_deltas: Sequence[Mapping[str, Any]] = (),
         dependency_count: int,
     ) -> None:
         """Commit a context receipt only after the role handler consumed it."""
         session = self._session(task.slot)
+        compact = [_compact_peer_event(row) for row in peer_deltas if isinstance(row, Mapping)]
         with self._lock:
+            previous_latest = int(session.peer_context[-1].get("seq") or 0) if session.peer_context else 0
+            for row in compact:
+                seq = int(row.get("seq") or 0)
+                if seq > previous_latest:
+                    session.peer_context.append(row)
+                    previous_latest = seq
             session.inbox_cursor = max(session.inbox_cursor, max(0, int(inbox_cursor)))
-            self._peer_delta_deliveries += max(0, int(peer_delta_count))
+            self._peer_delta_deliveries += len(compact)
             self._local_decision_turns += 1
             if int(dependency_count) > 0:
                 session.handoffs_received += 1
+
+    def note_peer_context_replay(self, *, task: AgentTask) -> None:
+        """Record that an agent turn relied on previously acknowledged peer context."""
+        session = self._session(task.slot)
+        with self._lock:
+            if session.peer_context:
+                self._peer_context_replays += 1
 
     def observe_attempt(
         self,
@@ -236,11 +283,12 @@ class IndependentAgentRegistry:
         with self._lock:
             rows = [self._sessions[key].as_dict() for key in sorted(self._sessions)]
             return {
-                "schema_version": "independent-agent-session-registry-v2",
+                "schema_version": "independent-agent-session-registry-v3",
                 "independent_agent_count": len(rows),
                 "stable_role_identity": True,
                 "local_decision_turns": self._local_decision_turns,
                 "peer_delta_deliveries": self._peer_delta_deliveries,
+                "peer_context_replays": self._peer_context_replays,
                 "active_task_count": sum(int(row.get("active_task_count") or 0) for row in rows),
                 "sessions": rows,
                 "repository_write": False,
