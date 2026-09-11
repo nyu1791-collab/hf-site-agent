@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from scripts.replaceable_agent_organization import (
+    ROLE_ALIASES,
     SLOT_PRIORITY,
     _role_score,
     autonomy_policy,
@@ -56,6 +57,13 @@ MINIMUM_ROLE_FIT = {
     "FAST_OPERATOR": 0.72,
 }
 
+# A compound agent role must demonstrate more than one isolated strength.
+# With two required capabilities this requires both; with three it requires
+# at least two. This is routing quality control, not an execution permission
+# gate: it prevents a JSON-only model from being mistaken for a QA agent.
+MINIMUM_REQUIRED_CAPABILITY_COVERAGE = 0.66
+CAPABILITY_SCORE_EVIDENCE_FLOOR = 0.60
+
 TOP_CANDIDATES_PER_SLOT = 10
 BEAM_WIDTH = 512
 MODEL_REUSE_PENALTY = 0.055
@@ -93,6 +101,51 @@ def _binding(candidate: Mapping[str, Any]) -> tuple[str, str]:
     return str(candidate.get("provider") or ""), str(candidate.get("model") or "")
 
 
+def _score_value(value: Any) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0.0
+    number = float(value)
+    if number != number or number in {float("inf"), float("-inf")}:
+        return 0.0
+    return max(0.0, min(1.0, number))
+
+
+def required_capability_coverage(candidate: Mapping[str, Any], slot: Mapping[str, Any]) -> float:
+    """Measure independently evidenced coverage of a compound role.
+
+    Explicit capability/role tags count as evidence. Numeric role scores count
+    only when they meet a real evidence floor; merely having a low-scoring key
+    in a benchmark map does not advertise that capability.
+    """
+    required = [
+        str(item).strip().lower()
+        for item in slot.get("required_capabilities", [])
+        if str(item).strip()
+    ]
+    if not required:
+        return 1.0
+
+    declared: set[str] = set()
+    for key in ("roles", "capability_tags", "capabilities"):
+        raw = candidate.get(key)
+        if isinstance(raw, (list, tuple, set)):
+            declared.update(str(item).strip().upper() for item in raw if str(item).strip())
+    role_scores = candidate.get("role_scores") if isinstance(candidate.get("role_scores"), Mapping) else {}
+
+    hits = 0
+    for capability in required:
+        aliases = ROLE_ALIASES.get(capability, (capability.upper(),))
+        explicit_hit = capability.upper() in declared or any(alias in declared for alias in aliases)
+        numeric_hit = any(
+            _score_value(role_scores.get(alias)) >= CAPABILITY_SCORE_EVIDENCE_FLOOR
+            for alias in aliases
+            if alias in role_scores
+        )
+        if explicit_hit or numeric_hit:
+            hits += 1
+    return hits / len(required)
+
+
 def _eligible_for_slot(candidate: Mapping[str, Any], slot_name: str, slot: Mapping[str, Any]) -> tuple[bool, float, float]:
     score = candidate_score(candidate, slot)
     if score < 0:
@@ -100,6 +153,9 @@ def _eligible_for_slot(candidate: Mapping[str, Any], slot_name: str, slot: Mappi
     role_fit = _role_score(candidate, slot)
     minimum = float(slot.get("minimum_role_fit") or MINIMUM_ROLE_FIT.get(slot_name, 0.60))
     if role_fit + 1e-12 < minimum:
+        return False, score, role_fit
+    minimum_coverage = float(slot.get("minimum_required_capability_coverage") or MINIMUM_REQUIRED_CAPABILITY_COVERAGE)
+    if required_capability_coverage(candidate, slot) + 1e-12 < minimum_coverage:
         return False, score, role_fit
     return True, score, role_fit
 
@@ -119,12 +175,7 @@ def _slot_options(
 
 
 def _state_sort_key(state: _State) -> tuple[Any, ...]:
-    """Return a total-order key even when a beam branch leaves a slot unfilled.
-
-    Python cannot compare ``None`` with an integer.  Beam states legitimately
-    contain both, so normalize the optional candidate index into a numeric
-    sentinel before using assignments as the deterministic tie breaker.
-    """
+    """Return a total-order key even when a beam branch leaves a slot unfilled."""
     stable_assignments = tuple(
         (slot_name, -1 if candidate_index is None else int(candidate_index))
         for slot_name, candidate_index in state.assignments
@@ -166,8 +217,6 @@ def globally_select_challengers(
         importance = float(SLOT_IMPORTANCE.get(slot_name, 1.0))
         expanded: list[_State] = []
         for state in beam:
-            # Unfilled is allowed. A penalty keeps coverage important while
-            # preventing an unrelated model from occupying a role it cannot do.
             expanded.append(_State(
                 objective=state.objective - UNFILLED_PENALTY * importance,
                 assignments=state.assignments + ((slot_name, None),),
@@ -258,6 +307,7 @@ def optimize_agent_slots(
             "model": chosen["model"],
             "slot_score": candidate_score(chosen, slot),
             "role_fit": _role_score(chosen, slot),
+            "required_capability_coverage": required_capability_coverage(chosen, slot),
             "mission": slot.get("mission"),
             "may_delegate": bool(slot.get("may_delegate")),
             "max_child_tasks": int(slot.get("max_child_tasks") or 0),
@@ -300,9 +350,12 @@ def optimize_agent_slots(
 
 
 __all__ = [
+    "CAPABILITY_SCORE_EVIDENCE_FLOOR",
+    "MINIMUM_REQUIRED_CAPABILITY_COVERAGE",
     "MINIMUM_ROLE_FIT",
     "OPTIMIZATION_ORDER",
     "SLOT_IMPORTANCE",
     "globally_select_challengers",
     "optimize_agent_slots",
+    "required_capability_coverage",
 ]
