@@ -10,6 +10,8 @@ execution body, not its role identity.
 Agent inbox deltas are acknowledged only after the role handler returns a
 parseable result. Unexpected handler exceptions also close the role session
 before propagating to the base scheduler, preventing stale active-task state.
+Acknowledged peer signals remain in a bounded role-local replay window so later
+work by the same agent keeps important context without commander relay.
 """
 
 from __future__ import annotations
@@ -52,10 +54,15 @@ class IndependentAgentScheduler(LowLatencyReplaceableAgentScheduler):
             augmented["agent_session"] = agent_context
             value = handler(current_task, current_binding, augmented)
             parsed = AgentTaskResult.from_value(value)
+            peer_deltas = agent_context.get("peer_deltas")
+            peer_deltas = peer_deltas if isinstance(peer_deltas, list) else []
+            recent_peer_context = agent_context.get("recent_peer_context")
+            if not peer_deltas and isinstance(recent_peer_context, list) and recent_peer_context:
+                self.agent_registry.note_peer_context_replay(task=current_task)
             self.agent_registry.acknowledge_context(
                 task=current_task,
                 inbox_cursor=int(agent_context.get("inbox_cursor", 0) or 0),
-                peer_delta_count=len(agent_context.get("peer_deltas", ())) if isinstance(agent_context.get("peer_deltas"), list) else 0,
+                peer_deltas=peer_deltas,
                 dependency_count=int(handoff.get("dependency_count", 0) or 0),
             )
             self.agent_registry.observe_attempt(
@@ -68,9 +75,6 @@ class IndependentAgentScheduler(LowLatencyReplaceableAgentScheduler):
         try:
             row = super()._execute_with_handoff(task, binding, handoff, independent_handler)
         except Exception as exc:
-            # The base event loop deliberately owns exception-to-result
-            # conversion. Close the stable role session first, then preserve
-            # that existing control flow by re-raising the original exception.
             self.agent_registry.finish_task(
                 task=task,
                 row={
@@ -93,12 +97,13 @@ class IndependentAgentScheduler(LowLatencyReplaceableAgentScheduler):
     ) -> dict[str, Any]:
         report = dict(super().run(tasks, handler))
         sessions = self.agent_registry.snapshot()
-        report["schema_version"] = "independent-agent-scheduler-report-v2"
-        report["scheduler_mode"] = "INDEPENDENT_ROLE_AGENTS_EVENT_DRIVEN_DIRECT_HANDOFF_ACKED_INBOX"
+        report["schema_version"] = "independent-agent-scheduler-report-v3"
+        report["scheduler_mode"] = "INDEPENDENT_ROLE_AGENTS_EVENT_DRIVEN_DIRECT_HANDOFF_ACKED_INBOX_REPLAY"
         report["independent_agents"] = True
         report["agent_sessions"] = sessions
         report["independent_agent_count"] = sessions["independent_agent_count"]
         report["active_agent_task_count"] = sessions["active_task_count"]
+        report["peer_context_replays"] = sessions["peer_context_replays"]
         report["stable_role_identity_across_model_swap"] = True
         report["ordinary_local_decisions_require_commander_roundtrip"] = False
         report["external_model_repository_write"] = False
