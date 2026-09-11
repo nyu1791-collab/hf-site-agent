@@ -1,5 +1,5 @@
-trigger=direct-free-worker-corps-v6
-purpose=live-benchmark-reconcile-and-verify-low-latency-failure-propagation-direct-handoff
+trigger=direct-free-worker-corps-v7-independent-agent-v3
+purpose=live-benchmark-reconcile-and-prove-stable-role-agents-local-revision-peer-deltas-and-direct-handoff
 network=true
 max_model_calls=15
 provider_fallback=false
