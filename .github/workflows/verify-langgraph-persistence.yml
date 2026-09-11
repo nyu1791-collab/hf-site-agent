@@ -1,0 +1,89 @@
+name: Verify LangGraph persistence
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - requirements-langgraph.txt
+      - config/langgraph_checkpoint.json
+      - scripts/langgraph_checkpoint_backend.py
+      - tests/test_langgraph_checkpoint_backend.py
+      - .github/workflows/verify-langgraph-persistence.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  LANGGRAPH_STRICT_MSGPACK: "true"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned LangGraph persistence stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-langgraph.txt
+
+      - name: Verify installed modules and versions
+        run: |
+          python - <<'PY'
+          from importlib.metadata import version
+          from langgraph.checkpoint.sqlite import SqliteSaver
+          from langgraph.checkpoint.postgres import PostgresSaver
+          assert SqliteSaver is not None
+          assert PostgresSaver is not None
+          assert version("langgraph") == "1.2.11"
+          assert version("langgraph-checkpoint-sqlite") == "3.1.1"
+          assert version("langgraph-checkpoint-postgres") == "3.1.2"
+          print("LANGGRAPH_PERSISTENCE_IMPORTS=PASS")
+          PY
+
+      - name: Compile checkpoint adapter
+        run: |
+          python -m py_compile \
+            scripts/langgraph_checkpoint_backend.py \
+            tests/test_langgraph_checkpoint_backend.py
+          python -m json.tool config/langgraph_checkpoint.json >/dev/null
+
+      - name: Run persistent checkpoint tests
+        run: python -m unittest tests.test_langgraph_checkpoint_backend -v
+
+      - name: Verify redacted local status
+        run: |
+          python scripts/langgraph_checkpoint_backend.py --backend sqlite > /tmp/langgraph-status.json
+          python -m json.tool /tmp/langgraph-status.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          row = json.loads(Path("/tmp/langgraph-status.json").read_text())
+          assert row["backend"] == "sqlite"
+          assert row["strict_msgpack"] is True
+          assert row["network_backend"] is False
+          assert row["cross_runner_durable"] is False
+          PY
+
+      - name: Verify no secret or paid backend is required for SQLite
+        run: |
+          test -z "${AI_ARMY_LANGGRAPH_POSTGRES_DSN:-}"
+          python - <<'PY'
+          from scripts.langgraph_checkpoint_backend import load_config
+          cfg = load_config()
+          assert cfg["safety"]["automatic_paid_database_provisioning"] is False
+          assert cfg["safety"]["auto_top_up"] is False
+          assert cfg["default_backend"] == "sqlite"
+          PY
