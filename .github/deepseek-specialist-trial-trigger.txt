@@ -1,5 +1,5 @@
-trigger=deepseek-v4-1-flash-post-implementation-review-20260911
-purpose=post-implementation-adversarial-review-of-routing-resilience-length-exhaustion-recovery-critical-lane-priority-and-memory-sanitization
+trigger=deepseek-v4-1-flash-priority-circuit-post-implementation-review-20260911
+purpose=adversarial-review-of-PriorityTaskQueue-and-WorkerCircuitBreaker-real-dispatch-integration-for-regressions-starvation-circuit-reset-and-call-efficiency
 approved_paid_trial=true
 max_estimated_cost_usd=0.25
 role_modes=coding_deep-direct,debugging-high,code_review-high,architecture-high,test_strategy-direct,integration_review-direct
