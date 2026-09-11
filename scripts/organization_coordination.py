@@ -290,13 +290,113 @@ def should_early_stop(
     }
 
 
+def _bounded_list(value: Any, *, limit: int, item_chars: int = 500) -> list[Any]:
+    if not isinstance(value, list):
+        return []
+    output: list[Any] = []
+    for item in value[:limit]:
+        if isinstance(item, Mapping):
+            output.append({str(key)[:80]: str(val)[:item_chars] for key, val in list(item.items())[:6]})
+        else:
+            output.append(str(item)[:item_chars])
+    return output
+
+
+def _publish_paid_specialist_rows(board: SharedBlackboard, council: Mapping[str, Any]) -> None:
+    paid_rows = council.get("paid_specialist_escalations")
+    if not isinstance(paid_rows, list):
+        paid_rows = []
+    for row in paid_rows:
+        if not isinstance(row, Mapping):
+            continue
+        lane = str(row.get("lane") or "")
+        if not lane:
+            continue
+        status = str(row.get("status") or "")
+        result = row.get("result") if isinstance(row.get("result"), Mapping) else {}
+        confidence = result.get("confidence") if isinstance(result.get("confidence"), (int, float)) and not isinstance(result.get("confidence"), bool) else None
+        grounding = row.get("grounding") if isinstance(row.get("grounding"), Mapping) else {}
+        if status == "PAID_SPECIALIST_CANDIDATE_READY":
+            board.publish(
+                kind="FINDING",
+                subject=lane,
+                source="deepseek-flash",
+                confidence=confidence,
+                payload={
+                    "status": status,
+                    "capability": row.get("capability"),
+                    "summary": str(result.get("summary") or "")[:700],
+                    "findings": _bounded_list(result.get("findings"), limit=3, item_chars=350),
+                    "patch_candidates": _bounded_list(result.get("patch_candidates"), limit=2, item_chars=420),
+                    "tests": _bounded_list(result.get("tests"), limit=2, item_chars=300),
+                    "quality_score": row.get("quality_score"),
+                    "grounded_patch_ratio": grounding.get("grounded_patch_ratio"),
+                    "latency_ms": row.get("latency_ms"),
+                    "estimated_current_cost_usd": row.get("estimated_current_cost_usd"),
+                    "cost_exposure_usd": row.get("cost_exposure_usd"),
+                    "advisory_only": True,
+                    "machine_validated": False,
+                },
+            )
+            board.publish(
+                kind="OPEN_TASK",
+                subject=lane,
+                source="orchestrator",
+                confidence=1.0,
+                payload={"action": "validate_paid_specialist_candidate", "provider": "deepseek"},
+            )
+        else:
+            board.publish(
+                kind="FAILURE",
+                subject=lane,
+                source="deepseek-flash",
+                confidence=1.0,
+                payload={
+                    "status": status,
+                    "error": row.get("error_class"),
+                    "finish_reason": row.get("finish_reason"),
+                    "latency_ms": row.get("latency_ms"),
+                    "cost_exposure_usd": row.get("cost_exposure_usd"),
+                    "advisory_only": True,
+                },
+            )
+
+    if paid_rows or council.get("deepseek_escalation_status"):
+        ready_count = sum(
+            isinstance(row, Mapping) and row.get("status") == "PAID_SPECIALIST_CANDIDATE_READY"
+            for row in paid_rows
+        )
+        board.publish(
+            kind="FACT",
+            subject="deepseek_specialist_metrics",
+            source="orchestrator",
+            confidence=1.0,
+            payload={
+                "escalation_status": council.get("deepseek_escalation_status"),
+                "paid_calls": council.get("deepseek_paid_calls", 0),
+                "candidate_ready_count": ready_count,
+                "estimated_current_cost_usd": council.get("deepseek_estimated_current_cost_usd", 0),
+                "conservative_cost_usd": council.get("deepseek_conservative_cost_usd", 0),
+                "cost_exposure_usd": council.get("deepseek_cost_exposure_usd", 0),
+                "generic_paid_fallback": False,
+                "production_routing_changed": False,
+            },
+        )
+
+
 def build_blackboard_from_council(
     council: Mapping[str, Any],
     *,
     source_head: str,
     mission_id: str = "worker-efficiency",
 ) -> dict[str, Any]:
-    """Convert verbose council output into compact commander coordination state."""
+    """Convert verbose council output into compact commander coordination state.
+
+    Free COUNCIL_OK rows remain the only completed lane results. Paid DeepSeek
+    outputs are advisory FINDING rows plus an OPEN_TASK for deterministic or
+    commander validation, so a strong paid answer cannot silently masquerade as
+    a machine-validated lane completion.
+    """
     board = SharedBlackboard(mission_id, source_head)
     final_rows = council.get("results") if isinstance(council.get("results"), list) else []
     for row in final_rows:
@@ -341,6 +441,9 @@ def build_blackboard_from_council(
                 confidence=1.0,
                 payload={"action": "resolve_unfinished_lane"},
             )
+
+    _publish_paid_specialist_rows(board, council)
+
     metrics = council.get("parallel_metrics") if isinstance(council.get("parallel_metrics"), Mapping) else {}
     board.publish(
         kind="FACT",
@@ -356,6 +459,8 @@ def build_blackboard_from_council(
             "parallel_speedup": metrics.get("parallel_speedup"),
             "successful_tasks_per_ai_call": metrics.get("successful_tasks_per_ai_call"),
             "estimated_worker_idle_ratio": metrics.get("estimated_worker_idle_ratio"),
+            "deepseek_paid_calls": council.get("deepseek_paid_calls", 0),
+            "total_ai_calls": council.get("total_ai_calls", council.get("model_calls", 0)),
         },
     )
     required_lanes = [str(row.get("specialist_lane") or "") for row in council.get("selected_models", []) if isinstance(row, Mapping) and row.get("specialist_lane")]
