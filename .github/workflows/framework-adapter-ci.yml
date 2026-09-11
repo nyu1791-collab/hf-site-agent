@@ -6,16 +6,40 @@ on:
       - ai-army/framework-adapter-v1
     paths:
       - config/framework_adapters.json
+      - config/langgraph_checkpoint.json
+      - asset_rights.json
+      - requirements-langgraph.txt
       - scripts/framework_adapter_*.py
+      - scripts/framework_runtime_langgraph.py
+      - scripts/framework_outcome_memory.py
+      - scripts/asset_rights_ledger.py
+      - scripts/media_pipeline.py
+      - scripts/ffmpeg_renderer.py
+      - scripts/langgraph_checkpoint_backend.py
       - tests/test_framework_adapter_*.py
+      - tests/test_framework_runtime_langgraph.py
+      - tests/test_framework_outcome_memory.py
+      - tests/test_media_pipeline_safety.py
       - .github/workflows/framework-adapter-ci.yml
   pull_request:
     branches:
       - ai-army/provider-v3
     paths:
       - config/framework_adapters.json
+      - config/langgraph_checkpoint.json
+      - asset_rights.json
+      - requirements-langgraph.txt
       - scripts/framework_adapter_*.py
+      - scripts/framework_runtime_langgraph.py
+      - scripts/framework_outcome_memory.py
+      - scripts/asset_rights_ledger.py
+      - scripts/media_pipeline.py
+      - scripts/ffmpeg_renderer.py
+      - scripts/langgraph_checkpoint_backend.py
       - tests/test_framework_adapter_*.py
+      - tests/test_framework_runtime_langgraph.py
+      - tests/test_framework_outcome_memory.py
+      - tests/test_media_pipeline_safety.py
 
 permissions:
   contents: read
@@ -61,12 +85,13 @@ jobs:
             tests/test_framework_adapter_registry.py \
             tests/test_framework_adapter_safety.py
 
-      - name: Assert no external framework package is required
+      - name: Assert external frameworks remain shadow-only by default
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
           cfg = json.loads(Path('config/framework_adapters.json').read_text())
+          assert cfg['control_plane']['authoritative'] == 'AI_ARMY_NATIVE'
           assert cfg['policy']['FREE_ONLY_MODE'] is True
           assert cfg['policy']['ALLOW_PAID_MODEL'] is False
           assert cfg['policy']['ALLOW_PAID_FALLBACK'] is False
@@ -75,3 +100,71 @@ jobs:
               assert cfg['adapters'][name]['enabled'] is False
               assert cfg['adapters'][name]['shadow_only'] is True
           PY
+
+  outcome-memory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact commit without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check pytest
+      - name: Compile and test framework outcome memory
+        run: |
+          python -m py_compile scripts/framework_outcome_memory.py tests/test_framework_outcome_memory.py
+          python -m pytest -q tests/test_framework_outcome_memory.py
+
+  media-rights-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact commit without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Compile and test media safety lane
+        run: |
+          python -m json.tool asset_rights.json >/dev/null
+          python -m py_compile \
+            scripts/asset_rights_ledger.py \
+            scripts/media_pipeline.py \
+            scripts/ffmpeg_renderer.py \
+            tests/test_media_pipeline_safety.py
+          python -m unittest tests.test_media_pipeline_safety -v
+
+  langgraph-persistence-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      LANGGRAPH_STRICT_MSGPACK: "true"
+    steps:
+      - name: Checkout exact commit without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install pinned LangGraph and pytest only
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements-langgraph.txt
+          python -m pip install --disable-pip-version-check pytest
+      - name: Verify pinned runtime and persistent resume
+        run: |
+          python -m py_compile \
+            scripts/langgraph_checkpoint_backend.py \
+            scripts/framework_runtime_langgraph.py \
+            tests/test_framework_runtime_langgraph.py
+          python -m pytest -q \
+            tests/test_langgraph_checkpoint_backend.py \
+            tests/test_framework_runtime_langgraph.py
