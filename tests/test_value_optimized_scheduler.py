@@ -63,7 +63,7 @@ class ValueOptimizedSchedulerTests(unittest.TestCase):
 
         report = scheduler.run([task], lambda task, binding, context: {
             "status": "COMPLETED",
-            "summary": "implemented and validated",
+            "summary": "implemented",
             "quality_score": 0.93,
             "output": {"confidence": 0.91},
         })
@@ -72,11 +72,51 @@ class ValueOptimizedSchedulerTests(unittest.TestCase):
         self.assertTrue(report["outcome_learning_enabled"])
         self.assertEqual(report["value_optimization"]["outcome_record_count"], 1)
         self.assertEqual(report["value_optimization"]["outcome_ledger"]["record_count"], 1)
+        self.assertEqual(report["value_optimization"]["overall_metrics"]["validated_success_rate"], 0.0)
         decision = report["value_optimization"]["routing_decisions"]["implement"]
         self.assertEqual(decision["selected"]["model"], "qwen/qwen3.8-27b")
         self.assertFalse(report["generic_paid_fallback"])
         self.assertFalse(report["auto_top_up"])
         self.assertFalse(report["production_routing_changed"])
+
+    def test_machine_owned_semantic_validation_is_required_for_learned_success(self):
+        scheduler = IndependentAgentScheduler(
+            self.organization(),
+            candidate_pool=[free_candidate("groq", "qwen/qwen3.8-27b", ["coding", "json", "debugging", "reasoning"])],
+            cost_meter={
+                "validated": {
+                    "source": "provider_meter",
+                    "trusted": True,
+                    "cost_usd": 0.002,
+                    "input_tokens": 800,
+                    "output_tokens": 200,
+                }
+            },
+        )
+        task = AgentTask(
+            task_id="validated",
+            slot="CODE_EXECUTOR",
+            objective="Implement and machine validate code",
+            risk_level="MEDIUM",
+            metadata={"coding": 1.0},
+        )
+        report = scheduler.run([task], lambda task, binding, context: {
+            "status": "COMPLETED",
+            "summary": "done",
+            "quality_score": 0.94,
+            "output": {
+                "confidence": 0.99,
+                "machine_validation": {"machine_owned": True, "status": "PASS"},
+                "model_claimed_cost_usd": 999.0,
+            },
+        })
+        metrics = report["value_optimization"]["overall_metrics"]
+        self.assertEqual(metrics["validated_success_rate"], 1.0)
+        record = report["value_optimization"]["outcome_ledger"]["records"][0]
+        self.assertTrue(record["validated_success"])
+        self.assertTrue(record["cost_evidence_trusted"])
+        self.assertEqual(record["metered_cost_usd"], 0.002)
+        self.assertNotIn("model_claimed_cost_usd", str(record))
 
     def test_qa_route_prefers_different_provider_from_producer_dependency(self):
         scheduler = IndependentAgentScheduler(
@@ -176,6 +216,28 @@ class ValueOptimizedSchedulerTests(unittest.TestCase):
         )
         binding = scheduler.binding_for(task)
         self.assertEqual(binding["model"], "qwen/qwen3.8-27b")
+
+    def test_failover_uses_same_role_quality_gates(self):
+        scheduler = IndependentAgentScheduler(
+            self.organization(),
+            candidate_pool=[
+                free_candidate("groq", "qwen/qwen3.8-27b", ["coding", "json", "debugging", "reasoning"], quality=0.90, success=0.94),
+                free_candidate("openrouter", "json-only:free", ["json", "fast"], quality=0.99, success=0.99),
+                free_candidate("nvidia", "engineering-review", ["coding", "debugging", "reasoning", "review"], quality=0.86, success=0.90),
+            ],
+        )
+        task = AgentTask(
+            task_id="failover",
+            slot="ENGINEERING_AGENT",
+            objective="Recover engineering task",
+            risk_level="HIGH",
+            metadata={"coding": 1.0, "complexity": 0.85},
+        )
+        current = scheduler.binding_for(task)
+        replacement = scheduler._healthy_free_alternative(task, current)
+        self.assertIsNotNone(replacement)
+        self.assertNotEqual(replacement["model"], "json-only:free")
+        self.assertEqual(replacement["model"], "engineering-review")
 
 
 if __name__ == "__main__":
