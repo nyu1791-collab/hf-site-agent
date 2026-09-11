@@ -1,4 +1,4 @@
-trigger=deepseek-v4-1-flash-targeted-media-free-mesh-20260911-r1
+trigger=deepseek-v4-1-flash-targeted-media-free-mesh-20260911-r2
 focus=MEDIA_CORPS_FREE_MESH_BYPASS_AND_EVIDENCE_REVIEW
 approved_paid_trial=true
 max_calls=1
