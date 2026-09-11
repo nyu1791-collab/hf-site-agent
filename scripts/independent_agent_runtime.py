@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """Mission-local independent agent sessions for the replaceable AI Army.
 
-Model bindings are treated as replaceable bodies for stable role identities.  A
-role agent keeps a bounded mission-local working memory, receives only new
+Model bindings are treated as replaceable bodies for stable role identities. A
+role agent keeps bounded mission-local working memory, receives only new
 high-value coordination deltas, can revise and delegate inside its configured
-scope, and hands results directly to dependent peers.  This keeps ordinary
-agent decisions local instead of routing every step through the top commander.
+scope, and hands results directly to dependent peers. Ordinary agent decisions
+stay local instead of routing every step through the top commander.
+
+Inbox cursors use consume-then-ack semantics: building a context packet never
+advances the durable session cursor. The scheduler acknowledges the packet only
+after the handler returns a parseable result, so an exception cannot silently
+lose CRITICAL/HIGH peer deltas before a retry or failover.
 
 The registry is provider-agnostic and performs no network calls, repository
 writes, secret reads, payments, deploys, publishes, or generic paid fallback.
@@ -68,6 +73,7 @@ class AgentSession:
             "tasks_started": self.tasks_started,
             "tasks_completed": self.tasks_completed,
             "tasks_failed": self.tasks_failed,
+            "active_task_count": len(self.active_tasks),
             "revisions_observed": self.revisions_observed,
             "delegated_tasks": self.delegated_tasks,
             "handoffs_received": self.handoffs_received,
@@ -131,7 +137,7 @@ class IndependentAgentRegistry:
         base_context: Mapping[str, Any],
         handoff: Mapping[str, Any],
     ) -> dict[str, Any]:
-        """Build one role-scoped context packet without full-blackboard fanout."""
+        """Build one role-scoped context packet without consuming it yet."""
         session = self._session(task.slot)
         slot_cfg = self.config.get("slots", {}).get(task.slot, {}) if isinstance(self.config.get("slots"), Mapping) else {}
         with self._lock:
@@ -147,12 +153,6 @@ class IndependentAgentRegistry:
             max_events=self.inbox_events,
         )
         latest = max([cursor, *(int(row.get("seq") or 0) for row in deltas)])
-        with self._lock:
-            session.inbox_cursor = latest
-            self._peer_delta_deliveries += len(deltas)
-            self._local_decision_turns += 1
-            if int(handoff.get("dependency_count", 0) or 0) > 0:
-                session.handoffs_received += 1
 
         autonomy = dict(base_context)
         max_revisions = int(autonomy.get("max_revisions", 0) or 0)
@@ -184,6 +184,23 @@ class IndependentAgentRegistry:
             "direct_dependency_handoff": dict(handoff),
             "inbox_cursor": latest,
         }
+
+    def acknowledge_context(
+        self,
+        *,
+        task: AgentTask,
+        inbox_cursor: int,
+        peer_delta_count: int,
+        dependency_count: int,
+    ) -> None:
+        """Commit a context receipt only after the role handler consumed it."""
+        session = self._session(task.slot)
+        with self._lock:
+            session.inbox_cursor = max(session.inbox_cursor, max(0, int(inbox_cursor)))
+            self._peer_delta_deliveries += max(0, int(peer_delta_count))
+            self._local_decision_turns += 1
+            if int(dependency_count) > 0:
+                session.handoffs_received += 1
 
     def observe_attempt(
         self,
@@ -219,11 +236,12 @@ class IndependentAgentRegistry:
         with self._lock:
             rows = [self._sessions[key].as_dict() for key in sorted(self._sessions)]
             return {
-                "schema_version": "independent-agent-session-registry-v1",
+                "schema_version": "independent-agent-session-registry-v2",
                 "independent_agent_count": len(rows),
                 "stable_role_identity": True,
                 "local_decision_turns": self._local_decision_turns,
                 "peer_delta_deliveries": self._peer_delta_deliveries,
+                "active_task_count": sum(int(row.get("active_task_count") or 0) for row in rows),
                 "sessions": rows,
                 "repository_write": False,
                 "generic_paid_fallback": False,
