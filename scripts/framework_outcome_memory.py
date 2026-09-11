@@ -10,7 +10,7 @@ from copy import deepcopy
 import hashlib
 import json
 import math
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 SCHEMA_VERSION = "framework-outcome-memory-v1"
 MAX_RECORDS = 1200
@@ -98,14 +98,42 @@ def empty_memory() -> dict[str, Any]:
     }
 
 
+def validate_memory(memory: Mapping[str, Any]) -> None:
+    if memory.get("schema_version") != SCHEMA_VERSION or not isinstance(memory.get("records"), list):
+        raise FrameworkOutcomeMemoryError("invalid framework outcome memory")
+    if len(memory["records"]) > MAX_RECORDS:
+        raise FrameworkOutcomeMemoryError("framework outcome memory exceeds maximum records")
+    for key in (
+        "raw_private_content_persisted",
+        "secrets_persisted",
+        "automatic_paid_execution",
+        "automatic_production_promotion",
+    ):
+        if memory.get(key) is not False:
+            raise FrameworkOutcomeMemoryError(f"unsafe framework outcome memory flag: {key}")
+    _assert_no_sensitive_keys(memory)
+    bucket_counts: dict[str, int] = {}
+    seen: set[tuple[str, str]] = set()
+    for raw in memory["records"]:
+        if not isinstance(raw, Mapping):
+            raise FrameworkOutcomeMemoryError("invalid framework outcome row")
+        row = normalize_record(raw)
+        identity = (row["key"], row["observation_id"])
+        if identity in seen:
+            raise FrameworkOutcomeMemoryError("duplicate framework outcome observation")
+        seen.add(identity)
+        bucket_counts[row["key"]] = bucket_counts.get(row["key"], 0) + 1
+        if bucket_counts[row["key"]] > MAX_RECORDS_PER_KEY:
+            raise FrameworkOutcomeMemoryError("framework outcome bucket exceeds bound")
+
+
 def record_outcome(memory: Mapping[str, Any] | None, value: Mapping[str, Any]) -> dict[str, Any]:
     prior = deepcopy(dict(memory or empty_memory()))
-    if prior.get("schema_version") != SCHEMA_VERSION or not isinstance(prior.get("records"), list):
-        raise FrameworkOutcomeMemoryError("invalid framework outcome memory")
+    validate_memory(prior)
     row = normalize_record(value)
     existing = [normalize_record(item) for item in prior["records"] if isinstance(item, Mapping)]
-    if any(item["observation_id"] == row["observation_id"] for item in existing):
-        prior["last_record"] = {"observation_id": row["observation_id"], "idempotent_reuse": True}
+    if any(item["key"] == row["key"] and item["observation_id"] == row["observation_id"] for item in existing):
+        prior["last_record"] = {"observation_id": row["observation_id"], "key": row["key"], "idempotent_reuse": True}
         return prior
     existing.append(row)
     buckets: dict[str, list[dict[str, Any]]] = {}
@@ -115,17 +143,23 @@ def record_outcome(memory: Mapping[str, Any] | None, value: Mapping[str, Any]) -
     for key in sorted(buckets):
         bounded.extend(buckets[key][-MAX_RECORDS_PER_KEY:])
     prior["records"] = bounded[-MAX_RECORDS:]
-    prior["last_record"] = {"observation_id": row["observation_id"], "idempotent_reuse": False}
+    prior["last_record"] = {"observation_id": row["observation_id"], "key": row["key"], "idempotent_reuse": False}
     prior["raw_private_content_persisted"] = False
     prior["secrets_persisted"] = False
     prior["automatic_paid_execution"] = False
     prior["automatic_production_promotion"] = False
+    validate_memory({key: value for key, value in prior.items() if key != "last_record"})
     return prior
 
 
 def aggregate(memory: Mapping[str, Any], *, provider: str, exact_model: str, framework: str, task_profile: str) -> dict[str, Any]:
+    validate_memory({key: value for key, value in memory.items() if key != "last_record"})
     key = outcome_key(provider=provider, exact_model=exact_model, framework=framework, task_profile=task_profile)
-    rows = [normalize_record(row) for row in memory.get("records", ()) if isinstance(row, Mapping) and str(row.get("key") or "") == key]
+    rows = [
+        normalize_record(row)
+        for row in memory.get("records", ())
+        if isinstance(row, Mapping) and str(row.get("key") or "") == key
+    ]
     n = len(rows)
     if not n:
         return {"sample_count": 0, "actual_cost_class": "UNKNOWN"}
@@ -161,4 +195,5 @@ __all__ = [
     "normalize_record",
     "outcome_key",
     "record_outcome",
+    "validate_memory",
 ]
