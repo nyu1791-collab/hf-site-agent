@@ -224,11 +224,18 @@ class IndependentAgentRegistry:
         task: AgentTask,
         inbox_cursor: int,
         peer_deltas: Sequence[Mapping[str, Any]] = (),
+        peer_delta_count: int | None = None,
         dependency_count: int,
     ) -> None:
-        """Commit a context receipt only after the role handler consumed it."""
+        """Commit a context receipt only after the role handler consumed it.
+
+        ``peer_delta_count`` remains as a compatibility input for older callers;
+        new callers should provide the actual redacted deltas so the role-local
+        replay window can retain them.
+        """
         session = self._session(task.slot)
         compact = [_compact_peer_event(row) for row in peer_deltas if isinstance(row, Mapping)]
+        delivered_count = len(compact) if compact else max(0, int(peer_delta_count or 0))
         with self._lock:
             previous_latest = int(session.peer_context[-1].get("seq") or 0) if session.peer_context else 0
             for row in compact:
@@ -237,7 +244,7 @@ class IndependentAgentRegistry:
                     session.peer_context.append(row)
                     previous_latest = seq
             session.inbox_cursor = max(session.inbox_cursor, max(0, int(inbox_cursor)))
-            self._peer_delta_deliveries += len(compact)
+            self._peer_delta_deliveries += delivered_count
             self._local_decision_turns += 1
             if int(dependency_count) > 0:
                 session.handoffs_received += 1
