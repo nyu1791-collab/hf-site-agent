@@ -2,16 +2,16 @@
 """Framework-aware execution bridge for the AI Army V4 independent scheduler.
 
 The existing IndependentAgentScheduler remains the authoritative scheduler and
-control plane.  This bridge changes only the task execution handler: before a
+control plane. This bridge changes only the task execution handler: before a
 native role handler is invoked, the framework adapter layer may select a
-verified execution engine such as LangGraph, AutoGen, CrewAI or a bounded
-Copilot gateway.  The framework cannot alter routing authority, DAG/JOIN/RCC,
-value learning, budgets, side-effect boundaries, repository permissions or
-human approval gates.
+verified execution engine such as LangGraph, Microsoft Agent Framework,
+AutoGen, CrewAI or a bounded Copilot gateway. The framework cannot alter
+routing authority, DAG/JOIN/RCC, value learning, budgets, side-effect
+boundaries, repository permissions or human approval gates.
 
 No framework package is installed here and no network/provider call is made by
-this module.  Concrete framework executors and controller-owned readiness
-evidence must be supplied by the trusted runtime.  When none are supplied the
+this module. Concrete framework executors and controller-owned readiness
+evidence must be supplied by the trusted runtime. When none are supplied the
 system behaves exactly like the native V4 scheduler.
 """
 
@@ -21,6 +21,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from scripts.framework_adapter_layer import AgentTask, AgentTaskResult, make_scheduler_handler
 from scripts.framework_consolidation_policy import ConsolidatingFrameworkAdapterLayer
+from scripts.framework_execution_guard import GuardedFrameworkAdapterLayer
 from scripts.independent_agent_scheduler import IndependentAgentScheduler
 
 
@@ -45,7 +46,9 @@ class FrameworkAwareIndependentAgentScheduler(IndependentAgentScheduler):
         **kwargs: Any,
     ) -> None:
         super().__init__(organization, **kwargs)
-        self.framework_layer = framework_layer or ConsolidatingFrameworkAdapterLayer()
+        # The guard is a drop-in subclass of the existing consolidating layer.
+        # A trusted caller may still inject a custom compatible layer.
+        self.framework_layer = framework_layer or GuardedFrameworkAdapterLayer()
         self.framework_evidence = framework_evidence or {}
         self._registered_framework_executors: set[str] = set()
         for adapter_id, executor in (framework_executors or {}).items():
@@ -74,6 +77,7 @@ class FrameworkAwareIndependentAgentScheduler(IndependentAgentScheduler):
         report = dict(super().run(tasks, framework_handler))
         results = report.get("results") if isinstance(report.get("results"), Mapping) else {}
         adapter_counts: dict[str, int] = {}
+        replay_cache_hits = 0
         for row in results.values():
             if not isinstance(row, Mapping):
                 continue
@@ -81,6 +85,9 @@ class FrameworkAwareIndependentAgentScheduler(IndependentAgentScheduler):
             adapter_id = str(output.get("framework_adapter") or "")
             if adapter_id:
                 adapter_counts[adapter_id] = adapter_counts.get(adapter_id, 0) + 1
+            guard = output.get("framework_execution_guard") if isinstance(output.get("framework_execution_guard"), Mapping) else {}
+            if guard.get("replay_cache_hit") is True:
+                replay_cache_hits += 1
 
         report["framework_adapter_layer"] = {
             "enabled": True,
@@ -88,6 +95,8 @@ class FrameworkAwareIndependentAgentScheduler(IndependentAgentScheduler):
             "scheduler_mode_preserved": report.get("scheduler_mode"),
             "registered_external_executors": sorted(self._registered_framework_executors),
             "adapter_execution_counts": dict(sorted(adapter_counts.items())),
+            "guarded_evidence_required": isinstance(self.framework_layer, GuardedFrameworkAdapterLayer),
+            "replay_cache_hits": replay_cache_hits,
             "automatic_package_install": False,
             "automatic_paid_fallback": False,
             "authority_expansion": False,
