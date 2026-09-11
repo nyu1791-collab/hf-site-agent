@@ -5,6 +5,12 @@ This module consumes controller-owned observations and emits readiness evidence
 for scripts/framework_adapter_layer.py. It performs no framework import,
 provider call, package install, billing action, repository write, deployment,
 publish, merge or secret mutation.
+
+Promotion is based only on the fresh observation window. Old telemetry is kept
+out of the decision instead of permanently poisoning a framework. Malformed
+telemetry is tolerated only within a bounded fraction. Success and validator
+rates also use Wilson lower bounds so a tiny lucky sample cannot promote an
+adapter too aggressively.
 """
 
 from __future__ import annotations
@@ -57,25 +63,46 @@ def _percentile95(values: Sequence[float]) -> float | None:
     return ordered[index]
 
 
+def _wilson_lower_bound(successes: int, total: int, z: float = 1.959963984540054) -> float:
+    if total <= 0:
+        return 0.0
+    p = successes / total
+    z2 = z * z
+    denominator = 1.0 + z2 / total
+    centre = p + z2 / (2.0 * total)
+    spread = z * math.sqrt((p * (1.0 - p) + z2 / (4.0 * total)) / total)
+    return max(0.0, (centre - spread) / denominator)
+
+
 def _normalize_observations(
     rows: Sequence[Mapping[str, Any]],
     *,
     now_epoch: float,
     max_age_seconds: float,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
     valid: list[dict[str, Any]] = []
-    failures: list[str] = []
+    counters = {
+        "input": 0,
+        "fresh_valid": 0,
+        "ignored_stale": 0,
+        "malformed": 0,
+        "future_skew": 0,
+    }
     for raw in rows:
+        counters["input"] += 1
         row = _mapping(raw)
         ts = _finite(row.get("timestamp_epoch"))
         quality = _finite(row.get("quality_score"))
         latency = _finite(row.get("latency_ms"))
         if ts is None or quality is None or latency is None:
-            failures.append("malformed_observation")
+            counters["malformed"] += 1
             continue
         age = now_epoch - ts
-        if age < -120 or age > max_age_seconds:
-            failures.append("stale_observation")
+        if age < -120:
+            counters["future_skew"] += 1
+            continue
+        if age > max_age_seconds:
+            counters["ignored_stale"] += 1
             continue
         valid.append({
             "timestamp_epoch": ts,
@@ -87,7 +114,8 @@ def _normalize_observations(
             "contract_verified": row.get("contract_verified") is True,
             "paid": row.get("paid") is True,
         })
-    return valid, failures
+        counters["fresh_valid"] += 1
+    return valid, counters
 
 
 def evaluate_adapter(
@@ -104,9 +132,10 @@ def evaluate_adapter(
     adapter = str(adapter_id or "").upper()
     if adapter not in allowed:
         raise FrameworkHealthError(f"unknown adapter: {adapter}")
-    now = _finite(now_epoch) or time.time()
+    supplied_now = _finite(now_epoch)
+    now = supplied_now if supplied_now is not None else time.time()
     max_age = float(policy.get("max_observation_age_seconds") or 1)
-    rows, observation_failures = _normalize_observations(
+    rows, telemetry = _normalize_observations(
         observations,
         now_epoch=now,
         max_age_seconds=max_age,
@@ -116,6 +145,8 @@ def evaluate_adapter(
     validator_passes = sum(1 for row in rows if row["validator_pass"])
     success_rate = successes / sample_count if sample_count else 0.0
     validator_pass_rate = validator_passes / sample_count if sample_count else 0.0
+    success_wilson = _wilson_lower_bound(successes, sample_count)
+    validator_wilson = _wilson_lower_bound(validator_passes, sample_count)
     average_quality = sum(row["quality_score"] for row in rows) / sample_count if sample_count else 0.0
     p95_latency = _percentile95([row["latency_ms"] for row in rows])
     failure_rate = 1.0 - success_rate if sample_count else 1.0
@@ -136,6 +167,12 @@ def evaluate_adapter(
     if consecutive_failures >= int(policy.get("max_consecutive_failures") or 1):
         blockers.append("circuit_open_consecutive_failures")
 
+    invalid_count = telemetry["malformed"] + telemetry["future_skew"]
+    non_stale_count = telemetry["fresh_valid"] + invalid_count
+    invalid_fraction = invalid_count / non_stale_count if non_stale_count else 0.0
+    if invalid_fraction > float(policy.get("max_malformed_observation_fraction") or 0.0):
+        blockers.append("telemetry_invalid_fraction")
+
     min_samples = int(policy.get("min_shadow_samples") or 1)
     shadow = sample_count < min_samples
     if shadow:
@@ -144,8 +181,12 @@ def evaluate_adapter(
     if sample_count >= min_samples:
         if success_rate < float(policy.get("min_success_rate") or 1.0):
             blockers.append("success_rate")
+        if success_wilson < float(policy.get("min_success_wilson_lower_bound") or 0.0):
+            blockers.append("success_wilson_lower_bound")
         if validator_pass_rate < float(policy.get("min_validator_pass_rate") or 1.0):
             blockers.append("validator_pass_rate")
+        if validator_wilson < float(policy.get("min_validator_wilson_lower_bound") or 0.0):
+            blockers.append("validator_wilson_lower_bound")
         if average_quality < float(policy.get("min_average_quality") or 1.0):
             blockers.append("average_quality")
         if failure_rate > float(policy.get("max_failure_rate") or 0.0):
@@ -164,7 +205,6 @@ def evaluate_adapter(
         if sample_count >= min_samples and quality_delta < float(policy.get("min_quality_delta_vs_native") or 0.0):
             blockers.append("quality_delta_vs_native")
 
-    blockers.extend(observation_failures)
     blockers = sorted(set(blockers))
     circuit_open = "circuit_open_consecutive_failures" in blockers
     ready = not blockers
@@ -177,13 +217,19 @@ def evaluate_adapter(
         "framework_health_ready": ready,
         "sample_count": sample_count,
         "success_rate": round(success_rate, 6),
+        "success_wilson_lower_bound": round(success_wilson, 6),
         "validator_pass_rate": round(validator_pass_rate, 6),
+        "validator_wilson_lower_bound": round(validator_wilson, 6),
         "average_quality": round(average_quality, 6),
         "native_baseline_quality": baseline,
         "quality_delta_vs_native": round(quality_delta, 6) if quality_delta is not None else None,
         "failure_rate": round(failure_rate, 6),
         "consecutive_failures": consecutive_failures,
         "p95_latency_ms": round(p95_latency, 3) if p95_latency is not None else None,
+        "telemetry": {
+            **telemetry,
+            "invalid_fraction": round(invalid_fraction, 6),
+        },
         "blockers": blockers,
         "promotion_allowed": ready,
         "circuit_open": circuit_open,
@@ -202,13 +248,14 @@ def build_layer_evidence(
 ) -> dict[str, Any]:
     """Create evidence consumed by FrameworkAdapterLayer without weakening it."""
     adapter = str(adapter_id or "").upper()
+    blockers = {str(item) for item in health_report.get("blockers", ())}
     result = {
         "framework_installed": framework_installed is True,
         "runtime_present": runtime_present is True,
         "model_route_free_verified": model_route_free_verified is True,
         "framework_health_ready": health_report.get("framework_health_ready") is True,
         "benchmark_quality": health_report.get("average_quality"),
-        "paid": False,
+        "paid": "paid_observation" in blockers,
         "paid_fallback_enabled": False,
     }
     if adapter == "GITHUB_COPILOT":
