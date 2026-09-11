@@ -11,13 +11,16 @@
   "generic_paid_fallback": false,
   "auto_top_up": false,
   "explicit_paid_trial_approved": true,
+  "collaboration_mode": "CONTINUOUS_ENGINEERING_CO_DEVELOPER",
   "routing": {
     "rank": "PAID_ENGINEERING_SPECIALIST",
     "preferred_capabilities": [
       "CODING_DEEP",
       "DEBUGGING",
       "CODE_REVIEW",
-      "ARCHITECTURE"
+      "ARCHITECTURE",
+      "TEST_STRATEGY",
+      "INTEGRATION_REVIEW"
     ],
     "do_not_use_for": [
       "BULK",
@@ -26,7 +29,8 @@
       "SIMPLE_TEST",
       "TRIVIAL"
     ],
-    "selection_policy": "USE_WHEN_HIGH_DIFFICULTY_OR_CRITICAL_PATH_OR_FREE_WORKER_FAILED",
+    "selection_policy": "USE_FOR_NONTRIVIAL_ENGINEERING_CRITICAL_PATH_POST_IMPLEMENTATION_REVIEW_OR_WHEN_FREE_WORKER_FAILED",
+    "deepseek_review_after_nontrivial_engineering_change": true,
     "free_workers_remain_default": true,
     "nvidia_remains_final_commander": true
   },
@@ -35,7 +39,7 @@
     "max_parallel_calls": 2,
     "max_estimated_cost_usd": 0.25,
     "stop_before_estimated_budget_exceeded": true,
-    "max_output_tokens_per_call": 4096
+    "max_output_tokens_per_call": 8192
   },
   "pricing": {
     "currency": "USD",
@@ -53,12 +57,12 @@
     "note": "Budget guard intentionally uses conservative peak-equivalent public rates even when the authenticated dashboard shows lower V4.1 pricing."
   },
   "reasoning": {
-    "CODING_DEEP": "high",
+    "CODING_DEEP": "direct",
     "DEBUGGING": "high",
-    "CODE_REVIEW": "low",
+    "CODE_REVIEW": "high",
     "ARCHITECTURE": "high",
-    "TEST_STRATEGY": "low",
-    "INTEGRATION_REVIEW": "low"
+    "TEST_STRATEGY": "direct",
+    "INTEGRATION_REVIEW": "direct"
   },
   "safety_boundary": {
     "repository_write": false,
