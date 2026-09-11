@@ -6,8 +6,9 @@ V4 converts the role-mode benchmark evidence into the live specialist trial:
 - DEBUGGING and CODE_REVIEW use high-thinking mode because they benefit from deeper review.
 - Other roles follow config and default to bounded, role-appropriate modes.
 
-The runner remains staging-only and never writes repository files, deploys,
-publishes, mutates secrets or enables generic paid fallback.
+The runner keeps only minimal operational boundaries: exact-model integrity,
+visible-output integrity, bounded spend/retry inherited from the trial runner,
+and no direct repository/deploy/publish/secret mutation authority.
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ DIRECT_MAX_TOKENS = 4096
 THINKING_MAX_TOKENS = 8192
 MAX_GENERATION_TOKENS = THINKING_MAX_TOKENS
 DIRECT_MODE_ALIASES = frozenset({"direct", "off", "disabled", "none"})
+LENGTH_STOP_REASONS = frozenset({"length", "max_tokens", "max_output_tokens", "token_limit"})
 DEFAULT_ROLE_MODES: Mapping[str, str] = {
     "CODING_DEEP": "direct",
     "DEBUGGING": "high",
@@ -58,6 +60,32 @@ def role_mode(config: Mapping[str, Any], role: str) -> dict[str, Any]:
         "reasoning_effort": effort,
         "max_tokens": THINKING_MAX_TOKENS,
     }
+
+
+def _integrity_failure(
+    *,
+    task: Mapping[str, Any],
+    config: Mapping[str, Any],
+    response: Mapping[str, Any],
+    latency_ms: int,
+    error_class: str,
+    mode: Mapping[str, Any],
+    max_tokens: int,
+) -> dict[str, Any]:
+    row = v2._failed_result(
+        task=task,
+        error_class=error_class,
+        latency_ms=latency_ms,
+        response=response,
+        config=config,
+    )
+    row.update({
+        "role_mode": mode["mode"],
+        "thinking": bool(mode["thinking"]),
+        "reasoning_effort": mode["reasoning_effort"],
+        "max_tokens": max_tokens,
+    })
+    return row
 
 
 def run_task(*, config: Mapping[str, Any], api_key: str, task: Mapping[str, Any], shared_context: str) -> dict[str, Any]:
@@ -108,10 +136,25 @@ def run_task(*, config: Mapping[str, Any], api_key: str, task: Mapping[str, Any]
         return row
 
     shape = v2._response_shape(response)
+    response_model = str(shape.get("response_model") or "").strip()
+    if response_model and response_model != model:
+        return _integrity_failure(
+            task=task,
+            config=config,
+            response=response,
+            latency_ms=latency_ms,
+            error_class="MODEL_MISMATCH",
+            mode=mode,
+            max_tokens=max_tokens,
+        )
+
     usage = v2._usage(response)
     costs = v2._cost_fields(config, usage)
     try:
         first, message = v2._first_choice(response)
+        finish_reason = str(first.get("finish_reason") or "").strip().lower()
+        if finish_reason in LENGTH_STOP_REASONS:
+            raise v2.SpecialistOutputError("OUTPUT_TRUNCATED", finish_reason=finish_reason)
         content = message.get("content")
         if not isinstance(content, str) or not content.strip():
             raise v2.SpecialistOutputError(
@@ -120,20 +163,15 @@ def run_task(*, config: Mapping[str, Any], api_key: str, task: Mapping[str, Any]
             )
         parsed = v2.parse_json_object(content)
     except v2.SpecialistOutputError as exc:
-        row = v2._failed_result(
+        return _integrity_failure(
             task=task,
-            error_class=exc.code,
-            latency_ms=latency_ms,
-            response=response,
             config=config,
+            response=response,
+            latency_ms=latency_ms,
+            error_class=exc.code,
+            mode=mode,
+            max_tokens=max_tokens,
         )
-        row.update({
-            "role_mode": mode["mode"],
-            "thinking": bool(mode["thinking"]),
-            "reasoning_effort": mode["reasoning_effort"],
-            "max_tokens": max_tokens,
-        })
-        return row
 
     return {
         "task_id": task["task_id"],
@@ -168,6 +206,11 @@ def run_trial(*, config: Mapping[str, Any], api_key: str, network: bool, confirm
     report["role_adaptive_reasoning"] = True
     report["role_mode_policy"] = dict(DEFAULT_ROLE_MODES)
     report["generation_budget_policy"] = "ROLE_ADAPTIVE_DIRECT_4096_OR_THINKING_8192"
+    report["minimal_integrity_policy"] = {
+        "reject_exact_model_mismatch": True,
+        "reject_visible_output_truncation": True,
+        "extra_behavioral_restrictions": False,
+    }
     return report
 
 
@@ -202,6 +245,7 @@ def main() -> int:
         "conservative_cost_usd": report.get("conservative_cost_usd", 0),
         "placement_recommendation": report.get("placement_recommendation"),
         "role_adaptive_reasoning": report.get("role_adaptive_reasoning", False),
+        "minimal_integrity_policy": report.get("minimal_integrity_policy", {}),
         "generic_paid_fallback": report.get("generic_paid_fallback", False),
         "production_routing_changed": report.get("production_routing_changed", False),
     }, sort_keys=True))
