@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """Run one bounded paid DeepSeek architecture audit of the current AI Army.
 
-The audit is intentionally advisory. It reads a fixed, existing organization
-surface, asks DeepSeek V4.1 Flash for a structured review, validates proposed
-paths against that exact surface, records usage/cost evidence, and never writes
-repository code, deploys, merges, publishes, mutates secrets, or enables generic
-paid fallback.
+The audit is advisory. It reads a fixed existing organization surface, asks the
+explicitly approved DeepSeek V4.1 Flash route for one compact structured review,
+validates every proposed path and symbol against that exact surface, records
+usage/cost evidence, and never writes repository code, deploys, merges,
+publishes, mutates secrets, or enables generic paid fallback.
+
+The organization-wide review intentionally uses direct (thinking-disabled)
+output. Repository evidence showed that a 4096-token thinking budget can be
+consumed entirely by hidden reasoning on long architecture prompts before any
+visible JSON is emitted. Direct mode has already been benchmarked successfully
+for engineering/review roles and preserves the one-call paid boundary here.
 """
 
 from __future__ import annotations
@@ -30,8 +36,8 @@ TRIAL_CONFIG = ROOT / "config" / "deepseek_specialist_trial.json"
 ROUTING_CONFIG = ROOT / "config" / "deepseek_specialist_routing.json"
 CONFIRMATION_TOKEN = "DEEPSEEK_ORGANIZATION_AUDIT"
 MAX_OUTPUT_TOKENS = 4096
-MAX_CONTEXT_CHARS = 32_000
-MAX_FILE_CHARS = 3_600
+MAX_CONTEXT_CHARS = 30_000
+MAX_FILE_CHARS = 2_200
 MAX_CONSERVATIVE_COST_USD = 0.06
 
 AUDIT_CONTEXT: Mapping[str, Sequence[str]] = {
@@ -95,7 +101,7 @@ def _window(text: str, marker: str, budget: int) -> str:
     index = text.find(marker)
     if index < 0:
         return ""
-    before = max(180, budget // 3)
+    before = max(160, budget // 3)
     start = max(0, index - before)
     end = min(len(text), start + budget)
     if end - start < budget and start > 0:
@@ -118,7 +124,7 @@ def build_repository_context() -> tuple[str, list[str]]:
         present = [marker for marker in markers if marker in text]
         pieces: list[str] = []
         if present:
-            per_marker = max(600, file_budget // max(1, len(present)))
+            per_marker = max(520, file_budget // max(1, len(present)))
             for marker in present:
                 candidate = _window(text, marker, per_marker)
                 if candidate and candidate not in pieces:
@@ -137,6 +143,7 @@ def build_repository_context() -> tuple[str, list[str]]:
 
 def conservative_exposure_usd(config: Mapping[str, Any], prompt_text: str) -> float:
     rates = ds_base._rate_table(config, conservative=True, now=datetime.now(timezone.utc))
+    # Deliberately pessimistic: one UTF-8 byte is treated as one input token.
     prompt_tokens_upper = max(1, len(prompt_text.encode("utf-8")))
     return round(
         (
@@ -166,27 +173,62 @@ def _exact_model_listed(catalog: Mapping[str, Any], model: str) -> bool:
     return any(isinstance(row, Mapping) and str(row.get("id") or "") == model for row in data)
 
 
+def _symbol_candidates(symbol: str) -> tuple[str, ...]:
+    raw = str(symbol or "").strip()
+    values = [raw]
+    if raw.endswith("()"):
+        values.append(raw[:-2])
+    if "." in raw:
+        values.append(raw.rsplit(".", 1)[-1])
+    if "::" in raw:
+        values.append(raw.rsplit("::", 1)[-1])
+    normalized: list[str] = []
+    for value in values:
+        value = value.strip().removesuffix("()")
+        if value and value not in normalized:
+            normalized.append(value)
+    return tuple(normalized)
+
+
+def _symbol_grounded(relative: str, symbol: str) -> bool:
+    path = ROOT / relative
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding="utf-8", errors="replace")
+    return any(candidate in text for candidate in _symbol_candidates(symbol))
+
+
 def validate_audit(audit: Mapping[str, Any], allowed_files: Sequence[str]) -> dict[str, Any]:
     missing = [key for key in REQUIRED_AUDIT_KEYS if audit.get(key) in (None, "", [], {})]
     allowed = set(allowed_files)
     invalid_paths: list[str] = []
+    invalid_symbols: list[dict[str, str]] = []
     patches = audit.get("patch_candidates") if isinstance(audit.get("patch_candidates"), list) else []
     for row in patches[:6]:
         if not isinstance(row, Mapping):
             invalid_paths.append("<non-object>")
             continue
         path = str(row.get("path") or "")
+        symbol = str(row.get("symbol") or "")
         if path not in allowed:
             invalid_paths.append(path or "<missing>")
+            continue
+        if not symbol or not _symbol_grounded(path, symbol):
+            invalid_symbols.append({"path": path, "symbol": symbol or "<missing>"})
     confidence = audit.get("confidence")
     confidence_ok = isinstance(confidence, (int, float)) and not isinstance(confidence, bool) and 0 <= float(confidence) <= 1
+    list_types_ok = all(isinstance(audit.get(key), list) for key in ("findings", "patch_candidates", "tests", "priority_plan"))
+    valid = not missing and not invalid_paths and not invalid_symbols and confidence_ok and list_types_ok
     return {
         "required_keys_complete": not missing,
         "missing_keys": missing,
+        "list_types_valid": list_types_ok,
         "path_validation": not invalid_paths,
         "invalid_paths": invalid_paths,
+        "symbol_validation": not invalid_symbols,
+        "invalid_symbols": invalid_symbols,
         "confidence_valid": confidence_ok,
-        "valid": not missing and not invalid_paths and confidence_ok,
+        "valid": valid,
     }
 
 
@@ -197,14 +239,26 @@ def _system_prompt(context: str, allowed_files: Sequence[str]) -> str:
         "coordination delays, duplicate work, stale-context risks, routing mistakes, starvation/backpressure risks, failure-propagation gaps, "
         "and places where an agent is not truly autonomous. Prefer fewer high-impact changes over broad rewrites. "
         "Use ONLY the files in allowed_files and the supplied repository context. Never invent a file or symbol. "
+        "Before proposing a patch, verify from the supplied excerpt that the symbol and the alleged current behavior actually exist. "
         "Do not recommend weakening secret, payment, stale-result, external-repository-write, merge, deploy, publish, or generic paid-fallback boundaries. "
         "Ordinary low/medium-risk agent work should remain autonomous and lightweight. "
         "Return exactly one compact JSON object with keys: status, executive_summary, findings, patch_candidates, tests, priority_plan, confidence. "
-        "findings must be an array of objects with severity, area, evidence, impact, recommendation. "
+        "findings must be an array of at most 8 objects with severity, area, evidence, impact, recommendation. "
         "patch_candidates must be an array of at most 5 objects with path, symbol, change, rationale. "
-        "tests must be an array. priority_plan must be an array ordered highest impact first. confidence must be 0..1. "
+        "tests must be an array of at most 8 short strings. priority_plan must be an array of at most 6 short strings ordered highest impact first. "
+        "confidence must be 0..1. Keep the complete final JSON comfortably below the output limit. "
         f"allowed_files={json.dumps(list(allowed_files), ensure_ascii=False)}\n\nREPOSITORY_CONTEXT:\n{context}"
     )
+
+
+def _response_shape(response: Mapping[str, Any]) -> dict[str, Any]:
+    shape = ds_v2._response_shape(response)
+    return {
+        "finish_reason": shape.get("finish_reason"),
+        "content_chars": int(shape.get("content_chars") or 0),
+        "reasoning_content_chars": int(shape.get("reasoning_content_chars") or 0),
+        "shape_error": shape.get("shape_error"),
+    }
 
 
 def run_audit(*, network: bool, confirm: str, api_key: str) -> dict[str, Any]:
@@ -215,15 +269,16 @@ def run_audit(*, network: bool, confirm: str, api_key: str) -> dict[str, Any]:
     prompt = _system_prompt(context, allowed_files)
     exposure = conservative_exposure_usd(trial, prompt)
     base_report = {
-        "schema_version": "deepseek-organization-audit-v1",
+        "schema_version": "deepseek-organization-audit-v2",
         "requested_model": model,
         "model_family": routing.get("model_family") or trial.get("model_family"),
         "context_files": allowed_files,
         "context_chars": len(context),
         "network_enabled": bool(network),
         "explicit_paid_route": True,
+        "thinking_mode": "DIRECT_DISABLED",
         "generic_paid_fallback": False,
-        "auto_top_up": False,
+        "workflow_auto_top_up_used": False,
         "production_routing_changed": False,
         "repository_write": False,
         "max_calls": 1,
@@ -253,13 +308,12 @@ def run_audit(*, network: bool, confirm: str, api_key: str) -> dict[str, Any]:
         "model": model,
         "messages": [
             {"role": "system", "content": prompt},
-            {"role": "user", "content": "Audit the organization now. Return the final JSON only."},
+            {"role": "user", "content": "Audit the organization now. Return the final compact JSON only."},
         ],
         "max_tokens": MAX_OUTPUT_TOKENS,
         "stream": False,
         "response_format": {"type": "json_object"},
-        "reasoning_effort": "high",
-        "thinking": {"type": "enabled"},
+        "thinking": {"type": "disabled"},
     }
     try:
         response, latency_ms = ds_base._request_json(
@@ -275,56 +329,36 @@ def run_audit(*, network: bool, confirm: str, api_key: str) -> dict[str, Any]:
 
     response_model = str(response.get("model") or "")
     usage = _usage(response)
+    shape = _response_shape(response)
     current_cost = ds_base.estimate_cost_usd(usage, ds_base._rate_table(trial, conservative=False, now=datetime.now(timezone.utc)))
     conservative_cost = ds_base.estimate_cost_usd(usage, ds_base._rate_table(trial, conservative=True, now=datetime.now(timezone.utc)))
     choices = response.get("choices") if isinstance(response.get("choices"), list) else []
     first = choices[0] if choices and isinstance(choices[0], Mapping) else {}
     message = first.get("message") if isinstance(first.get("message"), Mapping) else {}
     content = message.get("content") if isinstance(message.get("content"), str) else ""
-    if response_model != model:
-        return {
-            **base_report,
-            "status": "AUDIT_FAILED",
-            "stop_reason": "RESPONSE_MODEL_MISMATCH",
-            "catalog_latency_ms": catalog_latency,
-            "latency_ms": latency_ms,
-            "model_calls": 1,
-            "response_model": response_model,
-            "usage": usage,
-            "estimated_current_cost_usd": round(current_cost, 8),
-            "conservative_cost_usd": round(conservative_cost, 8),
-            "audit": {},
-        }
-    try:
-        audit = ds_v2.parse_json_object(content)
-    except ds_v2.SpecialistOutputError as exc:
-        return {
-            **base_report,
-            "status": "AUDIT_FAILED",
-            "stop_reason": exc.code,
-            "catalog_latency_ms": catalog_latency,
-            "latency_ms": latency_ms,
-            "model_calls": 1,
-            "response_model": response_model,
-            "finish_reason": first.get("finish_reason"),
-            "usage": usage,
-            "estimated_current_cost_usd": round(current_cost, 8),
-            "conservative_cost_usd": round(conservative_cost, 8),
-            "audit": {},
-        }
-    validation = validate_audit(audit, allowed_files)
-    status = "AUDIT_READY" if validation["valid"] else "AUDIT_PARTIAL"
-    return {
-        **base_report,
-        "status": status,
+    evidence = {
         "catalog_latency_ms": catalog_latency,
         "latency_ms": latency_ms,
         "model_calls": 1,
         "response_model": response_model,
-        "finish_reason": first.get("finish_reason"),
+        **shape,
         "usage": usage,
         "estimated_current_cost_usd": round(current_cost, 8),
         "conservative_cost_usd": round(conservative_cost, 8),
+    }
+    if response_model != model:
+        return {**base_report, **evidence, "status": "AUDIT_FAILED", "stop_reason": "RESPONSE_MODEL_MISMATCH", "audit": {}}
+    try:
+        audit = ds_v2.parse_json_object(content)
+    except ds_v2.SpecialistOutputError as exc:
+        return {**base_report, **evidence, "status": "AUDIT_FAILED", "stop_reason": exc.code, "audit": {}}
+
+    validation = validate_audit(audit, allowed_files)
+    status = "AUDIT_READY" if validation["valid"] else "AUDIT_PARTIAL"
+    return {
+        **base_report,
+        **evidence,
+        "status": status,
         "validation": validation,
         "audit": audit,
     }
@@ -350,6 +384,10 @@ def main() -> int:
         "response_model": report.get("response_model"),
         "model_calls": report.get("model_calls", 0),
         "context_files": len(report.get("context_files", [])),
+        "thinking_mode": report.get("thinking_mode"),
+        "finish_reason": report.get("finish_reason"),
+        "content_chars": report.get("content_chars", 0),
+        "reasoning_content_chars": report.get("reasoning_content_chars", 0),
         "validation": report.get("validation", {}),
         "estimated_current_cost_usd": report.get("estimated_current_cost_usd", 0),
         "conservative_cost_usd": report.get("conservative_cost_usd", 0),
