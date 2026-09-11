@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from scripts import failure_aware_specialist_retry as retry
 from scripts.low_latency_agent_fabric import FailureSignalRegistry, LowLatencyAgentFabric
+from scripts.organization_coordination import WorkerCircuitBreaker
 
 
 class SpecialistFailureSignalTests(unittest.TestCase):
@@ -42,6 +43,7 @@ class SpecialistFailureSignalTests(unittest.TestCase):
                 workers=4,
                 phase="PRIMARY",
                 failure_registry=registry,
+                worker_breaker=WorkerCircuitBreaker(failure_threshold=2, cooldown_seconds=120),
                 fabric=fabric,
                 permanent_blocked=set(),
                 telemetry=telemetry,
@@ -92,6 +94,7 @@ class SpecialistFailureSignalTests(unittest.TestCase):
                 workers=2,
                 phase="PRIMARY",
                 failure_registry=FailureSignalRegistry(),
+                worker_breaker=WorkerCircuitBreaker(failure_threshold=2, cooldown_seconds=120),
                 fabric=LowLatencyAgentFabric(),
                 permanent_blocked=set(),
                 telemetry={},
