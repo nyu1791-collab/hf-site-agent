@@ -51,12 +51,15 @@ _LENGTH_STOP_REASONS = frozenset({"length", "max_tokens", "max_output_tokens", "
 
 def is_length_exhaustion(row: Mapping[str, Any]) -> bool:
     error = str(row.get("error") or "").strip().lower()
-    finish_reason = str(row.get("finish_reason") or row.get("stop_reason") or "").strip().lower()
+    stop_reasons = {
+        str(row.get("finish_reason") or "").strip().lower(),
+        str(row.get("stop_reason") or "").strip().lower(),
+    }
+    stop_reasons.discard("")
     empty_visible = "empty_visible_content" in error
-    length_stopped = finish_reason in _LENGTH_STOP_REASONS
-    if not (empty_visible and length_stopped):
-        return False
-    return row.get("status") != "COUNCIL_OK" or empty_visible
+    length_stopped = bool(stop_reasons & _LENGTH_STOP_REASONS)
+    failed = row.get("status") != "COUNCIL_OK"
+    return failed and (empty_visible or length_stopped)
 
 
 def length_exhaustion_count(rows: Sequence[Mapping[str, Any]]) -> int:
