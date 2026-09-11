@@ -175,11 +175,16 @@ def _lane_weight(lane_name: str) -> float:
     return max(1.0, float(LANE_ASSIGNMENT_WEIGHTS.get(lane_name, 1.0)))
 
 
-def _selected_lanes(worker_count: int) -> list[Mapping[str, Any]]:
-    limit = min(max(0, int(worker_count)), len(SPECIALIST_LANES))
-    if limit >= len(SPECIALIST_LANES):
-        return list(SPECIALIST_LANES)
-    indexed = list(enumerate(SPECIALIST_LANES))
+def _selected_lanes(
+    worker_count: int,
+    preferences: Mapping[str, Sequence[str]] = DEFAULT_LANE_ROLE_PREFERENCES,
+) -> list[Mapping[str, Any]]:
+    """Select critical lanes only from the caller's explicitly routable lane set."""
+    eligible = [lane for lane in SPECIALIST_LANES if str(lane["lane"]) in preferences]
+    limit = min(max(0, int(worker_count)), len(eligible))
+    if limit >= len(eligible):
+        return list(eligible)
+    indexed = list(enumerate(eligible))
     indexed.sort(key=lambda pair: (-_lane_weight(str(pair[1]["lane"])), pair[0]))
     return [lane for _, lane in indexed[:limit]]
 
@@ -252,7 +257,7 @@ def attach_capability_matched_assignments(
     preferences: Mapping[str, Sequence[str]] = DEFAULT_LANE_ROLE_PREFERENCES,
     memory: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Globally match the most important lanes while reusing only proven workers."""
+    """Globally match the most important eligible lanes while reusing only proven workers."""
     workers = sorted(
         (dict(item) for item in selected if isinstance(item, Mapping) and item.get("model")),
         key=lambda item: str(item.get("model") or ""),
@@ -260,7 +265,7 @@ def attach_capability_matched_assignments(
     if not workers:
         return []
 
-    lanes = _selected_lanes(len(workers))
+    lanes = _selected_lanes(len(workers), preferences)
     memory_payload = memory if isinstance(memory, Mapping) else load_organization_memory(root=root)
     worker_indices = _globally_optimal_worker_indices(workers, lanes, preferences, memory_payload)
     if len(worker_indices) != len(lanes):
