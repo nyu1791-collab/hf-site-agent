@@ -1,0 +1,65 @@
+name: Verify media agent corps
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - config/media_agent_corps.json
+      - scripts/media_agent_router.py
+      - tests/test_media_agent_router.py
+      - .github/workflows/verify-media-agent-corps.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - config/media_agent_corps.json
+      - scripts/media_agent_router.py
+      - tests/test_media_agent_router.py
+      - .github/workflows/verify-media-agent-corps.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate media corps config
+        run: |
+          set -euo pipefail
+          python -m json.tool config/media_agent_corps.json >/dev/null
+          python -m py_compile scripts/media_agent_router.py
+          python scripts/media_agent_router.py --plan --connected-account youtube >/tmp/media-plan.json
+          python -m json.tool /tmp/media-plan.json >/dev/null
+
+      - name: Run media routing tests
+        run: python -m unittest tests.test_media_agent_router -v
+
+      - name: Verify hard publication boundary
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from scripts.media_agent_router import route_task
+          waiting = route_task("publish", platform="youtube", connected_accounts={"youtube"})
+          assert waiting["status"] == "AWAITING_HUMAN_APPROVAL"
+          assert waiting["publish_executed"] is False
+          blocked = route_task("publish", platform="x", connected_accounts={"youtube"}, human_publish_approval=True)
+          assert blocked["status"] == "BLOCKED"
+          assert blocked["stop_reason"] == "SOCIAL_ACCOUNT_NOT_CONNECTED"
+          PY
+
+      - name: Audit repository for secret literals
+        run: python scripts/audit_secret_safety.py --root .
