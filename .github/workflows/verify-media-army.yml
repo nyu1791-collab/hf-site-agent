@@ -1,0 +1,68 @@
+name: Verify media agent army
+
+on:
+  pull_request:
+    paths:
+      - config/media_agent_organization.json
+      - scripts/media_agent_runtime.py
+      - tests/test_media_agent_runtime.py
+      - docs/MEDIA_AGENT_ARMY.md
+      - .github/workflows/verify-media-army.yml
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - config/media_agent_organization.json
+      - scripts/media_agent_runtime.py
+      - tests/test_media_agent_runtime.py
+      - docs/MEDIA_AGENT_ARMY.md
+      - .github/workflows/verify-media-army.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Compile media runtime
+        run: python -m py_compile scripts/media_agent_runtime.py tests/test_media_agent_runtime.py
+
+      - name: Validate media config
+        run: python -m json.tool config/media_agent_organization.json >/dev/null
+
+      - name: Run media runtime tests
+        run: python -m unittest tests.test_media_agent_runtime -v
+
+      - name: Produce deterministic no-publish canary
+        run: |
+          set -euo pipefail
+          python scripts/media_agent_runtime.py \
+            --platform youtube \
+            --connected-platform youtube \
+            --free-gpu-worker \
+            --output artifacts/media_agent_plan.json
+          python -m json.tool artifacts/media_agent_plan.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = json.loads(Path('artifacts/media_agent_plan.json').read_text(encoding='utf-8'))
+          tasks = {row['task_id']: row for row in p['tasks']}
+          assert tasks['publish_youtube']['state'] == 'APPROVAL_REQUIRED'
+          assert p['direct_publish_executed'] is False
+          assert p['production_active'] is False
+          assert p['hard_boundaries']['generic_paid_fallback'] is False
+          assert p['hard_boundaries']['auto_top_up'] is False
+          PY

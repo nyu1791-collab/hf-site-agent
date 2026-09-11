@@ -1,0 +1,203 @@
+{
+  "schema_version": "media-agent-organization-v1",
+  "organization_name": "AI Army Media & Monetization Corps",
+  "mission": "Turn public signals and owned media into researched, edited, platform-ready content while preserving human approval for publishing and paid execution.",
+  "principles": {
+    "bind_roles_not_models": true,
+    "research_before_generation": true,
+    "evidence_before_trend_claim": true,
+    "reuse_one_source_into_multiple_platform_variants": true,
+    "deterministic_media_processing_before_paid_generation": true,
+    "analytics_close_the_feedback_loop": true,
+    "platform_specific_packaging_not_blind_cross_posting": true,
+    "copyright_and_synthetic_media_checks_before_publish": true,
+    "publish_requires_human_approval": true,
+    "external_models_never_receive_repository_write_credentials": true,
+    "generic_paid_fallback": false,
+    "auto_top_up": false
+  },
+  "hard_boundaries": {
+    "publish_requires_human_approval": true,
+    "payment_requires_human_approval": true,
+    "new_paid_provider_requires_human_approval": true,
+    "secret_mutation_requires_human_approval": true,
+    "copyright_unknown_blocks_publish": true,
+    "synthetic_media_disclosure_must_be_preserved": true,
+    "platform_credentials_stay_in_connector_or_secret_store": true,
+    "external_ai_direct_repository_write": false,
+    "generic_paid_fallback": false,
+    "auto_top_up": false
+  },
+  "roles": {
+    "SOCIAL_INTELLIGENCE_AGENT": {
+      "mission": "Collect public trend, competitor, audience and topic evidence without inventing engagement data.",
+      "default_risk": "LOW",
+      "preferred_capabilities": ["web_research", "long_context", "summarization", "trend_analysis"],
+      "sources": ["PUBLIC_WEB_SEARCH", "TAVILY", "X_API_OPTIONAL", "YOUTUBE_DATA_OPTIONAL", "INSTAGRAM_PROFESSIONAL_OPTIONAL"]
+    },
+    "CONTENT_STRATEGIST": {
+      "mission": "Turn evidence into platform-specific content hypotheses, series concepts and measurable experiments.",
+      "default_risk": "MEDIUM",
+      "preferred_capabilities": ["reasoning", "planning", "audience_strategy", "json"]
+    },
+    "SCRIPT_AGENT": {
+      "mission": "Create concise scripts, hooks, shot lists, CTAs and platform variants from approved research context.",
+      "default_risk": "LOW",
+      "preferred_capabilities": ["writing", "reasoning", "fast", "json"]
+    },
+    "TRANSCRIPTION_AGENT": {
+      "mission": "Transcribe owned or authorized audio/video with timestamps and preserve source provenance.",
+      "default_risk": "LOW",
+      "preferred_capabilities": ["speech_to_text", "timestamps", "multilingual"],
+      "route_order": ["FREE_GPU_WHISPER", "GROQ_WHISPER_FREE_QUOTA", "DESCRIPT_CONNECTOR", "GROQ_WHISPER_LOW_COST_APPROVED"]
+    },
+    "CLIP_EDITOR_AGENT": {
+      "mission": "Produce edit decisions, highlight windows, pacing changes, aspect-ratio variants and deterministic render instructions.",
+      "default_risk": "MEDIUM",
+      "preferred_capabilities": ["video_understanding", "editing", "multimodal", "json"],
+      "route_order": ["FFMPEG_DETERMINISTIC", "DESCRIPT_CONNECTOR", "FAL_CONNECTOR", "RUNWAY_CONNECTOR_APPROVED"]
+    },
+    "CAPTION_LOCALIZATION_AGENT": {
+      "mission": "Generate readable captions, subtitle files, translations and platform-specific on-screen text while preserving meaning.",
+      "default_risk": "LOW",
+      "preferred_capabilities": ["translation", "summarization", "timed_text", "json"]
+    },
+    "THUMBNAIL_CREATIVE_AGENT": {
+      "mission": "Generate or specify thumbnails, covers and visual variants optimized for truthful click-through rather than misleading clickbait.",
+      "default_risk": "MEDIUM",
+      "preferred_capabilities": ["image_generation", "multimodal", "creative_direction"],
+      "route_order": ["CHATGPT_IMAGE", "FAL_CONNECTOR", "RUNWAY_CONNECTOR_APPROVED"]
+    },
+    "RIGHTS_SAFETY_AGENT": {
+      "mission": "Check provenance, music/media rights, privacy, brand risk and synthetic-media disclosure requirements before publishing.",
+      "default_risk": "HIGH",
+      "preferred_capabilities": ["review", "policy", "reasoning", "json"]
+    },
+    "PUBLISHING_AGENT": {
+      "mission": "Package approved media and metadata for platform connectors; never publish without explicit human approval.",
+      "default_risk": "CRITICAL",
+      "preferred_capabilities": ["tool_use", "json", "platform_metadata"],
+      "preferred_connector": "POST_BRIDGE",
+      "platforms": ["youtube", "twitter", "instagram"]
+    },
+    "ANALYTICS_AGENT": {
+      "mission": "Read owned-post analytics, normalize metrics and identify measured performance changes without fabricating causality.",
+      "default_risk": "LOW",
+      "preferred_capabilities": ["analytics", "statistics", "json"],
+      "sources": ["POST_BRIDGE_ANALYTICS", "YOUTUBE_ANALYTICS_OPTIONAL", "INSTAGRAM_INSIGHTS_OPTIONAL", "X_ANALYTICS_OPTIONAL"]
+    },
+    "MONETIZATION_AGENT": {
+      "mission": "Optimize content portfolio for sustainable revenue using measured retention, CTR, conversion and revenue evidence while respecting platform rules.",
+      "default_risk": "HIGH",
+      "preferred_capabilities": ["strategy", "reasoning", "analytics", "forecasting"]
+    }
+  },
+  "connectors": {
+    "POST_BRIDGE": {
+      "execution_surface": "CHATGPT_CONNECTOR",
+      "capabilities": ["youtube_publish", "twitter_publish", "instagram_publish", "youtube_analytics", "instagram_analytics"],
+      "credentials_in_repository": false,
+      "publish_requires_human_approval": true,
+      "connection_checked_at_execution": true
+    },
+    "PUBLIC_WEB_SEARCH": {
+      "execution_surface": "CHATGPT_WEB",
+      "capabilities": ["public_research", "news", "public_platform_pages"],
+      "paid": false
+    },
+    "TAVILY": {
+      "execution_surface": "CHATGPT_CONNECTOR",
+      "capabilities": ["web_search", "extract", "crawl"],
+      "paid_activation": "ACCOUNT_POLICY_DEPENDENT"
+    },
+    "X_API_OPTIONAL": {
+      "capabilities": ["recent_search", "post_create", "trend_read"],
+      "activation": "DISABLED_UNTIL_CREDIT_AND_COST_APPROVAL",
+      "pricing_model": "PAY_PER_USE",
+      "generic_paid_fallback": false
+    },
+    "YOUTUBE_DATA_OPTIONAL": {
+      "capabilities": ["search", "metadata", "upload"],
+      "activation": "QUOTA_SAFE_ONLY",
+      "publishing_preference": "POST_BRIDGE_WHEN_CONNECTED"
+    },
+    "INSTAGRAM_PROFESSIONAL_OPTIONAL": {
+      "capabilities": ["professional_account_publish", "insights", "comments", "mentions"],
+      "activation": "CONNECTED_PROFESSIONAL_ACCOUNT_ONLY",
+      "consumer_account_scraping": false
+    },
+    "DESCRIPT_CONNECTOR": {
+      "capabilities": ["transcription", "filler_removal", "studio_sound", "captions", "highlight_clips", "translation", "video_editing"],
+      "activation": "PLUGIN_CONNECTION_REQUIRED"
+    },
+    "FAL_CONNECTOR": {
+      "capabilities": ["video_generation", "video_editing", "audio", "image_generation"],
+      "activation": "PLUGIN_CONNECTION_AND_COST_POLICY_REQUIRED"
+    },
+    "RUNWAY_CONNECTOR_APPROVED": {
+      "capabilities": ["video_generation", "video_editing", "background_removal", "upscale", "multi_shot"],
+      "activation": "PLUGIN_CONNECTION_AND_EXPLICIT_PAID_APPROVAL_REQUIRED"
+    },
+    "FREE_GPU_WHISPER": {
+      "model": "openai/whisper-large-v3-turbo",
+      "execution_surface": "HF_SPACE_COLAB_OR_KAGGLE",
+      "capabilities": ["speech_to_text", "multilingual"],
+      "activation": "FREE_RUNTIME_AVAILABLE"
+    },
+    "GROQ_WHISPER_FREE_QUOTA": {
+      "model": "whisper-large-v3-turbo",
+      "capabilities": ["speech_to_text", "timestamps", "multilingual"],
+      "activation": "FREE_QUOTA_VERIFIED"
+    },
+    "GROQ_WHISPER_LOW_COST_APPROVED": {
+      "model": "whisper-large-v3-turbo",
+      "capabilities": ["speech_to_text", "timestamps", "multilingual"],
+      "activation": "EXPLICIT_LOW_COST_BUDGET_APPROVAL"
+    },
+    "FFMPEG_DETERMINISTIC": {
+      "capabilities": ["trim", "concat", "crop", "resize", "burn_captions", "audio_normalize", "thumbnail_frame"],
+      "activation": "LOCAL_OR_RUNNER_TOOL_AVAILABLE",
+      "paid": false
+    }
+  },
+  "upper_agent_policy": {
+    "nvidia": {
+      "use_for": ["media_architecture_review", "cross_agent_conflict_resolution", "final_high_risk_review"],
+      "bulk_content_generation": false
+    },
+    "deepseek": {
+      "use_for": ["complex_media_pipeline_engineering", "difficult_debugging", "architecture_audit"],
+      "bulk_content_generation": false,
+      "explicit_paid_specialist_only": true
+    },
+    "free_replaceable_workers": {
+      "use_for": ["research_summarization", "script_variants", "caption_cleanup", "metadata_variants", "classification", "analytics_triage"],
+      "benchmark_before_promotion": true
+    }
+  },
+  "pipeline": [
+    "SOCIAL_INTELLIGENCE_AGENT",
+    "CONTENT_STRATEGIST",
+    "SCRIPT_AGENT",
+    "TRANSCRIPTION_AGENT",
+    "CLIP_EDITOR_AGENT",
+    "CAPTION_LOCALIZATION_AGENT",
+    "THUMBNAIL_CREATIVE_AGENT",
+    "RIGHTS_SAFETY_AGENT",
+    "PUBLISHING_AGENT",
+    "ANALYTICS_AGENT",
+    "MONETIZATION_AGENT"
+  ],
+  "monetization_metrics": [
+    "first_3_second_retention",
+    "average_percentage_viewed",
+    "completion_rate",
+    "thumbnail_ctr",
+    "views_per_impression",
+    "returning_viewer_rate",
+    "subscriber_or_follower_conversion",
+    "link_or_offer_conversion",
+    "revenue_per_thousand_views_when_available",
+    "content_cost_per_published_asset"
+  ]
+}
