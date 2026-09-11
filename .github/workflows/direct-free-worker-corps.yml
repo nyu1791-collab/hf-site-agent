@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Compile and test direct free corps and low-latency organization
+      - name: Compile and test direct free corps and independent-agent organization
         run: |
           set -euo pipefail
           python -m py_compile \
@@ -42,6 +42,9 @@ jobs:
             scripts/replaceable_agent_scheduler.py \
             scripts/low_latency_agent_fabric.py \
             scripts/replaceable_agent_scheduler_v2.py \
+            scripts/independent_agent_runtime.py \
+            scripts/independent_agent_scheduler.py \
+            scripts/independent_agent_scheduler_probe.py \
             scripts/low_latency_scheduler_probe.py \
             scripts/reconcile_agent_organization.py
           python -m json.tool config/direct_free_worker_corps.json >/dev/null
@@ -53,6 +56,7 @@ jobs:
             tests.test_replaceable_agent_scheduler \
             tests.test_low_latency_agent_fabric \
             tests.test_replaceable_agent_scheduler_v2 \
+            tests.test_independent_agent_scheduler \
             tests.test_reconcile_agent_organization \
             tests.test_reconcile_agent_cli -v
 
@@ -77,12 +81,19 @@ jobs:
           python scripts/low_latency_scheduler_probe.py
           --output artifacts/low_latency_scheduler_probe.json
 
+      - name: Run independent role-agent mission probe
+        run: >-
+          python scripts/independent_agent_scheduler_probe.py
+          --organization artifacts/replaceable_agent_organization.json
+          --output artifacts/independent_agent_scheduler_probe.json
+
       - name: Validate free corps and organization artifacts
         run: |
           set -euo pipefail
           python -m json.tool artifacts/direct_free_worker_corps.json >/dev/null
           python -m json.tool artifacts/replaceable_agent_organization.json >/dev/null
           python -m json.tool artifacts/low_latency_scheduler_probe.json >/dev/null
+          python -m json.tool artifacts/independent_agent_scheduler_probe.json >/dev/null
           python scripts/audit_secret_safety.py --root .
           python - <<'PY'
           import json
@@ -90,6 +101,7 @@ jobs:
           report = json.loads(Path("artifacts/direct_free_worker_corps.json").read_text(encoding="utf-8"))
           organization = json.loads(Path("artifacts/replaceable_agent_organization.json").read_text(encoding="utf-8"))
           latency = json.loads(Path("artifacts/low_latency_scheduler_probe.json").read_text(encoding="utf-8"))
+          agents = json.loads(Path("artifacts/independent_agent_scheduler_probe.json").read_text(encoding="utf-8"))
           assert report.get("schema_version") == "direct-free-worker-corps-report-v2"
           assert report.get("paid_fallback") is False
           assert report.get("provider_automatic_fallback") is False
@@ -112,6 +124,18 @@ jobs:
           assert latency.get("communication", {}).get("direct_dependency_push") is True
           assert latency.get("generic_paid_fallback") is False
           assert latency.get("external_model_repository_write") is False
+          assert agents.get("schema_version") == "independent-agent-scheduler-report-v1"
+          assert agents.get("scheduler_mode") == "INDEPENDENT_ROLE_AGENTS_EVENT_DRIVEN_DIRECT_HANDOFF"
+          assert agents.get("independent_agents") is True
+          assert agents.get("completed_task_count") == 7
+          assert agents.get("generated_task_count") == 4
+          assert agents.get("independent_agent_count", 0) >= 7
+          assert agents.get("ordinary_local_decisions_require_commander_roundtrip") is False
+          assert agents.get("probe", {}).get("code_revised_locally_without_commander_roundtrip") is True
+          assert agents.get("probe", {}).get("qa_received_code_handoff") is True
+          assert agents.get("probe", {}).get("synth_received_qa_handoff") is True
+          assert agents.get("external_model_repository_write") is False
+          assert agents.get("generic_paid_fallback") is False
           print(json.dumps({
               "status": report.get("status"),
               "model_calls": report.get("model_calls", 0),
@@ -132,10 +156,15 @@ jobs:
               "handoff_count": latency.get("communication", {}).get("handoff_count", 0),
               "avg_dependency_release_ms": latency.get("communication", {}).get("avg_dependency_release_ms"),
               "max_ready_queue_delay_ms": latency.get("communication", {}).get("max_ready_queue_delay_ms"),
+              "independent_agent_count": agents.get("independent_agent_count", 0),
+              "agent_generated_tasks": agents.get("generated_task_count", 0),
+              "local_revision_without_commander": agents.get("probe", {}).get("code_revised_locally_without_commander_roundtrip"),
+              "qa_direct_handoff": agents.get("probe", {}).get("qa_received_code_handoff"),
+              "reconciled_agent_bodies": agents.get("probe", {}).get("reconciled_binding_count", 0),
           }, sort_keys=True))
           PY
 
-      - name: Upload direct free corps and low-latency organization evidence
+      - name: Upload direct free corps and independent-agent organization evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@v6
         with:
@@ -144,5 +173,6 @@ jobs:
             artifacts/direct_free_worker_corps.json
             artifacts/replaceable_agent_organization.json
             artifacts/low_latency_scheduler_probe.json
+            artifacts/independent_agent_scheduler_probe.json
           if-no-files-found: warn
           retention-days: 7
