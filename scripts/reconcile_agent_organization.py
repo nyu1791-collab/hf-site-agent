@@ -17,7 +17,11 @@ import argparse
 from collections import defaultdict
 import json
 from pathlib import Path
+import sys
 from typing import Any, Mapping, Sequence
+
+if __package__ in {None, ""}:  # pragma: no cover - direct workflow entrypoint
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.global_agent_role_optimizer import optimize_agent_slots
 from scripts.replaceable_agent_organization import (
