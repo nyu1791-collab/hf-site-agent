@@ -1,5 +1,5 @@
-trigger=direct-free-worker-corps-v1
-purpose=measure-zai-and-siliconflow-official-free-workers-for-json-coding-fast-routing
+trigger=direct-free-worker-corps-v2
+purpose=retain-artifact-and-diagnose-zai-siliconflow-free-worker-routing
 network=true
 max_model_calls=15
 provider_fallback=false
