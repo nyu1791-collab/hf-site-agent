@@ -1,6 +1,7 @@
 import unittest
 
 from scripts.reconcile_agent_organization import (
+    candidates_from_direct_reports,
     candidates_from_openrouter_reports,
     merge_candidates,
     reconcile,
@@ -91,6 +92,33 @@ class ReconcileAgentOrganizationTests(unittest.TestCase):
         self.assertEqual(report["new_model_path"], "PROBE_BENCHMARK_SHADOW_CANARY_REPLACE")
         self.assertEqual(report["assignments"]["CODE_EXECUTOR"]["model"], "glm-stable")
         self.assertEqual(report["assignments"]["QA_VALIDATOR"]["model"], "reviewer:free")
+
+    def test_direct_free_route_truth_is_separate_from_global_quality_gate(self):
+        direct = {
+            "provider_status": {"zai": {"free_verified": True}},
+            "rankings": [{
+                "provider": "zai",
+                "model": "glm-role-specialist",
+                "free_admitted": False,
+                "task_count": 3,
+                "task_success_count": 3,
+                "weighted_quality_score": 0.62,
+                "average_latency_ms": 38000,
+                "task_scores": {"JSON": 1.0, "CODING": 0.6, "FAST": 0.0},
+            }],
+            "results": [],
+        }
+        candidates = candidates_from_direct_reports(direct)
+        self.assertEqual(len(candidates), 1)
+        self.assertTrue(candidates[0]["free_verified"])
+        self.assertFalse(candidates[0]["quality_admitted"])
+
+        report = reconcile(config=self.config, direct_free_report=direct)
+        self.assertEqual(report["direct_free_route_verified_candidate_count"], 1)
+        self.assertEqual(report["direct_global_quality_admitted_count"], 0)
+        self.assertEqual(report["assignments"]["CODE_EXECUTOR"]["status"], "ASSIGNED")
+        self.assertEqual(report["assignments"]["CODE_EXECUTOR"]["model"], "glm-role-specialist")
+        self.assertEqual(report["assignments"]["FAST_OPERATOR"]["status"], "UNFILLED")
 
     def test_new_better_model_replaces_incumbent_after_evidence_margin(self):
         direct = {
