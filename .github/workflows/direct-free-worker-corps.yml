@@ -1,0 +1,78 @@
+name: "AI army direct free worker corps"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/direct-free-worker-corps-trigger.txt
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: direct-free-worker-corps-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  direct-free-corps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact triggering source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Compile and test direct free corps
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/direct_free_worker_corps.py
+          python -m json.tool config/direct_free_worker_corps.json >/dev/null
+          python -m unittest tests.test_direct_free_worker_corps -v
+
+      - name: Run bounded ZAI and SiliconFlow free benchmark
+        env:
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
+        run: >-
+          python scripts/direct_free_worker_corps.py
+          --network
+          --confirm DIRECT_FREE_WORKER_TRIAL
+          --output artifacts/direct_free_worker_corps.json
+
+      - name: Validate free corps artifact and repository secret hygiene
+        run: |
+          set -euo pipefail
+          python -m json.tool artifacts/direct_free_worker_corps.json >/dev/null
+          python scripts/audit_secret_safety.py --root .
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/direct_free_worker_corps.json").read_text(encoding="utf-8"))
+          assert report.get("paid_fallback") is False
+          assert report.get("provider_automatic_fallback") is False
+          assert report.get("production_routing_changed") is False
+          assert int(report.get("model_calls", 0)) <= 15
+          print(json.dumps({
+              "status": report.get("status"),
+              "model_calls": report.get("model_calls", 0),
+              "successful_model_calls": report.get("successful_model_calls", 0),
+              "free_candidate_count": report.get("free_candidate_count", 0),
+              "provider_status": {key: value.get("status") for key, value in report.get("provider_status", {}).items()},
+          }, sort_keys=True))
+          PY
+
+      - name: Upload direct free corps evidence
+        uses: actions/upload-artifact@v6
+        with:
+          name: direct-free-worker-corps-${{ github.run_id }}
+          path: artifacts/direct_free_worker_corps.json
+          retention-days: 7
