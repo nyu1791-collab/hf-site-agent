@@ -34,16 +34,16 @@ jobs:
       - name: Compile and test direct free corps
         run: |
           set -euo pipefail
-          python -m py_compile scripts/direct_free_worker_corps.py
+          python -m py_compile scripts/direct_free_worker_corps.py scripts/direct_free_worker_corps_v2.py
           python -m json.tool config/direct_free_worker_corps.json >/dev/null
-          python -m unittest tests.test_direct_free_worker_corps -v
+          python -m unittest tests.test_direct_free_worker_corps tests.test_direct_free_worker_corps_v2 -v
 
       - name: Run bounded ZAI and SiliconFlow free benchmark
         env:
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
         run: >-
-          python scripts/direct_free_worker_corps.py
+          python scripts/direct_free_worker_corps_v2.py
           --network
           --confirm DIRECT_FREE_WORKER_TRIAL
           --output artifacts/direct_free_worker_corps.json
@@ -57,6 +57,7 @@ jobs:
           import json
           from pathlib import Path
           report = json.loads(Path("artifacts/direct_free_worker_corps.json").read_text(encoding="utf-8"))
+          assert report.get("schema_version") == "direct-free-worker-corps-report-v2"
           assert report.get("paid_fallback") is False
           assert report.get("provider_automatic_fallback") is False
           assert report.get("production_routing_changed") is False
@@ -65,6 +66,7 @@ jobs:
               "status": report.get("status"),
               "model_calls": report.get("model_calls", 0),
               "successful_model_calls": report.get("successful_model_calls", 0),
+              "rate_limited_model_calls": report.get("rate_limited_model_calls", 0),
               "free_candidate_count": report.get("free_candidate_count", 0),
               "provider_status": {key: value.get("status") for key, value in report.get("provider_status", {}).items()},
           }, sort_keys=True))
