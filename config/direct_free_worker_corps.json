@@ -29,6 +29,7 @@
       ],
       "max_models_to_benchmark": 2,
       "max_calls": 6,
+      "per_model_parallel_limit": 1,
       "thinking": {
         "JSON": false,
         "FAST": false,
@@ -54,9 +55,11 @@
       ],
       "max_models_to_benchmark": 3,
       "max_calls": 9,
+      "per_model_parallel_limit": 1,
       "balance_endpoint": "/user/info",
-      "require_non_decreasing_total_balance_for_free_verification": true,
-      "free_evidence": "OFFICIAL_FREE_ALLOWLIST_PLUS_LIVE_BALANCE_DELTA"
+      "balance_observation_required": false,
+      "require_non_decreasing_total_balance_for_free_verification": false,
+      "free_evidence": "OFFICIAL_FREE_ALLOWLIST_PLUS_LIVE_CATALOG"
     }
   },
   "benchmark": {
