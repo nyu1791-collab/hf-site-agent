@@ -72,7 +72,24 @@ def run_probe(organization_source: Mapping[str, Any] | None = None) -> dict[str,
         "code_revised_locally": False,
         "agent_identity_seen": set(),
         "peer_delta_seen": False,
+        "mission_priority_delta_seen": False,
     }
+
+    # Publish one real high-priority organization decision before role agents
+    # start. This proves that independently created agent sessions can consume
+    # mission-level peer deltas without a commander round-trip. It is local and
+    # deterministic; no provider request is involved.
+    mission_priority_event = scheduler.fabric.publish(
+        kind="DECISION",
+        subject="MISSION_CRITICAL_PATH",
+        source="operations-control-plane",
+        priority="HIGH",
+        payload={
+            "critical_path": "operations-plan>engineering-design>code-implementation>qa-validation>result-synthesis",
+            "ordinary_role_decisions_stay_local": True,
+        },
+        dedupe_key="probe:mission-critical-path:v1",
+    )
 
     tasks = (
         AgentTask(
@@ -106,8 +123,11 @@ def run_probe(organization_source: Mapping[str, Any] | None = None) -> dict[str,
         agent_id = str(identity.get("agent_id") or "")
         if agent_id:
             observations["agent_identity_seen"].add(agent_id)
-        if session.get("peer_deltas"):
+        peer_deltas = session.get("peer_deltas") if isinstance(session.get("peer_deltas"), list) else []
+        if peer_deltas:
             observations["peer_delta_seen"] = True
+        if any(int(row.get("seq") or 0) == mission_priority_event.seq for row in peer_deltas if isinstance(row, Mapping)):
+            observations["mission_priority_delta_seen"] = True
         handoff = session.get("direct_dependency_handoff") if isinstance(session.get("direct_dependency_handoff"), Mapping) else {}
         dependencies = handoff.get("dependencies") if isinstance(handoff.get("dependencies"), Mapping) else {}
 
@@ -199,6 +219,8 @@ def run_probe(organization_source: Mapping[str, Any] | None = None) -> dict[str,
         "qa_received_code_handoff": observations["qa_received_code_handoff"],
         "synth_received_qa_handoff": observations["synth_received_qa_handoff"],
         "peer_delta_seen": observations["peer_delta_seen"],
+        "mission_priority_delta_seen": observations["mission_priority_delta_seen"],
+        "mission_priority_event_seq": mission_priority_event.seq,
         "provider_calls": 0,
     }
     return report
@@ -226,6 +248,7 @@ def main() -> int:
         "reconciled_binding_count": report.get("probe", {}).get("reconciled_binding_count", 0),
         "local_revision": report.get("probe", {}).get("code_revised_locally_without_commander_roundtrip"),
         "direct_qa_handoff": report.get("probe", {}).get("qa_received_code_handoff"),
+        "peer_delta_seen": report.get("probe", {}).get("peer_delta_seen"),
     }, sort_keys=True))
     return 0
 
