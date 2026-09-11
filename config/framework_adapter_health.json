@@ -21,7 +21,13 @@
     "circuit_open_blocks_execution": true,
     "auto_reenable_after_cooldown": false
   },
-  "adapter_ids": ["LANGGRAPH", "AUTOGEN", "CREWAI", "GITHUB_COPILOT"],
+  "adapter_ids": [
+    "LANGGRAPH",
+    "MICROSOFT_AGENT_FRAMEWORK",
+    "AUTOGEN",
+    "CREWAI",
+    "GITHUB_COPILOT"
+  ],
   "required_observation_fields": [
     "timestamp_epoch",
     "success",
