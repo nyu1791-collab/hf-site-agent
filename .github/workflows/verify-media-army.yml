@@ -46,12 +46,15 @@ jobs:
       - name: Run media runtime tests
         run: python -m unittest tests.test_media_agent_runtime -v
 
-      - name: Produce deterministic no-publish canary
+      - name: Produce deterministic no-publish connector canary
         run: |
           set -euo pipefail
           python scripts/media_agent_runtime.py \
             --platform youtube \
             --connected-platform youtube \
+            --plugin descript \
+            --plugin fal \
+            --plugin runway \
             --free-gpu-worker \
             --output artifacts/media_agent_plan.json
           python -m json.tool artifacts/media_agent_plan.json >/dev/null
@@ -60,9 +63,19 @@ jobs:
           from pathlib import Path
           p = json.loads(Path('artifacts/media_agent_plan.json').read_text(encoding='utf-8'))
           tasks = {row['task_id']: row for row in p['tasks']}
+          plugins = p['connector_state']['plugin_state']
+          assert plugins['descript'] is True
+          assert plugins['fal'] is True
+          assert plugins['runway'] is True
+          assert p['connector_state']['creative_generation']['fal'] is False
+          assert p['connector_state']['creative_generation']['runway'] is False
+          assert p['connector_state']['video_editing']['fal'] is False
+          assert p['connector_state']['video_editing']['runway'] is False
+          assert p['selected_routes']['generation'] == 'NOT_REQUIRED'
           assert tasks['publish_youtube']['state'] == 'APPROVAL_REQUIRED'
           assert p['direct_publish_executed'] is False
           assert p['production_active'] is False
+          assert p['hard_boundaries']['installed_plugin_implies_paid_execution_approval'] is False
           assert p['hard_boundaries']['generic_paid_fallback'] is False
           assert p['hard_boundaries']['auto_top_up'] is False
           PY
