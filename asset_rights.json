@@ -8,6 +8,16 @@
     "source_url_required": true,
     "human_publish_approval_required": true,
     "paid_stock_fallback": false,
-    "auto_purchase": false
+    "auto_purchase": false,
+    "allowed_licenses": [
+      "CC0-1.0",
+      "CC-BY-2.0",
+      "CC-BY-3.0",
+      "CC-BY-4.0",
+      "CC-BY-SA-3.0",
+      "CC-BY-SA-4.0",
+      "PUBLIC_DOMAIN"
+    ],
+    "custom_license_requires_explicit_policy_approval": true
   }
 }
