@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 from scripts.asset_rights_ledger import AssetRightsError, load_ledger, publish_rights_gate, register_asset
-from scripts.ffmpeg_renderer import build_render_plan, render
+from scripts.ffmpeg_renderer import FFmpegRenderError, build_render_plan, render
 from scripts.media_pipeline import PIPELINE, build_media_gate, export_voice_handoff, validate_stage_order
 
 
@@ -36,9 +36,32 @@ class MediaPipelineSafetyTests(unittest.TestCase):
         with self.assertRaises(AssetRightsError):
             register_asset(ledger, bad)
 
+    def test_arbitrary_unapproved_license_string_is_blocked(self):
+        ledger = load_ledger()
+        bad = self.good_asset()
+        bad["license"] = "CUSTOM-PERMISSIVE-TRUST-ME"
+        with self.assertRaisesRegex(AssetRightsError, "license_not_allowlisted"):
+            register_asset(ledger, bad)
+
+    def test_naive_rights_verification_timestamp_is_blocked(self):
+        ledger = load_ledger()
+        bad = self.good_asset()
+        bad["verified_at"] = "2026-09-11T12:00:00"
+        with self.assertRaisesRegex(AssetRightsError, "verified_at_required"):
+            register_asset(ledger, bad)
+
     def test_duplicate_asset_reuses_existing_ledger_entry(self):
         ledger = register_asset(load_ledger(), self.good_asset())
         again = register_asset(ledger, self.good_asset())
+        self.assertEqual(len(again["assets"]), 1)
+        self.assertTrue(again["last_registration"]["reused"])
+
+    def test_duplicate_source_url_reuses_even_with_different_asset_id(self):
+        ledger = register_asset(load_ledger(), self.good_asset())
+        duplicate = self.good_asset()
+        duplicate["asset_id"] = "different-id"
+        duplicate["source_url"] += "#ignored-fragment"
+        again = register_asset(ledger, duplicate)
         self.assertEqual(len(again["assets"]), 1)
         self.assertTrue(again["last_registration"]["reused"])
 
@@ -86,19 +109,49 @@ class MediaPipelineSafetyTests(unittest.TestCase):
             self.assertFalse(timeline["generated_video_used"])
             self.assertFalse(timeline["publish_authority"])
 
-    def test_ffmpeg_plan_is_local_dry_run_and_has_no_publish_authority(self):
+    def test_ffmpeg_plan_supports_crossfade_bgm_and_sfx_without_publish_authority(self):
         plan = build_render_plan(
-            images=["asset1.jpg", "asset2.jpg"],
+            images=["asset1.jpg", "asset2.jpg", "asset3.jpg"],
             audio_path="voice.wav",
             subtitle_path="subtitle.srt",
             output_path="short.mp4",
+            crossfade_seconds=0.35,
+            bgm_path="bgm.wav",
+            bgm_volume=0.08,
+            sfx=[{"path": "hit.wav", "start_seconds": 1.2, "volume": 0.7}],
         )
+        self.assertEqual(plan["schema_version"], "ffmpeg-render-plan-v2")
         self.assertFalse(plan["network_required"])
         self.assertFalse(plan["generated_video_ai_used"])
         self.assertFalse(plan["publish_authority"])
+        self.assertIn("crossfade", plan["transformations"])
+        self.assertIn("bgm_mix", plan["transformations"])
+        self.assertIn("sfx_mix", plan["transformations"])
+        command = " ".join(plan["command"])
+        self.assertIn("xfade=", command)
+        self.assertIn("amix=", command)
+        self.assertIn("adelay=", command)
         result = render(plan, execute=False)
         self.assertEqual(result["status"], "DRY_RUN")
         self.assertFalse(result["publish_executed"])
+
+    def test_ffmpeg_rejects_unbounded_or_invalid_media_parameters(self):
+        with self.assertRaises(FFmpegRenderError):
+            build_render_plan(
+                images=["asset.jpg"],
+                audio_path="voice.wav",
+                subtitle_path="subtitle.srt",
+                output_path="short.mp4",
+                seconds_per_image=0.1,
+            )
+        with self.assertRaises(FFmpegRenderError):
+            build_render_plan(
+                images=["asset.jpg"],
+                audio_path="voice.wav",
+                subtitle_path="subtitle.srt",
+                output_path="short.mp4",
+                sfx=[{"path": f"{i}.wav"} for i in range(17)],
+            )
 
 
 if __name__ == "__main__":
