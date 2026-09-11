@@ -62,6 +62,7 @@ jobs:
       - name: Run one explicitly approved DeepSeek V4.1 Flash review
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          LANE: ${{ matrix.lane }}
         run: |
           set -euo pipefail
           python scripts/deepseek_targeted_review.py \
@@ -96,9 +97,6 @@ jobs:
               "quality": report.get("average_quality_score", 0),
           }, sort_keys=True))
           PY
-        env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          LANE: ${{ matrix.lane }}
 
       - name: Upload redacted review evidence
         if: always()
