@@ -16,6 +16,12 @@ SCHEMA_VERSION = "framework-outcome-memory-v1"
 MAX_RECORDS = 1200
 MAX_RECORDS_PER_KEY = 40
 SENSITIVE_FRAGMENTS = ("secret", "token", "password", "authorization", "api_key", "credential", "prompt", "output", "content")
+TRUSTED_CONTROL_KEYS = {
+    "raw_private_content_persisted",
+    "secrets_persisted",
+    "automatic_paid_execution",
+    "automatic_production_promotion",
+}
 
 
 class FrameworkOutcomeMemoryError(ValueError):
@@ -37,7 +43,7 @@ def _assert_no_sensitive_keys(value: Any, path: str = "root") -> None:
     if isinstance(value, Mapping):
         for key, item in value.items():
             name = str(key).lower()
-            if any(fragment in name for fragment in SENSITIVE_FRAGMENTS):
+            if name not in TRUSTED_CONTROL_KEYS and any(fragment in name for fragment in SENSITIVE_FRAGMENTS):
                 raise FrameworkOutcomeMemoryError(f"sensitive/raw field forbidden: {path}.{key}")
             _assert_no_sensitive_keys(item, f"{path}.{key}")
     elif isinstance(value, list):
@@ -103,12 +109,7 @@ def validate_memory(memory: Mapping[str, Any]) -> None:
         raise FrameworkOutcomeMemoryError("invalid framework outcome memory")
     if len(memory["records"]) > MAX_RECORDS:
         raise FrameworkOutcomeMemoryError("framework outcome memory exceeds maximum records")
-    for key in (
-        "raw_private_content_persisted",
-        "secrets_persisted",
-        "automatic_paid_execution",
-        "automatic_production_promotion",
-    ):
+    for key in TRUSTED_CONTROL_KEYS:
         if memory.get(key) is not False:
             raise FrameworkOutcomeMemoryError(f"unsafe framework outcome memory flag: {key}")
     _assert_no_sensitive_keys(memory)
@@ -129,7 +130,7 @@ def validate_memory(memory: Mapping[str, Any]) -> None:
 
 def record_outcome(memory: Mapping[str, Any] | None, value: Mapping[str, Any]) -> dict[str, Any]:
     prior = deepcopy(dict(memory or empty_memory()))
-    validate_memory(prior)
+    validate_memory({key: item for key, item in prior.items() if key != "last_record"})
     row = normalize_record(value)
     existing = [normalize_record(item) for item in prior["records"] if isinstance(item, Mapping)]
     if any(item["key"] == row["key"] and item["observation_id"] == row["observation_id"] for item in existing):
@@ -148,12 +149,12 @@ def record_outcome(memory: Mapping[str, Any] | None, value: Mapping[str, Any]) -
     prior["secrets_persisted"] = False
     prior["automatic_paid_execution"] = False
     prior["automatic_production_promotion"] = False
-    validate_memory({key: value for key, value in prior.items() if key != "last_record"})
+    validate_memory({key: item for key, item in prior.items() if key != "last_record"})
     return prior
 
 
 def aggregate(memory: Mapping[str, Any], *, provider: str, exact_model: str, framework: str, task_profile: str) -> dict[str, Any]:
-    validate_memory({key: value for key, value in memory.items() if key != "last_record"})
+    validate_memory({key: item for key, item in memory.items() if key != "last_record"})
     key = outcome_key(provider=provider, exact_model=exact_model, framework=framework, task_profile=task_profile)
     rows = [
         normalize_record(row)
