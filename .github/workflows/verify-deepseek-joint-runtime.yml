@@ -7,13 +7,17 @@ on:
     paths:
       - scripts/specialist_lane_router.py
       - scripts/failure_aware_specialist_retry.py
+      - scripts/organization_coordination.py
       - tests/test_deepseek_joint_runtime_improvements.py
+      - tests/test_deepseek_priority_circuit_dispatch.py
       - .github/workflows/verify-deepseek-joint-runtime.yml
   pull_request:
     paths:
       - scripts/specialist_lane_router.py
       - scripts/failure_aware_specialist_retry.py
+      - scripts/organization_coordination.py
       - tests/test_deepseek_joint_runtime_improvements.py
+      - tests/test_deepseek_priority_circuit_dispatch.py
       - .github/workflows/verify-deepseek-joint-runtime.yml
   workflow_dispatch:
 
@@ -44,10 +48,16 @@ jobs:
           python -m py_compile \
             scripts/specialist_lane_router.py \
             scripts/failure_aware_specialist_retry.py \
-            tests/test_deepseek_joint_runtime_improvements.py
+            scripts/organization_coordination.py \
+            tests/test_deepseek_joint_runtime_improvements.py \
+            tests/test_deepseek_priority_circuit_dispatch.py
 
       - name: Run DeepSeek joint regression tests
-        run: python -m unittest tests.test_deepseek_joint_runtime_improvements -v
+        run: |
+          python -m unittest \
+            tests.test_deepseek_joint_runtime_improvements \
+            tests.test_deepseek_priority_circuit_dispatch \
+            -v
 
       - name: Assert no paid fallback was introduced
         run: |
@@ -55,7 +65,9 @@ jobs:
           from pathlib import Path
           retry = Path('scripts/failure_aware_specialist_retry.py').read_text(encoding='utf-8')
           router = Path('scripts/specialist_lane_router.py').read_text(encoding='utf-8')
-          assert 'paid fallback remain' in retry.lower() or 'paid fallback' in retry.lower()
+          assert 'paid fallback' in retry.lower()
           assert 'generic_paid_fallback' not in router
+          assert 'WorkerCircuitBreaker' in retry
+          assert 'PriorityTaskQueue' in retry
           print('joint runtime guard ok')
           PY
