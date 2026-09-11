@@ -1,0 +1,5 @@
+trigger=nvidia-independent-organization-audit-v1
+purpose=independent-agent-architecture-review-with-live-free-specialist-council-and-bounded-self-heal
+paid_fallback=false
+provider_fallback=false
+production=false
