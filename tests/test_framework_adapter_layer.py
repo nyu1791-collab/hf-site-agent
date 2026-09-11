@@ -68,6 +68,7 @@ class FrameworkAdapterLayerTests(unittest.TestCase):
                     "framework_installed": True,
                     "runtime_present": True,
                     "model_route_free_verified": True,
+                    "framework_health_ready": True,
                     "paid": False,
                     "paid_fallback_enabled": False,
                 }
@@ -86,7 +87,19 @@ class FrameworkAdapterLayerTests(unittest.TestCase):
             binding={"provider": "free", "model": "native"},
             context={},
             native_handler=self.native_handler,
-            evidence={"AUTOGEN": {"framework_installed": True, "runtime_present": True, "model_route_free_verified": False}},
+            evidence={"AUTOGEN": {"framework_installed": True, "runtime_present": True, "model_route_free_verified": False, "framework_health_ready": True}},
+        )
+        self.assertEqual(result["status"], "COMPLETED")
+        self.assertEqual(result["output"]["framework_adapter"], "NATIVE_V4")
+
+    def test_unhealthy_external_framework_falls_back_to_native(self):
+        self.layer.register_executor("AUTOGEN", lambda envelope: {"status": "COMPLETED", "summary": "unexpected"})
+        result = self.layer.execute(
+            task=self.task(framework_preference=["AUTOGEN"]),
+            binding={"provider": "free", "model": "native"},
+            context={},
+            native_handler=self.native_handler,
+            evidence={"AUTOGEN": {"framework_installed": True, "runtime_present": True, "model_route_free_verified": True, "framework_health_ready": False}},
         )
         self.assertEqual(result["status"], "COMPLETED")
         self.assertEqual(result["output"]["framework_adapter"], "NATIVE_V4")
@@ -101,7 +114,7 @@ class FrameworkAdapterLayerTests(unittest.TestCase):
             binding={"provider": "free", "model": "native"},
             context={},
             native_handler=self.native_handler,
-            evidence={"CREWAI": {"framework_installed": True, "runtime_present": True, "model_route_free_verified": False}},
+            evidence={"CREWAI": {"framework_installed": True, "runtime_present": True, "model_route_free_verified": False, "framework_health_ready": True}},
         )
         self.assertEqual(result["status"], "BLOCKED")
         self.assertEqual(result["error_class"], "NO_VERIFIED_FRAMEWORK_ADAPTER")
@@ -115,6 +128,7 @@ class FrameworkAdapterLayerTests(unittest.TestCase):
                     "connector_present": True,
                     "runtime_present": True,
                     "model_route_free_verified": True,
+                    "framework_health_ready": True,
                     "billing_safe_verified": False,
                 }
             },
@@ -143,6 +157,7 @@ class FrameworkAdapterLayerTests(unittest.TestCase):
                     "framework_installed": True,
                     "runtime_present": True,
                     "model_route_free_verified": True,
+                    "framework_health_ready": True,
                 }
             },
         )
