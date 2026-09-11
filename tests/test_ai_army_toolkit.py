@@ -8,17 +8,23 @@ from scripts.framework_adapter_layer import load_config
 
 class AIArmyToolkitTests(unittest.TestCase):
     def test_newsroom_compiles_three_roots_plus_single_writer_join(self):
+        config = load_config()
         tasks = compile_team(
             mission_id="newsroom-smoke",
             mission_objective="make a short AI news video",
             lanes=newsroom_team("AI safety news"),
-            framework_config=load_config(),
+            framework_config=config,
         )
         self.assertEqual(len(tasks), 4)
         roots, join = tasks[:-1], tasks[-1]
         self.assertEqual(roots[0].metadata["framework_preference"], ["LANGGRAPH"])
         self.assertEqual(roots[1].metadata["framework_preference"], ["CREWAI"])
         self.assertEqual(roots[2].metadata["framework_preference"], ["AUTOGEN"])
+        for task in roots:
+            adapter_id = task.metadata["framework_preference"][0]
+            requested = set(task.metadata["framework_capabilities"])
+            available = set(config["adapters"][adapter_id]["capabilities"])
+            self.assertTrue(requested.issubset(available), (adapter_id, requested - available))
         self.assertEqual(set(join.depends_on), {task.task_id for task in roots})
         self.assertTrue(join.metadata["single_writer"])
 
@@ -49,7 +55,9 @@ class AIArmyToolkitTests(unittest.TestCase):
             framework_config=load_config(),
             copilot_explicitly_allowed=True,
         )
+        config = load_config()
         self.assertEqual(tasks[0].metadata["framework_preference"], ["GITHUB_COPILOT"])
+        self.assertTrue(set(tasks[0].metadata["framework_capabilities"]).issubset(set(config["adapters"]["GITHUB_COPILOT"]["capabilities"])))
         self.assertFalse(tasks[0].metadata["copilot_downgraded_to_native"])
         self.assertIn("Single Writer", tasks[-1].objective)
         self.assertIn("may not merge, deploy, publish", tasks[-1].objective)
