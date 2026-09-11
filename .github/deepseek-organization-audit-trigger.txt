@@ -1,0 +1,7 @@
+trigger=deepseek-organization-audit-v1
+purpose=review-current-independent-agent-organization-errors-latency-routing-autonomy-and-tests
+paid_deepseek_authorized=true
+max_paid_calls=1
+max_conservative_cost_usd=0.06
+generic_paid_fallback=false
+production=false
