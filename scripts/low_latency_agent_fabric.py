@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """Low-latency coordination fabric for the replaceable AI Army.
 
-The fabric is deliberately local and provider-agnostic.  It removes avoidable
+The fabric is deliberately local and provider-agnostic. It removes avoidable
 hierarchy hops by publishing compact causal deltas as soon as work changes
-state.  Consumers can read only new events instead of repeatedly rebuilding a
-full blackboard.  A short-lived exact-worker failure registry lets a 429/5xx or
+state. Consumers can read only new events instead of repeatedly rebuilding a
+full blackboard. A short-lived exact-worker failure registry lets a 429/5xx or
 transport failure inform later dispatch decisions immediately, so the same
 bad route is not hammered again before the organization has reacted.
+
+Failure quarantine remains short-lived, while bounded same-run history records
+cumulative failures and repeated quarantines. This separates fast recovery from
+observability: a worker may re-enter after cooldown, but repeated degradation is
+still visible to schedulers and feedback logic instead of disappearing.
 
 This module performs no network calls, repository writes, secret reads, paid
 fallbacks, deploys, or publishes.
@@ -49,6 +54,7 @@ TRANSIENT_FAILURE_TTLS = {
     "TIMEOUT": 8.0,
     "EMPTY_RESPONSE": 5.0,
 }
+MAX_FAILURE_HISTORY_BINDINGS = 128
 
 
 @dataclass(frozen=True)
@@ -240,17 +246,28 @@ class LowLatencyAgentFabric:
 
 
 class FailureSignalRegistry:
-    """Short-lived exact-worker quarantine shared by all same-run dispatches."""
+    """Short-lived exact-worker quarantine plus bounded same-run failure history."""
 
     def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
         self.clock = clock
         self._lock = threading.RLock()
         self._rows: dict[tuple[str, str], dict[str, Any]] = {}
+        self._history: dict[tuple[str, str], dict[str, Any]] = {}
         self._avoided_dispatches = 0
 
     @staticmethod
     def _key(binding: Mapping[str, Any]) -> tuple[str, str]:
         return str(binding.get("provider") or ""), str(binding.get("model") or "")
+
+    def _trim_history(self) -> None:
+        if len(self._history) <= MAX_FAILURE_HISTORY_BINDINGS:
+            return
+        ordered = sorted(
+            self._history.items(),
+            key=lambda item: float(item[1].get("last_failure_at") or 0.0),
+        )
+        for key, _ in ordered[: len(self._history) - MAX_FAILURE_HISTORY_BINDINGS]:
+            self._history.pop(key, None)
 
     def record_failure(self, binding: Mapping[str, Any], error_class: str) -> bool:
         error = str(error_class or "").upper()
@@ -263,6 +280,8 @@ class FailureSignalRegistry:
         now = self.clock()
         with self._lock:
             previous = self._rows.get(key, {})
+            previous_blocked_until = float(previous.get("blocked_until") or 0.0)
+            starts_new_quarantine = not previous or now >= previous_blocked_until
             count = int(previous.get("failure_count") or 0) + 1
             self._rows[key] = {
                 "error_class": error,
@@ -270,12 +289,29 @@ class FailureSignalRegistry:
                 "opened_at": now,
                 "blocked_until": now + ttl,
             }
+            history = self._history.setdefault(key, {
+                "cumulative_failure_count": 0,
+                "quarantine_count": 0,
+                "last_error_class": "",
+                "last_failure_at": 0.0,
+                "last_success_at": None,
+            })
+            history["cumulative_failure_count"] = int(history.get("cumulative_failure_count") or 0) + 1
+            if starts_new_quarantine:
+                history["quarantine_count"] = int(history.get("quarantine_count") or 0) + 1
+            history["last_error_class"] = error
+            history["last_failure_at"] = now
+            self._trim_history()
         return True
 
     def record_success(self, binding: Mapping[str, Any]) -> None:
         key = self._key(binding)
+        now = self.clock()
         with self._lock:
             self._rows.pop(key, None)
+            history = self._history.get(key)
+            if history is not None:
+                history["last_success_at"] = now
 
     def is_available(self, binding: Mapping[str, Any], *, count_avoidance: bool = False) -> bool:
         key = self._key(binding)
@@ -298,17 +334,39 @@ class FailureSignalRegistry:
                 remaining = max(0.0, float(row.get("blocked_until") or 0.0) - now)
                 if remaining <= 0:
                     continue
+                history = self._history.get((provider, model), {})
+                quarantine_count = int(history.get("quarantine_count") or 0)
                 rows.append({
                     "provider": provider,
                     "model": model,
                     "error_class": row.get("error_class"),
                     "failure_count": row.get("failure_count"),
+                    "cumulative_failure_count": int(history.get("cumulative_failure_count") or 0),
+                    "quarantine_count": quarantine_count,
+                    "repeated_quarantine_count": max(0, quarantine_count - 1),
                     "cooldown_remaining_ms": round(remaining * 1000.0, 3),
+                })
+            history_rows = []
+            for (provider, model), history in sorted(self._history.items()):
+                quarantine_count = int(history.get("quarantine_count") or 0)
+                history_rows.append({
+                    "provider": provider,
+                    "model": model,
+                    "cumulative_failure_count": int(history.get("cumulative_failure_count") or 0),
+                    "quarantine_count": quarantine_count,
+                    "repeated_quarantine_count": max(0, quarantine_count - 1),
+                    "last_error_class": history.get("last_error_class"),
+                    "last_failure_at": history.get("last_failure_at"),
+                    "last_success_at": history.get("last_success_at"),
                 })
             return {
                 "active_quarantines": rows,
                 "active_quarantine_count": len(rows),
                 "avoided_dispatches": self._avoided_dispatches,
+                "failure_history": history_rows,
+                "historical_binding_count": len(history_rows),
+                "cumulative_failure_count": sum(int(row["cumulative_failure_count"]) for row in history_rows),
+                "repeated_quarantine_count": sum(int(row["repeated_quarantine_count"]) for row in history_rows),
             }
 
 
@@ -317,5 +375,6 @@ __all__ = [
     "FabricEvent",
     "FailureSignalRegistry",
     "LowLatencyAgentFabric",
+    "MAX_FAILURE_HISTORY_BINDINGS",
     "TRANSIENT_FAILURE_TTLS",
 ]
