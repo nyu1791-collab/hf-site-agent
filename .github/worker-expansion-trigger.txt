@@ -1,2 +1,2 @@
-trigger=multi-agent-efficiency-v18-blackboard-commander-feedback-memory-complete
-purpose=reconfirm-eight-lane-success-complete-shared-blackboard-nvidia-feedback-next-memory-exact-sha-and-measure-primary-efficiency
+trigger=multi-agent-efficiency-v19-low-latency-failure-signals
+purpose=verify-eight-lane-specialist-council-immediate-failure-propagation-exact-model-serialization-and-wasted-dispatch-suppression
