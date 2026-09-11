@@ -30,6 +30,20 @@ class FrameworkAdapterLayerTests(unittest.TestCase):
             "quality_score": 0.9,
         }
 
+    @staticmethod
+    def verified_external(**overrides):
+        row = {
+            "framework_installed": True,
+            "api_contract_verified": True,
+            "runtime_present": True,
+            "model_route_free_verified": True,
+            "framework_health_ready": True,
+            "paid": False,
+            "paid_fallback_enabled": False,
+        }
+        row.update(overrides)
+        return row
+
     def test_native_remains_default_control_plane_execution(self):
         result = self.layer.execute(
             task=self.task(),
@@ -63,16 +77,7 @@ class FrameworkAdapterLayerTests(unittest.TestCase):
             binding={"provider": "free", "model": "worker"},
             context={"secret_token": "do-not-send", "safe": {"value": 3}},
             native_handler=self.native_handler,
-            evidence={
-                "LANGGRAPH": {
-                    "framework_installed": True,
-                    "runtime_present": True,
-                    "model_route_free_verified": True,
-                    "framework_health_ready": True,
-                    "paid": False,
-                    "paid_fallback_enabled": False,
-                }
-            },
+            evidence={"LANGGRAPH": self.verified_external()},
         )
         self.assertEqual(result["status"], "COMPLETED")
         self.assertEqual(result["output"]["framework_adapter"], "LANGGRAPH")
@@ -87,7 +92,19 @@ class FrameworkAdapterLayerTests(unittest.TestCase):
             binding={"provider": "free", "model": "native"},
             context={},
             native_handler=self.native_handler,
-            evidence={"AUTOGEN": {"framework_installed": True, "runtime_present": True, "model_route_free_verified": False, "framework_health_ready": True}},
+            evidence={"AUTOGEN": self.verified_external(model_route_free_verified=False)},
+        )
+        self.assertEqual(result["status"], "COMPLETED")
+        self.assertEqual(result["output"]["framework_adapter"], "NATIVE_V4")
+
+    def test_api_contract_unverified_falls_back_to_native(self):
+        self.layer.register_executor("CREWAI", lambda envelope: {"status": "COMPLETED", "summary": "unexpected"})
+        result = self.layer.execute(
+            task=self.task(framework_preference=["CREWAI"]),
+            binding={"provider": "free", "model": "native"},
+            context={},
+            native_handler=self.native_handler,
+            evidence={"CREWAI": self.verified_external(api_contract_verified=False)},
         )
         self.assertEqual(result["status"], "COMPLETED")
         self.assertEqual(result["output"]["framework_adapter"], "NATIVE_V4")
@@ -99,7 +116,7 @@ class FrameworkAdapterLayerTests(unittest.TestCase):
             binding={"provider": "free", "model": "native"},
             context={},
             native_handler=self.native_handler,
-            evidence={"AUTOGEN": {"framework_installed": True, "runtime_present": True, "model_route_free_verified": True, "framework_health_ready": False}},
+            evidence={"AUTOGEN": self.verified_external(framework_health_ready=False)},
         )
         self.assertEqual(result["status"], "COMPLETED")
         self.assertEqual(result["output"]["framework_adapter"], "NATIVE_V4")
@@ -107,31 +124,21 @@ class FrameworkAdapterLayerTests(unittest.TestCase):
     def test_required_unverified_framework_blocks_instead_of_weakening(self):
         self.layer.register_executor("CREWAI", lambda envelope: {"status": "COMPLETED", "summary": "unexpected"})
         result = self.layer.execute(
-            task=self.task(
-                framework_preference=["CREWAI"],
-                framework_required=True,
-            ),
+            task=self.task(framework_preference=["CREWAI"], framework_required=True),
             binding={"provider": "free", "model": "native"},
             context={},
             native_handler=self.native_handler,
-            evidence={"CREWAI": {"framework_installed": True, "runtime_present": True, "model_route_free_verified": False, "framework_health_ready": True}},
+            evidence={"CREWAI": self.verified_external(model_route_free_verified=False)},
         )
         self.assertEqual(result["status"], "BLOCKED")
         self.assertEqual(result["error_class"], "NO_VERIFIED_FRAMEWORK_ADAPTER")
 
     def test_copilot_requires_billing_safety_evidence(self):
         self.layer.register_executor("GITHUB_COPILOT", lambda envelope: {"status": "COMPLETED", "summary": "unexpected"})
+        row = self.verified_external(connector_present=True, billing_safe_verified=False)
         selection = self.layer.select_adapter(
             self.task(framework_preference=["GITHUB_COPILOT"], framework_required=True),
-            {
-                "GITHUB_COPILOT": {
-                    "connector_present": True,
-                    "runtime_present": True,
-                    "model_route_free_verified": True,
-                    "framework_health_ready": True,
-                    "billing_safe_verified": False,
-                }
-            },
+            {"GITHUB_COPILOT": row},
         )
         self.assertFalse(selection.ready)
         copilot = next(row for row in selection.attempts if row["adapter_id"] == "GITHUB_COPILOT")
@@ -152,14 +159,7 @@ class FrameworkAdapterLayerTests(unittest.TestCase):
             binding={"provider": "free", "model": "worker"},
             context={},
             native_handler=self.native_handler,
-            evidence={
-                "LANGGRAPH": {
-                    "framework_installed": True,
-                    "runtime_present": True,
-                    "model_route_free_verified": True,
-                    "framework_health_ready": True,
-                }
-            },
+            evidence={"LANGGRAPH": self.verified_external()},
         )
         self.assertEqual(result["status"], "BLOCKED")
         self.assertEqual(result["error_class"], "FRAMEWORK_HARD_BOUNDARY_DENIED")
