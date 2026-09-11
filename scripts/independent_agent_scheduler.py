@@ -6,6 +6,10 @@ sessions. Each stable role identity retains bounded working memory across tasks,
 receives high-priority peer deltas directly, revises locally, and may delegate
 within the slot's configured child-task budget. Model swaps change the agent's
 execution body, not its role identity.
+
+Agent inbox deltas are acknowledged only after the role handler returns a
+parseable result. Unexpected handler exceptions also close the role session
+before propagating to the base scheduler, preventing stale active-task state.
 """
 
 from __future__ import annotations
@@ -39,14 +43,21 @@ class IndependentAgentScheduler(LowLatencyReplaceableAgentScheduler):
             execution_context: Mapping[str, Any],
         ) -> AgentTaskResult | Mapping[str, Any]:
             augmented = dict(execution_context)
-            augmented["agent_session"] = self.agent_registry.execution_context(
+            agent_context = self.agent_registry.execution_context(
                 task=current_task,
                 binding=current_binding,
                 base_context=execution_context,
                 handoff=handoff,
             )
+            augmented["agent_session"] = agent_context
             value = handler(current_task, current_binding, augmented)
             parsed = AgentTaskResult.from_value(value)
+            self.agent_registry.acknowledge_context(
+                task=current_task,
+                inbox_cursor=int(agent_context.get("inbox_cursor", 0) or 0),
+                peer_delta_count=len(agent_context.get("peer_deltas", ())) if isinstance(agent_context.get("peer_deltas"), list) else 0,
+                dependency_count=int(handoff.get("dependency_count", 0) or 0),
+            )
             self.agent_registry.observe_attempt(
                 task=current_task,
                 revision_index=int(execution_context.get("revision_index", 0) or 0),
@@ -54,7 +65,22 @@ class IndependentAgentScheduler(LowLatencyReplaceableAgentScheduler):
             )
             return parsed
 
-        row = super()._execute_with_handoff(task, binding, handoff, independent_handler)
+        try:
+            row = super()._execute_with_handoff(task, binding, handoff, independent_handler)
+        except Exception as exc:
+            # The base event loop deliberately owns exception-to-result
+            # conversion. Close the stable role session first, then preserve
+            # that existing control flow by re-raising the original exception.
+            self.agent_registry.finish_task(
+                task=task,
+                row={
+                    "status": "FAILED",
+                    "summary": "agent handler raised before scheduler row completion",
+                    "error_class": type(exc).__name__,
+                },
+            )
+            raise
+
         row["agent_id"] = agent_id
         row["stable_role_identity"] = True
         self.agent_registry.finish_task(task=task, row=row)
@@ -67,11 +93,12 @@ class IndependentAgentScheduler(LowLatencyReplaceableAgentScheduler):
     ) -> dict[str, Any]:
         report = dict(super().run(tasks, handler))
         sessions = self.agent_registry.snapshot()
-        report["schema_version"] = "independent-agent-scheduler-report-v1"
-        report["scheduler_mode"] = "INDEPENDENT_ROLE_AGENTS_EVENT_DRIVEN_DIRECT_HANDOFF"
+        report["schema_version"] = "independent-agent-scheduler-report-v2"
+        report["scheduler_mode"] = "INDEPENDENT_ROLE_AGENTS_EVENT_DRIVEN_DIRECT_HANDOFF_ACKED_INBOX"
         report["independent_agents"] = True
         report["agent_sessions"] = sessions
         report["independent_agent_count"] = sessions["independent_agent_count"]
+        report["active_agent_task_count"] = sessions["active_task_count"]
         report["stable_role_identity_across_model_swap"] = True
         report["ordinary_local_decisions_require_commander_roundtrip"] = False
         report["external_model_repository_write"] = False
