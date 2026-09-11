@@ -14,6 +14,17 @@ from scripts.deepseek_targeted_review import (
 )
 
 
+SUPPORTED_ROLES = {
+    "CODING_DEEP",
+    "DEBUGGING",
+    "CODE_REVIEW",
+    "ARCHITECTURE",
+    "TEST_STRATEGY",
+    "INTEGRATION_REVIEW",
+}
+ALLOWED_CONTEXT_PREFIXES = ("scripts/", "tests/", "config/", "docs/")
+
+
 class DeepSeekTargetedReviewTests(unittest.TestCase):
     def setUp(self) -> None:
         self.config = base._load_json(base.DEFAULT_CONFIG)
@@ -31,8 +42,14 @@ class DeepSeekTargetedReviewTests(unittest.TestCase):
     def test_context_is_repo_bounded_and_task_is_supported(self) -> None:
         context = _validated_context_markers(self.manifest)
         task = _validated_task(self.manifest)
-        self.assertIn("scripts/replaceable_agent_scheduler_v4.py", context)
-        self.assertEqual(task["role"], "CODING_DEEP")
+        self.assertTrue(context)
+        self.assertLessEqual(len(context), 8)
+        for path, markers in context.items():
+            self.assertTrue(path.startswith(ALLOWED_CONTEXT_PREFIXES), path)
+            self.assertTrue(markers)
+            self.assertLessEqual(len(markers), 8)
+        self.assertIn(task["role"], SUPPORTED_ROLES)
+        self.assertTrue(task["task_id"])
         self.assertTrue(task["objective"])
 
     def test_any_authority_escalation_is_rejected(self) -> None:
