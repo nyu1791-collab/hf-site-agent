@@ -38,6 +38,7 @@ jobs:
             scripts/direct_free_worker_corps.py \
             scripts/direct_free_worker_corps_v2.py \
             scripts/replaceable_agent_organization.py \
+            scripts/global_agent_role_optimizer.py \
             scripts/replaceable_agent_scheduler.py \
             scripts/reconcile_agent_organization.py
           python -m json.tool config/direct_free_worker_corps.json >/dev/null
@@ -81,7 +82,9 @@ jobs:
           assert report.get("provider_automatic_fallback") is False
           assert report.get("production_routing_changed") is False
           assert int(report.get("model_calls", 0)) <= 15
-          assert organization.get("organization_mode") == "REPLACEABLE_ROLE_SLOTS"
+          assert organization.get("organization_mode") == "REPLACEABLE_ROLE_SLOTS_GLOBAL_OPTIMIZATION"
+          assert organization.get("assignment_policy") == "BOUNDED_GLOBAL_BEAM_SEARCH_WITH_ROLE_FIT_AND_DIVERSITY"
+          assert organization.get("global_role_optimization") is True
           assert organization.get("model_names_are_replaceable") is True
           assert organization.get("role_slots_are_stable") is True
           assert organization.get("generic_paid_fallback") is False
@@ -96,6 +99,7 @@ jobs:
               "organization_candidate_count": organization.get("candidate_count", 0),
               "organization_assigned_slots": sum(row.get("status") == "ASSIGNED" for row in organization.get("assignments", {}).values()),
               "new_model_path": organization.get("new_model_path"),
+              "assignment_policy": organization.get("assignment_policy"),
           }, sort_keys=True))
           PY
 
