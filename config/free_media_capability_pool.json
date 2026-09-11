@@ -1,0 +1,135 @@
+{
+  "schema_version": "free-media-capability-pool-v1",
+  "organization_name": "AI Army Free Media Capability Pool",
+  "policy": {
+    "free_only": true,
+    "multi_role_assignment_allowed": true,
+    "role_exclusivity_default": false,
+    "producer_reviewer_diversity_preferred": true,
+    "fact_checker_may_share_model_with_analyst": true,
+    "final_auditor_should_differ_from_primary_producer_when_possible": true,
+    "deterministic_final_gate_required": true,
+    "generic_paid_fallback": false,
+    "auto_top_up": false,
+    "paid_media_tools_disabled": ["fal", "descript_ai", "runway"],
+    "unverified_free_route_can_execute": false,
+    "license_unknown_can_publish": false,
+    "external_model_repository_write": false
+  },
+  "work_types": {
+    "NEWS_RESEARCH": ["web_research", "source_synthesis", "current_events", "long_context"],
+    "SCRIPT_DRAFT": ["japanese_writing", "compression", "hook_design", "structured_output"],
+    "FACT_CHECK": ["citation_review", "claim_verification", "counterargument", "reasoning"],
+    "EDIT_PLANNING": ["scene_analysis", "pacing", "shot_selection", "video_understanding"],
+    "SUBTITLE_DRAFT": ["japanese_writing", "subtitle_segmentation", "readability"],
+    "SUBTITLE_ALIGNMENT": ["japanese_asr", "timestamps", "speech_to_text"],
+    "TTS_JA": ["japanese_tts", "speech_synthesis"],
+    "AUDIO_QA": ["japanese_asr", "script_audio_comparison"],
+    "QUALITY_REVIEW": ["multimodal_review", "pacing", "subtitle_review", "fact_consistency"],
+    "DETERMINISTIC_EDIT": ["ffmpeg", "crop", "zoom", "pan", "concat", "subtitle_burn", "audio_normalize"]
+  },
+  "candidates": {
+    "GOOGLE_GEMINI_FREE_MULTIMODAL": {
+      "provider": "google",
+      "execution_surface": "HOSTED_FREE_QUOTA_ONLY",
+      "capabilities": ["web_research", "source_synthesis", "current_events", "long_context", "japanese_writing", "scene_analysis", "pacing", "video_understanding", "subtitle_segmentation", "readability", "multimodal_review", "subtitle_review", "fact_consistency"],
+      "work_types": ["NEWS_RESEARCH", "SCRIPT_DRAFT", "EDIT_PLANNING", "SUBTITLE_DRAFT", "QUALITY_REVIEW"],
+      "cost_class": "FREE_QUOTA_ONLY",
+      "requires_fresh_free_evidence": true,
+      "license_gate": "SERVICE_TERMS",
+      "can_multi_role": true
+    },
+    "NVIDIA_DEEPSEEK_FREE_REASONER": {
+      "provider": "nvidia",
+      "model_family": "DeepSeek",
+      "execution_surface": "NVIDIA_HOSTED_FREE_ENDPOINT_ONLY",
+      "capabilities": ["source_synthesis", "citation_review", "claim_verification", "counterargument", "reasoning", "japanese_writing", "structured_output", "fact_consistency"],
+      "work_types": ["SCRIPT_DRAFT", "FACT_CHECK", "QUALITY_REVIEW"],
+      "cost_class": "FREE_ENDPOINT_ONLY",
+      "requires_fresh_free_evidence": true,
+      "can_multi_role": true
+    },
+    "QWEN_TEXT_FREE_RUNTIME": {
+      "provider": "qwen",
+      "model_family": "Qwen",
+      "execution_surface": "HF_COLAB_KAGGLE_OR_VERIFIED_FREE_ENDPOINT",
+      "capabilities": ["source_synthesis", "japanese_writing", "compression", "hook_design", "structured_output", "subtitle_segmentation", "readability", "reasoning"],
+      "work_types": ["SCRIPT_DRAFT", "SUBTITLE_DRAFT", "FACT_CHECK"],
+      "cost_class": "FREE_RUNTIME_ONLY",
+      "requires_fresh_free_evidence": true,
+      "can_multi_role": true
+    },
+    "COSYVOICE2_0_5B_FREE_RUNTIME": {
+      "provider": "huggingface_open_model",
+      "model": "FunAudioLLM/CosyVoice2-0.5B",
+      "model_family": "CosyVoice",
+      "execution_surface": "LOCAL_HF_COLAB_KAGGLE_FREE_RUNTIME",
+      "capabilities": ["japanese_tts", "speech_synthesis"],
+      "work_types": ["TTS_JA"],
+      "license": "apache-2.0",
+      "cost_class": "FREE_RUNTIME_ONLY",
+      "requires_fresh_free_evidence": true,
+      "can_multi_role": false
+    },
+    "KOKORO_82M_FREE_RUNTIME": {
+      "provider": "huggingface_open_model",
+      "model": "NobodyWho/Kokoro-82M",
+      "model_family": "Kokoro",
+      "execution_surface": "LOCAL_HF_COLAB_KAGGLE_FREE_RUNTIME",
+      "capabilities": ["japanese_tts", "speech_synthesis"],
+      "work_types": ["TTS_JA"],
+      "license": "apache-2.0",
+      "cost_class": "FREE_RUNTIME_ONLY",
+      "requires_fresh_free_evidence": true,
+      "can_multi_role": false
+    },
+    "WHISPER_LARGE_V3_TURBO_FREE_RUNTIME": {
+      "provider": "huggingface_open_model",
+      "model": "openai/whisper-large-v3-turbo",
+      "model_family": "Whisper",
+      "execution_surface": "LOCAL_HF_COLAB_KAGGLE_FREE_RUNTIME",
+      "capabilities": ["japanese_asr", "timestamps", "speech_to_text", "script_audio_comparison"],
+      "work_types": ["SUBTITLE_ALIGNMENT", "AUDIO_QA"],
+      "license": "mit",
+      "cost_class": "FREE_RUNTIME_ONLY",
+      "requires_fresh_free_evidence": true,
+      "can_multi_role": true
+    },
+    "SENSEVOICE_SMALL_FREE_RUNTIME": {
+      "provider": "huggingface_open_model",
+      "model": "FunAudioLLM/SenseVoiceSmall",
+      "model_family": "SenseVoice",
+      "execution_surface": "LOCAL_HF_COLAB_KAGGLE_FREE_RUNTIME",
+      "capabilities": ["japanese_asr", "speech_to_text", "script_audio_comparison"],
+      "work_types": ["SUBTITLE_ALIGNMENT", "AUDIO_QA"],
+      "license": "model-license",
+      "commercial_license_verification_required": true,
+      "cost_class": "FREE_RUNTIME_ONLY",
+      "requires_fresh_free_evidence": true,
+      "can_multi_role": true
+    },
+    "FFMPEG_DETERMINISTIC": {
+      "provider": "local_tooling",
+      "model_family": "FFmpeg",
+      "execution_surface": "LOCAL_CPU",
+      "capabilities": ["ffmpeg", "crop", "zoom", "pan", "concat", "subtitle_burn", "audio_normalize"],
+      "work_types": ["DETERMINISTIC_EDIT"],
+      "license": "tooling",
+      "cost_class": "FREE",
+      "requires_fresh_free_evidence": true,
+      "can_multi_role": true
+    }
+  },
+  "preferred_pipeline": [
+    "NEWS_RESEARCH",
+    "SCRIPT_DRAFT",
+    "FACT_CHECK",
+    "EDIT_PLANNING",
+    "TTS_JA",
+    "SUBTITLE_DRAFT",
+    "SUBTITLE_ALIGNMENT",
+    "AUDIO_QA",
+    "DETERMINISTIC_EDIT",
+    "QUALITY_REVIEW"
+  ]
+}
