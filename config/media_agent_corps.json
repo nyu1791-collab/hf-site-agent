@@ -1,0 +1,136 @@
+{
+  "schema_version": "media-agent-corps-v1",
+  "purpose": "Build a bounded monetization-oriented media production corps without coupling model identity to external platform credentials.",
+  "principles": {
+    "bind_roles_not_models": true,
+    "separate_reasoning_agents_from_service_connectors": true,
+    "platform_failure_must_not_stop_content_planning": true,
+    "reuse_one_source_asset_across_platform_derivatives": true,
+    "machine_validation_before_publish_review": true,
+    "analytics_feed_back_into_future_content_plans": true
+  },
+  "hard_boundaries": {
+    "publish_requires_human_approval": true,
+    "account_connection_requires_human_action": true,
+    "secret_values_must_not_be_exposed": true,
+    "generic_paid_fallback": false,
+    "auto_top_up": false,
+    "copyright_or_rights_uncertainty_blocks_publish": true,
+    "synthetic_media_disclosure_must_follow_platform_requirements": true
+  },
+  "connectors": {
+    "descript": {
+      "status": "INSTALLED_ENABLED",
+      "capabilities": ["transcription", "captioning", "timeline_editing", "audio_cleanup", "highlight_clips", "translation", "video_export"],
+      "default_for": ["TRANSCRIPTION_AGENT", "VIDEO_EDITOR_AGENT"]
+    },
+    "fal": {
+      "status": "INSTALLED_ENABLED",
+      "capabilities": ["image_generation", "video_generation", "audio_generation", "media_editing", "model_routing"],
+      "default_for": ["GENERATIVE_MEDIA_AGENT", "THUMBNAIL_AGENT"]
+    },
+    "runway": {
+      "status": "INSTALLED_ENABLED",
+      "capabilities": ["video_generation", "video_editing", "background_removal", "aspect_ratio_expansion", "localization", "upscaling", "multi_shot_video"],
+      "default_for": ["ADVANCED_VIDEO_AGENT"]
+    },
+    "post_bridge": {
+      "status": "INSTALLED_ENABLED",
+      "capabilities": ["youtube_publish", "x_publish", "instagram_publish", "cross_post", "schedule", "analytics"],
+      "connected_accounts_observed": ["youtube"],
+      "accounts_requiring_connection_before_live_publish": ["x", "instagram"],
+      "default_for": ["PUBLISHING_AGENT", "GROWTH_ANALYTICS_AGENT"]
+    }
+  },
+  "roles": {
+    "MEDIA_INTELLIGENCE_AGENT": {
+      "mission": "Collect current public trend, competitor, audience and topic evidence from allowed public sources and create compact evidence packets.",
+      "risk": "LOW",
+      "preferred_capabilities": ["research", "long_context", "summarization"],
+      "publish_permission": false
+    },
+    "CONTENT_STRATEGIST": {
+      "mission": "Turn evidence into platform-specific content angles, hooks, series concepts and monetization hypotheses with measurable success criteria.",
+      "risk": "MEDIUM",
+      "preferred_capabilities": ["reasoning", "planning", "marketing"],
+      "publish_permission": false
+    },
+    "SCRIPT_AGENT": {
+      "mission": "Write production-ready long-form and short-form scripts, scene beats, CTAs and platform variants from an approved content brief.",
+      "risk": "LOW",
+      "preferred_capabilities": ["writing", "reasoning", "fast"],
+      "publish_permission": false
+    },
+    "TRANSCRIPTION_AGENT": {
+      "mission": "Create accurate transcripts, speaker-aware timestamps, captions and subtitle assets from source media.",
+      "risk": "LOW",
+      "primary_connector": "descript",
+      "publish_permission": false
+    },
+    "VIDEO_EDITOR_AGENT": {
+      "mission": "Create clean cuts, remove filler, improve audio, add captions and produce reusable platform-safe masters and clips.",
+      "risk": "MEDIUM",
+      "primary_connector": "descript",
+      "publish_permission": false
+    },
+    "GENERATIVE_MEDIA_AGENT": {
+      "mission": "Generate missing visual, audio and motion assets under an explicit creative brief while minimizing generation cost and preserving provenance.",
+      "risk": "MEDIUM",
+      "primary_connector": "fal",
+      "secondary_connector": "runway",
+      "publish_permission": false
+    },
+    "ADVANCED_VIDEO_AGENT": {
+      "mission": "Handle high-value video generation and transformation such as background removal, localization, multi-shot sequences, reframing and enhancement.",
+      "risk": "MEDIUM",
+      "primary_connector": "runway",
+      "fallback_connector": "descript",
+      "publish_permission": false
+    },
+    "THUMBNAIL_AGENT": {
+      "mission": "Produce thumbnail and cover candidates with mobile-first legibility and testable hook hypotheses.",
+      "risk": "LOW",
+      "primary_connector": "fal",
+      "publish_permission": false
+    },
+    "RIGHTS_SAFETY_AGENT": {
+      "mission": "Check source provenance, copyright/reuse risk, synthetic-media disclosure requirements and platform-specific publication constraints before release.",
+      "risk": "HIGH",
+      "publish_permission": false
+    },
+    "PUBLISHING_AGENT": {
+      "mission": "Prepare platform-specific metadata, schedules and Post Bridge payloads for YouTube, X and Instagram after validation.",
+      "risk": "HIGH",
+      "primary_connector": "post_bridge",
+      "publish_permission": "HUMAN_APPROVAL_REQUIRED"
+    },
+    "GROWTH_ANALYTICS_AGENT": {
+      "mission": "Read post-performance evidence, compare hooks and formats, attribute gains, and feed next-experiment recommendations back to Content Strategist.",
+      "risk": "LOW",
+      "primary_connector": "post_bridge",
+      "publish_permission": false
+    }
+  },
+  "default_pipeline": [
+    "MEDIA_INTELLIGENCE_AGENT",
+    "CONTENT_STRATEGIST",
+    "SCRIPT_AGENT",
+    "GENERATIVE_MEDIA_AGENT",
+    "TRANSCRIPTION_AGENT",
+    "VIDEO_EDITOR_AGENT",
+    "ADVANCED_VIDEO_AGENT",
+    "THUMBNAIL_AGENT",
+    "RIGHTS_SAFETY_AGENT",
+    "PUBLISHING_AGENT",
+    "GROWTH_ANALYTICS_AGENT"
+  ],
+  "monetization_loop": {
+    "optimize_for": ["retention", "qualified_views", "subscriber_conversion", "engagement_quality", "revenue_per_asset", "production_cost", "reuse_ratio"],
+    "avoid_optimizing_for": ["raw_clicks_without_retention", "spam_volume", "copyright_risk", "unbounded_generation_spend"],
+    "cross_platform_derivatives": {
+      "youtube": ["long_form", "shorts"],
+      "instagram": ["reels", "feed", "stories"],
+      "x": ["native_video", "image_post", "thread_support"]
+    }
+  }
+}
