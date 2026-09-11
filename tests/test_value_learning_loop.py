@@ -10,13 +10,15 @@ from scripts.value_learning_loop import (
     normalize_cost_evidence,
     product_value_decision,
     shadow_challenger_plan,
+    statistically_guarded_challenger_decision,
     validate_outcome_ledger,
 )
 
 
-def outcome(*, success=True, quality=0.9, cost=None):
+def outcome(*, success=True, quality=0.9, cost=None, observation_id=""):
     row = {
         "contract_version": "value-outcome-memory-v1",
+        "observation_id": observation_id,
         "provider": "groq",
         "model": "qwen/qwen3.8-27b",
         "task_profile_hash": "profile-1",
@@ -38,6 +40,8 @@ class ValueLearningLoopTests(unittest.TestCase):
     def test_ledger_is_hash_bound_deduplicated_and_contains_no_raw_content(self):
         ledger = build_outcome_ledger([outcome(), outcome()], source_head="abc", source_run_id="run-1")
         self.assertEqual(ledger["record_count"], 1)
+        self.assertFalse(ledger["record_hashes_are_authentication"])
+        self.assertTrue(ledger["trusted_controller_boundary_required"])
         self.assertFalse(ledger["raw_private_content_persisted"])
         self.assertFalse(ledger["secrets_persisted"])
         validate_outcome_ledger(ledger)
@@ -47,10 +51,16 @@ class ValueLearningLoopTests(unittest.TestCase):
         with self.assertRaises(ValueLearningError):
             validate_outcome_ledger(tampered)
 
+    def test_observation_id_preserves_distinct_equal_metric_executions(self):
+        ledger = build_outcome_ledger([
+            outcome(observation_id="run-1:task:1"),
+            outcome(observation_id="run-1:task:2"),
+        ])
+        self.assertEqual(ledger["record_count"], 2)
+
     def test_ledger_rejects_sensitive_fields(self):
         bad = outcome()
         bad["prompt"] = "must never persist"
-        # normalization whitelists fields, so unneeded raw content is dropped.
         ledger = build_outcome_ledger([bad])
         self.assertNotIn("prompt", str(ledger))
         validate_outcome_ledger(ledger)
@@ -90,17 +100,25 @@ class ValueLearningLoopTests(unittest.TestCase):
             self.assertFalse(spec["metadata"]["paid_specialist_authorized"])
             self.assertTrue(spec["deterministic_validator_available"])
 
+    def test_challenger_stays_shadow_with_too_few_samples(self):
+        decision = statistically_guarded_challenger_decision(
+            {"samples": 20, "validated_success_rate": 0.90, "quality_score": 0.88, "rework_rate": 0.08},
+            {"samples": 4, "validated_success_rate": 1.0, "quality_score": 0.99, "rework_rate": 0.0},
+        )
+        self.assertEqual(decision["decision"], "SHADOW")
+
     def test_shadow_challenger_never_auto_promotes_or_writes(self):
         plan = shadow_challenger_plan(
             champion_binding={"provider": "groq", "model": "qwen/qwen3.8-27b"},
             challenger_binding={"provider": "nvidia", "model": "nemotron-review"},
-            champion_metrics={"samples": 20, "validated_success_rate": 0.90, "quality_score": 0.88},
-            challenger_metrics={"samples": 5, "validated_success_rate": 0.95, "quality_score": 0.94},
+            champion_metrics={"samples": 30, "validated_success_rate": 0.86, "quality_score": 0.86, "rework_rate": 0.10},
+            challenger_metrics={"samples": 30, "validated_success_rate": 0.97, "quality_score": 0.94, "rework_rate": 0.05},
         )
         self.assertEqual(plan["decision"], "PROMOTION_CANDIDATE")
         self.assertEqual(plan["mode"], "SHADOW_ONLY")
         self.assertFalse(plan["write_side_effects_allowed"])
         self.assertFalse(plan["automatic_production_promotion"])
+        self.assertTrue(plan["statistical_guard"]["rework_guard_passed"])
 
     def test_product_value_rolls_back_on_quality_harm_even_if_other_metrics_are_good(self):
         baseline = {
