@@ -12,7 +12,8 @@ packages at once without creating a second scheduler implementation.
 Anti-fragmentation policy: a strong framework may own several adjacent stages or
 similar batch items. Framework proliferation is bounded and an ordinary batch
 is automatically upgraded to the consolidation-aware adapter selector while
-preserving registered executor hooks.
+preserving registered executor hooks. Runtime framework-count and per-adapter
+parallelism bounds are enforced by FrameworkParallelGovernor.
 """
 
 from __future__ import annotations
@@ -21,8 +22,9 @@ from dataclasses import dataclass
 import re
 from typing import Any, Callable, Mapping, Sequence
 
-from scripts.framework_adapter_layer import FrameworkAdapterLayer, make_scheduler_handler
+from scripts.framework_adapter_layer import FrameworkAdapterLayer
 from scripts.framework_consolidation_policy import ConsolidatingFrameworkAdapterLayer
+from scripts.framework_parallel_governor import FrameworkParallelGovernor
 from scripts.replaceable_agent_scheduler import AgentTask, AgentTaskResult
 
 
@@ -177,13 +179,14 @@ class FrameworkEnabledParallelAIArmy:
         self.framework_layer = _upgrade_to_consolidating_layer(framework_layer)
         self.native_handler = native_handler
         self.framework_evidence = framework_evidence
-
-    def scheduler_handler(self) -> Callable[[AgentTask, Mapping[str, Any], Mapping[str, Any]], Mapping[str, Any]]:
-        return make_scheduler_handler(
+        self.parallel_governor = FrameworkParallelGovernor(
             layer=self.framework_layer,
             native_handler=self.native_handler,
             evidence=self.framework_evidence,
         )
+
+    def scheduler_handler(self) -> Callable[[AgentTask, Mapping[str, Any], Mapping[str, Any]], Mapping[str, Any]]:
+        return self.parallel_governor.handler()
 
     def run_tasks(self, tasks: Sequence[AgentTask]) -> dict[str, Any]:
         raw = self.scheduler.run(tasks, self.scheduler_handler())
@@ -191,7 +194,9 @@ class FrameworkEnabledParallelAIArmy:
             "schema_version": "framework-enabled-ai-army-run-v1",
             "framework_adapter_layer": True,
             "framework_consolidation_policy": True,
+            "framework_parallel_governor": True,
             "native_v4_control_plane": True,
+            "parallel_governor_state": self.parallel_governor.snapshot(),
             "result": raw,
         }
 
@@ -208,6 +213,7 @@ class FrameworkEnabledParallelAIArmy:
             framework_config=self.framework_layer.config,
             final_objective=final_objective,
         )
+        self.parallel_governor.reset_batch(batch_id)
         raw = self.scheduler.run(tasks, self.scheduler_handler())
         return {
             "schema_version": "parallel-framework-batch-run-v1",
@@ -218,8 +224,10 @@ class FrameworkEnabledParallelAIArmy:
             "native_v4_control_plane": True,
             "framework_adapter_layer": True,
             "framework_consolidation_policy": True,
+            "framework_parallel_governor": True,
             "max_frameworks_per_batch": int(_batch_config(self.framework_layer.config).get("max_frameworks_per_batch") or 2),
             "task_ids": [task.task_id for task in tasks],
+            "parallel_governor_state": self.parallel_governor.snapshot(),
             "result": raw,
         }
 
