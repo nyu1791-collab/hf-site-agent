@@ -1,0 +1,38 @@
+{
+  "schema_version": "deepseek-targeted-review-v1",
+  "focus_id": "AI_ARMY_V4_SEMANTIC_JOIN_FINAL_VERIFICATION",
+  "paid_execution_approved": true,
+  "max_calls": 1,
+  "max_parallel_calls": 1,
+  "max_estimated_cost_usd": 0.04,
+  "task": {
+    "task_id": "v4-semantic-join-final",
+    "role": "CODING_DEEP",
+    "objective": "FINAL TARGETED VERIFICATION. Inspect the exact initial JOIN, generated JOIN and mirror_joined implementation. Verify whether generated children ever bypass _join_compatible; whether write_set, boundary_action, risk_level and deterministic-validator differences can merge; whether a JOIN follower receives its own task-bound revision/result_hash/RCC; and whether leader success/failure releases or blocks follower descendants correctly. Return compact JSON with confirmed_findings, false_positive_findings, residual_risks and minimal_tests. Do not speculate about code outside the supplied excerpts."
+  },
+  "context_markers": {
+    "scripts/replaceable_agent_scheduler_v4.py": [
+      "def _join_compatible",
+      "def mirror_joined",
+      "def register_generated"
+    ],
+    "scripts/ai_army_v4_controls.py": [
+      "def objective_fingerprint",
+      "def result_identity"
+    ],
+    "tests/test_independent_agent_scheduler_v4.py": [
+      "test_semantic_duplicate_joins_and_executes_once",
+      "test_different_write_scope_never_joins"
+    ]
+  },
+  "safety_boundary": {
+    "repository_write": false,
+    "merge": false,
+    "deploy": false,
+    "publish": false,
+    "secret_mutation": false,
+    "production_routing": false,
+    "generic_paid_fallback": false,
+    "auto_top_up": false
+  }
+}
