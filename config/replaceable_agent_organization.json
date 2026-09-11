@@ -23,7 +23,12 @@
     "direct_dependency_results_bypass_unnecessary_hierarchy_hops": true,
     "failure_signals_are_broadcast_before_next_dispatch": true,
     "context_handoffs_are_delta_scoped_not_full_fanout": true,
-    "critical_path_work_wins_resource_contention": true
+    "critical_path_work_wins_resource_contention": true,
+    "stable_role_identity_survives_model_replacement": true,
+    "role_agents_keep_bounded_mission_memory": true,
+    "ordinary_local_decisions_stay_local": true,
+    "peer_failure_and_handoff_deltas_are_delivered_directly": true,
+    "agent_generated_subtasks_are_bounded_by_role": true
   },
   "hard_boundaries": {
     "secret_values_must_not_be_exposed": true,
@@ -65,12 +70,20 @@
     "per_exact_model_parallel_limit_default": 1
   },
   "communication": {
-    "scheduler_generation": "LOW_LATENCY_V2",
+    "scheduler_generation": "INDEPENDENT_AGENT_V3",
     "direct_dependency_push": true,
     "immediate_failure_broadcast": true,
     "priority_ready_queue": true,
     "delta_only_context": true,
     "bypass_commander_for_operational_failure_signal": true,
+    "independent_agent_sessions": true,
+    "stable_role_agent_identity": true,
+    "bounded_local_working_memory": true,
+    "peer_delta_mailbox": true,
+    "local_revision_without_commander_roundtrip": true,
+    "local_delegation_without_commander_roundtrip": true,
+    "agent_session_memory_items": 6,
+    "agent_inbox_max_events": 16,
     "max_retained_events": 512,
     "max_event_payload_chars": 2400,
     "max_handoff_chars": 7000
