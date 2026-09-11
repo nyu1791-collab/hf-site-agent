@@ -12,7 +12,8 @@ Cross-run outcome evidence may be supplied by the caller as a validated compact
 ledger. It can influence quality/success priors only after a minimum sample
 count and never makes an otherwise ineligible route executable. Trusted cost
 meter data is accepted only through a controller-supplied per-task map, never
-from model output.
+from model output. Transient failover is constrained by the same task-profile,
+role-fit and capability gates as the initial route.
 """
 
 from __future__ import annotations
@@ -26,7 +27,13 @@ from scripts.global_agent_role_optimizer import (
     required_capability_coverage,
 )
 from scripts.replaceable_agent_organization import _role_score, candidate_score, normalize_candidate
-from scripts.replaceable_agent_scheduler import AgentSchedulerError, AgentTask, AgentTaskResult
+from scripts.replaceable_agent_scheduler import (
+    AgentSchedulerError,
+    AgentTask,
+    AgentTaskResult,
+    MAX_FREE_RESELECTIONS_PER_TASK,
+    _binding_key,
+)
 from scripts.replaceable_agent_scheduler_v4 import V4ReplaceableAgentScheduler
 from scripts.value_learning_loop import (
     build_council_specs,
@@ -80,12 +87,8 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
                 row = normalize_candidate(raw)
             except Exception:
                 continue
-            # Existing organization admission remains the first gate.
             if candidate_score(row, slot) < 0:
                 continue
-            # Task-profile routing must not bypass the role optimizer's quality
-            # floors. A fast JSON model cannot become an engineering agent only
-            # because one task dimension happens to match.
             minimum_fit = float(slot.get("minimum_role_fit") or MINIMUM_ROLE_FIT.get(task.slot, 0.60))
             minimum_coverage = float(
                 slot.get("minimum_required_capability_coverage")
@@ -95,7 +98,6 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
                 continue
             if required_capability_coverage(row, slot) + 1e-12 < minimum_coverage:
                 continue
-
             history = history_for_binding(
                 self._prior_outcome_ledger,
                 provider=str(row.get("provider") or ""),
@@ -106,9 +108,6 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
         return output
 
     def binding_for(self, task: AgentTask) -> dict[str, Any]:
-        # Keep the existing assignment as context, not as an unconditional
-        # fallback. The old incumbent must pass the same task-level paid/free
-        # gate; otherwise a paid incumbent could bypass explicit authorization.
         incumbent = super().binding_for(task)
         producer_bindings = [
             self._value_task_bindings[dependency]
@@ -130,7 +129,6 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
             raise AgentSchedulerError(
                 f"no task-level value-safe binding for {task.task_id}; paid/unverified incumbent fallback is forbidden"
             )
-
         binding = {
             "provider": str(selected["provider"]),
             "model": str(selected["model"]),
@@ -141,15 +139,52 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
         self._value_task_bindings[task.task_id] = dict(binding)
         return binding
 
+    def _healthy_free_alternative(self, task: AgentTask, current: Mapping[str, Any]) -> dict[str, Any] | None:
+        """Fail over without weakening task-level quality or evidence gates."""
+        if self._reselection_count.get(task.task_id, 0) >= MAX_FREE_RESELECTIONS_PER_TASK:
+            return None
+        current_key = _binding_key(current)
+        choices = []
+        for candidate in self._eligible_value_candidates(task):
+            if candidate.get("paid") is True or candidate.get("free_verified") is not True:
+                continue
+            if _binding_key(candidate) == current_key:
+                continue
+            if not self.failure_registry.is_available(candidate):
+                continue
+            choices.append(candidate)
+        if not choices:
+            return None
+        decision = select_task_binding(
+            task,
+            choices,
+            incumbent=None,
+            producer_bindings=[
+                self._value_task_bindings[dependency]
+                for dependency in task.depends_on
+                if dependency in self._value_task_bindings
+            ],
+            config=self.value_config,
+        )
+        selected = decision.get("selected") if isinstance(decision.get("selected"), Mapping) else None
+        if not selected:
+            return None
+        target_key = (str(selected.get("provider") or ""), str(selected.get("model") or ""))
+        chosen = next((row for row in choices if _binding_key(row) == target_key), None)
+        if chosen is None:
+            return None
+        replacement = dict(chosen)
+        self._reselection_count[task.task_id] = self._reselection_count.get(task.task_id, 0) + 1
+        self._binding_overrides[task.task_id] = replacement
+        self._value_task_bindings[task.task_id] = {
+            "provider": replacement["provider"],
+            "model": replacement["model"],
+            "slot": task.slot,
+        }
+        return replacement
+
     @staticmethod
     def _machine_validation_passed(committed: Mapping[str, Any]) -> bool:
-        """Require an explicit machine-owned semantic validator result.
-
-        V4's RCC validation status proves scheduler/dependency contract integrity;
-        it is intentionally not treated as proof that the answer itself is
-        semantically correct. The validator evidence must therefore come from a
-        controller-owned output envelope, not from a model confidence claim.
-        """
         output = committed.get("output") if isinstance(committed.get("output"), Mapping) else {}
         evidence = output.get("machine_validation") if isinstance(output.get("machine_validation"), Mapping) else {}
         return evidence.get("machine_owned") is True and str(evidence.get("status") or "").upper() in {"PASS", "VALIDATED"}
@@ -177,9 +212,6 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
             estimated_cost_usd=cost_evidence["cost_usd"],
             latency_ms=float(row.get("elapsed_ms") or 0.0),
         )
-        # Never learn a "validated success" from mere completion, confidence,
-        # or the RCC structural PASS. Only explicit controller-owned semantic
-        # validation can promote a model's historical success rate.
         contract_completed = str(committed.get("status") or "").upper() == "COMPLETED"
         machine_validated = self._machine_validation_passed(committed)
         record["contract_completed"] = contract_completed
@@ -220,10 +252,7 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
         for row in self._value_outcomes:
             key = f"{row.get('provider')}::{row.get('model')}::{row.get('task_profile_hash')}"
             by_binding[key].append(row)
-        aggregates = {
-            key: aggregate_outcomes(rows)
-            for key, rows in sorted(by_binding.items())
-        }
+        aggregates = {key: aggregate_outcomes(rows) for key, rows in sorted(by_binding.items())}
         overall_metrics = aggregate_outcomes(self._value_outcomes)
         score_metrics = {
             **overall_metrics,
@@ -237,7 +266,7 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
             self._value_outcomes,
             prior_ledger=self._prior_outcome_ledger or None,
         )
-        report["schema_version"] = "value-optimized-agent-scheduler-report-v3"
+        report["schema_version"] = "value-optimized-agent-scheduler-report-v4"
         report["scheduler_mode"] = "AI_ARMY_V4_VALUE_OPTIMIZED_TASK_PROFILE_ROUTING"
         report["value_optimization"] = {
             "enabled": True,
@@ -251,6 +280,7 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
             "value_score": value_score(score_metrics, self.value_config),
             "semantic_validation_required_for_learning_success": True,
             "trusted_cost_meter_is_controller_supplied": True,
+            "failover_preserves_value_quality_gates": True,
             "producer_reviewer_diversity_preferred": True,
             "champion_challenger_enabled": True,
             "council_enabled": True,
