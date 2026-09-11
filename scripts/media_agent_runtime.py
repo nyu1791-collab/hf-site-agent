@@ -440,9 +440,9 @@ def validate_plan(plan: Mapping[str, Any]) -> None:
             raise ValueError("task must be an object")
         if str(task.get("owner_role") or "") != "PUBLISHING_AGENT":
             continue
-        if task.get("state") == "READY":
-            raise ValueError("publishing task cannot bypass approval state")
         task_id = str(task.get("task_id") or "")
+        if task_id.startswith("publish_") and task.get("state") == "READY":
+            raise ValueError("publishing task cannot bypass approval state")
         if task_id.startswith("publish_") and task.get("state") == "READY_FOR_CONNECTOR":
             platform = task_id.removeprefix("publish_")
             if rights.get("ready") is not True:
