@@ -23,7 +23,7 @@ SECRET_NAME = re.compile(
 )
 SECRET_ASSIGNMENT = re.compile(
     r"(?i)\b(?:api[_-]?key|access[_-]?token|password|private[_-]?key|authorization|bearer|secret)"
-    r"\b\s*[:=]\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s,;}]+))"
+    r"\b\s*[:=]\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s,;})\]]+))"
 )
 SECRET_TOKEN = re.compile(
     r"(?<![A-Za-z0-9])(?:"
