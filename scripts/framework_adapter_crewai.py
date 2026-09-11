@@ -36,7 +36,12 @@ class CrewAIFrameworkAdapter(FrameworkAdapter):
         try:
             if not callable(self.runner):
                 raise RuntimeError("CrewAI runner unavailable")
-            value = self.runner(prepared, {**dict(context or {}), "max_iterations": max_iterations})
+            runtime_context = {
+                **dict(context or {}),
+                "max_members": max_members,
+                "max_iterations": max_iterations,
+            }
+            value = self.runner(prepared, runtime_context)
             raw = value if isinstance(value, Mapping) else {}
         except Exception as exc:
             raw = {"member_results": [], "fatal_error": type(exc).__name__}
@@ -62,11 +67,22 @@ class CrewAIFrameworkAdapter(FrameworkAdapter):
             summary=summary,
             provider=str(route["provider_binding"]),
             model=str(route["model_binding"]),
-            result={"member_results": members, "failed_member_count": len(failures), "crew_destroyed": destroyed},
+            result={
+                "member_results": members,
+                "failed_member_count": len(failures),
+                "crew_destroyed": destroyed,
+                "actual_member_count": int(raw.get("actual_member_count") or 0),
+                "actual_task_count": int(raw.get("actual_task_count") or 0),
+            },
             warnings=((f"{len(failures)} crew member(s) failed",) if failures else ()),
             errors=errors,
             duration_ms=int((time.monotonic() - started) * 1000),
             requests_used=max(1, min(len(members) or 1, max_members * max_iterations)),
             framework_id=self.adapter_id,
-            framework_values={"ephemeral": True, "crew_destroyed": destroyed, "max_iterations": max_iterations},
+            framework_values={
+                "ephemeral": True,
+                "crew_destroyed": destroyed,
+                "max_members": max_members,
+                "max_iterations": max_iterations,
+            },
         )
