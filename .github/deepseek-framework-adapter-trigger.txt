@@ -3,4 +3,7 @@ Scope: Framework Adapter Layer incomplete implementation audit
 Model: deepseek-flash (DeepSeek-V4.1-Flash)
 Lanes: control-plane, media-rights, failure-ci
 Paid execution explicitly approved by user for this mission.
-Auto top-up remains disabled. Main push/merge/deploy/publish remain prohibited.
+Activation: 2026-09-11 user-confirmed paid parallel engineering run.
+Max calls: 1 per lane; max parallel lanes: 3; bounded total estimate: USD 0.15.
+Auto top-up remains disabled. Generic paid fallback remains disabled.
+Main push/merge/deploy/publish remain prohibited.
