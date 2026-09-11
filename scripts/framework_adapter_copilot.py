@@ -17,6 +17,10 @@ class CopilotFrameworkAdapter(FrameworkAdapter):
         fw = framework_metadata(command)
         action = str(fw.get("action") or "repository_read").lower()
         branch = str(fw.get("target_branch") or "")
+        explicit_write_branches = {
+            str(v) for v in fw.get("allowed_write_branches", ())
+            if isinstance(fw.get("allowed_write_branches"), (list, tuple, set)) and str(v)
+        }
         tool_scope = [str(v).lower() for v in command.get("tool_scope", ()) if str(v)]
         permissions = [str(v).lower() for v in command.get("permissions", ()) if str(v)]
         if action in FORBIDDEN_ACTIONS:
@@ -31,6 +35,10 @@ class CopilotFrameworkAdapter(FrameworkAdapter):
                 return "protected_branch_write"
             prefixes = tuple(str(x) for x in self.config.get("allowed_write_branch_prefixes", ()))
             if not prefixes or not branch.startswith(prefixes):
+                return "outside_staging_prefix"
+            # A prefix is only a coarse safety fence. The Control Plane must also
+            # explicitly grant this exact branch for the current CommandEnvelope.
+            if branch not in explicit_write_branches:
                 return "outside_explicit_staging_scope"
         return None
 
@@ -69,5 +77,13 @@ class CopilotFrameworkAdapter(FrameworkAdapter):
             duration_ms=int((time.monotonic() - started) * 1000),
             requests_used=1,
             framework_id=self.adapter_id,
-            framework_values={"repository_read": True, "main_push": False, "merge": False, "deploy": False, "publish": False, "secret_operation": False},
+            framework_values={
+                "repository_read": True,
+                "repository_write_authorized": str(command.get("side_effect_level") or "read_only") == "mutation",
+                "main_push": False,
+                "merge": False,
+                "deploy": False,
+                "publish": False,
+                "secret_operation": False,
+            },
         )
