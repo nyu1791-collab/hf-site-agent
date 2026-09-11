@@ -8,7 +8,10 @@ on:
       - requirements-langgraph.txt
       - config/langgraph_checkpoint.json
       - scripts/langgraph_checkpoint_backend.py
+      - scripts/langgraph_executor_hook.py
+      - scripts/framework_adapter_layer.py
       - tests/test_langgraph_checkpoint_backend.py
+      - tests/test_langgraph_executor_hook.py
       - .github/workflows/verify-langgraph-persistence.yml
   workflow_dispatch:
 
@@ -43,25 +46,32 @@ jobs:
         run: |
           python - <<'PY'
           from importlib.metadata import version
+          from langgraph.graph import StateGraph, START, END
           from langgraph.checkpoint.sqlite import SqliteSaver
           from langgraph.checkpoint.postgres import PostgresSaver
+          assert StateGraph is not None and START is not None and END is not None
           assert SqliteSaver is not None
           assert PostgresSaver is not None
           assert version("langgraph") == "1.2.11"
           assert version("langgraph-checkpoint-sqlite") == "3.1.1"
           assert version("langgraph-checkpoint-postgres") == "3.1.2"
-          print("LANGGRAPH_PERSISTENCE_IMPORTS=PASS")
+          print("LANGGRAPH_EXECUTION_AND_PERSISTENCE_IMPORTS=PASS")
           PY
 
-      - name: Compile checkpoint adapter
+      - name: Compile LangGraph adapters
         run: |
           python -m py_compile \
             scripts/langgraph_checkpoint_backend.py \
-            tests/test_langgraph_checkpoint_backend.py
+            scripts/langgraph_executor_hook.py \
+            tests/test_langgraph_checkpoint_backend.py \
+            tests/test_langgraph_executor_hook.py
           python -m json.tool config/langgraph_checkpoint.json >/dev/null
 
-      - name: Run persistent checkpoint tests
-        run: python -m unittest tests.test_langgraph_checkpoint_backend -v
+      - name: Run LangGraph execution and persistence tests
+        run: |
+          python -m unittest \
+            tests.test_langgraph_checkpoint_backend \
+            tests.test_langgraph_executor_hook -v
 
       - name: Verify redacted local status
         run: |
