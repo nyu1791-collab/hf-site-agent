@@ -9,15 +9,16 @@ on:
       - config/langgraph_checkpoint.json
       - asset_rights.json
       - requirements-langgraph.txt
+      - requirements-framework-adapters.txt
       - scripts/framework_adapter_*.py
-      - scripts/framework_runtime_langgraph.py
+      - scripts/framework_runtime_*.py
       - scripts/framework_outcome_memory.py
       - scripts/asset_rights_ledger.py
       - scripts/media_pipeline.py
       - scripts/ffmpeg_renderer.py
       - scripts/langgraph_checkpoint_backend.py
       - tests/test_framework_adapter_*.py
-      - tests/test_framework_runtime_langgraph.py
+      - tests/test_framework_runtime_*.py
       - tests/test_framework_outcome_memory.py
       - tests/test_media_pipeline_safety.py
       - .github/workflows/framework-adapter-ci.yml
@@ -29,15 +30,16 @@ on:
       - config/langgraph_checkpoint.json
       - asset_rights.json
       - requirements-langgraph.txt
+      - requirements-framework-adapters.txt
       - scripts/framework_adapter_*.py
-      - scripts/framework_runtime_langgraph.py
+      - scripts/framework_runtime_*.py
       - scripts/framework_outcome_memory.py
       - scripts/asset_rights_ledger.py
       - scripts/media_pipeline.py
       - scripts/ffmpeg_renderer.py
       - scripts/langgraph_checkpoint_backend.py
       - tests/test_framework_adapter_*.py
-      - tests/test_framework_runtime_langgraph.py
+      - tests/test_framework_runtime_*.py
       - tests/test_framework_outcome_memory.py
       - tests/test_media_pipeline_safety.py
 
@@ -58,15 +60,10 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-
-      - name: Install test-only dependency
-        run: python -m pip install --disable-pip-version-check pytest
-
+      - run: python -m pip install --disable-pip-version-check pytest
       - name: Compile adapter modules
         run: |
           python -m py_compile \
@@ -77,14 +74,12 @@ jobs:
             scripts/framework_adapter_autogen.py \
             scripts/framework_adapter_crewai.py \
             scripts/framework_adapter_copilot.py
-
       - name: Run adapter unit and failure-injection tests
         run: |
           python -m pytest -q \
             tests/test_framework_adapter_base.py \
             tests/test_framework_adapter_registry.py \
             tests/test_framework_adapter_safety.py
-
       - name: Assert external frameworks remain shadow-only by default
         run: |
           python - <<'PY'
@@ -105,8 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - name: Checkout exact commit without write credentials
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -123,8 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - name: Checkout exact commit without write credentials
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -147,8 +140,7 @@ jobs:
     env:
       LANGGRAPH_STRICT_MSGPACK: "true"
     steps:
-      - name: Checkout exact commit without write credentials
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -168,3 +160,31 @@ jobs:
           python -m pytest -q \
             tests/test_langgraph_checkpoint_backend.py \
             tests/test_framework_runtime_langgraph.py
+
+  optional-framework-runtimes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install exact optional framework pins
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements-framework-adapters.txt
+          python -m pip install --disable-pip-version-check pytest
+      - name: Verify exact package versions and runtime bridges without provider calls
+        run: |
+          python - <<'PY'
+          from importlib.metadata import version
+          assert version('autogen-agentchat') == '0.7.5'
+          assert version('crewai') == '1.15.21'
+          PY
+          python -m py_compile \
+            scripts/framework_runtime_autogen.py \
+            scripts/framework_runtime_crewai.py \
+            tests/test_framework_runtime_optional.py
+          python -m pytest -q tests/test_framework_runtime_optional.py
