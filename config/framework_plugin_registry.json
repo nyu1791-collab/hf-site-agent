@@ -17,6 +17,14 @@
       "stability": "STABLE_CORE",
       "execution_profile": "DURABLE_SUBGRAPH"
     },
+    "MICROSOFT_AGENT_FRAMEWORK": {
+      "distribution": "agent-framework",
+      "module": "agent_framework",
+      "required_symbols": ["Agent"],
+      "optional_symbols": ["AgentProtocol"],
+      "stability": "STABLE_PUBLIC_API",
+      "execution_profile": "BOUNDED_AGENT_OR_WORKFLOW"
+    },
     "CREWAI": {
       "distribution": "crewai",
       "module": "crewai",
