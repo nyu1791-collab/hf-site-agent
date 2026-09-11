@@ -59,6 +59,8 @@ def build_langgraph_runner(
 
     `executor` and `validator` are trusted Control Plane callbacks. They receive
     only the already-redacted prepared CommandEnvelope and bounded context.
+    Set context.resume_from_checkpoint=true to continue the existing LangGraph
+    thread without replaying a new initial input.
     """
     if not callable(executor) or not callable(validator):
         raise LangGraphRuntimeError("executor and validator must be callable")
@@ -71,6 +73,7 @@ def build_langgraph_runner(
             raise LangGraphRuntimeError("command_id is required")
         if len(command_id) > 240:
             raise LangGraphRuntimeError("command_id too long for durable thread identity")
+        resume_requested = bounded_context.get("resume_from_checkpoint") is True
 
         try:
             from langgraph.graph import END, START, StateGraph
@@ -120,10 +123,11 @@ def build_langgraph_runner(
             "status": "prepared",
             "errors": [],
         }
+        graph_input: _State | None = None if resume_requested else initial
         with open_checkpointer(backend=backend, sqlite_path=sqlite_path) as checkpointer:
             graph = builder.compile(checkpointer=checkpointer)
             try:
-                final = graph.invoke(initial, config=config)
+                final = graph.invoke(graph_input, config=config)
             except Exception as exc:
                 raise LangGraphRuntimeError(
                     f"LangGraph subgraph failed: {type(exc).__name__}",
@@ -144,6 +148,7 @@ def build_langgraph_runner(
                 "persistent_checkpoint": True,
                 "checkpoint_backend": str(checkpoint_meta.get("backend") or ""),
                 "cross_runner_durable": checkpoint_meta.get("cross_runner_durable") is True,
+                "resumed_from_checkpoint": resume_requested,
                 "native_control_plane": True,
                 "authority_expanded": False,
             },
