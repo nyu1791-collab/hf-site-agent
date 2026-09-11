@@ -7,7 +7,7 @@ import unittest
 
 from scripts.asset_rights_ledger import AssetRightsError, load_ledger, publish_rights_gate, register_asset
 from scripts.ffmpeg_renderer import FFmpegRenderError, build_render_plan, render
-from scripts.media_pipeline import PIPELINE, build_media_gate, export_voice_handoff, validate_stage_order
+from scripts.media_pipeline import MediaPipelineError, PIPELINE, build_media_gate, export_voice_handoff, validate_stage_order
 
 
 class MediaPipelineSafetyTests(unittest.TestCase):
@@ -108,6 +108,30 @@ class MediaPipelineSafetyTests(unittest.TestCase):
             self.assertFalse(timeline["generated_images_used"])
             self.assertFalse(timeline["generated_video_used"])
             self.assertFalse(timeline["publish_authority"])
+
+    def test_voice_handoff_blocks_empty_overlapping_or_missing_asset_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(MediaPipelineError):
+                export_voice_handoff(output_dir=tmp, voice_script="", cues=[], subtitles=[], scenes=[])
+            with self.assertRaisesRegex(MediaPipelineError, "non-overlapping"):
+                export_voice_handoff(
+                    output_dir=tmp,
+                    voice_script="test",
+                    cues=[
+                        {"start_sec": 0, "end_sec": 2, "text": "a"},
+                        {"start_sec": 1, "end_sec": 3, "text": "b"},
+                    ],
+                    subtitles=[{"start_sec": 0, "end_sec": 1, "text": "a"}],
+                    scenes=[{"asset_id": "commons-001", "start_sec": 0, "end_sec": 1}],
+                )
+            with self.assertRaisesRegex(MediaPipelineError, "asset_id"):
+                export_voice_handoff(
+                    output_dir=tmp,
+                    voice_script="test",
+                    cues=[{"start_sec": 0, "end_sec": 1, "text": "a"}],
+                    subtitles=[{"start_sec": 0, "end_sec": 1, "text": "a"}],
+                    scenes=[{"start_sec": 0, "end_sec": 1}],
+                )
 
     def test_ffmpeg_plan_supports_crossfade_bgm_and_sfx_without_publish_authority(self):
         plan = build_render_plan(
