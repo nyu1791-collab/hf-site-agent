@@ -31,11 +31,25 @@ class MediaParallelFrameworkMissionTests(unittest.TestCase):
         self.assertTrue(join.metadata["single_writer"])
         self.assertEqual(len({task.write_set[0] for task in roots}), 4)
 
-    def test_generated_images_are_explicitly_forbidden_in_edit_objective(self):
+    def test_edit_plan_reuses_approved_stills_without_new_generation(self):
         items = build_media_parallel_items(topic="OpenAI safety news")
         edit = next(item for item in items if item.item_id == "edit_plan")
-        self.assertIn("generated images are forbidden", edit.objective)
+        self.assertIn("pre-existing generated assets explicitly approved by the commander", edit.objective)
+        self.assertIn("Do not generate new images or video", edit.objective)
         self.assertIn("ai_news_real_photo_manifest.json", edit.objective)
+        self.assertTrue(edit.metadata["approved_generated_assets_allowed"])
+        self.assertFalse(edit.metadata["new_media_generation_allowed"])
+
+    def test_edit_plan_requires_replaceable_voice_and_alignment(self):
+        items = build_media_parallel_items(topic="OpenAI safety news")
+        edit = next(item for item in items if item.item_id == "edit_plan")
+        automation = next(item for item in items if item.item_id == "automation_patch")
+        self.assertIn("TikTok/CapCut/VOICEVOX/editor audio", edit.objective)
+        self.assertTrue(edit.metadata["external_voice_handoff_preferred"])
+        self.assertTrue(edit.metadata["subtitle_alignment_required_after_voice_import"])
+        self.assertIn("replace any placeholder voice without rebuilding visual assets", automation.objective)
+        self.assertTrue(automation.metadata["external_voice_replaceable"])
+        self.assertTrue(automation.metadata["ffmpeg_final_assembly"])
 
 
 if __name__ == "__main__":
