@@ -32,7 +32,6 @@ class FrameworkExecutionGuardTests(unittest.TestCase):
             risk_level="LOW",
             metadata={
                 "framework_preference": ["LANGGRAPH"],
-                "framework_capabilities": ["graph_workflow"],
                 **metadata,
             },
         )
