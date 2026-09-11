@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+"""Mission-local independent agent sessions for the replaceable AI Army.
+
+Model bindings are treated as replaceable bodies for stable role identities.  A
+role agent keeps a bounded mission-local working memory, receives only new
+high-value coordination deltas, can revise and delegate inside its configured
+scope, and hands results directly to dependent peers.  This keeps ordinary
+agent decisions local instead of routing every step through the top commander.
+
+The registry is provider-agnostic and performs no network calls, repository
+writes, secret reads, payments, deploys, publishes, or generic paid fallback.
+"""
+
+from __future__ import annotations
+
+from collections import deque
+from dataclasses import dataclass, field
+import threading
+from typing import Any, Mapping, Sequence
+
+from scripts.low_latency_agent_fabric import LowLatencyAgentFabric
+from scripts.replaceable_agent_organization import HARD_BOUNDARY_ACTIONS
+from scripts.replaceable_agent_scheduler import AgentTask
+
+
+DEFAULT_MEMORY_ITEMS = 6
+DEFAULT_INBOX_EVENTS = 16
+MAX_BINDING_HISTORY = 8
+
+
+def stable_agent_id(slot: str) -> str:
+    """Return a model-independent identity for one organization role slot."""
+    return f"role-agent:{str(slot or '').strip().upper()}"
+
+
+def _binding_snapshot(binding: Mapping[str, Any]) -> dict[str, str]:
+    return {
+        "provider": str(binding.get("provider") or "")[:80],
+        "model": str(binding.get("model") or "")[:180],
+    }
+
+
+def _bounded_summary(value: Any, limit: int = 700) -> str:
+    return str(value or "")[: max(80, min(2000, int(limit)))]
+
+
+@dataclass
+class AgentSession:
+    agent_id: str
+    slot: str
+    inbox_cursor: int = 0
+    tasks_started: int = 0
+    tasks_completed: int = 0
+    tasks_failed: int = 0
+    revisions_observed: int = 0
+    delegated_tasks: int = 0
+    handoffs_received: int = 0
+    binding_swaps: int = 0
+    active_tasks: set[str] = field(default_factory=set)
+    binding_history: deque[dict[str, str]] = field(default_factory=lambda: deque(maxlen=MAX_BINDING_HISTORY))
+    working_memory: deque[dict[str, Any]] = field(default_factory=lambda: deque(maxlen=DEFAULT_MEMORY_ITEMS))
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "agent_id": self.agent_id,
+            "slot": self.slot,
+            "stable_role_identity": True,
+            "tasks_started": self.tasks_started,
+            "tasks_completed": self.tasks_completed,
+            "tasks_failed": self.tasks_failed,
+            "revisions_observed": self.revisions_observed,
+            "delegated_tasks": self.delegated_tasks,
+            "handoffs_received": self.handoffs_received,
+            "binding_swaps": self.binding_swaps,
+            "inbox_cursor": self.inbox_cursor,
+            "binding_history": list(self.binding_history),
+            "working_memory": list(self.working_memory),
+        }
+
+
+class IndependentAgentRegistry:
+    """Thread-safe bounded state for stable role agents inside one mission."""
+
+    def __init__(
+        self,
+        *,
+        config: Mapping[str, Any],
+        fabric: LowLatencyAgentFabric,
+    ) -> None:
+        self.config = config
+        self.fabric = fabric
+        communication = config.get("communication") if isinstance(config.get("communication"), Mapping) else {}
+        self.memory_items = max(2, min(12, int(communication.get("agent_session_memory_items") or DEFAULT_MEMORY_ITEMS)))
+        self.inbox_events = max(4, min(48, int(communication.get("agent_inbox_max_events") or DEFAULT_INBOX_EVENTS)))
+        self._lock = threading.RLock()
+        self._sessions: dict[str, AgentSession] = {}
+        self._peer_delta_deliveries = 0
+        self._local_decision_turns = 0
+
+    def _session(self, slot: str) -> AgentSession:
+        key = str(slot or "").upper()
+        with self._lock:
+            session = self._sessions.get(key)
+            if session is None:
+                session = AgentSession(
+                    agent_id=stable_agent_id(key),
+                    slot=key,
+                    working_memory=deque(maxlen=self.memory_items),
+                )
+                self._sessions[key] = session
+            return session
+
+    def start_task(self, task: AgentTask, binding: Mapping[str, Any]) -> str:
+        session = self._session(task.slot)
+        binding_row = _binding_snapshot(binding)
+        with self._lock:
+            if task.task_id not in session.active_tasks:
+                session.active_tasks.add(task.task_id)
+                session.tasks_started += 1
+            if not session.binding_history or session.binding_history[-1] != binding_row:
+                if session.binding_history:
+                    session.binding_swaps += 1
+                session.binding_history.append(binding_row)
+        return session.agent_id
+
+    def execution_context(
+        self,
+        *,
+        task: AgentTask,
+        binding: Mapping[str, Any],
+        base_context: Mapping[str, Any],
+        handoff: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Build one role-scoped context packet without full-blackboard fanout."""
+        session = self._session(task.slot)
+        slot_cfg = self.config.get("slots", {}).get(task.slot, {}) if isinstance(self.config.get("slots"), Mapping) else {}
+        with self._lock:
+            cursor = session.inbox_cursor
+            memory = list(session.working_memory)
+
+        # High-priority coordination deltas are intentionally broad so a role
+        # agent learns about failures/failovers elsewhere without commander
+        # relay. Direct dependency contents remain in the handoff packet.
+        deltas = self.fabric.deltas_since(
+            cursor,
+            priorities=("CRITICAL", "HIGH"),
+            max_events=self.inbox_events,
+        )
+        latest = max([cursor, *(int(row.get("seq") or 0) for row in deltas)])
+        with self._lock:
+            session.inbox_cursor = latest
+            self._peer_delta_deliveries += len(deltas)
+            self._local_decision_turns += 1
+            if int(handoff.get("dependency_count", 0) or 0) > 0:
+                session.handoffs_received += 1
+
+        autonomy = dict(base_context)
+        max_revisions = int(autonomy.get("max_revisions", 0) or 0)
+        may_delegate = slot_cfg.get("may_delegate") is True and int(slot_cfg.get("max_child_tasks", 0) or 0) > 0
+        return {
+            "agent_identity": {
+                "agent_id": session.agent_id,
+                "role_slot": task.slot,
+                "stable_across_model_swap": True,
+                "current_body": _binding_snapshot(binding),
+            },
+            "local_authority": {
+                "may_plan_locally": True,
+                "may_revise_locally": max_revisions > 0,
+                "max_revisions": max_revisions,
+                "may_delegate_locally": may_delegate,
+                "max_child_tasks": int(slot_cfg.get("max_child_tasks", 0) or 0),
+                "may_handoff_to_dependencies": True,
+                "may_request_free_failover": True,
+                "commander_roundtrip_required_for_ordinary_local_decision": False,
+                "hard_boundary_actions": sorted(HARD_BOUNDARY_ACTIONS),
+                "repository_write": False,
+                "secret_access": False,
+                "generic_paid_fallback": False,
+            },
+            "mission_role": str(slot_cfg.get("mission") or "")[:1200],
+            "working_memory": memory,
+            "peer_deltas": deltas,
+            "direct_dependency_handoff": dict(handoff),
+            "inbox_cursor": latest,
+        }
+
+    def observe_attempt(
+        self,
+        *,
+        task: AgentTask,
+        revision_index: int,
+        next_task_count: int,
+    ) -> None:
+        session = self._session(task.slot)
+        with self._lock:
+            session.revisions_observed = max(session.revisions_observed, max(0, int(revision_index)))
+            session.delegated_tasks += max(0, int(next_task_count))
+
+    def finish_task(self, *, task: AgentTask, row: Mapping[str, Any]) -> None:
+        session = self._session(task.slot)
+        status = str(row.get("status") or "FAILED").upper()
+        memory_row = {
+            "task_id": task.task_id,
+            "status": status,
+            "summary": _bounded_summary(row.get("summary")),
+            "quality_score": row.get("quality_score"),
+            "error_class": row.get("error_class"),
+        }
+        with self._lock:
+            session.active_tasks.discard(task.task_id)
+            if status == "COMPLETED":
+                session.tasks_completed += 1
+            elif status in {"FAILED", "BLOCKED", "CANCELLED"}:
+                session.tasks_failed += 1
+            session.working_memory.append(memory_row)
+
+    def snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            rows = [self._sessions[key].as_dict() for key in sorted(self._sessions)]
+            return {
+                "schema_version": "independent-agent-session-registry-v1",
+                "independent_agent_count": len(rows),
+                "stable_role_identity": True,
+                "local_decision_turns": self._local_decision_turns,
+                "peer_delta_deliveries": self._peer_delta_deliveries,
+                "sessions": rows,
+                "repository_write": False,
+                "generic_paid_fallback": False,
+            }
+
+
+__all__ = [
+    "AgentSession",
+    "IndependentAgentRegistry",
+    "stable_agent_id",
+]
