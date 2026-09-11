@@ -2,9 +2,23 @@ from __future__ import annotations
 
 import unittest
 
-from scripts.framework_adapter_layer import load_config
-from scripts.parallel_framework_batch import ParallelBatchError, ParallelBatchItem, build_parallel_batch_tasks
+from scripts.framework_adapter_layer import FrameworkAdapterLayer, load_config
+from scripts.framework_consolidation_policy import ConsolidatingFrameworkAdapterLayer
+from scripts.parallel_framework_batch import (
+    FrameworkEnabledParallelAIArmy,
+    ParallelBatchError,
+    ParallelBatchItem,
+    build_parallel_batch_tasks,
+)
 from scripts.replaceable_agent_scheduler import tasks_conflict
+
+
+class _FakeScheduler:
+    def run(self, tasks, handler):
+        return {
+            "task_count": len(tasks),
+            "handler_callable": callable(handler),
+        }
 
 
 class ParallelFrameworkBatchTests(unittest.TestCase):
@@ -50,8 +64,6 @@ class ParallelFrameworkBatchTests(unittest.TestCase):
         ]
         tasks = build_parallel_batch_tasks(batch_id="join", items=items, framework_config=self.config)
         root, join = tasks[0], tasks[-1]
-        # The dependency already orders these tasks; the join also reads each
-        # item scope, documenting its Single Writer integration dependency.
         self.assertIn(root.write_set[0], join.read_set)
         self.assertTrue(tasks_conflict(root, join))
 
@@ -70,6 +82,44 @@ class ParallelFrameworkBatchTests(unittest.TestCase):
         )
         self.assertEqual(tasks[0].metadata["framework_preference"], ["LANGGRAPH", "NATIVE_V4"])
         self.assertEqual(tasks[0].metadata["framework_capabilities"], ["graph_workflow"])
+
+    def test_existing_adapter_is_upgraded_without_losing_executor_hooks(self):
+        base = FrameworkAdapterLayer(self.config)
+        executor = lambda envelope: {
+            "status": "COMPLETED",
+            "summary": "graph completed",
+            "quality_score": 0.9,
+        }
+        base.register_executor("LANGGRAPH", executor)
+        army = FrameworkEnabledParallelAIArmy(
+            scheduler=_FakeScheduler(),
+            framework_layer=base,
+            native_handler=lambda task, binding, context: {
+                "status": "COMPLETED",
+                "summary": "native completed",
+            },
+            framework_evidence={},
+        )
+        self.assertIsInstance(army.framework_layer, ConsolidatingFrameworkAdapterLayer)
+        self.assertIs(army.framework_layer._executors["LANGGRAPH"], executor)
+
+    def test_run_metadata_declares_consolidation_policy(self):
+        army = FrameworkEnabledParallelAIArmy(
+            scheduler=_FakeScheduler(),
+            framework_layer=FrameworkAdapterLayer(self.config),
+            native_handler=lambda task, binding, context: {
+                "status": "COMPLETED",
+                "summary": "native completed",
+            },
+            framework_evidence={},
+        )
+        result = army.run_tasks(build_parallel_batch_tasks(
+            batch_id="meta",
+            items=[ParallelBatchItem(item_id="one", objective="Create one package.")],
+            framework_config=self.config,
+        ))
+        self.assertTrue(result["framework_consolidation_policy"])
+        self.assertTrue(result["native_v4_control_plane"])
 
     def test_more_than_max_items_is_rejected(self):
         items = [ParallelBatchItem(item_id=f"i{index}", objective="x") for index in range(5)]
