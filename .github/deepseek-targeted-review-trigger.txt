@@ -1,0 +1,14 @@
+trigger=deepseek-v4-1-flash-targeted-semantic-join-20260911-r1
+focus=AI_ARMY_V4_SEMANTIC_JOIN_FINAL_VERIFICATION
+approved_paid_trial=true
+max_calls=1
+max_parallel_calls=1
+max_estimated_cost_usd=0.04
+repository_write=false
+merge=false
+deploy=false
+publish=false
+secret_mutation=false
+production_routing=false
+generic_paid_fallback=false
+auto_top_up=false
