@@ -1,20 +1,34 @@
 {
   "schema_version": "free-media-capability-pool-v1",
   "organization_name": "AI Army Free Media Capability Pool",
+  "reviewed_at": "2026-09-11",
   "policy": {
     "free_only": true,
+    "capability_first_routing": true,
     "multi_role_assignment_allowed": true,
     "role_exclusivity_default": false,
+    "cross_role_context_reuse_bonus": true,
     "producer_reviewer_diversity_preferred": true,
     "fact_checker_may_share_model_with_analyst": true,
     "final_auditor_should_differ_from_primary_producer_when_possible": true,
+    "independent_final_audit_required_if_available": true,
     "deterministic_final_gate_required": true,
+    "generative_video_default": false,
     "generic_paid_fallback": false,
     "auto_top_up": false,
+    "openrouter_exact_free_ids_only": true,
+    "random_free_router_forbidden_for_production": true,
     "paid_media_tools_disabled": ["fal", "descript_ai", "runway"],
     "unverified_free_route_can_execute": false,
     "license_unknown_can_publish": false,
     "external_model_repository_write": false
+  },
+  "routing_principles": {
+    "semantic_editing": "Use multimodal AI to decide what to cut, emphasize, subtitle, reorder, or verify; use deterministic tooling to perform ordinary edits.",
+    "generation": "Do not generate video for ordinary news shorts when still-image motion, public licensed imagery, captions, and audio are sufficient.",
+    "multi_role": "Allow one strong free model to own adjacent tasks when this reduces handoffs without sacrificing independent final review.",
+    "audit": "Prefer a different provider/model family for fact check and final multimodal audit when an equally capable verified free route exists.",
+    "cost": "A route that is not freshly verified zero-cost is blocked, even if technically stronger."
   },
   "work_types": {
     "NEWS_RESEARCH": ["web_research", "source_synthesis", "current_events", "long_context"],
@@ -25,17 +39,60 @@
     "SUBTITLE_ALIGNMENT": ["japanese_asr", "timestamps", "speech_to_text"],
     "TTS_JA": ["japanese_tts", "speech_synthesis"],
     "AUDIO_QA": ["japanese_asr", "script_audio_comparison"],
+    "DETERMINISTIC_EDIT": ["ffmpeg", "crop", "zoom", "pan", "concat", "subtitle_burn", "audio_normalize"],
+    "VIDEO_MULTIMODAL_AUDIT": ["video_understanding", "audio_understanding", "subtitle_review", "pacing", "fact_consistency"],
     "QUALITY_REVIEW": ["multimodal_review", "pacing", "subtitle_review", "fact_consistency"],
-    "DETERMINISTIC_EDIT": ["ffmpeg", "crop", "zoom", "pan", "concat", "subtitle_burn", "audio_normalize"]
+    "GENERATIVE_VIDEO_OPTIONAL": ["text_to_video", "image_to_video"]
   },
   "candidates": {
-    "GOOGLE_GEMINI_FREE_MULTIMODAL": {
+    "GOOGLE_GEMINI_3_8_FREE_MULTIMODAL": {
       "provider": "google",
+      "model": "gemini-3.8-flash",
+      "model_family": "Gemini",
       "execution_surface": "HOSTED_FREE_QUOTA_ONLY",
-      "capabilities": ["web_research", "source_synthesis", "current_events", "long_context", "japanese_writing", "scene_analysis", "pacing", "video_understanding", "subtitle_segmentation", "readability", "multimodal_review", "subtitle_review", "fact_consistency"],
-      "work_types": ["NEWS_RESEARCH", "SCRIPT_DRAFT", "EDIT_PLANNING", "SUBTITLE_DRAFT", "QUALITY_REVIEW"],
+      "capabilities": ["web_research", "source_synthesis", "current_events", "long_context", "japanese_writing", "scene_analysis", "pacing", "video_understanding", "audio_understanding", "subtitle_segmentation", "readability", "multimodal_review", "subtitle_review", "fact_consistency"],
+      "work_types": ["NEWS_RESEARCH", "SCRIPT_DRAFT", "EDIT_PLANNING", "SUBTITLE_DRAFT", "VIDEO_MULTIMODAL_AUDIT", "QUALITY_REVIEW"],
       "cost_class": "FREE_QUOTA_ONLY",
       "requires_fresh_free_evidence": true,
+      "license_gate": "SERVICE_TERMS",
+      "can_multi_role": true
+    },
+    "OPENROUTER_NEMOTRON_3_NANO_OMNI_FREE": {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "model_family": "Nemotron-Omni",
+      "execution_surface": "OPENROUTER_EXACT_FREE_VARIANT",
+      "capabilities": ["video_understanding", "audio_understanding", "image_understanding", "scene_analysis", "pacing", "subtitle_review", "fact_consistency", "multimodal_review", "reasoning", "script_audio_comparison"],
+      "work_types": ["EDIT_PLANNING", "AUDIO_QA", "VIDEO_MULTIMODAL_AUDIT", "QUALITY_REVIEW"],
+      "cost_class": "FREE_ENDPOINT_ONLY",
+      "requires_fresh_free_evidence": true,
+      "exact_free_model_id_required": true,
+      "license_gate": "SERVICE_TERMS",
+      "can_multi_role": true
+    },
+    "OPENROUTER_DEEPSEEK_R1_FREE": {
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-r1:free",
+      "model_family": "DeepSeek-R1",
+      "execution_surface": "OPENROUTER_EXACT_FREE_VARIANT",
+      "capabilities": ["source_synthesis", "citation_review", "claim_verification", "counterargument", "reasoning", "japanese_writing", "compression", "hook_design", "structured_output", "fact_consistency"],
+      "work_types": ["SCRIPT_DRAFT", "FACT_CHECK", "SUBTITLE_DRAFT"],
+      "cost_class": "FREE_ENDPOINT_ONLY",
+      "requires_fresh_free_evidence": true,
+      "exact_free_model_id_required": true,
+      "license_gate": "SERVICE_TERMS",
+      "can_multi_role": true
+    },
+    "OPENROUTER_QWEN3_6_PLUS_FREE": {
+      "provider": "openrouter",
+      "model": "qwen/qwen3.6-plus:free",
+      "model_family": "Qwen",
+      "execution_surface": "OPENROUTER_EXACT_FREE_VARIANT",
+      "capabilities": ["source_synthesis", "japanese_writing", "compression", "hook_design", "structured_output", "subtitle_segmentation", "readability", "reasoning", "claim_verification", "counterargument"],
+      "work_types": ["SCRIPT_DRAFT", "SUBTITLE_DRAFT", "FACT_CHECK"],
+      "cost_class": "FREE_ENDPOINT_ONLY",
+      "requires_fresh_free_evidence": true,
+      "exact_free_model_id_required": true,
       "license_gate": "SERVICE_TERMS",
       "can_multi_role": true
     },
@@ -59,6 +116,17 @@
       "requires_fresh_free_evidence": true,
       "can_multi_role": true
     },
+    "QWEN3_VL_FREE_RUNTIME": {
+      "provider": "qwen",
+      "model": "Qwen/Qwen3-VL",
+      "model_family": "Qwen3-VL",
+      "execution_surface": "LOCAL_HF_COLAB_KAGGLE_FREE_RUNTIME",
+      "capabilities": ["video_understanding", "image_understanding", "scene_analysis", "pacing", "shot_selection", "subtitle_review", "fact_consistency", "multimodal_review", "timestamps"],
+      "work_types": ["EDIT_PLANNING", "VIDEO_MULTIMODAL_AUDIT", "QUALITY_REVIEW"],
+      "cost_class": "FREE_RUNTIME_ONLY",
+      "requires_fresh_free_evidence": true,
+      "can_multi_role": true
+    },
     "COSYVOICE2_0_5B_FREE_RUNTIME": {
       "provider": "huggingface_open_model",
       "model": "FunAudioLLM/CosyVoice2-0.5B",
@@ -73,7 +141,7 @@
     },
     "KOKORO_82M_FREE_RUNTIME": {
       "provider": "huggingface_open_model",
-      "model": "NobodyWho/Kokoro-82M",
+      "model": "hexgrad/Kokoro-82M",
       "model_family": "Kokoro",
       "execution_surface": "LOCAL_HF_COLAB_KAGGLE_FREE_RUNTIME",
       "capabilities": ["japanese_tts", "speech_synthesis"],
@@ -108,6 +176,29 @@
       "requires_fresh_free_evidence": true,
       "can_multi_role": true
     },
+    "NVIDIA_COSMOS_PREDICT_2_5_FREE_RUNTIME": {
+      "provider": "nvidia",
+      "model": "Cosmos-Predict2.5-2B",
+      "model_family": "Cosmos-Predict2.5",
+      "execution_surface": "LOCAL_HF_COLAB_KAGGLE_FREE_RUNTIME",
+      "capabilities": ["text_to_video", "image_to_video"],
+      "work_types": ["GENERATIVE_VIDEO_OPTIONAL"],
+      "cost_class": "FREE_RUNTIME_ONLY",
+      "requires_fresh_free_evidence": true,
+      "can_multi_role": false,
+      "default_enabled": false
+    },
+    "WAN_VIDEO_FREE_RUNTIME": {
+      "provider": "wan",
+      "model_family": "Wan",
+      "execution_surface": "LOCAL_HF_COLAB_KAGGLE_FREE_RUNTIME",
+      "capabilities": ["text_to_video", "image_to_video"],
+      "work_types": ["GENERATIVE_VIDEO_OPTIONAL"],
+      "cost_class": "FREE_RUNTIME_ONLY",
+      "requires_fresh_free_evidence": true,
+      "can_multi_role": false,
+      "default_enabled": false
+    },
     "FFMPEG_DETERMINISTIC": {
       "provider": "local_tooling",
       "model_family": "FFmpeg",
@@ -120,6 +211,16 @@
       "can_multi_role": true
     }
   },
+  "non_free_or_unverified_reserve": {
+    "GOOGLE_GEMINI_OMNI_1_1_FLASH": {
+      "strength": ["video_generation", "video_editing"],
+      "status": "DISABLED_IN_FREE_ONLY_UNLESS_ZERO_COST_IS_FRESHLY_VERIFIED"
+    },
+    "OPENROUTER_VIDEO_GENERATORS": {
+      "examples": ["Seedance", "Veo", "hosted Wan"],
+      "status": "DISABLED_IN_FREE_ONLY"
+    }
+  },
   "preferred_pipeline": [
     "NEWS_RESEARCH",
     "SCRIPT_DRAFT",
@@ -130,6 +231,7 @@
     "SUBTITLE_ALIGNMENT",
     "AUDIO_QA",
     "DETERMINISTIC_EDIT",
+    "VIDEO_MULTIMODAL_AUDIT",
     "QUALITY_REVIEW"
   ]
 }
