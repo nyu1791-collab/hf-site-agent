@@ -4,9 +4,12 @@ on:
   pull_request:
     paths:
       - config/media_agent_organization.json
+      - config/free_media_mesh.json
       - scripts/media_agent_runtime.py
+      - scripts/media_free_commander.py
       - scripts/run_nvidia_media_org_audit.py
       - tests/test_media_agent_runtime.py
+      - tests/test_media_free_commander.py
       - tests/test_nvidia_media_org_audit.py
       - docs/MEDIA_AGENT_ARMY.md
       - .github/workflows/verify-media-army.yml
@@ -15,9 +18,12 @@ on:
       - ai-army/provider-v3
     paths:
       - config/media_agent_organization.json
+      - config/free_media_mesh.json
       - scripts/media_agent_runtime.py
+      - scripts/media_free_commander.py
       - scripts/run_nvidia_media_org_audit.py
       - tests/test_media_agent_runtime.py
+      - tests/test_media_free_commander.py
       - tests/test_nvidia_media_org_audit.py
       - docs/MEDIA_AGENT_ARMY.md
       - .github/workflows/verify-media-army.yml
@@ -41,19 +47,28 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Compile media runtime
+      - name: Compile media runtimes
         run: >-
           python -m py_compile
           scripts/media_agent_runtime.py
+          scripts/media_free_commander.py
           scripts/run_nvidia_media_org_audit.py
           tests/test_media_agent_runtime.py
+          tests/test_media_free_commander.py
           tests/test_nvidia_media_org_audit.py
 
-      - name: Validate media config
-        run: python -m json.tool config/media_agent_organization.json >/dev/null
+      - name: Validate media configs
+        run: |
+          python -m json.tool config/media_agent_organization.json >/dev/null
+          python -m json.tool config/free_media_mesh.json >/dev/null
 
       - name: Run media runtime tests
-        run: python -m unittest tests.test_media_agent_runtime tests.test_nvidia_media_org_audit -v
+        run: >-
+          python -m unittest
+          tests.test_media_agent_runtime
+          tests.test_media_free_commander
+          tests.test_nvidia_media_org_audit
+          -v
 
       - name: Produce deterministic no-publish connector canary
         run: |
@@ -109,4 +124,70 @@ jobs:
           assert p['hard_boundaries']['installed_plugin_implies_paid_execution_approval'] is False
           assert p['hard_boundaries']['generic_paid_fallback'] is False
           assert p['hard_boundaries']['auto_top_up'] is False
+          PY
+
+      - name: Verify free-first image and video routing canary
+        run: |
+          set -euo pipefail
+          cat > artifacts/free_media_evidence.json <<'JSON'
+          {
+            "GOOGLE_GEMINI_FREE_MULTIMODAL": {
+              "available": true,
+              "free_verified": true,
+              "quota_safe": true,
+              "credential_present": true
+            },
+            "CLOUDFLARE_FLUX_FREE": {
+              "available": true,
+              "exact_model_verified": true,
+              "free_verified": true,
+              "quota_safe": true,
+              "credential_present": true
+            },
+            "NVIDIA_COSMOS_FREE": {
+              "available": true,
+              "exact_model_verified": true,
+              "free_verified": true,
+              "quota_safe": true,
+              "credential_present": true
+            },
+            "WAN_VIDEO_FREE_GPU": {
+              "available": true,
+              "exact_model_verified": true,
+              "free_verified": true,
+              "quota_safe": true,
+              "runtime_present": true
+            },
+            "FFMPEG_DETERMINISTIC": {
+              "available": true
+            }
+          }
+          JSON
+          python scripts/media_free_commander.py \
+            --asset-type image \
+            --evidence-file artifacts/free_media_evidence.json \
+            --output artifacts/free_image_plan.json
+          python scripts/media_free_commander.py \
+            --asset-type video \
+            --evidence-file artifacts/free_media_evidence.json \
+            --output artifacts/free_video_plan.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          image = json.loads(Path('artifacts/free_image_plan.json').read_text(encoding='utf-8'))
+          video = json.loads(Path('artifacts/free_video_plan.json').read_text(encoding='utf-8'))
+          assert image['status'] == 'READY'
+          assert image['selected_routes']['analysis'] == 'GOOGLE_GEMINI_FREE_MULTIMODAL'
+          assert image['selected_routes']['generation'] == 'CLOUDFLARE_FLUX_FREE'
+          assert image['selected_routes']['post_process'] == 'FFMPEG_DETERMINISTIC'
+          assert video['status'] == 'READY'
+          assert video['selected_routes']['analysis'] == 'GOOGLE_GEMINI_FREE_MULTIMODAL'
+          assert video['selected_routes']['generation'] == 'NVIDIA_COSMOS_FREE'
+          assert video['selected_routes']['post_process'] == 'FFMPEG_DETERMINISTIC'
+          for plan in (image, video):
+              assert plan['hard_boundaries']['free_only_default'] is True
+              assert plan['hard_boundaries']['generic_paid_fallback'] is False
+              assert plan['hard_boundaries']['auto_top_up'] is False
+              assert plan['execution_contract']['planner_spends_money'] is False
+              assert plan['execution_contract']['planner_publishes'] is False
           PY
