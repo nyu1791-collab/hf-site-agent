@@ -1,2 +1,2 @@
-trigger=multi-agent-efficiency-v22-independent-agent-live-validation
-purpose=live-verify-independent-role-agents-local-revision-direct-peer-handoff-priority-mailboxes-capacity-aware-agent-reuse-failure-propagation-and-commander-self-heal-without-paid-fallback-or-production-change
+trigger=multi-agent-efficiency-v23-self-heal-live-validation
+purpose=live-verify-current-green-head-replaceable-role-quality-gates-independent-agents-local-revision-direct-peer-handoff-priority-mailboxes-capacity-aware-agent-reuse-failure-propagation-and-scope-guarded-commander-self-heal-without-paid-fallback-or-production-change
