@@ -14,6 +14,18 @@ class SecretSafetyTests(unittest.TestCase):
             path.write_text("api_key: ${AI_API_KEY}\n", encoding="utf-8")
             self.assertEqual(audit_secret_safety.scan_paths(Path(directory)), [])
 
+    def test_code_variable_reference_is_not_a_secret_finding(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "safe.py"
+            path.write_text(
+                "def send(*, api_key):\n"
+                "    return call(api_key=deepseek_api_key)\n"
+                "\n"
+                "report = run(api_key=openrouter_api_key)\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(audit_secret_safety.scan_paths(Path(directory)), [])
+
     def test_literal_secret_is_reported_without_value(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "unsafe.json"
@@ -26,6 +38,15 @@ class SecretSafetyTests(unittest.TestCase):
                 self.assertEqual(audit_secret_safety.main(["--root", directory]), 1)
             self.assertNotIn(secret, output.getvalue())
             self.assertIn("SECRET_CANDIDATE_FOUND=true", output.getvalue())
+
+    def test_known_token_prefix_is_still_reported_when_unquoted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.py"
+            secret = "sk_" + "livevalue1234567890"
+            path.write_text(f"api_key={secret}\n", encoding="utf-8")
+            findings = audit_secret_safety.scan_paths(Path(directory))
+            self.assertTrue(findings)
+            self.assertIn("secret", {finding.kind.split("_")[0] for finding in findings})
 
     def test_plaintext_secret_binding_is_reported_without_value(self):
         with tempfile.TemporaryDirectory() as directory:
