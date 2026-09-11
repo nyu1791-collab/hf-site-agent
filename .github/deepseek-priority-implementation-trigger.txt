@@ -1,8 +1,8 @@
-trigger=deepseek-v4-1-flash-ai-army-v4-post-implementation-audit-20260911
-purpose=audit-implemented-P0A-P0B-P0C-P0D-P1A-P1B-P1C-P1D
+trigger=deepseek-v4-1-flash-ai-army-v4-second-pass-20260911-r2
+purpose=verify-implemented-P0A-P0B-P0C-P1D-with-narrow-context
 approved_paid_trial=true
-max_estimated_cost_usd=0.25
-max_calls=6
+max_estimated_cost_usd=0.12
+max_calls=4
 max_parallel_calls=2
 repository_write=false
 merge=false
