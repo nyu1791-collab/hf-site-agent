@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Turn one multi-agent run into deterministic next-run organization feedback."""
+"""Turn one multi-agent run into deterministic next-run organization feedback.
+
+The feedback loop treats transport/coordination evidence as first-class runtime
+signals.  A failure already broadcast by the low-latency fabric should influence
+the next parallelism decision immediately instead of waiting for a later manual
+review of logs.  Suppressed redundant dispatches are counted as saved work, not
+as extra model calls.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +31,18 @@ def _number(value: Any, default: float = 0.0) -> float:
     return number
 
 
+def _failure_signal_metrics(council: Mapping[str, Any]) -> dict[str, int]:
+    propagation = _mapping(council.get("failure_signal_propagation"))
+    registry = _mapping(propagation.get("failure_registry"))
+    return {
+        "failure_signals": max(0, int(propagation.get("failure_signals", 0) or 0)),
+        "suppressed_provider_dispatches": max(0, int(propagation.get("suppressed_provider_dispatches", 0) or 0)),
+        "avoided_dispatches": max(0, int(registry.get("avoided_dispatches", 0) or 0)),
+        "active_quarantine_count": max(0, int(registry.get("active_quarantine_count", 0) or 0)),
+        "provider_model_calls": max(0, int(council.get("provider_model_calls", council.get("model_calls", 0)) or 0)),
+    }
+
+
 def _bottlenecks(council: Mapping[str, Any], commander: Mapping[str, Any], staging: Mapping[str, Any]) -> list[dict[str, Any]]:
     items: list[tuple[int, str, str]] = []
     selected = max(0, int(council.get("selected_model_count", 0) or 0))
@@ -34,7 +53,8 @@ def _bottlenecks(council: Mapping[str, Any], commander: Mapping[str, Any], stagi
     length_exhaustion = max(0, int(council.get("length_exhaustion_count", 0) or 0))
     metrics = _mapping(council.get("parallel_metrics"))
     idle = max(0.0, min(1.0, _number(metrics.get("estimated_worker_idle_ratio"))))
-    per_call = max(0.0, _number(metrics.get("successful_tasks_per_ai_call")))
+    per_call = max(0.0, _number(metrics.get("successful_tasks_per_actual_provider_call", metrics.get("successful_tasks_per_ai_call"))))
+    signals = _failure_signal_metrics(council)
 
     if commander and commander.get("result_complete") is not True:
         items.append((100, "COMMANDER_COMPLETION", "NVIDIA synthesis did not return a complete structured result."))
@@ -44,6 +64,8 @@ def _bottlenecks(council: Mapping[str, Any], commander: Mapping[str, Any], stagi
         items.append((85, "REDISPATCH_EFFECTIVENESS", "Work stealing ran but recovered no failed lanes."))
     if length_exhaustion:
         items.append((80, "OUTPUT_LENGTH_EXHAUSTION", f"{length_exhaustion} worker response(s) exhausted the visible output budget."))
+    if signals["failure_signals"] >= 2:
+        items.append((78, "LIVE_ROUTE_PRESSURE", f"{signals['failure_signals']} live worker failure signal(s) were broadcast in this run."))
     configured = int(staging.get("configured_subordinate_parallelism", 0) or 0)
     observed = int(staging.get("observed_parallelism", 0) or 0)
     if staging and (staging.get("status") != "STAGING_PARALLEL_READY" or (configured > 1 and observed < 2)):
@@ -51,7 +73,7 @@ def _bottlenecks(council: Mapping[str, Any], commander: Mapping[str, Any], stagi
     if idle >= 0.40:
         items.append((60, "WORKER_IDLE_TIME", f"Estimated worker idle ratio is {idle:.1%}."))
     if selected and per_call < 0.70:
-        items.append((55, "CALL_EFFICIENCY", f"Successful tasks per AI call is {per_call:.2f}."))
+        items.append((55, "CALL_EFFICIENCY", f"Successful tasks per actual provider call is {per_call:.2f}."))
     if not items:
         items.append((0, "NO_CRITICAL_BOTTLENECK", "Current measured organization has no critical deterministic bottleneck."))
     return [
@@ -66,6 +88,7 @@ def _next_goals(bottlenecks: list[Mapping[str, Any]]) -> list[str]:
         "UNRESOLVED_SPECIALIST_LANES": "Recover unresolved lanes with capability-matched standby workers and bounded partial retry.",
         "REDISPATCH_EFFECTIVENESS": "Improve standby selection and retry payload shape before increasing retry count.",
         "OUTPUT_LENGTH_EXHAUSTION": "Use the larger second-wave output budget only for finish_reason=length failures and shorten retry context where possible.",
+        "LIVE_ROUTE_PRESSURE": "Keep failed exact models quarantined for the run and reduce provider concurrency one step before adding retries.",
         "SCHEDULER_PARALLELISM": "Exercise and measure the staging OpenRouter subordinate scheduler before changing base defaults.",
         "WORKER_IDLE_TIME": "Improve lane-to-worker matching and critical-path utilization before raising concurrency.",
         "CALL_EFFICIENCY": "Reduce low-value duplicate calls and prefer workers with same-run successful structured output.",
@@ -85,6 +108,8 @@ def _recommended_parallel_limit(council: Mapping[str, Any]) -> int:
     current = max(1, int(council.get("parallel_worker_limit", 4) or 4))
     failure_counts = _mapping(council.get("primary_failure_counts"))
     pressure = sum(int(failure_counts.get(key, 0) or 0) for key in ("RATE_LIMIT", "NETWORK", "PROVIDER_5XX"))
+    signals = _failure_signal_metrics(council)
+    pressure = max(pressure, signals["failure_signals"])
     metrics = _mapping(council.get("parallel_metrics"))
     idle = max(0.0, min(1.0, _number(metrics.get("estimated_worker_idle_ratio"))))
     selected = max(1, int(council.get("selected_model_count", 1) or 1))
@@ -115,6 +140,7 @@ def build_feedback(
     )
     selected = max(0, int(council.get("selected_model_count", 0) or 0))
     successful = max(0, int(council.get("successful_lane_count", council.get("successful_model_count", 0)) or 0))
+    signal_metrics = _failure_signal_metrics(council)
     fingerprint_payload = {
         "source_head": source_head,
         "selected": [
@@ -127,10 +153,11 @@ def build_feedback(
             for row in council.get("results", [])
             if isinstance(row, Mapping)
         ],
+        "failure_signal_metrics": signal_metrics,
     }
     fingerprint = hashlib.sha256(json.dumps(fingerprint_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:24]
     return {
-        "schema_version": "ai-army-organization-feedback-v1",
+        "schema_version": "ai-army-organization-feedback-v2",
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "source_head": source_head,
         "evidence_fingerprint": fingerprint,
@@ -142,6 +169,12 @@ def build_feedback(
             "recovered_lane_count": int(council.get("recovered_lane_count", 0) or 0),
             "work_stealing_count": int(council.get("work_stealing_count", 0) or 0),
             "parallel_speedup": _number(_mapping(council.get("parallel_metrics")).get("parallel_speedup")),
+            "successful_tasks_per_actual_provider_call": _number(_mapping(council.get("parallel_metrics")).get("successful_tasks_per_actual_provider_call")),
+            "provider_model_calls": signal_metrics["provider_model_calls"],
+            "failure_signals": signal_metrics["failure_signals"],
+            "suppressed_provider_dispatches": signal_metrics["suppressed_provider_dispatches"],
+            "avoided_dispatches": signal_metrics["avoided_dispatches"],
+            "active_quarantine_count": signal_metrics["active_quarantine_count"],
             "worker_health_states": dict(sorted(health_counts.items())),
             "commander_complete": commander.get("result_complete") is True if commander else None,
             "staging_parallel_ready": staging.get("status") == "STAGING_PARALLEL_READY" if staging else None,
@@ -188,6 +221,8 @@ def main() -> int:
         "status": report["status"],
         "recommended_parallel_worker_limit": report["recommended_parallel_worker_limit"],
         "top_bottleneck": report["bottlenecks"][0]["code"],
+        "failure_signals": report["organization_metrics"]["failure_signals"],
+        "suppressed_provider_dispatches": report["organization_metrics"]["suppressed_provider_dispatches"],
         "next_goals": report["next_goals"],
     }, ensure_ascii=False, sort_keys=True))
     return 0
