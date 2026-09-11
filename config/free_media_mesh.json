@@ -12,9 +12,26 @@
     "free_status_verification_required": true,
     "quota_safe_required": true,
     "credential_or_runtime_evidence_required": true,
+    "fresh_provenance_bound_evidence_required": true,
     "paid_routes_require_explicit_human_approval": true,
     "generation_does_not_publish": true,
     "external_model_repository_write": false
+  },
+  "evidence_contract": {
+    "schema_version": "media-route-evidence-v1",
+    "ttl_seconds": 3600,
+    "max_future_skew_seconds": 120,
+    "require_route_binding": true,
+    "require_provider_binding": true,
+    "require_model_family_binding_when_configured": true,
+    "require_trusted_source": true,
+    "trusted_sources": [
+      "HOSTED_FREE_ROUTE_PROBE_V1",
+      "FREE_GPU_RUNTIME_PROBE_V1",
+      "LOCAL_TOOL_PROBE_V1"
+    ],
+    "cryptographic_authentication_provided": false,
+    "trusted_internal_producer_required": true
   },
   "roles": {
     "GOOGLE_MEDIA_ANALYST": {
@@ -63,6 +80,7 @@
       "kind": "analysis",
       "capabilities": ["image_understanding", "video_understanding", "audio_understanding", "scene_analysis", "highlight_extraction", "title_ideation", "subtitle_drafting"],
       "cost_class": "FREE_QUOTA_ONLY",
+      "evidence_source": "HOSTED_FREE_ROUTE_PROBE_V1",
       "requires": ["available", "free_verified", "quota_safe", "credential_present"],
       "forbidden": ["image_generation", "video_generation", "paid_fallback"]
     },
@@ -72,6 +90,7 @@
       "model_family": "FLUX",
       "capabilities": ["text_to_image", "image_generation", "image_editing_when_supported"],
       "cost_class": "FREE_QUOTA_ONLY",
+      "evidence_source": "HOSTED_FREE_ROUTE_PROBE_V1",
       "requires": ["available", "exact_model_verified", "free_verified", "quota_safe", "credential_present"],
       "quota_exhausted_behavior": "STOP_AND_TRY_NEXT_FREE_ROUTE"
     },
@@ -81,6 +100,7 @@
       "model_family": "Kwai-Kolors/Kolors",
       "capabilities": ["text_to_image", "image_generation"],
       "cost_class": "ZERO_COST_ROUTE_ONLY",
+      "evidence_source": "HOSTED_FREE_ROUTE_PROBE_V1",
       "requires": ["available", "exact_model_verified", "free_verified", "quota_safe", "credential_present"],
       "quota_exhausted_behavior": "STOP_AND_TRY_NEXT_FREE_ROUTE"
     },
@@ -91,6 +111,7 @@
       "capabilities": ["text_to_image", "image_generation", "image_editing", "text_rendering"],
       "execution_surface": "COLAB_KAGGLE_HF_OR_OTHER_APPROVED_FREE_GPU",
       "cost_class": "FREE_RUNTIME_ONLY",
+      "evidence_source": "FREE_GPU_RUNTIME_PROBE_V1",
       "requires": ["available", "exact_model_verified", "free_verified", "quota_safe", "runtime_present"]
     },
     "DEEPSEEK_JANUS_FREE_GPU": {
@@ -100,6 +121,7 @@
       "capabilities": ["image_understanding", "text_to_image", "image_generation"],
       "execution_surface": "COLAB_KAGGLE_HF_OR_OTHER_APPROVED_FREE_GPU",
       "cost_class": "FREE_RUNTIME_ONLY",
+      "evidence_source": "FREE_GPU_RUNTIME_PROBE_V1",
       "requires": ["available", "exact_model_verified", "free_verified", "quota_safe", "runtime_present"]
     },
     "NVIDIA_COSMOS_FREE": {
@@ -108,6 +130,7 @@
       "model_family": "Cosmos",
       "capabilities": ["text_to_video", "image_to_video"],
       "cost_class": "FREE_DEVELOPMENT_ENDPOINT_ONLY",
+      "evidence_source": "HOSTED_FREE_ROUTE_PROBE_V1",
       "requires": ["available", "exact_model_verified", "free_verified", "quota_safe", "credential_present"],
       "paid_endpoint_substitution": false
     },
@@ -118,6 +141,7 @@
       "capabilities": ["text_to_video", "image_to_video"],
       "execution_surface": "COLAB_KAGGLE_HF_OR_OTHER_APPROVED_FREE_GPU",
       "cost_class": "FREE_RUNTIME_ONLY",
+      "evidence_source": "FREE_GPU_RUNTIME_PROBE_V1",
       "requires": ["available", "exact_model_verified", "free_verified", "quota_safe", "runtime_present"]
     },
     "FFMPEG_DETERMINISTIC": {
@@ -125,6 +149,7 @@
       "kind": "post_process",
       "capabilities": ["trim", "concat", "crop", "resize", "burn_captions", "audio_normalize", "thumbnail_frame", "format_convert"],
       "cost_class": "FREE",
+      "evidence_source": "LOCAL_TOOL_PROBE_V1",
       "requires": ["available"],
       "paid": false
     }
