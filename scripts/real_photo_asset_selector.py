@@ -2,9 +2,9 @@
 """Rights-aware real-photo selector for news/media production.
 
 This module replaces generated-image-by-default behavior for news visuals with a
-search-first real-photo workflow. It validates source/license/attribution
-metadata and ranks reusable assets by intended use. It performs no downloads,
-no publishing and no paid stock purchase.
+search-first real-photo workflow. It validates source/license/attribution and a
+bounded download locator before an asset can enter a media plan. It performs no
+network request, download, publishing or paid stock purchase.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = ROOT / "config" / "media_source_policy.json"
@@ -32,19 +33,44 @@ def load_policy(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
         raise RealPhotoAssetError("unknown-rights assets must remain blocked")
     if policy.get("generic_paid_stock_fallback") is not False:
         raise RealPhotoAssetError("paid stock fallback must remain disabled")
+    if policy.get("asset_locator_required") is not True:
+        raise RealPhotoAssetError("real-photo assets require a bounded locator")
+    if not policy.get("allowed_asset_hosts"):
+        raise RealPhotoAssetError("asset host allow-list is required")
     return value
 
 
-def _asset_valid(asset: Mapping[str, Any], policy: Mapping[str, Any]) -> tuple[bool, list[str]]:
+def _https_host(value: Any) -> tuple[bool, str]:
+    text = str(value or "").strip()
+    if not text:
+        return False, ""
+    parsed = urlparse(text)
+    host = str(parsed.hostname or "").lower()
+    return parsed.scheme == "https" and bool(host), host
+
+
+def _asset_valid(asset: Mapping[str, Any], config: Mapping[str, Any]) -> tuple[bool, list[str]]:
+    policy = config.get("policy") if isinstance(config.get("policy"), Mapping) else {}
     failures: list[str] = []
-    preferred = {str(x) for x in policy.get("preferred_licenses", ())}
-    conditional = {str(x) for x in policy.get("conditionally_allowed_licenses", ())}
-    blocked = {str(x) for x in policy.get("blocked_license_states", ())}
+    preferred = {str(x) for x in config.get("preferred_licenses", ())}
+    conditional = {str(x) for x in config.get("conditionally_allowed_licenses", ())}
+    blocked = {str(x) for x in config.get("blocked_license_states", ())}
+    allowed_hosts = {str(x).lower() for x in policy.get("allowed_asset_hosts", ()) if str(x)}
     license_name = str(asset.get("license") or "UNKNOWN")
+
     if str(asset.get("kind") or "") != "real_photo":
         failures.append("not_real_photo")
-    if not str(asset.get("source_page") or "").startswith("https://"):
+
+    source_ok, _ = _https_host(asset.get("source_page"))
+    if not source_ok:
         failures.append("source_page_required")
+
+    asset_ok, asset_host = _https_host(asset.get("asset_url"))
+    if policy.get("asset_locator_required") is True and not asset_ok:
+        failures.append("asset_locator_required")
+    elif asset_host not in allowed_hosts:
+        failures.append("asset_host_not_allowed")
+
     if license_name in blocked or license_name not in preferred | conditional:
         failures.append("license_not_approved")
     if asset.get("attribution_required") is True and not str(asset.get("author") or "").strip():
@@ -53,7 +79,14 @@ def _asset_valid(asset: Mapping[str, Any], policy: Mapping[str, Any]) -> tuple[b
         failures.append("watermarked")
     if asset.get("news_agency_reuse_license_verified") is False:
         failures.append("news_agency_reuse_unverified")
-    return not failures, failures
+    if (
+        policy.get("editorial_context_only_for_public_figure_photos") is True
+        and asset.get("public_figure") is True
+        and asset.get("editorial_context") is not True
+    ):
+        failures.append("public_figure_editorial_context_required")
+
+    return not failures, sorted(set(failures))
 
 
 def rank_assets(
@@ -63,7 +96,6 @@ def rank_assets(
     config: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     cfg = dict(config or load_policy())
-    policy = cfg.get("policy") if isinstance(cfg.get("policy"), Mapping) else {}
     rows = list(candidates or cfg.get("current_news_asset_candidates") or ())
     use = str(intended_use or "").upper()
     ranked: list[dict[str, Any]] = []
@@ -84,8 +116,11 @@ def rank_assets(
         ranked.append({
             "asset_id": str(raw.get("asset_id") or ""),
             "subject": str(raw.get("subject") or ""),
+            "public_figure": bool(raw.get("public_figure") is True),
+            "editorial_context": bool(raw.get("editorial_context") is True),
             "source": str(raw.get("source") or ""),
             "source_page": str(raw.get("source_page") or ""),
+            "asset_url": str(raw.get("asset_url") or ""),
             "author": str(raw.get("author") or ""),
             "license": str(raw.get("license") or ""),
             "attribution_required": bool(raw.get("attribution_required") is True),
@@ -108,13 +143,42 @@ def select_assets(
     ranked = rank_assets(intended_use=intended_use, candidates=candidates, config=config)
     selected = [row for row in ranked if row["valid"]][: max(1, min(10, int(limit)))]
     return {
-        "schema_version": "real-photo-selection-v1",
+        "schema_version": "real-photo-selection-v2",
         "visual_mode": "REAL_PHOTO_SEARCH",
         "generated_images_used": False,
         "selected": selected,
         "rejected": [row for row in ranked if not row["valid"]],
         "rights_manifest_required_before_publish": True,
+        "download_manifest_ready": bool(selected),
         "paid_stock_fallback": False,
+    }
+
+
+def build_download_manifest(selection: Mapping[str, Any]) -> dict[str, Any]:
+    """Build a downloader-ready manifest without performing any download."""
+    rows = selection.get("selected") if isinstance(selection.get("selected"), list) else []
+    assets: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, Mapping) or row.get("valid") is not True:
+            continue
+        assets.append({
+            "asset_id": str(row.get("asset_id") or ""),
+            "asset_url": str(row.get("asset_url") or ""),
+            "source_page": str(row.get("source_page") or ""),
+            "subject": str(row.get("subject") or ""),
+            "author": str(row.get("author") or ""),
+            "license": str(row.get("license") or ""),
+            "attribution_required": bool(row.get("attribution_required") is True),
+            "network_action": "DOWNLOAD_ONLY",
+            "publish_authority": False,
+        })
+    return {
+        "schema_version": "real-photo-download-manifest-v1",
+        "assets": assets,
+        "generated_assets": False,
+        "paid_stock": False,
+        "download_is_publish": False,
+        "publish_requires_separate_rights_gate": True,
     }
 
 
@@ -129,4 +193,11 @@ def attribution_lines(selection: Mapping[str, Any]) -> list[str]:
     return lines
 
 
-__all__ = ["RealPhotoAssetError", "attribution_lines", "load_policy", "rank_assets", "select_assets"]
+__all__ = [
+    "RealPhotoAssetError",
+    "attribution_lines",
+    "build_download_manifest",
+    "load_policy",
+    "rank_assets",
+    "select_assets",
+]
