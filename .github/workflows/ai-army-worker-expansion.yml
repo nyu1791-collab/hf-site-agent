@@ -46,6 +46,10 @@ jobs:
             scripts/worker_selection.py \
             scripts/probe_free_workers_multi.py \
             scripts/benchmark_free_workers.py \
+            scripts/replaceable_agent_organization.py \
+            scripts/global_agent_role_optimizer.py \
+            scripts/replaceable_agent_scheduler.py \
+            scripts/reconcile_agent_organization.py \
             scripts/parallel_worker_council.py \
             scripts/failure_aware_specialist_council.py \
             scripts/failure_aware_specialist_retry.py \
@@ -59,6 +63,7 @@ jobs:
             scripts/worker_benchmark_ranking.py \
             scripts/openrouter_worker_orchestrator.py \
             scripts/continuous_project_loop.py
+          python -m json.tool config/replaceable_agent_organization.json >/dev/null
 
       - name: Collect redacted NVIDIA route evidence
         env:
@@ -128,6 +133,13 @@ jobs:
               "parallel_worker_limit": report.get("parallel_worker_limit", 0),
           }, sort_keys=True))
           PY
+
+      - name: Reconcile current benchmark into replaceable agent organization
+        run: >-
+          python scripts/reconcile_agent_organization.py
+          --openrouter-probe artifacts/openrouter_expansion_probe.json
+          --openrouter-benchmark artifacts/openrouter_expansion_benchmark.json
+          --output artifacts/replaceable_agent_organization.json
 
       - name: Canary current winners and build same-run routing policy
         env:
@@ -211,6 +223,7 @@ jobs:
           canary = json.loads(Path("artifacts/worker_canary.json").read_text(encoding="utf-8"))
           routing = json.loads(Path("artifacts/worker_routing_policy.json").read_text(encoding="utf-8"))
           resilience = json.loads(Path("artifacts/worker_resilience_rehearsal.json").read_text(encoding="utf-8"))
+          replaceable_org = json.loads(Path("artifacts/replaceable_agent_organization.json").read_text(encoding="utf-8"))
           feedback_path = Path("artifacts/organization_feedback.json")
           feedback = json.loads(feedback_path.read_text(encoding="utf-8")) if feedback_path.exists() else {}
           blackboard_path = Path("artifacts/organization_blackboard.json")
@@ -241,16 +254,34 @@ jobs:
                   })
               if entries:
                   pools[str(role)] = entries
+          replaceable_assignments = {}
+          for slot, item in (replaceable_org.get("assignments") or {}).items():
+              if not isinstance(item, dict):
+                  continue
+              replaceable_assignments[str(slot)] = {
+                  "status": item.get("status"),
+                  "provider": item.get("provider"),
+                  "model": item.get("model"),
+                  "role_fit": item.get("role_fit"),
+                  "required_capability_coverage": item.get("required_capability_coverage"),
+                  "swap_decision": (item.get("swap_decision") or {}).get("decision"),
+              }
           report = {
-              "schema_version": "ai-army-dynamic-worker-pool-v6",
+              "schema_version": "ai-army-dynamic-worker-pool-v7",
               "source_head": "${{ github.sha }}",
               "nvidia_commander": "nvidia/nemotron-3.5-lightning-30b-a3b",
               "google_policy": "CRITICAL_IMPLEMENTATION_DIFFICULT_DESIGN_FINAL_CRITICAL_REVIEW_ONLY",
-              "execution_policy": "GLOBAL_HISTORY_ROUTING_PARALLEL_SPECIALISTS_WORK_STEALING_BLACKBOARD_FEEDBACK",
+              "execution_policy": "GLOBAL_REPLACEABLE_ROLES_HISTORY_ROUTING_PARALLEL_SPECIALISTS_WORK_STEALING_BLACKBOARD_FEEDBACK",
               "verified_free_models": sorted(set(verified)),
               "verified_free_model_count": len(set(verified)),
               "benchmarked_unique_models": sorted(unique_ranked),
               "benchmarked_unique_model_count": len(unique_ranked),
+              "replaceable_organization_mode": replaceable_org.get("organization_mode"),
+              "replaceable_assignment_policy": replaceable_org.get("assignment_policy"),
+              "replaceable_role_assignments": replaceable_assignments,
+              "replaceable_provider_concurrency": replaceable_org.get("provider_concurrency", {}),
+              "replaceable_model_names_are_replaceable": replaceable_org.get("model_names_are_replaceable") is True,
+              "replaceable_role_slots_are_stable": replaceable_org.get("role_slots_are_stable") is True,
               "council_primary_successful_lane_count": int(council.get("primary_successful_lane_count", 0) or 0),
               "council_successful_lane_count": int(council.get("successful_lane_count", 0) or 0),
               "council_recovered_lane_count": int(council.get("recovered_lane_count", 0) or 0),
@@ -290,6 +321,7 @@ jobs:
           print(json.dumps({
               "verified_free_model_count": report["verified_free_model_count"],
               "benchmarked_unique_model_count": report["benchmarked_unique_model_count"],
+              "replaceable_role_count": sum(item.get("status") == "ASSIGNED" for item in replaceable_assignments.values()),
               "primary_successful_lane_count": report["council_primary_successful_lane_count"],
               "successful_lane_count": report["council_successful_lane_count"],
               "recovered_lane_count": report["council_recovered_lane_count"],
@@ -309,6 +341,7 @@ jobs:
             artifacts/nvidia_orchestrator_ledger.json \
             artifacts/openrouter_expansion_probe.json \
             artifacts/openrouter_expansion_benchmark.json \
+            artifacts/replaceable_agent_organization.json \
             artifacts/worker_canary.json \
             artifacts/worker_routing_policy.json \
             artifacts/worker_resilience_rehearsal.json \
@@ -333,6 +366,7 @@ jobs:
             artifacts/nvidia_orchestrator_ledger.json
             artifacts/openrouter_expansion_probe.json
             artifacts/openrouter_expansion_benchmark.json
+            artifacts/replaceable_agent_organization.json
             artifacts/worker_canary.json
             artifacts/worker_routing_policy.json
             artifacts/worker_resilience_rehearsal.json
