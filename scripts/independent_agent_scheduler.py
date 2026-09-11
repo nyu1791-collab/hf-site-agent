@@ -1,34 +1,39 @@
 #!/usr/bin/env python3
-"""Independent-role scheduler overlay for the low-latency AI Army.
+"""Independent-role scheduler overlay for the AI Army V4 runtime.
 
-This generation keeps the event-driven scheduler and adds mission-local agent
-sessions. Each stable role identity retains bounded working memory across tasks,
-receives high-priority peer deltas directly, revises locally, and may delegate
-within the slot's configured child-task budget. Model swaps change the agent's
-execution body, not its role identity.
+Stable role identities keep bounded, freshness-filtered mission memory while the
+V4 scheduler supplies versioned dependency handoffs, adaptive exact-model
+concurrency, semantic JOIN, fairness aging and Result Confidence Contracts.
+Model swaps change an agent's execution body, not its role identity.
 
-Agent inbox deltas are acknowledged only after the role handler returns a
-parseable result. Unexpected handler exceptions also close the role session
-before propagating to the base scheduler, preventing stale active-task state.
-Acknowledged peer signals remain in a bounded role-local replay window so later
-work by the same agent keeps important context without commander relay.
+The overlay preserves consume-then-ack semantics: peer deltas are acknowledged
+only after the role handler returns a parseable result.  Result memory is
+committed only after the V4 scheduler has stamped revision/hash/RCC metadata.
 """
 
 from __future__ import annotations
 
 from typing import Any, Callable, Mapping, Sequence
 
-from scripts.independent_agent_runtime import IndependentAgentRegistry
+from scripts.independent_agent_runtime_v4 import IndependentAgentRegistryV4
 from scripts.replaceable_agent_scheduler import AgentTask, AgentTaskResult
-from scripts.replaceable_agent_scheduler_v2 import LowLatencyReplaceableAgentScheduler
+from scripts.replaceable_agent_scheduler_v4 import V4ReplaceableAgentScheduler
 
 
-class IndependentAgentScheduler(LowLatencyReplaceableAgentScheduler):
-    """Low-latency scheduler where role slots behave as persistent agents."""
+class IndependentAgentScheduler(V4ReplaceableAgentScheduler):
+    """AI Army V4 scheduler where role slots behave as persistent agents."""
 
     def __init__(self, organization: Mapping[str, Any], **kwargs: Any) -> None:
         super().__init__(organization, **kwargs)
-        self.agent_registry = IndependentAgentRegistry(config=self.config, fabric=self.fabric)
+        adaptive = self.config.get("adaptive_controls") if isinstance(self.config.get("adaptive_controls"), Mapping) else {}
+        # V2 keeps a conservative static exact-model limit.  V4 starts at one
+        # internally and may promote only up to the organization same-model cap.
+        adaptive_cap = max(
+            1,
+            min(4, int(adaptive.get("adaptive_exact_model_parallel_limit_cap") or adaptive.get("max_slots_per_same_model") or self.exact_model_limit)),
+        )
+        self.model_concurrency.configured_cap = adaptive_cap
+        self.agent_registry = IndependentAgentRegistryV4(config=self.config, fabric=self.fabric)
 
     def _execute_with_handoff(
         self,
@@ -38,6 +43,7 @@ class IndependentAgentScheduler(LowLatencyReplaceableAgentScheduler):
         handler: Callable[[AgentTask, Mapping[str, Any], Mapping[str, Any]], AgentTaskResult | Mapping[str, Any]],
     ) -> dict[str, Any]:
         agent_id = self.agent_registry.start_task(task, binding)
+        consumed_context: dict[str, Any] = {}
 
         def independent_handler(
             current_task: AgentTask,
@@ -51,6 +57,8 @@ class IndependentAgentScheduler(LowLatencyReplaceableAgentScheduler):
                 base_context=execution_context,
                 handoff=handoff,
             )
+            consumed_context.clear()
+            consumed_context.update(agent_context)
             augmented["agent_session"] = agent_context
             value = handler(current_task, current_binding, augmented)
             parsed = AgentTaskResult.from_value(value)
@@ -64,6 +72,7 @@ class IndependentAgentScheduler(LowLatencyReplaceableAgentScheduler):
                 inbox_cursor=int(agent_context.get("inbox_cursor", 0) or 0),
                 peer_deltas=peer_deltas,
                 dependency_count=int(handoff.get("dependency_count", 0) or 0),
+                dependency_snapshot_id=str(handoff.get("dependency_snapshot_id") or ""),
             )
             self.agent_registry.observe_attempt(
                 task=current_task,
@@ -72,23 +81,30 @@ class IndependentAgentScheduler(LowLatencyReplaceableAgentScheduler):
             )
             return parsed
 
-        try:
-            row = super()._execute_with_handoff(task, binding, handoff, independent_handler)
-        except Exception as exc:
-            self.agent_registry.finish_task(
-                task=task,
-                row={
-                    "status": "FAILED",
-                    "summary": "agent handler raised before scheduler row completion",
-                    "error_class": type(exc).__name__,
-                },
-            )
-            raise
-
+        row = super()._execute_with_handoff(task, binding, handoff, independent_handler)
         row["agent_id"] = agent_id
         row["stable_role_identity"] = True
-        self.agent_registry.finish_task(task=task, row=row)
+        row["agent_inbox_cursor"] = int(consumed_context.get("inbox_cursor", 0) or 0)
+        row["accepted_dependency_snapshot_id"] = str(handoff.get("dependency_snapshot_id") or "")
         return row
+
+    def _commit_result_row(
+        self,
+        *,
+        task: AgentTask,
+        row: Mapping[str, Any],
+        binding: Mapping[str, Any],
+        dependency_snapshot_verified: bool,
+    ) -> dict[str, Any]:
+        committed = super()._commit_result_row(
+            task=task,
+            row=row,
+            binding=binding,
+            dependency_snapshot_verified=dependency_snapshot_verified,
+        )
+        if not row.get("joined_from"):
+            self.agent_registry.finish_task(task=task, row=committed)
+        return committed
 
     def run(
         self,
@@ -97,17 +113,20 @@ class IndependentAgentScheduler(LowLatencyReplaceableAgentScheduler):
     ) -> dict[str, Any]:
         report = dict(super().run(tasks, handler))
         sessions = self.agent_registry.snapshot()
-        report["schema_version"] = "independent-agent-scheduler-report-v3"
-        report["scheduler_mode"] = "INDEPENDENT_ROLE_AGENTS_EVENT_DRIVEN_DIRECT_HANDOFF_ACKED_INBOX_REPLAY"
+        report["schema_version"] = "independent-agent-scheduler-report-v4"
+        report["scheduler_mode"] = "AI_ARMY_V4_INDEPENDENT_ROLE_AGENTS_VERSIONED_ADAPTIVE_DEDUP_FRESH_MEMORY_RCC"
         report["independent_agents"] = True
         report["agent_sessions"] = sessions
         report["independent_agent_count"] = sessions["independent_agent_count"]
         report["active_agent_task_count"] = sessions["active_task_count"]
         report["peer_context_replays"] = sessions["peer_context_replays"]
+        report["memory_freshness"] = sessions.get("memory_freshness", {})
         report["stable_role_identity_across_model_swap"] = True
         report["ordinary_local_decisions_require_commander_roundtrip"] = False
         report["external_model_repository_write"] = False
         report["generic_paid_fallback"] = False
+        report["auto_top_up"] = False
+        report["production_routing_changed"] = False
         return report
 
 
