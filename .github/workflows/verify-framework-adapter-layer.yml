@@ -7,9 +7,13 @@ on:
     paths:
       - config/framework_adapter_layer.json
       - scripts/framework_adapter_layer.py
+      - scripts/framework_plugin_registry.py
+      - scripts/framework_adapter_health.py
       - scripts/framework_consolidation_policy.py
       - scripts/parallel_framework_batch.py
       - tests/test_framework_adapter_layer.py
+      - tests/test_framework_plugin_registry.py
+      - tests/test_framework_adapter_health.py
       - tests/test_framework_consolidation_policy.py
       - tests/test_parallel_framework_batch.py
       - .github/workflows/verify-framework-adapter-layer.yml
@@ -38,9 +42,13 @@ jobs:
         run: |
           python -m py_compile \
             scripts/framework_adapter_layer.py \
+            scripts/framework_plugin_registry.py \
+            scripts/framework_adapter_health.py \
             scripts/framework_consolidation_policy.py \
             scripts/parallel_framework_batch.py \
             tests/test_framework_adapter_layer.py \
+            tests/test_framework_plugin_registry.py \
+            tests/test_framework_adapter_health.py \
             tests/test_framework_consolidation_policy.py \
             tests/test_parallel_framework_batch.py
 
@@ -48,7 +56,13 @@ jobs:
         run: python -m json.tool config/framework_adapter_layer.json >/dev/null
 
       - name: Run framework adapter tests
-        run: python -m unittest tests.test_framework_adapter_layer tests.test_framework_consolidation_policy tests.test_parallel_framework_batch -v
+        run: |
+          python -m unittest \
+            tests.test_framework_adapter_layer \
+            tests.test_framework_plugin_registry \
+            tests.test_framework_adapter_health \
+            tests.test_framework_consolidation_policy \
+            tests.test_parallel_framework_batch -v
 
       - name: Verify hard boundaries and anti-fragmentation defaults
         run: |
