@@ -124,8 +124,8 @@ jobs:
           assert latency.get("communication", {}).get("direct_dependency_push") is True
           assert latency.get("generic_paid_fallback") is False
           assert latency.get("external_model_repository_write") is False
-          assert agents.get("schema_version") == "independent-agent-scheduler-report-v1"
-          assert agents.get("scheduler_mode") == "INDEPENDENT_ROLE_AGENTS_EVENT_DRIVEN_DIRECT_HANDOFF"
+          assert agents.get("schema_version") == "independent-agent-scheduler-report-v3"
+          assert agents.get("scheduler_mode") == "INDEPENDENT_ROLE_AGENTS_EVENT_DRIVEN_DIRECT_HANDOFF_ACKED_INBOX_REPLAY"
           assert agents.get("independent_agents") is True
           assert agents.get("completed_task_count") == 7
           assert agents.get("generated_task_count") == 4
@@ -134,6 +134,8 @@ jobs:
           assert agents.get("probe", {}).get("code_revised_locally_without_commander_roundtrip") is True
           assert agents.get("probe", {}).get("qa_received_code_handoff") is True
           assert agents.get("probe", {}).get("synth_received_qa_handoff") is True
+          assert agents.get("probe", {}).get("peer_delta_seen") is True
+          assert agents.get("active_agent_task_count") == 0
           assert agents.get("external_model_repository_write") is False
           assert agents.get("generic_paid_fallback") is False
           print(json.dumps({
@@ -160,6 +162,7 @@ jobs:
               "agent_generated_tasks": agents.get("generated_task_count", 0),
               "local_revision_without_commander": agents.get("probe", {}).get("code_revised_locally_without_commander_roundtrip"),
               "qa_direct_handoff": agents.get("probe", {}).get("qa_received_code_handoff"),
+              "peer_delta_seen": agents.get("probe", {}).get("peer_delta_seen"),
               "reconciled_agent_bodies": agents.get("probe", {}).get("reconciled_binding_count", 0),
           }, sort_keys=True))
           PY
