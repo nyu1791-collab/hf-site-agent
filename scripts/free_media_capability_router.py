@@ -20,7 +20,7 @@ from typing import Any, Mapping, Sequence
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = ROOT / "config" / "free_media_capability_pool.json"
 SCHEMA_VERSION = "free-media-capability-plan-v1"
-INDEPENDENT_REVIEW_TYPES = frozenset({"FACT_CHECK", "QUALITY_REVIEW"})
+INDEPENDENT_REVIEW_TYPES = frozenset({"FACT_CHECK", "VIDEO_MULTIMODAL_AUDIT", "QUALITY_REVIEW"})
 
 
 class FreeMediaCapabilityError(ValueError):
@@ -60,6 +60,12 @@ def _candidate_ready(candidate: Mapping[str, Any], evidence: Mapping[str, Any]) 
     else:
         if evidence.get("quota_safe") is not True:
             failures.append("quota_safe")
+    if candidate.get("exact_free_model_id_required") is True:
+        model = str(candidate.get("model") or "")
+        if not model.endswith(":free"):
+            failures.append("configured_model_not_exact_free_variant")
+        if evidence.get("exact_model_verified") is not True:
+            failures.append("exact_model_verified")
     if candidate.get("commercial_license_verification_required") is True and evidence.get("commercial_license_verified") is not True:
         failures.append("commercial_license_verified")
     if str(candidate.get("license_gate") or "") == "SERVICE_TERMS" and evidence.get("service_terms_ok") is not True:
@@ -93,12 +99,8 @@ def _score(
     if coverage < 1.0:
         return -1.0
     score = 0.70
-    # Reuse a proven multi-role worker when quality is equivalent: fewer handoffs,
-    # smaller context duplication and simpler failure recovery.
     if candidate.get("can_multi_role") is True and any(row.get("candidate_id") == candidate_id for row in prior_assignments.values()):
         score += 0.08
-    # Local deterministic and open-model runtimes are slightly preferred over
-    # hosted quota routes when the capability fit is identical.
     cost_class = str(candidate.get("cost_class") or "")
     if cost_class == "FREE":
         score += 0.12
@@ -110,7 +112,11 @@ def _score(
         score += 0.04
 
     if work_type in INDEPENDENT_REVIEW_TYPES:
-        producer = prior_assignments.get("SCRIPT_DRAFT") or prior_assignments.get("NEWS_RESEARCH")
+        producer = (
+            prior_assignments.get("EDIT_PLANNING")
+            or prior_assignments.get("SCRIPT_DRAFT")
+            or prior_assignments.get("NEWS_RESEARCH")
+        )
         if producer:
             if str(producer.get("provider") or "") == str(candidate.get("provider") or ""):
                 score -= 0.14
