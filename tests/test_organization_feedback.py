@@ -53,6 +53,39 @@ class OrganizationFeedbackTests(unittest.TestCase):
         report = build_feedback(source_head="abc", council=council)
         self.assertEqual(report["recommended_parallel_worker_limit"], 4)
 
+    def test_failure_fabric_pressure_is_used_without_waiting_for_legacy_counts(self):
+        council = {
+            "selected_model_count": 8,
+            "successful_lane_count": 8,
+            "parallel_worker_limit": 5,
+            "primary_failure_counts": {},
+            "provider_model_calls": 9,
+            "parallel_metrics": {
+                "estimated_worker_idle_ratio": 0.1,
+                "successful_tasks_per_ai_call": 0.8,
+                "successful_tasks_per_actual_provider_call": 0.8889,
+            },
+            "failure_signal_propagation": {
+                "enabled": True,
+                "failure_signals": 2,
+                "suppressed_provider_dispatches": 1,
+                "failure_registry": {
+                    "avoided_dispatches": 1,
+                    "active_quarantine_count": 1,
+                },
+            },
+            "selected_models": [],
+            "results": [],
+        }
+        report = build_feedback(source_head="abc", council=council)
+        self.assertEqual(report["recommended_parallel_worker_limit"], 4)
+        self.assertIn("LIVE_ROUTE_PRESSURE", [row["code"] for row in report["bottlenecks"]])
+        metrics = report["organization_metrics"]
+        self.assertEqual(metrics["provider_model_calls"], 9)
+        self.assertEqual(metrics["suppressed_provider_dispatches"], 1)
+        self.assertEqual(metrics["avoided_dispatches"], 1)
+        self.assertEqual(metrics["failure_signals"], 2)
+
     def test_clean_run_can_increase_parallelism_one_step(self):
         council = {
             "selected_model_count": 8,
