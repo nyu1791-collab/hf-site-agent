@@ -1,0 +1,77 @@
+name: Framework Adapter Layer CI
+
+on:
+  push:
+    branches:
+      - ai-army/framework-adapter-v1
+    paths:
+      - config/framework_adapters.json
+      - scripts/framework_adapter_*.py
+      - tests/test_framework_adapter_*.py
+      - .github/workflows/framework-adapter-ci.yml
+  pull_request:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - config/framework_adapters.json
+      - scripts/framework_adapter_*.py
+      - tests/test_framework_adapter_*.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: framework-adapter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deterministic-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact commit without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install test-only dependency
+        run: python -m pip install --disable-pip-version-check pytest
+
+      - name: Compile adapter modules
+        run: |
+          python -m py_compile \
+            scripts/framework_adapter_base.py \
+            scripts/framework_adapter_registry.py \
+            scripts/framework_adapter_native.py \
+            scripts/framework_adapter_langgraph.py \
+            scripts/framework_adapter_autogen.py \
+            scripts/framework_adapter_crewai.py \
+            scripts/framework_adapter_copilot.py
+
+      - name: Run adapter unit and failure-injection tests
+        run: |
+          python -m pytest -q \
+            tests/test_framework_adapter_base.py \
+            tests/test_framework_adapter_registry.py \
+            tests/test_framework_adapter_safety.py
+
+      - name: Assert no external framework package is required
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          cfg = json.loads(Path('config/framework_adapters.json').read_text())
+          assert cfg['policy']['FREE_ONLY_MODE'] is True
+          assert cfg['policy']['ALLOW_PAID_MODEL'] is False
+          assert cfg['policy']['ALLOW_PAID_FALLBACK'] is False
+          assert cfg['policy']['AUTO_TOP_UP'] is False
+          for name in ('langgraph', 'autogen', 'crewai', 'copilot'):
+              assert cfg['adapters'][name]['enabled'] is False
+              assert cfg['adapters'][name]['shadow_only'] is True
+          PY
