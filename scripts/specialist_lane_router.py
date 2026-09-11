@@ -6,11 +6,9 @@ organization memory records how workers actually behaved on specialist work in
 recent runs. Routing combines both signals and solves the small lane/worker
 matching problem globally.
 
-Generation v2 no longer forces eight distinct models merely to fill eight
-specialist lanes. A historically reliable exact model may own up to two lanes,
-while same-model execution remains serialized by the council runtime. This
-trades low-value diversity for measured reliability without creating concurrent
-pressure on one exact model or allowing provider fallback.
+Generation v3 preserves historically reliable worker reuse, but protects
+critical lanes when worker supply is scarce and sanitizes corrupted or sparse
+organization-memory counters before they can influence routing.
 """
 
 from __future__ import annotations
@@ -50,7 +48,7 @@ RELIABLE_REUSE_MIN_ATTEMPTS = 2
 RELIABLE_REUSE_MIN_HISTORY_SCORE = 0.68
 RELIABLE_REUSE_MAX_LENGTH_FAILURE_RATE = 0.25
 RELIABLE_REUSE_MAX_RATE_LIMIT_RATE = 0.20
-SECOND_LANE_REUSE_PENALTY = 0.045
+SECOND_LANE_REUSE_PENALTY = 0.10
 ASSIGNMENT_POLICY = "GLOBAL_CAPACITY_AWARE_CRITICAL_PATH_ROLE_PLUS_ORGANIZATION_MEMORY"
 
 
@@ -61,6 +59,13 @@ def _number(value: Any, default: float = 0.0) -> float:
     if number != number or number in {float("inf"), float("-inf")}:
         return default
     return number
+
+
+def _nonnegative_int(value: Any) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError, OverflowError):
+        return 0
 
 
 def load_organization_memory(*, root: Path | str = Path(".")) -> Mapping[str, Any]:
@@ -76,7 +81,10 @@ def load_organization_memory(*, root: Path | str = Path(".")) -> Mapping[str, An
 
 
 def _smoothed_rate(successes: int, attempts: int) -> float:
-    return (max(0, successes) + 1.0) / (max(0, attempts) + 2.0)
+    clean_attempts = _nonnegative_int(attempts)
+    clean_successes = min(_nonnegative_int(successes), clean_attempts)
+    value = (clean_successes + 1.0) / (clean_attempts + 2.0)
+    return min(1.0, max(0.0, value))
 
 
 def historical_worker_signal(memory: Mapping[str, Any], model: str, lane_name: str) -> dict[str, float | int]:
@@ -90,18 +98,23 @@ def historical_worker_signal(memory: Mapping[str, Any], model: str, lane_name: s
             "length_failure_rate": 0.0,
             "rate_limit_rate": 0.0,
         }
+
     lanes = model_row.get("lanes") if isinstance(model_row.get("lanes"), Mapping) else {}
     lane_row = lanes.get(lane_name) if isinstance(lanes.get(lane_name), Mapping) else {}
-    model_attempts = max(0, int(model_row.get("attempts", 0) or 0))
-    model_successes = max(0, int(model_row.get("successes", 0) or 0))
-    lane_attempts = max(0, int(lane_row.get("attempts", 0) or 0))
-    lane_successes = max(0, int(lane_row.get("successes", 0) or 0))
+    model_attempts = _nonnegative_int(model_row.get("attempts", 0))
+    model_successes = min(_nonnegative_int(model_row.get("successes", 0)), model_attempts)
+    lane_attempts = _nonnegative_int(lane_row.get("attempts", 0))
+    lane_successes = min(_nonnegative_int(lane_row.get("successes", 0)), lane_attempts)
+
     overall_reliability = _smoothed_rate(model_successes, model_attempts)
-    lane_reliability = _smoothed_rate(lane_successes, lane_attempts) if lane_attempts else overall_reliability
-    source = lane_row if lane_attempts else model_row
-    source_attempts = max(1, int(source.get("attempts", 0) or 0))
-    length_rate = max(0.0, min(1.0, int(source.get("length_failures", 0) or 0) / source_attempts))
-    rate_limit_rate = max(0.0, min(1.0, int(source.get("rate_limits", 0) or 0) / source_attempts))
+    lane_has_enough_history = lane_attempts >= RELIABLE_REUSE_MIN_ATTEMPTS
+    lane_reliability = _smoothed_rate(lane_successes, lane_attempts) if lane_has_enough_history else overall_reliability
+    source = lane_row if lane_has_enough_history else model_row
+    source_attempts = max(1, _nonnegative_int(source.get("attempts", 0)))
+    length_failures = min(_nonnegative_int(source.get("length_failures", 0)), source_attempts)
+    rate_limits = min(_nonnegative_int(source.get("rate_limits", 0)), source_attempts)
+    length_rate = max(0.0, min(1.0, length_failures / source_attempts))
+    rate_limit_rate = max(0.0, min(1.0, rate_limits / source_attempts))
     latency_ms = _number(source.get("avg_latency_ms"), _number(model_row.get("avg_latency_ms"), 20_000.0))
     latency_factor = 1.0 / (1.0 + max(1.0, latency_ms) / 12_000.0)
     score = (
@@ -160,6 +173,15 @@ def _assignment_score(
 
 def _lane_weight(lane_name: str) -> float:
     return max(1.0, float(LANE_ASSIGNMENT_WEIGHTS.get(lane_name, 1.0)))
+
+
+def _selected_lanes(worker_count: int) -> list[Mapping[str, Any]]:
+    limit = min(max(0, int(worker_count)), len(SPECIALIST_LANES))
+    if limit >= len(SPECIALIST_LANES):
+        return list(SPECIALIST_LANES)
+    indexed = list(enumerate(SPECIALIST_LANES))
+    indexed.sort(key=lambda pair: (-_lane_weight(str(pair[1]["lane"])), pair[0]))
+    return [lane for _, lane in indexed[:limit]]
 
 
 def _globally_optimal_worker_indices(
@@ -230,7 +252,7 @@ def attach_capability_matched_assignments(
     preferences: Mapping[str, Sequence[str]] = DEFAULT_LANE_ROLE_PREFERENCES,
     memory: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Globally match lanes while reusing only proven workers at bounded capacity."""
+    """Globally match the most important lanes while reusing only proven workers."""
     workers = sorted(
         (dict(item) for item in selected if isinstance(item, Mapping) and item.get("model")),
         key=lambda item: str(item.get("model") or ""),
@@ -238,7 +260,7 @@ def attach_capability_matched_assignments(
     if not workers:
         return []
 
-    lanes = list(SPECIALIST_LANES[: min(len(workers), len(SPECIALIST_LANES))])
+    lanes = _selected_lanes(len(workers))
     memory_payload = memory if isinstance(memory, Mapping) else load_organization_memory(root=root)
     worker_indices = _globally_optimal_worker_indices(workers, lanes, preferences, memory_payload)
     if len(worker_indices) != len(lanes):
