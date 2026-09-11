@@ -41,7 +41,7 @@ def build_media_parallel_items(
             slot="CONTEXT_LIBRARIAN",
             risk_level="MEDIUM",
             framework_preference=("LANGGRAPH",),
-            framework_capabilities=("graph", "checkpoint", "tool_use"),
+            framework_capabilities=("graph_workflow", "checkpoint", "tool_use"),
             metadata={
                 "framework_fallback_to_native": True,
                 "checkpoint_required": True,
@@ -81,7 +81,7 @@ def build_media_parallel_items(
             slot="OPERATIONS_LEAD",
             risk_level="LOW",
             framework_preference=("CREWAI",),
-            framework_capabilities=("role_crew", "parallel", "tool_use"),
+            framework_capabilities=("role_crew", "parallel_agents", "tool_use"),
             metadata={
                 "framework_fallback_to_native": True,
                 "framework_internal_delegation": False,
@@ -105,7 +105,7 @@ def build_media_parallel_items(
             slot="ENGINEERING_AGENT",
             risk_level="MEDIUM",
             framework_preference=("GITHUB_COPILOT",),
-            framework_capabilities=("coding", "repository_navigation", "agent_mode"),
+            framework_capabilities=("coding", "repository_context", "agent_mode"),
             metadata={
                 "framework_fallback_to_native": True,
                 "priority": "NORMAL",
