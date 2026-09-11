@@ -122,6 +122,54 @@ class DirectFreeWorkerCorpsV2Tests(unittest.TestCase):
         self.assertEqual(maximum[("zai", "model-a")], 1)
         self.assertEqual(maximum[("zai", "model-b")], 1)
 
+    def test_rate_limited_exact_model_is_suppressed_in_later_waves(self):
+        provider = {"base_url": "https://example.invalid"}
+        jobs = {
+            ("zai", "model-a"): (provider, "zai-test-placeholder"),
+            ("zai", "model-b"): (provider, "zai-test-placeholder"),
+        }
+        calls = []
+        telemetry = {}
+
+        def fake_run_task(*, provider_id, provider, api_key, model, task, max_tokens, timeout):
+            calls.append((model, task))
+            if model == "model-b" and task == "JSON":
+                return {
+                    "provider": provider_id,
+                    "model": model,
+                    "task": task,
+                    "status": "FAILED",
+                    "error_class": "RATE_LIMITED",
+                    "http_status": 429,
+                    "quality_score": 0.0,
+                    "latency_ms": 5,
+                }
+            return {
+                "provider": provider_id,
+                "model": model,
+                "task": task,
+                "status": "OK",
+                "quality_score": 1.0,
+                "latency_ms": 10,
+            }
+
+        with patch.object(base, "_run_task", side_effect=fake_run_task):
+            rows = v2._run_model_rounds(
+                jobs,
+                task_names=["JSON", "CODING", "FAST"],
+                hard_cap=6,
+                max_parallel=4,
+                max_tokens=128,
+                timeout=10,
+                telemetry=telemetry,
+            )
+
+        self.assertEqual(sum(model == "model-b" for model, _task in calls), 1)
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(telemetry["rate_limit_failure_signal_count"], 1)
+        self.assertEqual(telemetry["suppressed_after_rate_limit_model_tasks"], 2)
+        self.assertEqual(telemetry["quarantined_exact_model_count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
