@@ -71,8 +71,10 @@ jobs:
           PY
 
       - name: Upload direct free corps evidence
+        if: ${{ always() }}
         uses: actions/upload-artifact@v6
         with:
           name: direct-free-worker-corps-${{ github.run_id }}
           path: artifacts/direct_free_worker_corps.json
+          if-no-files-found: warn
           retention-days: 7
