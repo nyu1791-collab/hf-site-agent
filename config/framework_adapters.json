@@ -24,7 +24,9 @@
     "validator_failure_publish": false,
     "free_route_evidence_ttl_seconds": 3600,
     "champion_challenger_min_samples": 20,
-    "external_frameworks_start_shadow_only": true
+    "external_frameworks_start_shadow_only": true,
+    "external_production_requires_champion_eligibility": true,
+    "shadow_execution_may_not_mutate": true
   },
   "selection_order": [
     "task_profile",
