@@ -1,16 +1,19 @@
 {
-  "schema_version": "deepseek-specialist-trial-v1",
+  "schema_version": "deepseek-specialist-trial-v2",
   "provider_id": "deepseek",
-  "display_name": "DeepSeek direct API",
+  "display_name": "DeepSeek official paid engineering specialist",
   "base_url": "https://api.deepseek.com",
   "api_key_env": "DEEPSEEK_API_KEY",
-  "model": "deepseek-flash",
-  "model_family": "DeepSeek-V4.1-Flash",
-  "scope": "STAGING_TRIAL_ONLY",
+  "model": "deepseek-v4-flash",
+  "model_family": "DeepSeek-V4-Flash-0731",
+  "fallback_model": "deepseek-v4-pro",
+  "scope": "STAGING_ACTIVE_PAID_SPECIALIST",
   "production_enabled": false,
+  "paid_execution_enabled": true,
   "generic_paid_fallback": false,
   "auto_top_up": false,
   "explicit_paid_trial_approved": true,
+  "explicit_paid_specialist_approved": true,
   "collaboration_mode": "CONTINUOUS_ENGINEERING_CO_DEVELOPER",
   "routing": {
     "rank": "PAID_ENGINEERING_SPECIALIST",
@@ -29,32 +32,38 @@
       "SIMPLE_TEST",
       "TRIVIAL"
     ],
-    "selection_policy": "USE_FOR_NONTRIVIAL_ENGINEERING_CRITICAL_PATH_POST_IMPLEMENTATION_REVIEW_OR_WHEN_FREE_WORKER_FAILED",
+    "selection_policy": "USE_DEEPSEEK_V4_FLASH_IN_PARALLEL_FOR_NONTRIVIAL_ENGINEERING_AND_CRITICAL_REVIEW; USE_V4_PRO_ONLY_WITH_EXPLICIT_TASK_LEVEL_ESCALATION",
     "deepseek_review_after_nontrivial_engineering_change": true,
-    "free_workers_remain_default": true,
-    "nvidia_remains_final_commander": true
+    "free_workers_remain_available": true,
+    "top_commander_remains_authoritative": true,
+    "parallel_with_top_commander": true,
+    "max_parallel_specialists": 3
   },
   "trial_budget": {
-    "max_calls": 6,
-    "max_parallel_calls": 2,
-    "max_estimated_cost_usd": 0.25,
+    "max_calls": 9,
+    "max_parallel_calls": 3,
+    "max_estimated_cost_usd": 0.50,
     "stop_before_estimated_budget_exceeded": true,
     "max_output_tokens_per_call": 8192
   },
   "pricing": {
     "currency": "USD",
-    "dashboard_current_off_peak_per_million": {
-      "prompt_cache_hit": 0.003,
-      "prompt_cache_miss": 0.15,
-      "output": 0.6
-    },
-    "dashboard_peak_multiplier": 2.0,
-    "conservative_budget_guard_per_million": {
+    "official_peak_per_million": {
       "prompt_cache_hit": 0.014,
       "prompt_cache_miss": 0.44,
       "output": 1.32
     },
-    "note": "Budget guard intentionally uses conservative peak-equivalent public rates even when the authenticated dashboard shows lower V4.1 pricing."
+    "official_off_peak_per_million": {
+      "prompt_cache_hit": 0.007,
+      "prompt_cache_miss": 0.22,
+      "output": 0.66
+    },
+    "pro_peak_per_million": {
+      "prompt_cache_hit": 0.044,
+      "prompt_cache_miss": 1.32,
+      "output": 3.96
+    },
+    "note": "Budget guard uses official peak pricing. Auto top-up remains disabled."
   },
   "reasoning": {
     "CODING_DEEP": "direct",
@@ -66,10 +75,14 @@
   },
   "safety_boundary": {
     "repository_write": false,
+    "main_push": false,
+    "merge": false,
     "deploy": false,
     "publish": false,
     "production_routing": false,
     "secret_output": false,
-    "paid_route_is_explicit_not_fallback": true
+    "secret_mutation": false,
+    "paid_route_is_explicit_not_fallback": true,
+    "auto_top_up": false
   }
 }
