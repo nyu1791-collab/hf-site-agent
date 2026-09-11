@@ -1,0 +1,105 @@
+{
+  "schema_version": "media-source-policy-v1",
+  "default_visual_mode": "REAL_PHOTO_SEARCH",
+  "generated_images_enabled_by_default": false,
+  "generated_video_enabled_by_default": false,
+  "policy": {
+    "prefer_real_photos_for_news": true,
+    "search_first": true,
+    "source_page_required": true,
+    "author_required_when_license_requires_attribution": true,
+    "license_required": true,
+    "unknown_rights_blocked": true,
+    "watermarked_assets_blocked": true,
+    "news_agency_photo_reuse_blocked_without_explicit_license": true,
+    "editorial_context_only_for_public_figure_photos": true,
+    "asset_download_does_not_publish": true,
+    "publish_requires_rights_manifest": true,
+    "generic_paid_stock_fallback": false,
+    "auto_purchase_stock": false
+  },
+  "preferred_sources": [
+    "WIKIMEDIA_COMMONS",
+    "UNSPLASH_VERIFIED_TERMS",
+    "PEXELS_VERIFIED_TERMS"
+  ],
+  "preferred_licenses": [
+    "CC0-1.0",
+    "CC-BY-2.0",
+    "CC-BY-3.0",
+    "CC-BY-4.0"
+  ],
+  "conditionally_allowed_licenses": [
+    "CC-BY-SA-3.0",
+    "CC-BY-SA-4.0"
+  ],
+  "blocked_license_states": [
+    "UNKNOWN",
+    "ALL_RIGHTS_RESERVED",
+    "EDITORIAL_ONLY_UNVERIFIED",
+    "NONCOMMERCIAL_ONLY",
+    "NO_DERIVATIVES"
+  ],
+  "current_news_asset_candidates": [
+    {
+      "asset_id": "sam-altman-ted-2025",
+      "kind": "real_photo",
+      "subject": "Sam Altman",
+      "source": "WIKIMEDIA_COMMONS",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Sam_Altman_speaking_at_TED.jpg",
+      "author": "Steve Jurvetson",
+      "license": "CC-BY-2.0",
+      "attribution_required": true,
+      "editorial_context": true,
+      "recommended_use": ["HOOK", "PERSON_REFERENCE", "CEO_CONTEXT"]
+    },
+    {
+      "asset_id": "sam-altman-2022",
+      "kind": "real_photo",
+      "subject": "Sam Altman",
+      "source": "WIKIMEDIA_COMMONS",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Sam_Altman_November_2022.jpg",
+      "author": "Village Global",
+      "license": "CC-BY-2.0",
+      "attribution_required": true,
+      "editorial_context": true,
+      "recommended_use": ["PERSON_REFERENCE", "SECONDARY_CUTAWAY"]
+    },
+    {
+      "asset_id": "openai-1515-third-street",
+      "kind": "real_photo",
+      "subject": "OpenAI headquarters building",
+      "source": "WIKIMEDIA_COMMONS",
+      "source_page": "https://commons.wikimedia.org/wiki/File:1515_Third_Street.jpg",
+      "author": "Coolcaesar",
+      "license": "CC-BY-4.0",
+      "attribution_required": true,
+      "editorial_context": true,
+      "recommended_use": ["COMPANY_CONTEXT", "LOCATION_CUTAWAY"]
+    },
+    {
+      "asset_id": "datacenter-server-racks",
+      "kind": "real_photo",
+      "subject": "data center server racks",
+      "source": "WIKIMEDIA_COMMONS",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Datacenter_Server_Racks_(22370909788).jpg",
+      "author": "Carl Lender",
+      "license": "CC-BY-2.0",
+      "attribution_required": true,
+      "editorial_context": false,
+      "recommended_use": ["AI_INFRASTRUCTURE", "COMPUTE_CONTEXT", "BACKGROUND_CUTAWAY"]
+    },
+    {
+      "asset_id": "csiro-server-racks",
+      "kind": "real_photo",
+      "subject": "server racks",
+      "source": "WIKIMEDIA_COMMONS",
+      "source_page": "https://commons.wikimedia.org/wiki/File:CSIRO_ScienceImage_2042_A_row_of_computer_servers_in_a_server_rack.jpg",
+      "author": "CSIRO",
+      "license": "CC-BY-3.0",
+      "attribution_required": true,
+      "editorial_context": false,
+      "recommended_use": ["AI_INFRASTRUCTURE", "COMPUTE_CONTEXT", "SECONDARY_CUTAWAY"]
+    }
+  ]
+}
