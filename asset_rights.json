@@ -1,0 +1,13 @@
+{
+  "schema_version": "asset-rights-v1",
+  "assets": [],
+  "policy": {
+    "unknown_license_publish": false,
+    "commercial_use_must_be_explicit": true,
+    "verified_at_required": true,
+    "source_url_required": true,
+    "human_publish_approval_required": true,
+    "paid_stock_fallback": false,
+    "auto_purchase": false
+  }
+}
