@@ -1,5 +1,5 @@
-trigger=deepseek-v4-1-flash-ai-army-organization-council-20260911-r1
-focus=AI_ARMY_MULTI_MODEL_COUNCIL_ORGANIZATION_UPGRADE
+trigger=deepseek-v4-1-flash-value-optimization-audit-20260911-r1
+focus=AI_ARMY_VALUE_OPTIMIZATION_POST_IMPLEMENTATION_AUDIT
 approved_paid_trial=true
 max_calls=1
 max_parallel_calls=1
