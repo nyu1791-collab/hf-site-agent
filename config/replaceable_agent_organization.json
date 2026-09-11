@@ -67,7 +67,7 @@
       "groq": 2,
       "deepseek": 2
     },
-    "per_exact_model_parallel_limit_default": 2
+    "per_exact_model_parallel_limit_default": 1
   },
   "communication": {
     "scheduler_generation": "INDEPENDENT_AGENT_V3",
