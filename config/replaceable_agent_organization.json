@@ -62,12 +62,12 @@
       "openrouter": 3,
       "zai": 2,
       "siliconflow": 2,
-      "nvidia": 1,
+      "nvidia": 2,
       "google": 1,
       "groq": 2,
-      "deepseek": 1
+      "deepseek": 2
     },
-    "per_exact_model_parallel_limit_default": 1
+    "per_exact_model_parallel_limit_default": 2
   },
   "communication": {
     "scheduler_generation": "INDEPENDENT_AGENT_V3",
