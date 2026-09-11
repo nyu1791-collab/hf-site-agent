@@ -49,8 +49,8 @@ class DeepSeekCriticalEscalationTests(unittest.TestCase):
     def run_with_report(self, report, **kwargs):
         with patch.object(escalation.free_council, "run_failure_aware_council", return_value=report):
             return escalation.run_with_paid_escalation(
-                openrouter_api_key="openrouter-variable-reference",
-                deepseek_api_key=kwargs.pop("deepseek_api_key", "deepseek-variable-reference"),
+                openrouter_api_key="openrouter-test-placeholder",
+                deepseek_api_key=kwargs.pop("deepseek_api_key", "deepseek-test-placeholder"),
                 probe={},
                 benchmark={},
                 routing=kwargs.pop("routing", self.routing),
@@ -111,7 +111,7 @@ class DeepSeekCriticalEscalationTests(unittest.TestCase):
         }
         with patch.object(ds_base, "_request_json", return_value=(response, 12)):
             result = escalation._call_deepseek(
-                api_key="variable-reference",
+                api_key="deepseek-test-placeholder",
                 assignment=self.assignment(),
                 routing=self.routing,
                 trial_config=self.trial_config,
@@ -148,7 +148,7 @@ class DeepSeekCriticalEscalationTests(unittest.TestCase):
         }
         with patch.object(ds_base, "_request_json", return_value=(response, 25)):
             result = escalation._call_deepseek(
-                api_key="variable-reference",
+                api_key="deepseek-test-placeholder",
                 assignment=self.assignment(),
                 routing=self.routing,
                 trial_config=self.trial_config,
@@ -164,7 +164,7 @@ class DeepSeekCriticalEscalationTests(unittest.TestCase):
     def test_transport_failure_keeps_reserved_cost_exposure(self):
         with patch.object(ds_base, "_request_json", side_effect=TimeoutError()):
             result = escalation._call_deepseek(
-                api_key="variable-reference",
+                api_key="deepseek-test-placeholder",
                 assignment=self.assignment(),
                 routing=self.routing,
                 trial_config=self.trial_config,
