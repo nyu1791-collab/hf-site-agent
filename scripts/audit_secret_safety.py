@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Detect high-confidence secret literals without printing their values.
 
-This is a static safety gate.  Environment references and documented secret
-names are allowed; literal credentials, direct secret output, and secret-like
-plain-text bindings are reported only by path, line, and classification.
+This is a static safety gate. Environment references, documented secret names,
+and ordinary code-level variable references are allowed; literal credentials,
+direct secret output, and secret-like plain-text bindings are reported only by
+path, line, and classification.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ SECRET_TOKEN = re.compile(
 )
 SECRET_OUTPUT = re.compile(r"(?i)\b(?:echo|printf|print|console\.(?:log|error))\b.*\$\{\{\s*secrets\.")
 PLAIN_TEXT = re.compile(r"(?i)[\"'](?:type|kind)[\"']\s*:\s*[\"']plain[_-]?text[\"']")
+IDENTIFIER_REFERENCE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 PLACEHOLDER_WORDS = frozenset({"example", "dummy", "placeholder", "sample", "test", "redacted", "replaced"})
 
 
@@ -44,14 +46,21 @@ class Finding:
 
 
 def _is_placeholder(value: str) -> bool:
-    lowered = value.strip().lower()
+    stripped = value.strip()
+    lowered = stripped.lower()
     if not lowered or lowered.startswith(("${", "$(", "$", "<", "os.", "process.", "env.", "secrets.")):
         return True
     if lowered in {"none", "null", "true", "false", "re.compile", "https://"}:
         return True
     if any(word in lowered for word in PLACEHOLDER_WORDS):
         return True
-    if re.fullmatch(r"[A-Z][A-Z0-9_]{5,}", value.strip()):
+    if re.fullmatch(r"[A-Z][A-Z0-9_]{5,}", stripped):
+        return True
+    # A bare identifier on the right-hand side is a code reference, not a
+    # literal credential. Known token prefixes are still detected separately by
+    # SECRET_TOKEN, so this removes false positives such as
+    # ``api_key=deepseek_api_key`` without suppressing credential-shaped text.
+    if IDENTIFIER_REFERENCE.fullmatch(stripped) and not SECRET_TOKEN.search(stripped):
         return True
     if "abcdefghijklmnop" in lowered or "0123456789" in lowered:
         return True
