@@ -142,7 +142,7 @@ def dependency_snapshot_matches(
         if _bounded_text(handoff_row.get("result_hash"), 64) != _bounded_text(current.get("result_hash"), 64):
             return False
     packet_id = _bounded_text(handoff.get("dependency_snapshot_id"), 64)
-    return bool(packet_id) and packet_id == dependency_snapshot_id(packet) 
+    return bool(packet_id) and packet_id == dependency_snapshot_id(packet)
 
 
 def clamp_confidence(value: Any) -> float | None:
@@ -172,8 +172,10 @@ def build_result_confidence_contract(
     """Build a machine-owned confidence envelope.
 
     Model-reported confidence is retained as evidence but never trusted as the
-    effective value.  Validation FAIL forces zero.  UNAVAILABLE/UNVALIDATED is
-    capped conservatively and may be rejected by consumers that require PASS.
+    effective value. Validation PASS means execution-integrity checks passed; it
+    does not claim semantic correctness. Validation FAIL forces zero.
+    UNAVAILABLE/UNVALIDATED is capped conservatively and may be rejected by
+    consumers that require PASS.
     """
     reported = clamp_confidence(reported_confidence)
     quality = clamp_confidence(quality_score)
@@ -187,6 +189,13 @@ def build_result_confidence_contract(
     else:
         base = quality if quality is not None else (reported if reported is not None else 0.5)
         effective = min(base, 0.5)
+    evidence = dict(validation_evidence or {})
+    if validation == "PASS":
+        validation_scope = "EXECUTION_INTEGRITY_NOT_SEMANTIC_CORRECTNESS"
+    elif validation == "FAIL":
+        validation_scope = "EXECUTION_INTEGRITY_FAILED"
+    else:
+        validation_scope = "UNVALIDATED_EXECUTION_INTEGRITY"
     digest = result_identity(
         task_id=task_id,
         revision=revision,
@@ -202,7 +211,9 @@ def build_result_confidence_contract(
         "reported_confidence": reported,
         "effective_confidence": round(float(effective), 6),
         "validation_status": validation,
-        "evidence": dict(validation_evidence or {}),
+        "validation_scope": validation_scope,
+        "semantic_correctness_validated": False,
+        "evidence": evidence,
         "revision_index": max(0, int(revision)),
         "result_hash": digest,
         "inbox_cursor": max(0, int(inbox_cursor)) if isinstance(inbox_cursor, int) and not isinstance(inbox_cursor, bool) else None,
@@ -257,7 +268,14 @@ class AdaptiveExactModelConcurrency:
     states: dict[tuple[str, str], ExactModelGateState] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        self.configured_cap = max(1, min(8, int(self.configured_cap)))
+        requested_cap = int(self.configured_cap)
+        self.configured_cap = max(1, min(8, requested_cap))
+        self.requested_configured_cap = requested_cap
+        self.configured_cap_clamped = requested_cap != self.configured_cap
+        self.provider_limits = {
+            str(provider): max(1, int(limit or 1))
+            for provider, limit in dict(self.provider_limits).items()
+        }
         self.promote_after = max(2, min(20, int(self.promote_after)))
         self.recovery_promote_after = max(self.promote_after, min(40, int(self.recovery_promote_after)))
         self.recovery_hold_windows = max(0, min(20, int(self.recovery_hold_windows)))
@@ -325,7 +343,11 @@ class AdaptiveExactModelConcurrency:
                 "recovery_hold_windows": state.recovery_hold_windows,
             })
         return {
+            "requested_configured_cap": self.requested_configured_cap,
             "configured_cap": self.configured_cap,
+            "configured_cap_clamped": self.configured_cap_clamped,
+            "unknown_provider_defaults_to_one": True,
+            "provider_limits": dict(sorted(self.provider_limits.items())),
             "promote_after": self.promote_after,
             "recovery_promote_after": self.recovery_promote_after,
             "recovery_hold_windows": self.recovery_hold_windows,
