@@ -1,4 +1,4 @@
-name: DeepSeek V4.1 specialist trial
+name: DeepSeek V4.1 Flash specialist trial
 
 on:
   push:
@@ -33,10 +33,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Compile DeepSeek specialist trial
+      - name: Compile DeepSeek V4.1 Flash specialist trial
         run: python -m py_compile scripts/deepseek_specialist_trial.py scripts/deepseek_specialist_trial_v2.py scripts/deepseek_specialist_trial_v3.py scripts/deepseek_specialist_trial_v4.py
 
-      - name: Run deterministic DeepSeek routing and budget tests
+      - name: Run deterministic DeepSeek V4.1 Flash routing and budget tests
         run: python -m unittest tests.test_deepseek_specialist_trial tests.test_deepseek_specialist_trial_v2 tests.test_deepseek_specialist_trial_v3 tests.test_deepseek_specialist_trial_v4 -v
 
       - name: Verify dry-run stays offline
@@ -45,7 +45,7 @@ jobs:
           python scripts/deepseek_specialist_trial_v4.py --output artifacts/deepseek_specialist_dry_run.json
           python -m json.tool artifacts/deepseek_specialist_dry_run.json >/dev/null
 
-      - name: Run explicitly approved paid DeepSeek engineering trial
+      - name: Run explicitly approved paid DeepSeek V4.1 Flash engineering trial
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
@@ -85,7 +85,7 @@ jobs:
           assert float(report.get("conservative_cost_usd", 0)) <= float(report.get("max_estimated_cost_usd", 0.25))
           PY
 
-      - name: Upload DeepSeek trial evidence
+      - name: Upload DeepSeek V4.1 Flash trial evidence
         if: always()
         uses: actions/upload-artifact@v6
         with:
