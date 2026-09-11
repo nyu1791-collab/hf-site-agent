@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from scripts.media_agent_runtime import (
+    CONNECTOR_STATE_TTL_SECONDS,
     DEFAULT_CONFIG,
     build_connector_state,
     build_media_mission,
@@ -10,7 +11,32 @@ from scripts.media_agent_runtime import (
     select_edit_route,
     select_generation_route,
     select_transcription_route,
+    validate_platform_metadata,
 )
+
+
+def platform_metadata(*platforms: str, synthetic: bool = False):
+    result = {}
+    for platform in platforms:
+        canonical = "twitter" if platform == "x" else platform
+        if canonical == "youtube":
+            result[canonical] = {
+                "title": "Validated title",
+                "caption": "Validated caption",
+                "media_ready": True,
+                "media_count": 1,
+                "media_type": "video",
+                "contains_synthetic_media": bool(synthetic),
+            }
+        elif canonical == "instagram":
+            result[canonical] = {
+                "caption": "Validated caption",
+                "media_ready": True,
+                "media_count": 1,
+            }
+        elif canonical == "twitter":
+            result[canonical] = {"caption": "Validated caption"}
+    return result
 
 
 class MediaAgentRuntimeTests(unittest.TestCase):
@@ -32,9 +58,11 @@ class MediaAgentRuntimeTests(unittest.TestCase):
 
     def test_youtube_connection_does_not_imply_x_or_instagram(self):
         plan = build_media_mission(
-            target_platforms=["youtube", "twitter", "instagram"],
+            target_platforms=["youtube", "x", "instagram"],
             accounts=[{"platform": "youtube", "needs_reconnect": False}],
             free_gpu_worker_available=True,
+            rights_status="verified",
+            platform_metadata=platform_metadata("youtube", "x", "instagram"),
         )
         by_id = {task["task_id"]: task for task in plan["tasks"]}
         self.assertEqual(by_id["publish_youtube"]["state"], "APPROVAL_REQUIRED")
@@ -48,6 +76,8 @@ class MediaAgentRuntimeTests(unittest.TestCase):
             accounts=[{"platform": "youtube", "needs_reconnect": False}],
             free_gpu_worker_available=True,
             human_publish_approval=True,
+            rights_status="verified",
+            platform_metadata=platform_metadata("youtube", "instagram"),
         )
         by_id = {task["task_id"]: task for task in plan["tasks"]}
         self.assertEqual(by_id["publish_youtube"]["state"], "READY_FOR_CONNECTOR")
@@ -56,6 +86,19 @@ class MediaAgentRuntimeTests(unittest.TestCase):
     def test_reconnect_required_account_is_not_ready(self):
         state = build_connector_state(accounts=[{"platform": "youtube", "needs_reconnect": True}])
         self.assertEqual(state["post_bridge"]["platforms"]["youtube"], "CONNECTION_REQUIRED")
+
+    def test_stale_connector_snapshot_blocks_routes(self):
+        state = build_connector_state(
+            accounts=[{"platform": "youtube", "needs_reconnect": False}],
+            connected_plugins=["descript", "fal", "runway"],
+            connector_snapshot_age_seconds=CONNECTOR_STATE_TTL_SECONDS + 1,
+            paid_media_approved=True,
+        )
+        self.assertFalse(state["snapshot"]["fresh"])
+        self.assertEqual(state["post_bridge"]["platforms"]["youtube"], "CONNECTION_STATE_STALE")
+        self.assertFalse(state["transcription"]["descript"])
+        self.assertFalse(state["creative_generation"]["fal"])
+        self.assertFalse(state["creative_generation"]["runway"])
 
     def test_transcription_prefers_free_gpu_then_verified_free_quota(self):
         state = build_connector_state(free_gpu_worker_available=True, groq_free_quota_verified=True)
@@ -85,25 +128,13 @@ class MediaAgentRuntimeTests(unittest.TestCase):
         self.assertEqual(select_generation_route(state), "BLOCKED_NEEDS_APPROVED_MEDIA_GENERATION_ROUTE")
 
     def test_paid_generation_route_uses_fal_by_default_and_runway_for_advanced_video(self):
-        state = build_connector_state(
-            connected_plugins=["fal", "runway"],
-            paid_media_approved=True,
-        )
+        state = build_connector_state(connected_plugins=["fal", "runway"], paid_media_approved=True)
         self.assertEqual(select_generation_route(state), "FAL_CONNECTOR_APPROVED")
-        self.assertEqual(
-            select_generation_route(state, advanced_video_required=True),
-            "RUNWAY_CONNECTOR_APPROVED",
-        )
+        self.assertEqual(select_generation_route(state, advanced_video_required=True), "RUNWAY_CONNECTOR_APPROVED")
 
     def test_descript_precedes_paid_semantic_editors(self):
-        state = build_connector_state(
-            connected_plugins=["descript", "fal", "runway"],
-            paid_media_approved=True,
-        )
-        self.assertEqual(
-            select_edit_route(state, semantic_edit_required=True),
-            ["FFMPEG_DETERMINISTIC", "DESCRIPT_CONNECTOR"],
-        )
+        state = build_connector_state(connected_plugins=["descript", "fal", "runway"], paid_media_approved=True)
+        self.assertEqual(select_edit_route(state, semantic_edit_required=True), ["FFMPEG_DETERMINISTIC", "DESCRIPT_CONNECTOR"])
 
     def test_generation_task_blocks_without_explicit_paid_media_approval(self):
         plan = build_media_mission(
@@ -112,6 +143,8 @@ class MediaAgentRuntimeTests(unittest.TestCase):
             connected_plugins=["descript", "fal", "runway"],
             generative_media_required=True,
             paid_media_approved=False,
+            rights_status="verified",
+            platform_metadata=platform_metadata("youtube"),
         )
         by_id = {task["task_id"]: task for task in plan["tasks"]}
         self.assertEqual(by_id["generate_assets"]["state"], "BLOCKED")
@@ -126,34 +159,84 @@ class MediaAgentRuntimeTests(unittest.TestCase):
             generative_media_required=True,
             advanced_video_required=True,
             paid_media_approved=True,
+            rights_status="verified",
+            platform_metadata=platform_metadata("youtube"),
         )
         by_id = {task["task_id"]: task for task in plan["tasks"]}
         self.assertEqual(by_id["generate_assets"]["state"], "READY")
         self.assertEqual(plan["selected_routes"]["generation"], "RUNWAY_CONNECTOR_APPROVED")
 
-    def test_plan_contains_full_feedback_loop_and_safe_boundaries(self):
+    def test_rights_and_disclosure_gate_publish(self):
+        unknown = build_media_mission(
+            target_platforms=["youtube"],
+            accounts=[{"platform": "youtube", "needs_reconnect": False}],
+            human_publish_approval=True,
+            platform_metadata=platform_metadata("youtube"),
+        )
+        self.assertEqual({t["task_id"]: t for t in unknown["tasks"]}["publish_youtube"]["state"], "RIGHTS_REVIEW_REQUIRED")
+        synthetic = build_media_mission(
+            target_platforms=["youtube"],
+            accounts=[{"platform": "youtube", "needs_reconnect": False}],
+            human_publish_approval=True,
+            rights_status="verified",
+            synthetic_media=True,
+            synthetic_disclosure_ready=False,
+            platform_metadata=platform_metadata("youtube", synthetic=True),
+        )
+        self.assertEqual({t["task_id"]: t for t in synthetic["tasks"]}["publish_youtube"]["state"], "RIGHTS_REVIEW_REQUIRED")
+
+    def test_youtube_synthetic_metadata_requires_disclosure_field(self):
+        metadata = platform_metadata("youtube")
+        validation = validate_platform_metadata("youtube", metadata["youtube"], synthetic_media=True)
+        self.assertFalse(validation["ready"])
+        self.assertIn("youtube synthetic media disclosure metadata is required", validation["errors"])
+
+    def test_missing_platform_metadata_blocks_publish(self):
+        plan = build_media_mission(
+            target_platforms=["youtube"],
+            accounts=[{"platform": "youtube", "needs_reconnect": False}],
+            human_publish_approval=True,
+            rights_status="verified",
+            platform_metadata={"youtube": {"caption": "only caption"}},
+        )
+        by_id = {task["task_id"]: task for task in plan["tasks"]}
+        self.assertEqual(by_id["metadata_youtube"]["state"], "BLOCKED")
+        self.assertEqual(by_id["publish_youtube"]["state"], "METADATA_REQUIRED")
+
+    def test_complete_package_rights_approval_and_connection_unlock_connector_only(self):
+        plan = build_media_mission(
+            target_platforms=["youtube"],
+            accounts=[{"platform": "youtube", "needs_reconnect": False}],
+            human_publish_approval=True,
+            rights_status="verified",
+            platform_metadata=platform_metadata("youtube"),
+        )
+        by_id = {task["task_id"]: task for task in plan["tasks"]}
+        self.assertTrue(plan["connector_state"]["snapshot"]["fresh"])
+        self.assertTrue(plan["rights_gate"]["ready"])
+        self.assertTrue(plan["metadata_validation"]["youtube"]["ready"])
+        self.assertEqual(by_id["publish_youtube"]["state"], "READY_FOR_CONNECTOR")
+        self.assertFalse(plan["direct_publish_executed"])
+
+    def test_plan_contains_closed_feedback_loop_and_safe_boundaries(self):
         plan = build_media_mission(
             target_platforms=["youtube"],
             accounts=[{"platform": "youtube", "needs_reconnect": False}],
             free_gpu_worker_available=True,
             connected_plugins=["descript"],
+            rights_status="verified",
+            platform_metadata=platform_metadata("youtube"),
         )
+        by_id = {task["task_id"]: task for task in plan["tasks"]}
         roles = [task["owner_role"] for task in plan["tasks"]]
         for role in (
-            "SOCIAL_INTELLIGENCE_AGENT",
-            "CONTENT_STRATEGIST",
-            "SCRIPT_AGENT",
-            "GENERATIVE_MEDIA_AGENT",
-            "TRANSCRIPTION_AGENT",
-            "CLIP_EDITOR_AGENT",
-            "CAPTION_LOCALIZATION_AGENT",
-            "THUMBNAIL_CREATIVE_AGENT",
-            "RIGHTS_SAFETY_AGENT",
-            "PUBLISHING_AGENT",
-            "ANALYTICS_AGENT",
-            "MONETIZATION_AGENT",
+            "SOCIAL_INTELLIGENCE_AGENT", "CONTENT_STRATEGIST", "SCRIPT_AGENT", "GENERATIVE_MEDIA_AGENT",
+            "TRANSCRIPTION_AGENT", "CLIP_EDITOR_AGENT", "CAPTION_LOCALIZATION_AGENT", "THUMBNAIL_CREATIVE_AGENT",
+            "RIGHTS_SAFETY_AGENT", "PUBLISHING_AGENT", "ANALYTICS_AGENT", "MONETIZATION_AGENT",
         ):
             self.assertIn(role, roles)
+        self.assertEqual(by_id["strategy_feedback"]["depends_on"], ["monetization"])
+        self.assertEqual(by_id["strategy_feedback"]["owner_role"], "CONTENT_STRATEGIST")
         self.assertFalse(plan["hard_boundaries"]["generic_paid_fallback"])
         self.assertFalse(plan["hard_boundaries"]["auto_top_up"])
         self.assertFalse(plan["hard_boundaries"]["installed_plugin_implies_paid_execution_approval"])
@@ -162,7 +245,7 @@ class MediaAgentRuntimeTests(unittest.TestCase):
     def test_config_json_is_valid(self):
         data = json.loads(Path(DEFAULT_CONFIG).read_text(encoding="utf-8"))
         self.assertIsInstance(data.get("pipeline"), list)
-        self.assertGreaterEqual(len(data["pipeline"]), 11)
+        self.assertGreaterEqual(len(data["pipeline"]), 12)
 
 
 if __name__ == "__main__":
