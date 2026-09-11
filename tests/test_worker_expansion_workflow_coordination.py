@@ -26,7 +26,31 @@ class WorkerExpansionWorkflowCoordinationTests(unittest.TestCase):
         self.assertGreaterEqual(self.text.count('artifacts/organization_feedback.json'), 2)
         self.assertGreaterEqual(self.text.count('artifacts/worker_organization_memory_next.json'), 2)
         self.assertIn('artifacts/staging_parallel_scheduler_probe.json', self.text)
-        self.assertIn('ai-army-dynamic-worker-pool-v6', self.text)
+        self.assertIn('ai-army-dynamic-worker-pool-v7', self.text)
+
+    def test_replaceable_organization_reuses_existing_probe_and_benchmark_without_new_model_call(self):
+        benchmark_step = self.text.index('Benchmark verified workers in parallel')
+        reconcile_step = self.text.index('Reconcile current benchmark into replaceable agent organization')
+        canary_step = self.text.index('Canary current winners and build same-run routing policy')
+        self.assertLess(benchmark_step, reconcile_step)
+        self.assertLess(reconcile_step, canary_step)
+        self.assertIn('scripts/reconcile_agent_organization.py', self.text)
+        self.assertIn('--openrouter-probe artifacts/openrouter_expansion_probe.json', self.text)
+        self.assertIn('--openrouter-benchmark artifacts/openrouter_expansion_benchmark.json', self.text)
+        self.assertGreaterEqual(self.text.count('artifacts/replaceable_agent_organization.json'), 4)
+        reconcile_block = self.text[reconcile_step:canary_step]
+        self.assertNotIn('OPENROUTER_API_KEY', reconcile_block)
+        self.assertNotIn('NVIDIA_API_KEY', reconcile_block)
+        self.assertNotIn('ZAI_API_KEY', reconcile_block)
+        self.assertNotIn('SILICONFLOW_API_KEY', reconcile_block)
+
+    def test_dynamic_handoff_exposes_replaceable_role_assignments(self):
+        self.assertIn('replaceable_organization_mode', self.text)
+        self.assertIn('replaceable_assignment_policy', self.text)
+        self.assertIn('replaceable_role_assignments', self.text)
+        self.assertIn('replaceable_provider_concurrency', self.text)
+        self.assertIn('replaceable_model_names_are_replaceable', self.text)
+        self.assertIn('replaceable_role_slots_are_stable', self.text)
 
     def test_live_policy_does_not_enable_paid_or_provider_fallback(self):
         self.assertIn('"provider_automatic_fallback": False', self.text)
