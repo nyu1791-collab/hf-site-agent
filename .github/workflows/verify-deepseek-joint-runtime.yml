@@ -1,0 +1,61 @@
+name: Verify DeepSeek V4.1 Flash joint runtime improvements
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - scripts/specialist_lane_router.py
+      - scripts/failure_aware_specialist_retry.py
+      - tests/test_deepseek_joint_runtime_improvements.py
+      - .github/workflows/verify-deepseek-joint-runtime.yml
+  pull_request:
+    paths:
+      - scripts/specialist_lane_router.py
+      - scripts/failure_aware_specialist_retry.py
+      - tests/test_deepseek_joint_runtime_improvements.py
+      - .github/workflows/verify-deepseek-joint-runtime.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deepseek-joint-runtime-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deterministic-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source without write credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Compile changed runtime
+        run: |
+          python -m py_compile \
+            scripts/specialist_lane_router.py \
+            scripts/failure_aware_specialist_retry.py \
+            tests/test_deepseek_joint_runtime_improvements.py
+
+      - name: Run DeepSeek joint regression tests
+        run: python -m unittest tests.test_deepseek_joint_runtime_improvements -v
+
+      - name: Assert no paid fallback was introduced
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          retry = Path('scripts/failure_aware_specialist_retry.py').read_text(encoding='utf-8')
+          router = Path('scripts/specialist_lane_router.py').read_text(encoding='utf-8')
+          assert 'paid fallback remain' in retry.lower() or 'paid fallback' in retry.lower()
+          assert 'generic_paid_fallback' not in router
+          print('joint runtime guard ok')
+          PY
