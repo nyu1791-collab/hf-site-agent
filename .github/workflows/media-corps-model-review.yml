@@ -1,0 +1,213 @@
+name: Media corps upper-model review
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/media-corps-model-review-trigger.txt
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: media-corps-model-review-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deepseek-media-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Test media routing and DeepSeek review surface
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python -m py_compile scripts/media_agent_router.py scripts/deepseek_media_corps_audit.py
+          python -m unittest tests.test_media_agent_router tests.test_media_corps_model_audits tests.test_deepseek_organization_audit -v
+
+      - name: Run bounded paid DeepSeek media architecture review
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          python scripts/deepseek_media_corps_audit.py \
+            --network \
+            --confirm DEEPSEEK_ORGANIZATION_AUDIT \
+            --output artifacts/deepseek_media_corps_audit.json
+          python -m json.tool artifacts/deepseek_media_corps_audit.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/deepseek_media_corps_audit.json").read_text(encoding="utf-8"))
+          assert report.get("status") in {"AUDIT_READY", "AUDIT_PARTIAL"}
+          assert int(report.get("model_calls", 0)) == 1
+          assert report.get("generic_paid_fallback") is False
+          assert report.get("production_routing_changed") is False
+          assert report.get("repository_write") is False
+          assert float(report.get("conservative_cost_usd", 0)) <= float(report.get("max_conservative_cost_usd", 0.06))
+          print(json.dumps({
+              "status": report.get("status"),
+              "requested_model": report.get("requested_model"),
+              "response_model": report.get("response_model"),
+              "validation": report.get("validation", {}),
+              "estimated_current_cost_usd": report.get("estimated_current_cost_usd", 0),
+              "conservative_cost_usd": report.get("conservative_cost_usd", 0),
+          }, sort_keys=True))
+          PY
+
+      - name: Audit secrets
+        run: python scripts/audit_secret_safety.py --root .
+
+      - name: Upload DeepSeek media review
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: deepseek-media-corps-review-${{ github.run_id }}
+          path: artifacts/deepseek_media_corps_audit.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  nvidia-media-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Test media routing and NVIDIA review surface
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python -m py_compile scripts/media_agent_router.py scripts/run_nvidia_media_corps_audit.py
+          python -m unittest tests.test_media_agent_router tests.test_media_corps_model_audits tests.test_adaptive_retry_and_compact_nvidia -v
+
+      - name: Collect redacted NVIDIA route evidence
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/secure_account_evidence.py
+          --provider nvidia
+          --output artifacts/secure_account_evidence.json
+
+      - name: Build exact NVIDIA direct-agent admission
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/probe_nvidia_google_focused.py
+          --evidence-file artifacts/secure_account_evidence.json
+          --output artifacts/provider_probe.json
+
+      - name: Probe current OpenRouter exact-free worker pool
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from scripts.probe_free_workers_multi import run_multi_probe
+          report = run_multi_probe(api_key=os.environ.get("OPENROUTER_API_KEY") or "", explicit_approval=True)
+          Path("artifacts/openrouter_expansion_probe.json").write_text(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Benchmark verified free workers
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from scripts.benchmark_free_workers import run_benchmarks
+          probe = json.loads(Path("artifacts/openrouter_expansion_probe.json").read_text(encoding="utf-8"))
+          report = run_benchmarks(api_key=os.environ.get("OPENROUTER_API_KEY") or "", probe_report=probe)
+          Path("artifacts/openrouter_expansion_benchmark.json").write_text(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Run history-aware free specialist corps
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: >-
+          python scripts/failure_aware_specialist_retry.py
+          --probe artifacts/openrouter_expansion_probe.json
+          --benchmark artifacts/openrouter_expansion_benchmark.json
+          --output artifacts/worker_council.json
+
+      - name: Run scope-guarded self-healing NVIDIA media review
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+          SOURCE_HEAD: ${{ github.sha }}
+        run: python scripts/run_nvidia_media_corps_audit.py
+
+      - name: Validate NVIDIA media review
+        run: |
+          set -euo pipefail
+          python scripts/audit_secret_safety.py --root .
+          for file in artifacts/result_inbox.json artifacts/commander_self_heal.json artifacts/worker_council.json; do
+            python -m json.tool "$file" >/dev/null
+          done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path("artifacts/result_inbox.json").read_text(encoding="utf-8"))
+          heal = json.loads(Path("artifacts/commander_self_heal.json").read_text(encoding="utf-8"))
+          assert result.get("production_active") is False
+          assert int(result.get("secret_values_persisted", 0) or 0) == 0
+          assert result.get("result_hash_verified") is True
+          assert result.get("path_validation") is True
+          assert heal.get("continuation_count", 0) <= 1
+          assert heal.get("unbounded_retry") is False
+          assert heal.get("repository_write") is False
+          assert heal.get("paid_fallback") is False
+          print(json.dumps({
+              "result_status": result.get("result_status"),
+              "result_complete": result.get("result_complete"),
+              "continuation_count": heal.get("continuation_count", 0),
+              "first_result_status": heal.get("first_result_status"),
+          }, sort_keys=True))
+          PY
+
+      - name: Upload NVIDIA media review
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: nvidia-media-corps-review-${{ github.run_id }}
+          path: |
+            artifacts/secure_account_evidence.json
+            artifacts/provider_probe.json
+            artifacts/openrouter_expansion_probe.json
+            artifacts/openrouter_expansion_benchmark.json
+            artifacts/worker_council.json
+            artifacts/mission_state.json
+            artifacts/result_inbox.json
+            artifacts/commander_self_heal.json
+            artifacts/organization_blackboard.json
+            artifacts/staging_parallel_scheduler_probe.json
+            artifacts/organization_feedback.json
+            artifacts/worker_organization_memory_next.json
+          if-no-files-found: warn
+          retention-days: 7
