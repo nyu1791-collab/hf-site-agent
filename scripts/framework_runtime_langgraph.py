@@ -19,7 +19,18 @@ from scripts.langgraph_checkpoint_backend import (
 
 
 class LangGraphRuntimeError(RuntimeError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        persistent_checkpoint: bool = False,
+        checkpoint_backend: str = "",
+        cross_runner_durable: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.persistent_checkpoint = persistent_checkpoint is True
+        self.checkpoint_backend = str(checkpoint_backend or "")
+        self.cross_runner_durable = cross_runner_durable is True
 
 
 class _State(TypedDict, total=False):
@@ -111,7 +122,15 @@ def build_langgraph_runner(
         }
         with open_checkpointer(backend=backend, sqlite_path=sqlite_path) as checkpointer:
             graph = builder.compile(checkpointer=checkpointer)
-            final = graph.invoke(initial, config=config)
+            try:
+                final = graph.invoke(initial, config=config)
+            except Exception as exc:
+                raise LangGraphRuntimeError(
+                    f"LangGraph subgraph failed: {type(exc).__name__}",
+                    persistent_checkpoint=True,
+                    checkpoint_backend=str(checkpoint_meta.get("backend") or ""),
+                    cross_runner_durable=checkpoint_meta.get("cross_runner_durable") is True,
+                ) from exc
 
         final_row = _mapping(final, name="LangGraph")
         validation = final_row.get("validation_result") if isinstance(final_row.get("validation_result"), Mapping) else {}
