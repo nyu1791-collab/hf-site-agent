@@ -4,9 +4,13 @@
 Same-run benchmark role scores describe current capability, while compact
 organization memory records how workers actually behaved on specialist work in
 recent runs. Routing combines both signals and solves the small lane/worker
-matching problem globally. Critical-path lanes receive a modest assignment
-weight so a tiny gain on a later lane cannot sacrifice a proven worker on an
-upstream scheduler/failure-recovery task.
+matching problem globally.
+
+Generation v2 no longer forces eight distinct models merely to fill eight
+specialist lanes. A historically reliable exact model may own up to two lanes,
+while same-model execution remains serialized by the council runtime. This
+trades low-value diversity for measured reliability without creating concurrent
+pressure on one exact model or allowing provider fallback.
 """
 
 from __future__ import annotations
@@ -30,9 +34,6 @@ DEFAULT_LANE_ROLE_PREFERENCES: Mapping[str, tuple[str, ...]] = {
     "RESULT_AGGREGATION": ("GENERAL_WORKER", "REVIEW_WORKER"),
     "PERFORMANCE_TELEMETRY": ("GENERAL_WORKER", "REVIEW_WORKER"),
 }
-# These weights are organization priorities, not model-quality multipliers.
-# They are deliberately modest: capability/history still determine the worker,
-# but critical-path lanes win close global trade-offs.
 LANE_ASSIGNMENT_WEIGHTS: Mapping[str, float] = {
     "SCHEDULER_DAG": 1.20,
     "FAILURE_RETRY": 1.15,
@@ -43,7 +44,14 @@ LANE_ASSIGNMENT_WEIGHTS: Mapping[str, float] = {
     "RESULT_AGGREGATION": 1.00,
     "PERFORMANCE_TELEMETRY": 1.00,
 }
-ASSIGNMENT_POLICY = "GLOBAL_CRITICAL_PATH_WEIGHTED_ROLE_PLUS_ORGANIZATION_MEMORY"
+
+MAX_PRIMARY_LANES_PER_RELIABLE_MODEL = 2
+RELIABLE_REUSE_MIN_ATTEMPTS = 2
+RELIABLE_REUSE_MIN_HISTORY_SCORE = 0.68
+RELIABLE_REUSE_MAX_LENGTH_FAILURE_RATE = 0.25
+RELIABLE_REUSE_MAX_RATE_LIMIT_RATE = 0.20
+SECOND_LANE_REUSE_PENALTY = 0.045
+ASSIGNMENT_POLICY = "GLOBAL_CAPACITY_AWARE_CRITICAL_PATH_ROLE_PLUS_ORGANIZATION_MEMORY"
 
 
 def _number(value: Any, default: float = 0.0) -> float:
@@ -112,6 +120,18 @@ def historical_worker_signal(memory: Mapping[str, Any], model: str, lane_name: s
     }
 
 
+def worker_lane_capacity(memory: Mapping[str, Any], model: str) -> int:
+    """Allow bounded reuse only when specialist history proves the route stable."""
+    history = historical_worker_signal(memory, model, "__OVERALL__")
+    reliable = (
+        int(history["model_attempts"]) >= RELIABLE_REUSE_MIN_ATTEMPTS
+        and float(history["score"]) >= RELIABLE_REUSE_MIN_HISTORY_SCORE
+        and float(history["length_failure_rate"]) <= RELIABLE_REUSE_MAX_LENGTH_FAILURE_RATE
+        and float(history["rate_limit_rate"]) <= RELIABLE_REUSE_MAX_RATE_LIMIT_RATE
+    )
+    return MAX_PRIMARY_LANES_PER_RELIABLE_MODEL if reliable else 1
+
+
 def _assignment_score(
     worker: Mapping[str, Any],
     lane_name: str,
@@ -148,9 +168,10 @@ def _globally_optimal_worker_indices(
     preferences: Mapping[str, Sequence[str]],
     memory: Mapping[str, Any],
 ) -> tuple[int, ...]:
-    """Solve <=8 lane assignment exactly with critical-path weighted bitmask DP."""
+    """Solve <=8 lanes exactly with history-gated per-model capacity."""
     if not lanes:
         return ()
+
     score_matrix = tuple(
         tuple(
             float(_assignment_score(worker, str(lane["lane"]), preferences, memory)[0])
@@ -160,26 +181,32 @@ def _globally_optimal_worker_indices(
     )
     lane_weights = tuple(_lane_weight(str(lane["lane"])) for lane in lanes)
     model_names = tuple(str(worker.get("model") or "") for worker in workers)
+    capacities = tuple(worker_lane_capacity(memory, name) for name in model_names)
 
     @lru_cache(maxsize=None)
-    def solve(lane_index: int, used_mask: int) -> tuple[float, tuple[float, ...], tuple[int, ...]]:
+    def solve(lane_index: int, counts: tuple[int, ...]) -> tuple[float, tuple[float, ...], tuple[int, ...]]:
         if lane_index >= len(lanes):
             return 0.0, (), ()
+
         best_total = float("-inf")
         best_lane_scores: tuple[float, ...] = ()
         best_indices: tuple[int, ...] = ()
         best_names: tuple[str, ...] | None = None
+
         for worker_index in range(len(workers)):
-            bit = 1 << worker_index
-            if used_mask & bit:
+            if counts[worker_index] >= capacities[worker_index]:
                 continue
-            tail_total, tail_lane_scores, tail_indices = solve(lane_index + 1, used_mask | bit)
-            current_score = score_matrix[lane_index][worker_index]
-            weighted_score = current_score * lane_weights[lane_index]
-            total = weighted_score + tail_total
-            lane_scores = (current_score, *tail_lane_scores)
+            next_counts = list(counts)
+            next_counts[worker_index] += 1
+            tail_total, tail_lane_scores, tail_indices = solve(lane_index + 1, tuple(next_counts))
+            raw_score = score_matrix[lane_index][worker_index]
+            reuse_penalty = SECOND_LANE_REUSE_PENALTY * counts[worker_index]
+            effective_score = max(0.0, raw_score - reuse_penalty)
+            total = effective_score * lane_weights[lane_index] + tail_total
+            lane_scores = (effective_score, *tail_lane_scores)
             indices = (worker_index, *tail_indices)
             names = tuple(model_names[index] for index in indices)
+
             better_total = total > best_total + 1e-12
             equal_total = abs(total - best_total) <= 1e-12
             better_priority_profile = equal_total and lane_scores > best_lane_scores
@@ -190,9 +217,10 @@ def _globally_optimal_worker_indices(
                 best_lane_scores = lane_scores
                 best_indices = indices
                 best_names = names
+
         return best_total, best_lane_scores, best_indices
 
-    return solve(0, 0)[2]
+    return solve(0, tuple(0 for _ in workers))[2]
 
 
 def attach_capability_matched_assignments(
@@ -202,40 +230,58 @@ def attach_capability_matched_assignments(
     preferences: Mapping[str, Sequence[str]] = DEFAULT_LANE_ROLE_PREFERENCES,
     memory: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Globally match unique priority lanes to evidence-backed workers."""
+    """Globally match lanes while reusing only proven workers at bounded capacity."""
     workers = sorted(
         (dict(item) for item in selected if isinstance(item, Mapping) and item.get("model")),
         key=lambda item: str(item.get("model") or ""),
     )
     if not workers:
         return []
+
     lanes = list(SPECIALIST_LANES[: min(len(workers), len(SPECIALIST_LANES))])
     memory_payload = memory if isinstance(memory, Mapping) else load_organization_memory(root=root)
     worker_indices = _globally_optimal_worker_indices(workers, lanes, preferences, memory_payload)
-    assignments: list[dict[str, Any]] = []
-    weighted_total_score = sum(
-        float(_assignment_score(workers[worker_index], str(lane["lane"]), preferences, memory_payload)[0])
-        * _lane_weight(str(lane["lane"]))
-        for lane, worker_index in zip(lanes, worker_indices)
-    )
+    if len(worker_indices) != len(lanes):
+        return []
+
+    assignment_counts: dict[int, int] = {}
+    effective_rows: list[tuple[Mapping[str, Any], int, float]] = []
+    weighted_total_score = 0.0
     for lane, worker_index in zip(lanes, worker_indices):
+        prior_count = assignment_counts.get(worker_index, 0)
+        assignment_counts[worker_index] = prior_count + 1
+        raw_score = float(_assignment_score(workers[worker_index], str(lane["lane"]), preferences, memory_payload)[0])
+        effective_score = max(0.0, raw_score - SECOND_LANE_REUSE_PENALTY * prior_count)
+        weighted_total_score += effective_score * _lane_weight(str(lane["lane"]))
+        effective_rows.append((lane, worker_index, effective_score))
+
+    assignments: list[dict[str, Any]] = []
+    seen_ordinals: dict[int, int] = {}
+    for lane, worker_index, effective_score in effective_rows:
         worker = dict(workers[worker_index])
         lane_name = str(lane["lane"])
-        score, history_score, role_fit, coverage, best_score, _ = _assignment_score(worker, lane_name, preferences, memory_payload)
+        score, history_score, role_fit, coverage, best_score, _ = _assignment_score(
+            worker, lane_name, preferences, memory_payload
+        )
         history = historical_worker_signal(memory_payload, str(worker.get("model") or ""), lane_name)
+        overall_history = historical_worker_signal(memory_payload, str(worker.get("model") or ""), "__OVERALL__")
+        ordinal = seen_ordinals.get(worker_index, 0) + 1
+        seen_ordinals[worker_index] = ordinal
+        capacity = worker_lane_capacity(memory_payload, str(worker.get("model") or ""))
+
         worker["specialist_lane"] = lane_name
         worker["specialist_objective"] = str(lane["objective"])
         worker["specialist_context"] = build_specialist_context(lane, root=root)
         worker["organization_memory"] = {
-            "overall": historical_worker_signal(memory_payload, str(worker.get("model") or ""), "__OVERALL__"),
+            "overall": overall_history,
             "assigned_lane": dict(history),
         }
         worker["lane_assignment"] = {
             "policy": ASSIGNMENT_POLICY,
             "score": round(score, 8),
+            "effective_score_after_reuse_penalty": round(effective_score, 8),
             "lane_weight": _lane_weight(lane_name),
             "global_weighted_total_score": round(weighted_total_score, 8),
-            # compatibility alias for existing artifacts/tests
             "global_total_score": round(weighted_total_score, 8),
             "historical_score": round(history_score, 8),
             "historical_model_attempts": int(history["model_attempts"]),
@@ -246,6 +292,10 @@ def attach_capability_matched_assignments(
             "preferred_role_coverage": round(coverage, 8),
             "best_score": round(best_score, 8),
             "preferred_roles": list(preferences.get(lane_name, ())),
+            "worker_lane_capacity": capacity,
+            "worker_lane_ordinal": ordinal,
+            "reused_reliable_worker": ordinal > 1,
+            "same_exact_model_execution_must_be_serial": True,
         }
         assignments.append(worker)
     return assignments
@@ -256,7 +306,12 @@ __all__ = [
     "DEFAULT_LANE_ROLE_PREFERENCES",
     "DEFAULT_MEMORY_PATH",
     "LANE_ASSIGNMENT_WEIGHTS",
+    "MAX_PRIMARY_LANES_PER_RELIABLE_MODEL",
+    "RELIABLE_REUSE_MIN_ATTEMPTS",
+    "RELIABLE_REUSE_MIN_HISTORY_SCORE",
+    "SECOND_LANE_REUSE_PENALTY",
     "attach_capability_matched_assignments",
     "historical_worker_signal",
     "load_organization_memory",
+    "worker_lane_capacity",
 ]
