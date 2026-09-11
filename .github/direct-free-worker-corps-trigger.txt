@@ -1,5 +1,5 @@
-trigger=direct-free-worker-corps-v5
-purpose=live-benchmark-and-reconcile-zai-siliconflow-into-replaceable-agent-slots
+trigger=direct-free-worker-corps-v6
+purpose=live-benchmark-reconcile-and-verify-low-latency-failure-propagation-direct-handoff
 network=true
 max_model_calls=15
 provider_fallback=false
