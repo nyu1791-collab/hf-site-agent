@@ -1,5 +1,5 @@
-trigger=direct-free-worker-corps-v2
-purpose=retain-artifact-and-diagnose-zai-siliconflow-free-worker-routing
+trigger=direct-free-worker-corps-v3
+purpose=benchmark-zai-serial-per-model-and-siliconflow-live-free-catalog
 network=true
 max_model_calls=15
 provider_fallback=false
