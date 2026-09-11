@@ -8,8 +8,10 @@ on:
       - "scripts/framework_consolidation_policy.py"
       - "scripts/framework_parallel_governor.py"
       - "scripts/parallel_framework_batch.py"
+      - "scripts/media_parallel_framework_mission.py"
       - "tests/test_framework_parallel_governor.py"
       - "tests/test_parallel_framework_batch.py"
+      - "tests/test_media_parallel_framework_mission.py"
       - ".github/workflows/verify-framework-parallel-governor.yml"
   push:
     branches:
@@ -20,8 +22,10 @@ on:
       - "scripts/framework_consolidation_policy.py"
       - "scripts/framework_parallel_governor.py"
       - "scripts/parallel_framework_batch.py"
+      - "scripts/media_parallel_framework_mission.py"
       - "tests/test_framework_parallel_governor.py"
       - "tests/test_parallel_framework_batch.py"
+      - "tests/test_media_parallel_framework_mission.py"
       - ".github/workflows/verify-framework-parallel-governor.yml"
   workflow_dispatch:
 
@@ -47,13 +51,16 @@ jobs:
             scripts/framework_consolidation_policy.py \
             scripts/framework_parallel_governor.py \
             scripts/parallel_framework_batch.py \
+            scripts/media_parallel_framework_mission.py \
             tests/test_framework_parallel_governor.py \
-            tests/test_parallel_framework_batch.py
-      - name: Run parallel governor tests
+            tests/test_parallel_framework_batch.py \
+            tests/test_media_parallel_framework_mission.py
+      - name: Run parallel governor and media mission tests
         run: |
           python -m unittest \
             tests.test_framework_parallel_governor \
             tests.test_parallel_framework_batch \
+            tests.test_media_parallel_framework_mission \
             -v
       - name: Verify authority boundaries
         run: |
