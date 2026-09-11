@@ -8,10 +8,13 @@ Changes from v1:
 - Tasks for the same provider/model are serialized, while different models and
   providers still run in parallel. This avoids manufacturing 429s by firing all
   benchmark prompts at one free model simultaneously.
+- A rate-limit failure is propagated to later waves immediately. The exact
+  model is quarantined for the remainder of this bounded benchmark instead of
+  wasting another call on an already-known 429 route.
 - Every preflight is reported independently for diagnosis.
 
-The runner stays staging-only, exact-model, no retry, no provider fallback and
-no paid fallback.
+The runner stays staging-only, exact-model, no provider fallback and no paid
+fallback. Rate-limit suppression is not a retry: it prevents redundant calls.
 """
 
 from __future__ import annotations
@@ -95,20 +98,32 @@ def _run_model_rounds(
     max_parallel: int,
     max_tokens: int,
     timeout: float,
+    telemetry: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Run at most one task per exact model in each parallel wave."""
+    """Run at most one task per exact model in each parallel wave.
+
+    Once an exact model reports RATE_LIMITED, later benchmark tasks for that
+    same binding are suppressed in this run. This is a same-run failure signal,
+    not a retry or a provider fallback.
+    """
     rows: list[dict[str, Any]] = []
     calls = 0
     ordered_models = sorted(model_jobs)
+    rate_limited_models: set[tuple[str, str]] = set()
+    suppressed_after_rate_limit = 0
+
     for task_name in task_names:
         wave: list[tuple[str, str, Mapping[str, Any], str]] = []
         for provider_id, model in ordered_models:
             if calls + len(wave) >= hard_cap:
                 break
+            if (provider_id, model) in rate_limited_models:
+                suppressed_after_rate_limit += 1
+                continue
             provider, api_key = model_jobs[(provider_id, model)]
             wave.append((provider_id, model, provider, api_key))
         if not wave:
-            break
+            continue
         with ThreadPoolExecutor(
             max_workers=min(max_parallel, len(wave)),
             thread_name_prefix=f"direct-free-{task_name.lower()}",
@@ -127,8 +142,17 @@ def _run_model_rounds(
                 for provider_id, model, provider, api_key in wave
             }
             for future in as_completed(future_map):
-                rows.append(future.result())
+                key = future_map[future]
+                row = future.result()
+                rows.append(row)
+                if str(row.get("error_class") or "").upper() == "RATE_LIMITED" or int(row.get("http_status") or 0) == 429:
+                    rate_limited_models.add(key)
         calls += len(wave)
+
+    if telemetry is not None:
+        telemetry["rate_limit_failure_signal_count"] = len(rate_limited_models)
+        telemetry["suppressed_after_rate_limit_model_tasks"] = suppressed_after_rate_limit
+        telemetry["quarantined_exact_model_count"] = len(rate_limited_models)
     rows.sort(key=lambda row: (str(row.get("provider")), str(row.get("model")), str(row.get("task"))))
     return rows
 
@@ -152,12 +176,15 @@ def run_corps_v2(
         "provider_automatic_fallback": False,
         "paid_fallback": False,
         "auto_top_up": False,
-        "execution_policy": "SERIAL_PER_EXACT_MODEL_PARALLEL_ACROSS_MODELS",
+        "execution_policy": "SERIAL_PER_EXACT_MODEL_PARALLEL_ACROSS_MODELS_FAILURE_SIGNAL_PROPAGATION",
         "max_total_model_calls": int(config.get("max_total_model_calls") or 0),
         "provider_status": {},
         "results": [],
         "rankings": [],
         "free_worker_candidates": [],
+        "rate_limit_failure_signal_count": 0,
+        "suppressed_after_rate_limit_model_tasks": 0,
+        "quarantined_exact_model_count": 0,
     }
 
     for provider_id, provider_raw in providers.items():
@@ -226,6 +253,7 @@ def run_corps_v2(
     max_parallel = max(1, min(4, int(config.get("max_parallel_calls") or 1)))
     max_tokens = max(32, min(512, int(benchmark.get("max_output_tokens") or 320)))
     timeout = max(5.0, min(90.0, float(benchmark.get("request_timeout_seconds") or 60)))
+    rate_limit_telemetry: dict[str, Any] = {}
     rows = _run_model_rounds(
         model_jobs,
         task_names=task_names,
@@ -233,7 +261,9 @@ def run_corps_v2(
         max_parallel=max_parallel,
         max_tokens=max_tokens,
         timeout=timeout,
+        telemetry=rate_limit_telemetry,
     )
+    report.update(rate_limit_telemetry)
 
     silicon_provider = providers.get("siliconflow") if isinstance(providers.get("siliconflow"), Mapping) else None
     if silicon_provider:
@@ -319,6 +349,8 @@ def main() -> int:
         "model_calls": report.get("model_calls", 0),
         "successful_model_calls": report.get("successful_model_calls", 0),
         "rate_limited_model_calls": report.get("rate_limited_model_calls", 0),
+        "rate_limit_failure_signal_count": report.get("rate_limit_failure_signal_count", 0),
+        "suppressed_after_rate_limit_model_tasks": report.get("suppressed_after_rate_limit_model_tasks", 0),
         "free_candidate_count": report.get("free_candidate_count", 0),
         "providers": {
             key: value.get("status")
