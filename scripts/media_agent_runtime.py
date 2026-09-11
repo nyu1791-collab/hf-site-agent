@@ -56,6 +56,9 @@ def build_connector_state(
 ) -> dict[str, Any]:
     platforms = connected_platforms(accounts)
     plugins = _norm(connected_plugins)
+    descript_installed = "descript" in plugins
+    fal_installed = "fal" in plugins
+    runway_installed = "runway" in plugins
     publish = {
         platform: ("READY" if platform in platforms else "CONNECTION_REQUIRED")
         for platform in SOCIAL_PLATFORMS
@@ -66,21 +69,28 @@ def build_connector_state(
             "platforms": publish,
             "publish_requires_human_approval": True,
         },
+        "plugin_state": {
+            "descript": descript_installed,
+            "fal": fal_installed,
+            "runway": runway_installed,
+            "installed_plugin_does_not_imply_paid_execution_approval": True,
+        },
         "transcription": {
             "free_gpu_whisper": bool(free_gpu_worker_available),
             "groq_free_quota": bool(groq_free_quota_verified),
-            "descript": "descript" in plugins,
+            "descript": descript_installed,
             "groq_low_cost_approved": bool(low_cost_audio_approved),
         },
         "video_editing": {
             "ffmpeg_deterministic": True,
-            "descript": "descript" in plugins,
-            "fal": "fal" in plugins,
-            "runway": "runway" in plugins and bool(paid_media_approved),
+            "descript": descript_installed,
+            "fal": fal_installed and bool(paid_media_approved),
+            "runway": runway_installed and bool(paid_media_approved),
+            "paid_media_approved": bool(paid_media_approved),
         },
         "creative_generation": {
-            "fal": "fal" in plugins and bool(paid_media_approved),
-            "runway": "runway" in plugins and bool(paid_media_approved),
+            "fal": fal_installed and bool(paid_media_approved),
+            "runway": runway_installed and bool(paid_media_approved),
             "paid_media_approved": bool(paid_media_approved),
         },
         "research": {
@@ -111,13 +121,24 @@ def select_edit_route(state: Mapping[str, Any], *, semantic_edit_required: bool)
         return selected
     for key, route in (
         ("descript", "DESCRIPT_CONNECTOR"),
-        ("fal", "FAL_CONNECTOR"),
+        ("fal", "FAL_CONNECTOR_APPROVED"),
         ("runway", "RUNWAY_CONNECTOR_APPROVED"),
     ):
         if edit.get(key) is True:
             selected.append(route)
             break
     return selected
+
+
+def select_generation_route(state: Mapping[str, Any], *, advanced_video_required: bool = False) -> str:
+    generation = state.get("creative_generation") if isinstance(state.get("creative_generation"), Mapping) else {}
+    if advanced_video_required and generation.get("runway") is True:
+        return "RUNWAY_CONNECTOR_APPROVED"
+    if generation.get("fal") is True:
+        return "FAL_CONNECTOR_APPROVED"
+    if generation.get("runway") is True:
+        return "RUNWAY_CONNECTOR_APPROVED"
+    return "BLOCKED_NEEDS_APPROVED_MEDIA_GENERATION_ROUTE"
 
 
 def _task(task_id: str, role: str, depends_on: list[str], state: str, detail: str) -> dict[str, Any]:
@@ -142,6 +163,8 @@ def build_media_mission(
     x_api_cost_approved: bool = False,
     human_publish_approval: bool = False,
     semantic_edit_required: bool = True,
+    generative_media_required: bool = False,
+    advanced_video_required: bool = False,
 ) -> dict[str, Any]:
     targets = [p for p in dict.fromkeys(_norm(target_platforms)) if p in SOCIAL_PLATFORMS]
     if not targets:
@@ -157,11 +180,26 @@ def build_media_mission(
     )
     transcription = select_transcription_route(state)
     edit_routes = select_edit_route(state, semantic_edit_required=semantic_edit_required)
+    generation = select_generation_route(state, advanced_video_required=advanced_video_required)
+    generation_state = "SKIPPED_NOT_REQUIRED"
+    generation_detail = "Reuse owned/source media; no generative media call required."
+    if generative_media_required:
+        if generation.startswith("BLOCKED"):
+            generation_state = "BLOCKED"
+            generation_detail = generation
+        else:
+            generation_state = "READY"
+            generation_detail = generation
+
+    edit_dependencies = ["transcribe"]
+    if generative_media_required:
+        edit_dependencies.append("generate_assets")
 
     tasks: list[dict[str, Any]] = [
         _task("research", "SOCIAL_INTELLIGENCE_AGENT", [], "READY", "Collect public evidence and owned-channel context."),
         _task("strategy", "CONTENT_STRATEGIST", ["research"], "READY", "Define measurable content hypothesis and platform variants."),
         _task("script", "SCRIPT_AGENT", ["strategy"], "READY", "Create hook, body, CTA and shot list."),
+        _task("generate_assets", "GENERATIVE_MEDIA_AGENT", ["script"], generation_state, generation_detail),
         _task(
             "transcribe",
             "TRANSCRIPTION_AGENT",
@@ -169,7 +207,7 @@ def build_media_mission(
             "READY" if not transcription.startswith("BLOCKED") else "BLOCKED",
             transcription,
         ),
-        _task("edit", "CLIP_EDITOR_AGENT", ["transcribe"], "READY", "+".join(edit_routes)),
+        _task("edit", "CLIP_EDITOR_AGENT", edit_dependencies, "READY", "+".join(edit_routes)),
         _task("captions", "CAPTION_LOCALIZATION_AGENT", ["transcribe", "edit"], "READY", "Generate subtitles, translations and on-screen text."),
         _task("thumbnail", "THUMBNAIL_CREATIVE_AGENT", ["strategy", "edit"], "READY", "Prepare truthful cover/thumbnail variants."),
         _task("rights", "RIGHTS_SAFETY_AGENT", ["captions", "thumbnail"], "READY", "Verify provenance, rights and synthetic-media disclosure."),
@@ -210,11 +248,13 @@ def build_media_mission(
         "selected_routes": {
             "transcription": transcription,
             "editing": edit_routes,
+            "generation": generation if generative_media_required else "NOT_REQUIRED",
         },
         "tasks": tasks,
         "hard_boundaries": {
             "publish_requires_human_approval": True,
             "paid_media_generation_auto_enabled": False,
+            "installed_plugin_implies_paid_execution_approval": False,
             "repository_write_by_external_ai": False,
             "generic_paid_fallback": False,
             "auto_top_up": False,
@@ -228,7 +268,13 @@ def build_media_mission(
 
 def validate_plan(plan: Mapping[str, Any]) -> None:
     boundaries = plan.get("hard_boundaries") if isinstance(plan.get("hard_boundaries"), Mapping) else {}
-    required_false = ("paid_media_generation_auto_enabled", "repository_write_by_external_ai", "generic_paid_fallback", "auto_top_up")
+    required_false = (
+        "paid_media_generation_auto_enabled",
+        "installed_plugin_implies_paid_execution_approval",
+        "repository_write_by_external_ai",
+        "generic_paid_fallback",
+        "auto_top_up",
+    )
     if boundaries.get("publish_requires_human_approval") is not True:
         raise ValueError("publish approval boundary missing")
     if any(boundaries.get(key) is not False for key in required_false):
@@ -253,6 +299,8 @@ def main() -> int:
     parser.add_argument("--paid-media-approved", action="store_true")
     parser.add_argument("--x-api-cost-approved", action="store_true")
     parser.add_argument("--human-publish-approval", action="store_true")
+    parser.add_argument("--generative-media-required", action="store_true")
+    parser.add_argument("--advanced-video-required", action="store_true")
     parser.add_argument("--output", default="artifacts/media_agent_plan.json")
     args = parser.parse_args()
     accounts = [{"platform": platform, "needs_reconnect": False} for platform in args.connected_platform]
@@ -266,6 +314,8 @@ def main() -> int:
         paid_media_approved=args.paid_media_approved,
         x_api_cost_approved=args.x_api_cost_approved,
         human_publish_approval=args.human_publish_approval,
+        generative_media_required=args.generative_media_required,
+        advanced_video_required=args.advanced_video_required,
     )
     target = Path(args.output)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -275,6 +325,7 @@ def main() -> int:
         "targets": plan["target_platforms"],
         "transcription": plan["selected_routes"]["transcription"],
         "editing": plan["selected_routes"]["editing"],
+        "generation": plan["selected_routes"]["generation"],
         "production_active": plan["production_active"],
     }, sort_keys=True))
     return 0
