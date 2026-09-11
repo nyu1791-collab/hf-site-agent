@@ -1,4 +1,4 @@
-name: DeepSeek V4.1 Flash framework adapter parallel review
+name: DeepSeek V4 Flash paid parallel engineering review
 
 on:
   push:
@@ -7,7 +7,10 @@ on:
     paths:
       - .github/deepseek-framework-adapter-trigger.txt
       - .github/workflows/deepseek-framework-adapter-parallel-review.yml
+      - config/deepseek_specialist_trial.json
       - config/deepseek_framework_adapter_review_*.json
+      - scripts/deepseek_specialist_trial*.py
+      - scripts/deepseek_targeted_review.py
   workflow_dispatch:
 
 permissions:
@@ -51,20 +54,38 @@ jobs:
             scripts/deepseek_specialist_trial_v4.py \
             scripts/deepseek_targeted_review.py
 
-      - name: Validate manifest and dry-run offline
+      - name: Validate paid route and manifest offline
         run: |
           set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          cfg = json.loads(Path('config/deepseek_specialist_trial.json').read_text())
+          assert cfg['provider_id'] == 'deepseek'
+          assert cfg['base_url'] == 'https://api.deepseek.com'
+          assert cfg['model'] == 'deepseek-v4-flash'
+          assert cfg['paid_execution_enabled'] is True
+          assert cfg['explicit_paid_specialist_approved'] is True
+          assert cfg['generic_paid_fallback'] is False
+          assert cfg['auto_top_up'] is False
+          assert cfg['safety_boundary']['repository_write'] is False
+          assert cfg['safety_boundary']['main_push'] is False
+          assert cfg['safety_boundary']['merge'] is False
+          assert cfg['safety_boundary']['deploy'] is False
+          assert cfg['safety_boundary']['publish'] is False
+          PY
           python scripts/deepseek_targeted_review.py \
             --manifest "${{ matrix.manifest }}" \
             --output "artifacts/deepseek_${{ matrix.lane }}_dry_run.json"
           python -m json.tool "artifacts/deepseek_${{ matrix.lane }}_dry_run.json" >/dev/null
 
-      - name: Run one explicitly approved DeepSeek V4.1 Flash review
+      - name: Run one explicitly approved paid DeepSeek V4 Flash review
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           LANE: ${{ matrix.lane }}
         run: |
           set -euo pipefail
+          test -n "${DEEPSEEK_API_KEY:-}"
           python scripts/deepseek_targeted_review.py \
             --manifest "${{ matrix.manifest }}" \
             --network \
@@ -75,26 +96,26 @@ jobs:
           import json
           import os
           from pathlib import Path
-          lane = os.environ["LANE"]
-          report = json.loads(Path(f"artifacts/deepseek_{lane}.json").read_text(encoding="utf-8"))
-          assert report.get("requested_model") == "deepseek-flash"
-          assert report.get("generic_paid_fallback") is False
-          assert report.get("production_routing_changed") is False
-          assert report.get("repository_write") is False
-          assert report.get("merge") is False
-          assert report.get("deploy") is False
-          assert report.get("publish") is False
-          assert report.get("secret_mutation") is False
-          assert report.get("targeted_max_calls") == 1
-          assert float(report.get("targeted_max_estimated_cost_usd", 1)) <= 0.05
-          assert int(report.get("selected_task_count", 0)) <= 1
-          assert report.get("status") in {"TRIAL_READY", "TRIAL_PARTIAL"}
+          lane = os.environ['LANE']
+          report = json.loads(Path(f'artifacts/deepseek_{lane}.json').read_text(encoding='utf-8'))
+          assert report.get('requested_model') == 'deepseek-v4-flash'
+          assert report.get('generic_paid_fallback') is False
+          assert report.get('production_routing_changed') is False
+          assert report.get('repository_write') is False
+          assert report.get('merge') is False
+          assert report.get('deploy') is False
+          assert report.get('publish') is False
+          assert report.get('secret_mutation') is False
+          assert report.get('targeted_max_calls') == 1
+          assert float(report.get('targeted_max_estimated_cost_usd', 1)) <= 0.05
+          assert int(report.get('selected_task_count', 0)) <= 1
+          assert report.get('status') in {'TRIAL_READY', 'TRIAL_PARTIAL'}
           print(json.dumps({
-              "lane": lane,
-              "status": report.get("status"),
-              "model": report.get("requested_model"),
-              "cost_usd": report.get("estimated_current_cost_usd", 0),
-              "quality": report.get("average_quality_score", 0),
+              'lane': lane,
+              'status': report.get('status'),
+              'model': report.get('requested_model'),
+              'cost_usd': report.get('estimated_current_cost_usd', 0),
+              'quality': report.get('average_quality_score', 0),
           }, sort_keys=True))
           PY
 
