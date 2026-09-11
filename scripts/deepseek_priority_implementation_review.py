@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Run one bounded DeepSeek V4.1 Flash review over the AI Army V4 priorities.
+"""Run one bounded DeepSeek V4.1 Flash audit over the implemented AI Army V4 priorities.
 
-This wrapper reuses the already-approved paid specialist transport, exact-model
-integrity checks, spend guard, and staging-only authority. It changes only the
-six advisory tasks and the repository evidence windows for the current priority
-implementation sequence. DeepSeek never receives repository-write, deploy,
-publish, secret-mutation, or generic paid-fallback authority.
+The first run of this wrapper reviewed the intended design.  The current phase
+points the same six bounded specialist lanes at the real V4 scheduler, controls,
+freshness runtime, tests and authoritative Media Corps routing so DeepSeek can
+find implementation defects rather than merely restate architecture advice.
+
+The wrapper reuses the already-approved paid specialist transport, exact-model
+integrity checks, spend guard, and staging-only authority. DeepSeek receives no
+repository-write, deploy, publish, secret-mutation, payment, auto-top-up, or
+generic paid-fallback authority.
 """
 
 from __future__ import annotations
@@ -25,115 +29,129 @@ from scripts import deepseek_specialist_trial_v4 as v4
 
 
 PRIORITY_CONTEXT_MARKERS: dict[str, tuple[str, ...]] = {
-    "scripts/replaceable_agent_scheduler_v2.py": (
-        "def _build_handoff",
-        "def _task_priority",
-        "def resource_available",
-        "failure_registry.snapshot",
+    "scripts/ai_army_v4_controls.py": (
+        "def objective_fingerprint",
+        "def dependency_snapshot_matches",
+        "def build_result_confidence_contract",
+        "class AdaptiveExactModelConcurrency",
+        "def aged_priority",
     ),
-    "scripts/independent_agent_runtime.py": (
-        "class AgentSession",
+    "scripts/replaceable_agent_scheduler_v4.py": (
+        "class V4ReplaceableAgentScheduler",
+        "def _commit_result_row",
+        "def _build_handoff",
+        "def _dependencies_acceptable",
+        "def _dynamic_priority",
+        "def run(",
+    ),
+    "scripts/independent_agent_runtime_v4.py": (
+        "class IndependentAgentRegistryV4",
+        "def _fresh_memory",
         "def execution_context",
-        "def acknowledge_context",
         "def finish_task",
     ),
     "scripts/independent_agent_scheduler.py": (
         "class IndependentAgentScheduler",
         "def _execute_with_handoff",
+        "def _commit_result_row",
     ),
-    "scripts/organization_feedback.py": (
-        "def _recommended_parallel_limit",
-        "def build_feedback",
+    "tests/test_ai_army_v4_controls.py": (
+        "class AIArmyV4ControlTests",
+        "test_dependency_snapshot_is_order_invariant_and_detects_supersession",
+        "test_adaptive_model_gate_starts_one_promotes_and_shrinks_with_hysteresis",
     ),
-    "scripts/media_free_commander.py": (
-        "def build_free_media_plan",
-        "def validate_plan",
+    "tests/test_independent_agent_scheduler_v4.py": (
+        "class IndependentAgentSchedulerV4Tests",
+        "test_semantic_duplicate_joins_and_executes_once",
+        "test_dependency_handoff_is_versioned_hashed_and_rcc_validated",
+        "test_hard_boundary_remains_blocked_before_handler",
+    ),
+    "config/media_agent_organization.json": (
+        "free_media_mesh_is_authoritative_generation_router",
+        "GOOGLE_MEDIA_ANALYST",
+        "generation_authority",
+        "MEDIA_QUALITY_REVIEWER",
+    ),
+    "config/free_media_mesh.json": (
+        "GOOGLE_GEMINI_FREE_MULTIMODAL",
+        "CLOUDFLARE_FLUX_FREE",
+        "NVIDIA_COSMOS_FREE",
+        "paid_reserve",
     ),
     "scripts/media_command_bridge.py": (
-        "def build_media_command_plan",
+        "def build_integrated_media_mission",
         "free_media_mesh_before_paid_generation",
-    ),
-    "scripts/media_agent_runtime.py": (
-        "def build_media_mission",
-        "def validate_plan",
+        "automatic_paid_generation_fallback",
     ),
     "scripts/low_latency_agent_fabric.py": (
         "class FailureSignalRegistry",
         "def record_failure",
         "def snapshot",
     ),
-    "config/replaceable_agent_organization.json": (
-        "per_exact_model_parallel_limit_default",
-        "organization_parallel_limit",
-        "agent_session_memory_items",
-    ),
-    "config/free_media_mesh.json": (
-        "GOOGLE_MEDIA_ANALYST",
-        "IMAGE_GENERATION_LEAD",
-        "VIDEO_GENERATION_LEAD",
-    ),
 }
 
 
 PRIORITY_TASKS: tuple[dict[str, Any], ...] = (
     {
-        "task_id": "v4-p0-a-dependency-version",
+        "task_id": "v4-final-p0-a-dependency-version",
         "role": "DEBUGGING",
         "objective": (
-            "P0-A. Review the current direct dependency handoff path and design the smallest fail-closed Dependency "
-            "Version Guard. Every completed dependency result should expose task revision plus deterministic result hash, "
-            "and a downstream task must not start from a superseded dependency snapshot. Prefer additive changes to the "
-            "event-driven scheduler; preserve direct handoff and bounded retries. Return concrete symbols/tests."
+            "POST-IMPLEMENTATION AUDIT P0-A. Inspect the implemented dependency result revision/hash contract, ready-time "
+            "snapshot, bounded pre-dispatch refresh and fail-closed supersession behavior. Find concrete race, hash, JOIN, "
+            "retry or generated-child bugs that could let stale dependency output execute. Do not redesign broadly. Return "
+            "only grounded defects with exact real symbols and minimal tests/fixes. If sound, say why from evidence."
         ),
     },
     {
-        "task_id": "v4-p0-b-adaptive-concurrency",
+        "task_id": "v4-final-p0-b-concurrency",
         "role": "ARCHITECTURE",
         "objective": (
-            "P0-B. Design adaptive exact-model concurrency for the current scheduler. Start conservative at one slot, "
-            "promote only after healthy evidence, and shrink quickly on 429/5xx/timeout pressure. Never exceed provider "
-            "limits or configured same-model caps. Avoid oscillation assumptions that belong to P1-B; define the minimal "
-            "runtime interface and deterministic tests."
+            "POST-IMPLEMENTATION AUDIT P0-B/P1-B. Inspect AdaptiveExactModelConcurrency and its scheduler integration. "
+            "Verify starts-at-one semantics, configured/provider caps, promotion evidence, pressure shrink, recovery hold, "
+            "model isolation and absence of oscillation-prone behavior. Look for cap mismatches between V4 and the "
+            "IndependentAgentScheduler adapter. Return minimal concrete corrections/tests only."
         ),
     },
     {
-        "task_id": "v4-p0-c-semantic-dedup",
+        "task_id": "v4-final-p0-c-semantic-dedup",
         "role": "CODING_DEEP",
         "objective": (
-            "P0-C. Add semantic work deduplication without fuzzy embeddings or extra AI calls. Propose a deterministic "
-            "objective fingerprint from normalized role/objective/dependencies/read-set/write-set, with JOIN semantics for "
-            "equivalent queued/running work and no accidental merge of different write scopes. Identify the smallest real "
-            "scheduler integration and tests."
+            "POST-IMPLEMENTATION AUDIT P0-C. Inspect deterministic objective fingerprinting plus _join_compatible, initial "
+            "and generated-task JOIN paths, follower result stamping, descendant release/block behavior and failure/retry "
+            "interaction. Prove that different write/risk/boundary semantics cannot merge. Find any deadlock, double-count, "
+            "stale leader or unsafe JOIN edge case and propose the smallest patch/test."
         ),
     },
     {
-        "task_id": "v4-p0-d-media-corps",
+        "task_id": "v4-final-p0-d-media-corps",
         "role": "CODE_REVIEW",
         "objective": (
-            "P0-D. Review the Media Corps against the intended split: Google analysis/backstage only; Cloudflare then "
-            "SiliconFlow then Qwen then DeepSeek Janus for image generation; NVIDIA Cosmos then Wan for video; FFmpeg for "
-            "deterministic post-process; rights/publishing remain human-gated. Find configuration/runtime inconsistencies "
-            "or legacy routes that can bypass the free-first mesh. Return minimal fixes and regression tests."
+            "POST-IMPLEMENTATION AUDIT P0-D. Inspect media_agent_organization.json, free_media_mesh.json and "
+            "build_integrated_media_mission together. Verify Google is analysis/review only; image order is Cloudflare -> "
+            "SiliconFlow -> Qwen -> DeepSeek Janus; video order NVIDIA Cosmos -> Wan; FFmpeg is deterministic postprocess; "
+            "Fal/Runway/paid Google cannot become automatic generation fallback; rights/publish remain human gated. Flag "
+            "any executable legacy bypass or config/runtime drift with exact minimal fixes/tests."
         ),
     },
     {
-        "task_id": "v4-p1-memory-hysteresis-aging",
+        "task_id": "v4-final-p1-memory-aging",
         "role": "TEST_STRATEGY",
         "objective": (
-            "P1-A/B/C. Design compact deterministic contracts for memory freshness metadata, parallelism hysteresis, and "
-            "fairness aging. Memory must reject superseded/stale context; concurrency promotion should require consecutive "
-            "healthy windows while degradation is fast; low-priority work may age upward but must never outrank safety or "
-            "critical hard-boundary work. Prefer pure functions and clock-injected tests."
+            "POST-IMPLEMENTATION AUDIT P1-A/P1-C. Inspect freshness-aware role memory and dynamic scheduler aging. Check "
+            "TTL/event-sequence semantics, superseded revision filtering, retry/failover session lifecycle, peer replay, "
+            "dynamic re-ranking, and the invariant that ordinary aged work never outranks CRITICAL/hard-boundary safety "
+            "work. Identify missing deterministic edge tests or implementation defects only."
         ),
     },
     {
-        "task_id": "v4-p1-d-result-confidence-integration",
+        "task_id": "v4-final-p1-d-rcc-integration",
         "role": "INTEGRATION_REVIEW",
         "objective": (
-            "P1-D and final integration. Define one Result Confidence Contract that adds confidence, evidence, validation "
-            "status, revision and result hash without trusting model self-confidence alone. Explain where deterministic "
-            "validation should override reported confidence, how downstream consumers fail closed, and what must remain "
-            "human-approved. Also flag any interaction risk across P0-A/B/C/D and P1-A/B/C."
+            "POST-IMPLEMENTATION AUDIT P1-D and cross-feature integration. Inspect Result Confidence Contract stamping and "
+            "downstream acceptance. Model self-confidence must never override machine validation; result hash must bind the "
+            "actual provider/model execution body; semantic JOIN followers need their own task-bound identity; hard-boundary "
+            "human approval must remain untouched. Pay special attention to whether validation_status wording overclaims "
+            "semantic validation. Return concrete integration risks and minimal corrections/tests."
         ),
     },
 )
@@ -149,7 +167,8 @@ def run_priority_review(*, config: Mapping[str, Any], api_key: str, network: boo
     finally:
         base.COMMON_CONTEXT_MARKERS = original_markers
         base.TASKS = original_tasks
-    report["schema_version"] = "deepseek-priority-implementation-review-v1"
+    report["schema_version"] = "deepseek-priority-implementation-review-v2"
+    report["review_phase"] = "POST_IMPLEMENTATION_FINAL_AUDIT"
     report["priority_sequence"] = [
         "P0-A_DEPENDENCY_VERSION_GUARD",
         "P0-B_ADAPTIVE_MODEL_CONCURRENCY",
@@ -189,6 +208,7 @@ def main() -> int:
     output_path.write_text(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({
         "status": report.get("status"),
+        "review_phase": report.get("review_phase"),
         "successful_task_count": report.get("successful_task_count", 0),
         "selected_task_count": report.get("selected_task_count", 0),
         "average_quality_score": report.get("average_quality_score", 0),
