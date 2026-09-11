@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """Reconcile current benchmark evidence into replaceable AI-Army role slots.
 
-The reconciler is intentionally model-name agnostic.  It accepts independently
+The reconciler is intentionally model-name agnostic. It accepts independently
 verified OpenRouter exact-free evidence and/or the Z.AI/SiliconFlow direct-free
-corps report, normalizes both into one capability portfolio, then lets the
-replaceable organization router bind the current best workers to stable agent
-roles.
+corps report, normalizes both into one capability portfolio, then globally
+optimizes model/provider bindings across the stable agent roles.
 
-This file performs no model calls.  A newly released model can therefore enter
+This file performs no model calls. A newly released model can therefore enter
 only after a provider-specific live probe/benchmark has already established its
-current eligibility.  Paid models are not inferred or auto-enabled here.
+current eligibility. Paid models are not inferred or auto-enabled here.
 """
 
 from __future__ import annotations
@@ -20,14 +19,14 @@ import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from scripts.global_agent_role_optimizer import optimize_agent_slots
 from scripts.replaceable_agent_organization import (
-    assign_agent_slots,
     candidates_from_direct_free_report,
     load_config,
 )
 
 
-SCHEMA_VERSION = "replaceable-agent-reconciliation-v1"
+SCHEMA_VERSION = "replaceable-agent-reconciliation-v2"
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:
@@ -171,7 +170,7 @@ def reconcile(
     direct_candidates = candidates_from_direct_free_report(_mapping(direct_free_report)) if direct_free_report else []
     portfolio = merge_candidates(openrouter_candidates, direct_candidates)
     incumbents = _incumbents_from_report(_mapping(incumbent_report))
-    organization = assign_agent_slots(portfolio, config=config, incumbents=incumbents)
+    organization = optimize_agent_slots(portfolio, config=config, incumbents=incumbents)
     organization.update({
         "reconciliation_schema_version": SCHEMA_VERSION,
         "candidate_count": len(portfolio),
@@ -189,6 +188,7 @@ def reconcile(
         "model_names_are_replaceable": True,
         "role_slots_are_stable": True,
         "new_model_path": "PROBE_BENCHMARK_SHADOW_CANARY_REPLACE",
+        "global_role_optimization": True,
     })
     return organization
 
@@ -234,6 +234,7 @@ def main() -> int:
         "assigned_slots": sum(row.get("status") == "ASSIGNED" for row in report["assignments"].values()),
         "swap_decisions": {slot: row.get("swap_decision", {}).get("decision") for slot, row in report["assignments"].items()},
         "new_model_path": report["new_model_path"],
+        "assignment_policy": report.get("assignment_policy"),
         "generic_paid_fallback": report["generic_paid_fallback"],
     }, sort_keys=True))
     return 0
