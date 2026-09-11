@@ -1,28 +1,41 @@
 {
   "schema_version": "deepseek-targeted-review-v1",
-  "focus_id": "AI_ARMY_V4_SEMANTIC_JOIN_FINAL_VERIFICATION",
+  "focus_id": "MEDIA_CORPS_FREE_MESH_BYPASS_AND_EVIDENCE_REVIEW",
   "paid_execution_approved": true,
   "max_calls": 1,
   "max_parallel_calls": 1,
   "max_estimated_cost_usd": 0.04,
   "task": {
-    "task_id": "v4-semantic-join-final",
-    "role": "CODING_DEEP",
-    "objective": "FINAL TARGETED VERIFICATION. Inspect the exact initial JOIN, generated JOIN and mirror_joined implementation. Verify whether generated children ever bypass _join_compatible; whether write_set, boundary_action, risk_level and deterministic-validator differences can merge; whether a JOIN follower receives its own task-bound revision/result_hash/RCC; and whether leader success/failure releases or blocks follower descendants correctly. Return compact JSON with confirmed_findings, false_positive_findings, residual_risks and minimal_tests. Do not speculate about code outside the supplied excerpts."
+    "task_id": "media-free-mesh-final",
+    "role": "INTEGRATION_REVIEW",
+    "objective": "TARGETED MEDIA CORPS VERIFICATION. Inspect the free media commander and integration bridge together with the route config and tests. Determine whether any installed/approved Fal, Runway, or paid Google generation route can become the selected generation path when the free mesh is unavailable; whether paid_media_approved can leak into generation through the legacy mission; whether Google analysis can accidentally become generation; and whether publication can bypass rights/metadata/connection/human approval. Separately audit free_media_evidence trust: identify whether plain booleans without source, observed_at/freshness, route/model binding, or evidence provenance can make a stale/spoofed route READY. Distinguish repository-controlled config misconfiguration from runtime evidence bypass. Return only confirmed findings, false positives, smallest safe patch, and deterministic tests. Do not recommend paid fallback or production activation."
   },
   "context_markers": {
-    "scripts/replaceable_agent_scheduler_v4.py": [
-      "def _join_compatible",
-      "def mirror_joined",
-      "def register_generated"
+    "scripts/media_free_commander.py": [
+      "def normalize_evidence",
+      "def route_readiness",
+      "def build_free_media_plan",
+      "def validate_plan"
     ],
-    "scripts/ai_army_v4_controls.py": [
-      "def objective_fingerprint",
-      "def result_identity"
+    "scripts/media_command_bridge.py": [
+      "def build_integrated_media_mission",
+      "paid_media_approved=paid_media_approved",
+      "generative_media_required=False",
+      "plan[\"selected_routes\"][\"generation\"]"
     ],
-    "tests/test_independent_agent_scheduler_v4.py": [
-      "test_semantic_duplicate_joins_and_executes_once",
-      "test_different_write_scope_never_joins"
+    "config/free_media_mesh.json": [
+      "\"free_status_verification_required\": true",
+      "\"CLOUDFLARE_FLUX_FREE\"",
+      "\"NVIDIA_COSMOS_FREE\"",
+      "\"paid_reserve\""
+    ],
+    "tests/test_media_free_commander.py": [
+      "test_unverified_free_route_never_executes",
+      "test_complete_image_plan_uses_free_routes_only"
+    ],
+    "tests/test_media_command_bridge.py": [
+      "test_paid_plugins_never_become_generation_fallback_when_free_mesh_is_unavailable",
+      "test_publish_still_requires_rights_metadata_connection_and_human_approval"
     ]
   },
   "safety_boundary": {
