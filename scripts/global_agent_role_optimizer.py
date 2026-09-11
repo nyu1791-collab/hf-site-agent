@@ -111,13 +111,15 @@ def _score_value(value: Any) -> float:
 
 
 def required_capability_coverage(candidate: Mapping[str, Any], slot: Mapping[str, Any]) -> float:
-    """Measure independently evidenced coverage of a compound role.
+    """Measure evidenced coverage of a compound role.
 
     Explicit capability/role tags count as evidence. Numeric role scores count
-    only when they meet a real evidence floor; merely having a low-scoring key
-    in a benchmark map does not advertise that capability. A single evidence
-    token may satisfy only one required capability, so overlapping aliases such
-    as JSON cannot simultaneously prove both JSON ability and FAST ability.
+    only when they meet a real evidence floor. When a benchmark provides a
+    direct score for a required capability (for example FAST=0.0), that direct
+    observation is authoritative: a broad overlapping alias such as JSON must
+    not override an explicit failed capability measurement. If there is no
+    direct capability measurement, compatible aliases remain usable so older
+    role-scoped benchmark evidence stays backward-compatible.
     """
     required = [
         str(item).strip().lower()
@@ -134,34 +136,25 @@ def required_capability_coverage(candidate: Mapping[str, Any], slot: Mapping[str
             declared.update(str(item).strip().upper() for item in raw if str(item).strip())
     role_scores = candidate.get("role_scores") if isinstance(candidate.get("role_scores"), Mapping) else {}
 
-    evidence_by_capability: list[set[str]] = []
+    hits = 0
     for capability in required:
-        aliases = tuple(dict.fromkeys((capability.upper(),) + ROLE_ALIASES.get(capability, (capability.upper(),))))
-        evidence = {
-            alias
+        direct_key = capability.upper()
+        if direct_key in role_scores:
+            direct_hit = _score_value(role_scores.get(direct_key)) >= CAPABILITY_SCORE_EVIDENCE_FLOOR
+            explicit_hit = direct_key in declared
+            if direct_hit or explicit_hit:
+                hits += 1
+            continue
+
+        aliases = ROLE_ALIASES.get(capability, (direct_key,))
+        explicit_hit = direct_key in declared or any(alias in declared for alias in aliases)
+        numeric_hit = any(
+            _score_value(role_scores.get(alias)) >= CAPABILITY_SCORE_EVIDENCE_FLOOR
             for alias in aliases
-            if alias in declared
-            or (
-                alias in role_scores
-                and _score_value(role_scores.get(alias)) >= CAPABILITY_SCORE_EVIDENCE_FLOOR
-            )
-        }
-        evidence_by_capability.append(evidence)
-
-    matched_evidence: dict[str, int] = {}
-
-    def assign(capability_index: int, seen: set[str]) -> bool:
-        for evidence in sorted(evidence_by_capability[capability_index]):
-            if evidence in seen:
-                continue
-            seen.add(evidence)
-            previous = matched_evidence.get(evidence)
-            if previous is None or assign(previous, seen):
-                matched_evidence[evidence] = capability_index
-                return True
-        return False
-
-    hits = sum(assign(index, set()) for index in range(len(required)))
+            if alias in role_scores
+        )
+        if explicit_hit or numeric_hit:
+            hits += 1
     return hits / len(required)
 
 
