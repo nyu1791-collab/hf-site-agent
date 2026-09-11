@@ -38,6 +38,7 @@ jobs:
           python -m py_compile \
             scripts/run_nvidia_worker_expansion.py \
             scripts/run_nvidia_worker_expansion_compact.py \
+            scripts/run_nvidia_worker_expansion_self_heal.py \
             scripts/run_nvidia_orchestrator_guarded.py \
             scripts/run_nvidia_orchestrator_mission.py \
             scripts/focused_nvidia_streaming_adapter.py \
@@ -49,6 +50,11 @@ jobs:
             scripts/replaceable_agent_organization.py \
             scripts/global_agent_role_optimizer.py \
             scripts/replaceable_agent_scheduler.py \
+            scripts/low_latency_agent_fabric.py \
+            scripts/replaceable_agent_scheduler_v2.py \
+            scripts/independent_agent_runtime.py \
+            scripts/independent_agent_scheduler.py \
+            scripts/independent_agent_scheduler_probe.py \
             scripts/reconcile_agent_organization.py \
             scripts/parallel_worker_council.py \
             scripts/failure_aware_specialist_council.py \
@@ -64,6 +70,9 @@ jobs:
             scripts/openrouter_worker_orchestrator.py \
             scripts/continuous_project_loop.py
           python -m json.tool config/replaceable_agent_organization.json >/dev/null
+          python -m unittest \
+            tests.test_independent_agent_scheduler \
+            tests.test_nvidia_worker_expansion_self_heal -v
 
       - name: Collect redacted NVIDIA route evidence
         env:
@@ -141,6 +150,12 @@ jobs:
           --openrouter-benchmark artifacts/openrouter_expansion_benchmark.json
           --output artifacts/replaceable_agent_organization.json
 
+      - name: Prove independent role-agent mission behavior
+        run: >-
+          python scripts/independent_agent_scheduler_probe.py
+          --organization artifacts/replaceable_agent_organization.json
+          --output artifacts/independent_agent_scheduler_probe.json
+
       - name: Canary current winners and build same-run routing policy
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -203,13 +218,13 @@ jobs:
           --mission-id worker-efficiency-${{ github.run_id }}
           --output artifacts/organization_blackboard.json
 
-      - name: Run compact NVIDIA lead synthesis
+      - name: Run scope-guarded self-healing NVIDIA lead synthesis
         env:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_SHA: ${{ github.sha }}
           SOURCE_HEAD: ${{ github.sha }}
-        run: python scripts/run_nvidia_worker_expansion_compact.py
+        run: python scripts/run_nvidia_worker_expansion_self_heal.py
 
       - name: Build dynamic AI army worker pool handoff
         run: |
@@ -228,6 +243,10 @@ jobs:
           feedback = json.loads(feedback_path.read_text(encoding="utf-8")) if feedback_path.exists() else {}
           blackboard_path = Path("artifacts/organization_blackboard.json")
           blackboard = json.loads(blackboard_path.read_text(encoding="utf-8")) if blackboard_path.exists() else {}
+          agents_path = Path("artifacts/independent_agent_scheduler_probe.json")
+          agents = json.loads(agents_path.read_text(encoding="utf-8")) if agents_path.exists() else {}
+          heal_path = Path("artifacts/commander_self_heal.json")
+          heal = json.loads(heal_path.read_text(encoding="utf-8")) if heal_path.exists() else {}
           verified = []
           for row in probe.get("results", []):
               if not isinstance(row, dict) or row.get("status") != "FREE_ACTIVE":
@@ -267,11 +286,11 @@ jobs:
                   "swap_decision": (item.get("swap_decision") or {}).get("decision"),
               }
           report = {
-              "schema_version": "ai-army-dynamic-worker-pool-v7",
+              "schema_version": "ai-army-dynamic-worker-pool-v8",
               "source_head": "${{ github.sha }}",
               "nvidia_commander": "nvidia/nemotron-3.5-lightning-30b-a3b",
               "google_policy": "CRITICAL_IMPLEMENTATION_DIFFICULT_DESIGN_FINAL_CRITICAL_REVIEW_ONLY",
-              "execution_policy": "GLOBAL_REPLACEABLE_ROLES_HISTORY_ROUTING_PARALLEL_SPECIALISTS_WORK_STEALING_BLACKBOARD_FEEDBACK",
+              "execution_policy": "INDEPENDENT_ROLE_AGENTS_GLOBAL_REPLACEABLE_ROLES_HISTORY_ROUTING_PARALLEL_SPECIALISTS_WORK_STEALING_BLACKBOARD_FEEDBACK",
               "verified_free_models": sorted(set(verified)),
               "verified_free_model_count": len(set(verified)),
               "benchmarked_unique_models": sorted(unique_ranked),
@@ -282,6 +301,13 @@ jobs:
               "replaceable_provider_concurrency": replaceable_org.get("provider_concurrency", {}),
               "replaceable_model_names_are_replaceable": replaceable_org.get("model_names_are_replaceable") is True,
               "replaceable_role_slots_are_stable": replaceable_org.get("role_slots_are_stable") is True,
+              "independent_agents": agents.get("independent_agents") is True,
+              "independent_agent_count": int(agents.get("independent_agent_count", 0) or 0),
+              "agent_generated_task_count": int(agents.get("generated_task_count", 0) or 0),
+              "local_revision_without_commander_roundtrip": agents.get("probe", {}).get("code_revised_locally_without_commander_roundtrip") is True,
+              "direct_peer_handoff_verified": agents.get("probe", {}).get("qa_received_code_handoff") is True and agents.get("probe", {}).get("synth_received_qa_handoff") is True,
+              "stable_role_identity_across_model_swap": agents.get("stable_role_identity_across_model_swap") is True,
+              "commander_self_heal": heal,
               "council_primary_successful_lane_count": int(council.get("primary_successful_lane_count", 0) or 0),
               "council_successful_lane_count": int(council.get("successful_lane_count", 0) or 0),
               "council_recovered_lane_count": int(council.get("recovered_lane_count", 0) or 0),
@@ -322,6 +348,11 @@ jobs:
               "verified_free_model_count": report["verified_free_model_count"],
               "benchmarked_unique_model_count": report["benchmarked_unique_model_count"],
               "replaceable_role_count": sum(item.get("status") == "ASSIGNED" for item in replaceable_assignments.values()),
+              "independent_agent_count": report["independent_agent_count"],
+              "local_revision_without_commander": report["local_revision_without_commander_roundtrip"],
+              "direct_peer_handoff_verified": report["direct_peer_handoff_verified"],
+              "commander_final_status": heal.get("final_result_status"),
+              "commander_continuations": heal.get("continuation_count", 0),
               "primary_successful_lane_count": report["council_primary_successful_lane_count"],
               "successful_lane_count": report["council_successful_lane_count"],
               "recovered_lane_count": report["council_recovered_lane_count"],
@@ -342,6 +373,8 @@ jobs:
             artifacts/openrouter_expansion_probe.json \
             artifacts/openrouter_expansion_benchmark.json \
             artifacts/replaceable_agent_organization.json \
+            artifacts/independent_agent_scheduler_probe.json \
+            artifacts/commander_self_heal.json \
             artifacts/worker_canary.json \
             artifacts/worker_routing_policy.json \
             artifacts/worker_resilience_rehearsal.json \
@@ -353,6 +386,21 @@ jobs:
             artifacts/ai_army_dynamic_worker_pool.json; do
             python -m json.tool "$file" >/dev/null
           done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          agents = json.loads(Path("artifacts/independent_agent_scheduler_probe.json").read_text(encoding="utf-8"))
+          heal = json.loads(Path("artifacts/commander_self_heal.json").read_text(encoding="utf-8"))
+          assert agents.get("independent_agents") is True
+          assert agents.get("completed_task_count") == 7
+          assert agents.get("probe", {}).get("code_revised_locally_without_commander_roundtrip") is True
+          assert agents.get("probe", {}).get("qa_received_code_handoff") is True
+          assert agents.get("probe", {}).get("synth_received_qa_handoff") is True
+          assert heal.get("continuation_count", 0) <= 1
+          assert heal.get("unbounded_retry") is False
+          assert heal.get("repository_write") is False
+          assert heal.get("paid_fallback") is False
+          PY
 
       - name: Upload NVIDIA and OpenRouter expansion result
         uses: actions/upload-artifact@v6
@@ -367,6 +415,8 @@ jobs:
             artifacts/openrouter_expansion_probe.json
             artifacts/openrouter_expansion_benchmark.json
             artifacts/replaceable_agent_organization.json
+            artifacts/independent_agent_scheduler_probe.json
+            artifacts/commander_self_heal.json
             artifacts/worker_canary.json
             artifacts/worker_routing_policy.json
             artifacts/worker_resilience_rehearsal.json
