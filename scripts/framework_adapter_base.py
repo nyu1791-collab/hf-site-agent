@@ -27,6 +27,7 @@ FREE_ROUTE_BOOLEAN_ASSERTIONS = (
     "fresh_evidence",
 )
 FREE_ROUTE_BINDINGS = ("provider_binding", "model_binding")
+FREE_ROUTE_FRESHNESS_FIELD = "evidence_observed_at_epoch"
 REPORT_STATUSES = {"completed", "completed_with_warnings", "blocked", "failed", "cancelled"}
 
 
@@ -94,7 +95,9 @@ def verify_free_route(
         if not isinstance(row.get(key), str) or not str(row.get(key)).strip():
             failures.append(key)
 
-    if row.get("paid") is True or row.get("actual_cost_class") == "PAID":
+    paid_value = row.get("paid")
+    cost_class = str(row.get("actual_cost_class") or "FREE").upper()
+    if paid_value is True or str(paid_value).lower() == "true" or cost_class != "FREE":
         failures.append("paid_route")
     if row.get("paid_fallback_enabled") is True or row.get("paid_fallback_disabled") is not True:
         failures.append("paid_fallback")
@@ -106,8 +109,10 @@ def verify_free_route(
     if expected_model and str(row.get("model_binding") or "") != expected_model:
         failures.append("model_binding_mismatch")
 
-    observed = row.get("evidence_observed_at_epoch")
-    if observed is not None:
+    observed = row.get(FREE_ROUTE_FRESHNESS_FIELD)
+    if observed is None:
+        failures.append("fresh_evidence_timestamp_missing")
+    else:
         try:
             age = (time.time() if now_epoch is None else float(now_epoch)) - float(observed)
         except (TypeError, ValueError):
@@ -163,21 +168,23 @@ def build_report_envelope(
     command_id = str(command.get("command_id") or "")
     if not command_id:
         raise FrameworkAdapterError("command_id is required")
-    metadata = {
-        "framework": {
-            "adapter_id": framework_id,
-            "authority_expanded": False,
-            "paid_execution": False,
-            "paid_fallback": False,
-            "auto_top_up": False,
-            "main_push": False,
-            "merge": False,
-            "deploy": False,
-            "publish": False,
-            "secret_operation": False,
-            **redact_for_framework(dict(framework_values or {})),
-        }
+    framework_meta = {
+        "adapter_id": framework_id,
+        **redact_for_framework(dict(framework_values or {})),
     }
+    # Hard boundaries are written last so adapter/framework output can never override them.
+    framework_meta.update({
+        "authority_expanded": False,
+        "paid_execution": False,
+        "paid_fallback": False,
+        "auto_top_up": False,
+        "main_push": False,
+        "merge": False,
+        "deploy": False,
+        "publish": False,
+        "secret_operation": False,
+    })
+    metadata = {"framework": framework_meta}
     return {
         "mission_id": str(command.get("mission_id") or ""),
         "command_id": command_id,
@@ -273,6 +280,14 @@ class FrameworkAdapter(ABC):
                 "publish": False,
                 "secret_operation": False,
             },
+            "paid_execution": False,
+            "paid_fallback": False,
+            "auto_top_up": False,
+            "main_push": False,
+            "merge": False,
+            "deploy": False,
+            "publish": False,
+            "secret_operation": False,
         })
 
     def execute(self, command: Mapping[str, Any], *, route_evidence: Mapping[str, Any] | None = None, context: Mapping[str, Any] | None = None) -> dict[str, Any]:
