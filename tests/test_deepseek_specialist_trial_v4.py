@@ -90,12 +90,34 @@ class DeepSeekSpecialistV4Tests(unittest.TestCase):
         self.assertEqual(captured["thinking"], {"type": "enabled"})
         self.assertEqual(captured["reasoning_effort"], "high")
 
+    def test_exact_model_mismatch_is_not_accepted_as_success(self):
+        response = self._response()
+        response["model"] = "different-model"
+        task = {"task_id": "review", "role": "CODE_REVIEW", "objective": "review"}
+        with patch.object(base, "_request_json", return_value=(response, 10)):
+            row = v4.run_task(config=self.config, api_key="test", task=task, shared_context="ctx")
+        self.assertEqual(row["status"], "TRIAL_TASK_FAILED")
+        self.assertEqual(row["error_class"], "MODEL_MISMATCH")
+
+    def test_length_stopped_output_is_not_accepted_even_if_json_parses(self):
+        response = self._response()
+        response["choices"][0]["finish_reason"] = "length"
+        task = {"task_id": "debug", "role": "DEBUGGING", "objective": "diagnose"}
+        with patch.object(base, "_request_json", return_value=(response, 10)):
+            row = v4.run_task(config=self.config, api_key="test", task=task, shared_context="ctx")
+        self.assertEqual(row["status"], "TRIAL_TASK_FAILED")
+        self.assertEqual(row["error_class"], "OUTPUT_TRUNCATED")
+        self.assertEqual(row["finish_reason"], "length")
+
     def test_run_trial_restores_v2_globals(self):
         original_task = v2.run_task
         original_max = v2.MAX_GENERATION_TOKENS
         report = v4.run_trial(config=self.config, api_key="", network=False, confirm="")
         self.assertEqual(report["status"], "TRIAL_DRY_RUN")
         self.assertTrue(report["role_adaptive_reasoning"])
+        self.assertTrue(report["minimal_integrity_policy"]["reject_exact_model_mismatch"])
+        self.assertTrue(report["minimal_integrity_policy"]["reject_visible_output_truncation"])
+        self.assertFalse(report["minimal_integrity_policy"]["extra_behavioral_restrictions"])
         self.assertIs(v2.run_task, original_task)
         self.assertEqual(v2.MAX_GENERATION_TOKENS, original_max)
 
