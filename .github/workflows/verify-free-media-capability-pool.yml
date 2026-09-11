@@ -1,0 +1,54 @@
+name: Verify free media capability pool
+
+on:
+  pull_request:
+    paths:
+      - "config/free_media_capability_pool.json"
+      - "scripts/free_media_capability_router.py"
+      - "tests/test_free_media_capability_router.py"
+      - ".github/workflows/verify-free-media-capability-pool.yml"
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - "config/free_media_capability_pool.json"
+      - "scripts/free_media_capability_router.py"
+      - "tests/test_free_media_capability_router.py"
+      - ".github/workflows/verify-free-media-capability-pool.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Validate policy JSON
+        run: python -m json.tool config/free_media_capability_pool.json >/dev/null
+      - name: Compile router
+        run: python -m py_compile scripts/free_media_capability_router.py tests/test_free_media_capability_router.py
+      - name: Run capability router tests
+        run: python -m unittest tests.test_free_media_capability_router -v
+      - name: Verify FREE-ONLY boundaries
+        run: |
+          python - <<'PY'
+          from scripts.free_media_capability_router import load_config
+          p = load_config()['policy']
+          assert p['free_only'] is True
+          assert p['multi_role_assignment_allowed'] is True
+          assert p['generic_paid_fallback'] is False
+          assert p['auto_top_up'] is False
+          assert p['unverified_free_route_can_execute'] is False
+          assert p['license_unknown_can_publish'] is False
+          assert 'fal' in p['paid_media_tools_disabled']
+          assert 'descript_ai' in p['paid_media_tools_disabled']
+          print('free media capability boundaries ok')
+          PY
