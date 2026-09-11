@@ -1,5 +1,5 @@
-trigger=deepseek-v4-1-flash-targeted-media-free-mesh-20260911-r2
-focus=MEDIA_CORPS_FREE_MESH_BYPASS_AND_EVIDENCE_REVIEW
+trigger=deepseek-v4-1-flash-ai-army-organization-council-20260911-r1
+focus=AI_ARMY_MULTI_MODEL_COUNCIL_ORGANIZATION_UPGRADE
 approved_paid_trial=true
 max_calls=1
 max_parallel_calls=1
