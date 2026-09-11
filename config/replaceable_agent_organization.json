@@ -28,7 +28,28 @@
     "role_agents_keep_bounded_mission_memory": true,
     "ordinary_local_decisions_stay_local": true,
     "peer_failure_and_handoff_deltas_are_delivered_directly": true,
-    "agent_generated_subtasks_are_bounded_by_role": true
+    "agent_generated_subtasks_are_bounded_by_role": true,
+    "route_each_task_by_profile_not_only_role": true,
+    "independent_reviewer_should_differ_from_producer_when_possible": true,
+    "strong_models_are_escalation_specialists_not_default_workers": true,
+    "outcomes_feed_future_model_selection": true,
+    "optimize_cost_per_validated_success_not_raw_call_price": true,
+    "user_value_and_quality_beat_engagement_farming": true
+  },
+  "value_optimization": {
+    "enabled": true,
+    "policy_file": "config/value_optimized_ai_army.json",
+    "primary_objective": "MAXIMIZE_VALIDATED_USER_VALUE",
+    "task_profile_routing": true,
+    "producer_reviewer_diversity": true,
+    "strong_model_escalation": true,
+    "evidence_weighted_ai_council": true,
+    "versioned_outcome_memory": true,
+    "cost_governor": true,
+    "champion_challenger": true,
+    "product_value_feedback_loop": true,
+    "automatic_paid_escalation": false,
+    "automatic_production_promotion": false
   },
   "hard_boundaries": {
     "secret_values_must_not_be_exposed": true,
@@ -48,6 +69,10 @@
   "adaptive_controls": {
     "organization_parallel_limit": 6,
     "max_slots_per_same_model": 2,
+    "adaptive_exact_model_parallel_limit_cap": 2,
+    "exact_model_promote_after": 3,
+    "exact_model_recovery_promote_after": 5,
+    "exact_model_recovery_hold_windows": 2,
     "normal_swap_margin": 0.06,
     "degraded_swap_margin": -0.02,
     "minimum_samples_for_normal_promotion": 2,
@@ -70,7 +95,7 @@
     "per_exact_model_parallel_limit_default": 1
   },
   "communication": {
-    "scheduler_generation": "INDEPENDENT_AGENT_V3",
+    "scheduler_generation": "AI_ARMY_V4_VALUE_OPTIMIZED",
     "direct_dependency_push": true,
     "immediate_failure_broadcast": true,
     "priority_ready_queue": true,
@@ -83,7 +108,11 @@
     "local_revision_without_commander_roundtrip": true,
     "local_delegation_without_commander_roundtrip": true,
     "agent_session_memory_items": 6,
+    "agent_memory_ttl_events": 128,
     "agent_inbox_max_events": 16,
+    "agent_peer_context_replay_events": 12,
+    "fairness_aging_seconds": 60,
+    "fairness_max_promotions": 2,
     "max_retained_events": 512,
     "max_event_payload_chars": 2400,
     "max_handoff_chars": 7000
@@ -165,7 +194,7 @@
       "paid_specialist_allowed": false
     },
     "CONTEXT_LIBRARIAN": {
-      "mission": "Scan repository or research context, deduplicate evidence and produce compact role-scoped context packets for other agents.",
+      "mission": "Scan repository or research context, deduplicate evidence and produce compact role-scoped context packets for other agents. Prefer Gemini 3.8 Flash when its route is verified and the task is very-long-context or multimodal.",
       "required_capabilities": ["long_context", "general", "summarization"],
       "preferred_role_scores": ["GENERAL_WORKER", "REVIEW_WORKER", "GENERAL"],
       "may_delegate": false,
