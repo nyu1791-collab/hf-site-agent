@@ -4,15 +4,17 @@ This subsystem extends Provider-v3 without changing the existing seven core engi
 
 ## Goal
 
-Build a monetization-oriented media factory that can research public signals, plan content, transcribe and edit authorized media, package platform-specific variants, publish only after explicit approval, read measured analytics, and feed results into the next experiment.
+Build a monetization-oriented media factory that can research public signals, plan content, transcribe and edit authorized media, create missing assets, package platform-specific variants, publish only after explicit approval, read measured analytics, and feed results into the next experiment.
 
 The control loop is:
 
-`Research -> Strategy -> Script -> Transcription -> Edit -> Captions/Localization -> Thumbnail -> Rights/Safety -> Approval -> Publish -> Analytics -> Monetization Optimization`
+`Research -> Strategy -> Script -> Optional Generative Assets -> Transcription -> Edit -> Captions/Localization -> Thumbnail -> Rights/Safety -> Approval -> Publish -> Analytics -> Monetization Optimization`
 
 ## Why this is separated from the core engineering army
 
 The engineering army owns repository correctness. The media corps owns content-production tasks. External media tools never receive repository write credentials. A broken transcription or editing provider must not stop repository work, and a social-platform outage must not trigger generic paid fallback.
+
+Reasoning agents and service connectors are intentionally different things. `TRANSCRIPTION_AGENT` or `CLIP_EDITOR_AGENT` is a durable role identity; Descript, Fal and Runway are replaceable execution surfaces. Installing a plugin never grants paid-execution permission by itself.
 
 ## Social research and publishing
 
@@ -34,6 +36,20 @@ YouTube publishing should prefer the connected Post Bridge account when availabl
 
 Direct Instagram API use is limited to supported professional-account surfaces. Do not build consumer-account scraping into the organization. Post Bridge remains the preferred publishing action surface when the Instagram account is connected.
 
+## Descript, Fal and Runway
+
+### Descript
+
+Descript is the preferred semantic editing/transcription connector after free transcription routes. It covers transcription, filler removal, audio cleanup, captions, highlight clips, translation and conversational video editing. It is selected before billable generative video tools when it can solve the task.
+
+### Fal
+
+Fal is the default approved generative-media connector for missing image/video/audio assets because it can route across multiple media models. Connection alone is not sufficient: any potentially billable generation/edit operation remains blocked until the mission has explicit media-cost approval.
+
+### Runway
+
+Runway is the advanced-video specialist for higher-value generation and transformation such as background removal, reframing/aspect expansion, localization, upscaling and multi-shot video. It is not the bulk default and remains cost-gated even when installed and connected.
+
 ## Audio and transcription
 
 Preferred routing is intentionally cost-aware:
@@ -49,11 +65,11 @@ The transcript must preserve timestamps and source provenance so downstream clip
 
 The deterministic executor is FFmpeg. AI agents should generate an edit decision/specification; FFmpeg performs trims, concat, crop, resize, caption burn-in, normalization and frame extraction. This keeps repetitive rendering cheap and reproducible.
 
-For higher-level semantic editing, the preferred optional connector order is Descript, Fal, then explicitly approved Runway. These connectors are never auto-paid and are not required for basic operation.
+For higher-level semantic editing, the preferred route is Descript first. Fal and Runway can be selected only when their plugin connection is present and explicit media-cost approval exists. A plugin being installed is evidence of capability, not authorization to spend.
 
 ## Creative generation
 
-Thumbnail and visual generation can use ChatGPT image generation or optional Fal/Runway connectors. Paid video generation is a premium specialist route, not a bulk default. A normal mission should first reuse owned footage, deterministic editing and low-cost/free model labor.
+`GENERATIVE_MEDIA_AGENT` creates only assets missing from an approved brief. Owned footage and deterministic edits are reused first. For video generation, Fal is the normal approved specialist and Runway is the advanced-video specialist. For image-only work, native ChatGPT image generation can remain the low-friction first route where appropriate. Generated assets must retain provenance for the later rights/disclosure review.
 
 ## Upper-agent roles
 
@@ -71,4 +87,4 @@ Before publishing, RIGHTS_SAFETY_AGENT checks media provenance, music/voice/imag
 
 ## Current connection state
 
-Connection state is runtime data and is not committed to the repository. ChatGPT/Work queries the connector immediately before an action. This prevents stale account IDs, usernames or tokens from becoming source code.
+Connection state is runtime data and is not committed to the repository. ChatGPT/Work queries plugin and social-account state immediately before an action. This prevents stale account IDs, usernames or tokens from becoming source code and prevents an installed connector from silently becoming an authorized paid route.
