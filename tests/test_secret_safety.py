@@ -26,6 +26,16 @@ class SecretSafetyTests(unittest.TestCase):
             )
             self.assertEqual(audit_secret_safety.scan_paths(Path(directory)), [])
 
+    def test_secret_container_lookup_expression_is_not_a_literal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "safe.py"
+            path.write_text(
+                'api_key = str(secret_map.get(secret_name) or "")\n'
+                'other = call(api_key=str(values.get(name) or ""))\n',
+                encoding="utf-8",
+            )
+            self.assertEqual(audit_secret_safety.scan_paths(Path(directory)), [])
+
     def test_literal_secret_is_reported_without_value(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "unsafe.json"
