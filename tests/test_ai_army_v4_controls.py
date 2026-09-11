@@ -89,6 +89,20 @@ class AIArmyV4ControlTests(unittest.TestCase):
         self.assertEqual(gate.effective_limit("nvidia", "n"), 1)
         self.assertEqual(gate.effective_limit("google", "g"), 1)
 
+    def test_adaptive_gate_freezes_input_caps_and_unknown_provider_fails_closed(self) -> None:
+        caller_limits = {"nvidia": 6}
+        gate = AdaptiveExactModelConcurrency(configured_cap=10, provider_limits=caller_limits)
+        caller_limits["nvidia"] = 99
+        for _ in range(30):
+            gate.on_success("unknown", "m")
+        self.assertEqual(gate.effective_limit("unknown", "m"), 1)
+        self.assertEqual(gate.provider_limits["nvidia"], 6)
+        snapshot = gate.snapshot()
+        self.assertEqual(snapshot["requested_configured_cap"], 10)
+        self.assertEqual(snapshot["configured_cap"], 8)
+        self.assertTrue(snapshot["configured_cap_clamped"])
+        self.assertTrue(snapshot["unknown_provider_defaults_to_one"])
+
     def test_fairness_aging_never_outranks_critical(self) -> None:
         self.assertEqual(aged_priority(base_priority=0, waited_seconds=10_000, critical=True), 0.0)
         self.assertEqual(aged_priority(base_priority=3, waited_seconds=10_000, aging_seconds=10, max_promotions=3), 1.0)
@@ -106,8 +120,23 @@ class AIArmyV4ControlTests(unittest.TestCase):
             validation_status="FAIL",
         )
         self.assertEqual(failed["effective_confidence"], 0.0)
+        self.assertEqual(failed["validation_scope"], "EXECUTION_INTEGRITY_FAILED")
+        self.assertFalse(failed["semantic_correctness_validated"])
         row = {"status": "COMPLETED", "result_hash": failed["result_hash"], "rcc": failed}
         self.assertFalse(result_is_acceptable(row))
+
+    def test_result_confidence_pass_does_not_claim_semantic_correctness(self) -> None:
+        passed = build_result_confidence_contract(
+            task_id="t",
+            revision=1,
+            status="COMPLETED",
+            binding={"provider": "nvidia", "model": "m"},
+            output={"ok": True},
+            validation_status="PASS",
+        )
+        self.assertEqual(passed["validation_status"], "PASS")
+        self.assertEqual(passed["validation_scope"], "EXECUTION_INTEGRITY_NOT_SEMANTIC_CORRECTNESS")
+        self.assertFalse(passed["semantic_correctness_validated"])
 
     def test_result_hash_changes_with_binding(self) -> None:
         first = build_result_confidence_contract(
