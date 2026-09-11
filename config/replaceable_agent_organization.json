@@ -1,0 +1,160 @@
+{
+  "schema_version": "replaceable-agent-organization-v1",
+  "top_commander": {
+    "agent": "ChatGPT Work",
+    "replaceable": false,
+    "responsibilities": [
+      "mission_planning",
+      "task_decomposition",
+      "final_integration",
+      "repository_write_decision",
+      "cross_provider_arbitration"
+    ]
+  },
+  "principles": {
+    "bind_roles_not_models": true,
+    "auto_swap_free_models": true,
+    "benchmark_before_promotion": true,
+    "prefer_current_execution_evidence": true,
+    "allow_role_reuse_with_load_penalty": true,
+    "parallel_by_default_when_no_dependency_or_write_conflict": true,
+    "machine_validation_before_human_review": true,
+    "commander_review_only_when_risk_or_uncertainty_justifies_it": true
+  },
+  "hard_boundaries": {
+    "secret_values_must_not_be_exposed": true,
+    "stale_result_must_not_overwrite_newer_result": true,
+    "generic_paid_fallback": false,
+    "auto_top_up": false,
+    "external_model_repository_write": false,
+    "merge_requires_human_approval": true,
+    "deploy_requires_human_approval": true,
+    "publish_requires_human_approval": true,
+    "secret_mutation_requires_human_approval": true,
+    "payment_or_new_paid_provider_requires_human_approval": true,
+    "explicit_paid_specialist_allowlist": [
+      "deepseek"
+    ]
+  },
+  "adaptive_controls": {
+    "organization_parallel_limit": 6,
+    "max_slots_per_same_model": 2,
+    "normal_swap_margin": 0.06,
+    "degraded_swap_margin": -0.02,
+    "minimum_samples_for_normal_promotion": 2,
+    "consecutive_failures_for_degraded_state": 2,
+    "rate_limit_rate_for_degraded_state": 0.5,
+    "minimum_health_for_incumbent": 0.55,
+    "free_evidence_ttl_minutes": 60,
+    "low_risk_max_revisions": 2,
+    "medium_risk_max_revisions": 2,
+    "high_risk_max_revisions": 3,
+    "provider_parallelism": {
+      "openrouter": 3,
+      "zai": 2,
+      "siliconflow": 2,
+      "nvidia": 1,
+      "google": 1,
+      "groq": 2,
+      "deepseek": 1
+    },
+    "per_exact_model_parallel_limit_default": 1
+  },
+  "risk_policy": {
+    "LOW": {
+      "commander_review_required": false,
+      "peer_review_required": false,
+      "deterministic_validation_required_when_available": true,
+      "autonomous_handoff_allowed": true
+    },
+    "MEDIUM": {
+      "commander_review_required": false,
+      "peer_review_required_when_no_deterministic_validator": true,
+      "autonomous_handoff_allowed_after_validation": true
+    },
+    "HIGH": {
+      "commander_review_required": true,
+      "peer_review_required": false,
+      "autonomous_handoff_allowed_after_commander_review": true
+    },
+    "CRITICAL": {
+      "commander_review_required": true,
+      "human_approval_required_only_for_hard_boundary_action": true,
+      "draft_execution_and_analysis_may_continue_without_human_approval": true
+    }
+  },
+  "slots": {
+    "OPERATIONS_LEAD": {
+      "mission": "Break a mission into a dependency-aware DAG, assign owners, keep the critical path moving and replan only when evidence justifies it.",
+      "required_capabilities": ["planning", "reasoning", "agent"],
+      "preferred_role_scores": ["GENERAL_WORKER", "REVIEW_WORKER", "GENERAL"],
+      "may_delegate": true,
+      "max_child_tasks": 6,
+      "max_parallel_children": 4,
+      "default_risk": "HIGH",
+      "paid_specialist_allowed": false
+    },
+    "ENGINEERING_AGENT": {
+      "mission": "Diagnose difficult engineering problems, design minimal patches and hand implementation-ready work to coding agents.",
+      "required_capabilities": ["coding", "reasoning", "debugging"],
+      "preferred_role_scores": ["CODING_WORKER", "REVIEW_WORKER", "CODING"],
+      "may_delegate": true,
+      "max_child_tasks": 4,
+      "max_parallel_children": 3,
+      "default_risk": "HIGH",
+      "paid_specialist_allowed": true,
+      "paid_specialist_provider": "deepseek"
+    },
+    "CODE_EXECUTOR": {
+      "mission": "Implement bounded code changes, generate tests and produce a machine-checkable patch candidate without writing the repository directly.",
+      "required_capabilities": ["coding", "json"],
+      "preferred_role_scores": ["CODING_WORKER", "CODING", "GENERAL_WORKER"],
+      "may_delegate": false,
+      "max_child_tasks": 0,
+      "max_parallel_children": 0,
+      "default_risk": "MEDIUM",
+      "paid_specialist_allowed": false
+    },
+    "QA_VALIDATOR": {
+      "mission": "Validate patch behavior, test coverage, contracts and regressions; prefer deterministic checks over additional model calls.",
+      "required_capabilities": ["review", "testing", "json"],
+      "preferred_role_scores": ["REVIEW_WORKER", "CODING_WORKER", "JSON"],
+      "may_delegate": false,
+      "max_child_tasks": 0,
+      "max_parallel_children": 0,
+      "default_risk": "MEDIUM",
+      "paid_specialist_allowed": false,
+      "prefer_independent_model_from_code_executor": true
+    },
+    "FAST_OPERATOR": {
+      "mission": "Handle short classification, extraction, schema conversion, log triage and other latency-sensitive utility work.",
+      "required_capabilities": ["fast", "json"],
+      "preferred_role_scores": ["FAST_WORKER", "FAST", "JSON"],
+      "may_delegate": false,
+      "max_child_tasks": 0,
+      "max_parallel_children": 0,
+      "default_risk": "LOW",
+      "paid_specialist_allowed": false
+    },
+    "CONTEXT_LIBRARIAN": {
+      "mission": "Scan repository or research context, deduplicate evidence and produce compact role-scoped context packets for other agents.",
+      "required_capabilities": ["long_context", "general", "summarization"],
+      "preferred_role_scores": ["GENERAL_WORKER", "REVIEW_WORKER", "GENERAL"],
+      "may_delegate": false,
+      "max_child_tasks": 0,
+      "max_parallel_children": 0,
+      "default_risk": "LOW",
+      "paid_specialist_allowed": false
+    },
+    "RESULT_SYNTHESIZER": {
+      "mission": "Merge agent findings, remove duplicates, expose disagreements and produce one concise evidence-backed handoff for the top commander.",
+      "required_capabilities": ["reasoning", "review", "json"],
+      "preferred_role_scores": ["GENERAL_WORKER", "REVIEW_WORKER", "JSON"],
+      "may_delegate": false,
+      "max_child_tasks": 0,
+      "max_parallel_children": 0,
+      "default_risk": "MEDIUM",
+      "paid_specialist_allowed": false
+    }
+  }
+}
