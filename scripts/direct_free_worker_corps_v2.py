@@ -32,6 +32,7 @@ from scripts import direct_free_worker_corps as base
 
 
 SCHEMA_VERSION = "direct-free-worker-corps-report-v2"
+MAX_PUBLIC_CATALOG_IDS = 100
 
 
 def _observe_balance(provider: Mapping[str, Any], api_key: str) -> tuple[Decimal | None, dict[str, Any]]:
@@ -66,11 +67,14 @@ def _load_silicon_catalog(provider: Mapping[str, Any], api_key: str) -> tuple[li
             timeout=30,
         )
         model_ids = base._silicon_catalog_ids(payload)
+        public_ids = sorted(set(model_ids))[:MAX_PUBLIC_CATALOG_IDS]
         return model_ids, {
             "status": "OK",
             "http_status": 200,
             "latency_ms": latency_ms,
             "catalog_model_count": len(model_ids),
+            "catalog_model_ids": public_ids,
+            "catalog_ids_truncated": len(set(model_ids)) > MAX_PUBLIC_CATALOG_IDS,
         }
     except Exception as exc:
         error, http_status = base._error_class(exc)
@@ -78,6 +82,8 @@ def _load_silicon_catalog(provider: Mapping[str, Any], api_key: str) -> tuple[li
             "status": error,
             "http_status": http_status,
             "catalog_model_count": 0,
+            "catalog_model_ids": [],
+            "catalog_ids_truncated": False,
         }
 
 
@@ -202,7 +208,6 @@ def run_corps_v2(
             state["status"] = "NO_CURRENT_FREE_CANDIDATE"
             continue
 
-        # Free evidence differs by provider but never relies on a paid sibling.
         if provider_id == "siliconflow":
             state["free_verified"] = True
             state["free_verification_basis"] = "OFFICIAL_FREE_ALLOWLIST_AND_CURRENT_LIVE_CATALOG"
