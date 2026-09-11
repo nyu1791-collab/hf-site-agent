@@ -61,8 +61,12 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
     def __init__(self, organization: Mapping[str, Any], **kwargs: Any) -> None:
         outcome_ledger = kwargs.pop("outcome_ledger", None)
         cost_meter = kwargs.pop("cost_meter", None)
+        source_head = kwargs.pop("source_head", "")
+        source_run_id = kwargs.pop("source_run_id", "")
         super().__init__(organization, **kwargs)
         self.value_config = load_value_config()
+        self._source_head = str(source_head or "")[:80]
+        self._source_run_id = str(source_run_id or "")[:80]
         if isinstance(outcome_ledger, Mapping) and outcome_ledger:
             validate_outcome_ledger(outcome_ledger)
             self._prior_outcome_ledger: dict[str, Any] = dict(outcome_ledger)
@@ -214,6 +218,15 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
         )
         contract_completed = str(committed.get("status") or "").upper() == "COMPLETED"
         machine_validated = self._machine_validation_passed(committed)
+        record["observation_id"] = ":".join(
+            part for part in (
+                self._source_run_id or self._source_head or "mission",
+                task.task_id,
+                str(committed.get("revision") or 0),
+            ) if part
+        )[:180]
+        record["source_head"] = self._source_head
+        record["source_run_id"] = self._source_run_id
         record["contract_completed"] = contract_completed
         record["validated_success"] = bool(contract_completed and machine_validated)
         record["validation_status"] = "PASS" if machine_validated else "UNVALIDATED"
@@ -265,8 +278,10 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
         ledger = build_outcome_ledger(
             self._value_outcomes,
             prior_ledger=self._prior_outcome_ledger or None,
+            source_head=self._source_head,
+            source_run_id=self._source_run_id,
         )
-        report["schema_version"] = "value-optimized-agent-scheduler-report-v4"
+        report["schema_version"] = "value-optimized-agent-scheduler-report-v5"
         report["scheduler_mode"] = "AI_ARMY_V4_VALUE_OPTIMIZED_TASK_PROFILE_ROUTING"
         report["value_optimization"] = {
             "enabled": True,
@@ -278,6 +293,8 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
             "binding_profile_aggregates": aggregates,
             "overall_metrics": overall_metrics,
             "value_score": value_score(score_metrics, self.value_config),
+            "source_head": self._source_head,
+            "source_run_id": self._source_run_id,
             "semantic_validation_required_for_learning_success": True,
             "trusted_cost_meter_is_controller_supplied": True,
             "failover_preserves_value_quality_gates": True,
