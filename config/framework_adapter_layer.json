@@ -25,6 +25,10 @@
     "framework_result_must_normalize_to_agent_contract": true,
     "framework_health_gate_required": true,
     "framework_api_contract_gate_required": true,
+    "framework_evidence_ttl_seconds": 3600,
+    "framework_evidence_max_future_skew_seconds": 120,
+    "trusted_framework_evidence_sources": ["FRAMEWORK_HEALTH_CONTROLLER_V1"],
+    "external_replay_cache_max_entries": 256,
     "prefer_consolidated_ownership": true,
     "avoid_micro_agent_fragmentation": true,
     "max_primary_frameworks_per_mission": 2,
@@ -98,6 +102,31 @@
       "max_parallel": 3,
       "multi_stage_ownership_preferred": true,
       "best_for": ["STATEFUL_PIPELINE", "LONG_RUNNING_WORKFLOW", "COMPLEX_DAG", "RECOVERY_WORKFLOW"]
+    },
+    "MICROSOFT_AGENT_FRAMEWORK": {
+      "kind": "python_framework",
+      "enabled": true,
+      "priority": 90,
+      "package": "agent-framework",
+      "execution_hook": "microsoft_agent_framework",
+      "capabilities": [
+        "agent_protocol",
+        "multi_agent_workflow",
+        "workflow",
+        "session_state",
+        "middleware",
+        "human_review",
+        "checkpoint",
+        "a2a",
+        "tool_use",
+        "agent"
+      ],
+      "requires": ["framework_installed", "api_contract_verified", "runtime_present", "model_route_free_verified", "framework_health_ready"],
+      "model_route_free_verification_required": true,
+      "can_auto_select": true,
+      "max_parallel": 3,
+      "multi_stage_ownership_preferred": true,
+      "best_for": ["MULTI_AGENT_WORKFLOW", "AGENT_INTEROP", "MIDDLEWARE_GOVERNANCE", "AUTOGEN_MIGRATION"]
     },
     "AUTOGEN": {
       "kind": "python_framework",
