@@ -13,6 +13,9 @@
     "copyright_and_synthetic_media_checks_before_publish": true,
     "publish_requires_human_approval": true,
     "external_models_never_receive_repository_write_credentials": true,
+    "service_connectors_are_not_reasoning_agent_identities": true,
+    "installed_plugin_does_not_imply_paid_execution_approval": true,
+    "connector_availability_is_checked_at_execution": true,
     "generic_paid_fallback": false,
     "auto_top_up": false
   },
@@ -45,6 +48,13 @@
       "default_risk": "LOW",
       "preferred_capabilities": ["writing", "reasoning", "fast", "json"]
     },
+    "GENERATIVE_MEDIA_AGENT": {
+      "mission": "Create only the missing visual, motion or audio assets required by an approved brief, preserve provenance, and prefer reusable low-cost assets over repeated generation.",
+      "default_risk": "MEDIUM",
+      "preferred_capabilities": ["image_generation", "video_generation", "audio_generation", "creative_direction", "multimodal"],
+      "image_route_order": ["CHATGPT_IMAGE", "FAL_CONNECTOR_APPROVED", "RUNWAY_CONNECTOR_APPROVED"],
+      "video_route_order": ["FAL_CONNECTOR_APPROVED", "RUNWAY_CONNECTOR_APPROVED"]
+    },
     "TRANSCRIPTION_AGENT": {
       "mission": "Transcribe owned or authorized audio/video with timestamps and preserve source provenance.",
       "default_risk": "LOW",
@@ -55,7 +65,7 @@
       "mission": "Produce edit decisions, highlight windows, pacing changes, aspect-ratio variants and deterministic render instructions.",
       "default_risk": "MEDIUM",
       "preferred_capabilities": ["video_understanding", "editing", "multimodal", "json"],
-      "route_order": ["FFMPEG_DETERMINISTIC", "DESCRIPT_CONNECTOR", "FAL_CONNECTOR", "RUNWAY_CONNECTOR_APPROVED"]
+      "route_order": ["FFMPEG_DETERMINISTIC", "DESCRIPT_CONNECTOR", "FAL_CONNECTOR_APPROVED", "RUNWAY_CONNECTOR_APPROVED"]
     },
     "CAPTION_LOCALIZATION_AGENT": {
       "mission": "Generate readable captions, subtitle files, translations and platform-specific on-screen text while preserving meaning.",
@@ -66,7 +76,7 @@
       "mission": "Generate or specify thumbnails, covers and visual variants optimized for truthful click-through rather than misleading clickbait.",
       "default_risk": "MEDIUM",
       "preferred_capabilities": ["image_generation", "multimodal", "creative_direction"],
-      "route_order": ["CHATGPT_IMAGE", "FAL_CONNECTOR", "RUNWAY_CONNECTOR_APPROVED"]
+      "route_order": ["CHATGPT_IMAGE", "FAL_CONNECTOR_APPROVED", "RUNWAY_CONNECTOR_APPROVED"]
     },
     "RIGHTS_SAFETY_AGENT": {
       "mission": "Check provenance, music/media rights, privacy, brand risk and synthetic-media disclosure requirements before publishing.",
@@ -127,16 +137,24 @@
       "consumer_account_scraping": false
     },
     "DESCRIPT_CONNECTOR": {
+      "execution_surface": "CHATGPT_PLUGIN",
       "capabilities": ["transcription", "filler_removal", "studio_sound", "captions", "highlight_clips", "translation", "video_editing"],
-      "activation": "PLUGIN_CONNECTION_REQUIRED"
+      "activation": "RUNTIME_PLUGIN_CONNECTION_REQUIRED",
+      "connection_checked_at_execution": true
     },
-    "FAL_CONNECTOR": {
-      "capabilities": ["video_generation", "video_editing", "audio", "image_generation"],
-      "activation": "PLUGIN_CONNECTION_AND_COST_POLICY_REQUIRED"
+    "FAL_CONNECTOR_APPROVED": {
+      "execution_surface": "CHATGPT_PLUGIN",
+      "capabilities": ["video_generation", "video_editing", "audio", "image_generation", "model_routing"],
+      "activation": "RUNTIME_PLUGIN_CONNECTION_AND_EXPLICIT_MEDIA_COST_APPROVAL_REQUIRED",
+      "connection_checked_at_execution": true,
+      "generic_paid_fallback": false
     },
     "RUNWAY_CONNECTOR_APPROVED": {
-      "capabilities": ["video_generation", "video_editing", "background_removal", "upscale", "multi_shot"],
-      "activation": "PLUGIN_CONNECTION_AND_EXPLICIT_PAID_APPROVAL_REQUIRED"
+      "execution_surface": "CHATGPT_PLUGIN",
+      "capabilities": ["video_generation", "video_editing", "background_removal", "aspect_ratio_expansion", "localization", "upscale", "multi_shot"],
+      "activation": "RUNTIME_PLUGIN_CONNECTION_AND_EXPLICIT_MEDIA_COST_APPROVAL_REQUIRED",
+      "connection_checked_at_execution": true,
+      "generic_paid_fallback": false
     },
     "FREE_GPU_WHISPER": {
       "model": "openai/whisper-large-v3-turbo",
@@ -179,6 +197,7 @@
     "SOCIAL_INTELLIGENCE_AGENT",
     "CONTENT_STRATEGIST",
     "SCRIPT_AGENT",
+    "GENERATIVE_MEDIA_AGENT",
     "TRANSCRIPTION_AGENT",
     "CLIP_EDITOR_AGENT",
     "CAPTION_LOCALIZATION_AGENT",
