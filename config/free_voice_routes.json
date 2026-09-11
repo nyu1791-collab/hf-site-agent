@@ -4,19 +4,50 @@
     "free_only": true,
     "auto_top_up": false,
     "generic_paid_fallback": false,
-    "tiktok_or_editor_voice_requires_explicit_connected_surface": true,
+    "tiktok_or_editor_voice_requires_explicit_connected_surface": false,
+    "user_supplied_audio_is_input_not_generation": true,
+    "external_app_export_must_not_trigger_purchase": true,
     "unknown_voice_license_blocks": true,
     "required_credit_must_be_preserved": true,
     "voice_only_does_not_authorize_character_art": true,
     "large_runtime_download_requires_explicit_runtime_preparation": true
   },
   "route_order": [
+    "USER_SUPPLIED_APP_VOICE",
     "VOICEVOX_ZUNDAMON_LOCAL",
     "VOICEVOX_OTHER_APPROVED_LOCAL",
     "COSYVOICE2_LOCAL_FREE",
     "KOKORO_LOCAL_FREE"
   ],
   "routes": {
+    "USER_SUPPLIED_APP_VOICE": {
+      "provider": "external_editor_or_user",
+      "execution_surface": "LOCAL_AUDIO_HANDOFF",
+      "capabilities": ["japanese_tts_audio_import", "narration_handoff", "audio_replace"],
+      "cost_class": "FREE_HANDOFF",
+      "requires": [
+        "audio_file_present",
+        "source_declared",
+        "voice_terms_verified",
+        "credit_requirements_satisfied",
+        "no_paid_generation_used"
+      ],
+      "publish_requires": [
+        "commercial_use_verified",
+        "attribution_ready"
+      ],
+      "allowed_source_types": [
+        "TIKTOK_EDITOR",
+        "CAPCUT",
+        "VOICEVOX",
+        "OTHER_EDITOR_APP",
+        "USER_AUDIO"
+      ],
+      "character_art_authorized": false,
+      "auto_generate": false,
+      "auto_upload": false,
+      "auto_publish": false
+    },
     "VOICEVOX_ZUNDAMON_LOCAL": {
       "provider": "voicevox",
       "execution_surface": "LOCAL_ENGINE",
@@ -29,6 +60,7 @@
         "character_terms_verified",
         "credit_enabled"
       ],
+      "publish_requires": ["commercial_use_verified", "attribution_ready"],
       "credit_template": "VOICEVOX:ずんだもん",
       "character_art_authorized": false,
       "commercial_use": "ALLOWED_SUBJECT_TO_VOICEVOX_AND_CHARACTER_TERMS",
@@ -45,6 +77,7 @@
         "character_terms_verified",
         "credit_enabled"
       ],
+      "publish_requires": ["commercial_use_verified", "attribution_ready"],
       "credit_template": "VOICEVOX:{voice_name}",
       "character_art_authorized": false,
       "commercial_use": "ALLOWED_SUBJECT_TO_VOICEVOX_AND_CHARACTER_TERMS",
@@ -56,7 +89,8 @@
       "execution_surface": "LOCAL_OR_APPROVED_FREE_RUNTIME",
       "capabilities": ["japanese_tts", "speech_synthesis"],
       "cost_class": "FREE_RUNTIME_ONLY",
-      "requires": ["runtime_present", "model_present", "license_verified"]
+      "requires": ["runtime_present", "model_present", "license_verified"],
+      "publish_requires": ["commercial_use_verified"]
     },
     "KOKORO_LOCAL_FREE": {
       "provider": "huggingface_open_model",
@@ -64,7 +98,8 @@
       "execution_surface": "LOCAL_OR_APPROVED_FREE_RUNTIME",
       "capabilities": ["japanese_tts", "speech_synthesis"],
       "cost_class": "FREE_RUNTIME_ONLY",
-      "requires": ["runtime_present", "model_present", "license_verified"]
+      "requires": ["runtime_present", "model_present", "license_verified"],
+      "publish_requires": ["commercial_use_verified"]
     }
   }
 }
