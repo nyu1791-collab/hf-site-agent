@@ -68,7 +68,9 @@ def test_crewai_member_failure_is_partial_and_crew_is_destroyed():
 def test_copilot_main_write_and_secret_access_are_blocked():
     cfg = {**CONFIG["adapters"]["copilot"], "enabled": True}
     adapter = CopilotFrameworkAdapter(cfg, runner=lambda *_: {"status": "completed"})
-    main_write = command(side_effect_level="mutation", metadata={"framework": {"action": "code_change", "target_branch": "main"}})
+    main_write = command(side_effect_level="mutation", metadata={"framework": {
+        "action": "code_change", "target_branch": "main", "allowed_write_branches": ["main"]
+    }})
     report = adapter.execute(main_write, route_evidence=route())
     assert report["status"] == "blocked"
     assert report["result"]["boundary_failure"] == "protected_branch_write"
@@ -79,10 +81,24 @@ def test_copilot_main_write_and_secret_access_are_blocked():
     assert report["result"]["boundary_failure"] == "secret_or_payment_scope"
 
 
+def test_copilot_prefix_alone_does_not_authorize_write():
+    cfg = {**CONFIG["adapters"]["copilot"], "enabled": True}
+    adapter = CopilotFrameworkAdapter(cfg, runner=lambda *_: {"status": "completed"})
+    staging = command(side_effect_level="mutation", metadata={"framework": {
+        "action": "code_change", "target_branch": "ai-army/unapproved"
+    }})
+    report = adapter.execute(staging, route_evidence=route())
+    assert report["status"] == "blocked"
+    assert report["result"]["boundary_failure"] == "outside_explicit_staging_scope"
+
+
 def test_copilot_explicit_staging_branch_write_is_bounded():
     cfg = {**CONFIG["adapters"]["copilot"], "enabled": True}
     adapter = CopilotFrameworkAdapter(cfg, runner=lambda *_: {"status": "completed", "summary": "ok", "result": {"changed": 1}})
-    staging = command(side_effect_level="mutation", metadata={"framework": {"action": "code_change", "target_branch": "ai-army/framework-adapter-v1"}})
+    branch = "ai-army/framework-adapter-v1"
+    staging = command(side_effect_level="mutation", metadata={"framework": {
+        "action": "code_change", "target_branch": branch, "allowed_write_branches": [branch]
+    }})
     report = adapter.execute(staging, route_evidence=route())
     assert report["status"] == "completed"
     fw = report["metadata"]["framework"]
