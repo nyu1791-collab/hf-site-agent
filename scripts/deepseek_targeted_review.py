@@ -27,7 +27,9 @@ from scripts import deepseek_specialist_trial_v4 as v4
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT / "config" / "deepseek_targeted_review.json"
-ALLOWED_PREFIXES = ("scripts/", "tests/", "config/", "docs/")
+# Keep context read-only and tightly scoped. CI review needs the workflow definition,
+# but no other .github files (including any future credential/config surfaces) are allowed.
+ALLOWED_PREFIXES = ("scripts/", "tests/", "config/", "docs/", ".github/workflows/")
 MAX_CONTEXT_FILES = 8
 MAX_MARKERS_PER_FILE = 8
 MAX_COST_USD = 0.05
