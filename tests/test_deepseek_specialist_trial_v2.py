@@ -31,7 +31,11 @@ class FailureEvidenceTests(unittest.TestCase):
         self.config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
 
     def test_config_allows_thinking_and_visible_output_budget(self):
-        self.assertEqual(self.config["trial_budget"]["max_output_tokens_per_call"], 4096)
+        # V2 originally required 4096 visible tokens. Newer role-adaptive runners
+        # may safely raise the configured ceiling (for example 8192 for deep
+        # debugging/review) while direct coding remains independently capped.
+        self.assertGreaterEqual(self.config["trial_budget"]["max_output_tokens_per_call"], 4096)
+        self.assertLessEqual(self.config["trial_budget"]["max_output_tokens_per_call"], 8192)
         self.assertLessEqual(self.config["trial_budget"]["max_estimated_cost_usd"], 0.25)
 
     def test_missing_visible_content_preserves_usage_and_finish_reason(self):
