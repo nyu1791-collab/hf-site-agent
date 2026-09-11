@@ -35,6 +35,7 @@ SECRET_TOKEN = re.compile(
 SECRET_OUTPUT = re.compile(r"(?i)\b(?:echo|printf|print|console\.(?:log|error))\b.*\$\{\{\s*secrets\.")
 PLAIN_TEXT = re.compile(r"(?i)[\"'](?:type|kind)[\"']\s*:\s*[\"']plain[_-]?text[\"']")
 IDENTIFIER_REFERENCE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+INDEXED_REFERENCE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\[")
 CODE_EXPRESSION_REFERENCE = re.compile(
     r"^(?:str|bool|bytes|os\.getenv|os\.environ\.get|[A-Za-z_][A-Za-z0-9_]*\.get)\("
 )
@@ -60,6 +61,8 @@ def _is_placeholder(value: str) -> bool:
     if re.fullmatch(r"[A-Z][A-Z0-9_]{5,}", stripped):
         return True
     if IDENTIFIER_REFERENCE.fullmatch(stripped) and not SECRET_TOKEN.search(stripped):
+        return True
+    if INDEXED_REFERENCE.match(stripped) and not SECRET_TOKEN.search(stripped):
         return True
     # Assignment scanners also encounter normal expressions such as
     # ``api_key = str(secret_map.get(name) or "")``. Treat a bounded set of
