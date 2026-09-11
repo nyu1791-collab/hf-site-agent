@@ -74,6 +74,37 @@ class FailureSignalRegistryTests(unittest.TestCase):
         clock[0] += 31.0
         self.assertTrue(registry.is_available(binding))
 
+    def test_repeated_quarantine_history_survives_cooldown(self):
+        clock = [100.0]
+        registry = FailureSignalRegistry(clock=lambda: clock[0])
+        binding = {"provider": "deepseek", "model": "deepseek-flash"}
+
+        self.assertTrue(registry.record_failure(binding, "RATE_LIMITED"))
+        first = registry.snapshot()
+        self.assertEqual(first["cumulative_failure_count"], 1)
+        self.assertEqual(first["repeated_quarantine_count"], 0)
+
+        clock[0] += 31.0
+        self.assertTrue(registry.is_available(binding))
+        self.assertTrue(registry.record_failure(binding, "RATE_LIMITED"))
+        second = registry.snapshot()
+        self.assertEqual(second["cumulative_failure_count"], 2)
+        self.assertEqual(second["repeated_quarantine_count"], 1)
+        self.assertEqual(second["failure_history"][0]["quarantine_count"], 2)
+
+    def test_success_clears_active_quarantine_but_preserves_history(self):
+        clock = [10.0]
+        registry = FailureSignalRegistry(clock=lambda: clock[0])
+        binding = {"provider": "nvidia", "model": "worker"}
+        registry.record_failure(binding, "NETWORK")
+        registry.record_success(binding)
+
+        snapshot = registry.snapshot()
+        self.assertEqual(snapshot["active_quarantine_count"], 0)
+        self.assertEqual(snapshot["cumulative_failure_count"], 1)
+        self.assertEqual(snapshot["historical_binding_count"], 1)
+        self.assertEqual(snapshot["failure_history"][0]["last_success_at"], 10.0)
+
 
 if __name__ == "__main__":
     unittest.main()
