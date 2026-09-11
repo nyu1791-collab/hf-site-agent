@@ -25,10 +25,10 @@ PROFILE_FRAMEWORK = {
     "NATIVE": ("NATIVE_V4",),
 }
 PROFILE_CAPABILITIES = {
-    "DURABLE": ("graph", "checkpoint", "tool_use"),
-    "ROLE_CREW": ("role_crew", "parallel", "tool_use"),
+    "DURABLE": ("graph_workflow", "checkpoint", "tool_use"),
+    "ROLE_CREW": ("role_crew", "parallel_agents", "tool_use"),
     "COUNCIL": ("debate", "delegation", "parallel_agents"),
-    "CODING": ("coding", "repository_navigation", "agent_mode"),
+    "CODING": ("coding", "repository_context", "agent_mode"),
     "NATIVE": ("general",),
 }
 
