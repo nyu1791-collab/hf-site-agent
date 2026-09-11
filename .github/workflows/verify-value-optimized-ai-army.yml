@@ -6,9 +6,11 @@ on:
       - "config/value_optimized_ai_army.json"
       - "config/replaceable_agent_organization.json"
       - "scripts/value_optimized_routing.py"
+      - "scripts/value_learning_loop.py"
       - "scripts/value_optimized_scheduler.py"
       - "scripts/independent_agent_scheduler.py"
       - "tests/test_value_optimized_routing.py"
+      - "tests/test_value_learning_loop.py"
       - "tests/test_value_optimized_scheduler.py"
       - ".github/workflows/verify-value-optimized-ai-army.yml"
   push:
@@ -18,9 +20,11 @@ on:
       - "config/value_optimized_ai_army.json"
       - "config/replaceable_agent_organization.json"
       - "scripts/value_optimized_routing.py"
+      - "scripts/value_learning_loop.py"
       - "scripts/value_optimized_scheduler.py"
       - "scripts/independent_agent_scheduler.py"
       - "tests/test_value_optimized_routing.py"
+      - "tests/test_value_learning_loop.py"
       - "tests/test_value_optimized_scheduler.py"
       - ".github/workflows/verify-value-optimized-ai-army.yml"
 
@@ -51,11 +55,13 @@ jobs:
         run: >-
           python -m py_compile
           scripts/value_optimized_routing.py
+          scripts/value_learning_loop.py
           scripts/value_optimized_scheduler.py
           scripts/independent_agent_scheduler.py
           scripts/independent_agent_runtime_v4.py
           scripts/replaceable_agent_scheduler_v4.py
           tests/test_value_optimized_routing.py
+          tests/test_value_learning_loop.py
           tests/test_value_optimized_scheduler.py
 
       - name: Validate policies
@@ -80,6 +86,7 @@ jobs:
         run: >-
           python -m unittest
           tests.test_value_optimized_routing
+          tests.test_value_learning_loop
           tests.test_value_optimized_scheduler
           -v
 
