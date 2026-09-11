@@ -1,0 +1,107 @@
+{
+  "schema_version": "framework-adapter-policy-v1",
+  "organization_name": "AI Army Framework Adapter Layer",
+  "policy": {
+    "native_router_is_authoritative": true,
+    "external_frameworks_are_subordinate": true,
+    "external_frameworks_may_reorder_global_queue": false,
+    "external_frameworks_may_change_budget": false,
+    "external_frameworks_may_enable_paid_models": false,
+    "external_frameworks_may_mutate_secrets": false,
+    "external_frameworks_may_publish": false,
+    "external_frameworks_may_deploy": false,
+    "external_frameworks_may_merge": false,
+    "external_frameworks_may_write_repository": false,
+    "single_writer_preserved": true,
+    "free_only_default": true,
+    "generic_paid_fallback": false,
+    "auto_top_up": false,
+    "fail_closed_on_unknown_framework_state": true,
+    "native_fallback_allowed": true,
+    "shadow_mode_default": true
+  },
+  "canonical_contract": {
+    "task_fields": [
+      "task_id",
+      "objective",
+      "owner_role",
+      "depends_on",
+      "risk",
+      "capabilities",
+      "boundary_action",
+      "budget_class",
+      "write_intent",
+      "deterministic_validator_available",
+      "metadata"
+    ],
+    "result_fields": [
+      "task_id",
+      "status",
+      "summary",
+      "artifacts",
+      "validation",
+      "confidence",
+      "framework",
+      "provider",
+      "model",
+      "cost_evidence",
+      "boundary_requests"
+    ]
+  },
+  "adapters": {
+    "native": {
+      "enabled": true,
+      "mode": "PRIMARY",
+      "package": null,
+      "capabilities": ["dag", "bounded_loop", "checkpoint", "restart_recovery", "budget_gate", "single_writer", "human_escalation"],
+      "best_for": ["production_control_plane", "budget_and_boundary_enforcement", "fallback"],
+      "requires": []
+    },
+    "langgraph": {
+      "enabled": true,
+      "mode": "OPTIONAL_SUBGRAPH",
+      "package": "langgraph",
+      "capabilities": ["state_graph", "checkpoint", "durable_execution", "human_in_the_loop", "interrupt_resume", "long_running_workflow"],
+      "best_for": ["stateful_long_running_work", "approval_workflows", "fault_tolerant_subgraphs"],
+      "requires": ["package_available", "adapter_contract_valid"],
+      "may_own_global_state": false
+    },
+    "crewai": {
+      "enabled": true,
+      "mode": "OPTIONAL_CREW",
+      "package": "crewai",
+      "capabilities": ["role_agents", "crew", "flow", "structured_tasks", "guardrails", "human_in_the_loop"],
+      "best_for": ["specialist_team_collaboration", "bounded_research_and_content_work", "rapid_role_prototyping"],
+      "requires": ["package_available", "adapter_contract_valid"],
+      "may_own_global_state": false
+    },
+    "autogen": {
+      "enabled": true,
+      "mode": "OPTIONAL_TEAM",
+      "package": "autogen_agentchat",
+      "capabilities": ["agentchat", "event_driven_core", "selector_group_chat", "graphflow", "distributed_runtime", "mcp"],
+      "best_for": ["agent_to_agent_conversation", "dynamic_team_selection", "distributed_experiments"],
+      "requires": ["package_available", "adapter_contract_valid"],
+      "may_own_global_state": false
+    },
+    "github_copilot": {
+      "enabled": true,
+      "mode": "EXTERNAL_CODING_DELEGATE",
+      "package": null,
+      "capabilities": ["coding_agent", "repository_context", "issue_to_pr_workflow", "agent_skills", "sandboxed_code_work"],
+      "best_for": ["bounded_repository_implementation", "issue_scoped_coding", "human_reviewed_pull_request_work"],
+      "requires": ["copilot_available", "explicit_repository_scope", "human_review_before_merge"],
+      "may_own_global_state": false,
+      "repository_write_requires_separate_human_authority": true
+    }
+  },
+  "selection": {
+    "default": "native",
+    "prefer_native_for": ["CRITICAL", "PAYMENT", "SECRET", "DEPLOY", "PUBLISH", "MERGE", "GLOBAL_SCHEDULING"],
+    "prefer_langgraph_for": ["LONG_RUNNING", "HUMAN_APPROVAL", "RESUMABLE_STATEFUL"],
+    "prefer_crewai_for": ["ROLE_COLLABORATION", "RESEARCH_TEAM", "CONTENT_PIPELINE"],
+    "prefer_autogen_for": ["MULTI_AGENT_DIALOGUE", "DYNAMIC_TEAM", "DISTRIBUTED_AGENT_EXPERIMENT"],
+    "prefer_github_copilot_for": ["REPOSITORY_IMPLEMENTATION", "ISSUE_SCOPED_CODING"],
+    "fallback": "native"
+  }
+}
