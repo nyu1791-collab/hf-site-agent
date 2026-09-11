@@ -1,0 +1,100 @@
+name: DeepSeek V4.1 Flash targeted review
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/deepseek-targeted-review-trigger.txt
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deepseek-targeted-review-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  targeted-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Compile targeted DeepSeek lane
+        run: |
+          python -m py_compile \
+            scripts/deepseek_specialist_trial.py \
+            scripts/deepseek_specialist_trial_v2.py \
+            scripts/deepseek_specialist_trial_v3.py \
+            scripts/deepseek_specialist_trial_v4.py \
+            scripts/deepseek_targeted_review.py \
+            tests/test_deepseek_targeted_review.py
+
+      - name: Run deterministic targeted lane tests
+        run: python -m unittest tests.test_deepseek_targeted_review -v
+
+      - name: Verify targeted dry-run stays offline
+        run: |
+          set -euo pipefail
+          python scripts/deepseek_targeted_review.py \
+            --output artifacts/deepseek_targeted_review_dry_run.json
+          python -m json.tool artifacts/deepseek_targeted_review_dry_run.json >/dev/null
+
+      - name: Run explicitly approved one-call DeepSeek V4.1 Flash review
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          python scripts/deepseek_targeted_review.py \
+            --network \
+            --confirm DEEPSEEK_PAID_TRIAL \
+            --output artifacts/deepseek_targeted_review.json
+          python -m json.tool artifacts/deepseek_targeted_review.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/deepseek_targeted_review.json").read_text(encoding="utf-8"))
+          print(json.dumps({
+              "status": report.get("status"),
+              "focus_id": report.get("focus_id"),
+              "requested_model": report.get("requested_model"),
+              "successful_task_count": report.get("successful_task_count", 0),
+              "selected_task_count": report.get("selected_task_count", 0),
+              "average_quality_score": report.get("average_quality_score", 0),
+              "estimated_current_cost_usd": report.get("estimated_current_cost_usd", 0),
+              "conservative_cost_usd": report.get("conservative_cost_usd", 0),
+          }, sort_keys=True))
+          assert report.get("generic_paid_fallback") is False
+          assert report.get("production_routing_changed") is False
+          assert report.get("repository_write") is False
+          assert report.get("merge") is False
+          assert report.get("deploy") is False
+          assert report.get("publish") is False
+          assert report.get("secret_mutation") is False
+          assert report.get("targeted_max_calls") == 1
+          assert float(report.get("targeted_max_estimated_cost_usd", 1)) <= 0.05
+          assert int(report.get("selected_task_count", 0)) <= 1
+          assert report.get("status") in {"TRIAL_READY", "TRIAL_PARTIAL"}
+          PY
+
+      - name: Upload redacted targeted review evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: deepseek-targeted-review-${{ github.run_id }}
+          path: |
+            artifacts/deepseek_targeted_review_dry_run.json
+            artifacts/deepseek_targeted_review.json
+          if-no-files-found: ignore
+          retention-days: 7
