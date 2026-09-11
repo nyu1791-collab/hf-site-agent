@@ -1,6 +1,7 @@
-trigger=deepseek-v4-1-specialist-trial-3
-purpose=validate-non-recursive-4096-thinking-aware-six-specialist-calls-with-cache-cost-quality-evidence
+trigger=deepseek-v4-1-specialist-trial-4-20260911-1356jst
+purpose=paid-deepseek-specialist-review-for-ai-army-code-quality-routing-debugging-and-minimal-high-impact-fixes
 approved_paid_trial=true
 max_estimated_cost_usd=0.25
+minimum_hard_boundaries=secret-exfiltration,payment-cap,infinite-retry,unapproved-merge-deploy-publish
 production_routing=false
 generic_paid_fallback=false
