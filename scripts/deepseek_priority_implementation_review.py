@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Run one bounded DeepSeek V4.1 Flash audit over the implemented AI Army V4 priorities.
+"""Run a bounded DeepSeek V4.1 Flash second-pass audit over AI Army V4.
 
-The first run of this wrapper reviewed the intended design.  The current phase
-points the same six bounded specialist lanes at the real V4 scheduler, controls,
-freshness runtime, tests and authoritative Media Corps routing so DeepSeek can
-find implementation defects rather than merely restate architecture advice.
+The first post-implementation audit was useful but several findings were caused
+by the shared 14k context window omitting the exact implementation body.  This
+second pass deliberately narrows the evidence set to the scheduler primitives,
+the generated JOIN path, the IndependentAgentScheduler adapter and RCC stamping.
+It is a verification pass, not another broad architecture review.
 
 The wrapper reuses the already-approved paid specialist transport, exact-model
 integrity checks, spend guard, and staging-only authority. DeepSeek receives no
@@ -15,6 +16,7 @@ generic paid-fallback authority.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 from pathlib import Path
@@ -30,131 +32,91 @@ from scripts import deepseek_specialist_trial_v4 as v4
 
 PRIORITY_CONTEXT_MARKERS: dict[str, tuple[str, ...]] = {
     "scripts/ai_army_v4_controls.py": (
-        "def objective_fingerprint",
         "def dependency_snapshot_matches",
         "def build_result_confidence_contract",
         "class AdaptiveExactModelConcurrency",
         "def aged_priority",
     ),
     "scripts/replaceable_agent_scheduler_v4.py": (
-        "class V4ReplaceableAgentScheduler",
         "def _commit_result_row",
         "def _build_handoff",
-        "def _dependencies_acceptable",
-        "def _dynamic_priority",
-        "def run(",
-    ),
-    "scripts/independent_agent_runtime_v4.py": (
-        "class IndependentAgentRegistryV4",
-        "def _fresh_memory",
-        "def execution_context",
-        "def finish_task",
+        "def mirror_joined",
+        "def register_generated",
+        "snapshot_ok = dependency_snapshot_matches",
     ),
     "scripts/independent_agent_scheduler.py": (
         "class IndependentAgentScheduler",
-        "def _execute_with_handoff",
+        "adaptive_cap = max(",
         "def _commit_result_row",
     ),
     "tests/test_ai_army_v4_controls.py": (
-        "class AIArmyV4ControlTests",
-        "test_dependency_snapshot_is_order_invariant_and_detects_supersession",
         "test_adaptive_model_gate_starts_one_promotes_and_shrinks_with_hysteresis",
+        "test_adaptive_gate_isolated_and_provider_clamped",
+        "test_result_confidence_contract_validation_overrides_reported_confidence",
     ),
     "tests/test_independent_agent_scheduler_v4.py": (
-        "class IndependentAgentSchedulerV4Tests",
         "test_semantic_duplicate_joins_and_executes_once",
         "test_dependency_handoff_is_versioned_hashed_and_rcc_validated",
         "test_hard_boundary_remains_blocked_before_handler",
-    ),
-    "config/media_agent_organization.json": (
-        "free_media_mesh_is_authoritative_generation_router",
-        "GOOGLE_MEDIA_ANALYST",
-        "generation_authority",
-        "MEDIA_QUALITY_REVIEWER",
-    ),
-    "config/free_media_mesh.json": (
-        "GOOGLE_GEMINI_FREE_MULTIMODAL",
-        "CLOUDFLARE_FLUX_FREE",
-        "NVIDIA_COSMOS_FREE",
-        "paid_reserve",
-    ),
-    "scripts/media_command_bridge.py": (
-        "def build_integrated_media_mission",
-        "free_media_mesh_before_paid_generation",
-        "automatic_paid_generation_fallback",
-    ),
-    "scripts/low_latency_agent_fabric.py": (
-        "class FailureSignalRegistry",
-        "def record_failure",
-        "def snapshot",
     ),
 }
 
 
 PRIORITY_TASKS: tuple[dict[str, Any], ...] = (
     {
-        "task_id": "v4-final-p0-a-dependency-version",
-        "role": "DEBUGGING",
-        "objective": (
-            "POST-IMPLEMENTATION AUDIT P0-A. Inspect the implemented dependency result revision/hash contract, ready-time "
-            "snapshot, bounded pre-dispatch refresh and fail-closed supersession behavior. Find concrete race, hash, JOIN, "
-            "retry or generated-child bugs that could let stale dependency output execute. Do not redesign broadly. Return "
-            "only grounded defects with exact real symbols and minimal tests/fixes. If sound, say why from evidence."
-        ),
-    },
-    {
-        "task_id": "v4-final-p0-b-concurrency",
-        "role": "ARCHITECTURE",
-        "objective": (
-            "POST-IMPLEMENTATION AUDIT P0-B/P1-B. Inspect AdaptiveExactModelConcurrency and its scheduler integration. "
-            "Verify starts-at-one semantics, configured/provider caps, promotion evidence, pressure shrink, recovery hold, "
-            "model isolation and absence of oscillation-prone behavior. Look for cap mismatches between V4 and the "
-            "IndependentAgentScheduler adapter. Return minimal concrete corrections/tests only."
-        ),
-    },
-    {
-        "task_id": "v4-final-p0-c-semantic-dedup",
+        "task_id": "v4-second-pass-dependency-version",
         "role": "CODING_DEEP",
         "objective": (
-            "POST-IMPLEMENTATION AUDIT P0-C. Inspect deterministic objective fingerprinting plus _join_compatible, initial "
-            "and generated-task JOIN paths, follower result stamping, descendant release/block behavior and failure/retry "
-            "interaction. Prove that different write/risk/boundary semantics cannot merge. Find any deadlock, double-count, "
-            "stale leader or unsafe JOIN edge case and propose the smallest patch/test."
+            "SECOND-PASS P0-A VERIFICATION. You now have the real dependency_snapshot_matches, _build_handoff and "
+            "pre-dispatch refresh bodies. Verify whether stale dependency output can execute after a dependency revision/hash "
+            "changes. Check missing IDs, changed revision, changed hash, refresh budget and terminal block behavior. Do not "
+            "repeat speculative findings from missing context. Return only confirmed defects or an evidence-based PASS, with "
+            "minimal deterministic tests if any gap remains."
         ),
     },
     {
-        "task_id": "v4-final-p0-d-media-corps",
+        "task_id": "v4-second-pass-concurrency",
+        "role": "ARCHITECTURE",
+        "objective": (
+            "SECOND-PASS P0-B/P1-B VERIFICATION. You now have AdaptiveExactModelConcurrency plus the IndependentAgentScheduler "
+            "adapter. Verify starts-at-one, unknown-provider fail-closed behavior, provider/configured caps, adapter cap mutation, "
+            "pressure shrink, recovery hold, and promotion hysteresis. Distinguish harmless naming/telemetry issues from real "
+            "concurrency violations. Return only concrete fixes/tests."
+        ),
+    },
+    {
+        "task_id": "v4-second-pass-semantic-join",
         "role": "CODE_REVIEW",
         "objective": (
-            "POST-IMPLEMENTATION AUDIT P0-D. Inspect media_agent_organization.json, free_media_mesh.json and "
-            "build_integrated_media_mission together. Verify Google is analysis/review only; image order is Cloudflare -> "
-            "SiliconFlow -> Qwen -> DeepSeek Janus; video order NVIDIA Cosmos -> Wan; FFmpeg is deterministic postprocess; "
-            "Fal/Runway/paid Google cannot become automatic generation fallback; rights/publish remain human gated. Flag "
-            "any executable legacy bypass or config/runtime drift with exact minimal fixes/tests."
+            "SECOND-PASS P0-C VERIFICATION. Inspect both initial and generated JOIN paths, mirror_joined, follower commit stamping, "
+            "descendant release/block behavior, risk/boundary/write compatibility and leader terminal handling. Explicitly verify "
+            "whether the earlier claim that generated JOIN bypasses _join_compatible is true or false. Return confirmed defects "
+            "only; label prior false positives clearly."
         ),
     },
     {
-        "task_id": "v4-final-p1-memory-aging",
-        "role": "TEST_STRATEGY",
-        "objective": (
-            "POST-IMPLEMENTATION AUDIT P1-A/P1-C. Inspect freshness-aware role memory and dynamic scheduler aging. Check "
-            "TTL/event-sequence semantics, superseded revision filtering, retry/failover session lifecycle, peer replay, "
-            "dynamic re-ranking, and the invariant that ordinary aged work never outranks CRITICAL/hard-boundary safety "
-            "work. Identify missing deterministic edge tests or implementation defects only."
-        ),
-    },
-    {
-        "task_id": "v4-final-p1-d-rcc-integration",
+        "task_id": "v4-second-pass-rcc",
         "role": "INTEGRATION_REVIEW",
         "objective": (
-            "POST-IMPLEMENTATION AUDIT P1-D and cross-feature integration. Inspect Result Confidence Contract stamping and "
-            "downstream acceptance. Model self-confidence must never override machine validation; result hash must bind the "
-            "actual provider/model execution body; semantic JOIN followers need their own task-bound identity; hard-boundary "
-            "human approval must remain untouched. Pay special attention to whether validation_status wording overclaims "
-            "semantic validation. Return concrete integration risks and minimal corrections/tests."
+            "SECOND-PASS P1-D VERIFICATION. Inspect the real RCC builder and _commit_result_row. Determine whether validation_status "
+            "PASS can be misread as semantic correctness when it currently means completed plus dependency snapshot verified. "
+            "Check that model-reported confidence cannot override machine validation and that JOIN followers get task-bound hashes. "
+            "Recommend the smallest backwards-compatible contract change only if warranted."
         ),
     },
 )
+
+
+def _second_pass_config(config: Mapping[str, Any]) -> dict[str, Any]:
+    tuned = copy.deepcopy(dict(config))
+    budget = tuned.get("trial_budget") if isinstance(tuned.get("trial_budget"), Mapping) else {}
+    budget = dict(budget)
+    budget["max_calls"] = min(4, max(1, int(budget.get("max_calls") or 4)))
+    budget["max_parallel_calls"] = min(2, max(1, int(budget.get("max_parallel_calls") or 2)))
+    budget["max_estimated_cost_usd"] = min(0.12, max(0.02, float(budget.get("max_estimated_cost_usd") or 0.12)))
+    budget["stop_before_estimated_budget_exceeded"] = True
+    tuned["trial_budget"] = budget
+    return tuned
 
 
 def run_priority_review(*, config: Mapping[str, Any], api_key: str, network: bool, confirm: str) -> dict[str, Any]:
@@ -163,21 +125,17 @@ def run_priority_review(*, config: Mapping[str, Any], api_key: str, network: boo
     base.COMMON_CONTEXT_MARKERS = PRIORITY_CONTEXT_MARKERS
     base.TASKS = PRIORITY_TASKS
     try:
-        report = dict(v4.run_trial(config=config, api_key=api_key, network=network, confirm=confirm))
+        report = dict(v4.run_trial(config=_second_pass_config(config), api_key=api_key, network=network, confirm=confirm))
     finally:
         base.COMMON_CONTEXT_MARKERS = original_markers
         base.TASKS = original_tasks
-    report["schema_version"] = "deepseek-priority-implementation-review-v2"
-    report["review_phase"] = "POST_IMPLEMENTATION_FINAL_AUDIT"
+    report["schema_version"] = "deepseek-priority-implementation-review-v3"
+    report["review_phase"] = "POST_IMPLEMENTATION_SECOND_PASS_RUNTIME_VERIFICATION"
     report["priority_sequence"] = [
-        "P0-A_DEPENDENCY_VERSION_GUARD",
-        "P0-B_ADAPTIVE_MODEL_CONCURRENCY",
-        "P0-C_OBJECTIVE_FINGERPRINT_DEDUP",
-        "P0-D_MEDIA_CORPS_SPLIT",
-        "P1-A_MEMORY_FRESHNESS",
-        "P1-B_PARALLELISM_HYSTERESIS",
-        "P1-C_FAIRNESS_AGING",
-        "P1-D_RESULT_CONFIDENCE_CONTRACT",
+        "P0-A_DEPENDENCY_VERSION_GUARD_SECOND_PASS",
+        "P0-B_ADAPTIVE_MODEL_CONCURRENCY_SECOND_PASS",
+        "P0-C_OBJECTIVE_FINGERPRINT_DEDUP_SECOND_PASS",
+        "P1-D_RESULT_CONFIDENCE_CONTRACT_SECOND_PASS",
     ]
     report["repository_write"] = False
     report["deploy"] = False
@@ -212,6 +170,7 @@ def main() -> int:
         "successful_task_count": report.get("successful_task_count", 0),
         "selected_task_count": report.get("selected_task_count", 0),
         "average_quality_score": report.get("average_quality_score", 0),
+        "estimated_current_cost_usd": report.get("estimated_current_cost_usd", 0),
         "conservative_cost_usd": report.get("conservative_cost_usd", 0),
         "priority_sequence": report.get("priority_sequence", []),
         "generic_paid_fallback": report.get("generic_paid_fallback", False),
