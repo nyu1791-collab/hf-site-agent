@@ -20,10 +20,16 @@ class FrameworkConsolidationPolicyTests(unittest.TestCase):
 
     @staticmethod
     def evidence():
+        # Keep this fixture aligned with the production adapter contract. An
+        # external framework is not READY merely because its package/runtime
+        # exists: its public API contract, FREE model route and health/shadow
+        # gate must all have controller-owned verification evidence.
         row = {
             "framework_installed": True,
+            "api_contract_verified": True,
             "runtime_present": True,
             "model_route_free_verified": True,
+            "framework_health_ready": True,
             "paid": False,
             "paid_fallback_enabled": False,
         }
