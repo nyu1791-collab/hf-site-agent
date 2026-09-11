@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Independent-role scheduler overlay for the AI Army V4 runtime.
+"""Independent-role scheduler overlay for the value-optimized AI Army V4 runtime.
 
 Stable role identities keep bounded, freshness-filtered mission memory while the
-V4 scheduler supplies versioned dependency handoffs, adaptive exact-model
-concurrency, semantic JOIN, fairness aging and Result Confidence Contracts.
+value-optimized V4 scheduler supplies versioned dependency handoffs, adaptive
+exact-model concurrency, semantic JOIN, fairness aging, Result Confidence
+Contracts, task-profile routing, outcome learning and bounded escalation plans.
 Model swaps change an agent's execution body, not its role identity.
 
 The overlay preserves consume-then-ack semantics: peer deltas are acknowledged
-only after the role handler returns a parseable result.  Result memory is
+only after the role handler returns a parseable result. Result memory is
 committed only after the V4 scheduler has stamped revision/hash/RCC metadata.
 """
 
@@ -17,16 +18,16 @@ from typing import Any, Callable, Mapping, Sequence
 
 from scripts.independent_agent_runtime_v4 import IndependentAgentRegistryV4
 from scripts.replaceable_agent_scheduler import AgentTask, AgentTaskResult
-from scripts.replaceable_agent_scheduler_v4 import V4ReplaceableAgentScheduler
+from scripts.value_optimized_scheduler import ValueOptimizedV4Scheduler
 
 
-class IndependentAgentScheduler(V4ReplaceableAgentScheduler):
-    """AI Army V4 scheduler where role slots behave as persistent agents."""
+class IndependentAgentScheduler(ValueOptimizedV4Scheduler):
+    """AI Army V4 scheduler where role slots behave as persistent value agents."""
 
     def __init__(self, organization: Mapping[str, Any], **kwargs: Any) -> None:
         super().__init__(organization, **kwargs)
         adaptive = self.config.get("adaptive_controls") if isinstance(self.config.get("adaptive_controls"), Mapping) else {}
-        # V2 keeps a conservative static exact-model limit.  V4 starts at one
+        # V2 keeps a conservative static exact-model limit. V4 starts at one
         # internally and may promote only up to the organization same-model cap.
         adaptive_cap = max(
             1,
@@ -113,8 +114,8 @@ class IndependentAgentScheduler(V4ReplaceableAgentScheduler):
     ) -> dict[str, Any]:
         report = dict(super().run(tasks, handler))
         sessions = self.agent_registry.snapshot()
-        report["schema_version"] = "independent-agent-scheduler-report-v4"
-        report["scheduler_mode"] = "AI_ARMY_V4_INDEPENDENT_ROLE_AGENTS_VERSIONED_ADAPTIVE_DEDUP_FRESH_MEMORY_RCC"
+        report["schema_version"] = "independent-agent-scheduler-report-v5-value"
+        report["scheduler_mode"] = "AI_ARMY_V4_VALUE_OPTIMIZED_INDEPENDENT_ROLE_AGENTS"
         report["independent_agents"] = True
         report["agent_sessions"] = sessions
         report["independent_agent_count"] = sessions["independent_agent_count"]
@@ -123,6 +124,10 @@ class IndependentAgentScheduler(V4ReplaceableAgentScheduler):
         report["memory_freshness"] = sessions.get("memory_freshness", {})
         report["stable_role_identity_across_model_swap"] = True
         report["ordinary_local_decisions_require_commander_roundtrip"] = False
+        report["value_optimized_task_routing"] = True
+        report["outcome_learning_enabled"] = True
+        report["champion_challenger_enabled"] = True
+        report["evidence_weighted_council_enabled"] = True
         report["external_model_repository_write"] = False
         report["generic_paid_fallback"] = False
         report["auto_top_up"] = False
