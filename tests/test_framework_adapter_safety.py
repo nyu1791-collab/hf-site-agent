@@ -33,13 +33,14 @@ def command(**patch):
     return row
 
 
-def test_langgraph_failure_preserves_checkpoint_for_bounded_resume():
+def test_langgraph_failure_preserves_bounded_adapter_marker_without_claiming_durable_checkpoint():
     def boom(*_):
         raise RuntimeError("boom")
     adapter = LangGraphFrameworkAdapter({**CONFIG["adapters"]["langgraph"], "enabled": True}, runner=boom)
     report = adapter.execute(command(), route_evidence=route())
     assert report["status"] == "failed"
-    assert report["result"]["checkpoint_available"] is True
+    assert report["result"]["adapter_phase_checkpoint_available"] is True
+    assert report["result"]["persistent_checkpoint_available"] is False
     assert adapter.resume("c")["phase"] == "prepared"
 
 
