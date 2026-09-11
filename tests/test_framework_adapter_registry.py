@@ -60,6 +60,51 @@ def test_deterministic_local_native_task_can_run_without_model_route():
     assert selected.adapter_id == "native"
 
 
+def test_shadow_framework_can_be_evaluated_read_only_but_not_mutate():
+    cfg = load_config()
+    cfg["adapters"]["langgraph"]["enabled"] = True
+    registry = FrameworkAdapterRegistry(cfg, runners={"langgraph": lambda *_: {}})
+    selected = registry.select(
+        task_profile="LONG_MISSION",
+        required_capabilities=("checkpoint",),
+        route_evidence=route(),
+        selection_mode="shadow",
+        preferred_framework="langgraph",
+        mutation_requested=False,
+    )
+    assert selected.adapter_id == "langgraph"
+    assert selected.shadow_only is True
+    with pytest.raises(FreeRouteUnavailable, match="shadow_mutation_forbidden"):
+        registry.select(
+            task_profile="LONG_MISSION",
+            required_capabilities=("checkpoint",),
+            route_evidence=route(),
+            selection_mode="shadow",
+            mutation_requested=True,
+        )
+
+
+def test_shadow_only_external_framework_never_wins_production_selection_even_with_good_metrics():
+    cfg = load_config()
+    cfg["adapters"]["langgraph"]["enabled"] = True
+    registry = FrameworkAdapterRegistry(cfg, runners={"langgraph": lambda *_: {}})
+    selected = registry.select(
+        task_profile="LONG_MISSION",
+        required_capabilities=("checkpoint",),
+        route_evidence=route(),
+        selection_mode="production",
+        preferred_framework="langgraph",
+        outcomes={"langgraph": {
+            "sample_count": 100,
+            "validated_success_rate": 1.0,
+            "validation_pass_rate": 1.0,
+            "rework_rate": 0.0,
+            "actual_cost_class": "FREE",
+        }},
+    )
+    assert selected.adapter_id == "native"
+
+
 def test_producer_reviewer_same_model_family_has_penalty():
     registry = FrameworkAdapterRegistry(load_config())
     same = registry.review_diversity_penalty(
