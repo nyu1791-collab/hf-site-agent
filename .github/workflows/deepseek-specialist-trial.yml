@@ -34,15 +34,15 @@ jobs:
           python-version: "3.12"
 
       - name: Compile DeepSeek specialist trial
-        run: python -m py_compile scripts/deepseek_specialist_trial.py scripts/deepseek_specialist_trial_v2.py scripts/deepseek_specialist_trial_v3.py
+        run: python -m py_compile scripts/deepseek_specialist_trial.py scripts/deepseek_specialist_trial_v2.py scripts/deepseek_specialist_trial_v3.py scripts/deepseek_specialist_trial_v4.py
 
       - name: Run deterministic DeepSeek routing and budget tests
-        run: python -m unittest tests.test_deepseek_specialist_trial tests.test_deepseek_specialist_trial_v2 tests.test_deepseek_specialist_trial_v3 -v
+        run: python -m unittest tests.test_deepseek_specialist_trial tests.test_deepseek_specialist_trial_v2 tests.test_deepseek_specialist_trial_v3 tests.test_deepseek_specialist_trial_v4 -v
 
       - name: Verify dry-run stays offline
         run: |
           set -euo pipefail
-          python scripts/deepseek_specialist_trial_v3.py --output artifacts/deepseek_specialist_dry_run.json
+          python scripts/deepseek_specialist_trial_v4.py --output artifacts/deepseek_specialist_dry_run.json
           python -m json.tool artifacts/deepseek_specialist_dry_run.json >/dev/null
 
       - name: Run explicitly approved paid DeepSeek engineering trial
@@ -50,7 +50,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           set -euo pipefail
-          python scripts/deepseek_specialist_trial_v3.py \
+          python scripts/deepseek_specialist_trial_v4.py \
             --network \
             --confirm DEEPSEEK_PAID_TRIAL \
             --output artifacts/deepseek_specialist_trial.json
@@ -71,6 +71,7 @@ jobs:
               "estimated_current_cost_usd": report.get("estimated_current_cost_usd", 0),
               "conservative_cost_usd": report.get("conservative_cost_usd", 0),
               "placement_recommendation": report.get("placement_recommendation"),
+              "role_adaptive_reasoning": report.get("role_adaptive_reasoning"),
               "generic_paid_fallback": report.get("generic_paid_fallback"),
               "production_routing_changed": report.get("production_routing_changed"),
               "non_recursive_preflight": report.get("non_recursive_preflight"),
@@ -80,6 +81,7 @@ jobs:
           assert report.get("failure_usage_preserved") is True
           assert report.get("robust_json_parser") is True
           assert report.get("non_recursive_preflight") is True
+          assert report.get("role_adaptive_reasoning") is True
           assert float(report.get("conservative_cost_usd", 0)) <= float(report.get("max_estimated_cost_usd", 0.25))
           PY
 
