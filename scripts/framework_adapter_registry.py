@@ -45,7 +45,10 @@ class FrameworkAdapterRegistry:
                 continue
             self.adapters[str(adapter_id)] = cls(adapter_config, runner=self.runners.get(str(adapter_id)))
         if "native" not in self.adapters:
-            self.adapters["native"] = NativeFrameworkAdapter({"enabled": True, "kind": "native", "capabilities": ["general"]}, runner=self.runners.get("native"))
+            self.adapters["native"] = NativeFrameworkAdapter(
+                {"enabled": True, "kind": "native", "capabilities": ["general"]},
+                runner=self.runners.get("native"),
+            )
 
     @classmethod
     def from_path(cls, path: str | Path, *, runners: Mapping[str, Any] | None = None) -> "FrameworkAdapterRegistry":
@@ -81,8 +84,8 @@ class FrameworkAdapterRegistry:
         weights = dict(self.config.get("score_weights") or {})
         terms = {
             "capability_fit": capability_fit,
-            "measured_quality": float(outcome.get("measured_quality") or 0.0),
-            "validated_success_rate": float(outcome.get("validated_success_rate") or 0.0),
+            "measured_quality": float(outcome.get("measured_quality") or outcome.get("quality_score") or 0.0),
+            "validated_success_rate": float(outcome.get("validated_success_rate") or outcome.get("success_rate") or 0.0),
             "free_route_bonus": 1.0,
             "multi_role_efficiency_bonus": multi_role_efficiency,
             "latency_fit": latency_fit,
@@ -98,6 +101,22 @@ class FrameworkAdapterRegistry:
         priority = float(getattr(self.adapters.get(adapter_id), "config", {}).get("priority") or 0.0) / 1000.0
         return round(value + priority, 6)
 
+    def champion_eligible(self, metrics: Mapping[str, Any]) -> bool:
+        minimum = int(self.policy.get("champion_challenger_min_samples") or 20)
+        samples = int(metrics.get("sample_count") or metrics.get("samples") or 0)
+        if samples < minimum:
+            return False
+        if str(metrics.get("actual_cost_class") or "FREE").upper() != "FREE":
+            return False
+        validated_success_rate = float(metrics.get("validated_success_rate") or metrics.get("success_rate") or 0.0)
+        validation_pass_rate = float(metrics.get("validation_pass_rate") or metrics.get("validator_pass_rate") or 0.0)
+        rework_rate = float(metrics.get("rework_rate") if metrics.get("rework_rate") is not None else 1.0)
+        return bool(
+            validated_success_rate >= 0.90
+            and validation_pass_rate >= 0.90
+            and rework_rate <= 0.20
+        )
+
     def select(
         self,
         *,
@@ -109,8 +128,21 @@ class FrameworkAdapterRegistry:
         requires_model: bool = True,
         preferred_framework: str | None = None,
         outcomes: Mapping[str, Mapping[str, Any]] | None = None,
+        selection_mode: str = "production",
+        mutation_requested: bool = False,
     ) -> FrameworkSelection:
-        # Enforce Task Profile -> Capability -> Verified Free Route -> Model -> Framework.
+        """Select after task/capability/free-route/model resolution.
+
+        ``production`` never selects a shadow-only challenger and requires
+        champion eligibility for any external adapter. ``shadow`` may select a
+        challenger only for non-mutating evaluation.
+        """
+        mode = str(selection_mode or "production").lower()
+        if mode not in {"production", "shadow"}:
+            raise ValueError("selection_mode must be production or shadow")
+        if mode == "shadow" and mutation_requested and self.policy.get("shadow_execution_may_not_mutate") is True:
+            raise FreeRouteUnavailable("BLOCKED_FREE_ROUTE_UNAVAILABLE: shadow_mutation_forbidden")
+
         if requires_model:
             verify_free_route(
                 route_evidence,
@@ -126,10 +158,18 @@ class FrameworkAdapterRegistry:
             if not adapter.supports(task_profile, required_capabilities):
                 continue
             probe = adapter.probe()
-            if adapter_id != "native" and not probe.get("available"):
+            if not probe.get("available"):
                 continue
-            if adapter_id == "native" and not probe.get("available"):
-                continue
+            shadow_only = bool(adapter.config.get("shadow_only"))
+            if adapter_id != "native":
+                if mode == "production" and shadow_only:
+                    continue
+                if (
+                    mode == "production"
+                    and self.policy.get("external_production_requires_champion_eligibility") is True
+                    and not self.champion_eligible(outcomes.get(adapter_id, {}))
+                ):
+                    continue
             configured_caps = {str(v) for v in adapter.config.get("capabilities", ())}
             required = {str(v) for v in required_capabilities}
             if not required:
@@ -137,7 +177,6 @@ class FrameworkAdapterRegistry:
             elif required.issubset(configured_caps):
                 fit = 1.0
             elif "general" in configured_caps:
-                # Native remains a safe fallback, but a specialized verified adapter may outrank it.
                 fit = 0.65
             else:
                 fit = len(required & configured_caps) / max(1, len(required))
@@ -152,7 +191,7 @@ class FrameworkAdapterRegistry:
                 score=best_score,
                 fallback_used=bool(preferred_framework and best_id != preferred_framework),
                 shadow_only=bool(self.adapters[best_id].config.get("shadow_only")),
-                reason="verified_free_route_then_framework_score" if requires_model else "local_native_or_framework_score",
+                reason=f"verified_free_route_then_framework_score:{mode}" if requires_model else f"local_framework_score:{mode}",
             )
 
         if self.policy.get("native_fallback") is True and native.probe().get("available") and native.supports(task_profile, required_capabilities):
@@ -161,21 +200,9 @@ class FrameworkAdapterRegistry:
                 score=self.score("native", capability_fit=1.0),
                 fallback_used=True,
                 shadow_only=False,
-                reason="external_framework_unavailable_native_fallback",
+                reason="external_framework_unavailable_or_not_promoted_native_fallback",
             )
         raise FreeRouteUnavailable("BLOCKED_FREE_ROUTE_UNAVAILABLE: no safe framework route")
 
     def outcome_key(self, *, provider: str, exact_model: str, framework: str, task_profile: str) -> str:
         return "|".join((provider, exact_model, framework, task_profile))
-
-    def champion_eligible(self, metrics: Mapping[str, Any]) -> bool:
-        minimum = int(self.policy.get("champion_challenger_min_samples") or 20)
-        if int(metrics.get("sample_count") or 0) < minimum:
-            return False
-        if str(metrics.get("actual_cost_class") or "FREE").upper() != "FREE":
-            return False
-        return bool(
-            float(metrics.get("validated_success_rate") or 0.0) >= 0.90
-            and float(metrics.get("validation_pass_rate") or 0.0) >= 0.90
-            and float(metrics.get("rework_rate") or 1.0) <= 0.20
-        )
