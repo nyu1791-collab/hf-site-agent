@@ -1,0 +1,173 @@
+{
+  "schema_version": "value-optimized-ai-army-v1",
+  "objective": {
+    "primary": "maximize_validated_user_value",
+    "secondary": [
+      "maximize_quality_and_reliability",
+      "minimize_rework_and_defect_escape",
+      "minimize_time_to_validated_result",
+      "minimize_cost_per_validated_success",
+      "maximize_reusable_assets_and_learning"
+    ],
+    "monetization_definition": "Create measurably better outputs that users choose to return to, recommend, or pay for; never optimize dark patterns or low-quality engagement."
+  },
+  "value_metrics": {
+    "validated_success_weight": 0.28,
+    "quality_weight": 0.22,
+    "user_value_weight": 0.18,
+    "reliability_weight": 0.12,
+    "rework_penalty_weight": 0.08,
+    "latency_weight": 0.05,
+    "cost_efficiency_weight": 0.05,
+    "reusability_weight": 0.02,
+    "minimum_validated_success_for_promotion": 0.85,
+    "minimum_quality_for_promotion": 0.80
+  },
+  "task_profile": {
+    "dimensions": [
+      "coding",
+      "research",
+      "reasoning",
+      "review",
+      "multimodal",
+      "long_context",
+      "structured_output",
+      "latency_sensitivity",
+      "user_impact",
+      "complexity",
+      "risk"
+    ],
+    "large_context_chars": 120000,
+    "very_large_context_chars": 400000
+  },
+  "model_intents": {
+    "GPT_5_6_SOL": {
+      "role": "TOP_COMMANDER",
+      "best_for": ["mission_planning", "cross_model_arbitration", "final_integration", "high_uncertainty_decisions"],
+      "automatic_external_call": false
+    },
+    "GEMINI_3_8_FLASH": {
+      "provider": "google",
+      "role": "RESEARCH_CONTEXT_MULTIMODAL_STRATEGIST",
+      "best_for": ["very_long_context", "repository_scan", "research", "pdf", "image", "audio", "video", "multimodal_synthesis"],
+      "live_route_requires_verified_free_or_explicit_paid_approval": true
+    },
+    "DEEPSEEK_V4_1_FLASH": {
+      "provider": "deepseek",
+      "role": "ENGINEERING_SPECIALIST_AND_CRITIC",
+      "best_for": ["hard_debugging", "architecture", "code_review", "race_conditions", "integration_review", "adversarial_review"],
+      "paid_specialist_only": true,
+      "generic_paid_fallback": false
+    },
+    "QWEN_GROQ_WORKERS": {
+      "role": "IMPLEMENTATION_AND_FAST_EXECUTION",
+      "best_for": ["coding", "json", "tests", "classification", "extraction", "bounded_implementation"]
+    },
+    "NVIDIA_REVIEWERS": {
+      "role": "INDEPENDENT_REVIEW_AND_ENGINEERING",
+      "best_for": ["independent_review", "engineering", "repository_analysis", "validation"]
+    }
+  },
+  "routing": {
+    "cheap_first_for_low_and_medium_risk": true,
+    "strong_first_when": [
+      "complexity_gte_0_85",
+      "user_impact_gte_0_90_and_no_deterministic_validator",
+      "very_large_context",
+      "multimodal_high_complexity",
+      "two_or_more_prior_failures"
+    ],
+    "producer_reviewer_must_differ_when_possible": true,
+    "prefer_different_provider_for_review": true,
+    "prefer_different_model_family_for_review": true,
+    "never_trade_validation_for_lower_cost": true
+  },
+  "escalation": {
+    "max_cheap_attempts_before_strong_review": 2,
+    "confidence_floor": 0.72,
+    "quality_floor": 0.78,
+    "disagreement_requires_council": true,
+    "high_impact_without_validator_requires_council": true,
+    "repeated_same_error_requires_strong_specialist": true,
+    "strong_specialist_order": ["DEEPSEEK_V4_1_FLASH", "GPT_5_6_SOL"],
+    "automatic_paid_escalation": false
+  },
+  "council": {
+    "enabled": true,
+    "minimum_independent_views": 2,
+    "preferred_views": ["GPT_5_6_SOL", "DEEPSEEK_V4_1_FLASH", "GEMINI_3_8_FLASH", "INDEPENDENT_REVIEWER"],
+    "decision_rule": "evidence_weighted_not_majority_vote",
+    "required_fields": ["conclusion", "evidence", "confidence", "counterargument", "validation_status"],
+    "deterministic_evidence_breaks_ties": true,
+    "commander_arbitrates_unresolved_disagreement": true
+  },
+  "outcome_memory": {
+    "enabled": true,
+    "contract_version": "value-outcome-memory-v1",
+    "max_records_per_binding_profile": 24,
+    "record": [
+      "provider",
+      "model",
+      "task_profile_hash",
+      "validated_success",
+      "quality_score",
+      "rework_count",
+      "latency_ms",
+      "estimated_cost_usd",
+      "validation_status",
+      "error_class"
+    ],
+    "cross_run_import_export_allowed": true,
+    "secrets_or_raw_private_content_forbidden": true
+  },
+  "champion_challenger": {
+    "enabled": true,
+    "minimum_challenger_samples": 3,
+    "minimum_quality_margin": 0.03,
+    "maximum_cost_ratio_without_quality_gain": 1.10,
+    "shadow_only_until_verified": true,
+    "automatic_production_promotion": false
+  },
+  "cost_governor": {
+    "enabled": true,
+    "optimize_metric": "cost_per_validated_success",
+    "free_first": true,
+    "generic_paid_fallback": false,
+    "auto_top_up": false,
+    "paid_specialist_allowlist": ["deepseek"],
+    "paid_specialist_requires_explicit_mission_authorization": true,
+    "default_paid_specialist_budget_usd": 0.00,
+    "hard_stop_before_budget_exceeded": true,
+    "cost_never_overrides_hard_boundary_or_validation": true
+  },
+  "product_value_loop": {
+    "enabled": true,
+    "signals": [
+      "deterministic_test_pass_rate",
+      "user_correction_rate",
+      "rework_rate",
+      "defect_escape_rate",
+      "time_to_validated_result",
+      "repeat_usage",
+      "retention_proxy",
+      "recommendation_proxy",
+      "content_completion_or_task_completion",
+      "support_or_failure_rate"
+    ],
+    "experiment_policy": "small_reversible_measured_experiments_first",
+    "negative_signal_priority": ["safety_failure", "defect_escape", "user_correction", "rework", "latency", "cost"],
+    "no_dark_patterns": true,
+    "no_engagement_farming": true
+  },
+  "hard_boundaries": {
+    "external_model_repository_write": false,
+    "generic_paid_fallback": false,
+    "auto_top_up": false,
+    "merge_requires_human_approval": true,
+    "deploy_requires_human_approval": true,
+    "publish_requires_human_approval": true,
+    "secret_mutation_requires_human_approval": true,
+    "payment_or_new_paid_provider_requires_human_approval": true,
+    "production_model_promotion_requires_commander_and_human_approval": true
+  }
+}
