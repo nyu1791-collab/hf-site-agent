@@ -5,13 +5,22 @@ This planner does not call providers, publish content, mutate secrets, or spend
 money. It converts fresh provider/runtime evidence into a deterministic route
 for Google analysis, free image/video generation, FFmpeg post-processing and
 Google quality review. Paid media routes are intentionally absent.
+
+Evidence is fail-closed. A bare collection of booleans is not sufficient to
+make a route READY: every evidence row must be bound to its route/provider,
+expected model family when configured, trusted internal producer class and a
+fresh observation timestamp. This is provenance binding, not cryptographic
+authentication; live callers must still supply evidence produced by a trusted
+internal probe rather than accepting arbitrary external evidence files.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
+import time
 from typing import Any, Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,19 +40,114 @@ def _bool(value: Any) -> bool:
     return value is True
 
 
-def normalize_evidence(value: Mapping[str, Any] | None) -> dict[str, dict[str, bool]]:
-    result: dict[str, dict[str, bool]] = {}
+def _finite_number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) else None
+
+
+def _evidence_contract(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    value = config.get("evidence_contract")
+    return value if isinstance(value, Mapping) else {}
+
+
+def normalize_evidence(
+    value: Mapping[str, Any] | None,
+    *,
+    config: Mapping[str, Any] | None = None,
+    now_epoch_seconds: float | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Normalize and provenance-check route evidence.
+
+    The caller controls the clock only for deterministic tests. In normal use
+    the current wall clock is used. Unknown routes and malformed rows remain in
+    the normalized output but are marked contract-invalid so route selection
+    fails closed.
+    """
+    mesh = dict(config or load_config())
+    routes = mesh.get("routes") if isinstance(mesh.get("routes"), Mapping) else {}
+    contract = _evidence_contract(mesh)
+    contract_version = str(contract.get("schema_version") or "")
+    ttl_seconds = max(1.0, float(contract.get("ttl_seconds") or 1.0))
+    max_future_skew = max(0.0, float(contract.get("max_future_skew_seconds") or 0.0))
+    trusted_sources = {str(item) for item in (contract.get("trusted_sources") or ()) if str(item)}
+    now = _finite_number(now_epoch_seconds)
+    if now is None:
+        now = time.time()
+
+    result: dict[str, dict[str, Any]] = {}
     for route_id, row in (value or {}).items():
+        route_key = str(route_id)
         if not isinstance(row, Mapping):
+            result[route_key] = {
+                "_evidence_contract_ready": False,
+                "_evidence_failures": ["evidence_row_not_mapping"],
+            }
             continue
-        result[str(route_id)] = {str(key): _bool(flag) for key, flag in row.items()}
+
+        route = routes.get(route_key) if isinstance(routes.get(route_key), Mapping) else {}
+        normalized: dict[str, Any] = {
+            str(key): _bool(flag)
+            for key, flag in row.items()
+            if isinstance(flag, bool)
+        }
+        failures: list[str] = []
+
+        schema_ok = bool(contract_version) and str(row.get("evidence_schema_version") or "") == contract_version
+        if not schema_ok:
+            failures.append("evidence_schema_version")
+
+        expected_route = route_key
+        route_binding_ok = bool(route) and str(row.get("route_id") or "") == expected_route
+        if contract.get("require_route_binding") is True and not route_binding_ok:
+            failures.append("route_binding")
+
+        expected_provider = str(route.get("provider") or "")
+        provider_binding_ok = bool(expected_provider) and str(row.get("provider") or "") == expected_provider
+        if contract.get("require_provider_binding") is True and not provider_binding_ok:
+            failures.append("provider_binding")
+
+        expected_model_family = str(route.get("model_family") or "")
+        model_family_binding_ok = not expected_model_family or str(row.get("model_family") or "") == expected_model_family
+        if contract.get("require_model_family_binding_when_configured") is True and not model_family_binding_ok:
+            failures.append("model_family_binding")
+
+        source = str(row.get("source") or "")
+        expected_source = str(route.get("evidence_source") or "")
+        source_ok = bool(source and expected_source) and source == expected_source and source in trusted_sources
+        if contract.get("require_trusted_source") is True and not source_ok:
+            failures.append("trusted_source")
+
+        observed_at = _finite_number(row.get("observed_at_epoch"))
+        age_seconds: float | None = None
+        fresh = False
+        if observed_at is not None and observed_at > 0:
+            age_seconds = now - observed_at
+            fresh = -max_future_skew <= age_seconds <= ttl_seconds
+        if not fresh:
+            failures.append("fresh_observation")
+
+        normalized.update({
+            "_evidence_contract_ready": not failures,
+            "_evidence_failures": failures,
+            "_evidence_schema_version": str(row.get("evidence_schema_version") or ""),
+            "_source": source,
+            "_route_binding_ok": route_binding_ok,
+            "_provider_binding_ok": provider_binding_ok,
+            "_model_family_binding_ok": model_family_binding_ok,
+            "_fresh": fresh,
+            "_observed_at_epoch": observed_at,
+            "_observed_age_seconds": round(age_seconds, 3) if age_seconds is not None else None,
+        })
+        result[route_key] = normalized
     return result
 
 
 def route_readiness(
     config: Mapping[str, Any],
     route_id: str,
-    evidence: Mapping[str, Mapping[str, bool]],
+    evidence: Mapping[str, Mapping[str, Any]],
 ) -> dict[str, Any]:
     routes = config.get("routes") if isinstance(config.get("routes"), Mapping) else {}
     route = routes.get(route_id) if isinstance(routes.get(route_id), Mapping) else None
@@ -52,6 +156,9 @@ def route_readiness(
     requirements = [str(v) for v in route.get("requires", [])]
     observed = evidence.get(route_id, {})
     missing = [name for name in requirements if observed.get(name) is not True]
+    evidence_ready = observed.get("_evidence_contract_ready") is True
+    if not evidence_ready:
+        missing.append("evidence_contract")
     paid = route.get("paid") is True or str(route.get("cost_class") or "").upper().startswith("PAID")
     forbidden_paid_name = route_id.startswith(PAID_ROUTE_PREFIXES)
     return {
@@ -61,6 +168,10 @@ def route_readiness(
         "cost_class": str(route.get("cost_class") or "UNKNOWN"),
         "ready": not missing and not paid and not forbidden_paid_name,
         "missing": missing,
+        "evidence_contract_ready": evidence_ready,
+        "evidence_failures": list(observed.get("_evidence_failures") or ()),
+        "evidence_fresh": observed.get("_fresh") is True,
+        "evidence_age_seconds": observed.get("_observed_age_seconds"),
         "paid": paid or forbidden_paid_name,
     }
 
@@ -74,7 +185,7 @@ def _role_route_order(config: Mapping[str, Any], role: str) -> list[str]:
 def select_first_ready(
     config: Mapping[str, Any],
     route_order: list[str],
-    evidence: Mapping[str, Mapping[str, bool]],
+    evidence: Mapping[str, Mapping[str, Any]],
 ) -> dict[str, Any]:
     attempts = [route_readiness(config, route_id, evidence) for route_id in route_order]
     for attempt in attempts:
@@ -83,23 +194,23 @@ def select_first_ready(
     return {"selected": None, "ready": False, "attempts": attempts}
 
 
-def select_analysis_route(config: Mapping[str, Any], evidence: Mapping[str, Mapping[str, bool]]) -> dict[str, Any]:
+def select_analysis_route(config: Mapping[str, Any], evidence: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     return select_first_ready(config, _role_route_order(config, "GOOGLE_MEDIA_ANALYST"), evidence)
 
 
-def select_quality_review_route(config: Mapping[str, Any], evidence: Mapping[str, Mapping[str, bool]]) -> dict[str, Any]:
+def select_quality_review_route(config: Mapping[str, Any], evidence: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     return select_first_ready(config, _role_route_order(config, "MEDIA_QUALITY_REVIEWER"), evidence)
 
 
-def select_image_route(config: Mapping[str, Any], evidence: Mapping[str, Mapping[str, bool]]) -> dict[str, Any]:
+def select_image_route(config: Mapping[str, Any], evidence: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     return select_first_ready(config, _role_route_order(config, "IMAGE_GENERATION_LEAD"), evidence)
 
 
-def select_video_route(config: Mapping[str, Any], evidence: Mapping[str, Mapping[str, bool]]) -> dict[str, Any]:
+def select_video_route(config: Mapping[str, Any], evidence: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     return select_first_ready(config, _role_route_order(config, "VIDEO_GENERATION_LEAD"), evidence)
 
 
-def select_post_process_route(config: Mapping[str, Any], evidence: Mapping[str, Mapping[str, bool]]) -> dict[str, Any]:
+def select_post_process_route(config: Mapping[str, Any], evidence: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     return select_first_ready(config, _role_route_order(config, "MEDIA_POST_PROCESSOR"), evidence)
 
 
@@ -120,9 +231,10 @@ def build_free_media_plan(
     source_analysis_required: bool = True,
     quality_review_required: bool = True,
     config: Mapping[str, Any] | None = None,
+    now_epoch_seconds: float | None = None,
 ) -> dict[str, Any]:
     mesh = dict(config or load_config())
-    normalized = normalize_evidence(evidence)
+    normalized = normalize_evidence(evidence, config=mesh, now_epoch_seconds=now_epoch_seconds)
     kind = str(asset_type or "").strip().lower()
     if kind not in {"image", "video"}:
         raise ValueError("asset_type must be image or video")
@@ -165,6 +277,7 @@ def build_free_media_plan(
         ),
     ]
     ready = all(task["state"] == "READY" for task in tasks)
+    evidence_contract = _evidence_contract(mesh)
     plan = {
         "schema_version": PLAN_VERSION,
         "asset_type": kind,
@@ -185,6 +298,7 @@ def build_free_media_plan(
         "hard_boundaries": {
             "free_only_default": True,
             "unverified_route_can_execute": False,
+            "stale_or_unbound_evidence_can_execute": False,
             "generic_paid_fallback": False,
             "auto_top_up": False,
             "direct_publish": False,
@@ -196,6 +310,11 @@ def build_free_media_plan(
             "planner_spends_money": False,
             "planner_publishes": False,
             "live_execution_requires_fresh_runtime_evidence": True,
+            "evidence_schema_version": str(evidence_contract.get("schema_version") or ""),
+            "evidence_ttl_seconds": int(evidence_contract.get("ttl_seconds") or 0),
+            "provenance_binding_required": True,
+            "cryptographic_evidence_authentication": bool(evidence_contract.get("cryptographic_authentication_provided") is True),
+            "trusted_internal_producer_required": bool(evidence_contract.get("trusted_internal_producer_required") is True),
         },
     }
     validate_plan(plan)
@@ -208,6 +327,7 @@ def validate_plan(plan: Mapping[str, Any]) -> None:
         raise ValueError("free-only default must remain enabled")
     for key in (
         "unverified_route_can_execute",
+        "stale_or_unbound_evidence_can_execute",
         "generic_paid_fallback",
         "auto_top_up",
         "direct_publish",
@@ -222,8 +342,15 @@ def validate_plan(plan: Mapping[str, Any]) -> None:
             continue
         if str(route_id).startswith(PAID_ROUTE_PREFIXES):
             raise ValueError("paid route selected by free media commander")
-    if plan.get("execution_contract", {}).get("planner_spends_money") is not False:
+    execution = plan.get("execution_contract") if isinstance(plan.get("execution_contract"), Mapping) else {}
+    if execution.get("planner_spends_money") is not False:
         raise ValueError("planner may not spend money")
+    if execution.get("live_execution_requires_fresh_runtime_evidence") is not True:
+        raise ValueError("fresh runtime evidence must be required")
+    if execution.get("provenance_binding_required") is not True:
+        raise ValueError("route evidence provenance binding must be required")
+    if execution.get("trusted_internal_producer_required") is not True:
+        raise ValueError("trusted internal evidence producer must be required")
 
 
 def _load_evidence(path_text: str) -> dict[str, Any]:
