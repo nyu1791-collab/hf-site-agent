@@ -8,6 +8,11 @@ joins the completed item results.
 
 Typical use: create 2-4 news videos, research briefs, code candidates or media
 packages at once without creating a second scheduler implementation.
+
+Anti-fragmentation policy: a strong framework may own several adjacent stages or
+similar batch items. Framework proliferation is bounded and an ordinary batch
+is automatically upgraded to the consolidation-aware adapter selector while
+preserving registered executor hooks.
 """
 
 from __future__ import annotations
@@ -17,6 +22,7 @@ import re
 from typing import Any, Callable, Mapping, Sequence
 
 from scripts.framework_adapter_layer import FrameworkAdapterLayer, make_scheduler_handler
+from scripts.framework_consolidation_policy import ConsolidatingFrameworkAdapterLayer
 from scripts.replaceable_agent_scheduler import AgentTask, AgentTaskResult
 
 
@@ -141,6 +147,19 @@ def build_parallel_batch_tasks(
     return tuple([*roots, join])
 
 
+def _upgrade_to_consolidating_layer(layer: FrameworkAdapterLayer) -> ConsolidatingFrameworkAdapterLayer:
+    """Preserve registered executors while enabling anti-fragmentation selection."""
+    if isinstance(layer, ConsolidatingFrameworkAdapterLayer):
+        return layer
+    upgraded = ConsolidatingFrameworkAdapterLayer(layer.config)
+    executors = getattr(layer, "_executors", {})
+    if isinstance(executors, Mapping):
+        for adapter_id, executor in executors.items():
+            if callable(executor):
+                upgraded.register_executor(str(adapter_id), executor)
+    return upgraded
+
+
 class FrameworkEnabledParallelAIArmy:
     """Compose V4 scheduling, framework adapters and parallel batch compilation."""
 
@@ -155,7 +174,7 @@ class FrameworkEnabledParallelAIArmy:
         if not hasattr(scheduler, "run") or not callable(scheduler.run):
             raise ParallelBatchError("scheduler must expose run(tasks, handler)")
         self.scheduler = scheduler
-        self.framework_layer = framework_layer
+        self.framework_layer = _upgrade_to_consolidating_layer(framework_layer)
         self.native_handler = native_handler
         self.framework_evidence = framework_evidence
 
@@ -171,6 +190,7 @@ class FrameworkEnabledParallelAIArmy:
         return {
             "schema_version": "framework-enabled-ai-army-run-v1",
             "framework_adapter_layer": True,
+            "framework_consolidation_policy": True,
             "native_v4_control_plane": True,
             "result": raw,
         }
@@ -197,6 +217,8 @@ class FrameworkEnabledParallelAIArmy:
             "single_writer_final_join": True,
             "native_v4_control_plane": True,
             "framework_adapter_layer": True,
+            "framework_consolidation_policy": True,
+            "max_frameworks_per_batch": int(_batch_config(self.framework_layer.config).get("max_frameworks_per_batch") or 2),
             "task_ids": [task.task_id for task in tasks],
             "result": raw,
         }
