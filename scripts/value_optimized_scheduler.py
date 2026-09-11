@@ -2,15 +2,17 @@
 """Value-optimized overlay for AI Army V4.
 
 The overlay performs per-task routing among candidates that the existing
-organization already admitted. It records machine-checkable outcome memory and
-emits escalation/council recommendations without granting any new authority.
-Paid DeepSeek use is possible only when the task itself carries an explicit
-specialist authorization and positive budget; there is never generic paid
-fallback or automatic top-up.
+organization already admitted. It records compact outcome telemetry and emits
+bounded escalation/council recommendations without granting new authority.
+Paid DeepSeek use is possible only when the task carries explicit specialist
+authorization and a positive budget; there is never generic paid fallback or
+automatic top-up.
 
 Cross-run outcome evidence may be supplied by the caller as a validated compact
 ledger. It can influence quality/success priors only after a minimum sample
-count and never makes an otherwise ineligible route executable.
+count and never makes an otherwise ineligible route executable. Trusted cost
+meter data is accepted only through a controller-supplied per-task map, never
+from model output.
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ from scripts.value_learning_loop import (
     build_outcome_ledger,
     enrich_candidate_with_history,
     history_for_binding,
+    normalize_cost_evidence,
     validate_outcome_ledger,
 )
 from scripts.value_optimized_routing import (
@@ -50,6 +53,7 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
 
     def __init__(self, organization: Mapping[str, Any], **kwargs: Any) -> None:
         outcome_ledger = kwargs.pop("outcome_ledger", None)
+        cost_meter = kwargs.pop("cost_meter", None)
         super().__init__(organization, **kwargs)
         self.value_config = load_value_config()
         if isinstance(outcome_ledger, Mapping) and outcome_ledger:
@@ -57,6 +61,11 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
             self._prior_outcome_ledger: dict[str, Any] = dict(outcome_ledger)
         else:
             self._prior_outcome_ledger = {}
+        self._cost_meter = {
+            str(task_id): dict(value)
+            for task_id, value in (cost_meter.items() if isinstance(cost_meter, Mapping) else ())
+            if isinstance(value, Mapping)
+        }
         self._value_route_decisions: dict[str, dict[str, Any]] = {}
         self._value_task_bindings: dict[str, dict[str, Any]] = {}
         self._value_outcomes: list[dict[str, Any]] = []
@@ -132,6 +141,19 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
         self._value_task_bindings[task.task_id] = dict(binding)
         return binding
 
+    @staticmethod
+    def _machine_validation_passed(committed: Mapping[str, Any]) -> bool:
+        """Require an explicit machine-owned semantic validator result.
+
+        V4's RCC validation status proves scheduler/dependency contract integrity;
+        it is intentionally not treated as proof that the answer itself is
+        semantically correct. The validator evidence must therefore come from a
+        controller-owned output envelope, not from a model confidence claim.
+        """
+        output = committed.get("output") if isinstance(committed.get("output"), Mapping) else {}
+        evidence = output.get("machine_validation") if isinstance(output.get("machine_validation"), Mapping) else {}
+        return evidence.get("machine_owned") is True and str(evidence.get("status") or "").upper() in {"PASS", "VALIDATED"}
+
     def _commit_result_row(
         self,
         *,
@@ -147,19 +169,25 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
             dependency_snapshot_verified=dependency_snapshot_verified,
         )
         profile = build_task_profile(task, self.value_config)
+        cost_evidence = normalize_cost_evidence(self._cost_meter.get(task.task_id))
         record = outcome_record(
             profile=profile,
             binding=binding,
             result=committed,
-            estimated_cost_usd=float(row.get("estimated_cost_usd") or 0.0),
+            estimated_cost_usd=cost_evidence["cost_usd"],
             latency_ms=float(row.get("elapsed_ms") or 0.0),
         )
-        # Cost evidence, when supplied by the provider/workflow meter, is copied
-        # only into the compact learning ledger later; raw billing payloads are
-        # never persisted here.
-        if isinstance(row.get("cost_evidence"), Mapping):
-            record["cost_evidence"] = dict(row["cost_evidence"])
+        # Never learn a "validated success" from mere completion, confidence,
+        # or the RCC structural PASS. Only explicit controller-owned semantic
+        # validation can promote a model's historical success rate.
+        contract_completed = str(committed.get("status") or "").upper() == "COMPLETED"
+        machine_validated = self._machine_validation_passed(committed)
+        record["contract_completed"] = contract_completed
+        record["validated_success"] = bool(contract_completed and machine_validated)
+        record["validation_status"] = "PASS" if machine_validated else "UNVALIDATED"
+        record["cost_evidence"] = cost_evidence
         self._value_outcomes.append(record)
+
         escalation = escalation_plan(profile, [committed])
         council = council_plan(profile, [
             {
@@ -176,6 +204,7 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
         )
         self._council_specs.extend(council_specs)
         committed["value_task_profile_hash"] = profile["task_profile_hash"]
+        committed["machine_semantic_validation_passed"] = machine_validated
         committed["value_escalation"] = escalation
         committed["value_council"] = {**council, "bounded_task_specs": council_specs}
         committed["automatic_paid_escalation"] = False
@@ -208,7 +237,7 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
             self._value_outcomes,
             prior_ledger=self._prior_outcome_ledger or None,
         )
-        report["schema_version"] = "value-optimized-agent-scheduler-report-v2"
+        report["schema_version"] = "value-optimized-agent-scheduler-report-v3"
         report["scheduler_mode"] = "AI_ARMY_V4_VALUE_OPTIMIZED_TASK_PROFILE_ROUTING"
         report["value_optimization"] = {
             "enabled": True,
@@ -220,6 +249,8 @@ class ValueOptimizedV4Scheduler(V4ReplaceableAgentScheduler):
             "binding_profile_aggregates": aggregates,
             "overall_metrics": overall_metrics,
             "value_score": value_score(score_metrics, self.value_config),
+            "semantic_validation_required_for_learning_success": True,
+            "trusted_cost_meter_is_controller_supplied": True,
             "producer_reviewer_diversity_preferred": True,
             "champion_challenger_enabled": True,
             "council_enabled": True,
