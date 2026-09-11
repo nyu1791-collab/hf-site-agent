@@ -1,0 +1,79 @@
+name: Free media council review
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/free-media-council-trigger.txt
+      - scripts/free_media_council_review.py
+      - config/free_media_capability_pool.json
+      - .github/workflows/free-media-council-review.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: free-media-council-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Compile free council lane
+        run: python -m py_compile scripts/free_media_council_review.py
+
+      - name: Assert exact free-only model ids
+        run: |
+          python - <<'PY'
+          from scripts.free_media_council_review import MODELS
+          assert MODELS
+          assert all(m.endswith(':free') for m in MODELS), MODELS
+          assert len(MODELS) <= 3
+          print(MODELS)
+          PY
+
+      - name: Run bounded free media council
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python scripts/free_media_council_review.py
+          python -m json.tool artifacts/free_media_council_review.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('artifacts/free_media_council_review.json').read_text())
+          assert r['free_only'] is True
+          assert r['generic_paid_fallback'] is False
+          assert r['auto_top_up'] is False
+          assert r['repository_write'] is False
+          assert r['deploy'] is False
+          assert r['publish'] is False
+          assert r['secret_mutation'] is False
+          assert r['review_count'] <= 3
+          assert all(m.endswith(':free') for m in r['requested_models'])
+          PY
+
+      - name: Upload redacted council artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: free-media-council-${{ github.run_id }}
+          path: artifacts/free_media_council_review.json
+          if-no-files-found: ignore
+          retention-days: 7
