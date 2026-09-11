@@ -7,9 +7,11 @@ on:
       - config/free_media_mesh.json
       - scripts/media_agent_runtime.py
       - scripts/media_free_commander.py
+      - scripts/media_command_bridge.py
       - scripts/run_nvidia_media_org_audit.py
       - tests/test_media_agent_runtime.py
       - tests/test_media_free_commander.py
+      - tests/test_media_command_bridge.py
       - tests/test_nvidia_media_org_audit.py
       - docs/MEDIA_AGENT_ARMY.md
       - .github/workflows/verify-media-army.yml
@@ -21,9 +23,11 @@ on:
       - config/free_media_mesh.json
       - scripts/media_agent_runtime.py
       - scripts/media_free_commander.py
+      - scripts/media_command_bridge.py
       - scripts/run_nvidia_media_org_audit.py
       - tests/test_media_agent_runtime.py
       - tests/test_media_free_commander.py
+      - tests/test_media_command_bridge.py
       - tests/test_nvidia_media_org_audit.py
       - docs/MEDIA_AGENT_ARMY.md
       - .github/workflows/verify-media-army.yml
@@ -52,9 +56,11 @@ jobs:
           python -m py_compile
           scripts/media_agent_runtime.py
           scripts/media_free_commander.py
+          scripts/media_command_bridge.py
           scripts/run_nvidia_media_org_audit.py
           tests/test_media_agent_runtime.py
           tests/test_media_free_commander.py
+          tests/test_media_command_bridge.py
           tests/test_nvidia_media_org_audit.py
 
       - name: Validate media configs
@@ -67,6 +73,7 @@ jobs:
           python -m unittest
           tests.test_media_agent_runtime
           tests.test_media_free_commander
+          tests.test_media_command_bridge
           tests.test_nvidia_media_org_audit
           -v
 
@@ -190,4 +197,41 @@ jobs:
               assert plan['hard_boundaries']['auto_top_up'] is False
               assert plan['execution_contract']['planner_spends_money'] is False
               assert plan['execution_contract']['planner_publishes'] is False
+          PY
+
+      - name: Verify integrated free media command bridge
+        run: |
+          set -euo pipefail
+          python -m scripts.media_command_bridge \
+            --platform youtube \
+            --connected-platform youtube \
+            --plugin descript \
+            --plugin fal \
+            --plugin runway \
+            --free-gpu-worker \
+            --generative-media-required \
+            --generation-asset-type video \
+            --free-media-evidence-file artifacts/free_media_evidence.json \
+            --rights-status verified \
+            --metadata-file artifacts/media_metadata_canary.json \
+            --output artifacts/integrated_media_plan.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = json.loads(Path('artifacts/integrated_media_plan.json').read_text(encoding='utf-8'))
+          tasks = {row['task_id']: row for row in p['tasks']}
+          assert p['schema_version'] == 'media-agent-integrated-free-v1'
+          assert p['selected_routes']['media_analysis'] == 'GOOGLE_GEMINI_FREE_MULTIMODAL'
+          assert p['selected_routes']['generation'] == 'NVIDIA_COSMOS_FREE'
+          assert p['selected_routes']['media_quality_review'] == 'GOOGLE_GEMINI_FREE_MULTIMODAL'
+          assert 'media_analysis' in tasks['strategy']['depends_on']
+          assert 'generate_assets' in tasks['edit']['depends_on']
+          assert 'media_quality_review' in tasks['rights']['depends_on']
+          assert tasks['publish_youtube']['state'] == 'APPROVAL_REQUIRED'
+          assert p['hard_boundaries']['free_media_mesh_before_paid_generation'] is True
+          assert p['hard_boundaries']['automatic_paid_generation_fallback'] is False
+          assert p['connector_state']['creative_generation']['fal'] is False
+          assert p['connector_state']['creative_generation']['runway'] is False
+          assert p['direct_publish_executed'] is False
+          assert p['production_active'] is False
           PY
