@@ -19,7 +19,11 @@
     "allow_role_reuse_with_load_penalty": true,
     "parallel_by_default_when_no_dependency_or_write_conflict": true,
     "machine_validation_before_human_review": true,
-    "commander_review_only_when_risk_or_uncertainty_justifies_it": true
+    "commander_review_only_when_risk_or_uncertainty_justifies_it": true,
+    "direct_dependency_results_bypass_unnecessary_hierarchy_hops": true,
+    "failure_signals_are_broadcast_before_next_dispatch": true,
+    "context_handoffs_are_delta_scoped_not_full_fanout": true,
+    "critical_path_work_wins_resource_contention": true
   },
   "hard_boundaries": {
     "secret_values_must_not_be_exposed": true,
@@ -59,6 +63,17 @@
       "deepseek": 1
     },
     "per_exact_model_parallel_limit_default": 1
+  },
+  "communication": {
+    "scheduler_generation": "LOW_LATENCY_V2",
+    "direct_dependency_push": true,
+    "immediate_failure_broadcast": true,
+    "priority_ready_queue": true,
+    "delta_only_context": true,
+    "bypass_commander_for_operational_failure_signal": true,
+    "max_retained_events": 512,
+    "max_event_payload_chars": 2400,
+    "max_handoff_chars": 7000
   },
   "risk_policy": {
     "LOW": {
