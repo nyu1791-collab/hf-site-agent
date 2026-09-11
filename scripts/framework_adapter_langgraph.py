@@ -6,6 +6,7 @@ import time
 from typing import Any, Mapping, Sequence
 
 from scripts.framework_adapter_base import BoundaryViolation, FrameworkAdapter, build_report_envelope, framework_metadata, verify_free_route
+from scripts.langgraph_checkpoint_backend import backend_status
 
 
 class LangGraphFrameworkAdapter(FrameworkAdapter):
@@ -18,12 +19,16 @@ class LangGraphFrameworkAdapter(FrameworkAdapter):
         fw = framework_metadata(command)
         if str(fw.get("delegation_scope") or "mission").lower() == "control_plane":
             raise BoundaryViolation("LangGraph may own only a mission/subgraph, never the AI Army control plane")
+        checkpoint = backend_status(backend=str(fw.get("checkpoint_backend") or "sqlite"))
         prepared = super().prepare(command, route_evidence=route_evidence)
         prepared["metadata"]["framework"].update({
             "delegation_scope": str(fw.get("delegation_scope") or "mission"),
             "checkpoint_enabled": True,
+            "checkpoint_backend": checkpoint,
+            "checkpoint_contract": "langgraph-checkpoint-backend-v1",
             "resume_enabled": True,
             "human_approval_boundary_preserved": True,
+            "control_plane_authoritative": True,
         })
         return prepared
 
@@ -31,6 +36,9 @@ class LangGraphFrameworkAdapter(FrameworkAdapter):
         route = verify_free_route(route_evidence)
         prepared = self.prepare(command, route_evidence=route)
         command_id = str(command.get("command_id") or "")
+        checkpoint_backend = prepared["metadata"]["framework"]["checkpoint_backend"]
+        # This small controller-owned phase checkpoint is only a bounded safety
+        # marker. Actual LangGraph state persistence uses langgraph_checkpoint_backend.
         self.checkpoint(command_id, {"phase": "prepared", "command": prepared})
         started = time.monotonic()
         try:
@@ -41,14 +49,18 @@ class LangGraphFrameworkAdapter(FrameworkAdapter):
             status = str(raw.get("status") or "completed")
             summary = str(raw.get("summary") or "LangGraph subgraph completed")
             result = raw.get("result") if isinstance(raw.get("result"), Mapping) else dict(raw)
-            if status in {"completed", "completed_with_warnings"}:
+            if status.lower() in {"completed", "completed_with_warnings"}:
                 self.checkpoint(command_id, {"phase": "completed", "result": result})
             errors = raw.get("errors") if isinstance(raw.get("errors"), (list, tuple)) else ()
         except Exception as exc:
             checkpoint = self.resume(command_id)
             status = "failed"
-            summary = "LangGraph execution failed; checkpoint preserved for bounded recovery"
-            result = {"checkpoint_available": checkpoint is not None, "failure_class": type(exc).__name__}
+            summary = "LangGraph execution failed; bounded recovery evidence preserved"
+            result = {
+                "adapter_phase_checkpoint_available": checkpoint is not None,
+                "langgraph_checkpoint_backend": checkpoint_backend,
+                "failure_class": type(exc).__name__,
+            }
             errors = (type(exc).__name__,)
         report = build_report_envelope(
             command,
@@ -61,6 +73,10 @@ class LangGraphFrameworkAdapter(FrameworkAdapter):
             duration_ms=int((time.monotonic() - started) * 1000),
             requests_used=1,
             framework_id=self.adapter_id,
-            framework_values={"checkpoint_available": self.resume(command_id) is not None, "bounded_recovery": True},
+            framework_values={
+                "adapter_phase_checkpoint_available": self.resume(command_id) is not None,
+                "checkpoint_backend": checkpoint_backend,
+                "bounded_recovery": True,
+            },
         )
         return report
