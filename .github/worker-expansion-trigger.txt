@@ -1,2 +1,2 @@
-trigger=multi-agent-efficiency-v20-independent-role-agents-commander-self-heal
-purpose=verify-stable-independent-role-agents-local-delegation-local-revision-direct-peer-handoff-eight-lane-recovery-and-bounded-exact-path-nvidia-self-heal
+trigger=multi-agent-efficiency-v21-capacity-aware-proven-agent-reuse
+purpose=verify-proven-specialist-agents-can-own-two-serialized-lanes-reduce-primary-failures-redispatch-calls-idle-time-and-preserve-independent-agent-and-commander-self-heal-contracts
