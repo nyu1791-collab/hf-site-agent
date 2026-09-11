@@ -1,41 +1,45 @@
 {
   "schema_version": "deepseek-targeted-review-v1",
-  "focus_id": "MEDIA_CORPS_FREE_MESH_BYPASS_AND_EVIDENCE_REVIEW",
+  "focus_id": "AI_ARMY_MULTI_MODEL_COUNCIL_ORGANIZATION_UPGRADE",
   "paid_execution_approved": true,
   "max_calls": 1,
   "max_parallel_calls": 1,
   "max_estimated_cost_usd": 0.04,
   "task": {
-    "task_id": "media-free-mesh-final",
+    "task_id": "ai-army-organization-council",
     "role": "INTEGRATION_REVIEW",
-    "objective": "TARGETED MEDIA CORPS VERIFICATION. Inspect the free media commander and integration bridge together with the route config and tests. Determine whether any installed/approved Fal, Runway, or paid Google generation route can become the selected generation path when the free mesh is unavailable; whether paid_media_approved can leak into generation through the legacy mission; whether Google analysis can accidentally become generation; and whether publication can bypass rights/metadata/connection/human approval. Separately audit free_media_evidence trust: identify whether plain booleans without source, observed_at/freshness, route/model binding, or evidence provenance can make a stale/spoofed route READY. Distinguish repository-controlled config misconfiguration from runtime evidence bypass. Return only confirmed findings, false positives, smallest safe patch, and deterministic tests. Do not recommend paid fallback or production activation."
+    "objective": "MULTI-MODEL ORGANIZATION COUNCIL. Inspect the current role organization, V4 scheduler, global role optimizer, independent role-agent memory and organization feedback loop. Propose the highest-value next improvements for a hierarchical AI Army where ChatGPT/GPT-5.6 is Top Commander, DeepSeek V4.1 Flash is a bounded paid architecture/debug/review specialist, Google gemini-3.8-flash is only a candidate research/long-context/multimodal strategist until live route eligibility is proven, Qwen/Groq-class workers are intended for coding/fast execution, NVIDIA-class workers for independent review/reasoning, and deterministic Python/tests remain the final machine gate. Separate CONFIRMED CURRENT GAPS from OPTIONAL ARCHITECTURE IDEAS. Prioritize improvements that increase quality, speed, reliability and cost efficiency without relaxing repository-write, merge, deploy, publish, secret, payment, no-auto-top-up or no-generic-paid-fallback boundaries. Specifically audit: role overlap and missing roles; whether scheduler generation/config matches the V4 runtime; whether model selection should become task-profile-aware instead of slot-only; whether confidence/evidence should drive escalation to stronger models; whether independent role memory needs versioned lessons/outcome memory; whether QA should use adversarial model diversity; whether feedback needs multi-window hysteresis and budget-aware routing; and whether an explicit council/disagreement protocol would improve difficult decisions. Return compact JSON sections: confirmed_gaps, proposed_org_changes, routing_policy, escalation_policy, memory_learning, disagreement_protocol, metrics, implementation_order, rejected_or_low_value_ideas. Do not claim Google or any other provider was live-invoked unless the supplied code proves it."
   },
   "context_markers": {
-    "scripts/media_free_commander.py": [
-      "def normalize_evidence",
-      "def route_readiness",
-      "def build_free_media_plan",
-      "def validate_plan"
+    "config/replaceable_agent_organization.json": [
+      "\"scheduler_generation\": \"INDEPENDENT_AGENT_V3\"",
+      "\"explicit_paid_specialist_allowlist\"",
+      "\"ENGINEERING_AGENT\"",
+      "\"QA_VALIDATOR\""
     ],
-    "scripts/media_command_bridge.py": [
-      "def build_integrated_media_mission",
-      "paid_media_approved=paid_media_approved",
-      "generative_media_required=False",
-      "plan[\"selected_routes\"][\"generation\"]"
+    "scripts/replaceable_agent_scheduler_v4.py": [
+      "class V4ReplaceableAgentScheduler",
+      "def _join_compatible",
+      "def _commit_result_row",
+      "def _dynamic_priority"
     ],
-    "config/free_media_mesh.json": [
-      "\"free_status_verification_required\": true",
-      "\"CLOUDFLARE_FLUX_FREE\"",
-      "\"NVIDIA_COSMOS_FREE\"",
-      "\"paid_reserve\""
+    "scripts/global_agent_role_optimizer.py": [
+      "def globally_select_challengers",
+      "MINIMUM_REQUIRED_CAPABILITY_COVERAGE",
+      "MODEL_REUSE_PENALTY",
+      "QA_SAME_AS_CODE_PENALTY"
     ],
-    "tests/test_media_free_commander.py": [
-      "test_unverified_free_route_never_executes",
-      "test_complete_image_plan_uses_free_routes_only"
+    "scripts/independent_agent_runtime.py": [
+      "class IndependentAgentRegistry",
+      "def execution_context",
+      "def finish_task",
+      "working_memory"
     ],
-    "tests/test_media_command_bridge.py": [
-      "test_paid_plugins_never_become_generation_fallback_when_free_mesh_is_unavailable",
-      "test_publish_still_requires_rights_metadata_connection_and_human_approval"
+    "scripts/organization_feedback.py": [
+      "def _recommended_parallel_limit",
+      "def build_feedback",
+      "recommended_parallel_worker_limit",
+      "google_calls"
     ]
   },
   "safety_boundary": {
