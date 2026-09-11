@@ -115,7 +115,9 @@ def required_capability_coverage(candidate: Mapping[str, Any], slot: Mapping[str
 
     Explicit capability/role tags count as evidence. Numeric role scores count
     only when they meet a real evidence floor; merely having a low-scoring key
-    in a benchmark map does not advertise that capability.
+    in a benchmark map does not advertise that capability. A single evidence
+    token may satisfy only one required capability, so overlapping aliases such
+    as JSON cannot simultaneously prove both JSON ability and FAST ability.
     """
     required = [
         str(item).strip().lower()
@@ -132,17 +134,34 @@ def required_capability_coverage(candidate: Mapping[str, Any], slot: Mapping[str
             declared.update(str(item).strip().upper() for item in raw if str(item).strip())
     role_scores = candidate.get("role_scores") if isinstance(candidate.get("role_scores"), Mapping) else {}
 
-    hits = 0
+    evidence_by_capability: list[set[str]] = []
     for capability in required:
-        aliases = ROLE_ALIASES.get(capability, (capability.upper(),))
-        explicit_hit = capability.upper() in declared or any(alias in declared for alias in aliases)
-        numeric_hit = any(
-            _score_value(role_scores.get(alias)) >= CAPABILITY_SCORE_EVIDENCE_FLOOR
+        aliases = tuple(dict.fromkeys((capability.upper(),) + ROLE_ALIASES.get(capability, (capability.upper(),))))
+        evidence = {
+            alias
             for alias in aliases
-            if alias in role_scores
-        )
-        if explicit_hit or numeric_hit:
-            hits += 1
+            if alias in declared
+            or (
+                alias in role_scores
+                and _score_value(role_scores.get(alias)) >= CAPABILITY_SCORE_EVIDENCE_FLOOR
+            )
+        }
+        evidence_by_capability.append(evidence)
+
+    matched_evidence: dict[str, int] = {}
+
+    def assign(capability_index: int, seen: set[str]) -> bool:
+        for evidence in sorted(evidence_by_capability[capability_index]):
+            if evidence in seen:
+                continue
+            seen.add(evidence)
+            previous = matched_evidence.get(evidence)
+            if previous is None or assign(previous, seen):
+                matched_evidence[evidence] = capability_index
+                return True
+        return False
+
+    hits = sum(assign(index, set()) for index in range(len(required)))
     return hits / len(required)
 
 
