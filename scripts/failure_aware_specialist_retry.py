@@ -7,13 +7,10 @@ reasoning-bounded compact retry. Work stealing also consults recent lane-level
 execution history so repeatedly poor donors are less likely to receive the same
 kind of failed task.
 
-Generation v5 additionally propagates transient exact-worker failures inside the
-council immediately. Assignments sharing an exact model are serialized, a
-RATE_LIMIT/5xx/network/empty-response signal quarantines that exact binding for
-this run, and later work avoids a known-bad dispatch without waiting for a
-commander/synthesis round trip. Distinct models remain parallel. This is
-orchestrator-side reselection only: provider fallback and paid fallback remain
-disabled.
+Generation v6 normalizes provider-specific length-stop shapes before retry
+selection so truncated responses reliably receive a strictly larger visible
+output budget. It retains v5 transient exact-worker failure propagation,
+per-model serialization, and bounded work stealing without paid fallback.
 """
 
 from __future__ import annotations
@@ -49,14 +46,17 @@ MAX_REDISPATCH_CONTEXT_FILES = 2
 REDISPATCH_SELECTION_POLICY = "SAME_RUN_SUCCESS_PLUS_LANE_ORGANIZATION_MEMORY"
 FAILURE_SIGNAL_CATEGORIES = frozenset({"RATE_LIMIT", "NETWORK", "PROVIDER_5XX", "EMPTY_RESPONSE"})
 PERMANENT_EXACT_ROUTE_FAILURES = frozenset({"MODEL_MISMATCH"})
+_LENGTH_STOP_REASONS = frozenset({"length", "max_tokens", "max_output_tokens", "token_limit"})
 
 
 def is_length_exhaustion(row: Mapping[str, Any]) -> bool:
-    return (
-        row.get("status") != "COUNCIL_OK"
-        and str(row.get("error") or "").strip().lower() == "empty_visible_content"
-        and str(row.get("finish_reason") or "").strip().lower() == "length"
-    )
+    error = str(row.get("error") or "").strip().lower()
+    finish_reason = str(row.get("finish_reason") or row.get("stop_reason") or "").strip().lower()
+    empty_visible = "empty_visible_content" in error
+    length_stopped = finish_reason in _LENGTH_STOP_REASONS
+    if not (empty_visible and length_stopped):
+        return False
+    return row.get("status") != "COUNCIL_OK" or empty_visible
 
 
 def length_exhaustion_count(rows: Sequence[Mapping[str, Any]]) -> int:
@@ -65,7 +65,7 @@ def length_exhaustion_count(rows: Sequence[Mapping[str, Any]]) -> int:
 
 def redispatch_output_token_budget(primary_results: Sequence[Mapping[str, Any]]) -> int:
     if length_exhaustion_count(primary_results) > 0:
-        return max(PRIMARY_OUTPUT_TOKENS, LENGTH_EXHAUSTION_REDISPATCH_TOKENS)
+        return max(PRIMARY_OUTPUT_TOKENS + 1, LENGTH_EXHAUSTION_REDISPATCH_TOKENS)
     return PRIMARY_OUTPUT_TOKENS
 
 
@@ -353,7 +353,7 @@ def run_failure_aware_council(*, api_key: str, probe: Mapping[str, Any], benchma
         council_core.COUNCIL_REASONING = dict(PRIMARY_REASONING)
 
     actual_provider_calls = int(communication.get("provider_dispatches", 0))
-    report["schema_version"] = "failure-aware-specialist-council-v5"
+    report["schema_version"] = "failure-aware-specialist-council-v6"
     report["primary_output_token_budget"] = PRIMARY_OUTPUT_TOKENS
     report["redispatch_output_token_budget"] = int(state["redispatch_output_token_budget"])
     report["length_exhaustion_count"] = int(state["length_exhaustion_count"])
@@ -363,7 +363,7 @@ def run_failure_aware_council(*, api_key: str, probe: Mapping[str, Any], benchma
         "max_chars_per_file": MAX_REDISPATCH_CONTEXT_CHARS_PER_FILE,
         "max_visible_answer_tokens_requested": 120,
     }
-    report["output_budget_policy"] = "ESCALATE_AND_CAP_REASONING_ONLY_AFTER_VISIBLE_LENGTH_EXHAUSTION"
+    report["output_budget_policy"] = "NORMALIZE_LENGTH_SIGNAL_THEN_ESCALATE_VISIBLE_OUTPUT_BUDGET"
     report["lane_assignment_policy"] = ASSIGNMENT_POLICY
     report["redispatch_selection_policy"] = REDISPATCH_SELECTION_POLICY
     report["organization_memory_loaded"] = bool(memory)
@@ -414,7 +414,7 @@ def main() -> int:
         )
     except Exception:
         report = {
-            "schema_version": "failure-aware-specialist-council-v5",
+            "schema_version": "failure-aware-specialist-council-v6",
             "status": "COUNCIL_RUNNER_BLOCKED",
             "model_calls": 0,
             "provider_model_calls": 0,
