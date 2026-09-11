@@ -2,6 +2,7 @@
   "schema_version": "value-optimized-ai-army-v1",
   "objective": {
     "primary": "maximize_validated_user_value",
+    "north_star": "validated_user_task_success_with_low_correction_and_rework",
     "secondary": [
       "maximize_quality_and_reliability",
       "minimize_rework_and_defect_escape",
@@ -22,6 +23,15 @@
     "reusability_weight": 0.02,
     "minimum_validated_success_for_promotion": 0.85,
     "minimum_quality_for_promotion": 0.80
+  },
+  "validation_learning": {
+    "completed_is_not_validated_success": true,
+    "model_confidence_is_not_validation": true,
+    "rcc_structural_pass_is_not_semantic_validation": true,
+    "validated_success_requires_machine_owned_semantic_validation": true,
+    "unknown_validation_counts_as_success": false,
+    "cost_claim_from_model_is_trusted": false,
+    "trusted_cost_sources": ["provider_meter", "billing_export", "workflow_meter"]
   },
   "task_profile": {
     "dimensions": [
@@ -80,6 +90,7 @@
     "producer_reviewer_must_differ_when_possible": true,
     "prefer_different_provider_for_review": true,
     "prefer_different_model_family_for_review": true,
+    "task_profile_cannot_bypass_role_capability_floor": true,
     "never_trade_validation_for_lower_cost": true
   },
   "escalation": {
@@ -95,16 +106,20 @@
   "council": {
     "enabled": true,
     "minimum_independent_views": 2,
+    "maximum_automatic_free_views": 2,
     "preferred_views": ["GPT_5_6_SOL", "DEEPSEEK_V4_1_FLASH", "GEMINI_3_8_FLASH", "INDEPENDENT_REVIEWER"],
     "decision_rule": "evidence_weighted_not_majority_vote",
     "required_fields": ["conclusion", "evidence", "confidence", "counterargument", "validation_status"],
     "deterministic_evidence_breaks_ties": true,
-    "commander_arbitrates_unresolved_disagreement": true
+    "commander_arbitrates_unresolved_disagreement": true,
+    "automatic_paid_council_member": false
   },
   "outcome_memory": {
     "enabled": true,
     "contract_version": "value-outcome-memory-v1",
+    "ledger_version": "value-outcome-ledger-v1",
     "max_records_per_binding_profile": 24,
+    "minimum_history_samples_before_routing_influence": 3,
     "record": [
       "provider",
       "model",
@@ -114,10 +129,12 @@
       "rework_count",
       "latency_ms",
       "estimated_cost_usd",
+      "metered_cost_usd",
       "validation_status",
       "error_class"
     ],
     "cross_run_import_export_allowed": true,
+    "hash_bound_records": true,
     "secrets_or_raw_private_content_forbidden": true
   },
   "champion_challenger": {
@@ -126,6 +143,7 @@
     "minimum_quality_margin": 0.03,
     "maximum_cost_ratio_without_quality_gain": 1.10,
     "shadow_only_until_verified": true,
+    "shadow_write_side_effects_allowed": false,
     "automatic_production_promotion": false
   },
   "cost_governor": {
@@ -138,7 +156,30 @@
     "paid_specialist_requires_explicit_mission_authorization": true,
     "default_paid_specialist_budget_usd": 0.00,
     "hard_stop_before_budget_exceeded": true,
+    "model_reported_cost_is_untrusted": true,
     "cost_never_overrides_hard_boundary_or_validation": true
+  },
+  "opportunity_portfolio": {
+    "enabled": true,
+    "planner": "scripts/value_opportunity_planner.py",
+    "objective": "maximize_durable_validated_user_value",
+    "ranking_factors": [
+      "user_pain",
+      "evidence_strength",
+      "expected_quality_gain",
+      "expected_reliability_gain",
+      "expected_repeat_value_gain",
+      "strategic_reuse",
+      "confidence",
+      "reversibility",
+      "effort",
+      "risk"
+    ],
+    "raw_engagement_is_north_star": false,
+    "monetization_fit_weight_is_secondary": true,
+    "every_experiment_requires_success_and_kill_metrics": true,
+    "discovery_portfolio_cap_fraction": 0.20,
+    "automatic_production_change": false
   },
   "product_value_loop": {
     "enabled": true,
@@ -156,6 +197,8 @@
     ],
     "experiment_policy": "small_reversible_measured_experiments_first",
     "negative_signal_priority": ["safety_failure", "defect_escape", "user_correction", "rework", "latency", "cost"],
+    "rollback_on_material_defect_increase": true,
+    "rollback_on_safety_regression": true,
     "no_dark_patterns": true,
     "no_engagement_farming": true
   },
