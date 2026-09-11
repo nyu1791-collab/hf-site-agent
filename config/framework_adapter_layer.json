@@ -1,12 +1,13 @@
 {
   "schema_version": "framework-adapter-layer-v1",
-  "mission": "Keep the native AI Army V4 scheduler as the authority-preserving control plane while allowing replaceable execution frameworks to be plugged in behind one common task/result contract.",
+  "mission": "Keep the native AI Army V4 scheduler as the authority-preserving control plane while allowing replaceable execution frameworks to be plugged in behind one common task/result contract. Prefer strong consolidated ownership over unnecessary agent fragmentation.",
   "control_plane": {
     "native_scheduler": "AI_ARMY_V4_VALUE_OPTIMIZED",
     "native_routing_remains_authoritative": true,
     "frameworks_are_execution_engines_not_commanders": true,
     "frameworks_cannot_expand_authority": true,
-    "single_writer_final_integration": true
+    "single_writer_final_integration": true,
+    "strong_generalist_or_framework_may_own_multiple_adjacent_stages": true
   },
   "policy": {
     "free_only_default": true,
@@ -21,7 +22,23 @@
     "unverified_model_route_can_execute": false,
     "prefer_native_when_no_framework_preference": true,
     "external_auto_selection_max_risk": "MEDIUM",
-    "framework_result_must_normalize_to_agent_contract": true
+    "framework_result_must_normalize_to_agent_contract": true,
+    "prefer_consolidated_ownership": true,
+    "avoid_micro_agent_fragmentation": true,
+    "max_primary_frameworks_per_mission": 2,
+    "max_external_framework_hops_per_task": 1,
+    "max_handoffs_before_consolidation_review": 3,
+    "reuse_ready_primary_framework_bonus": 0.14,
+    "new_framework_handoff_penalty": 0.10,
+    "split_only_for": [
+      "CAPABILITY_GAP",
+      "INDEPENDENT_REVIEW",
+      "CLEAR_PARALLEL_SPEEDUP",
+      "FAULT_ISOLATION",
+      "HARD_BOUNDARY"
+    ],
+    "independent_final_review_preferred": true,
+    "independent_review_must_not_force_full_pipeline_fragmentation": true
   },
   "parallel_batch": {
     "enabled": true,
@@ -32,7 +49,8 @@
     "final_join_slot": "RESULT_SYNTHESIZER",
     "final_join_requires_all_items": true,
     "single_writer_final_join": true,
-    "max_frameworks_per_batch": 4
+    "max_frameworks_per_batch": 2,
+    "prefer_same_primary_framework_for_similar_items": true
   },
   "adapters": {
     "NATIVE_V4": {
@@ -53,7 +71,8 @@
       "requires": ["runtime_present"],
       "model_route_free_verification_required": false,
       "can_auto_select": true,
-      "max_parallel": 6
+      "max_parallel": 6,
+      "multi_stage_ownership_preferred": true
     },
     "LANGGRAPH": {
       "kind": "python_framework",
@@ -74,7 +93,9 @@
       "requires": ["framework_installed", "runtime_present", "model_route_free_verified"],
       "model_route_free_verification_required": true,
       "can_auto_select": true,
-      "max_parallel": 3
+      "max_parallel": 3,
+      "multi_stage_ownership_preferred": true,
+      "best_for": ["STATEFUL_PIPELINE", "LONG_RUNNING_WORKFLOW", "COMPLEX_DAG", "RECOVERY_WORKFLOW"]
     },
     "AUTOGEN": {
       "kind": "python_framework",
@@ -93,7 +114,9 @@
       "requires": ["framework_installed", "runtime_present", "model_route_free_verified"],
       "model_route_free_verification_required": true,
       "can_auto_select": true,
-      "max_parallel": 3
+      "max_parallel": 3,
+      "multi_stage_ownership_preferred": true,
+      "best_for": ["MULTI_AGENT_COUNCIL", "ADVERSARIAL_REVIEW", "ARCHITECTURE_REVIEW", "DEBUGGING_COUNCIL"]
     },
     "CREWAI": {
       "kind": "python_framework",
@@ -112,7 +135,9 @@
       "requires": ["framework_installed", "runtime_present", "model_route_free_verified"],
       "model_route_free_verification_required": true,
       "can_auto_select": true,
-      "max_parallel": 3
+      "max_parallel": 3,
+      "multi_stage_ownership_preferred": true,
+      "best_for": ["RESEARCH", "NEWSROOM", "CONTENT_PIPELINE", "MEDIA_PREPRODUCTION"]
     },
     "GITHUB_COPILOT": {
       "kind": "connector",
@@ -133,7 +158,9 @@
       ],
       "model_route_free_verification_required": true,
       "can_auto_select": false,
-      "max_parallel": 1
+      "max_parallel": 1,
+      "multi_stage_ownership_preferred": true,
+      "best_for": ["CODING", "TEST_REPAIR", "REPOSITORY_ANALYSIS", "REFACTOR_PROPOSAL"]
     }
   },
   "result_contract": {
