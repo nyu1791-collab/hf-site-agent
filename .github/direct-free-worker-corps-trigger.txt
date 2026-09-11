@@ -1,5 +1,5 @@
-trigger=direct-free-worker-corps-v4
-purpose=reconcile-live-siliconflow-catalog-and-confirm-zai-direct-free-routing
+trigger=direct-free-worker-corps-v5
+purpose=live-benchmark-and-reconcile-zai-siliconflow-into-replaceable-agent-slots
 network=true
 max_model_calls=15
 provider_fallback=false
