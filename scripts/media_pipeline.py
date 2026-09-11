@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -28,6 +29,59 @@ PIPELINE = (
     "INDEPENDENT_MULTIMODAL_QA",
     "HUMAN_PUBLISH_APPROVAL",
 )
+MAX_TIMELINE_ROWS = 500
+
+
+class MediaPipelineError(ValueError):
+    pass
+
+
+def _seconds(value: Any, *, name: str) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise MediaPipelineError(f"invalid {name}") from exc
+    if not math.isfinite(number) or number < 0 or number > 7200:
+        raise MediaPipelineError(f"invalid {name}")
+    return number
+
+
+def _validate_timed_rows(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    kind: str,
+    require_text: bool = False,
+    require_asset: bool = False,
+) -> list[dict[str, Any]]:
+    if len(rows) > MAX_TIMELINE_ROWS:
+        raise MediaPipelineError(f"too many {kind} rows")
+    normalized: list[dict[str, Any]] = []
+    previous_end = 0.0
+    for index, raw in enumerate(rows, 1):
+        if not isinstance(raw, Mapping):
+            raise MediaPipelineError(f"invalid {kind} row")
+        start = _seconds(raw.get("start_sec", 0), name=f"{kind}.start_sec")
+        end = _seconds(raw.get("end_sec", start), name=f"{kind}.end_sec")
+        if end <= start:
+            raise MediaPipelineError(f"{kind} end must be after start")
+        if start < previous_end:
+            raise MediaPipelineError(f"{kind} rows must be ordered and non-overlapping")
+        text = str(raw.get("text") or "").strip()
+        if require_text and not text:
+            raise MediaPipelineError(f"{kind} text is required")
+        asset_id = str(raw.get("asset_id") or "").strip()
+        if require_asset and not asset_id:
+            raise MediaPipelineError(f"{kind} asset_id is required")
+        row = dict(raw)
+        row["start_sec"] = start
+        row["end_sec"] = end
+        if require_text:
+            row["text"] = text[:4000]
+        if require_asset:
+            row["asset_id"] = asset_id[:180]
+        normalized.append(row)
+        previous_end = end
+    return normalized
 
 
 def _srt_time(seconds: float) -> str:
@@ -65,6 +119,15 @@ def export_voice_handoff(
     subtitles: Sequence[Mapping[str, Any]],
     scenes: Sequence[Mapping[str, Any]],
 ) -> dict[str, str]:
+    script = str(voice_script or "").strip()
+    if not script:
+        raise MediaPipelineError("voice_script is required")
+    if len(script) > 100_000:
+        raise MediaPipelineError("voice_script exceeds bounded size")
+    cue_rows = _validate_timed_rows(cues, kind="cue", require_text=True)
+    subtitle_rows = _validate_timed_rows(subtitles, kind="subtitle", require_text=True)
+    scene_rows = _validate_timed_rows(scenes, kind="scene", require_asset=True)
+
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     voice_path = out / "voice_script.txt"
@@ -72,26 +135,24 @@ def export_voice_handoff(
     subtitle_path = out / "subtitle.srt"
     timeline_path = out / "scene_timeline.json"
 
-    voice_path.write_text(str(voice_script).strip() + "\n", encoding="utf-8")
+    voice_path.write_text(script + "\n", encoding="utf-8")
     with cue_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=["cue_id", "start_sec", "end_sec", "text", "delivery"])
         writer.writeheader()
-        for index, cue in enumerate(cues, 1):
+        for index, cue in enumerate(cue_rows, 1):
             writer.writerow({
-                "cue_id": str(cue.get("cue_id") or index),
-                "start_sec": float(cue.get("start_sec") or 0),
-                "end_sec": float(cue.get("end_sec") or 0),
-                "text": str(cue.get("text") or ""),
-                "delivery": str(cue.get("delivery") or "neutral"),
+                "cue_id": str(cue.get("cue_id") or index)[:180],
+                "start_sec": cue["start_sec"],
+                "end_sec": cue["end_sec"],
+                "text": cue["text"],
+                "delivery": str(cue.get("delivery") or "neutral")[:80],
             })
 
     blocks: list[str] = []
-    for index, subtitle in enumerate(subtitles, 1):
-        start = float(subtitle.get("start_sec") or 0)
-        end = float(subtitle.get("end_sec") or start)
-        if end < start:
-            raise ValueError("subtitle end precedes start")
-        blocks.append(f"{index}\n{_srt_time(start)} --> {_srt_time(end)}\n{str(subtitle.get('text') or '').strip()}\n")
+    for index, subtitle in enumerate(subtitle_rows, 1):
+        blocks.append(
+            f"{index}\n{_srt_time(subtitle['start_sec'])} --> {_srt_time(subtitle['end_sec'])}\n{subtitle['text']}\n"
+        )
     subtitle_path.write_text("\n".join(blocks), encoding="utf-8")
 
     timeline_path.write_text(json.dumps({
@@ -99,7 +160,7 @@ def export_voice_handoff(
         "generated_images_used": False,
         "generated_video_used": False,
         "publish_authority": False,
-        "scenes": list(scenes),
+        "scenes": scene_rows,
     }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return {
         "voice_script": str(voice_path),
@@ -138,4 +199,11 @@ def build_media_gate(
     }
 
 
-__all__ = ["PIPELINE", "build_media_gate", "export_voice_handoff", "reviewer_diverse", "validate_stage_order"]
+__all__ = [
+    "MediaPipelineError",
+    "PIPELINE",
+    "build_media_gate",
+    "export_voice_handoff",
+    "reviewer_diverse",
+    "validate_stage_order",
+]
