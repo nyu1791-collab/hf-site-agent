@@ -37,10 +37,13 @@ class LangGraphFrameworkAdapter(FrameworkAdapter):
         prepared = self.prepare(command, route_evidence=route)
         command_id = str(command.get("command_id") or "")
         checkpoint_backend = prepared["metadata"]["framework"]["checkpoint_backend"]
-        # This small controller-owned phase checkpoint is only a bounded safety
-        # marker. Actual LangGraph state persistence uses langgraph_checkpoint_backend.
+        # Controller-owned marker only. The canonical LangGraph state lives in
+        # scripts/langgraph_checkpoint_backend.py via the trusted runtime runner.
         self.checkpoint(command_id, {"phase": "prepared", "command": prepared})
         started = time.monotonic()
+        persistent_checkpoint = False
+        persistent_backend = ""
+        cross_runner_durable = False
         try:
             if not callable(self.runner):
                 raise RuntimeError("LangGraph runner unavailable")
@@ -49,15 +52,28 @@ class LangGraphFrameworkAdapter(FrameworkAdapter):
             status = str(raw.get("status") or "completed")
             summary = str(raw.get("summary") or "LangGraph subgraph completed")
             result = raw.get("result") if isinstance(raw.get("result"), Mapping) else dict(raw)
+            persistent_checkpoint = result.get("persistent_checkpoint") is True or raw.get("persistent_checkpoint") is True
+            persistent_backend = str(
+                result.get("checkpoint_backend")
+                or raw.get("persistent_checkpoint_backend")
+                or ""
+            )
+            cross_runner_durable = result.get("cross_runner_durable") is True or raw.get("cross_runner_durable") is True
             if status.lower() in {"completed", "completed_with_warnings"}:
                 self.checkpoint(command_id, {"phase": "completed", "result": result})
             errors = raw.get("errors") if isinstance(raw.get("errors"), (list, tuple)) else ()
         except Exception as exc:
             checkpoint = self.resume(command_id)
+            persistent_checkpoint = getattr(exc, "persistent_checkpoint", False) is True
+            persistent_backend = str(getattr(exc, "checkpoint_backend", "") or "")
+            cross_runner_durable = getattr(exc, "cross_runner_durable", False) is True
             status = "failed"
             summary = "LangGraph execution failed; bounded recovery evidence preserved"
             result = {
                 "adapter_phase_checkpoint_available": checkpoint is not None,
+                "persistent_checkpoint_available": persistent_checkpoint,
+                "persistent_checkpoint_backend": persistent_backend,
+                "cross_runner_durable": cross_runner_durable,
                 "langgraph_checkpoint_backend": checkpoint_backend,
                 "failure_class": type(exc).__name__,
             }
@@ -75,6 +91,9 @@ class LangGraphFrameworkAdapter(FrameworkAdapter):
             framework_id=self.adapter_id,
             framework_values={
                 "adapter_phase_checkpoint_available": self.resume(command_id) is not None,
+                "persistent_checkpoint_available": persistent_checkpoint,
+                "persistent_checkpoint_backend": persistent_backend,
+                "cross_runner_durable": cross_runner_durable,
                 "checkpoint_backend": checkpoint_backend,
                 "bounded_recovery": True,
             },
