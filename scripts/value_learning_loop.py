@@ -1,26 +1,23 @@
 #!/usr/bin/env python3
 """Persistent, bounded learning controls for the value-optimized AI Army.
 
-The module deliberately stores only compact outcome telemetry, never prompts,
-outputs, secrets or raw private content. Cross-run evidence is hash-bound and
-must come from the scheduler machine contract before it may influence routing.
-It also produces bounded council and shadow-experiment plans; it never calls a
-model, spends money, promotes production routes, publishes, deploys or writes a
-repository.
+Only compact outcome telemetry is retained: never prompts, outputs, secrets or
+raw private content. Record hashes provide integrity/deduplication inside the
+trusted controller boundary; they are not presented as cryptographic identity
+or authentication. Cross-run evidence can influence routing only after a
+minimum sample count. Council and challenger plans are bounded and side-effect
+free; this module never calls models, spends money, deploys, publishes or
+promotes production routes.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import math
 from typing import Any, Mapping, Sequence
 
-from scripts.value_optimized_routing import (
-    aggregate_outcomes,
-    champion_challenger_decision,
-    model_family,
-    value_score,
-)
+from scripts.value_optimized_routing import aggregate_outcomes, model_family, value_score
 
 
 LEDGER_SCHEMA = "value-outcome-ledger-v1"
@@ -28,6 +25,7 @@ RECORD_CONTRACT = "value-outcome-memory-v1"
 MAX_LEDGER_RECORDS = 1200
 MAX_PROFILE_RECORDS = 24
 MIN_HISTORY_SAMPLES = 3
+MIN_CHALLENGER_SAMPLES = 5
 SENSITIVE_KEYS = frozenset({
     "prompt", "objective", "output", "summary", "content", "secret", "token",
     "api_key", "authorization", "cookie", "raw_private_content",
@@ -93,6 +91,7 @@ def normalize_outcome_record(value: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueLearningError("unsupported outcome record contract")
     record = {
         "contract_version": RECORD_CONTRACT,
+        "observation_id": str(value.get("observation_id") or "")[:180],
         "provider": str(value.get("provider") or "").strip().lower()[:80],
         "model": str(value.get("model") or "").strip()[:180],
         "model_family": model_family(str(value.get("model") or "")),
@@ -146,8 +145,9 @@ def build_outcome_ledger(
         enriched.setdefault("source_contract", "scheduler_machine_contract")
         combined.append(normalize_outcome_record(enriched))
 
-    # Deduplicate exact machine records, then retain a bounded recent-equivalent
-    # window per provider/model/profile. Input order is treated as oldest->newest.
+    # Observation IDs distinguish separate executions with identical metrics.
+    # Exact duplicate records are still suppressed so artifact replay does not
+    # artificially inflate sample counts.
     deduped: list[dict[str, Any]] = []
     seen: set[str] = set()
     for raw in combined:
@@ -171,6 +171,8 @@ def build_outcome_ledger(
         "schema_version": LEDGER_SCHEMA,
         "records": bounded,
         "record_count": len(bounded),
+        "record_hashes_are_authentication": False,
+        "trusted_controller_boundary_required": True,
         "raw_private_content_persisted": False,
         "secrets_persisted": False,
         "automatic_paid_execution": False,
@@ -188,6 +190,8 @@ def validate_outcome_ledger(value: Mapping[str, Any]) -> None:
         raise ValueLearningError("invalid outcome ledger records")
     if value.get("raw_private_content_persisted") is not False or value.get("secrets_persisted") is not False:
         raise ValueLearningError("outcome ledger privacy boundary violated")
+    if value.get("record_hashes_are_authentication") is not False or value.get("trusted_controller_boundary_required") is not True:
+        raise ValueLearningError("outcome ledger trust semantics are invalid")
     for raw in records:
         if not isinstance(raw, Mapping):
             raise ValueLearningError("invalid outcome ledger row")
@@ -230,17 +234,12 @@ def history_for_binding(
     return metrics
 
 
-def enrich_candidate_with_history(
-    candidate: Mapping[str, Any],
-    history: Mapping[str, Any],
-) -> dict[str, Any]:
+def enrich_candidate_with_history(candidate: Mapping[str, Any], history: Mapping[str, Any]) -> dict[str, Any]:
     row = dict(candidate)
     samples = max(0, int(history.get("samples") or 0))
     if samples < MIN_HISTORY_SAMPLES:
         row["cross_run_history_samples"] = samples
         return row
-    # Conservative bounded blend: historical telemetry influences routing but
-    # cannot instantly erase the candidate's current-run evidence.
     prior_samples = max(1, min(5, int(row.get("samples") or 1)))
     prior_success = _clamp(row.get("success_rate"), 0.5)
     prior_quality = _clamp(row.get("quality_score"), 0.5)
@@ -256,13 +255,7 @@ def enrich_candidate_with_history(
     return row
 
 
-def build_council_specs(
-    *,
-    task_id: str,
-    risk: str,
-    reason: str,
-    max_views: int = 2,
-) -> list[dict[str, Any]]:
+def build_council_specs(*, task_id: str, risk: str, reason: str, max_views: int = 2) -> list[dict[str, Any]]:
     count = max(0, min(2, int(max_views)))
     if count == 0:
         return []
@@ -300,6 +293,56 @@ def build_council_specs(
     return specs[:count]
 
 
+def _wilson_lower_bound(rate: float, samples: int, z: float = 1.6448536269514722) -> float:
+    n = max(0, int(samples))
+    if n == 0:
+        return 0.0
+    p = _clamp(rate)
+    z2 = z * z
+    denominator = 1.0 + z2 / n
+    centre = p + z2 / (2.0 * n)
+    margin = z * math.sqrt(max(0.0, (p * (1.0 - p) + z2 / (4.0 * n)) / n))
+    return max(0.0, min(1.0, (centre - margin) / denominator))
+
+
+def statistically_guarded_challenger_decision(
+    champion: Mapping[str, Any],
+    challenger: Mapping[str, Any],
+    *,
+    minimum_samples: int = MIN_CHALLENGER_SAMPLES,
+    minimum_quality_margin: float = 0.03,
+) -> dict[str, Any]:
+    c_n = max(0, int(champion.get("samples") or 0))
+    h_n = max(0, int(challenger.get("samples") or 0))
+    if c_n < minimum_samples or h_n < minimum_samples:
+        return {
+            "decision": "SHADOW",
+            "reason": "insufficient_statistical_samples",
+            "automatic_production_promotion": False,
+        }
+    c_success = _clamp(champion.get("validated_success_rate"))
+    h_success = _clamp(challenger.get("validated_success_rate"))
+    c_quality = _clamp(champion.get("quality_score"))
+    h_quality = _clamp(challenger.get("quality_score"))
+    c_lower = _wilson_lower_bound(c_success, c_n)
+    h_lower = _wilson_lower_bound(h_success, h_n)
+    rework_ok = _clamp(challenger.get("rework_rate")) <= _clamp(champion.get("rework_rate"), 1.0) + 0.02
+    wins = bool(
+        h_quality >= c_quality + max(0.0, minimum_quality_margin)
+        and h_lower >= c_lower
+        and rework_ok
+    )
+    return {
+        "decision": "PROMOTION_CANDIDATE" if wins else "KEEP_CHAMPION",
+        "reason": "statistically_guarded_validated_quality_gain" if wins else "challenger_not_materially_better",
+        "champion_success_lower_bound": round(c_lower, 6),
+        "challenger_success_lower_bound": round(h_lower, 6),
+        "rework_guard_passed": rework_ok,
+        "automatic_production_promotion": False,
+        "requires_commander_and_human_approval": wins,
+    }
+
+
 def shadow_challenger_plan(
     *,
     champion_binding: Mapping[str, Any],
@@ -307,12 +350,13 @@ def shadow_challenger_plan(
     champion_metrics: Mapping[str, Any],
     challenger_metrics: Mapping[str, Any],
 ) -> dict[str, Any]:
-    decision = champion_challenger_decision(champion_metrics, challenger_metrics)
+    decision = statistically_guarded_challenger_decision(champion_metrics, challenger_metrics)
     same_family = model_family(str(champion_binding.get("model") or "")) == model_family(str(challenger_binding.get("model") or ""))
     return {
         "mode": "SHADOW_ONLY",
         "decision": decision["decision"],
         "reason": decision["reason"],
+        "statistical_guard": decision,
         "champion": {"provider": champion_binding.get("provider"), "model": champion_binding.get("model")},
         "challenger": {"provider": challenger_binding.get("provider"), "model": challenger_binding.get("model")},
         "independent_model_family": not same_family,
@@ -324,11 +368,7 @@ def shadow_challenger_plan(
     }
 
 
-def product_value_decision(
-    *,
-    current: Mapping[str, Any],
-    baseline: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+def product_value_decision(*, current: Mapping[str, Any], baseline: Mapping[str, Any] | None = None) -> dict[str, Any]:
     baseline = baseline if isinstance(baseline, Mapping) else {}
     current_score = value_score(current)
     baseline_score = value_score(baseline) if baseline else None
@@ -338,7 +378,6 @@ def product_value_decision(
     rework_rate = _clamp(current.get("rework_rate"))
     baseline_defect = _clamp(baseline.get("defect_escape_rate")) if baseline else 0.0
     baseline_correction = _clamp(baseline.get("user_correction_rate")) if baseline else 0.0
-
     rollback = bool(
         safety_failure > 0
         or (baseline and defect_escape > baseline_defect + 0.02)
@@ -363,6 +402,7 @@ def product_value_decision(
 
 __all__ = [
     "LEDGER_SCHEMA",
+    "MIN_CHALLENGER_SAMPLES",
     "MIN_HISTORY_SAMPLES",
     "ValueLearningError",
     "build_council_specs",
@@ -373,5 +413,6 @@ __all__ = [
     "normalize_outcome_record",
     "product_value_decision",
     "shadow_challenger_plan",
+    "statistically_guarded_challenger_decision",
     "validate_outcome_ledger",
 ]
