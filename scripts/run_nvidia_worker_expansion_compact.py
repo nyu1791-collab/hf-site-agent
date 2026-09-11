@@ -27,6 +27,7 @@ from scripts.update_worker_organization_memory import merge_run_into_memory
 
 MAX_COMPACT_COUNCIL_CHARS = 8_000
 MAX_SUCCESS_RESPONSE_CHARS = 480
+MAX_PAID_FINDING_CHARS = 900
 MAX_HEALTH_ROWS = 5
 
 FOCUSED_FILES = (
@@ -34,11 +35,14 @@ FOCUSED_FILES = (
     "scripts/failure_aware_specialist_retry.py",
     "scripts/failure_aware_specialist_council.py",
     "scripts/specialist_lane_router.py",
+    "scripts/deepseek_critical_escalation.py",
     "scripts/staging_parallel_scheduler.py",
     "scripts/mission_scheduler.py",
     "scripts/multi_agent_efficiency.py",
     "scripts/organization_feedback.py",
     "tests/test_organization_coordination.py",
+    "tests/test_paid_specialist_blackboard.py",
+    "tests/test_deepseek_critical_escalation.py",
     "tests/test_adaptive_retry_and_compact_nvidia.py",
     "tests/test_failure_aware_specialist_council.py",
     "tests/test_specialist_lane_router.py",
@@ -71,6 +75,11 @@ ADDITIONAL_MARKERS = {
         "attach_capability_matched_assignments",
         "historical_worker_signal",
     ),
+    "scripts/deepseek_critical_escalation.py": (
+        "unresolved_critical_assignments",
+        "_call_deepseek",
+        "run_with_paid_escalation",
+    ),
     "scripts/staging_parallel_scheduler.py": (
         "MAX_STAGING_SUBORDINATE_PARALLEL",
         "StagingParallelMissionScheduler",
@@ -98,10 +107,11 @@ COMPACT_OBJECTIVE = (
     "Use the Shared Blackboard as the worker source of truth; do not repeat worker analysis. "
     "Do not discuss Google quota, Google recovery, generic provider recovery, deployment, or files absent from the supplied repository context. "
     "Global critical-path lane routing, organization memory, length-aware work stealing, bounded reasoning on retry, Shared Blackboard coordination, and staging-only OpenRouter parallelism already exist. "
-    "Focus only on unresolved lanes, primary-success improvement, AI-call efficiency, worker utilization, and compact handoffs shown by this run. "
+    "If a DeepSeek paid-specialist FINDING is present, treat it as an advisory candidate that still requires validation, not as a completed lane. "
+    "Focus only on unresolved lanes, primary-success improvement, AI-call efficiency, worker utilization, compact handoffs, and any evidence-grounded paid-specialist candidate shown by this run. "
     "Choose AT MOST 2 files_to_change, AT MOST 3 patch operations total, and AT MOST 2 tests. "
     "Each operation must be compact and implementation-ready: path, symbol/region, exact minimal change, rationale. "
-    "Do not emit full-file replacements or large code listings. Preserve exact-free routing, no provider fallback, no production activation, and no secrets. "
+    "Do not emit full-file replacements or large code listings. Preserve exact-free routing, no generic provider fallback, no production activation, and no secrets. "
     "Return every required Structured Patch Bundle key completely. If no change is justified, recommend measurement rather than inventing work."
 )
 
@@ -122,14 +132,24 @@ def _bounded_compact_json(payload: Mapping[str, Any]) -> str:
     """Return valid JSON within the commander context envelope.
 
     Never slice serialized JSON. If a pathological run exceeds the envelope,
-    shrink successful prose first, then low-value repeated success/health rows,
-    while retaining unresolved lanes, primary failure metrics and blackboard
-    open tasks. The final minimal shape is intentionally tiny and valid JSON.
+    shrink successful prose and advisory prose first, then low-value repeated
+    success/health rows, while retaining unresolved lanes and open tasks.
     """
     working = json.loads(_json_text(payload))
     text = _json_text(working)
     if len(text) <= MAX_COMPACT_COUNCIL_CHARS:
         return text
+
+    paid_findings = working.get("paid_specialist_findings")
+    if isinstance(paid_findings, list):
+        for row in paid_findings:
+            if isinstance(row, dict):
+                row["summary"] = str(row.get("summary") or "")[:360]
+                row["patch_candidates"] = list(row.get("patch_candidates") or [])[:1]
+                row["tests"] = list(row.get("tests") or [])[:1]
+        text = _json_text(working)
+        if len(text) <= MAX_COMPACT_COUNCIL_CHARS:
+            return text
 
     successes = working.get("successful_specialists")
     if isinstance(successes, list):
@@ -178,19 +198,32 @@ def _bounded_compact_json(payload: Mapping[str, Any]) -> str:
         "length_exhaustion_count": working.get("length_exhaustion_count", 0),
         "primary_failure_counts": working.get("primary_failure_counts", {}),
         "parallel_metrics": working.get("parallel_metrics", {}),
+        "deepseek_escalation_status": working.get("deepseek_escalation_status"),
+        "deepseek_paid_calls": working.get("deepseek_paid_calls", 0),
+        "deepseek_cost_exposure_usd": working.get("deepseek_cost_exposure_usd", 0),
+        "paid_specialist_findings": list(working.get("paid_specialist_findings") or [])[:2],
         "unresolved_lanes": working.get("unresolved_lanes", []),
         "context_compacted": True,
     }
     text = _json_text(minimal)
     if len(text) > MAX_COMPACT_COUNCIL_CHARS:
-        # Known metric/failure shapes are small, but keep a deterministic last
-        # resort that cannot produce malformed JSON even with hostile metadata.
         minimal["parallel_metrics"] = {}
         minimal["primary_failure_counts"] = {}
         minimal["shared_blackboard"] = {
             "schema_version": _mapping(minimal.get("shared_blackboard")).get("schema_version"),
             "early_stop": _mapping(minimal.get("shared_blackboard")).get("early_stop", {}),
         }
+        minimal["paid_specialist_findings"] = [
+            {
+                "lane": row.get("lane"),
+                "status": row.get("status"),
+                "quality_score": row.get("quality_score"),
+                "grounded_patch_ratio": row.get("grounded_patch_ratio"),
+                "summary": str(row.get("summary") or "")[:240],
+            }
+            for row in list(minimal.get("paid_specialist_findings") or [])[:2]
+            if isinstance(row, Mapping)
+        ]
         minimal["unresolved_lanes"] = list(minimal.get("unresolved_lanes") or [])[:4]
         text = _json_text(minimal)
     if len(text) > MAX_COMPACT_COUNCIL_CHARS:
@@ -206,6 +239,7 @@ def compact_council_context() -> str:
     successes = []
     failures = []
     open_tasks = []
+    paid_findings = []
     for entry in board.get("entries", []) if isinstance(board.get("entries"), list) else []:
         if not isinstance(entry, Mapping):
             continue
@@ -218,6 +252,22 @@ def compact_council_context() -> str:
                 "response": str(payload.get("response") or "")[:MAX_SUCCESS_RESPONSE_CHARS],
                 "phase": payload.get("phase"),
                 "recovered": payload.get("recovered") is True,
+            })
+        elif kind == "FINDING":
+            paid_findings.append({
+                "source": str(entry.get("source") or "")[:160],
+                "lane": entry.get("subject"),
+                "status": payload.get("status"),
+                "capability": payload.get("capability"),
+                "summary": str(payload.get("summary") or "")[:MAX_PAID_FINDING_CHARS],
+                "patch_candidates": list(payload.get("patch_candidates") or [])[:2],
+                "tests": list(payload.get("tests") or [])[:2],
+                "quality_score": payload.get("quality_score"),
+                "grounded_patch_ratio": payload.get("grounded_patch_ratio"),
+                "estimated_current_cost_usd": payload.get("estimated_current_cost_usd"),
+                "cost_exposure_usd": payload.get("cost_exposure_usd"),
+                "advisory_only": True,
+                "machine_validated": False,
             })
         elif kind == "FAILURE":
             failures.append({
@@ -265,6 +315,11 @@ def compact_council_context() -> str:
         "length_exhaustion_count": raw.get("length_exhaustion_count", 0),
         "primary_failure_counts": _mapping(raw.get("primary_failure_counts")),
         "parallel_metrics": _mapping(raw.get("parallel_metrics")),
+        "deepseek_escalation_status": raw.get("deepseek_escalation_status"),
+        "deepseek_paid_calls": raw.get("deepseek_paid_calls", 0),
+        "deepseek_estimated_current_cost_usd": raw.get("deepseek_estimated_current_cost_usd", 0),
+        "deepseek_cost_exposure_usd": raw.get("deepseek_cost_exposure_usd", 0),
+        "paid_specialist_findings": paid_findings,
         "worker_health": health[:MAX_HEALTH_ROWS],
         "successful_specialists": successes,
         "unresolved_lanes": failures,
