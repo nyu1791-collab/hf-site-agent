@@ -1,0 +1,63 @@
+{
+  "schema_version": "shortform-edit-profile-v1",
+  "profile_name": "AI_NEWS_FAST_STILL_EDIT",
+  "intent": "Produce high-retention vertical news videos from reusable still images and replaceable narration without requiring generative video.",
+  "reference_measurement": {
+    "source_kind": "USER_SUPPLIED_STYLE_REFERENCE",
+    "content_reuse": false,
+    "duration_seconds": 20.894,
+    "width": 512,
+    "height": 1108,
+    "fps": 30,
+    "detected_scene_change_seconds": [6.167, 9.467, 11.3],
+    "measured_integrated_lufs": -11.73,
+    "note": "Measurements inform cadence only; reference imagery/audio/text are not reused."
+  },
+  "video": {
+    "aspect_ratio": "9:16",
+    "preferred_resolution": [1080, 1920],
+    "free_cpu_fallback_resolution": [720, 1280],
+    "preferred_fps": 30,
+    "free_cpu_fallback_fps": 24,
+    "target_duration_seconds": [45, 65],
+    "hook_window_seconds": [0, 2.0],
+    "visual_change_target_seconds": [2.0, 4.5],
+    "max_static_hold_seconds": 6.0,
+    "allowed_motion": ["CUT", "CROP", "PAN", "ZOOM", "CROSSFADE", "TEXT_EMPHASIS"],
+    "generative_video_required": false
+  },
+  "captions": {
+    "large_mobile_first": true,
+    "max_lines": 2,
+    "recommended_japanese_chars_per_line": [7, 16],
+    "prefer_phrase_chunks": true,
+    "avoid_full_sentence_blocks": true,
+    "highlight_key_phrase": true,
+    "safe_bottom_margin_ratio": 0.16,
+    "source_of_truth": "SCRIPT_THEN_AUDIO_ALIGNMENT"
+  },
+  "audio": {
+    "narration_priority": true,
+    "placeholder_voice_forbidden_in_final": true,
+    "external_voice_handoff_preferred": true,
+    "target_integrated_lufs": -16.0,
+    "target_true_peak_db": -1.5,
+    "bgm_duck_under_voice_db": -12.0,
+    "subtitle_alignment_after_final_voice": true
+  },
+  "asset_policy": {
+    "reuse_commander_approved_generated_stills": true,
+    "reuse_rights_cleared_real_photos": true,
+    "new_image_generation_default": false,
+    "new_video_generation_default": false,
+    "attribution_preserved": true
+  },
+  "quality_gate": {
+    "first_two_seconds_have_hook": true,
+    "no_unverified_fact_as_confirmed": true,
+    "no_placeholder_voice_in_final": true,
+    "voice_terms_checked_before_publish": true,
+    "subtitle_audio_alignment_required": true,
+    "final_machine_probe_required": true
+  }
+}
