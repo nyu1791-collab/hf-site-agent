@@ -1,0 +1,146 @@
+{
+  "schema_version": "framework-adapter-layer-v1",
+  "mission": "Keep the native AI Army V4 scheduler as the authority-preserving control plane while allowing replaceable execution frameworks to be plugged in behind one common task/result contract.",
+  "control_plane": {
+    "native_scheduler": "AI_ARMY_V4_VALUE_OPTIMIZED",
+    "native_routing_remains_authoritative": true,
+    "frameworks_are_execution_engines_not_commanders": true,
+    "frameworks_cannot_expand_authority": true,
+    "single_writer_final_integration": true
+  },
+  "policy": {
+    "free_only_default": true,
+    "generic_paid_fallback": false,
+    "auto_top_up": false,
+    "external_framework_repository_write": false,
+    "external_framework_secret_mutation": false,
+    "external_framework_deploy": false,
+    "external_framework_publish": false,
+    "external_framework_payment": false,
+    "unverified_framework_can_execute": false,
+    "unverified_model_route_can_execute": false,
+    "prefer_native_when_no_framework_preference": true,
+    "external_auto_selection_max_risk": "MEDIUM",
+    "framework_result_must_normalize_to_agent_contract": true
+  },
+  "parallel_batch": {
+    "enabled": true,
+    "max_items": 4,
+    "default_parallel_items": 4,
+    "independent_items_have_distinct_write_scopes": true,
+    "item_root_slot": "OPERATIONS_LEAD",
+    "final_join_slot": "RESULT_SYNTHESIZER",
+    "final_join_requires_all_items": true,
+    "single_writer_final_join": true,
+    "max_frameworks_per_batch": 4
+  },
+  "adapters": {
+    "NATIVE_V4": {
+      "kind": "native",
+      "enabled": true,
+      "priority": 100,
+      "execution_hook": "native_handler",
+      "capabilities": [
+        "dag",
+        "parallel_dispatch",
+        "dependency_join",
+        "bounded_delegation",
+        "failover",
+        "result_confidence_contract",
+        "repository_context",
+        "general"
+      ],
+      "requires": ["runtime_present"],
+      "model_route_free_verification_required": false,
+      "can_auto_select": true,
+      "max_parallel": 6
+    },
+    "LANGGRAPH": {
+      "kind": "python_framework",
+      "enabled": true,
+      "priority": 92,
+      "package": "langgraph",
+      "execution_hook": "langgraph",
+      "capabilities": [
+        "graph_workflow",
+        "branching",
+        "checkpoint",
+        "durable_state",
+        "parallel_subgraphs",
+        "human_review",
+        "tool_use",
+        "agent"
+      ],
+      "requires": ["framework_installed", "runtime_present", "model_route_free_verified"],
+      "model_route_free_verification_required": true,
+      "can_auto_select": true,
+      "max_parallel": 3
+    },
+    "AUTOGEN": {
+      "kind": "python_framework",
+      "enabled": true,
+      "priority": 88,
+      "package": "autogen-agentchat",
+      "execution_hook": "autogen",
+      "capabilities": [
+        "multi_agent_conversation",
+        "debate",
+        "delegation",
+        "parallel_agents",
+        "tool_use",
+        "agent"
+      ],
+      "requires": ["framework_installed", "runtime_present", "model_route_free_verified"],
+      "model_route_free_verification_required": true,
+      "can_auto_select": true,
+      "max_parallel": 3
+    },
+    "CREWAI": {
+      "kind": "python_framework",
+      "enabled": true,
+      "priority": 86,
+      "package": "crewai",
+      "execution_hook": "crewai",
+      "capabilities": [
+        "role_crew",
+        "delegation",
+        "sequential_flow",
+        "parallel_agents",
+        "tool_use",
+        "agent"
+      ],
+      "requires": ["framework_installed", "runtime_present", "model_route_free_verified"],
+      "model_route_free_verification_required": true,
+      "can_auto_select": true,
+      "max_parallel": 3
+    },
+    "GITHUB_COPILOT": {
+      "kind": "connector",
+      "enabled": true,
+      "priority": 72,
+      "execution_hook": "github_copilot",
+      "capabilities": [
+        "coding",
+        "repository_context",
+        "agent_mode",
+        "tool_use"
+      ],
+      "requires": [
+        "connector_present",
+        "runtime_present",
+        "billing_safe_verified",
+        "model_route_free_verified"
+      ],
+      "model_route_free_verification_required": true,
+      "can_auto_select": false,
+      "max_parallel": 1
+    }
+  },
+  "result_contract": {
+    "allowed_statuses": ["COMPLETED", "FAILED", "BLOCKED", "CANCELLED"],
+    "required_fields": ["status", "summary"],
+    "framework_provenance_in_output": true,
+    "raw_secret_material_forbidden": true,
+    "raw_framework_credentials_forbidden": true
+  }
+}
