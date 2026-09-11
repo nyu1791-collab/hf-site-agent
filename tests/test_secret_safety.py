@@ -36,6 +36,16 @@ class SecretSafetyTests(unittest.TestCase):
             )
             self.assertEqual(audit_secret_safety.scan_paths(Path(directory)), [])
 
+    def test_indexed_reference_is_not_a_literal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "safe.py"
+            path.write_text(
+                "provider, api_key = model_jobs[(provider_id, model)]\n"
+                "other = call(api_key=credentials[name])\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(audit_secret_safety.scan_paths(Path(directory)), [])
+
     def test_literal_secret_is_reported_without_value(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "unsafe.json"
