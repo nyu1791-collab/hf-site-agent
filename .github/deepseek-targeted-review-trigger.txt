@@ -1,5 +1,5 @@
-trigger=deepseek-v4-1-flash-targeted-semantic-join-20260911-r1
-focus=AI_ARMY_V4_SEMANTIC_JOIN_FINAL_VERIFICATION
+trigger=deepseek-v4-1-flash-targeted-media-free-mesh-20260911-r1
+focus=MEDIA_CORPS_FREE_MESH_BYPASS_AND_EVIDENCE_REVIEW
 approved_paid_trial=true
 max_calls=1
 max_parallel_calls=1
