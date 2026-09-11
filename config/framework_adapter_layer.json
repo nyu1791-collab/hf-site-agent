@@ -23,6 +23,7 @@
     "prefer_native_when_no_framework_preference": true,
     "external_auto_selection_max_risk": "MEDIUM",
     "framework_result_must_normalize_to_agent_contract": true,
+    "framework_health_gate_required": true,
     "prefer_consolidated_ownership": true,
     "avoid_micro_agent_fragmentation": true,
     "max_primary_frameworks_per_mission": 2,
@@ -90,7 +91,7 @@
         "tool_use",
         "agent"
       ],
-      "requires": ["framework_installed", "runtime_present", "model_route_free_verified"],
+      "requires": ["framework_installed", "runtime_present", "model_route_free_verified", "framework_health_ready"],
       "model_route_free_verification_required": true,
       "can_auto_select": true,
       "max_parallel": 3,
@@ -111,7 +112,7 @@
         "tool_use",
         "agent"
       ],
-      "requires": ["framework_installed", "runtime_present", "model_route_free_verified"],
+      "requires": ["framework_installed", "runtime_present", "model_route_free_verified", "framework_health_ready"],
       "model_route_free_verification_required": true,
       "can_auto_select": true,
       "max_parallel": 3,
@@ -132,7 +133,7 @@
         "tool_use",
         "agent"
       ],
-      "requires": ["framework_installed", "runtime_present", "model_route_free_verified"],
+      "requires": ["framework_installed", "runtime_present", "model_route_free_verified", "framework_health_ready"],
       "model_route_free_verification_required": true,
       "can_auto_select": true,
       "max_parallel": 3,
@@ -154,7 +155,8 @@
         "connector_present",
         "runtime_present",
         "billing_safe_verified",
-        "model_route_free_verified"
+        "model_route_free_verified",
+        "framework_health_ready"
       ],
       "model_route_free_verification_required": true,
       "can_auto_select": false,
