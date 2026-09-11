@@ -16,6 +16,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import threading
 from typing import Any, Mapping
 
 if __package__ in {None, ""}:  # pragma: no cover
@@ -30,6 +31,11 @@ ALLOWED_PREFIXES = ("scripts/", "tests/", "config/", "docs/")
 MAX_CONTEXT_FILES = 8
 MAX_MARKERS_PER_FILE = 8
 MAX_COST_USD = 0.05
+
+# run_targeted_review temporarily overrides shared specialist-runner globals.
+# Serialize the complete override/call/restore transaction so two in-process
+# targeted reviews can never observe each other's task or context selection.
+_REVIEW_LOCK = threading.RLock()
 
 
 def _load_manifest(path: Path) -> dict[str, Any]:
@@ -120,20 +126,26 @@ def run_targeted_review(
     _validate_safety(manifest)
     context = _validated_context_markers(manifest)
     task = _validated_task(manifest)
-    original_markers = base.COMMON_CONTEXT_MARKERS
-    original_tasks = base.TASKS
-    base.COMMON_CONTEXT_MARKERS = context
-    base.TASKS = (task,)
-    try:
-        report = dict(v4.run_trial(
-            config=_targeted_config(config, manifest),
-            api_key=api_key,
-            network=network,
-            confirm=confirm,
-        ))
-    finally:
-        base.COMMON_CONTEXT_MARKERS = original_markers
-        base.TASKS = original_tasks
+
+    # The base runner stores task/context selection in module globals. Treat the
+    # override and restore as one critical section; restoring in finally keeps
+    # subsequent reviews clean even if the provider path raises unexpectedly.
+    with _REVIEW_LOCK:
+        original_markers = base.COMMON_CONTEXT_MARKERS
+        original_tasks = base.TASKS
+        base.COMMON_CONTEXT_MARKERS = context
+        base.TASKS = (task,)
+        try:
+            report = dict(v4.run_trial(
+                config=_targeted_config(config, manifest),
+                api_key=api_key,
+                network=network,
+                confirm=confirm,
+            ))
+        finally:
+            base.COMMON_CONTEXT_MARKERS = original_markers
+            base.TASKS = original_tasks
+
     report["schema_version"] = "deepseek-targeted-review-report-v1"
     report["focus_id"] = str(manifest.get("focus_id") or "UNSPECIFIED")[:160]
     report["repository_write"] = False
