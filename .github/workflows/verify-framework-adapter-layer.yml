@@ -1,0 +1,65 @@
+name: Verify framework adapter layer
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - config/framework_adapter_layer.json
+      - scripts/framework_adapter_layer.py
+      - scripts/parallel_framework_batch.py
+      - tests/test_framework_adapter_layer.py
+      - tests/test_parallel_framework_batch.py
+      - .github/workflows/verify-framework-adapter-layer.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Compile framework adapter modules
+        run: |
+          python -m py_compile \
+            scripts/framework_adapter_layer.py \
+            scripts/parallel_framework_batch.py \
+            tests/test_framework_adapter_layer.py \
+            tests/test_parallel_framework_batch.py
+
+      - name: Validate framework adapter config JSON
+        run: python -m json.tool config/framework_adapter_layer.json >/dev/null
+
+      - name: Run framework adapter tests
+        run: python -m unittest tests.test_framework_adapter_layer tests.test_parallel_framework_batch -v
+
+      - name: Verify hard boundaries remain fail-closed
+        run: |
+          python - <<'PY'
+          from scripts.framework_adapter_layer import load_config
+          cfg = load_config()
+          policy = cfg["policy"]
+          assert policy["free_only_default"] is True
+          assert policy["generic_paid_fallback"] is False
+          assert policy["auto_top_up"] is False
+          assert policy["external_framework_repository_write"] is False
+          assert policy["external_framework_secret_mutation"] is False
+          assert policy["external_framework_deploy"] is False
+          assert policy["external_framework_publish"] is False
+          assert policy["external_framework_payment"] is False
+          assert cfg["control_plane"]["native_routing_remains_authoritative"] is True
+          assert cfg["parallel_batch"]["max_items"] == 4
+          PY
