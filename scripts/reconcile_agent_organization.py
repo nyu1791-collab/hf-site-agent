@@ -6,6 +6,13 @@ verified OpenRouter exact-free evidence and/or the Z.AI/SiliconFlow direct-free
 corps report, normalizes both into one capability portfolio, then globally
 optimizes model/provider bindings across the stable agent roles.
 
+Direct-route zero-cost evidence is kept separate from benchmark quality. A
+model that is verified free but weak at one benchmark task is not incorrectly
+reclassified as paid/unverified; instead the global role optimizer decides
+whether its measured role-specific capabilities are sufficient for a slot.
+This lets a JSON/coding specialist remain usable without pretending it is a
+fast/general agent.
+
 This file performs no model calls. A newly released model can therefore enter
 only after a provider-specific live probe/benchmark has already established its
 current eligibility. Paid models are not inferred or auto-enabled here.
@@ -30,7 +37,7 @@ from scripts.replaceable_agent_organization import (
 )
 
 
-SCHEMA_VERSION = "replaceable-agent-reconciliation-v2"
+SCHEMA_VERSION = "replaceable-agent-reconciliation-v3"
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:
@@ -125,6 +132,31 @@ def candidates_from_openrouter_reports(
     return output
 
 
+def candidates_from_direct_reports(report: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Preserve free-route truth while leaving quality to role-specific routing.
+
+    The direct benchmark's ``free_admitted`` bit is an all-task quality gate.
+    It must not erase independently verified zero-cost route evidence. The
+    global optimizer already enforces minimum role fit and compound capability
+    coverage, so a specialist can be considered only for roles it actually
+    demonstrated.
+    """
+    rows = candidates_from_direct_free_report(report)
+    provider_status = _mapping(report.get("provider_status"))
+    output: list[dict[str, Any]] = []
+    for raw in rows:
+        row = dict(raw)
+        provider = str(row.get("provider") or "").lower()
+        state = _mapping(provider_status.get(provider))
+        route_free_verified = state.get("free_verified") is True
+        row["free_verified"] = route_free_verified
+        row["paid"] = False if route_free_verified else bool(row.get("paid") is True)
+        row["quality_admitted"] = row.get("free_admitted") is True
+        row["evidence_source"] = "CURRENT_DIRECT_FREE_ROUTE_PLUS_ROLE_BENCHMARK"
+        output.append(row)
+    return output
+
+
 def _candidate_key(candidate: Mapping[str, Any]) -> tuple[str, str]:
     return str(candidate.get("provider") or "").lower(), str(candidate.get("model") or "")
 
@@ -171,7 +203,7 @@ def reconcile(
     openrouter_candidates = candidates_from_openrouter_reports(
         _mapping(openrouter_probe), _mapping(openrouter_benchmark)
     ) if openrouter_probe or openrouter_benchmark else []
-    direct_candidates = candidates_from_direct_free_report(_mapping(direct_free_report)) if direct_free_report else []
+    direct_candidates = candidates_from_direct_reports(_mapping(direct_free_report)) if direct_free_report else []
     portfolio = merge_candidates(openrouter_candidates, direct_candidates)
     incumbents = _incumbents_from_report(_mapping(incumbent_report))
     organization = optimize_agent_slots(portfolio, config=config, incumbents=incumbents)
@@ -182,6 +214,16 @@ def reconcile(
             provider: sum(str(row.get("provider")) == provider for row in portfolio)
             for provider in sorted({str(row.get("provider")) for row in portfolio})
         },
+        "direct_free_route_verified_candidate_count": sum(
+            row.get("evidence_source") == "CURRENT_DIRECT_FREE_ROUTE_PLUS_ROLE_BENCHMARK"
+            and row.get("free_verified") is True
+            for row in portfolio
+        ),
+        "direct_global_quality_admitted_count": sum(
+            row.get("evidence_source") == "CURRENT_DIRECT_FREE_ROUTE_PLUS_ROLE_BENCHMARK"
+            and row.get("quality_admitted") is True
+            for row in portfolio
+        ),
         "evidence_inputs": {
             "openrouter_probe": bool(openrouter_probe),
             "openrouter_benchmark": bool(openrouter_benchmark),
@@ -235,6 +277,8 @@ def main() -> int:
     print(json.dumps({
         "candidate_count": report["candidate_count"],
         "candidate_provider_counts": report["candidate_provider_counts"],
+        "direct_free_route_verified_candidate_count": report["direct_free_route_verified_candidate_count"],
+        "direct_global_quality_admitted_count": report["direct_global_quality_admitted_count"],
         "assigned_slots": sum(row.get("status") == "ASSIGNED" for row in report["assignments"].values()),
         "swap_decisions": {slot: row.get("swap_decision", {}).get("decision") for slot, row in report["assignments"].items()},
         "new_model_path": report["new_model_path"],
