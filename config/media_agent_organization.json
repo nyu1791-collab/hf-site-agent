@@ -18,6 +18,9 @@
     "installed_plugin_does_not_imply_paid_execution_approval": true,
     "connector_availability_is_checked_at_execution": true,
     "stale_connector_state_fails_closed": true,
+    "free_media_mesh_is_authoritative_generation_router": true,
+    "google_is_analysis_not_default_generator": true,
+    "automatic_paid_generation_fallback": false,
     "generic_paid_fallback": false,
     "auto_top_up": false
   },
@@ -32,6 +35,8 @@
     "fresh_connector_evidence_required": true,
     "platform_credentials_stay_in_connector_or_secret_store": true,
     "external_ai_direct_repository_write": false,
+    "free_media_mesh_before_paid_generation": true,
+    "automatic_paid_generation_fallback": false,
     "generic_paid_fallback": false,
     "auto_top_up": false
   },
@@ -41,7 +46,24 @@
     "rights_must_be_verified_before_publish": true,
     "synthetic_disclosure_must_be_ready_before_publish": true,
     "installed_plugin_does_not_authorize_billable_execution": true,
-    "fal_and_runway_require_explicit_media_cost_approval": true
+    "fal_and_runway_require_explicit_media_cost_approval": true,
+    "generation_router": "FREE_MEDIA_MESH",
+    "paid_generation_reserve_enabled_by_default": false,
+    "paid_generation_activation_requires_explicit_human_cost_approval": true
+  },
+  "generation_authority": {
+    "config": "config/free_media_mesh.json",
+    "analysis_route_order": ["GOOGLE_GEMINI_FREE_MULTIMODAL"],
+    "image_route_order": [
+      "CLOUDFLARE_FLUX_FREE",
+      "SILICONFLOW_KOLORS_FREE",
+      "QWEN_IMAGE_FREE_GPU",
+      "DEEPSEEK_JANUS_FREE_GPU"
+    ],
+    "video_route_order": ["NVIDIA_COSMOS_FREE", "WAN_VIDEO_FREE_GPU"],
+    "post_process_route_order": ["FFMPEG_DETERMINISTIC"],
+    "paid_reserve": ["FAL_CONNECTOR_APPROVED", "RUNWAY_CONNECTOR_APPROVED", "GOOGLE_PAID_IMAGE_OR_VIDEO_GENERATION"],
+    "paid_reserve_automatic": false
   },
   "platform_packaging": {
     "youtube": {
@@ -66,6 +88,13 @@
       "preferred_capabilities": ["web_research", "long_context", "summarization", "trend_analysis"],
       "sources": ["PUBLIC_WEB_SEARCH", "TAVILY", "X_API_OPTIONAL", "YOUTUBE_DATA_OPTIONAL", "INSTAGRAM_PROFESSIONAL_OPTIONAL"]
     },
+    "GOOGLE_MEDIA_ANALYST": {
+      "mission": "Analyze scenes, highlights, weak sections, hooks, title options, subtitle drafts and edit decisions. Never act as the default image or video generator.",
+      "default_risk": "LOW",
+      "preferred_capabilities": ["video_understanding", "scene_analysis", "highlight_extraction", "title_ideation", "subtitle_drafting", "multimodal_quality_review"],
+      "route_order": ["GOOGLE_GEMINI_FREE_MULTIMODAL"],
+      "generation_allowed": false
+    },
     "CONTENT_STRATEGIST": {
       "mission": "Turn evidence into platform-specific content hypotheses, series concepts and measurable experiments, then consume measured monetization feedback for the next cycle.",
       "default_risk": "MEDIUM",
@@ -77,11 +106,14 @@
       "preferred_capabilities": ["writing", "reasoning", "fast", "json"]
     },
     "GENERATIVE_MEDIA_AGENT": {
-      "mission": "Create only the missing visual, motion or audio assets required by an approved brief, preserve provenance, and prefer reusable low-cost assets over repeated generation.",
+      "mission": "Compatibility role shell. Delegate generation selection to the authoritative free media mesh, preserve provenance, and never activate a paid generation reserve automatically.",
       "default_risk": "MEDIUM",
-      "preferred_capabilities": ["image_generation", "video_generation", "audio_generation", "creative_direction", "multimodal"],
-      "image_route_order": ["CHATGPT_IMAGE", "FAL_CONNECTOR_APPROVED", "RUNWAY_CONNECTOR_APPROVED"],
-      "video_route_order": ["FAL_CONNECTOR_APPROVED", "RUNWAY_CONNECTOR_APPROVED"]
+      "preferred_capabilities": ["image_generation", "video_generation", "creative_direction", "multimodal"],
+      "routing_authority": "FREE_MEDIA_MESH",
+      "image_route_order": ["CLOUDFLARE_FLUX_FREE", "SILICONFLOW_KOLORS_FREE", "QWEN_IMAGE_FREE_GPU", "DEEPSEEK_JANUS_FREE_GPU"],
+      "video_route_order": ["NVIDIA_COSMOS_FREE", "WAN_VIDEO_FREE_GPU"],
+      "paid_reserve_route_order": ["FAL_CONNECTOR_APPROVED", "RUNWAY_CONNECTOR_APPROVED", "GOOGLE_PAID_IMAGE_OR_VIDEO_GENERATION"],
+      "paid_reserve_automatic": false
     },
     "TRANSCRIPTION_AGENT": {
       "mission": "Transcribe owned or authorized audio/video with timestamps and preserve source provenance.",
@@ -90,10 +122,11 @@
       "route_order": ["FREE_GPU_WHISPER", "GROQ_WHISPER_FREE_QUOTA", "DESCRIPT_CONNECTOR", "GROQ_WHISPER_LOW_COST_APPROVED"]
     },
     "CLIP_EDITOR_AGENT": {
-      "mission": "Produce edit decisions, highlight windows, pacing changes, aspect-ratio variants and deterministic render instructions.",
+      "mission": "Produce edit decisions, highlight windows, pacing changes, aspect-ratio variants and deterministic render instructions. Use deterministic processing before any explicitly approved semantic editor.",
       "default_risk": "MEDIUM",
       "preferred_capabilities": ["video_understanding", "editing", "multimodal", "json"],
-      "route_order": ["FFMPEG_DETERMINISTIC", "DESCRIPT_CONNECTOR", "FAL_CONNECTOR_APPROVED", "RUNWAY_CONNECTOR_APPROVED"]
+      "route_order": ["FFMPEG_DETERMINISTIC", "DESCRIPT_CONNECTOR"],
+      "paid_semantic_edit_reserve": ["FAL_CONNECTOR_APPROVED", "RUNWAY_CONNECTOR_APPROVED"]
     },
     "CAPTION_LOCALIZATION_AGENT": {
       "mission": "Generate readable captions, subtitle files, translations and platform-specific on-screen text while preserving meaning.",
@@ -101,10 +134,18 @@
       "preferred_capabilities": ["translation", "summarization", "timed_text", "json"]
     },
     "THUMBNAIL_CREATIVE_AGENT": {
-      "mission": "Generate or specify thumbnails, covers and visual variants optimized for truthful click-through rather than misleading clickbait.",
+      "mission": "Generate or specify truthful thumbnails and covers through the free image mesh before any paid reserve is considered.",
       "default_risk": "MEDIUM",
       "preferred_capabilities": ["image_generation", "multimodal", "creative_direction"],
-      "route_order": ["CHATGPT_IMAGE", "FAL_CONNECTOR_APPROVED", "RUNWAY_CONNECTOR_APPROVED"]
+      "route_order": ["CLOUDFLARE_FLUX_FREE", "SILICONFLOW_KOLORS_FREE", "QWEN_IMAGE_FREE_GPU", "DEEPSEEK_JANUS_FREE_GPU"],
+      "paid_reserve_automatic": false
+    },
+    "MEDIA_QUALITY_REVIEWER": {
+      "mission": "Review finished media for pacing, scene continuity, subtitle quality, title fit and obvious generation defects using the Google analysis lane.",
+      "default_risk": "MEDIUM",
+      "preferred_capabilities": ["multimodal", "review", "video_understanding", "json"],
+      "route_order": ["GOOGLE_GEMINI_FREE_MULTIMODAL"],
+      "generation_allowed": false
     },
     "RIGHTS_SAFETY_AGENT": {
       "mission": "Fail closed unless provenance, music/media rights, privacy, brand risk and required synthetic-media disclosures are verified before publishing.",
@@ -227,6 +268,7 @@
   },
   "pipeline": [
     "SOCIAL_INTELLIGENCE_AGENT",
+    "GOOGLE_MEDIA_ANALYST",
     "CONTENT_STRATEGIST",
     "SCRIPT_AGENT",
     "GENERATIVE_MEDIA_AGENT",
@@ -234,6 +276,7 @@
     "CLIP_EDITOR_AGENT",
     "CAPTION_LOCALIZATION_AGENT",
     "THUMBNAIL_CREATIVE_AGENT",
+    "MEDIA_QUALITY_REVIEWER",
     "RIGHTS_SAFETY_AGENT",
     "PUBLISHING_AGENT",
     "ANALYTICS_AGENT",
