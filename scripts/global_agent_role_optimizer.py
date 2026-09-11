@@ -2,11 +2,11 @@
 """Global role optimizer for the replaceable AI Army.
 
 Greedy slot-by-slot routing lets an early generic role consume a scarce strong
-worker before a later specialist role is considered.  This module instead uses
-a bounded beam search across the whole organization.  The objective rewards
+worker before a later specialist role is considered. This module instead uses
+a bounded beam search across the whole organization. The objective rewards
 role fit and measured quality while penalizing model/provider concentration.
 
-The optimizer makes no provider calls and cannot enable paid fallback.  It only
+The optimizer makes no provider calls and cannot enable paid fallback. It only
 chooses among candidate rows that were already admitted by the surrounding
 reconciliation layer.
 """
@@ -119,8 +119,17 @@ def _slot_options(
 
 
 def _state_sort_key(state: _State) -> tuple[Any, ...]:
-    # Higher objective first.  The assignment tuple provides a stable tie break.
-    return (-round(state.objective, 10), state.assignments)
+    """Return a total-order key even when a beam branch leaves a slot unfilled.
+
+    Python cannot compare ``None`` with an integer.  Beam states legitimately
+    contain both, so normalize the optional candidate index into a numeric
+    sentinel before using assignments as the deterministic tie breaker.
+    """
+    stable_assignments = tuple(
+        (slot_name, -1 if candidate_index is None else int(candidate_index))
+        for slot_name, candidate_index in state.assignments
+    )
+    return (-round(state.objective, 10), stable_assignments)
 
 
 def globally_select_challengers(
@@ -157,7 +166,7 @@ def globally_select_challengers(
         importance = float(SLOT_IMPORTANCE.get(slot_name, 1.0))
         expanded: list[_State] = []
         for state in beam:
-            # Unfilled is allowed.  A penalty keeps coverage important while
+            # Unfilled is allowed. A penalty keeps coverage important while
             # preventing an unrelated model from occupying a role it cannot do.
             expanded.append(_State(
                 objective=state.objective - UNFILLED_PENALTY * importance,
