@@ -213,7 +213,11 @@ def _run_one(job: MediaJob, handler: Callable[[MediaJob], Any], *, max_transient
 
 
 def run_batch(jobs: Iterable[MediaJob], handler: Callable[[MediaJob], Any], *, policy: BatchPolicy | None = None, state: str = "NORMAL", capacity: ResourceVector | None = None) -> list[JobResult]:
-    """Run independent jobs in bounded waves; later jobs queue rather than overspawn."""
+    """Run independent read-only/pure jobs in bounded waves.
+
+    Mutating media handlers must use ``run_batch_with_leases`` so every write
+    has a job-scoped Single Writer lease. Later jobs queue rather than overspawn.
+    """
     policy = (policy or BatchPolicy()).validate()
     capacity = (capacity or ResourceVector(cpu_slots=3, memory_mb=6144, disk_mb=12288, provider_slots=3)).validate()
     job_list = list(jobs)
@@ -242,6 +246,36 @@ def run_batch(jobs: Iterable[MediaJob], handler: Callable[[MediaJob], Any], *, p
     order = {job.job_id: i for i, job in enumerate(job_list)}
     results.sort(key=lambda item: order.get(item.job_id, 10**9))
     return results
+
+
+def run_batch_with_leases(
+    jobs: Iterable[MediaJob],
+    handler: Callable[[MediaJob], Any],
+    *,
+    lease_manager: FileLeaseManager,
+    owner_prefix: str = "batch-media",
+    policy: BatchPolicy | None = None,
+    state: str = "NORMAL",
+    capacity: ResourceVector | None = None,
+) -> list[JobResult]:
+    """Run mutating media jobs with a job-scoped lease around every attempt."""
+    invocation_id = uuid.uuid4().hex
+
+    def leased_handler(job: MediaJob) -> Any:
+        owner = f"{owner_prefix}:{invocation_id}:{job.job_id}"
+        token = lease_manager.acquire(job.job_id, owner)
+        handler_failed = False
+        try:
+            return handler(job)
+        except BaseException:
+            handler_failed = True
+            raise
+        finally:
+            released = lease_manager.release(job.job_id, token)
+            if not released and not handler_failed:
+                raise StaleWriteError("lease disappeared or token mismatched before successful handler return")
+
+    return run_batch(jobs, leased_handler, policy=policy, state=state, capacity=capacity)
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -285,4 +319,4 @@ def atomic_compare_and_swap_json(path: Path, *, expected_sha256: str, payload: M
     return _sha256_bytes(encoded)
 
 
-__all__ = ["BatchPolicy", "FileLeaseManager", "JobResult", "LeaseBusyError", "MediaJob", "MediaJobFailure", "ResourceVector", "StaleWriteError", "admit_wave", "atomic_compare_and_swap_json", "effective_parallelism", "file_sha256_or_empty", "run_batch"]
+__all__ = ["BatchPolicy", "FileLeaseManager", "JobResult", "LeaseBusyError", "MediaJob", "MediaJobFailure", "ResourceVector", "StaleWriteError", "admit_wave", "atomic_compare_and_swap_json", "effective_parallelism", "file_sha256_or_empty", "run_batch", "run_batch_with_leases"]
