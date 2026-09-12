@@ -1,0 +1,81 @@
+name: "Canonical AI Army consistency"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - 'config/ai_army_org_chart.json'
+      - 'config/multi_agent_operating_policy.json'
+      - 'config/deepseek_paid_supervisor_policy.json'
+      - 'config/agent_efficiency_policy.json'
+      - 'config/current_commander_handoff.json'
+      - 'config/permanent_standards_manifest.json'
+      - 'config/legacy_deepseek_compatibility.json'
+      - 'config/model_registry.json'
+      - 'scripts/ai_army_routing_facade.py'
+      - 'scripts/validate_permanent_ai_army_state.py'
+      - 'scripts/agent_architecture_admission.py'
+      - 'scripts/commander_routing.py'
+      - 'scripts/deepseek_supervisor_research.py'
+      - 'schemas/deepseek_supervisor_mission.schema.json'
+      - 'docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md'
+      - 'tests/test_ai_army_routing_facade.py'
+      - '.github/workflows/deepseek-*.yml'
+      - '.github/workflows/canonical-ai-army-consistency.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: canonical-ai-army-consistency-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Compile canonical routing and validation code
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            scripts/ai_army_routing_facade.py \
+            scripts/validate_permanent_ai_army_state.py \
+            scripts/agent_architecture_admission.py \
+            scripts/deepseek_supervisor_research.py
+
+      - name: Validate canonical JSON policy stack
+        run: |
+          set -euo pipefail
+          python -m json.tool config/ai_army_org_chart.json >/dev/null
+          python -m json.tool config/multi_agent_operating_policy.json >/dev/null
+          python -m json.tool config/deepseek_paid_supervisor_policy.json >/dev/null
+          python -m json.tool config/agent_efficiency_policy.json >/dev/null
+          python -m json.tool config/current_commander_handoff.json >/dev/null
+          python -m json.tool config/permanent_standards_manifest.json >/dev/null
+          python -m json.tool config/legacy_deepseek_compatibility.json >/dev/null
+
+      - name: Run permanent organization consistency validator
+        run: |
+          set -euo pipefail
+          python scripts/validate_permanent_ai_army_state.py
+
+      - name: Run routing facade regression tests
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_ai_army_routing_facade -v
+
+      - name: Prove no paid call occurs in consistency CI
+        run: |
+          set -euo pipefail
+          test -z "${DEEPSEEK_API_KEY:-}"
+          ! grep -q 'secrets.DEEPSEEK_API_KEY' .github/workflows/canonical-ai-army-consistency.yml
+          echo 'PAID_CALLS=0'
