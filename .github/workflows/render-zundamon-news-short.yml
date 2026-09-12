@@ -1,4 +1,4 @@
-name: Pilot news short - Zundamon + licensed web images
+name: Pilot news short - Zundamon + sourced web images
 
 on:
   push:
@@ -43,7 +43,7 @@ jobs:
           python -m json.tool missions/news-video-pilot.json >/dev/null
           python -m py_compile scripts/news_video_editorial_council.py scripts/render_zundamon_news_short.py
 
-      - name: Run bounded free editorial council in parallel
+      - name: Run bounded live-free editorial council
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
@@ -66,25 +66,34 @@ jobs:
           docker logs voicevox-news-pilot || true
           exit 1
 
-      - name: Render vertical short to exact Zundamon narration timing
+      - name: Render vertical short with exact full-narration subtitles
         run: |
           set -euo pipefail
           python scripts/render_zundamon_news_short.py
 
-      - name: Validate rendered artifact and safety properties
+      - name: Validate rendered artifact, subtitle coverage, and Zundamon motion
         run: |
           set -euo pipefail
           python -m json.tool artifacts/news-video-pilot/render_report.json >/dev/null
+          python -m json.tool artifacts/news-video-pilot/subtitle_manifest.json >/dev/null
           python - <<'PY'
           import json, subprocess
           from pathlib import Path
-          report=json.loads(Path('artifacts/news-video-pilot/render_report.json').read_text(encoding='utf-8'))
+          root=Path('artifacts/news-video-pilot')
+          report=json.loads((root/'render_report.json').read_text(encoding='utf-8'))
+          subs=json.loads((root/'subtitle_manifest.json').read_text(encoding='utf-8'))
           assert report['status']=='RENDERED'
           assert report['resolution']=='1080x1920'
           assert report['voice']=='VOICEVOX:ずんだもん'
           assert report['image_generation_used'] is False
           assert report['video_generation_used'] is False
-          video=Path('artifacts/news-video-pilot/zundamon_nasa_hypersoft_xray_short.mp4')
+          assert report['subtitle_coverage']==1.0
+          assert subs['coverage']==1.0
+          assert report['subtitle_chunk_count']==len(subs['chunks'])
+          assert report['zundamon_overlay'] is True
+          assert report['zundamon_motion'] is True
+          assert report['zundamon_pose_count'] >= 2
+          video=root/report['file']
           assert video.exists() and video.stat().st_size > 500_000
           probe=subprocess.check_output([
               'ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height',
@@ -96,7 +105,15 @@ jobs:
               '-of','default=nk=1:nw=1',str(video)
           ], text=True).strip()
           assert audio, 'missing audio stream'
-          print(json.dumps({'render':'PASS','resolution':probe,'audio_codec':audio,'duration':report['duration_seconds']}, ensure_ascii=False))
+          transcript=(root/'transcript.txt').read_text(encoding='utf-8').strip()
+          spoken=''.join(str(row['spoken_text']) for row in subs['chunks'])
+          normalized=''.join(transcript.split())
+          assert spoken==normalized, 'subtitle/spoken transcript coverage mismatch'
+          print(json.dumps({
+              'render':'PASS','resolution':probe,'audio_codec':audio,
+              'duration':report['duration_seconds'],'subtitle_coverage':report['subtitle_coverage'],
+              'zundamon_motion':report['zundamon_motion']
+          }, ensure_ascii=False))
           PY
 
       - name: Audit repository for secret literals
