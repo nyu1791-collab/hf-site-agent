@@ -48,27 +48,27 @@ jobs:
               {
                   'id': 'policy-risk',
                   'role': 'PLATFORM_POLICY_AND_RIGHTS_ANALYST',
-                  'instruction': 'Independently assess monetization viability, copyright/reused-content risk, permission models, and the safest scalable operating model for livestream highlight clipping on YouTube and TikTok. Distinguish platform monetization eligibility from copyright permission. Recommend hard gates and rejection criteria.'
+                  'instruction': 'Assess monetization viability, copyright/reused-content risk, permission models, and the safest scalable operating model for livestream highlight clipping on YouTube and TikTok. Distinguish platform monetization eligibility from copyright permission. Recommend hard gates and rejection criteria.'
               },
               {
                   'id': 'automation-business',
                   'role': 'AUTOMATION_AND_BUSINESS_ARCHITECT',
-                  'instruction': 'Design a low-cost AI Army pipeline for authorized livestream highlight clipping, including highlight scoring, ASR, chat-spike signals, vertical reframing, captions, QA, human approval, publishing handoff, analytics feedback, and business models. Also rank adjacent AI-automation monetization opportunities by speed-to-revenue, defensibility, policy risk, capital cost, and automation fit.'
+                  'instruction': 'Design a low-cost AI Army pipeline for authorized livestream highlight clipping: highlight scoring, ASR, chat-spike signals, vertical reframing, captions, QA, human approval, publishing handoff, analytics feedback, and business models. Rank adjacent AI-automation monetization opportunities by speed-to-revenue, defensibility, policy risk, capital cost, and automation fit.'
               },
           ]
 
-          system = '''You are DeepSeek V4.1 Flash acting as a paid research specialist under explicit human approval. You are advisory only: do not publish, deploy, merge, mutate secrets, or claim external actions. Use the supplied fresh evidence bundle and your reasoning. Do not assume that attribution alone grants copyright permission. Do not recommend mass reposting or policy-evasion. Return a JSON object with keys: verdict, key_findings, recommended_architecture, monetization_models, hard_gates, rejected_patterns, adjacent_opportunities, confidence. Be concrete and prioritize sustainable revenue over raw view count.'''
+          system = '''You are DeepSeek V4.1 Flash acting as a paid research specialist under explicit human approval. You are advisory only. Do not publish, deploy, merge, mutate secrets, or claim actions you did not perform. Use the supplied fresh evidence bundle and your reasoning. Attribution is not copyright permission. Do not recommend unlicensed mass reposting or policy evasion. Return exactly one valid compact JSON object with these keys: verdict, key_findings, recommended_architecture, monetization_models, hard_gates, rejected_patterns, adjacent_opportunities, confidence. Arrays should be concise. Sustainable revenue is more important than raw view count.'''
           evidence = json.dumps(mission, ensure_ascii=False)
           peak_in = 0.44
           peak_out = 1.32
-          max_tokens = 3000
+          max_tokens = 4500
           max_total_cost = 0.05
 
           def rough_tokens(s):
               return max(1, (len(s)+3)//4)
 
           def call(role):
-              user = f"ROLE={role['role']}\nTASK={role['instruction']}\nMISSION_AND_EVIDENCE={evidence}\nReturn JSON only."
+              user = f"ROLE={role['role']}\nTASK={role['instruction']}\nMISSION_AND_EVIDENCE={evidence}\nReturn one complete JSON object only."
               reserve = (rough_tokens(system+user)*peak_in + max_tokens*peak_out)/1_000_000
               if reserve > max_total_cost/2:
                   raise RuntimeError(f'preflight reserve too high: {reserve}')
@@ -78,13 +78,12 @@ jobs:
                   'max_tokens':max_tokens,
                   'stream':False,
                   'response_format':{'type':'json_object'},
-                  'thinking':{'type':'enabled'},
-                  'reasoning_effort':'high'
+                  'thinking':{'type':'disabled'}
               }
               req = urllib.request.Request(
                   'https://api.deepseek.com/chat/completions',
                   data=json.dumps(payload,ensure_ascii=False).encode('utf-8'),
-                  headers={'Authorization':f'Bearer {api_key}','Content-Type':'application/json','Accept':'application/json','User-Agent':'hf-site-agent-clipping-research/1'},
+                  headers={'Authorization':f'Bearer {api_key}','Content-Type':'application/json','Accept':'application/json','User-Agent':'hf-site-agent-clipping-research/2'},
                   method='POST'
               )
               t=time.monotonic()
@@ -95,7 +94,15 @@ jobs:
               if not choices:
                   raise RuntimeError('choices missing')
               content=(choices[0].get('message') or {}).get('content')
+              if not isinstance(content, str) or not content.strip():
+                  raise RuntimeError('visible content missing')
+              content=content.strip()
+              if content.startswith('```'):
+                  lines=content.splitlines()
+                  content='\n'.join(lines[1:-1]).strip()
               result=json.loads(content)
+              if not isinstance(result, dict):
+                  raise RuntimeError('result is not object')
               usage=obj.get('usage') or {}
               prompt=int(usage.get('prompt_tokens') or 0)
               hit=int(usage.get('prompt_cache_hit_tokens') or 0)
@@ -113,8 +120,8 @@ jobs:
           outputs=[]
           errors=[]
           with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
-              futs={ex.submit(call,r):r for r in roles}
-              for fut, role in list(futs.items()):
+              future_map={ex.submit(call,r):r for r in roles}
+              for fut, role in future_map.items():
                   try:
                       outputs.append(fut.result())
                   except Exception as e:
@@ -122,8 +129,9 @@ jobs:
 
           total_cost=sum(float(x.get('conservative_peak_cost_usd') or 0) for x in outputs)
           report={
-              'schema_version':'deepseek-clipping-research-v1',
+              'schema_version':'deepseek-clipping-research-v2',
               'mission_id':mission['mission_id'],
+              'attempt':mission.get('attempt',2),
               'status':'READY' if len(outputs)==2 else ('PARTIAL' if outputs else 'FAILED'),
               'model':'deepseek-flash',
               'paid_calls':len(outputs)+len(errors),
