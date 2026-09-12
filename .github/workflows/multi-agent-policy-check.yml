@@ -123,6 +123,7 @@ jobs:
           assert budget['infinite_loop'] is False
           assert budget['every_external_call_requires_timeout'] is True
           assert budget['stop_on_budget_exhaustion'] is True
+          assert budget['repeated_same_root_cause_requires_circuit_break_or_method_change'] is True
           assert budget['multi_agent_team_without_termination_condition'] == 'BLOCK'
           required_terminators={'TASK_COMPLETE','MAX_TURNS_OR_MESSAGES','MAX_REQUESTS','TOKEN_BUDGET','WALL_CLOCK_TIMEOUT','HUMAN_APPROVAL_REQUIRED','REPEATED_ROOT_CAUSE_CIRCUIT_BREAKER','MISSION_CANCELLED'}
           assert required_terminators.issubset(set(budget['supported_termination_conditions']))
@@ -134,7 +135,6 @@ jobs:
           assert reliability['stale_result_must_not_overwrite_newer_state'] is True
           assert reliability['unrelated_mission_reuses_agent_state_by_default'] is False
           assert reliability['failure_class_required_on_failed_or_partial_report'] is True
-          assert reliability['repeated_same_root_cause_requires_circuit_break_or_method_change'] is True
 
           security=p['security_and_permissions']
           assert security['least_privilege_per_agent'] is True
