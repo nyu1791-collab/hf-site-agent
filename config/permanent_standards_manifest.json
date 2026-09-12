@@ -1,7 +1,7 @@
 {
-  "schema_version": "permanent-standards-manifest-v2",
+  "schema_version": "permanent-standards-manifest-v3",
   "effective_date_jst": "2026-09-12",
-  "purpose": "Make critical AI Army, paid DeepSeek supervisor, long-form video, authorized clipping, TikTok Shop commerce, and measurable efficiency rules recoverable and reusable across new chat tabs/sessions without relying on transient conversation context.",
+  "purpose": "Make critical AI Army, paid DeepSeek supervisor, routing, long-form video, authorized clipping, TikTok Shop commerce, and measurable efficiency rules recoverable and reusable across new chat tabs/sessions without relying on transient conversation context.",
   "canonical_branch": "ai-army/provider-v3",
   "startup_rule": "READ_CURRENT_COMMANDER_HANDOFF_AND_REQUIRED_STANDARDS_BEFORE_PLANNING_OR_EXECUTION",
   "required_standards": [
@@ -13,6 +13,12 @@
     {
       "id": "ai-army-org-chart",
       "machine_policy": "config/ai_army_org_chart.json",
+      "human_doc": "docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md",
+      "priority": 1
+    },
+    {
+      "id": "canonical-routing-facade",
+      "runtime": "scripts/ai_army_routing_facade.py",
       "priority": 1
     },
     {
@@ -25,6 +31,7 @@
       "id": "deepseek-executive-supervisor",
       "machine_policy": "config/deepseek_paid_supervisor_policy.json",
       "runtime": "scripts/deepseek_supervisor_research.py",
+      "workflow": ".github/workflows/deepseek-supervisor-research.yml",
       "priority": 1
     },
     {
@@ -32,6 +39,18 @@
       "machine_policy": "config/agent_efficiency_policy.json",
       "admission": "scripts/agent_architecture_admission.py",
       "evaluation": "scripts/agent_efficiency_eval.py",
+      "priority": 1
+    },
+    {
+      "id": "legacy-deepseek-compatibility-registry",
+      "machine_policy": "config/legacy_deepseek_compatibility.json",
+      "authority": "HISTORICAL_COMPATIBILITY_ONLY",
+      "priority": 2
+    },
+    {
+      "id": "permanent-ai-army-consistency-gate",
+      "validator": "scripts/validate_permanent_ai_army_state.py",
+      "workflow": ".github/workflows/canonical-ai-army-consistency.yml",
       "priority": 1
     },
     {
@@ -64,6 +83,19 @@
       "priority": 1
     }
   ],
+  "canonical_ai_army_execution": {
+    "policy_entrypoint": "scripts/ai_army_routing_facade.py",
+    "top_commander": "chatgpt-work",
+    "paid_executive_supervisor": "deepseek",
+    "deepseek_is_mandatory_hop_for_every_task": false,
+    "direct_specialist_bypass_for_narrow_bounded_execution": true,
+    "deterministic_tool_bypass": true,
+    "legacy_commander_router": "scripts/commander_routing.py",
+    "legacy_commander_router_authority": "COMPATIBILITY_EXECUTION_LAYER_ONLY",
+    "only_active_paid_deepseek_execution_workflow": ".github/workflows/deepseek-supervisor-research.yml",
+    "historical_deepseek_configs_authorize_execution": false,
+    "historical_deepseek_workflows_may_remain_active": false
+  },
   "default_runtime_flags": {
     "FREE_ONLY_MODE": true,
     "ALLOW_PAID_MODEL": false,
@@ -80,6 +112,7 @@
       "repeat_per_call_approval_required": false,
       "allowed_scope": ["RESEARCH", "ARCHITECTURE", "PEER_REVIEW", "RED_TEAM", "INCIDENT_ANALYSIS", "STRATEGY", "TASK_DECOMPOSITION", "SUBORDINATE_REVIEW", "MEDIA_STRATEGY", "TIKTOK_SHOP_STRATEGY"],
       "bulk_coding_worker": false,
+      "mandatory_hop_for_every_task": false,
       "repository_write_by_deepseek": false,
       "auto_top_up": false,
       "generic_paid_fallback": false,
@@ -108,6 +141,8 @@
     "on_new_tab_recover_from_current_commander_handoff_first": true,
     "deepseek_supervisor_preauthorization_survives_tab_change": true,
     "deepseek_exception_does_not_expand_to_other_paid_providers": true,
+    "canonical_router_survives_tab_change": true,
+    "historical_deepseek_artifacts_do_not_become_authoritative_on_tab_change": true,
     "reconfirm_current_branch_head_before_code_change": true,
     "reconfirm_pr_state_before_code_change": true,
     "do_not_assume_previous_live_provider_evidence_is_fresh": true,
@@ -123,15 +158,18 @@
   "longform_video_primary_goal": "DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK",
   "multi_agent_primary_goal": "USE_HIERARCHICAL_SPECIALIZATION_ONLY_WHEN_SYSTEM_VALUE_EXCEEDS_COORDINATION_COST",
   "deepseek_primary_goal": "SPEND_PAID_DEEPSEEK_COMPUTE_ON_HIGH_VALUE_SUPERVISORY_RESEARCH_REVIEW_AND_SYNTHESIS_NOT_MECHANICAL_WORK",
-  "commerce_primary_goal": "USE_CURRENT_EVIDENCE_AND_STORYTELLING_TO_IMPROVE PURCHASE_UNDERSTANDING_AND_TRUST_WITHOUT_FABRICATED_CLAIMS",
+  "commerce_primary_goal": "USE_CURRENT_EVIDENCE_AND_STORYTELLING_TO_IMPROVE_PURCHASE_UNDERSTANDING_AND_TRUST_WITHOUT_FABRICATED_CLAIMS",
   "forbidden_drift": [
     "TURN_AI_ARMY_INTO_UNBOUNDED_SWARM",
     "BROADCAST_FULL_CONTEXT_TO_EVERY_AGENT",
     "ALLOW_WORKER_TO_WORKER_UNBOUNDED_DELEGATION",
     "REPLACE_TYPED_CONTRACTS_WITH_FREEFORM_CHAT",
     "USE_DEEPSEEK_AS_DEFAULT_BOILERPLATE_CODE_FACTORY",
+    "USE_DEEPSEEK_AS_MANDATORY_PAID_HOP_FOR_TRIVIAL_EXECUTION",
     "ALLOW_DEEPSEEK_EXCEPTION_TO_AUTHORIZE_OTHER_PAID_PROVIDERS",
     "AUTO_TOP_UP_OR_GENERIC_PAID_FALLBACK",
+    "ALLOW_HISTORICAL_DEEPSEEK_EXPERIMENT_CONFIG_TO_AUTHORIZE_EXECUTION",
+    "KEEP_LEGACY_PAID_DEEPSEEK_WORKFLOWS_ACTIVE_AFTER_CANONICAL_SUPERVISOR_MIGRATION",
     "REGENERATE_HEALTHY_VIDEO_STAGES_AFTER_ISOLATED_FAILURE",
     "RENDER_LONGFORM_VIDEO_MONOLITHICALLY_BY_DEFAULT",
     "USE_UNLICENSED_CLIPS_AS_DEFAULT_MONETIZATION_SOURCE",
