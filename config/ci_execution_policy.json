@@ -1,15 +1,38 @@
 {
-  "schema_version": "ci-execution-policy-v1",
-  "strategy": "ONE_AUTOMATIC_CORE_GATE_PLUS_ONE_EXPLICIT_CARRIER",
+  "schema_version": "ci-execution-policy-v2",
+  "strategy": "ONE_CORE_GATE_PLUS_ONE_PATH_SCOPED_CONSISTENCY_GATE_PLUS_EXPLICIT_BOUNDED_CARRIERS",
   "long_lived_branch": "ai-army/provider-v3",
-  "max_automatic_workflows_per_push": 1,
+  "max_automatic_workflows_per_push": 2,
   "automatic_workflows": [
-    "verify-hierarchical-runtime.yml"
+    "verify-hierarchical-runtime.yml",
+    "canonical-ai-army-consistency.yml"
   ],
+  "automatic_workflow_rule": "The second automatic workflow is path-scoped to canonical policy/routing changes and does not run on unrelated pushes.",
   "max_bounded_internal_carriers": 1,
   "bounded_internal_carrier_workflows": [
     "subordinate-continuation.yml"
   ],
+  "max_bounded_paid_supervisor_workflows": 1,
+  "bounded_paid_supervisor_workflows": [
+    "deepseek-supervisor-research.yml"
+  ],
+  "paid_supervisor_trigger_contract": {
+    "push_path": "missions/deepseek-supervisor/*.json",
+    "exactly_one_changed_mission_required": true,
+    "manual_dispatch_mission_path_required": true,
+    "repository_permission": "contents: read",
+    "repository_write": false,
+    "deploy": false,
+    "publish": false,
+    "merge": false,
+    "secret_mutation": false,
+    "auto_top_up": false,
+    "generic_paid_fallback": false,
+    "chatgpt_final_adjudication_required": true,
+    "canonical_policy": "config/deepseek_paid_supervisor_policy.json",
+    "canonical_runner": "scripts/deepseek_supervisor_research.py",
+    "canonical_mission_schema": "schemas/deepseek_supervisor_mission.schema.json"
+  },
   "manual_specialist_workflows": [
     "verify-ci-control-plane.yml",
     "verify-free-media-capability-pool.yml",
@@ -21,8 +44,16 @@
     "verify-real-photo-sourcing.yml",
     "verify-deepseek-joint-runtime.yml",
     "verify-media-army.yml",
-    "deepseek-paid-parallel.yml",
     "subordinate-continuation-carrier.yml"
+  ],
+  "retired_paid_deepseek_workflows": [
+    "deepseek-paid-parallel.yml",
+    "deepseek-paid-full-system-peer-review.yml",
+    "deepseek-paid-peer-review-recovery.yml",
+    "deepseek-specialist-trial.yml",
+    "deepseek-role-mode-benchmark.yml",
+    "deepseek-targeted-review.yml",
+    "deepseek-priority-implementation-review.yml"
   ],
   "step_zero_failure": {
     "classifier": "runner_id_zero_and_steps_empty",
@@ -30,18 +61,29 @@
     "reason": "Runner-allocation failures are infrastructure/quota failures; replaying does not repair source code and can amplify run volume."
   },
   "concurrency": {
-    "cancel_superseded_runs": true,
+    "cancel_superseded_core_and_consistency_runs": true,
     "group_by_workflow_and_ref": true,
-    "bounded_paid_carrier_cancel_in_progress": false
+    "bounded_internal_carrier_cancel_in_progress": false,
+    "paid_supervisor_mission_cancel_in_progress": false
   },
   "paid_provider_policy": {
-    "deepseek_paid_parallel_manual_only": true,
-    "bounded_carrier_paid_seed_requires_explicit_trigger_marker": true,
-    "explicit_approval_marker_required": true,
-    "max_calls": 2,
-    "max_parallel_calls": 2,
-    "max_estimated_cost_usd": 0.1,
+    "provider": "deepseek",
+    "authorized_role": "EXECUTIVE_SUPERVISOR",
+    "persistent_user_authorization": true,
+    "canonical_policy": "config/deepseek_paid_supervisor_policy.json",
+    "canonical_workflow": ".github/workflows/deepseek-supervisor-research.yml",
+    "canonical_runner": "scripts/deepseek_supervisor_research.py",
+    "default_max_calls": 8,
+    "default_max_parallel_calls": 3,
+    "expansion_hard_max_calls": 12,
+    "expansion_hard_max_parallel_calls": 4,
+    "max_estimated_cost_usd_per_mission": 0.5,
+    "max_estimated_cost_usd_per_day": 3.0,
+    "expansion_requires_reason": true,
+    "successful_lane_reuse_required": true,
+    "same_root_cause_retry": false,
     "generic_paid_fallback": false,
-    "auto_top_up": false
+    "auto_top_up": false,
+    "other_paid_providers_authorized": false
   }
 }
