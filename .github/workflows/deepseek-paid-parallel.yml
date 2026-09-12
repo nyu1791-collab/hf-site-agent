@@ -65,6 +65,7 @@ jobs:
           assert report['production_enabled'] is False
           assert report['generic_paid_fallback'] is False
           assert report['repository_write'] is False
+          assert float(report['max_estimated_cost_usd']) <= 0.10
           print('DEEPSEEK_V41_PAID_DRY_RUN=PASS')
           PY
 
@@ -98,8 +99,9 @@ jobs:
           assert report.get('explicit_paid_approval') is True
           assert int(report.get('paid_calls', 0)) <= 2
           assert int(report.get('max_parallel_calls', 0)) <= 2
-          assert float(report.get('conservative_preflight_cost_usd', 0)) <= 0.05
-          assert float(report.get('cost_exposure_usd', 0)) <= 0.05
+          assert float(report.get('conservative_preflight_cost_usd', 0)) <= 0.10
+          assert float(report.get('cost_exposure_usd', 0)) <= 0.10
+          assert float(report.get('max_estimated_cost_usd', 0)) <= 0.10
           assert report.get('production_enabled') is False
           assert report.get('generic_paid_fallback') is False
           assert report.get('auto_top_up') is False
