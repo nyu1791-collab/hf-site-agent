@@ -1,2 +1,10 @@
-trigger=2026-09-10T14:20:00+09:00
-purpose=durable-nvidia-google-implementation-review
+trigger=2026-09-12T09:55:00+09:00
+purpose=parallel-deepseek-paid-plus-nvidia-independent-review
+deepseek_paid_approved=true
+deepseek_max_paid_calls=2
+deepseek_max_cost_usd=0.05
+nvidia_paid_approved=false
+production_change=false
+merge=false
+deploy=false
+publish=false
