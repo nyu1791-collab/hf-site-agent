@@ -1,106 +1,104 @@
 {
-  "schema_version": "news-video-pilot-v1",
-  "title": "NASAが『謎のX線天体』84個を発見",
-  "topic": "NASA/Chandra reports 84 hypersoft X-ray sources in six galaxies",
-  "published_at": "2026-09-09",
-  "primary_source": "https://science.nasa.gov/missions/chandra/nasas-chandra-unveils-mysterious-x-ray-objects/",
+  "schema_version": "news-video-pilot-v2",
+  "title": "OpenAI、AI開発『減速も選択肢』",
+  "topic": "OpenAI has already slowed parts of frontier model development for safety, and Reuters reports Sam Altman told staff the company is open to slowing AI development further if needed",
+  "published_at": "2026-09-11",
+  "output_file": "zundamon_openai_ai_slowdown_short.mp4",
+  "primary_source": "https://openai.com/index/pacing-model-development-cyber-capabilities/",
+  "sources": [
+    {"kind":"official","title":"Pacing model development in an era of cyber-critical capabilities","published_at":"2026-08-18","url":"https://openai.com/index/pacing-model-development-cyber-capabilities/"},
+    {"kind":"official","title":"Path to Astra: critical capabilities and frontier safeguards","published_at":"2026-09-01","url":"https://openai.com/index/path-to-astra/"},
+    {"kind":"official","title":"Research acceleration: The view inside OpenAI","published_at":"2026-09-06","url":"https://openai.com/index/research-acceleration-view-inside-openai/"},
+    {"kind":"official","title":"The AI policy window is open. We need to act.","published_at":"2026-09-09","url":"https://openai.com/index/ai-policy-window/"},
+    {"kind":"reported","title":"Altman tells staff OpenAI is open to slowing AI development, Bloomberg News reports","published_at":"2026-09-11","url":"https://www.reuters.com/business/altman-tells-staff-openai-is-open-slowing-ai-development-bloomberg-news-reports-2026-09-11/"}
+  ],
   "verified_facts": [
-    "NASA published the Chandra article on 2026-09-09.",
-    "Researchers found 84 hypersoft X-ray sources in six galaxies using public Chandra archive data.",
-    "The sources emit unusually low-energy X-rays and are inferred to produce intense energetic ultraviolet radiation.",
-    "Their physical nature is not yet established.",
-    "Likely scenarios involve a black hole, neutron star, or white dwarf accreting material from a companion star.",
-    "They may help investigate Type Ia supernova progenitors and ionization of interstellar gas.",
-    "Type Ia supernovae are important for measuring the expansion of the universe.",
-    "Ionization of interstellar gas can affect how quickly stars form and influence galaxy life cycles."
+    "On 2026-08-18 OpenAI said it temporarily slowed the pace of scaling and paused reinforcement-learning training on its latest deployment-oriented models for two weeks while strengthening safeguards.",
+    "OpenAI said its largest planned frontier RL run remained on hold at that time while smaller-scale training and evaluations continued.",
+    "OpenAI linked the change to the OpenAI-Hugging Face incident and preliminary evidence that Astra could meet its Critical cybersecurity capability threshold.",
+    "On 2026-09-01 OpenAI said Astra met the Critical cybersecurity threshold and that parts of Astra development and release had been delayed while protections were strengthened and tested.",
+    "On 2026-09-11 Reuters reported, citing Bloomberg News, that Sam Altman told employees OpenAI is open to slowing development of its AI systems amid safety concerns.",
+    "The September 11 Altman statement is a reported claim, not an official OpenAI announcement in the supplied sources.",
+    "On 2026-09-06 OpenAI said it had reached its automated research intern goal and aims to build an automated AI researcher that works under human supervision.",
+    "On 2026-09-09 OpenAI publicly supported mandatory capability-based national AI safety requirements and state measures supporting independent safety assessments and AI-auditor standards."
   ],
   "hard_rules": [
     "Do not use image generation AI.",
     "Do not use generative video AI.",
-    "Use only source-grounded current facts and preserve uncertainty.",
-    "Use reusable internet images whose license is recorded in this mission.",
-    "Credit VOICEVOX:ずんだもん.",
+    "Use only source-grounded current facts and distinguish official statements from reported claims.",
+    "Ordinary web image search visuals are allowed for this non-monetized prototype; record their source pages and do not invent a license.",
+    "Every spoken Zundamon line must be represented in subtitle_chunks and subtitle coverage must equal 100 percent.",
+    "Use 1-4 meaningful subtitle chunks per scene and no more than two display lines per chunk.",
+    "Show an official Zundamon image during narration and animate its position deterministically.",
+    "Credit VOICEVOX:ずんだもん and the official Zundamon project art source.",
     "Do not publish or upload to any social platform."
   ],
   "narration": [
-    "NASAが、これまで見たことのない振る舞いをするX線天体を大量に見つけたのだ。9月9日、チャンドラX線観測衛星のデータを使った研究が発表されたのだ。",
-    "見つかったのは、6つの銀河にある84個の『超軟X線源』なのだ。普通よりかなり低いエネルギーのX線を出す一方で、強い紫外線も生み出していると考えられているのだ。",
-    "でも正体はまだ確定していないのだ。候補は、ブラックホールや中性子星、白色矮星が、相棒の星から物質を吸い込む連星系なのだ。",
-    "もし白色矮星が関係しているなら、Ia型超新星が爆発する前の姿を見つける手がかりになる可能性があるのだ。Ia型超新星は、宇宙の膨張を測る重要な目印なのだ。",
-    "さらに、この天体が出す強い紫外線は、銀河のガスから電子をはぎ取る仕組みの一部を説明できるかもしれないのだ。これは星が生まれる速さにも関わる重要な問題なのだ。",
-    "研究チームは、チャンドラの公開アーカイブを調べて、これまで見落とされていた領域を掘り起こしたのだ。本当に新しい天体の種類なのか、今後の観測がかなり楽しみなのだ。"
+    "OpenAIが、AI開発をただ速く進めるだけではなく、必要なら減速する姿勢をはっきり見せ始めたのだ。実は8月、OpenAIは最新モデル向けの強化学習を2週間止め、最大規模の計画も保留にしていたのだ。",
+    "理由は安全対策なのだ。OpenAIはHugging Faceでの事故と、Astraが重大なサイバー能力に達する可能性を受け、監視・隔離・アラインメントを強化するためにスケーリングを一時的に減速したのだ。",
+    "そして9月11日、ReutersはBloombergの報道を引用し、サム・アルトマンCEOが社員に、必要ならAIシステムの開発を遅らせることにも前向きだと伝えた、と報じたのだ。これはOpenAIの公式発表ではなく、報道ベースの情報なのだ。",
+    "一方で、AI研究そのものは加速しているのだ。OpenAIは9月6日、自動研究インターンの目標に到達したと発表し、人間の監督下で働く自動AI研究者を目指しているのだ。",
+    "だから、開発停止へ転換したという単純な話ではないのだ。能力が上がるほど、安全性の確認が追いつかなければ速度を落とす。その一方で研究自動化は進める、という二つの動きが同時に起きているのだ。",
+    "さらにOpenAIは9月9日、能力に応じた国レベルの強制的なAI安全規制や独立評価を支持すると表明したのだ。今回の注目点は、速さだけを競うのではなく、危険が大きければ止まれる仕組みを会社の内外で作ろうとしていることなのだ。"
   ],
   "scenes": [
     {
-      "caption": "NASAが謎のX線天体を発見",
-      "text": "NASAが、これまで見たことのない振る舞いをするX線天体を大量に見つけたのだ。9月9日、チャンドラX線観測衛星のデータを使った研究が発表されたのだ。",
-      "image_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Chandra_X-ray_Observatory.jpg",
-      "visual_role": "Chandra X-ray Observatory"
+      "caption":"OpenAI『必要なら減速』",
+      "text":"OpenAIが、AI開発をただ速く進めるだけではなく、必要なら減速する姿勢をはっきり見せ始めたのだ。実は8月、OpenAIは最新モデル向けの強化学習を2週間止め、最大規模の計画も保留にしていたのだ。",
+      "subtitle_chunks":["OpenAIが、AI開発をただ速く進めるだけではなく、\n必要なら減速する姿勢をはっきり見せ始めたのだ。","実は8月、OpenAIは最新モデル向けの強化学習を2週間止め、\n最大規模の計画も保留にしていたのだ。"],
+      "image_url":"https://us1.discourse-cdn.com/openai1/optimized/4X/7/b/e/7bed046145acced9b94c51822b8c447004744834_2_1024x576.jpeg",
+      "visual_role":"OpenAI model-development pacing article title visual"
     },
     {
-      "caption": "6銀河で84個の超軟X線源",
-      "text": "見つかったのは、6つの銀河にある84個の『超軟X線源』なのだ。普通よりかなり低いエネルギーのX線を出す一方で、強い紫外線も生み出していると考えられているのだ。",
-      "image_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/M101-_A_Pinwheel_in_Many_Colors_%282012-m101_-_m101_1280%29.jpg",
-      "visual_role": "M101 Pinwheel galaxy"
+      "caption":"なぜ減速した？",
+      "text":"理由は安全対策なのだ。OpenAIはHugging Faceでの事故と、Astraが重大なサイバー能力に達する可能性を受け、監視・隔離・アラインメントを強化するためにスケーリングを一時的に減速したのだ。",
+      "subtitle_chunks":["理由は安全対策なのだ。\nOpenAIはHugging Faceでの事故と、","Astraが重大なサイバー能力に達する可能性を受け、\n監視・隔離・アラインメントを強化するために","スケーリングを一時的に減速したのだ。"],
+      "image_url":"https://image.cnbcfm.com/api/v1/image/106851325-1615305209154-gettyimages-885294108-spk_00007_01016.jpeg?h=1080&v=1760111274&w=1920",
+      "visual_role":"Generic real data-center photo for security context"
     },
     {
-      "caption": "正体はまだ未確定",
-      "text": "でも正体はまだ確定していないのだ。候補は、ブラックホールや中性子星、白色矮星が、相棒の星から物質を吸い込む連星系なのだ。",
-      "image_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/White_dwarf_accretion_to_type_1a_supernova.png",
-      "visual_role": "Accreting white dwarf illustration"
+      "caption":"9月11日の新報道",
+      "text":"そして9月11日、ReutersはBloombergの報道を引用し、サム・アルトマンCEOが社員に、必要ならAIシステムの開発を遅らせることにも前向きだと伝えた、と報じたのだ。これはOpenAIの公式発表ではなく、報道ベースの情報なのだ。",
+      "subtitle_chunks":["そして9月11日、ReutersはBloombergの報道を引用し、\nサム・アルトマンCEOが社員に、","必要ならAIシステムの開発を遅らせることにも前向きだと\n伝えた、と報じたのだ。","これはOpenAIの公式発表ではなく、\n報道ベースの情報なのだ。"],
+      "image_url":"https://i.abcnewsfe.com/a/29c98ac7-1bd4-4dac-9544-2ca6f473a9b1/230516_abcnl_update_11am_obrien_hpMain_16x9.jpg?w=992",
+      "visual_role":"Sam Altman at a US Senate hearing"
     },
     {
-      "caption": "Ia型超新星の前段階か？",
-      "text": "もし白色矮星が関係しているなら、Ia型超新星が爆発する前の姿を見つける手がかりになる可能性があるのだ。Ia型超新星は、宇宙の膨張を測る重要な目印なのだ。",
-      "image_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Progenitor_of_type_Ia_supernova_cs.jpg",
-      "visual_role": "Type Ia supernova progenitor illustration"
+      "caption":"でも研究は加速中",
+      "text":"一方で、AI研究そのものは加速しているのだ。OpenAIは9月6日、自動研究インターンの目標に到達したと発表し、人間の監督下で働く自動AI研究者を目指しているのだ。",
+      "subtitle_chunks":["一方で、AI研究そのものは加速しているのだ。\nOpenAIは9月6日、","自動研究インターンの目標に到達したと発表し、\n人間の監督下で働く自動AI研究者を目指しているのだ。"],
+      "image_url":"https://d2xo500swnpgl1.cloudfront.net/uploads/oaiacademy/Builder-Image-Template-for-OAI-Academy-6--c9702eb7-0862-46c4-993a-55367f764d31-1754605193787.jpeg",
+      "visual_role":"OpenAI Academy coding-agents visual"
     },
     {
-      "caption": "銀河のガス電離にも関係？",
-      "text": "さらに、この天体が出す強い紫外線は、銀河のガスから電子をはぎ取る仕組みの一部を説明できるかもしれないのだ。これは星が生まれる速さにも関わる重要な問題なのだ。",
-      "image_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/M101-_A_Pinwheel_in_Many_Colors_%282012-m101_-_m101_1280%29.jpg",
-      "visual_role": "Galaxy context"
+      "caption":"停止ではなく速度調整",
+      "text":"だから、開発停止へ転換したという単純な話ではないのだ。能力が上がるほど、安全性の確認が追いつかなければ速度を落とす。その一方で研究自動化は進める、という二つの動きが同時に起きているのだ。",
+      "subtitle_chunks":["だから、開発停止へ転換したという\n単純な話ではないのだ。","能力が上がるほど、安全性の確認が追いつかなければ速度を落とす。\nその一方で研究自動化は進める、","という二つの動きが同時に起きているのだ。"],
+      "image_url":"https://assets.paperjam.lu/images/articles/openai-faces-gdpr-investigatio/0.5/0.5/600/400/655376.jpg",
+      "visual_role":"OpenAI building facade"
     },
     {
-      "caption": "公開データから新天体候補",
-      "text": "研究チームは、チャンドラの公開アーカイブを調べて、これまで見落とされていた領域を掘り起こしたのだ。本当に新しい天体の種類なのか、今後の観測がかなり楽しみなのだ。",
-      "image_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Chandra_X-ray_Observatory.jpg",
-      "visual_role": "Chandra archive and observatory"
+      "caption":"安全規制も支持",
+      "text":"さらにOpenAIは9月9日、能力に応じた国レベルの強制的なAI安全規制や独立評価を支持すると表明したのだ。今回の注目点は、速さだけを競うのではなく、危険が大きければ止まれる仕組みを会社の内外で作ろうとしていることなのだ。",
+      "subtitle_chunks":["さらにOpenAIは9月9日、能力に応じた国レベルの\n強制的なAI安全規制や独立評価を支持すると表明したのだ。","今回の注目点は、速さだけを競うのではなく、\n危険が大きければ止まれる仕組みを","会社の内外で作ろうとしていることなのだ。"],
+      "image_url":"https://www.washingtonpost.com/wp-apps/imrs.php?src=https%3A%2F%2Farc-anglerfish-washpost-prod-washpost.s3.amazonaws.com%2Fpublic%2FYU4YITZFRYODP6TMMD5NFQLP2M_size-normalized.jpg&w=1440",
+      "visual_role":"Sam Altman testifying before the US Senate about AI regulation"
     }
   ],
-  "credits": [
-    {
-      "title": "Chandra X-ray Observatory",
-      "license": "Public Domain (NASA)",
-      "url": "https://commons.wikimedia.org/wiki/File:Chandra_X-ray_Observatory.jpg"
-    },
-    {
-      "title": "M101 - A Pinwheel in Many Colors",
-      "license": "Public Domain (NASA)",
-      "url": "https://commons.wikimedia.org/wiki/File:M101-_A_Pinwheel_in_Many_Colors_(2012-m101_-_m101_1280).jpg"
-    },
-    {
-      "title": "White dwarf accretion to type 1a supernova",
-      "license": "CC0 1.0",
-      "url": "https://commons.wikimedia.org/wiki/File:White_dwarf_accretion_to_type_1a_supernova.png"
-    },
-    {
-      "title": "Progenitor of type Ia supernova",
-      "license": "Public Domain (NASA/ESA)",
-      "url": "https://commons.wikimedia.org/wiki/File:Progenitor_of_type_Ia_supernova_cs.jpg"
-    }
-  ],
-  "voice": {
-    "engine": "VOICEVOX",
-    "speaker": "ずんだもん",
-    "style": "ノーマル",
-    "required_credit": "VOICEVOX:ずんだもん"
+  "zundamon": {
+    "source_page":"https://zunko.jp/con_illust.html",
+    "usage":"official project art; non-commercial prototype",
+    "poses":["https://zunko.jp/sozai/zundamon_s/zzs_zunmon_3022.png","https://zunko.jp/sozai/zundamon_s/zzs_zunmon_3021.png","https://zunko.jp/sozai/zundamon_s/zzs_zunmon_3020.png","https://zunko.jp/sozai/zundamon_s/zzs_zunmon_3017.png"]
   },
-  "format": {
-    "width": 1080,
-    "height": 1920,
-    "fps": 30,
-    "target_seconds": 60,
-    "publish": false
-  }
+  "credits": [
+    {"title":"OpenAI pacing model development title visual","usage_note":"Web image search source; non-monetized prototype; source recorded","url":"https://community.openai.com/t/openai-pacing-model-development-in-an-era-of-cyber-critical-capabilities/1391511"},
+    {"title":"Data center infrastructure inspection","usage_note":"CNBC/Getty photo used as generic data-center context; non-monetized prototype","url":"https://www.cnbc.com/2021/03/09/data-center-real-estate-reits-after-covid.html"},
+    {"title":"Sam Altman congressional testimony","usage_note":"ABC News photo; non-monetized prototype","url":"https://abcnews.com/video/99364505/"},
+    {"title":"OpenAI Academy coding agents visual","usage_note":"OpenAI Academy web visual; non-monetized prototype","url":"https://academy.openai.com/public/clubs/builders-etkn1/resources/solution-accelerator-building-coding-agents"},
+    {"title":"OpenAI building facade","usage_note":"Paperjam web image; non-monetized prototype","url":"https://en.paperjam.lu/article/openai-faces-gdpr-investigatio"},
+    {"title":"Sam Altman Senate testimony","usage_note":"Washington Post photo; non-monetized prototype","url":"https://www.washingtonpost.com/business/2023/05/30/ai-poses-risk-extinction-industry-leaders-warn/"},
+    {"title":"Official Zundamon illustrations","usage_note":"東北ずん子・ずんだもんPJ official art; non-commercial use per project guidance","url":"https://zunko.jp/con_illust.html"}
+  ],
+  "voice":{"engine":"VOICEVOX","speaker":"ずんだもん","style":"ノーマル","required_credit":"VOICEVOX:ずんだもん"},
+  "format":{"width":1080,"height":1920,"fps":30,"target_seconds":90,"publish":false}
 }
