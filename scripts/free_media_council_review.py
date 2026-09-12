@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Run a bounded FREE-ONLY media architecture council in true parallel.
 
-DeepSeek, NVIDIA and Qwen independently review the same redacted media brief.
-The council has no repository-write, deploy, publish, payment, secret-mutation,
-or paid-fallback authority. This script is a read-only advisory lane; ChatGPT
-remains the integrator and only evidence-backed recommendations are promoted.
+Independent zero-price reviewers inspect the same redacted media brief. The
+council has no repository-write, deploy, publish, payment, secret-mutation, or
+paid-fallback authority. ChatGPT remains the integrator and only evidence-backed
+recommendations are promoted.
 """
 from __future__ import annotations
 
@@ -21,9 +21,6 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "artifacts" / "free_media_council_review.json"
 
-# Include both policy and the actual long-form implementation. The prompt is
-# clipped below so reviewers cannot accidentally receive unbounded repository
-# context.
 ARCHITECTURE_FILES = (
     ROOT / "docs" / "MEDIA_PIPELINE.md",
     ROOT / "docs" / "LONGFORM_VIDEO_RELIABILITY_RESEARCH.md",
@@ -35,12 +32,13 @@ ARCHITECTURE_FILES = (
     ROOT / "config" / "framework_plugin_registry.json",
 )
 
-# Exact free endpoints only. Never strip ':free' and never substitute a paid
-# sibling when an endpoint is unavailable.
+# Exact :free endpoints verified as zero-price on OpenRouter on 2026-09-12.
+# The previous DeepSeek R1 and Qwen3.6 Plus free endpoints returned 404 with a
+# paid-transition message. They are deliberately NOT replaced by paid siblings.
 MODELS = [
-    "deepseek/deepseek-r1:free",
-    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-    "qwen/qwen3.6-plus:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "dots-studio/dots-3-note-preview:free",
+    "inclusionai/ling-3.0-flash:free",
 ]
 MAX_PARALLEL_REVIEWERS = 3
 MAX_TOTAL_REQUESTS = 3
@@ -76,7 +74,7 @@ A. The base renderer's reset_workdirs() appears to delete reusable audio/images/
 B. The resume script appears to call base.make_scene()/base.write_ass(), while the current base renderer exposes render_scene()/write_scene_ass()/write_global_ass(). Determine whether this is a stale-contract defect.
 C. Resume reuse is largely based on file existence/size rather than content hashes and a full media contract.
 D. The robust workflow uses voicevox/voicevox_engine:cpu-latest, reducing toolchain reproducibility.
-E. Resume workflow is tied to a specific historical artifact/run, reducing generic recovery.
+E. Resume workflow is tied to a specific historical artifact/run, reducing generic checkpoint recovery.
 F. A job-level timeout exists, but per-scene/process watchdogs are limited.
 
 Candidate improvements from official FFmpeg/VOICEVOX/GitHub Actions docs and OSS field reports:
@@ -227,7 +225,7 @@ def main() -> int:
     started = time.monotonic()
     reviews = run_parallel_council(prompt, api_key)
     result = {
-        "schema_version": "free-media-council-longform-v3",
+        "schema_version": "free-media-council-longform-v4",
         "mission": "LONGFORM_RELIABILITY_REVIEW",
         "execution_mode": "PARALLEL",
         "max_parallel_reviewers": MAX_PARALLEL_REVIEWERS,
