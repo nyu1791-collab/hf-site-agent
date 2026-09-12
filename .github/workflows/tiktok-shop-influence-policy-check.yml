@@ -37,14 +37,20 @@ jobs:
           python -m json.tool config/current_commander_handoff.json >/dev/null
       - name: Enforce permanent influence rules
         run: python scripts/check_tiktok_shop_influence_policy.py
-      - name: Confirm no paid or publishing capability is present
+      - name: Confirm this checker has no paid or publishing capability
         run: |
           python - <<'PY'
           from pathlib import Path
           text = Path('.github/workflows/tiktok-shop-influence-policy-check.yml').read_text(encoding='utf-8').lower()
-          assert 'deepseek_api_key' not in text
-          assert 'post_bridge' not in text
-          assert 'youtube' not in text
-          assert 'tiktok publish' not in text
+          forbidden = [
+              'deep' + 'seek_api_key',
+              'se' + 'crets.',
+              'post' + '_bridge',
+              'workflow_' + 'dispatch',
+              'contents: ' + 'write',
+          ]
+          for needle in forbidden:
+              assert needle not in text, needle
+          assert 'permissions:\n  contents: read' in text
           print('NO_PAID_OR_PUBLISHING_CAPABILITY=PASS')
           PY
