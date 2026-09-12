@@ -1,0 +1,264 @@
+{
+  "schema_version": "tiktok-shop-influence-policy-v1",
+  "effective_date_jst": "2026-09-12",
+  "status": "PERMANENT_CONDITIONAL_STANDARD",
+  "decision_owner": "chatgpt-top-commander",
+  "research_basis": {
+    "chatgpt_primary_source_research": true,
+    "paid_deepseek_consulted": true,
+    "deepseek_runs": [34682745114, 34682826338],
+    "deepseek_successful_lanes": ["PRODUCT_RESEARCH_AND_DISCOVERY_ARCHITECT", "SHORT_FORM_COMMERCE_CREATIVE_STRATEGIST"],
+    "deepseek_known_successful_cost_estimates_usd": [0.00609488, 0.00190212],
+    "note": "These are conservative estimates for successful parsed calls only; do not treat them as a complete billing statement."
+  },
+  "core_funnel": [
+    "CURIOSITY_OR_RELEVANCE",
+    "UNDERSTANDING",
+    "EVIDENCE_AND_TRUST",
+    "DESIRE_AND_USE_IMAGINATION",
+    "OBJECTION_REDUCTION",
+    "TRANSPARENT_ACTION"
+  ],
+  "platform_grounding": {
+    "current_market": "JAPAN",
+    "first_3_seconds_are_priority": true,
+    "product_must_be_clear_and_central": true,
+    "specific_use_scenes_preferred": true,
+    "subtitles_recommended": true,
+    "cta_after_value_delivery": true,
+    "content_must_be_accurate_useful_verifiable": true,
+    "aigc_policy_must_be_rechecked_at_publish_time": true,
+    "aigc_labeling_required_when_current_rule_requires_it": true,
+    "platform_policy_conflict_or_staleness": "BLOCK_AND_REFRESH"
+  },
+  "hook_policy": {
+    "time_window_seconds": [0, 3],
+    "goal": "Earn the next few seconds of attention without misleading the viewer.",
+    "preferred_hook_types": [
+      "RELATABLE_PROBLEM_PLUS_SOLUTION",
+      "VISUAL_DEMONSTRATION_OR_TRANSFORMATION",
+      "SPECIFIC_USE_SCENE",
+      "ENGAGING_QUESTION",
+      "TRUTHFUL_CURIOSITY_GAP",
+      "CULTURAL_OR_ORIGIN_STORY",
+      "COUNTERINTUITIVE_FACT_WITH_SOURCE",
+      "REVIEW_PATTERN_WITH_SAMPLE_CONTEXT"
+    ],
+    "first_frame": {
+      "product_or_result_visible_immediately_when_practical": true,
+      "logo_only_intro": false,
+      "cover_and_spoken_hook_should_be_complementary": true,
+      "promise_must_be_resolved_in_video": true
+    },
+    "forbidden": [
+      "FAKE_CURIOSITY_PROMISE",
+      "FAKE_SCARCITY",
+      "FAKE_COUNTDOWN",
+      "UNVERIFIED_NUMERIC_CLAIM",
+      "UNVERIFIED_COMPARATIVE_CLAIM",
+      "FABRICATED_TESTIMONIAL",
+      "HOOK_UNRELATED_TO_PRODUCT"
+    ]
+  },
+  "story_policy": {
+    "default_arc": [
+      "HOOK",
+      "CONTEXT_OR_PROBLEM",
+      "PRODUCT_DEMO_OR_CORE_VALUE",
+      "DEEP_DIVE_OR_STORY",
+      "PROOF_OR_LOCAL_REVIEW_PATTERN",
+      "OBJECTION_OR_FIT_CHECK",
+      "CTA"
+    ],
+    "allowed_deep_dive_modules": [
+      "HISTORY_OR_ORIGIN",
+      "CULTURAL_CONTEXT",
+      "OFFICIAL_PRODUCT_PAGE_FACTS",
+      "MANUFACTURER_FACTS",
+      "HOW_IT_WORKS",
+      "MULTIPLE_USE_SCENES",
+      "LOCAL_LANGUAGE_REVIEW_CLUSTERS",
+      "COMMON_POSITIVE_AND_NEGATIVE THEMES",
+      "COMPARISON_WHEN_VERIFIABLE",
+      "WHO_IT_IS_FOR_AND_NOT_FOR"
+    ],
+    "storytelling_must_not_upgrade_evidence_strength": true,
+    "one_primary_persona_per_video_preferred": true,
+    "one_primary_purchase_motive_per_video_preferred": true,
+    "story_template_repetition_across_unrelated_products": "DISCOURAGED_AND_MONITORED"
+  },
+  "subtitle_and_editing_policy": {
+    "captions_required_by_default": true,
+    "one_idea_per_caption": true,
+    "avoid_paragraph_blocks": true,
+    "short_semantic_chunks_preferred": true,
+    "important_verified_selling_points_may_be_visually_emphasized": true,
+    "unverified_claim_may_not_be_emphasized": true,
+    "visual_hierarchy": ["HOOK", "KEY_PROOF_OR_BENEFIT", "NORMAL_CAPTIONS"],
+    "high_contrast_readability_required": true,
+    "product_must_not_be_obscured_by_text": true,
+    "platform_ui_collision_must_be_checked_using_current_layout": true,
+    "fixed_pixel_safe_zone_without_current_verification": false,
+    "continuous_bouncing_or_overanimated_text": "AVOID",
+    "subtitle_timing_should_follow_spoken_or_visual_beats": true,
+    "heuristics_are_ab_testable_not_hard_truths": true
+  },
+  "cover_policy": {
+    "product_or_key_use_scene_visible": true,
+    "single_clear_question_or_benefit": true,
+    "legible_at_small_size": true,
+    "cover_must_match_video": true,
+    "fake_before_after": false,
+    "price_or_discount_on_cover_requires_fresh_verification": true,
+    "cover_should_not_duplicate_spoken_hook_word_for_word_by_default": true
+  },
+  "evidence_registry": {
+    "claim_to_evidence_mapping_required": true,
+    "grades": {
+      "A1_TIKTOK_PRODUCT_PAGE": "Current TikTok Shop listing/product page, seller-provided specs, price, shipping, coupon and listing facts.",
+      "A2_OFFICIAL_MANUFACTURER": "Official manufacturer/brand site, manual, packaging or formal documentation.",
+      "B_INDEPENDENT_AUTHORITATIVE": "Regulator, standards body, reputable independent test, academic or high-quality primary reporting.",
+      "C_REVIEW_CLUSTER": "Deduplicated multi-review pattern with source count and market/language context.",
+      "D_CULTURAL_HISTORY": "Credible historical/cultural reporting, academic or institutional source.",
+      "E_INDIVIDUAL_REVIEW": "One identifiable review; anecdote only, never consensus."
+    },
+    "numeric_specs_require": ["A1_TIKTOK_PRODUCT_PAGE", "A2_OFFICIAL_MANUFACTURER"],
+    "performance_claims_require": ["A1_TIKTOK_PRODUCT_PAGE", "A2_OFFICIAL_MANUFACTURER", "B_INDEPENDENT_AUTHORITATIVE"],
+    "historical_cultural_claims_require": ["B_INDEPENDENT_AUTHORITATIVE", "D_CULTURAL_HISTORY"],
+    "review_consensus_requires": "C_REVIEW_CLUSTER",
+    "unknown_claim": "OMIT_OR_LABEL_UNKNOWN"
+  },
+  "local_review_policy": {
+    "retain_original_language": true,
+    "store_translation_separately": true,
+    "deduplicate_near_duplicate_reviews": true,
+    "cluster_by_topic": ["TASTE_OR_SENSORY", "QUALITY", "EASE_OF_USE", "DURABILITY", "VALUE", "DELIVERY", "SIZE_OR_PORTION", "COMMON_COMPLAINT"],
+    "record_sample_size": true,
+    "record_market_and_source": true,
+    "record_positive_negative_mixed_distribution": true,
+    "individual_review_may_not_be_presented_as_consensus": true,
+    "fabricated_review_or_synthetic_testimonial": "BLOCK",
+    "broad_ethnic_or_national_generalization": "BLOCK",
+    "preferred_wording": "Describe observed review patterns with scope, source and sample context rather than claiming what an entire nationality thinks."
+  },
+  "official_product_page_ingest": {
+    "required_before_script_finalization": true,
+    "capture": [
+      "PRODUCT_NAME",
+      "BRAND",
+      "PRICE_AND_PRICE_TIMESTAMP",
+      "VARIANTS",
+      "MATERIAL_OR_INGREDIENTS_WHEN_LISTED",
+      "DIMENSIONS_OR_CAPACITY_WHEN_LISTED",
+      "FEATURES",
+      "USAGE_INSTRUCTIONS",
+      "SHIPPING",
+      "RETURN_POLICY",
+      "COUPON_OR_PROMOTION_AND_EXPIRY",
+      "SHOP_RATING_OR_PRODUCT_RATING_WHEN_AVAILABLE",
+      "REVIEW_COUNT_WHEN_AVAILABLE",
+      "COMMISSION_RATE_WHEN_AVAILABLE",
+      "SELLER_OR_CREATOR_METRICS_WHEN_AVAILABLE"
+    ],
+    "price_coupon_stock_or_shipping_claim_requires_freshness_check": true,
+    "stale_commercial_fact": "REFRESH_OR_OMIT"
+  },
+  "persona_policy": {
+    "persona_is_hypothesis_not_fact": true,
+    "derive_from": ["PRODUCT_USE_CASE", "PAIN_POINT", "PRICE_BAND", "AUDIENCE_ANALYTICS", "REVIEW_THEMES", "CATEGORY_TRENDS"],
+    "avoid_sensitive_attribute_targeting": true,
+    "avoid_stereotypes": true,
+    "persona_to_hook_to_story_mapping_required": true,
+    "examples": [
+      "SPICY_SNACK_EXPLORER",
+      "CULTURE_CURIOUS_FOODIE",
+      "BUSY_SMALL_KITCHEN_USER",
+      "PORTABLE_GADGET_SEEKER",
+      "VALUE_SEEKER",
+      "GIFT_BUYER"
+    ]
+  },
+  "product_discovery_policy": {
+    "use_tiktok_shop_and_creative_center_data_when_available": true,
+    "candidate_factors": [
+      "AUDIENCE_FIT",
+      "MARKET_MOMENTUM",
+      "CTR_OR_INTEREST_SIGNAL",
+      "CVR_OR_SALES_SIGNAL",
+      "COMMISSION_ECONOMICS",
+      "SAMPLE_ACCESS",
+      "PRODUCT_QUALITY_AND_REVIEW_HEALTH",
+      "DEMONSTRABILITY",
+      "STORY_POTENTIAL",
+      "RESEARCHABILITY",
+      "LOCAL_REVIEW_RICHNESS",
+      "TRUST_GAP",
+      "RETURN_OR_COMPLAINT_RISK",
+      "POLICY_AND_CLAIM_RISK",
+      "CREATIVE_SATURATION"
+    ],
+    "hard_rejects": [
+      "PROHIBITED_OR_UNSUPPORTED_PRODUCT",
+      "UNVERIFIABLE_CORE_CLAIM",
+      "HIGH_POLICY_RISK_WITHOUT_SAFE_ANGLE",
+      "POOR_OR_SUSPICIOUS_REVIEW_HEALTH",
+      "PRODUCT_CANNOT_BE_ACCURATELY_DEMONSTRATED",
+      "ECONOMICS_DO_NOT_CLEAR_MINIMUM_THRESHOLD"
+    ],
+    "weights": "VERSIONED_AND_CALIBRATED_FROM_REAL PERFORMANCE; NO UNIVERSAL FIXED WEIGHTS YET",
+    "creative_center_metrics_are_directionAL_NOT_GROUND_TRUTH": true
+  },
+  "cta_policy": {
+    "cta_after_value_and_proof": true,
+    "preferred": ["PRODUCT_PAGE_POINTER", "FIT_CHECK", "SOFT_ACTION", "VERIFIED_OFFER"],
+    "verified_offer_requires_current_price_coupon_or_stock_evidence": true,
+    "fake_urgency": false,
+    "pressure_without_information": "AVOID",
+    "affiliate_or_commercial_relationship_disclosure_required_when_applicable": true
+  },
+  "experimentation": {
+    "test_one_primary_variable_at_a_time_when_practical": true,
+    "testable_components": ["HOOK_TYPE", "FIRST_FRAME", "COVER_TEXT", "STORY_ARC", "PROOF_TYPE", "SUBTITLE_EMPHASIS", "CTA", "PERSONA_ANGLE"],
+    "metrics": ["3S_HOLD", "6S_VIEW_RATE_WHEN_AVAILABLE", "COMPLETION_RATE", "CTR", "CTOR", "ADD_TO_CART", "CVR", "GMV", "GPM", "COMMISSION", "RETURN_RATE", "NEGATIVE_REVIEW_OR_COMPLAINT_RATE"],
+    "promote_on_sales_alone": false,
+    "guardrails": ["POLICY_VIOLATION_RATE", "REPORT_RATE", "RETURN_RATE", "CLAIM_RATE", "NEGATIVE_REVIEW_RATE"],
+    "winning_pattern_may_update_future_generation": true,
+    "winning_pattern_may_not_relax_evidence_or_policy_gates": true
+  },
+  "rejected_patterns": [
+    "FAKE_REVIEWS",
+    "FAKE_LOCAL_OPINION",
+    "FAKE_SCARCITY_OR_COUNTDOWN",
+    "UNVERIFIED_HEALTH_OR_PERFORMANCE_CLAIMS",
+    "AI_AVATAR_PRETENDING_TO_BE_REAL_CUSTOMER",
+    "CLICKBAIT_NOT_RESOLVED_IN_VIDEO",
+    "IDENTICAL_TEMPLATE_MASS_POSTING",
+    "PRODUCT_HIDDEN_WHILE_UNRELATED_STORY_DOMINATES",
+    "GENERALIZING_ONE_REVIEW_TO_A_COUNTRY_OR_CULTURE",
+    "OUTDATED_PRICE_OR_COUPON_CLAIM"
+  ],
+  "automation_boundary": {
+    "may_automate": [
+      "PRODUCT_CANDIDATE_COLLECTION",
+      "OFFICIAL_PAGE_INGEST",
+      "SOURCE_AND_CLAIM_REGISTRY",
+      "LOCAL_REVIEW_COLLECTION_WHERE_LAWFUL_AND_ACCESSIBLE",
+      "TRANSLATION",
+      "DEDUPLICATION",
+      "REVIEW_CLUSTERING",
+      "PERSONA_HYPOTHESIS",
+      "HOOK_AND_STORY_CANDIDATES",
+      "SUBTITLE_DRAFT",
+      "COVER_DRAFT",
+      "CLAIM_TO_EVIDENCE_QA",
+      "A_B_VARIANT_DRAFTING",
+      "ANALYTICS_COLLECTION"
+    ],
+    "human_approval_required": [
+      "FIRST_USE_OF_NEW_HIGH_RISK_CLAIM_CATEGORY",
+      "FINAL_SCRIPT_WHEN_THIRD_PARTY_REVIEW_QUOTE_IS_USED",
+      "SENSITIVE_CULTURAL_OR_HEALTH_CONTEXT",
+      "PUBLICATION_UNTIL_SEPARATE_AUTOPUBLISH_POLICY_IS_APPROVED"
+    ]
+  }
+}
