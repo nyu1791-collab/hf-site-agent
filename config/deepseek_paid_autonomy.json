@@ -1,0 +1,43 @@
+{
+  "schema_version": "deepseek-paid-autonomy-v1",
+  "provider": "deepseek",
+  "base_url": "https://api.deepseek.com",
+  "api_key_env": "DEEPSEEK_API_KEY",
+  "model": "deepseek-flash",
+  "authorized_by_user": true,
+  "per_run_confirmation_required": false,
+  "authorization_scope": [
+    "staging_analysis",
+    "coding_review",
+    "debugging",
+    "research_synthesis",
+    "media_editorial",
+    "script_review",
+    "quality_assurance"
+  ],
+  "forbidden_actions": [
+    "production_deploy",
+    "publish",
+    "repository_write_by_model",
+    "secret_readback",
+    "auto_top_up",
+    "generic_paid_fallback"
+  ],
+  "budget": {
+    "max_calls_per_mission": 8,
+    "max_parallel_calls": 3,
+    "max_estimated_cost_usd_per_mission": 0.25,
+    "max_estimated_cost_usd_per_day": 2.0,
+    "max_output_tokens_per_call": 3072,
+    "stop_before_estimated_budget_exceeded": true
+  },
+  "policy": {
+    "use_when_materially_helpful": true,
+    "prefer_parallel_specialist_roles": true,
+    "record_model_usage": true,
+    "record_estimated_cost": true,
+    "fail_closed_on_model_mismatch": true,
+    "fail_closed_on_missing_secret": true,
+    "production_authority_remains_human_gated": true
+  }
+}
