@@ -7,17 +7,21 @@ on:
     paths:
       - config/deepseek_paid_supervisor_policy.json
       - config/deepseek_paid_autonomy.json
+      - config/legacy_deepseek_compatibility.json
       - config/multi_agent_operating_policy.json
       - config/ai_army_org_chart.json
       - config/current_commander_handoff.json
+      - scripts/ai_army_routing_facade.py
       - .github/workflows/deepseek-supervisor-policy-check.yml
   pull_request:
     paths:
       - config/deepseek_paid_supervisor_policy.json
       - config/deepseek_paid_autonomy.json
+      - config/legacy_deepseek_compatibility.json
       - config/multi_agent_operating_policy.json
       - config/ai_army_org_chart.json
       - config/current_commander_handoff.json
+      - scripts/ai_army_routing_facade.py
       - .github/workflows/deepseek-supervisor-policy-check.yml
 
 permissions:
@@ -43,7 +47,8 @@ jobs:
           mas=json.loads(Path('config/multi_agent_operating_policy.json').read_text())
           org=json.loads(Path('config/ai_army_org_chart.json').read_text())
           handoff=json.loads(Path('config/current_commander_handoff.json').read_text())
-          legacy=json.loads(Path('config/deepseek_paid_autonomy.json').read_text())
+          legacy_pointer=json.loads(Path('config/deepseek_paid_autonomy.json').read_text())
+          legacy_registry=json.loads(Path('config/legacy_deepseek_compatibility.json').read_text())
 
           assert sup['schema_version']=='deepseek-paid-supervisor-v3'
           assert sup['status']=='ACTIVE_SCOPED_EXCEPTION'
@@ -51,6 +56,13 @@ jobs:
           assert sup['human_authorization']['persistent_for_allowed_scope'] is True
           assert sup['human_authorization']['repeat_per_call_approval_required'] is False
           assert sup['provider']['canonical_request_model']=='deepseek-v4-flash'
+          assert sup['routing_integration']['canonical_policy_router']=='scripts/ai_army_routing_facade.py'
+          assert sup['routing_integration']['canonical_paid_execution_workflow']=='.github/workflows/deepseek-supervisor-research.yml'
+          assert sup['routing_integration']['legacy_commander_router_is_compatibility_only'] is True
+          assert sup['routing_integration']['historical_deepseek_configs_authorize_execution'] is False
+          assert sup['routing_integration']['mandatory_paid_hop_for_every_task'] is False
+          assert sup['routing_integration']['direct_specialist_bypass_may_authorize_paid_fallback'] is False
+          assert sup['routing_integration']['chatgpt_final_authority_on_all_routes'] is True
           assert sup['hierarchy']['top_commander']=='chatgpt-work'
           assert sup['hierarchy']['deepseek_rank']=='EXECUTIVE_SUPERVISOR'
           assert sup['hierarchy']['deepseek_depth']==1
@@ -93,13 +105,19 @@ jobs:
           assert sup['safety']['merge'] is False
           assert sup['safety']['secret_mutation_or_disclosure'] is False
 
-          assert mas['schema_version']=='multi-agent-operating-policy-v3'
+          assert mas['schema_version']=='multi-agent-operating-policy-v4'
+          assert mas['routing']['canonical_routing_facade']=='scripts/ai_army_routing_facade.py'
+          assert mas['routing']['legacy_commander_routing_is_compatibility_layer'] is True
+          assert mas['routing']['deepseek_supervisor_not_mandatory_for_every_task'] is True
+          assert mas['routing']['direct_specialist_bypass_allowed_for_narrow_bounded_execution'] is True
+          assert mas['routing']['direct_specialist_bypass_may_authorize_paid_fallback'] is False
           exc=mas['paid_model_exceptions']['deepseek_supervisor']
           assert exc['enabled'] is True
           assert exc['preauthorized_by_user'] is True
           assert exc['persistent_across_chat_tabs'] is True
           assert exc['rank']=='EXECUTIVE_SUPERVISOR'
           assert exc['bulk_coding_worker'] is False
+          assert exc['mandatory_hop_for_every_task'] is False
           assert exc['chatgpt_final_adjudication_required'] is True
           assert exc['other_paid_provider_authorization'] is False
           assert mas['free_only_policy']['auto_top_up'] is False
@@ -113,34 +131,48 @@ jobs:
           assert exceptions[0]['repeat_per_call_approval_required'] is False
           assert exceptions[0]['generic_paid_fallback'] is False
 
+          assert org['schema_version']=='ai-army-org-chart-v3'
           assert org['status']=='CANONICAL'
+          assert org['policy_entrypoint']=='scripts/ai_army_routing_facade.py'
           assert org['hierarchy']['depth_0']['agent']=='chatgpt-work'
           assert org['hierarchy']['depth_1']['role']=='EXECUTIVE_SUPERVISOR'
           assert org['hierarchy']['depth_1']['default_bulk_coding'] is False
+          assert org['hierarchy']['depth_1']['mandatory_hop_for_every_task'] is False
           assert org['hierarchy']['depth_2']['worker_to_worker_delegation'] is False
+          assert org['direct_specialist_bypass']['allowed'] is True
+          assert org['direct_specialist_bypass']['may_authorize_paid_fallback'] is False
           assert org['control_plane']['single_writer'] is True
           assert org['control_plane']['machine_oracle_over_majority_vote'] is True
 
-          assert handoff['schema_version']=='top-commander-handoff-v6'
+          assert handoff['schema_version']=='top-commander-handoff-v7'
           assert 'config/deepseek_paid_supervisor_policy.json' in handoff['continuity']['on_new_session_required_read_order']
           assert 'config/ai_army_org_chart.json' in handoff['continuity']['on_new_session_required_read_order']
+          assert handoff['canonical_routing_fixed_rules']['policy_entrypoint']=='scripts/ai_army_routing_facade.py'
+          assert handoff['canonical_routing_fixed_rules']['paid_deepseek_supervisor_is_not_mandatory_for_every_task'] is True
           fixed=handoff['deepseek_supervisor_fixed_rules']
           assert fixed['paid_deepseek_persistently_authorized_for_supervisory_scope'] is True
           assert fixed['deepseek_is_not_default_bottom_worker'] is True
           assert fixed['deepseek_is_not_default_bulk_coder'] is True
+          assert fixed['deepseek_is_not_mandatory_paid_hop_for_trivial_execution'] is True
           assert fixed['chatgpt_remains_final_decision_authority'] is True
           assert fixed['default_research_lanes'] <= 6
           assert fixed['default_parallel_calls'] <= 3
           assert fixed['default_calls_per_mission'] <= 8
+          assert fixed['only_active_paid_deepseek_execution_workflow']=='.github/workflows/deepseek-supervisor-research.yml'
+          assert fixed['historical_deepseek_configs_authorize_execution'] is False
           assert fixed['other_paid_providers_remain_disallowed_without_explicit_user_authorization'] is True
           assert fixed['auto_top_up'] is False
           assert fixed['generic_paid_fallback'] is False
 
-          assert legacy['status']=='DEPRECATED_COMPATIBILITY_POINTER'
-          assert legacy['canonical_policy']=='config/deepseek_paid_supervisor_policy.json'
-          assert legacy['organizational_rank']=='EXECUTIVE_SUPERVISOR'
-          assert legacy['not_default_bulk_coding_worker'] is True
+          assert legacy_pointer['status']=='DEPRECATED_COMPATIBILITY_POINTER'
+          assert legacy_pointer['canonical_policy']=='config/deepseek_paid_supervisor_policy.json'
+          assert legacy_pointer['organizational_rank']=='EXECUTIVE_SUPERVISOR'
+          assert legacy_pointer['not_default_bulk_coding_worker'] is True
+          assert legacy_registry['status']=='HISTORICAL_COMPATIBILITY_ONLY'
+          assert legacy_registry['canonical_runner']=='scripts/deepseek_supervisor_research.py'
+          assert legacy_registry['canonical_workflow']=='.github/workflows/deepseek-supervisor-research.yml'
+          assert legacy_registry['rules']['legacy_enabled_flag_does_not_authorize_execution'] is True
 
-          print('DeepSeek executive-supervisor policy v3: PASS')
+          print('DeepSeek executive-supervisor policy + canonical routing: PASS')
           print('No DeepSeek API call was made by this validation workflow.')
           PY
