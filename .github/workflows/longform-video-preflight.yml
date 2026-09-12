@@ -127,18 +127,46 @@ jobs:
           assert continuity['conversation_memory_required_for_resume'] is False
           assert continuity['repository_state_required_for_resume'] is True
 
-          assert p['schema_version'] == 'longform-video-reliability-v2'
+          assert p['schema_version'] == 'longform-video-reliability-v3'
+          assert p['status'] == 'PERMANENT_STANDARD'
+          assert p['production_path']['voice'] == 'VOICEVOX_ZUNDAMON_LOCAL'
+          assert p['production_path']['render'] == 'PYTHON_FFMPEG_FFPROBE'
+          assert p['production_path']['scene_first'] is True
+          assert p['production_path']['monolithic_longform_render'] is False
+          assert p['paid_policy']['video_saas_paid_execution'] is False
+          assert p['paid_policy']['video_saas_free_credit_execution'] is False
+          assert p['paid_policy']['auto_top_up'] is False
+          assert p['paid_policy']['generic_paid_fallback'] is False
+          assert p['paid_policy']['paid_sibling_substitution'] is False
+          assert p['paid_policy']['unknown_cost_route'] == 'BLOCK'
           assert p['checkpoint_policy']['cache_is_not_durable_checkpoint_source_of_truth'] is True
+          assert p['checkpoint_policy']['preserve_healthy_outputs'] is True
+          assert p['atomic_scene_commit']['partial_or_unverified_scene_may_not_enter_concat_manifest'] is True
+          assert p['atomic_scene_commit']['promote_by_atomic_rename'] is True
           assert p['voicevox_contract']['preserve_raw_synthesis_wav'] is True
           assert p['voicevox_contract']['normalize_scene_input_to_hz'] == 48000
+          assert p['voicevox_contract']['visual_only_change_must_not_regenerate_raw_voice'] is True
           assert p['timeline']['subtitle_generation_must_not_depend_on_provider_internal_object'] is True
+          assert p['timeline']['known_tts_with_verified_narration_manifest_does_not_require_asr'] is True
           assert p['final_validation']['decode_error_count_target'] == 0
+          assert p['final_validation']['ffprobe_parse_required'] is True
           assert p['scene_media_contract']['concat_external_protocols_allowed'] is False
+          assert p['scene_media_contract']['safe_media_contract_mismatch_action'] == 'NORMALIZE_OFFENDING_SCENE_ONLY_THEN_REVALIDATE'
           assert p['resource_policy']['proxy_preview_for_every_scene'] is False
+          assert p['resource_policy']['bounded_subprocess_timeout_required'] is True
+          assert p['asset_policy']['network_fetch_inside_ffmpeg_render'] is False
+          assert p['asset_policy']['single_bad_asset_must_not_fail_unrelated_scenes'] is True
+          assert p['ai_review_policy']['machine_oracle_preferred_over_model_vote'] is True
+          assert p['ai_review_policy']['deepseek_paid_supervisor_may_review_architecture_failure_or_edit_strategy_under_its_scoped_policy'] is True
           assert p['pruning_policy']['asr_every_scene_for_known_tts_script'] is False
+          assert p['pruning_policy']['monolithic_render'] is False
 
+          assert h['schema_version'] == 'top-commander-handoff-v7'
           assert h['continuity']['portable_across_chat_tabs'] is True
           assert h['continuity']['repository_is_source_of_truth'] is True
+          assert h['longform_fixed_rules']['monolithic_render'] is False
+          assert h['longform_fixed_rules']['voice'] == 'VOICEVOX_ZUNDAMON_LOCAL'
+          assert h['longform_fixed_rules']['render'] == 'PYTHON_FFMPEG_FFPROBE'
 
           print('LONGFORM_OBJECTIVES=PASS')
           PY
