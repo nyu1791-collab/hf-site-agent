@@ -97,7 +97,7 @@ jobs:
       - name: Verify resilient JSON guard without paid calls
         run: |
           set -euo pipefail
-          python -m py_compile scripts/deepseek_json_guard.py scripts/deepseek_supervisor_research_resilient.py
+          python -m py_compile scripts/deepseek_supervisor_research.py scripts/deepseek_json_guard.py scripts/deepseek_supervisor_research_resilient.py
           python -m unittest tests.test_deepseek_json_guard -v
 
       - name: Run bounded paid DeepSeek supervisor research
