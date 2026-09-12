@@ -59,16 +59,21 @@ _LENGTH_STOP_REASONS = frozenset({"length", "max_tokens", "max_output_tokens", "
 
 
 def is_length_exhaustion(row: Mapping[str, Any]) -> bool:
-    error = str(row.get("error") or "").strip().lower()
+    """Return true only when the provider explicitly reports a length stop.
+
+    Empty visible content by itself is not proof of token exhaustion. It can be
+    caused by a reasoning-only response, provider formatting drift, or another
+    transient response defect. Those failures may still be redispatched by the
+    normal failure classifier, but they must not automatically receive a larger
+    output envelope unless a structured stop reason says the limit was reached.
+    """
     stop_reasons = {
         str(row.get("finish_reason") or "").strip().lower(),
         str(row.get("stop_reason") or "").strip().lower(),
     }
     stop_reasons.discard("")
-    empty_visible = "empty_visible_content" in error
-    length_stopped = bool(stop_reasons & _LENGTH_STOP_REASONS)
     failed = row.get("status") != "COUNCIL_OK"
-    return failed and (empty_visible or length_stopped)
+    return failed and bool(stop_reasons & _LENGTH_STOP_REASONS)
 
 
 def length_exhaustion_count(rows: Sequence[Mapping[str, Any]]) -> int:
