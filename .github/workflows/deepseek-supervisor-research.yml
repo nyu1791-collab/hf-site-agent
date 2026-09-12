@@ -1,0 +1,112 @@
+name: "DeepSeek executive supervisor research"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - missions/deepseek-supervisor/*.json
+  workflow_dispatch:
+    inputs:
+      mission_path:
+        description: "Existing mission JSON under missions/deepseek-supervisor/"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deepseek-executive-supervisor-research
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact triggering source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Resolve exactly one bounded supervisor mission
+        id: mission
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          INPUT_MISSION_PATH: ${{ inputs.mission_path }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            path="$INPUT_MISSION_PATH"
+          else
+            mapfile -t changed < <(git diff --name-only "${BEFORE_SHA:-HEAD^}" HEAD -- 'missions/deepseek-supervisor/*.json' | sed '/^$/d')
+            if [ "${#changed[@]}" -ne 1 ]; then
+              echo "Expected exactly one changed supervisor mission; got ${#changed[@]}" >&2
+              exit 2
+            fi
+            path="${changed[0]}"
+          fi
+          case "$path" in
+            missions/deepseek-supervisor/*.json) ;;
+            *) echo "Mission path outside allowed directory: $path" >&2; exit 2 ;;
+          esac
+          test -f "$path"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      - name: Fail-closed mission and daily-estimate preflight
+        env:
+          MISSION_PATH: ${{ steps.mission.outputs.path }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          p=Path(os.environ['MISSION_PATH'])
+          mission=json.loads(p.read_text(encoding='utf-8'))
+          policy=json.loads(Path('config/deepseek_paid_supervisor_policy.json').read_text(encoding='utf-8'))
+          assert mission['scope']=='DEEPSEEK_EXECUTIVE_SUPERVISOR'
+          assert mission['chatgpt_final_adjudication_required'] is True
+          for key in ('repository_write','deploy','publish','merge','secret_mutation','auto_top_up','generic_paid_fallback','paid_media_generation'):
+              assert mission[key] is False, key
+          lanes=mission.get('lanes') or []
+          ids=[x.get('id') for x in lanes]
+          assert 1 <= len(lanes) <= policy['research_fanout']['expansion_ceiling']['max_distinct_research_lanes']
+          assert len(ids)==len(set(ids)), 'duplicate lane ids'
+          mission_cap=float(mission['max_estimated_cost_usd'])
+          prior=float(mission['known_estimated_daily_spend_before_mission_usd'])
+          assert 0 < mission_cap <= float(policy['budget']['max_estimated_cost_usd_per_mission'])
+          assert prior >= 0
+          assert prior + mission_cap <= float(policy['budget']['max_estimated_cost_usd_per_day']), 'daily estimated budget would be exceeded'
+          parallel=int(mission.get('max_parallel_calls', policy['research_fanout']['default_max_parallel_deepseek_calls']))
+          assert 1 <= parallel <= policy['research_fanout']['expansion_ceiling']['max_parallel_deepseek_calls']
+          default_lanes=int(policy['research_fanout']['default_max_distinct_research_lanes'])
+          default_parallel=int(policy['research_fanout']['default_max_parallel_deepseek_calls'])
+          if len(lanes)>default_lanes or parallel>default_parallel:
+              assert str(mission.get('expansion_reason') or '').strip(), 'expanded fanout needs expansion_reason'
+          print('DeepSeek supervisor mission preflight: PASS')
+          print('Mission:', mission['mission_id'])
+          print('Lanes:', len(lanes), 'Parallel:', parallel, 'Mission cap USD:', mission_cap)
+          PY
+
+      - name: Run bounded paid DeepSeek supervisor research
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MISSION_PATH: ${{ steps.mission.outputs.path }}
+        run: |
+          set -euo pipefail
+          python scripts/deepseek_supervisor_research.py "$MISSION_PATH" --output artifacts/deepseek_supervisor_research.json
+
+      - name: Upload redacted supervisor report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: deepseek-supervisor-research-${{ github.run_id }}
+          path: artifacts/deepseek_supervisor_research.json
+          if-no-files-found: ignore
+          retention-days: 14
