@@ -1,5 +1,5 @@
 {
-  "schema_version": "longform-video-reliability-v2",
+  "schema_version": "longform-video-reliability-v3",
   "effective_date_jst": "2026-09-12",
   "status": "PERMANENT_STANDARD",
   "production_path": {
@@ -10,15 +10,7 @@
     "final_reencode_only_when_required": true,
     "monolithic_longform_render": false
   },
-  "prohibited_video_saas": [
-    "descript",
-    "fal",
-    "fal.ai",
-    "runway",
-    "veed",
-    "heygen",
-    "higgsfield"
-  ],
+  "prohibited_video_saas": ["descript", "fal", "fal.ai", "runway", "veed", "heygen", "higgsfield"],
   "paid_policy": {
     "video_saas_paid_execution": false,
     "video_saas_free_credit_execution": false,
@@ -35,7 +27,8 @@
     "cache_identity": "CONTENT_ADDRESSED_WITH_MANIFEST",
     "cache_is_not_durable_checkpoint_source_of_truth": true,
     "verified_cross_run_outputs_use_artifact_or_explicit_checkpoint_store": true,
-    "checkpoint_manifest_atomic_commit": true
+    "checkpoint_manifest_atomic_commit": true,
+    "resume_manifest_must_revalidate_hash_and_media_contract": true
   },
   "atomic_scene_commit": {
     "temporary_suffix": ".partial.mp4",
@@ -45,7 +38,9 @@
     "require_duration_measurement": true,
     "require_subtitle_coverage": true,
     "promote_by_atomic_rename": true,
-    "record_content_hash_after_promotion": true
+    "record_content_hash_after_promotion": true,
+    "partial_or_unverified_scene_may_not_enter_concat_manifest": true,
+    "scene_idempotency_key": "SHA256(mission_id|scene_id|media_contract|input_asset_hashes|policy_version)"
   },
   "scene_media_contract": {
     "width": 1080,
@@ -58,23 +53,11 @@
     "audio_channels": 2,
     "required_video_streams": 1,
     "required_audio_streams": 1,
-    "compare_before_concat": [
-      "codec_name",
-      "profile",
-      "width",
-      "height",
-      "pix_fmt",
-      "r_frame_rate",
-      "avg_frame_rate",
-      "time_base",
-      "audio_codec_name",
-      "sample_rate",
-      "channels",
-      "channel_layout",
-      "audio_time_base"
-    ],
+    "compare_before_concat": ["codec_name", "profile", "width", "height", "pix_fmt", "r_frame_rate", "avg_frame_rate", "time_base", "audio_codec_name", "sample_rate", "channels", "channel_layout", "audio_time_base"],
     "concat_manifest_relative_sanitized_paths_only": true,
-    "concat_external_protocols_allowed": false
+    "concat_external_protocols_allowed": false,
+    "safe_media_contract_mismatch_action": "NORMALIZE_OFFENDING_SCENE_ONLY_THEN_REVALIDATE",
+    "unsafe_or_unknown_contract_mismatch_action": "BLOCK_SCENE_PROMOTION"
   },
   "voicevox_contract": {
     "speaker": "ずんだもん",
@@ -99,57 +82,51 @@
     "negative_subtitle_timestamps_allowed": false,
     "unintended_subtitle_overlap_allowed": false,
     "drift_measurement_required": true,
-    "drift_threshold_status": "PROVISIONAL_UNTIL_FIXTURE_CALIBRATION"
+    "drift_threshold_status": "PROVISIONAL_UNTIL_FIXTURE_CALIBRATION",
+    "unknown_or_third_party_speech_prefers_word_level_alignment": true,
+    "known_tts_with_verified_narration_manifest_does_not_require_asr": true
   },
   "audio_quality": {
     "measure_loudness_before_normalization": true,
     "ffmpeg_loudnorm_supported": true,
     "internet_folklore_target_must_not_be_hardcoded_without_fixture_evidence": true,
     "two_pass_normalization_preferred_for_file_outputs_when_normalization_is_needed": true,
+    "do_not_normalize_again_when_measured_audio_already_meets_calibrated_target": true,
     "final_sample_rate_must_return_to_scene_media_contract": true
   },
   "final_validation": {
     "ffprobe_parse_required": true,
     "stream_contract_required": true,
     "duration_range_required": true,
-    "decode_smoke_test_preferred": true,
+    "full_decode_required_unless_declared_time_budget_is_exceeded": true,
     "full_decode_command_semantics": "FFMPEG_ERROR_LEVEL_DECODE_TO_NULL",
+    "decode_error_count_recorded": true,
     "decode_error_count_target": 0,
-    "sampled_decode_allowed_only_when_full_decode_exceeds_declared_time_budget": true
+    "sampled_decode_allowed_only_when_full_decode_exceeds_declared_time_budget": true,
+    "sampled_decode_fallback_requires_recorded_reason_and_budget": true
   },
   "retry_policy": {
     "infinite_retry": false,
     "same_method_retry_is_bounded": true,
     "same_root_cause_requires_method_change": true,
-    "retryable_classes": [
-      "TEMPORARY_NETWORK_TIMEOUT",
-      "FREE_ROUTE_429",
-      "FREE_ROUTE_5XX",
-      "TEMPORARY_DOWNLOAD_INTERRUPTION"
-    ],
-    "method_change_classes": [
-      "IMAGE_FORMAT_INCOMPATIBLE",
-      "ASSET_404_403",
-      "MEDIA_CONTRACT_MISMATCH",
-      "REPEATED_FFMPEG_FILTER_FAILURE"
-    ],
-    "non_retryable_classes": [
-      "MISSION_SCHEMA_INVALID",
-      "SUBTITLE_COVERAGE_MISMATCH",
-      "DISK_INSUFFICIENT",
-      "REQUIRED_TOOL_MISSING",
-      "FONT_FILTER_ENCODER_MISSING",
-      "MISSION_HASH_MISMATCH",
-      "RIGHTS_BLOCKED",
-      "POSITIVE_COST",
-      "PAID_TRANSITION",
-      "AUTO_TOP_UP_REQUIRED"
-    ]
+    "retryable_classes": ["TEMPORARY_NETWORK_TIMEOUT", "FREE_ROUTE_429", "FREE_ROUTE_5XX", "TEMPORARY_DOWNLOAD_INTERRUPTION"],
+    "retry_profiles": {
+      "FREE_ROUTE_429": "HONOR_RETRY_AFTER_ELSE_EXPONENTIAL_BACKOFF_WITH_JITTER_AND_REDUCE_CONCURRENCY",
+      "FREE_ROUTE_5XX": "BOUNDED_EXPONENTIAL_BACKOFF_WITH_JITTER",
+      "TEMPORARY_NETWORK_TIMEOUT": "SHORT_BOUNDED_RETRY_THEN_ROUTE_OR_METHOD_CHANGE",
+      "TEMPORARY_DOWNLOAD_INTERRUPTION": "RESUME_OR_REDOWNLOAD_ONLY_FAILED_ASSET_WHEN_SUPPORTED"
+    },
+    "method_change_classes": ["IMAGE_FORMAT_INCOMPATIBLE", "ASSET_404_403", "REPEATED_FFMPEG_FILTER_FAILURE", "UNSAFE_MEDIA_CONTRACT_MISMATCH"],
+    "normalization_classes": ["SAFE_MEDIA_CONTRACT_MISMATCH"],
+    "non_retryable_classes": ["MISSION_SCHEMA_INVALID", "SUBTITLE_COVERAGE_MISMATCH", "DISK_INSUFFICIENT", "REQUIRED_TOOL_MISSING", "FONT_FILTER_ENCODER_MISSING", "MISSION_HASH_MISMATCH", "RIGHTS_BLOCKED", "POSITIVE_COST", "PAID_TRANSITION", "AUTO_TOP_UP_REQUIRED"]
   },
   "resource_policy": {
-    "scene_encode_parallelism": "BENCHMARK_BOUNDED_DEFAULT_LOW",
+    "scene_encode_parallelism": "DYNAMIC_WITH_BENCHMARK_AND_RESOURCE_CEILING_DEFAULT_LOW",
     "concat_single_writer": true,
     "check_free_disk_before_scene": true,
+    "check_available_ram_before_scene": true,
+    "preflight_estimated_scene_disk_and_ram": true,
+    "reduce_parallelism_on_memory_pressure_or_swap_growth": true,
     "delete_only_temp_or_partial_by_default": true,
     "close_file_handles_promptly": true,
     "wait_or_terminate_all_child_processes": true,
@@ -166,14 +143,7 @@
     "url_only_cache_key": false,
     "single_bad_asset_must_not_fail_unrelated_scenes": true,
     "provenance_ledger_required": true,
-    "provenance_fields": [
-      "source",
-      "retrieved_at",
-      "content_sha256",
-      "decode_status",
-      "rights_status",
-      "normalized_derivative_sha256"
-    ]
+    "provenance_fields": ["source", "retrieved_at", "content_sha256", "decode_status", "rights_status", "normalized_derivative_sha256"]
   },
   "github_actions_storage_policy": {
     "cache_role": "OPTIONAL_REGENERABLE_ACCELERATOR",
@@ -181,25 +151,14 @@
     "cache_hit_may_not_prove_checkpoint_success": true,
     "cross_runner_resume_requires_verified_manifest": true
   },
-  "toolchain_provenance_required": [
-    "git_commit_sha",
-    "renderer_version",
-    "ffmpeg_version",
-    "ffprobe_version",
-    "voicevox_engine_version_or_digest",
-    "voicevox_speaker_uuid",
-    "voicevox_style_id",
-    "font_identity",
-    "mission_hash",
-    "policy_version"
-  ],
-  "free_ai_reviewer_policy": {
-    "exact_free_id_required": true,
-    "fresh_catalog_and_price_check_required": true,
+  "toolchain_provenance_required": ["git_commit_sha", "renderer_version", "ffmpeg_version", "ffprobe_version", "voicevox_engine_version_or_digest", "voicevox_speaker_uuid", "voicevox_style_id", "font_identity", "mission_hash", "policy_version"],
+  "ai_review_policy": {
+    "machine_oracle_preferred_over_model_vote": true,
+    "exact_route_and_cost_evidence_required_for_external_ai_reviewer": true,
     "empty_response_counts_as_success": false,
-    "paid_sibling_on_404": "BLOCK",
-    "unknown_provider_routing_on_429": "BLOCK",
-    "minimum_successes_to_claim_multi_ai_consensus": 2
+    "unknown_provider_routing": "BLOCK",
+    "multi_ai_consensus_is_not_mechanical_truth": true,
+    "deepseek_paid_supervisor_may_review_architecture_failure_or_edit_strategy_under_its_scoped_policy": true
   },
   "reliability_slo": {
     "healthy_prior_scene_regeneration_after_later_scene_failure": 0,
@@ -216,28 +175,14 @@
     "synthetic_recovery_fixture_required": true
   },
   "efficiency_kpi": [
-    "voice_cache_hit_rate",
-    "visual_cache_hit_rate",
-    "scene_cache_hit_rate",
-    "rerendered_scene_ratio",
-    "reused_scene_ratio",
-    "wasted_encode_seconds",
-    "checkpoint_restore_seconds",
-    "total_render_wall_seconds",
-    "p50_scene_render_seconds",
-    "p95_scene_render_seconds",
-    "peak_disk_bytes",
-    "visual_fallback_count",
-    "external_request_count",
-    "subprocess_timeout_count",
-    "decode_validation_seconds",
-    "proxy_preview_count"
+    "voice_cache_hit_rate", "visual_cache_hit_rate", "scene_cache_hit_rate", "rerendered_scene_ratio", "reused_scene_ratio", "wasted_encode_seconds", "checkpoint_restore_seconds", "total_render_wall_seconds", "p50_scene_render_seconds", "p95_scene_render_seconds", "peak_disk_bytes", "peak_ram_bytes", "swap_growth_bytes", "visual_fallback_count", "external_request_count", "subprocess_timeout_count", "decode_validation_seconds", "proxy_preview_count", "scene_normalization_count"
   ],
   "pruning_policy": {
     "asr_every_scene_for_known_tts_script": false,
     "proxy_render_every_scene": false,
     "url_only_cache_identity": false,
     "latest_unpinned_toolchain_in_reproducible_path": false,
-    "monolithic_render": false
+    "monolithic_render": false,
+    "agent_debate_for_mechanical_validation": false
   }
 }
