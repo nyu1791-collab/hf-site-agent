@@ -2,11 +2,6 @@ name: "DeepSeek V4.1 Flash paid parallel engineering corps"
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - .github/nvidia-google.implementation-review
 
 permissions:
   contents: read
