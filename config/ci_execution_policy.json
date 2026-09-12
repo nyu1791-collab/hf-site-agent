@@ -1,10 +1,14 @@
 {
   "schema_version": "ci-execution-policy-v1",
-  "strategy": "ONE_AUTOMATIC_CORE_GATE",
+  "strategy": "ONE_AUTOMATIC_CORE_GATE_PLUS_ONE_EXPLICIT_CARRIER",
   "long_lived_branch": "ai-army/provider-v3",
   "max_automatic_workflows_per_push": 1,
   "automatic_workflows": [
     "verify-hierarchical-runtime.yml"
+  ],
+  "max_bounded_internal_carriers": 1,
+  "bounded_internal_carrier_workflows": [
+    "subordinate-continuation.yml"
   ],
   "manual_specialist_workflows": [
     "verify-ci-control-plane.yml",
@@ -17,7 +21,8 @@
     "verify-real-photo-sourcing.yml",
     "verify-deepseek-joint-runtime.yml",
     "verify-media-army.yml",
-    "deepseek-paid-parallel.yml"
+    "deepseek-paid-parallel.yml",
+    "subordinate-continuation-carrier.yml"
   ],
   "step_zero_failure": {
     "classifier": "runner_id_zero_and_steps_empty",
@@ -26,14 +31,16 @@
   },
   "concurrency": {
     "cancel_superseded_runs": true,
-    "group_by_workflow_and_ref": true
+    "group_by_workflow_and_ref": true,
+    "bounded_paid_carrier_cancel_in_progress": false
   },
   "paid_provider_policy": {
     "deepseek_paid_parallel_manual_only": true,
+    "bounded_carrier_paid_seed_requires_explicit_trigger_marker": true,
     "explicit_approval_marker_required": true,
     "max_calls": 2,
     "max_parallel_calls": 2,
-    "max_estimated_cost_usd": 0.05,
+    "max_estimated_cost_usd": 0.1,
     "generic_paid_fallback": false,
     "auto_top_up": false
   }
