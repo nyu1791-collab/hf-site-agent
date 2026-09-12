@@ -75,6 +75,9 @@ jobs:
             tests.test_framework_adapter_layer \
             tests.test_framework_parallel_governor \
             tests.test_free_media_capability_router \
+            tests.test_failure_aware_specialist_council \
+            tests.test_adaptive_retry_and_compact_nvidia \
+            tests.test_subordinate_continuation_carrier \
             tests.test_replace_narration_audio \
             -v
       - name: Validate JavaScript source syntax
