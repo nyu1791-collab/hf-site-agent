@@ -54,17 +54,19 @@ jobs:
                   shared.append(f'\n### {p}\n'+path.read_text(encoding='utf-8',errors='replace')[:7000])
           shared=''.join(shared)[:38000]
 
-          evidence='''FRESH EVIDENCE (treat as supplied evidence, not permission to invent facts):
-- OpenAI Agents SDK: manager-style agents-as-tools keeps one owner in control; code orchestration is deterministic for speed/cost/performance; blocking/tool guardrails and end-to-end tracing are recommended.
-- LangChain/LangGraph: single-agent+tools is often enough; multi-agent is useful for context isolation, distributed specialization and truly parallel work; per-invocation subgraph checkpointing and idempotent side effects are recommended.
-- Anthropic engineering: orchestrator-worker parallelism helps breadth-first research; keep high-signal minimal context; long-running tasks benefit from incremental artifacts; planner-generator-evaluator is costly and components should be ablated when not load-bearing.
-- Cemri et al. 2025: recurring MAS failures include constraint violations, repetition, context loss, derailment, ignored inputs, reasoning/action mismatch, premature termination and weak verification.
-- Towards a Science of Scaling Agent Systems 2025: coordination overhead can hurt tool-heavy tasks; central coordination contains error amplification; sequential reasoning degraded 39-70% in tested multi-agent variants.
-- FFmpeg official docs: concat demuxer needs compatible streams/time bases; ffprobe is a machine-readable validation oracle; loudnorm supports EBU R128/double pass; cropdetect can derive crop.
-- WhisperX: batched ASR/VAD/word-level forced alignment/optional diarization. PySceneDetect: content/adaptive/threshold detection. Auto-Editor: audio+motion cuts and margins.
-- TikTok Shop Japan 2026 official guidance: opening 3 seconds, clear product, core selling points, use scenes, subtitles, natural CTA; AI-assisted content must be disclosed and must not misrepresent product/performance; product selection should consider sample access, market potential, audience fit, earnings, user benefit, quality, and demonstrability; promotional claims must be accurate/useful/verifiable and publish-time policy refresh is required because documents can be superseded.
-- DeepSeek official current API: canonical model id deepseek-v4-flash, 1M context, JSON/tool calls, context cache by matching prefixes, thinking effort low/high/max; current peak pricing per 1M tokens = cache hit $0.014, cache miss $0.44, output $1.32; off-peak half of peak.
-'''
+          evidence_lines=[
+              'FRESH EVIDENCE (treat as supplied evidence, not permission to invent facts):',
+              '- OpenAI Agents SDK: manager-style agents-as-tools keeps one owner in control; code orchestration is deterministic for speed/cost/performance; blocking/tool guardrails and end-to-end tracing are recommended.',
+              '- LangChain/LangGraph: single-agent+tools is often enough; multi-agent is useful for context isolation, distributed specialization and truly parallel work; per-invocation subgraph checkpointing and idempotent side effects are recommended.',
+              '- Anthropic engineering: orchestrator-worker parallelism helps breadth-first research; keep high-signal minimal context; long-running tasks benefit from incremental artifacts; planner-generator-evaluator is costly and components should be ablated when not load-bearing.',
+              '- Cemri et al. 2025: recurring MAS failures include constraint violations, repetition, context loss, derailment, ignored inputs, reasoning/action mismatch, premature termination and weak verification.',
+              '- Towards a Science of Scaling Agent Systems 2025: coordination overhead can hurt tool-heavy tasks; central coordination contains error amplification; sequential reasoning degraded 39-70% in tested multi-agent variants.',
+              '- FFmpeg official docs: concat demuxer needs compatible streams/time bases; ffprobe is a machine-readable validation oracle; loudnorm supports EBU R128/double pass; cropdetect can derive crop.',
+              '- WhisperX: batched ASR/VAD/word-level forced alignment/optional diarization. PySceneDetect: content/adaptive/threshold detection. Auto-Editor: audio+motion cuts and margins.',
+              '- TikTok Shop Japan 2026 official guidance: opening 3 seconds, clear product, core selling points, use scenes, subtitles, natural CTA; AI-assisted content must be disclosed and must not misrepresent product/performance; product selection should consider sample access, market potential, audience fit, earnings, user benefit, quality, and demonstrability; promotional claims must be accurate/useful/verifiable and publish-time policy refresh is required because documents can be superseded.',
+              '- DeepSeek official current API: canonical model id deepseek-v4-flash, 1M context, JSON/tool calls, context cache by matching prefixes, thinking effort low/high/max; current peak pricing per 1M tokens = cache hit $0.014, cache miss $0.44, output $1.32; off-peak half of peak.'
+          ]
+          evidence='\n'.join(evidence_lines)
 
           lanes=[
             ('org-architecture','ORGANIZATION_ARCHITECT','Audit the hierarchy after promoting paid DeepSeek to EXECUTIVE_SUPERVISOR. Focus on smallest high-performance organization, manager/worker boundaries, when DeepSeek should research itself vs supervise verified subordinates, and what architecture rules should be deleted or demoted.'),
@@ -74,7 +76,7 @@ jobs:
             ('red-team-pruner','RED_TEAM_POLICY_PRUNER','Assume current standards are overbuilt. Challenge agents, checks, retries, adapters, fixed heuristics and review layers. Keep only controls with clear failure prevention or measurable value. Propose ablation tests before uncertain deletions.')
           ]
 
-          system='''You are DeepSeek V4 Flash acting as a senior executive supervisor and independent peer reviewer. You are advisory only. Do not modify repositories, deploy, publish, merge, expose secrets, or authorize paid media services. Separate supplied evidence from heuristics. Prefer simpler systems that improve success, speed, cost and recovery. Do not preserve legacy rules merely because they exist. Return one JSON object only. Keys: role, verdict, retain, change, remove_or_demote, add, failure_modes_addressed, tests, metrics, migration_order, confidence. Each array maximum 6 concise implementation-ready items. No prose outside JSON.'''
+          system='You are DeepSeek V4 Flash acting as a senior executive supervisor and independent peer reviewer. You are advisory only. Do not modify repositories, deploy, publish, merge, expose secrets, or authorize paid media services. Separate supplied evidence from heuristics. Prefer simpler systems that improve success, speed, cost and recovery. Do not preserve legacy rules merely because they exist. Return one JSON object only. Keys: role, verdict, retain, change, remove_or_demote, add, failure_modes_addressed, tests, metrics, migration_order, confidence. Each array maximum 6 concise implementation-ready items. No prose outside JSON.'
 
           peak_hit,peak_miss,peak_out=0.014,0.44,1.32
           max_tokens=6000
