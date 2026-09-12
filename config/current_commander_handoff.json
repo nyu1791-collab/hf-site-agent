@@ -1,8 +1,8 @@
 {
-  "schema_version": "top-commander-handoff-v4",
+  "schema_version": "top-commander-handoff-v5",
   "effective_date_jst": "2026-09-12",
-  "mission_id": "ai-army-monetization-and-media-20260912",
-  "objective": "Preserve and improve the AI Army, long-form video production, rights-safe clipping, and evidence-based TikTok Shop commerce systems using bounded, resumable, research-grounded orchestration. New chat tabs or agent sessions must restore project rules from repository state instead of relying on conversational memory.",
+  "mission_id": "ai-army-monetization-media-and-supervisor-20260912",
+  "objective": "Preserve and improve the AI Army, paid DeepSeek executive-supervisor layer, long-form video production, rights-safe clipping, and evidence-based TikTok Shop commerce systems using bounded, resumable, research-grounded orchestration. New chat tabs or agent sessions must restore project rules from repository state instead of relying on conversational memory.",
   "continuity": {
     "portable_across_chat_tabs": true,
     "conversation_memory_is_not_source_of_truth": true,
@@ -11,6 +11,8 @@
       "README.md",
       "config/current_commander_handoff.json",
       "config/multi_agent_operating_policy.json",
+      "config/deepseek_paid_supervisor_policy.json",
+      "config/deepseek_paid_autonomy.json",
       "docs/MULTI_AGENT_OPERATING_STANDARD.md",
       "config/longform_video_objectives.json",
       "config/longform_video_reliability_policy.json",
@@ -27,6 +29,8 @@
   },
   "active_standards": {
     "multi_agent_policy": "config/multi_agent_operating_policy.json",
+    "deepseek_supervisor_policy": "config/deepseek_paid_supervisor_policy.json",
+    "deepseek_legacy_autonomy_pointer": "config/deepseek_paid_autonomy.json",
     "multi_agent_standard": "docs/MULTI_AGENT_OPERATING_STANDARD.md",
     "longform_objectives": "config/longform_video_objectives.json",
     "longform_policy": "config/longform_video_reliability_policy.json",
@@ -36,6 +40,55 @@
     "tiktok_shop_influence_policy": "config/tiktok_shop_influence_policy.json",
     "tiktok_shop_influence_playbook": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
     "research_synthesis": "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md"
+  },
+  "deepseek_supervisor_fixed_rules": {
+    "paid_deepseek_persistently_authorized_for_supervisory_scope": true,
+    "repeat_per_call_approval_required": false,
+    "rank": "EXECUTIVE_SUPERVISOR",
+    "reports_to": "chatgpt-work",
+    "chatgpt_remains_final_decision_authority": true,
+    "deepseek_is_not_default_bottom_worker": true,
+    "deepseek_is_not_default_bulk_coder": true,
+    "preferred_roles": [
+      "RESEARCH_DIRECTOR",
+      "SYSTEM_ARCHITECT",
+      "PEER_REVIEW_CHAIR",
+      "RED_TEAM_CHAIR",
+      "INCIDENT_COMMANDER",
+      "MEDIA_STRATEGY_SUPERVISOR",
+      "TIKTOK_SHOP_STRATEGY_SUPERVISOR",
+      "SUBORDINATE_WORK_REVIEWER"
+    ],
+    "heavy_use_preferred_for": [
+      "broad_research",
+      "source_comparison",
+      "alternative_generation",
+      "failure_mode_discovery",
+      "contradiction_search",
+      "architecture_review",
+      "media_and_commerce_strategy",
+      "subordinate_task_decomposition",
+      "subordinate_result_synthesis",
+      "postmortem_and_remediation"
+    ],
+    "delegate_downward_when_possible": [
+      "large_boilerplate_code_generation",
+      "repetitive_code_edits",
+      "mechanical_transforms",
+      "deterministic_validation"
+    ],
+    "successful_research_lane_not_rerun_without_new_evidence": true,
+    "failed_lane_retry_requires_method_change": true,
+    "other_paid_providers_remain_disallowed_without_explicit_user_authorization": true,
+    "auto_top_up": false,
+    "generic_paid_fallback": false,
+    "repository_write_by_deepseek": false,
+    "main_direct_push": false,
+    "pr_merge": false,
+    "deploy": false,
+    "publish": false,
+    "secret_mutation_or_disclosure": false,
+    "paid_media_generation": false
   },
   "longform_fixed_rules": {
     "video_creation_not_started_by_this_mission": true,
@@ -110,9 +163,11 @@
     "bounded_retries_and_reflection": true,
     "task_lease_required_for_parallel_mutating_work": true,
     "independent_verification_for_high_impact_outputs": true,
-    "majority_vote_is_not_evidence": true
+    "majority_vote_is_not_evidence": true,
+    "free_routes_are_default_except_explicit_deepseek_supervisor_exception": true
   },
   "lanes": [
+    "DEEPSEEK_EXECUTIVE_SUPERVISION",
     "LONGFORM_VIDEO_RELIABILITY",
     "AUTHORIZED_CLIPPING_MONETIZATION",
     "EVIDENCE_BASED_TIKTOK_SHOP_COMMERCE",
@@ -123,6 +178,7 @@
   ],
   "priority_order": [
     "CONTEXT_AND_HANDOFF",
+    "DEEPSEEK_EXECUTIVE_SUPERVISION",
     "FAILURE_RECOVERY",
     "EVIDENCE_BASED_TIKTOK_SHOP_COMMERCE",
     "AUTHORIZED_CLIPPING_MONETIZATION",
@@ -132,6 +188,9 @@
   ],
   "specific_checks": [
     "new sessions restore canonical policy files before planning",
+    "paid DeepSeek supervisor authorization survives tab changes without granting blanket paid-provider access",
+    "DeepSeek supervisory compute is spent primarily on research architecture review red-team diagnosis decomposition and synthesis rather than boilerplate coding",
+    "ChatGPT remains final adjudicator of DeepSeek recommendations",
     "healthy outputs are never destroyed by downstream failures",
     "parallel workers cannot claim or mutate the same task without a lease",
     "critical side effects are blocked by pre-execution guardrails",
