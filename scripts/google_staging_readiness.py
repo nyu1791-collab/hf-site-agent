@@ -1,18 +1,12 @@
 #!/usr/bin/env python3
 """Build a deterministic Google staging readiness / integration packet.
 
-The packet separates public model/free-tier availability from current
-account/billing/quota evidence. A verified fixed FREE_TIER route may defer its
-inference liveness check to the first real Executor task, avoiding a redundant
-request immediately before agent work. Known paid routing, billing enablement,
-non-zero pricing, stale evidence or model mismatch remain hard blockers.
-
-A verified deferred admission is represented explicitly as
-``PROBE_DEFERRED_RECOVERY``. This mode was recommended by the live NVIDIA Lead
-Engineer after the Google quota/backpressure run. It does not relax any
-execution gate: it only distinguishes a deliberately deferred first-agent
-liveness check from a missing probe, while keeping the exact free route,
-no-paid-fallback and billing-transition guards intact.
+Public free-tier availability is not account eligibility. Staging admission is
+fail-closed: a Google lane is live-ready only when the exact FREE_TIER route,
+current account eligibility, quota safety, zero-cost evidence and absence of
+paid transitions are all explicitly verified. A liveness probe may be deferred
+to the first agent task, but the economic/account gate itself may not be
+skipped.
 
 This module performs no provider call and never reads credential values.
 """
@@ -37,9 +31,11 @@ GOOGLE_EVIDENCE_PATCH_PATHS = frozenset({
     "scripts/secure_account_evidence.py",
     "scripts/free_evidence.py",
     "scripts/probe_providers.py",
+    "scripts/google_staging_readiness.py",
     "tests/test_secure_account_evidence.py",
     "tests/test_free_evidence.py",
     "tests/test_probe_providers.py",
+    "tests/test_google_staging_readiness.py",
 })
 
 
@@ -107,6 +103,7 @@ def _fresh(record: Mapping[str, Any]) -> bool:
 
 
 def _bounded_free_tier_evidence(record: Mapping[str, Any]) -> bool:
+    """Require explicit current account/quota/cost evidence for FREE_TIER use."""
     account = _mapping(record.get("account_metadata"))
     return (
         record.get("secure_evidence") is True
@@ -119,13 +116,17 @@ def _bounded_free_tier_evidence(record: Mapping[str, Any]) -> bool:
         and record.get("free_route_selected") is True
         and record.get("selected_route") == "FREE_TIER"
         and record.get("zero_price_verified") is True
+        and record.get("zero_cost_verified") is True
+        and record.get("quota_verified") is True
+        and record.get("quota_safe") is True
         and record.get("paid_fallback_possible") is False
-        and record.get("paid_transition_possible") is not True
-        and record.get("billing_enabled_class") is not True
-        and account.get("billing_enabled") is not True
-        and account.get("current_account_eligible") is not False
-        and account.get("fallback_to_paid_possible") is not True
-        and account.get("automatic_paid_transition_possible") is not True
+        and record.get("paid_transition_possible") is False
+        and record.get("billing_enabled_class") is False
+        and account.get("current_account_eligible") is True
+        and account.get("billing_enabled") is False
+        and account.get("fallback_to_paid_possible") is False
+        and account.get("automatic_paid_transition_possible") is False
+        and str(account.get("billing_transition_risk") or "").upper() == "NONE"
     )
 
 
@@ -147,23 +148,18 @@ def _deferred_recovery_ready(
     probe_record: Mapping[str, Any],
     account: Mapping[str, Any],
 ) -> bool:
-    """Identify the exact NVIDIA-reviewed deferred Google recovery lane.
-
-    This is deliberately stricter than a generic missing-probe state.  It
-    requires the existing deferred-agent admission plus the absence of every
-    known billing/fallback transition signal. Unknown account metadata is not
-    treated as proof of safety by itself; the fixed FREE_TIER evidence remains
-    mandatory through ``_deferred_agent_ready``.
-    """
+    """Allow deferred liveness only after the economic safety gate is proven."""
     return (
         _deferred_agent_ready(record, probe_record)
         and int(probe_record.get("model_calls", 0) or 0) == 0
-        and record.get("billing_enabled_class") is not True
+        and record.get("billing_enabled_class") is False
         and record.get("paid_fallback_possible") is False
-        and record.get("paid_transition_possible") is not True
-        and account.get("billing_enabled") is not True
-        and account.get("fallback_to_paid_possible") is not True
-        and account.get("automatic_paid_transition_possible") is not True
+        and record.get("paid_transition_possible") is False
+        and account.get("current_account_eligible") is True
+        and account.get("billing_enabled") is False
+        and account.get("fallback_to_paid_possible") is False
+        and account.get("automatic_paid_transition_possible") is False
+        and str(account.get("billing_transition_risk") or "").upper() == "NONE"
     )
 
 
@@ -199,22 +195,22 @@ def build_google_readiness_packet(
     required_evidence: list[str] = []
     if tier == "UNKNOWN" or account_eligible is not True:
         required_evidence.append("CURRENT_GOOGLE_ACCOUNT_TIER")
-    if billing_enabled is None:
+    if billing_enabled is not False:
         required_evidence.append("CURRENT_GOOGLE_BILLING_STATE")
     if auto_paid is not False or billing_risk != "NONE":
         required_evidence.append("NO_AUTOMATIC_PAID_TRANSITION")
+    if not zero_cost_verified:
+        required_evidence.append("CURRENT_ZERO_COST_EVIDENCE")
     if not quota_verified or not quota_safe:
         required_evidence.append("CURRENT_GOOGLE_QUOTA")
     if not secure_evidence or not evidence_fresh:
         required_evidence.append("FRESH_SECURE_GOOGLE_EVIDENCE")
 
     transport_ready = model_verified and endpoint_verified and auth_verified
-    strict_live_ready = (
-        transport_ready and secure_evidence and evidence_fresh and zero_cost_verified
-        and quota_safe and probe_status == "PROBE_OK"
-    )
+    economic_gate_ready = _bounded_free_tier_evidence(record)
+    strict_live_ready = economic_gate_ready and probe_status == "PROBE_OK"
     bounded_probe_ready = (
-        _bounded_free_tier_evidence(record)
+        economic_gate_ready
         and probe_status == "PROBE_OK"
         and probe_record.get("probe_mode") == "BOUNDED_FREE_TIER_PROBE"
         and probe_record.get("bounded_free_tier_probe_allowed") is True
@@ -240,10 +236,13 @@ def build_google_readiness_packet(
         "CURRENT_GOOGLE_ACCOUNT_TIER", "CURRENT_GOOGLE_BILLING_STATE", "NO_AUTOMATIC_PAID_TRANSITION"
     )):
         state = "ACCOUNT_EVIDENCE_REQUIRED"
-        next_action = "REFRESH_ACCOUNT_EVIDENCE_OR_VERIFY_FIXED_FREE_ROUTE"
+        next_action = "REFRESH_ACCOUNT_EVIDENCE"
+    elif "CURRENT_ZERO_COST_EVIDENCE" in required_evidence:
+        state = "ZERO_COST_EVIDENCE_REQUIRED"
+        next_action = "REFRESH_ZERO_COST_EVIDENCE"
     elif "CURRENT_GOOGLE_QUOTA" in required_evidence:
         state = "QUOTA_EVIDENCE_REQUIRED"
-        next_action = "REFRESH_QUOTA_EVIDENCE_OR_VERIFY_FIXED_FREE_ROUTE"
+        next_action = "REFRESH_QUOTA_EVIDENCE"
     elif "FRESH_SECURE_GOOGLE_EVIDENCE" in required_evidence:
         state = "EVIDENCE_REFRESH_REQUIRED"
         next_action = "REFRESH_GOOGLE_EVIDENCE"
@@ -289,9 +288,12 @@ def build_google_readiness_packet(
             integration_reason = "RESULT_INTEGRITY_AND_PATH_SCOPE_PASS"
             proposal_safe_to_integrate = True
 
-    repeat_nvidia_call_allowed = state not in {
-        "ACCOUNT_EVIDENCE_REQUIRED", "QUOTA_EVIDENCE_REQUIRED", "EVIDENCE_REFRESH_REQUIRED"
-    } or bounded_probe_ready or deferred_agent_ready
+    repeat_nvidia_call_allowed = live_ready or state not in {
+        "ACCOUNT_EVIDENCE_REQUIRED",
+        "ZERO_COST_EVIDENCE_REQUIRED",
+        "QUOTA_EVIDENCE_REQUIRED",
+        "EVIDENCE_REFRESH_REQUIRED",
+    }
 
     return {
         "schema_version": "google-staging-readiness-v3",
@@ -301,6 +303,7 @@ def build_google_readiness_packet(
         "next_action": next_action,
         "readiness_mode": readiness_mode,
         "transport_ready": transport_ready,
+        "economic_gate_ready": economic_gate_ready,
         "live_ready": live_ready,
         "strict_live_ready": strict_live_ready,
         "bounded_probe_ready": bounded_probe_ready,
@@ -335,9 +338,11 @@ def build_google_readiness_packet(
             "paid_execution_allowed": False,
             "paid_fallback_allowed": False,
             "production_activation_allowed": False,
-            "unknown_account_metadata_may_use_bounded_free_tier": True,
+            "unknown_account_metadata_may_use_bounded_free_tier": False,
             "known_billing_enabled_blocks_bounded_route": True,
             "known_paid_transition_blocks_bounded_route": True,
+            "unknown_quota_blocks_bounded_route": True,
+            "unknown_zero_cost_blocks_bounded_route": True,
             "redundant_liveness_probe_required": False,
             "nvidia_reviewed_deferred_recovery_mode": deferred_recovery_ready,
         },
