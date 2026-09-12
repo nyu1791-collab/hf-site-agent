@@ -18,7 +18,7 @@
     "max_calls": 2,
     "max_parallel_calls": 2,
     "max_estimated_cost_usd": 0.05,
-    "max_output_tokens_per_call": 4096,
+    "max_output_tokens_per_call": 8192,
     "stop_before_estimated_budget_exceeded": true
   },
   "pricing_per_million_usd": {
@@ -44,7 +44,7 @@
     "DEBUGGING": {
       "thinking": true,
       "reasoning_effort": "high",
-      "max_tokens": 4096
+      "max_tokens": 8192
     }
   }
 }
