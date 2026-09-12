@@ -1,5 +1,5 @@
 {
-  "schema_version": "multi-agent-operating-policy-v3",
+  "schema_version": "multi-agent-operating-policy-v4",
   "effective_date_jst": "2026-09-12",
   "status": "PERMANENT_STANDARD",
   "architecture": {
@@ -76,6 +76,11 @@
     "provider_cache_is_accelerator_not_checkpoint_or_evidence": true
   },
   "routing": {
+    "canonical_routing_facade": "scripts/ai_army_routing_facade.py",
+    "legacy_commander_routing": "scripts/commander_routing.py",
+    "legacy_commander_routing_is_compatibility_layer": true,
+    "legacy_agent_runtime_topology_is_execution_compatibility_not_policy_authority": true,
+    "all_new_policy_facing_route_selection_enters_canonical_facade": true,
     "deterministic_router_preferred_for_clear_categories": true,
     "supervisor_router_for_evolving_multi_step_context": true,
     "provider_and_model_binding_must_be_registry_driven": true,
@@ -84,7 +89,12 @@
     "route_by_task_fit_cost_latency_and_verified_availability": true,
     "unknown_route_cost_or_entitlement": "BLOCK",
     "role_assignment_should_be_contract_driven_not_brand_driven": true,
-    "paid_deepseek_supervisor_is_pre_authorized_when_scope_and_budget_match": true
+    "paid_deepseek_supervisor_is_pre_authorized_when_scope_and_budget_match": true,
+    "deepseek_supervisor_not_mandatory_for_every_task": true,
+    "direct_specialist_bypass_allowed_for_narrow_bounded_execution": true,
+    "direct_specialist_bypass_requires_current_provider_readiness": true,
+    "direct_specialist_bypass_may_authorize_paid_fallback": false,
+    "broad_research_architecture_red_team_incident_and_strategic_synthesis_prefer_deepseek_supervisor": true
   },
   "parallelism": {
     "parallelize_only_independent_tasks": true,
@@ -153,7 +163,8 @@
       "REASONING_ACTION_MISMATCH",
       "PREMATURE_TERMINATION",
       "WEAK_VERIFICATION",
-      "PROVIDER_OR_TOOL_FAILURE"
+      "PROVIDER_OR_TOOL_FAILURE",
+      "STALE_STATE_OR_WRITE_CONFLICT"
     ],
     "repetition_detector": "NORMALIZED_ACTION_PLUS_ARGUMENT_HASH",
     "identical_action_without_new_evidence": "REPLAN_OR_CIRCUIT_BREAK"
@@ -173,6 +184,7 @@
         "provider": "deepseek",
         "role": "EXECUTIVE_SUPERVISOR",
         "policy_file": "config/deepseek_paid_supervisor_policy.json",
+        "canonical_workflow": ".github/workflows/deepseek-supervisor-research.yml",
         "repeat_per_call_approval_required": false,
         "repository_write": false,
         "deploy": false,
@@ -182,7 +194,9 @@
         "auto_top_up": false,
         "generic_paid_fallback": false
       }
-    ]
+    ],
+    "historical_deepseek_configs_do_not_authorize_paid_execution": true,
+    "legacy_deepseek_registry": "config/legacy_deepseek_compatibility.json"
   },
   "tooling": {
     "tool_namespaces_should_be_clear_and_non_overlapping": true,
@@ -237,6 +251,8 @@
   },
   "continuity": {
     "canonical_handoff_file": "config/current_commander_handoff.json",
+    "canonical_org_chart": "config/ai_army_org_chart.json",
+    "canonical_routing_facade": "scripts/ai_army_routing_facade.py",
     "new_chat_or_agent_session_must_restore_repository_state": true,
     "chat_tab_change_must_not_reset_operating_standard": true,
     "durable_operating_decision_must_be_written_to_repository": true
@@ -248,6 +264,8 @@
     "do_not_keep_redundant_framework_layers_without_measured_value": true,
     "do_not_keep_duplicate_agent_roles_without_distinct_failure_domain": true,
     "do_not_add_agent_when_deterministic_tool_or_single_agent_is_better": true,
+    "retire_active_workflows_that_bypass_the_canonical_paid_supervisor_contract": true,
+    "historical_regression_files_may_remain_if_marked_non_authoritative": true,
     "uncertain_complexity_reduction_requires_ablation_test_before_deletion": true
   },
   "free_only_policy": {
@@ -270,6 +288,7 @@
       "reports_to": "chatgpt-work",
       "default_use": "RESEARCH_ARCHITECTURE_REVIEW_RED_TEAM_INCIDENT_AND_STRATEGY",
       "bulk_coding_worker": false,
+      "mandatory_hop_for_every_task": false,
       "chatgpt_final_adjudication_required": true,
       "other_paid_provider_authorization": false
     }
