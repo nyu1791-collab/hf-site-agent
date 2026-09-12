@@ -1,4 +1,4 @@
-name: Pilot news short - Zundamon + sourced web images
+name: Zundamon longform news - sourced web images
 
 on:
   push:
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - name: Checkout exact source without write credentials
         uses: actions/checkout@v6
@@ -41,7 +41,41 @@ jobs:
         run: |
           set -euo pipefail
           python -m json.tool missions/news-video-pilot.json >/dev/null
-          python -m py_compile scripts/news_video_editorial_council.py scripts/render_zundamon_news_short.py
+          python -m json.tool config/deepseek_paid_autonomy.json >/dev/null
+          python -m py_compile \
+            scripts/news_video_editorial_council.py \
+            scripts/deepseek_paid_media_council.py \
+            scripts/render_zundamon_news_longform.py
+
+      - name: Run bounded paid DeepSeek media council
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          python scripts/deepseek_paid_media_council.py
+          python -m json.tool artifacts/deepseek_paid_media_council.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report=json.loads(Path('artifacts/deepseek_paid_media_council.json').read_text(encoding='utf-8'))
+          print(json.dumps({
+              'status':report.get('status'),
+              'model':report.get('requested_model'),
+              'paid_calls':report.get('paid_calls'),
+              'success_count':report.get('success_count'),
+              'preflight_cost_usd':report.get('conservative_preflight_cost_usd')
+          }, ensure_ascii=False))
+          assert report.get('authorized_by_user') is True
+          assert report.get('per_run_confirmation_required') is False
+          assert int(report.get('paid_calls', 0)) <= 8
+          assert float(report.get('max_estimated_cost_usd', 0)) <= 0.25
+          assert report.get('production_enabled') is False
+          assert report.get('repository_write') is False
+          assert report.get('deploy') is False
+          assert report.get('publish') is False
+          assert report.get('generic_paid_fallback') is False
+          assert report.get('auto_top_up') is False
+          PY
 
       - name: Run bounded live-free editorial council
         env:
@@ -66,12 +100,12 @@ jobs:
           docker logs voicevox-news-pilot || true
           exit 1
 
-      - name: Render vertical short with exact full-narration subtitles
+      - name: Render longform with exact full-narration subtitles
         run: |
           set -euo pipefail
-          python scripts/render_zundamon_news_short.py
+          python scripts/render_zundamon_news_longform.py
 
-      - name: Validate rendered artifact, subtitle coverage, and Zundamon motion
+      - name: Validate longform artifact, subtitle coverage, hierarchy, and stationary Zundamon
         run: |
           set -euo pipefail
           python -m json.tool artifacts/news-video-pilot/render_report.json >/dev/null
@@ -91,10 +125,13 @@ jobs:
           assert subs['coverage']==1.0
           assert report['subtitle_chunk_count']==len(subs['chunks'])
           assert report['zundamon_overlay'] is True
-          assert report['zundamon_motion'] is True
-          assert report['zundamon_pose_count'] >= 2
+          assert report['zundamon_motion'] is False
+          assert report['zundamon_stationary'] is True
+          assert report['zundamon_pose_count'] >= 4
+          assert report['text_hierarchy'] is True
+          assert 240 <= float(report['duration_seconds']) <= 600
           video=root/report['file']
-          assert video.exists() and video.stat().st_size > 500_000
+          assert video.exists() and video.stat().st_size > 1_000_000
           probe=subprocess.check_output([
               'ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height',
               '-of','csv=p=0:s=x',str(video)
@@ -110,16 +147,20 @@ jobs:
           normalized=''.join(transcript.split())
           assert spoken==normalized, 'subtitle/spoken transcript coverage mismatch'
           print(json.dumps({
-              'render':'PASS','resolution':probe,'audio_codec':audio,
-              'duration':report['duration_seconds'],'subtitle_coverage':report['subtitle_coverage'],
-              'zundamon_motion':report['zundamon_motion']
+              'render':'PASS',
+              'resolution':probe,
+              'audio_codec':audio,
+              'duration':report['duration_seconds'],
+              'subtitle_coverage':report['subtitle_coverage'],
+              'zundamon_stationary':report['zundamon_stationary'],
+              'text_hierarchy':report['text_hierarchy']
           }, ensure_ascii=False))
           PY
 
       - name: Audit repository for secret literals
         run: python scripts/audit_secret_safety.py --root .
 
-      - name: Upload pilot video and production evidence
+      - name: Upload longform video and production evidence
         if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -127,6 +168,7 @@ jobs:
           path: |
             artifacts/news-video-pilot/**
             artifacts/news_video_editorial_council.json
+            artifacts/deepseek_paid_media_council.json
           if-no-files-found: warn
           retention-days: 7
 
