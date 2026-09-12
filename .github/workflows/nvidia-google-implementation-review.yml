@@ -151,6 +151,66 @@ jobs:
           NVIDIA_MISSION_MODE: GOOGLE_BOOTSTRAP_SAFE
         run: python scripts/run_nvidia_orchestrator_guarded.py
 
+      - name: Prepare one bounded NVIDIA continuation when output was truncated
+        id: auto_resume
+        if: ${{ steps.identity.outputs.resume_requested != 'true' }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          def read(path):
+              try:
+                  value = json.loads(Path(path).read_text(encoding="utf-8"))
+              except Exception:
+                  return {}
+              return value if isinstance(value, dict) else {}
+
+          mission = read("artifacts/mission_state.json")
+          inbox = read("artifacts/result_inbox.json")
+          should_continue = (
+              mission.get("result_status") == "PARTIAL_TRUNCATED"
+              and mission.get("provider_reservation_state") == "SETTLED"
+              and inbox.get("result_hash_verified") is True
+              and bool(inbox.get("result_hash"))
+              and int(mission.get("revision", 0) or 0) == 0
+          )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"continue={'true' if should_continue else 'false'}\n")
+          if not should_continue:
+              raise SystemExit(0)
+
+          resume = Path("artifacts/resume")
+          resume.mkdir(parents=True, exist_ok=True)
+          for name in ("mission_state.json", "result_inbox.json", "nvidia_orchestrator_ledger.json"):
+              shutil.copyfile(Path("artifacts") / name, resume / name)
+
+          env = {
+              "RESUME_MISSION_ID": str(mission.get("mission_id") or ""),
+              "RESUME_RUN_ID": str(mission.get("run_id") or ""),
+              "RESUME_RESULT_HASH": str(inbox.get("result_hash") or ""),
+              "RESUME_REVISION": str(int(mission.get("revision", 0) or 0) + 1),
+          }
+          if not all(env.values()):
+              raise SystemExit("AUTO_RESUME_IDENTITY_MISSING")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
+              for key, value in env.items():
+                  handle.write(f"{key}={value}\n")
+          print(json.dumps({"AUTO_NVIDIA_CONTINUATION": True, "next_revision": env["RESUME_REVISION"]}, sort_keys=True))
+          PY
+
+      - name: Run one bounded NVIDIA continuation with larger output envelope
+        if: ${{ steps.auto_resume.outputs.continue == 'true' }}
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          SOURCE_HEAD: ${{ env.SOURCE_HEAD }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          NVIDIA_MISSION_MODE: GOOGLE_BOOTSTRAP_SAFE
+        run: python scripts/run_nvidia_orchestrator_guarded.py
+
       - name: Evaluate Google staging and Result Inbox integrity
         if: always()
         run: >-
