@@ -1,5 +1,7 @@
-trigger=2026-09-12T09:55:00+09:00
-purpose=parallel-deepseek-paid-plus-nvidia-independent-review
+trigger=deepseek-v41-flash-canonical-retry-1
+purpose=parallel-deepseek-v41-paid-plus-nvidia-independent-review
+deepseek_model=deepseek-flash
+deepseek_version=DeepSeek-V4.1-Flash
 deepseek_paid_approved=true
 deepseek_max_paid_calls=2
 deepseek_max_cost_usd=0.05
