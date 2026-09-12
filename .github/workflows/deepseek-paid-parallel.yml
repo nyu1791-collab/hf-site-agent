@@ -42,9 +42,14 @@ jobs:
           python -m py_compile scripts/deepseek_paid_parallel.py scripts/deepseek_v41_paid_parallel.py
           python -m json.tool config/deepseek_paid_parallel.json >/dev/null
           python -m json.tool config/deepseek_v41_paid_parallel.json >/dev/null
+          python -m json.tool config/deepseek_specialist_routing.json >/dev/null
 
-      - name: Run shared deterministic paid parallel regression tests
-        run: python -m unittest tests.test_deepseek_paid_parallel -v
+      - name: Run deterministic paid policy regression tests
+        run: >-
+          python -m unittest
+          tests.test_deepseek_paid_parallel
+          tests.test_deepseek_v41_policy_alignment
+          -v
 
       - name: Verify V4.1 Flash paid path stays offline in dry run
         run: |
