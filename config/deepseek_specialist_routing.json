@@ -14,7 +14,7 @@
   "normal_mission_budget": {
     "max_paid_calls": 2,
     "max_parallel_calls": 2,
-    "max_estimated_cost_usd": 0.05,
+    "max_estimated_cost_usd": 0.1,
     "budget_guard_rates": "CONSERVATIVE"
   },
   "automatic_escalation": {
@@ -30,7 +30,7 @@
         "capability": "DEBUGGING",
         "thinking": false,
         "max_tokens": 4096,
-        "reason": "A/B run 34544219285: direct quality=1.00, grounded_patch_ratio=1.00, latency=5614ms, estimated_cost=$0.00064714; thinking mode cost and latency were substantially higher."
+        "reason": "A/B run 34544219285: direct quality=1.00, grounded_patch_ratio=1.00, latency=5614ms, estimated_cost=$0.00064714; thinking mode cost and latency were substantially higher. Latest V4.1 parallel run also returned VISIBLE_CONTENT_MISSING in thinking mode, reinforcing direct mode as the reliable default."
       }
     }
   },
@@ -73,6 +73,8 @@
     "role_mode_benchmark_run": 34544219285,
     "role_mode_success_rate": 0.8333,
     "role_mode_estimated_cost_usd": 0.01233269,
-    "role_mode_conservative_cost_usd": 0.02783386
+    "role_mode_conservative_cost_usd": 0.02783386,
+    "latest_parallel_run": 34664128949,
+    "latest_parallel_debugging_failure": "VISIBLE_CONTENT_MISSING"
   }
 }
