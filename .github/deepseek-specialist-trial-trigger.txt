@@ -1,5 +1,5 @@
-trigger=deepseek-v4-1-flash-paid-live-revalidation-20260911
-purpose=revalidate-paid-deepseek-v4-1-flash-live-api-exact-model-structured-output-parallel-budget-and-safety-guards-before-main-staging-integration
+trigger=deepseek-v4-1-flash-paid-parallel-revalidation-20260912-public-r1
+purpose=revalidate-paid-deepseek-v4-1-flash-after-repository-public-change-and-run-parallel-engineering-architecture-review
 approved_paid_trial=true
 max_estimated_cost_usd=0.25
 role_modes=coding_deep-direct,debugging-high,code_review-high,architecture-high,test_strategy-direct,integration_review-direct
