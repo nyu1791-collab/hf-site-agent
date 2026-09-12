@@ -8,6 +8,7 @@ on:
       - config/deepseek_paid_supervisor_policy.json
       - config/deepseek_paid_autonomy.json
       - config/multi_agent_operating_policy.json
+      - config/ai_army_org_chart.json
       - config/current_commander_handoff.json
       - .github/workflows/deepseek-supervisor-policy-check.yml
   pull_request:
@@ -15,6 +16,7 @@ on:
       - config/deepseek_paid_supervisor_policy.json
       - config/deepseek_paid_autonomy.json
       - config/multi_agent_operating_policy.json
+      - config/ai_army_org_chart.json
       - config/current_commander_handoff.json
       - .github/workflows/deepseek-supervisor-policy-check.yml
 
@@ -39,25 +41,39 @@ jobs:
 
           sup=json.loads(Path('config/deepseek_paid_supervisor_policy.json').read_text())
           mas=json.loads(Path('config/multi_agent_operating_policy.json').read_text())
+          org=json.loads(Path('config/ai_army_org_chart.json').read_text())
           handoff=json.loads(Path('config/current_commander_handoff.json').read_text())
           legacy=json.loads(Path('config/deepseek_paid_autonomy.json').read_text())
 
+          assert sup['schema_version']=='deepseek-paid-supervisor-v2'
           assert sup['status']=='ACTIVE_SCOPED_EXCEPTION'
           assert sup['human_authorization']['authorized'] is True
           assert sup['human_authorization']['persistent_for_allowed_scope'] is True
           assert sup['human_authorization']['repeat_per_call_approval_required'] is False
+          assert sup['provider']['canonical_request_model']=='deepseek-v4-flash'
           assert sup['hierarchy']['top_commander']=='chatgpt-work'
           assert sup['hierarchy']['deepseek_rank']=='EXECUTIVE_SUPERVISOR'
+          assert sup['hierarchy']['deepseek_depth']==1
           assert sup['hierarchy']['deepseek_reports_to']=='chatgpt-work'
           assert sup['hierarchy']['deepseek_is_lowest_worker'] is False
           assert sup['hierarchy']['deepseek_is_bulk_coding_worker'] is False
           assert sup['usage_policy']['coding']['bulk_code_generation_by_default'] is False
           assert sup['usage_policy']['coding']['direct_repository_write'] is False
-          assert sup['research_fanout']['chatgpt_final_adjudication_required'] is True
-          assert sup['research_fanout']['max_parallel_deepseek_calls'] <= 4
-          assert sup['research_fanout']['max_deepseek_calls_per_mission'] <= 12
-          assert sup['research_fanout']['failed_lane_retry_limit'] <= 1
-          assert sup['research_fanout']['same_root_cause_retry'] is False
+
+          fan=sup['research_fanout']
+          assert fan['chatgpt_final_adjudication_required'] is True
+          assert fan['default_max_distinct_research_lanes'] <= 6
+          assert fan['default_max_parallel_deepseek_calls'] <= 3
+          assert fan['default_max_deepseek_calls_per_mission'] <= 8
+          assert fan['expansion_ceiling']['max_distinct_research_lanes'] <= 8
+          assert fan['expansion_ceiling']['max_parallel_deepseek_calls'] <= 4
+          assert fan['expansion_ceiling']['max_deepseek_calls_per_mission'] <= 12
+          assert fan['failed_lane_retry_limit'] <= 1
+          assert fan['same_root_cause_retry'] is False
+          assert len(fan['expansion_requires']) >= 3
+
+          assert sup['context_and_cache']['prefix_hash_required'] is True
+          assert sup['context_and_cache']['cache_is_accelerator_not_checkpoint_or_evidence'] is True
           assert sup['budget']['max_estimated_cost_usd_per_mission'] <= 0.50
           assert sup['budget']['max_estimated_cost_usd_per_day'] <= 3.00
           assert sup['budget']['stop_before_estimated_budget_exceeded'] is True
@@ -70,6 +86,7 @@ jobs:
           assert sup['safety']['merge'] is False
           assert sup['safety']['secret_mutation_or_disclosure'] is False
 
+          assert mas['schema_version']=='multi-agent-operating-policy-v3'
           exc=mas['paid_model_exceptions']['deepseek_supervisor']
           assert exc['enabled'] is True
           assert exc['preauthorized_by_user'] is True
@@ -80,19 +97,34 @@ jobs:
           assert exc['other_paid_provider_authorization'] is False
           assert mas['free_only_policy']['auto_top_up'] is False
           assert mas['free_only_policy']['allow_paid_fallback'] is False
+          assert mas['architecture']['max_delegation_depth'] <= 2
+          assert mas['architecture']['parallel_direct_corps_safety_ceiling'] <= 3
+          assert mas['architecture']['effective_parallelism_is_dynamic_below_ceiling'] is True
           assert 'PAID_EXECUTION' in mas['security_and_permissions']['human_approval_required_for']
           exceptions=mas['security_and_permissions']['preauthorized_paid_execution_exceptions']
           assert len(exceptions)==1 and exceptions[0]['provider']=='deepseek'
           assert exceptions[0]['repeat_per_call_approval_required'] is False
           assert exceptions[0]['generic_paid_fallback'] is False
 
-          assert handoff['schema_version']=='top-commander-handoff-v5'
+          assert org['status']=='CANONICAL'
+          assert org['hierarchy']['depth_0']['agent']=='chatgpt-work'
+          assert org['hierarchy']['depth_1']['role']=='EXECUTIVE_SUPERVISOR'
+          assert org['hierarchy']['depth_1']['default_bulk_coding'] is False
+          assert org['hierarchy']['depth_2']['worker_to_worker_delegation'] is False
+          assert org['control_plane']['single_writer'] is True
+          assert org['control_plane']['machine_oracle_over_majority_vote'] is True
+
+          assert handoff['schema_version']=='top-commander-handoff-v6'
           assert 'config/deepseek_paid_supervisor_policy.json' in handoff['continuity']['on_new_session_required_read_order']
+          assert 'config/ai_army_org_chart.json' in handoff['continuity']['on_new_session_required_read_order']
           fixed=handoff['deepseek_supervisor_fixed_rules']
           assert fixed['paid_deepseek_persistently_authorized_for_supervisory_scope'] is True
           assert fixed['deepseek_is_not_default_bottom_worker'] is True
           assert fixed['deepseek_is_not_default_bulk_coder'] is True
           assert fixed['chatgpt_remains_final_decision_authority'] is True
+          assert fixed['default_research_lanes'] <= 6
+          assert fixed['default_parallel_calls'] <= 3
+          assert fixed['default_calls_per_mission'] <= 8
           assert fixed['other_paid_providers_remain_disallowed_without_explicit_user_authorization'] is True
           assert fixed['auto_top_up'] is False
           assert fixed['generic_paid_fallback'] is False
@@ -102,6 +134,6 @@ jobs:
           assert legacy['organizational_rank']=='EXECUTIVE_SUPERVISOR'
           assert legacy['not_default_bulk_coding_worker'] is True
 
-          print('DeepSeek executive-supervisor policy: PASS')
+          print('DeepSeek executive-supervisor policy v2: PASS')
           print('No DeepSeek API call was made by this validation workflow.')
           PY
