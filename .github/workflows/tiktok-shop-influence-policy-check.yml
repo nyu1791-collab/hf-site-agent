@@ -1,0 +1,50 @@
+name: "TikTok Shop influence policy check"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - config/tiktok_shop_influence_policy.json
+      - config/current_commander_handoff.json
+      - docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md
+      - scripts/check_tiktok_shop_influence_policy.py
+      - .github/workflows/tiktok-shop-influence-policy-check.yml
+  pull_request:
+    paths:
+      - config/tiktok_shop_influence_policy.json
+      - config/current_commander_handoff.json
+      - docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md
+      - scripts/check_tiktok_shop_influence_policy.py
+      - .github/workflows/tiktok-shop-influence-policy-check.yml
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate JSON
+        run: |
+          python -m json.tool config/tiktok_shop_influence_policy.json >/dev/null
+          python -m json.tool config/current_commander_handoff.json >/dev/null
+      - name: Enforce permanent influence rules
+        run: python scripts/check_tiktok_shop_influence_policy.py
+      - name: Confirm no paid or publishing capability is present
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('.github/workflows/tiktok-shop-influence-policy-check.yml').read_text(encoding='utf-8').lower()
+          assert 'deepseek_api_key' not in text
+          assert 'post_bridge' not in text
+          assert 'youtube' not in text
+          assert 'tiktok publish' not in text
+          print('NO_PAID_OR_PUBLISHING_CAPABILITY=PASS')
+          PY
