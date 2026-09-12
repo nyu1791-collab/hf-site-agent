@@ -1,0 +1,84 @@
+{
+  "schema_version": "batch-media-orchestration-v1",
+  "effective_date_jst": "2026-09-12",
+  "status": "PERMANENT_CONDITIONAL_STANDARD",
+  "decision_owner": "chatgpt-top-commander",
+  "research_basis": {
+    "paid_deepseek_supervisor_run_id": 34700470993,
+    "deepseek_report_status": "PARTIAL",
+    "usable_lanes": ["bulk-media-execution", "clip-quality", "implementation-pruning", "red-team-throughput"],
+    "failed_lanes_not_treated_as_evidence": ["organization-workers", "reliability-errors"],
+    "chatgpt_adjudication": "ADOPT_BOUNDED_DETERMINISTIC_JOB_POOL_AND_FIX_SUPERVISOR_JSON_RESILIENCE"
+  },
+  "primary_goal": "PROCESS_INDEPENDENT_MEDIA_JOBS_CONCURRENTLY_WITHOUT_CROSS_WRITE_QUALITY_RIGHTS_OR_RECOVERY_REGRESSION",
+  "architecture": {
+    "job_level_parallelism": true,
+    "stage_level_agent_swarm": false,
+    "default_parallel_jobs": 1,
+    "max_parallel_jobs": 3,
+    "parallelism_is_dynamic_below_ceiling": true,
+    "fourth_and_later_jobs_queue_instead_of_spawning_more_workers": true,
+    "single_writer_per_job": true,
+    "direct_worker_to_worker_delegation": false,
+    "max_delegation_depth": 2,
+    "deterministic_media_stages_do_not_require_ai": true,
+    "shared_global_mutation_requires_short_single_writer_commit": true
+  },
+  "admission": {
+    "rights_verified_per_job_before_media_execution": true,
+    "resource_tokens_required_before_start": ["cpu_slots", "memory_mb", "disk_mb", "provider_slots"],
+    "resource_shortage_action": "QUEUE_OR_RESOURCE_EXHAUSTED_WITHOUT_PARTIAL_START",
+    "backpressure_states": ["NORMAL", "DEGRADED", "PAUSED"],
+    "normal_parallelism_ceiling": 3,
+    "degraded_parallelism_ceiling": 1,
+    "paused_parallelism_ceiling": 0,
+    "provider_or_resource_pressure_reduces_parallelism_before_quality_gates": true
+  },
+  "leases_and_commits": {
+    "per_job_lease_required_for_mutating_work": true,
+    "lease_ttl_seconds": 300,
+    "lease_token_required_on_commit": true,
+    "stale_manifest_write": "REJECT",
+    "compare_and_swap_base_hash_required": true,
+    "atomic_manifest_commit": true,
+    "partial_output_is_not_committed_output": true,
+    "content_addressed_output_and_checkpoint_identity": true
+  },
+  "failure_policy": {
+    "classes": ["TRANSIENT_PROVIDER", "DETERMINISTIC_MEDIA", "RIGHTS_BLOCK", "RESOURCE_EXHAUSTED", "STALE_WRITE", "CANCELLED", "INVALID_JOB"],
+    "retryable": ["TRANSIENT_PROVIDER"],
+    "non_retryable": ["DETERMINISTIC_MEDIA", "RIGHTS_BLOCK", "RESOURCE_EXHAUSTED", "STALE_WRITE", "CANCELLED", "INVALID_JOB"],
+    "max_transient_retries_per_job": 2,
+    "infinite_retry": false,
+    "same_root_cause_retry_without_new_evidence": false,
+    "preserve_verified_checkpoints_on_failure": true,
+    "resume_smallest_failed_unit": true,
+    "failure_of_one_job_must_not_cancel_unrelated_jobs": true
+  },
+  "ai_boundary": {
+    "deepseek_role": "SUPERVISORY_RESEARCH_REVIEW_FAILURE_ANALYSIS_ONLY",
+    "deepseek_is_bulk_worker": false,
+    "optional_ai_bulk_tasks": ["HIGHLIGHT_CANDIDATE_RANKING", "HOOK_OR_PAYOFF_REVIEW", "CAPTION_LANGUAGE_CLEANUP", "METADATA_VARIANTS", "ANALYTICS_TRIAGE"],
+    "mechanical_tasks_use_deterministic_tools": ["TRIM", "CUT", "CONCAT", "REFRAME_EXECUTION", "CAPTION_BURN", "AUDIO_NORMALIZATION", "HASHING", "MANIFEST_COMMIT", "FFPROBE_QA", "DECODE_QA"],
+    "max_judgmental_verifiers_per_clip": 1,
+    "multi_agent_debate_for_mechanical_media": false,
+    "ai_disabled_mode_must_still_produce_technically_valid_clip": true,
+    "default_routes_free_or_deterministic": true,
+    "generic_paid_fallback": false,
+    "paid_media_generation": false,
+    "auto_top_up": false
+  },
+  "promotion_and_scale": {
+    "parallel_3_starts_as_shadow_measured_capability": true,
+    "compare_against_parallel_1_baseline": true,
+    "promotion_minimum_throughput_multiplier": 1.5,
+    "maximum_technical_qa_pass_rate_regression_fraction": 0.02,
+    "maximum_cost_per_clip_increase_fraction": 0.25,
+    "rights_gate_bypass_incidents_allowed": 0,
+    "stale_write_incidents_allowed": 0,
+    "parallelism_above_3": "BLOCK_UNTIL_SEPARATE_POLICY_CHANGE_WITH_SHADOW_AND_SOAK_EVIDENCE",
+    "ceiling_is_not_a_target": true
+  },
+  "metrics": ["jobs_completed_per_hour", "effective_parallelism", "p95_per_clip_latency", "technical_qa_pass_rate", "cost_per_clip", "retry_rate_by_failure_class", "checkpoint_reuse_ratio", "peak_memory_mb_per_job", "provider_calls_per_clip", "stale_write_incidents", "rights_gate_bypass_incidents", "duplicate_output_rate", "ai_verifier_invocations_per_clip"],
+  "forbidden_drift": ["UNBOUNDED_MEDIA_WORKER_SPAWN", "BULK_AI_DEBATE_FOR_MECHANICAL_STAGES", "BATCH_LEVEL_RIGHTS_GATE_REPLACING_PER_JOB_RIGHTS_GATE", "WORKER_TO_WORKER_DELEGATION", "GENERIC_PAID_FALLBACK", "PAID_OR_FREEMIUM_VIDEO_SAAS", "PARALLELISM_ABOVE_3_WITHOUT_NEW_EVIDENCE", "GLOBAL_MEDIA_LOCK_WHEN_JOB_SCOPED_LEASE_IS_SUFFICIENT"]
+}
