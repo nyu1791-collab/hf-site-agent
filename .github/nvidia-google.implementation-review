@@ -1,11 +1,13 @@
-trigger=deepseek-v41-flash-canonical-retry-1
-purpose=parallel-deepseek-v41-paid-plus-nvidia-independent-review
+trigger=joint-ai-army-error-improvement-20260912-1
+purpose=parallel-deepseek-v41-paid-plus-nvidia-google-independent-review
 deepseek_model=deepseek-flash
 deepseek_version=DeepSeek-V4.1-Flash
 deepseek_paid_approved=true
 deepseek_max_paid_calls=2
-deepseek_max_cost_usd=0.05
+deepseek_max_cost_usd=0.10
 nvidia_paid_approved=false
+google_paid_approved=false
+target=error-analysis-safety-gates-runtime-reliability
 production_change=false
 merge=false
 deploy=false
