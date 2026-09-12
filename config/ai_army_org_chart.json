@@ -1,8 +1,9 @@
 {
-  "schema_version": "ai-army-org-chart-v2",
+  "schema_version": "ai-army-org-chart-v3",
   "effective_date_jst": "2026-09-12",
   "status": "CANONICAL",
   "design_goal": "Maximize verified task success, speed, recovery and useful research per unit cost while minimizing coordination overhead and error propagation.",
+  "policy_entrypoint": "scripts/ai_army_routing_facade.py",
   "hierarchy": {
     "depth_0": {
       "role": "TOP_COMMANDER",
@@ -14,10 +15,11 @@
       "role": "EXECUTIVE_SUPERVISOR",
       "agent": "paid-deepseek",
       "policy": "config/deepseek_paid_supervisor_policy.json",
-      "responsibilities": ["BROAD_RESEARCH", "SOURCE_COMPARISON", "SYSTEM_ARCHITECTURE", "PEER_REVIEW", "RED_TEAM", "INCIDENT_DIAGNOSIS", "TASK_DECOMPOSITION", "SUBORDINATE_REVIEW", "MEDIA_STRATEGY", "TIKTOK_SHOP_STRATEGY"],
+      "responsibilities": ["BROAD_RESEARCH", "SOURCE_COMPARISON", "SYSTEM_ARCHITECTURE", "PEER_REVIEW", "RED_TEAM", "INCIDENT_DIAGNOSIS", "TASK_DECOMPOSITION", "SUBORDINATE_REVIEW", "MEDIA_STRATEGY", "TIKTOK_SHOP_STRATEGY", "EXECUTIVE_SYNTHESIS"],
       "default_bulk_coding": false,
       "repository_write": false,
-      "final_user_answer": false
+      "final_user_answer": false,
+      "mandatory_hop_for_every_task": false
     },
     "depth_2": {
       "role": "SPECIALIST_OR_WORKER",
@@ -27,6 +29,16 @@
       "worker_to_worker_delegation": false
     }
   },
+  "direct_specialist_bypass": {
+    "allowed": true,
+    "purpose": "Avoid an unnecessary paid supervisor hop for narrow bounded execution when ChatGPT already has a clear task contract and current specialist readiness evidence.",
+    "eligible_examples": ["TARGETED_CODING", "TARGETED_TESTING", "BOUNDED_EXTRACTION", "MECHANICAL_IMPLEMENTATION_WITH_CLEAR_ACCEPTANCE_CRITERIA"],
+    "requires": ["CHATGPT_MISSION_OWNERSHIP", "CURRENT_PROVIDER_READINESS", "BOUNDED_SCOPE", "NO_GENERIC_PAID_FALLBACK", "SINGLE_WRITER_FOR_MUTATION"],
+    "not_allowed_for": ["BROAD_RESEARCH", "ARCHITECTURE_CHOICE", "RED_TEAM", "INCIDENT_ROOT_CAUSE", "MULTI_SOURCE_STRATEGIC_SYNTHESIS"],
+    "may_override_chatgpt_final_authority": false,
+    "may_authorize_paid_fallback": false,
+    "may_expand_its_own_scope": false
+  },
   "deterministic_bypass": {
     "rule": "DO_NOT_CREATE_AN_AGENT_HOP_WHEN_A_MACHINE_ORACLE_OR_DETERMINISTIC_TOOL_CAN_DO_THE_WORK_RELIABLY",
     "preferred_tools": ["PYTHON", "FFMPEG", "FFPROBE", "SCHEMA_VALIDATOR", "HASHING", "STATIC_CHECKS", "TEST_RUNNER", "QUOTA_LEDGER", "CHECKPOINT_STORE"],
@@ -34,6 +46,7 @@
   },
   "admission": {
     "default": "SINGLE_AGENT_OR_DETERMINISTIC_TOOL",
+    "routing_facade": "scripts/ai_army_routing_facade.py",
     "use_deepseek_supervisor_when": ["BROAD_RESEARCH", "HIGH_UNCERTAINTY", "MULTIPLE_EVIDENCE_SOURCES", "ARCHITECTURE_CHOICE", "FAILURE_DIAGNOSIS", "RED_TEAM", "STRATEGIC_SYNTHESIS"],
     "add_depth_2_worker_when": ["INDEPENDENT_PARALLEL_WORK", "DISTINCT_SPECIALIST_DOMAIN", "TARGETED_IMPLEMENTATION_BENEFITS_FROM_SPECIALIST", "INDEPENDENT_VERIFICATION_MATERIALLY_REDUCES_HIGH_IMPACT_RISK"],
     "avoid_multi_agent_when": ["SEQUENTIAL_REASONING", "TOOL_HEAVY_SHARED_STATE_WITHOUT_INDEPENDENT_BRANCHES", "TRIVIAL_TRANSFORM", "COORDINATION_OVERHEAD_EXCEEDS_EXPECTED_GAIN"],
@@ -41,6 +54,15 @@
     "shadow_policy": "config/agent_efficiency_policy.json",
     "shadow_advisor": "scripts/agent_architecture_admission.py",
     "single_vs_multi_evaluator": "scripts/agent_efficiency_eval.py"
+  },
+  "legacy_runtime_compatibility": {
+    "agent_runtime": "scripts/agent_runtime.py",
+    "legacy_direct_router": "scripts/commander_routing.py",
+    "legacy_provider_commanders_may_appear_as_root_children_in_runtime": true,
+    "interpretation": "Compatibility execution topology only. It does not supersede this canonical policy hierarchy. Direct provider commanders are bounded execution corps, not peer policy authorities.",
+    "new_policy_decisions_must_enter_through_routing_facade": true,
+    "legacy_deepseek_engineering_role_is_not_paid_supervisor": true,
+    "legacy_registry": "config/legacy_deepseek_compatibility.json"
   },
   "control_plane": {
     "single_writer": true,
@@ -76,10 +98,11 @@
     "mission_cost_cap_usd": 0.5,
     "daily_estimated_cost_cap_usd": 3.0,
     "chatgpt_final_adjudication_required": true,
-    "automatic_execution_on_unrelated_pushes": false
+    "automatic_execution_on_unrelated_pushes": false,
+    "active_paid_deepseek_workflow_count": 1
   },
   "measurement": {
-    "shadow_before_promotion": true,
+    "shadow_before_multi_agent_promotion": true,
     "compare_same_fixture_against_single_controller": true,
     "primary_metrics": ["TASK_SUCCESS_RATE", "ACCEPTANCE_CRITERIA_PASS_RATE", "ESCAPED_DEFECT_RATE", "P50_LATENCY", "P95_LATENCY", "TOKEN_USAGE", "REQUEST_COUNT", "ESTIMATED_COST", "RETRY_COUNT", "COORDINATION_OVERHEAD_RATIO"],
     "deepseek_supervisor_metrics": ["ACCEPTED_RECOMMENDATION_RATE", "COST_PER_ACCEPTED_DECISION", "CACHE_HIT_RATE", "DUPLICATE_RESEARCH_AVOIDED", "REPLAN_RATE"],
@@ -92,6 +115,7 @@
     "PARALLEL_WRITERS_TO_SAME_MUTABLE_TARGET",
     "AGENT_FOR_EVERY_DETERMINISTIC_STEP",
     "DEEPSEEK_AS_BOILERPLATE_CODE_FACTORY",
+    "DEEPSEEK_AS_MANDATORY_PAID_HOP_FOR_TRIVIAL_EXECUTION",
     "UNBOUNDED_RESEARCH_FANOUT",
     "MODEL_BRAND_HARDCODED_AS_ROLE_WITHOUT_CAPABILITY_CHECK"
   ],
