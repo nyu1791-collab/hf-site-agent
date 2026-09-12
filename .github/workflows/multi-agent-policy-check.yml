@@ -7,6 +7,9 @@ on:
     paths:
       - config/multi_agent_operating_policy.json
       - config/current_commander_handoff.json
+      - config/ai_army_org_chart.json
+      - config/deepseek_paid_supervisor_policy.json
+      - scripts/ai_army_routing_facade.py
       - docs/MULTI_AGENT_OPERATING_STANDARD.md
       - docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md
       - docs/AGENT_HIERARCHY.md
@@ -41,14 +44,18 @@ jobs:
           set -euo pipefail
           python -m json.tool config/multi_agent_operating_policy.json >/dev/null
           python -m json.tool config/current_commander_handoff.json >/dev/null
+          python -m json.tool config/ai_army_org_chart.json >/dev/null
+          python -m json.tool config/deepseek_paid_supervisor_policy.json >/dev/null
           python - <<'PY'
           import json
           from pathlib import Path
 
           p=json.loads(Path('config/multi_agent_operating_policy.json').read_text(encoding='utf-8'))
           h=json.loads(Path('config/current_commander_handoff.json').read_text(encoding='utf-8'))
+          o=json.loads(Path('config/ai_army_org_chart.json').read_text(encoding='utf-8'))
+          d=json.loads(Path('config/deepseek_paid_supervisor_policy.json').read_text(encoding='utf-8'))
           assert p['status'] == 'PERMANENT_STANDARD'
-          assert p['schema_version'] == 'multi-agent-operating-policy-v2'
+          assert p['schema_version'] == 'multi-agent-operating-policy-v4'
 
           a=p['architecture']
           assert a['root_controller'] == 'chatgpt-work'
@@ -59,13 +66,25 @@ jobs:
           assert a['direct_worker_to_worker_delegation'] is False
           assert a['unbounded_agent_chat'] is False
           assert a['max_delegation_depth'] == 2
-          assert a['max_parallel_direct_corps'] == 3
-          assert a['max_parallel_subordinate_workers'] == 1
+          assert a['parallel_direct_corps_safety_ceiling'] == 3
+          assert a['parallel_subordinate_workers_per_parent_safety_ceiling'] == 1
+          assert a['effective_parallelism_is_dynamic_below_ceiling'] is True
           assert a['agent_count_is_not_a_success_metric'] is True
 
           admission=p['multi_agent_admission_gate']
           assert admission['single_agent_baseline_required_before_architecture_promotion'] is True
+          assert admission['architecture_promotion_requires_total_system_value_improvement'] is True
           assert 'SEQUENTIAL_REASONING_WITH_NO_PARALLELIZABLE_SUBPROBLEM' in admission['do_not_use_multi_agent_for']
+
+          routing=p['routing']
+          assert routing['canonical_routing_facade'] == 'scripts/ai_army_routing_facade.py'
+          assert routing['legacy_commander_routing_is_compatibility_layer'] is True
+          assert routing['legacy_agent_runtime_topology_is_execution_compatibility_not_policy_authority'] is True
+          assert routing['paid_deepseek_supervisor_is_pre_authorized_when_scope_and_budget_match'] is True
+          assert routing['deepseek_supervisor_not_mandatory_for_every_task'] is True
+          assert routing['direct_specialist_bypass_allowed_for_narrow_bounded_execution'] is True
+          assert routing['direct_specialist_bypass_requires_current_provider_readiness'] is True
+          assert routing['direct_specialist_bypass_may_authorize_paid_fallback'] is False
 
           contract=p['task_contract']
           assert contract['typed_command_envelope_required'] is True
@@ -83,6 +102,7 @@ jobs:
           assert context['do_not_broadcast_full_conversation_to_all_agents'] is True
           assert context['persistent_project_state_outside_model_context'] is True
           assert context['new_session_restores_from_repository_handoff'] is True
+          assert context['provider_cache_is_accelerator_not_checkpoint_or_evidence'] is True
 
           parallel=p['parallelism']
           assert parallel['parallelize_only_independent_tasks'] is True
@@ -113,6 +133,8 @@ jobs:
           assert reliability['idempotency_required_for_side_effecting_operations'] is True
           assert reliability['stale_result_must_not_overwrite_newer_state'] is True
           assert reliability['unrelated_mission_reuses_agent_state_by_default'] is False
+          assert reliability['failure_class_required_on_failed_or_partial_report'] is True
+          assert reliability['repeated_same_root_cause_requires_circuit_break_or_method_change'] is True
 
           security=p['security_and_permissions']
           assert security['least_privilege_per_agent'] is True
@@ -125,6 +147,13 @@ jobs:
               'DURABLE_OBJECT_CHANGE'
           }
           assert required_approvals.issubset(set(security['human_approval_required_for']))
+          exceptions=security['preauthorized_paid_execution_exceptions']
+          assert len(exceptions) == 1
+          assert exceptions[0]['provider'] == 'deepseek'
+          assert exceptions[0]['role'] == 'EXECUTIVE_SUPERVISOR'
+          assert exceptions[0]['repeat_per_call_approval_required'] is False
+          assert exceptions[0]['generic_paid_fallback'] is False
+          assert security['historical_deepseek_configs_do_not_authorize_paid_execution'] is True
 
           tooling=p['tooling']
           assert tooling['load_only_task_relevant_tools'] is True
@@ -135,6 +164,7 @@ jobs:
           assert obs['trace_mission_task_agent_turn_tool_handoff'] is True
           assert obs['trace_ids_propagate_across_agent_boundaries'] is True
           assert obs['record_task_lease_claim_release_and_collision'] is True
+          assert obs['record_failure_class_and_termination_reason'] is True
           assert obs['sensitive_payloads_redacted'] is True
 
           evaluation=p['evaluation']
@@ -155,6 +185,8 @@ jobs:
 
           continuity=p['continuity']
           assert continuity['canonical_handoff_file'] == 'config/current_commander_handoff.json'
+          assert continuity['canonical_org_chart'] == 'config/ai_army_org_chart.json'
+          assert continuity['canonical_routing_facade'] == 'scripts/ai_army_routing_facade.py'
           assert continuity['new_chat_or_agent_session_must_restore_repository_state'] is True
           assert continuity['chat_tab_change_must_not_reset_operating_standard'] is True
 
@@ -162,6 +194,7 @@ jobs:
           assert pruning['replace_or_remove_obsolete_rules_instead_of_only_appending'] is True
           assert pruning['keep_debate_as_non_default'] is True
           assert pruning['keep_a2a_optional_not_mandatory'] is True
+          assert pruning['retire_active_workflows_that_bypass_the_canonical_paid_supervisor_contract'] is True
 
           free=p['free_only_policy']
           assert free['free_only_mode'] is True
@@ -171,11 +204,38 @@ jobs:
           assert free['fresh_exact_model_evidence_required'] is True
           assert free['paid_sibling_substitution'] is False
 
+          exc=p['paid_model_exceptions']['deepseek_supervisor']
+          assert exc['enabled'] is True
+          assert exc['preauthorized_by_user'] is True
+          assert exc['persistent_across_chat_tabs'] is True
+          assert exc['rank'] == 'EXECUTIVE_SUPERVISOR'
+          assert exc['bulk_coding_worker'] is False
+          assert exc['mandatory_hop_for_every_task'] is False
+          assert exc['chatgpt_final_adjudication_required'] is True
+          assert exc['other_paid_provider_authorization'] is False
+
+          assert o['schema_version'] == 'ai-army-org-chart-v3'
+          assert o['policy_entrypoint'] == 'scripts/ai_army_routing_facade.py'
+          assert o['hierarchy']['depth_0']['agent'] == 'chatgpt-work'
+          assert o['hierarchy']['depth_1']['role'] == 'EXECUTIVE_SUPERVISOR'
+          assert o['hierarchy']['depth_1']['mandatory_hop_for_every_task'] is False
+          assert o['direct_specialist_bypass']['allowed'] is True
+          assert o['direct_specialist_bypass']['may_authorize_paid_fallback'] is False
+
+          assert d['schema_version'] == 'deepseek-paid-supervisor-v3'
+          assert d['status'] == 'ACTIVE_SCOPED_EXCEPTION'
+          assert d['routing_integration']['canonical_policy_router'] == 'scripts/ai_army_routing_facade.py'
+          assert d['routing_integration']['mandatory_paid_hop_for_every_task'] is False
+          assert d['routing_integration']['chatgpt_final_authority_on_all_routes'] is True
+
+          assert h['schema_version'] == 'top-commander-handoff-v7'
           assert h['continuity']['portable_across_chat_tabs'] is True
           assert h['continuity']['repository_is_source_of_truth'] is True
           assert h['continuity']['restore_before_planning_or_external_calls'] is True
           assert 'config/multi_agent_operating_policy.json' in h['continuity']['on_new_session_required_read_order']
-          assert 'config/longform_video_reliability_policy.json' in h['continuity']['on_new_session_required_read_order']
+          assert 'config/ci_execution_policy.json' in h['continuity']['on_new_session_required_read_order']
+          assert h['canonical_routing_fixed_rules']['policy_entrypoint'] == 'scripts/ai_army_routing_facade.py'
+          assert h['canonical_routing_fixed_rules']['paid_deepseek_supervisor_is_not_mandatory_for_every_task'] is True
 
           print('MULTI_AGENT_POLICY=PASS')
           PY
