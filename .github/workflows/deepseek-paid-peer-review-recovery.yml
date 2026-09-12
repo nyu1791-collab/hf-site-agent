@@ -1,0 +1,147 @@
+name: "DeepSeek paid peer-review recovery"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/workflows/deepseek-paid-peer-review-recovery.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deepseek-paid-peer-review-recovery
+  cancel-in-progress: false
+
+jobs:
+  review-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact triggering source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Run failed DeepSeek supervisor lanes with larger bounded output
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python - <<'PY'
+          import concurrent.futures, json, os, time, urllib.request
+          from pathlib import Path
+
+          api_key=os.environ.get('DEEPSEEK_API_KEY','')
+          if not api_key:
+              raise SystemExit('DEEPSEEK_API_KEY missing')
+
+          files=[
+            'config/multi_agent_operating_policy.json',
+            'config/deepseek_paid_supervisor_policy.json',
+            'config/longform_video_reliability_policy.json',
+            'config/authorized_clipping_monetization_policy.json',
+            'config/tiktok_shop_influence_policy.json',
+            'config/current_commander_handoff.json'
+          ]
+          shared=[]
+          for p in files:
+              path=Path(p)
+              if path.exists():
+                  shared.append(f'\n### {p}\n'+path.read_text(encoding='utf-8',errors='replace')[:7000])
+          shared=''.join(shared)[:38000]
+
+          evidence='''FRESH EVIDENCE (treat as supplied evidence, not permission to invent facts):
+- OpenAI Agents SDK: manager-style agents-as-tools keeps one owner in control; code orchestration is deterministic for speed/cost/performance; blocking/tool guardrails and end-to-end tracing are recommended.
+- LangChain/LangGraph: single-agent+tools is often enough; multi-agent is useful for context isolation, distributed specialization and truly parallel work; per-invocation subgraph checkpointing and idempotent side effects are recommended.
+- Anthropic engineering: orchestrator-worker parallelism helps breadth-first research; keep high-signal minimal context; long-running tasks benefit from incremental artifacts; planner-generator-evaluator is costly and components should be ablated when not load-bearing.
+- Cemri et al. 2025: recurring MAS failures include constraint violations, repetition, context loss, derailment, ignored inputs, reasoning/action mismatch, premature termination and weak verification.
+- Towards a Science of Scaling Agent Systems 2025: coordination overhead can hurt tool-heavy tasks; central coordination contains error amplification; sequential reasoning degraded 39-70% in tested multi-agent variants.
+- FFmpeg official docs: concat demuxer needs compatible streams/time bases; ffprobe is a machine-readable validation oracle; loudnorm supports EBU R128/double pass; cropdetect can derive crop.
+- WhisperX: batched ASR/VAD/word-level forced alignment/optional diarization. PySceneDetect: content/adaptive/threshold detection. Auto-Editor: audio+motion cuts and margins.
+- TikTok Shop Japan 2026 official guidance: opening 3 seconds, clear product, core selling points, use scenes, subtitles, natural CTA; AI-assisted content must be disclosed and must not misrepresent product/performance; product selection should consider sample access, market potential, audience fit, earnings, user benefit, quality, and demonstrability; promotional claims must be accurate/useful/verifiable and publish-time policy refresh is required because documents can be superseded.
+- DeepSeek official current API: canonical model id deepseek-v4-flash, 1M context, JSON/tool calls, context cache by matching prefixes, thinking effort low/high/max; current peak pricing per 1M tokens = cache hit $0.014, cache miss $0.44, output $1.32; off-peak half of peak.
+'''
+
+          lanes=[
+            ('org-architecture','ORGANIZATION_ARCHITECT','Audit the hierarchy after promoting paid DeepSeek to EXECUTIVE_SUPERVISOR. Focus on smallest high-performance organization, manager/worker boundaries, when DeepSeek should research itself vs supervise verified subordinates, and what architecture rules should be deleted or demoted.'),
+            ('reliability-recovery','RELIABILITY_AND_RECOVERY_ENGINEER','Map the organization/runtime against the recurring multi-agent failure classes. Produce concrete prevention, detection, containment, recovery and termination mechanisms with minimum coordination overhead.'),
+            ('context-state-observability','CONTEXT_STATE_AND_OBSERVABILITY_ENGINEER','Audit context isolation, stable cached prefixes, artifact handoff, persistent state, traces, checkpoints, evaluator independence, cache-vs-artifact semantics and regression evidence. Optimize tokens and debuggability.'),
+            ('tiktok-commerce','TIKTOK_SHOP_COMMERCE_REVIEWER','Audit TikTok Shop research, product selection and creative workflow for conversion plus low return/complaint/policy risk. Focus on evidence-backed hooks, first 3 seconds, subtitles, demos, claim verification, personas, A/B testing, attribution and policy freshness.'),
+            ('red-team-pruner','RED_TEAM_POLICY_PRUNER','Assume current standards are overbuilt. Challenge agents, checks, retries, adapters, fixed heuristics and review layers. Keep only controls with clear failure prevention or measurable value. Propose ablation tests before uncertain deletions.')
+          ]
+
+          system='''You are DeepSeek V4 Flash acting as a senior executive supervisor and independent peer reviewer. You are advisory only. Do not modify repositories, deploy, publish, merge, expose secrets, or authorize paid media services. Separate supplied evidence from heuristics. Prefer simpler systems that improve success, speed, cost and recovery. Do not preserve legacy rules merely because they exist. Return one JSON object only. Keys: role, verdict, retain, change, remove_or_demote, add, failure_modes_addressed, tests, metrics, migration_order, confidence. Each array maximum 6 concise implementation-ready items. No prose outside JSON.'''
+
+          peak_hit,peak_miss,peak_out=0.014,0.44,1.32
+          max_tokens=6000
+          max_calls=5
+          max_parallel=3
+          max_total_cost=0.12
+
+          def rough_tokens(s): return max(1,(len(s)+3)//4)
+          shared_prefix=f'{evidence}\nCURRENT POLICY EXCERPTS:{shared}\n'
+
+          prompts=[]; reserves=[]
+          for lane,role,task in lanes:
+              user=shared_prefix+f'\nROLE={role}\nLANE={lane}\nTASK={task}\nReturn compact JSON only.'
+              prompts.append(user)
+              reserves.append((rough_tokens(system+user)*peak_miss + max_tokens*peak_out)/1_000_000)
+          if len(lanes)>max_calls or sum(reserves)>max_total_cost:
+              raise SystemExit(f'PAID_PREFLIGHT_BLOCKED calls={len(lanes)} reserve={sum(reserves):.8f}')
+
+          def one(i):
+              lane,role,_=lanes[i]
+              payload={
+                'model':'deepseek-v4-flash',
+                'messages':[{'role':'system','content':system},{'role':'user','content':prompts[i]}],
+                'max_tokens':max_tokens,
+                'stream':False,
+                'response_format':{'type':'json_object'},
+                'thinking':{'type':'enabled'},
+                'reasoning_effort':'high'
+              }
+              req=urllib.request.Request('https://api.deepseek.com/chat/completions',data=json.dumps(payload,ensure_ascii=False,separators=(',',':')).encode('utf-8'),headers={'Authorization':f'Bearer {api_key}','Content-Type':'application/json','Accept':'application/json','User-Agent':'hf-site-agent-deepseek-supervisor-recovery/1'},method='POST')
+              started=time.monotonic()
+              try:
+                  with urllib.request.urlopen(req,timeout=180) as resp:
+                      obj=json.loads(resp.read(2_000_000).decode('utf-8'))
+                  msg=((obj.get('choices') or [{}])[0].get('message') or {})
+                  content=msg.get('content') or ''
+                  usage=obj.get('usage') or {}
+                  prompt=int(usage.get('prompt_tokens') or 0); hit=int(usage.get('prompt_cache_hit_tokens') or 0)
+                  miss=int(usage.get('prompt_cache_miss_tokens') or max(0,prompt-hit)); comp=int(usage.get('completion_tokens') or 0)
+                  cost=(hit*peak_hit+miss*peak_miss+comp*peak_out)/1_000_000
+                  try:
+                      parsed=json.loads(content)
+                      status='READY'
+                  except Exception:
+                      parsed=None; status='RAW_READY' if content.strip() else 'FAILED'
+                  return {'lane':lane,'role':role,'status':status,'latency_ms':int((time.monotonic()-started)*1000),'requested_model':'deepseek-v4-flash','response_model':obj.get('model'),'usage':usage,'conservative_peak_cost_usd':round(cost,8),'reserved_peak_cost_usd':round(reserves[i],8),'result':parsed,'raw_result':None if parsed is not None else content[:50000]}
+              except Exception as e:
+                  return {'lane':lane,'role':role,'status':'FAILED','error_class':type(e).__name__,'detail':str(e)[:300],'reserved_peak_cost_usd':round(reserves[i],8)}
+
+          outputs=[]
+          with concurrent.futures.ThreadPoolExecutor(max_workers=max_parallel) as ex:
+              futs=[ex.submit(one,i) for i in range(len(lanes))]
+              for f in concurrent.futures.as_completed(futs): outputs.append(f.result())
+          order=[x[0] for x in lanes]; outputs.sort(key=lambda x:order.index(x['lane']))
+          usable=[x for x in outputs if x['status'] in {'READY','RAW_READY'}]
+          known=sum(float(x.get('conservative_peak_cost_usd') or 0) for x in usable)
+          report={'schema_version':'deepseek-paid-peer-review-recovery-v1','status':'READY' if len(usable)==len(lanes) else ('PARTIAL' if usable else 'FAILED'),'requested_model':'deepseek-v4-flash','attempted_calls':len(outputs),'usable_calls':len(usable),'max_parallel_calls':max_parallel,'reserved_peak_cost_usd':round(sum(reserves),8),'known_usable_conservative_peak_cost_usd':round(known,8),'max_total_cost_usd':max_total_cost,'repository_write':False,'deploy':False,'publish':False,'merge':False,'results':outputs}
+          Path('artifacts/deepseek_paid_peer_review_recovery.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({k:report[k] for k in ['status','attempted_calls','usable_calls','reserved_peak_cost_usd','known_usable_conservative_peak_cost_usd']},ensure_ascii=False))
+          if not usable or known>max_total_cost: raise SystemExit(1)
+          PY
+
+      - name: Upload redacted DeepSeek supervisor recovery artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: deepseek-paid-peer-review-recovery-${{ github.run_id }}
+          path: artifacts/deepseek_paid_peer_review_recovery.json
+          if-no-files-found: ignore
+          retention-days: 7
