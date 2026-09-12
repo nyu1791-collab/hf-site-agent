@@ -1,0 +1,128 @@
+name: Zundamon longform robust render
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - scripts/render_zundamon_news_longform.py
+      - scripts/render_zundamon_news_longform_robust.py
+      - missions/news-video-pilot.json
+      - .github/zundamon-longform-robust-trigger.txt
+      - .github/workflows/render-zundamon-news-longform-robust.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zundamon-longform-robust-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install deterministic media tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk curl
+          ffmpeg -version | head -n 1
+
+      - name: Validate mission and robust renderer
+        run: |
+          set -euo pipefail
+          python -m json.tool missions/news-video-pilot.json >/dev/null
+          python -m py_compile \
+            scripts/render_zundamon_news_longform.py \
+            scripts/render_zundamon_news_longform_robust.py
+
+      - name: Start local VOICEVOX engine
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-latest
+          docker run --rm -d --name voicevox-news-pilot -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              echo "VOICEVOX_READY=1"
+              exit 0
+            fi
+            sleep 5
+          done
+          docker logs voicevox-news-pilot || true
+          exit 1
+
+      - name: Render robust longform
+        run: |
+          set -euo pipefail
+          python scripts/render_zundamon_news_longform_robust.py
+
+      - name: Lightweight machine acceptance
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          root = Path('artifacts/news-video-pilot')
+          report = json.loads((root / 'render_report.json').read_text(encoding='utf-8'))
+          assert report.get('status') == 'RENDERED', report
+          video = root / str(report['file'])
+          assert video.exists() and video.stat().st_size > 1_000_000
+          resolution = subprocess.check_output([
+              'ffprobe','-v','error','-select_streams','v:0',
+              '-show_entries','stream=width,height','-of','csv=p=0:s=x',str(video)
+          ], text=True).strip()
+          assert resolution == '1080x1920', resolution
+          audio = subprocess.check_output([
+              'ffprobe','-v','error','-select_streams','a:0',
+              '-show_entries','stream=codec_name','-of','default=nk=1:nw=1',str(video)
+          ], text=True).strip()
+          assert audio, 'missing audio stream'
+          duration = float(subprocess.check_output([
+              'ffprobe','-v','error','-show_entries','format=duration',
+              '-of','default=nk=1:nw=1',str(video)
+          ], text=True).strip())
+          assert 240 <= duration <= 600, duration
+          evidence = {
+              'status': 'PASS',
+              'file': video.name,
+              'bytes': video.stat().st_size,
+              'resolution': resolution,
+              'audio_codec': audio,
+              'duration_seconds': duration,
+              'visual_review_performed': False,
+              'image_normalization': 'all downloaded visuals -> single-frame PNG before still-image looping',
+          }
+          (root / 'robust_acceptance.json').write_text(
+              json.dumps(evidence, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
+          )
+          print(json.dumps(evidence, ensure_ascii=False))
+          PY
+
+      - name: Upload completed longform
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: zundamon-longform-robust-${{ github.run_id }}
+          path: |
+            artifacts/news-video-pilot/**
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop VOICEVOX engine
+        if: always()
+        run: docker rm -f voicevox-news-pilot >/dev/null 2>&1 || true
