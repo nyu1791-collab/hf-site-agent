@@ -150,7 +150,7 @@ def _call(model: str, prompt: str, api_key: str) -> dict[str, Any]:
 
 def main() -> int:
     mission = _load_mission()
-    api_key = (os.environ.get("OPENROUTER_API_KEY") or "").strip()
+    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     if not api_key:
         result = {
