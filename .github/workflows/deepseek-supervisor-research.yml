@@ -94,13 +94,19 @@ jobs:
           print('Lanes:', len(lanes), 'Parallel:', parallel, 'Mission cap USD:', mission_cap)
           PY
 
+      - name: Verify resilient JSON guard without paid calls
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/deepseek_json_guard.py scripts/deepseek_supervisor_research_resilient.py
+          python -m unittest tests.test_deepseek_json_guard -v
+
       - name: Run bounded paid DeepSeek supervisor research
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           MISSION_PATH: ${{ steps.mission.outputs.path }}
         run: |
           set -euo pipefail
-          python scripts/deepseek_supervisor_research.py "$MISSION_PATH" --output artifacts/deepseek_supervisor_research.json
+          python scripts/deepseek_supervisor_research_resilient.py "$MISSION_PATH" --output artifacts/deepseek_supervisor_research.json
 
       - name: Upload redacted supervisor report
         if: always()
