@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Fail-closed consistency validator for the canonical AI Army policy stack.
 
-This script performs no network calls and no paid execution.  It checks that
-permanent policy, handoff, routing, legacy compatibility and active workflows do
-not contradict each other.
+This script performs no network calls and no paid execution. It checks that
+permanent policy, handoff, routing, legacy compatibility, CI control-plane and
+active workflows do not contradict each other.
 """
 from __future__ import annotations
 
@@ -35,17 +35,24 @@ def main() -> int:
     efficiency = load_json("config/agent_efficiency_policy.json")
     legacy = load_json("config/legacy_deepseek_compatibility.json")
     model_registry = load_json("config/model_registry.json")
+    ci_policy = load_json("config/ci_execution_policy.json")
 
     require(manifest.get("canonical_branch") == "ai-army/provider-v3", "wrong canonical branch")
     require(org.get("status") == "CANONICAL", "AI Army org chart is not canonical")
     require(supervisor.get("status") == "ACTIVE_SCOPED_EXCEPTION", "DeepSeek supervisor exception inactive")
+    require(ci_policy.get("schema_version") == "ci-execution-policy-v2", "CI execution policy is not canonical v2")
 
     auth = supervisor.get("human_authorization") or {}
     safety = supervisor.get("safety") or {}
     provider = supervisor.get("provider") or {}
+    routing_integration = supervisor.get("routing_integration") or {}
     require(auth.get("authorized") is True, "DeepSeek supervisor not authorized")
     require(auth.get("persistent_for_allowed_scope") is True, "DeepSeek authorization not persistent")
     require(provider.get("canonical_request_model") == "deepseek-v4-flash", "canonical DeepSeek model mismatch")
+    require(routing_integration.get("canonical_policy_router") == "scripts/ai_army_routing_facade.py", "supervisor routing facade mismatch")
+    require(routing_integration.get("canonical_paid_execution_workflow") == ".github/workflows/deepseek-supervisor-research.yml", "supervisor workflow mismatch")
+    require(routing_integration.get("mandatory_paid_hop_for_every_task") is False, "DeepSeek became mandatory paid hop")
+    require(routing_integration.get("direct_specialist_bypass_may_authorize_paid_fallback") is False, "specialist bypass may authorize paid fallback")
     for key in (
         "generic_paid_fallback",
         "paid_media_generation",
@@ -62,6 +69,9 @@ def main() -> int:
     require(routing.get("canonical_routing_facade") == "scripts/ai_army_routing_facade.py", "routing facade not canonical")
     require(routing.get("legacy_commander_routing_is_compatibility_layer") is True, "legacy router precedence ambiguous")
     require(routing.get("paid_deepseek_supervisor_is_pre_authorized_when_scope_and_budget_match") is True, "DeepSeek preauthorization missing")
+    require(routing.get("deepseek_supervisor_not_mandatory_for_every_task") is True, "DeepSeek mandatory-hop drift")
+    require(routing.get("direct_specialist_bypass_allowed_for_narrow_bounded_execution") is True, "specialist bypass missing")
+    require(routing.get("direct_specialist_bypass_may_authorize_paid_fallback") is False, "specialist bypass paid fallback drift")
 
     admission = org.get("admission") or {}
     bypass = org.get("direct_specialist_bypass") or {}
@@ -82,13 +92,41 @@ def main() -> int:
     require(role.get("active") is False, "legacy DeepSeek engineering commander unexpectedly active")
     require(role.get("routing_enabled") is False, "legacy DeepSeek engineering commander routing unexpectedly enabled")
 
+    paid_ci = ci_policy.get("paid_provider_policy") or {}
+    fanout = supervisor.get("research_fanout") or {}
+    expansion = fanout.get("expansion_ceiling") or {}
+    budget = supervisor.get("budget") or {}
+    require(paid_ci.get("provider") == "deepseek", "CI paid provider is not DeepSeek")
+    require(paid_ci.get("authorized_role") == "EXECUTIVE_SUPERVISOR", "CI paid role is not Executive Supervisor")
+    require(paid_ci.get("canonical_workflow") == ".github/workflows/deepseek-supervisor-research.yml", "CI canonical paid workflow mismatch")
+    require(int(paid_ci.get("default_max_calls") or 0) == int(fanout.get("default_max_deepseek_calls_per_mission") or -1), "default call cap drift")
+    require(int(paid_ci.get("default_max_parallel_calls") or 0) == int(fanout.get("default_max_parallel_deepseek_calls") or -1), "default parallel cap drift")
+    require(int(paid_ci.get("expansion_hard_max_calls") or 0) == int(expansion.get("max_deepseek_calls_per_mission") or -1), "expanded call cap drift")
+    require(int(paid_ci.get("expansion_hard_max_parallel_calls") or 0) == int(expansion.get("max_parallel_deepseek_calls") or -1), "expanded parallel cap drift")
+    require(float(paid_ci.get("max_estimated_cost_usd_per_mission") or 0) == float(budget.get("max_estimated_cost_usd_per_mission") or -1), "mission budget drift")
+    require(float(paid_ci.get("max_estimated_cost_usd_per_day") or 0) == float(budget.get("max_estimated_cost_usd_per_day") or -1), "daily budget drift")
+    require(paid_ci.get("generic_paid_fallback") is False, "CI generic paid fallback enabled")
+    require(paid_ci.get("auto_top_up") is False, "CI auto top-up enabled")
+    require(paid_ci.get("other_paid_providers_authorized") is False, "CI paid authorization expanded beyond DeepSeek")
+
+    automatic = list(ci_policy.get("automatic_workflows") or [])
+    require(len(automatic) <= int(ci_policy.get("max_automatic_workflows_per_push") or 0) <= 2, "CI automatic fanout drift")
+    require("verify-hierarchical-runtime.yml" in automatic, "core hierarchical CI missing")
+    require("canonical-ai-army-consistency.yml" in automatic, "canonical consistency CI missing")
+    paid_workflows = list(ci_policy.get("bounded_paid_supervisor_workflows") or [])
+    require(paid_workflows == ["deepseek-supervisor-research.yml"], "paid supervisor workflow registry drift")
+
     workflows = ROOT / ".github" / "workflows"
     require((workflows / "deepseek-supervisor-research.yml").is_file(), "canonical DeepSeek supervisor workflow missing")
+    require((workflows / "canonical-ai-army-consistency.yml").is_file(), "canonical consistency workflow missing")
     for old_path in legacy.get("retired_active_workflows") or []:
         require(not (ROOT / old_path).exists(), f"retired DeepSeek workflow is still active: {old_path}")
+    for old_name in ci_policy.get("retired_paid_deepseek_workflows") or []:
+        require(not (workflows / old_name).exists(), f"retired paid workflow still active by CI registry: {old_name}")
 
     require((ROOT / "scripts" / "ai_army_routing_facade.py").is_file(), "canonical routing facade missing")
     require((ROOT / "scripts" / "deepseek_supervisor_research.py").is_file(), "DeepSeek supervisor runner missing")
+    require((ROOT / "scripts" / "ci_control_plane_guard.py").is_file(), "CI control-plane guard missing")
     require((ROOT / "schemas" / "deepseek_supervisor_mission.schema.json").is_file(), "DeepSeek mission schema missing")
     require((ROOT / "docs" / "AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md").is_file(), "canonical organization document missing")
 
@@ -98,6 +136,7 @@ def main() -> int:
         "deepseek_role": "EXECUTIVE_SUPERVISOR",
         "active_paid_deepseek_workflow": ".github/workflows/deepseek-supervisor-research.yml",
         "legacy_paid_workflows_active": 0,
+        "automatic_ci_workflow_cap": int(ci_policy.get("max_automatic_workflows_per_push") or 0),
         "auto_top_up": False,
         "generic_paid_fallback": False,
         "chatgpt_final_authority": True
