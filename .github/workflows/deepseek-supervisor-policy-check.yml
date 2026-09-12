@@ -45,7 +45,7 @@ jobs:
           handoff=json.loads(Path('config/current_commander_handoff.json').read_text())
           legacy=json.loads(Path('config/deepseek_paid_autonomy.json').read_text())
 
-          assert sup['schema_version']=='deepseek-paid-supervisor-v2'
+          assert sup['schema_version']=='deepseek-paid-supervisor-v3'
           assert sup['status']=='ACTIVE_SCOPED_EXCEPTION'
           assert sup['human_authorization']['authorized'] is True
           assert sup['human_authorization']['persistent_for_allowed_scope'] is True
@@ -59,6 +59,13 @@ jobs:
           assert sup['hierarchy']['deepseek_is_bulk_coding_worker'] is False
           assert sup['usage_policy']['coding']['bulk_code_generation_by_default'] is False
           assert sup['usage_policy']['coding']['direct_repository_write'] is False
+          assert sup['supervisor_admission']['routine_complex_missions_auto_admit'] is True
+          assert sup['supervisor_admission']['user_reapproval_per_mission'] is False
+          assert len(sup['supervisor_admission']['use_by_default_when_any']) >= 5
+          assert sup['compute_allocation']['default_mode']=='HIGH_VALUE_SUPERVISORY_CONSUMPTION'
+          assert sup['compute_allocation']['prefer_managerial_reasoning_over_bulk_implementation'] is True
+          assert sup['compute_allocation']['successful_lane_reuse_before_new_call'] is True
+          assert sup['compute_allocation']['stop_when_additional_calls_have_low_expected_information_gain'] is True
 
           fan=sup['research_fanout']
           assert fan['chatgpt_final_adjudication_required'] is True
@@ -134,6 +141,6 @@ jobs:
           assert legacy['organizational_rank']=='EXECUTIVE_SUPERVISOR'
           assert legacy['not_default_bulk_coding_worker'] is True
 
-          print('DeepSeek executive-supervisor policy v2: PASS')
+          print('DeepSeek executive-supervisor policy v3: PASS')
           print('No DeepSeek API call was made by this validation workflow.')
           PY
