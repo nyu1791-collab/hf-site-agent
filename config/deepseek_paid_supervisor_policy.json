@@ -12,16 +12,7 @@
   "precedence": {
     "scope": "DEEPSEEK_PAID_SUPERVISORY_PATH_ONLY",
     "overrides_global_free_only_for_this_scope": true,
-    "does_not_override": [
-      "NO_AUTO_TOP_UP",
-      "NO_SECRET_DISCLOSURE_OR_MUTATION",
-      "NO_MAIN_DIRECT_PUSH",
-      "NO_PR_MERGE",
-      "NO_PRODUCTION_DEPLOY",
-      "NO_PUBLIC_PUBLISH",
-      "NO_DURABLE_OBJECT_CHANGE",
-      "NO_THIRD_PARTY_FREEMIUM_MEDIA_SAAS"
-    ],
+    "does_not_override": ["NO_AUTO_TOP_UP", "NO_SECRET_DISCLOSURE_OR_MUTATION", "NO_MAIN_DIRECT_PUSH", "NO_PR_MERGE", "NO_PRODUCTION_DEPLOY", "NO_PUBLIC_PUBLISH", "NO_DURABLE_OBJECT_CHANGE", "NO_THIRD_PARTY_FREEMIUM_MEDIA_SAAS"],
     "other_paid_providers_remain_disallowed_without_explicit_user_authorization": true
   },
   "provider": {
@@ -37,6 +28,18 @@
     "context_cache_enabled_by_provider": true,
     "model_id_must_be_reverified_against_official_docs_before_future_migration": true
   },
+  "routing_integration": {
+    "canonical_policy_router": "scripts/ai_army_routing_facade.py",
+    "canonical_paid_execution_workflow": ".github/workflows/deepseek-supervisor-research.yml",
+    "canonical_mission_schema": "schemas/deepseek_supervisor_mission.schema.json",
+    "legacy_commander_router_is_compatibility_only": true,
+    "historical_deepseek_configs_authorize_execution": false,
+    "historical_paid_deepseek_workflows_may_remain_active": false,
+    "mandatory_paid_hop_for_every_task": false,
+    "direct_specialist_bypass_for_narrow_verified_execution": true,
+    "direct_specialist_bypass_may_authorize_paid_fallback": false,
+    "chatgpt_final_authority_on_all_routes": true
+  },
   "hierarchy": {
     "top_commander": "chatgpt-work",
     "deepseek_rank": "EXECUTIVE_SUPERVISOR",
@@ -44,72 +47,23 @@
     "deepseek_reports_to": "chatgpt-work",
     "deepseek_is_lowest_worker": false,
     "deepseek_is_bulk_coding_worker": false,
-    "deepseek_primary_duties": [
-      "RESEARCH_DIRECTOR",
-      "SYSTEM_ARCHITECT",
-      "PEER_REVIEW_CHAIR",
-      "RED_TEAM_CHAIR",
-      "INCIDENT_COMMANDER",
-      "MEDIA_STRATEGY_SUPERVISOR",
-      "TIKTOK_SHOP_STRATEGY_SUPERVISOR",
-      "SUBORDINATE_WORK_REVIEWER"
-    ],
+    "deepseek_primary_duties": ["RESEARCH_DIRECTOR", "SYSTEM_ARCHITECT", "PEER_REVIEW_CHAIR", "RED_TEAM_CHAIR", "INCIDENT_COMMANDER", "MEDIA_STRATEGY_SUPERVISOR", "TIKTOK_SHOP_STRATEGY_SUPERVISOR", "SUBORDINATE_WORK_REVIEWER"],
     "execution_rule": "SUPERVISE_OR_USE_DETERMINISTIC_TOOL_FIRST; SELF_COMPLETE_ANALYSIS_WHEN_NO_VERIFIED_SUBORDINATE_OR_MACHINE_ORACLE_IS_BETTER",
     "subordinate_max_depth": 2,
-    "subordinate_execution_preference": [
-      "DETERMINISTIC_TOOLS",
-      "VERIFIED_FREE_OR_LOW_COST_SPECIALISTS",
-      "VERIFIED_QWEN_OR_NVIDIA_OR_GROQ_OR_GOOGLE_SPECIALISTS",
-      "OPENROUTER_FREE_WORKERS_WHEN_VERIFIED"
-    ],
+    "subordinate_execution_preference": ["DETERMINISTIC_TOOLS", "VERIFIED_FREE_OR_LOW_COST_SPECIALISTS", "VERIFIED_QWEN_OR_NVIDIA_OR_GROQ_OR_GOOGLE_SPECIALISTS", "OPENROUTER_FREE_WORKERS_WHEN_VERIFIED"],
     "subordinate_route_must_be_verified_before_use": true,
     "worker_to_worker_delegation": false
   },
   "supervisor_admission": {
     "routine_complex_missions_auto_admit": true,
     "user_reapproval_per_mission": false,
-    "use_by_default_when_any": [
-      "BROAD_RESEARCH",
-      "MULTI_SOURCE_COMPARISON",
-      "HIGH_UNCERTAINTY",
-      "ARCHITECTURE_OR_SYSTEM_DESIGN",
-      "RED_TEAM_OR_COUNTERARGUMENT_REVIEW",
-      "INCIDENT_OR_ROOT_CAUSE_ANALYSIS",
-      "STRATEGIC_SYNTHESIS",
-      "MEDIA_OR_COMMERCE_STRATEGY",
-      "SUBORDINATE_TASK_DECOMPOSITION",
-      "SUBORDINATE_RESULT_REVIEW"
-    ],
-    "skip_by_default_when_all_work_is": [
-      "TRIVIAL_TRANSFORM",
-      "DETERMINISTIC_VALIDATION",
-      "MECHANICAL_FORMATTING",
-      "LARGE_BOILERPLATE_CODE_GENERATION",
-      "REPETITIVE_FILE_EDITING"
-    ],
+    "use_by_default_when_any": ["BROAD_RESEARCH", "MULTI_SOURCE_COMPARISON", "HIGH_UNCERTAINTY", "ARCHITECTURE_OR_SYSTEM_DESIGN", "RED_TEAM_OR_COUNTERARGUMENT_REVIEW", "INCIDENT_OR_ROOT_CAUSE_ANALYSIS", "STRATEGIC_SYNTHESIS", "MEDIA_OR_COMMERCE_STRATEGY", "SUBORDINATE_TASK_DECOMPOSITION", "SUBORDINATE_RESULT_REVIEW"],
+    "skip_by_default_when_all_work_is": ["TRIVIAL_TRANSFORM", "DETERMINISTIC_VALIDATION", "MECHANICAL_FORMATTING", "LARGE_BOILERPLATE_CODE_GENERATION", "REPETITIVE_FILE_EDITING"],
     "principle": "USE_DEEPSEEK_OFTEN_FOR_HIGH_INFORMATION_GAIN_SUPERVISORY_WORK; DO_NOT_WASTE_IT_ON_LOW_JUDGMENT_MECHANICAL_WORK"
   },
   "usage_policy": {
-    "spend_compute_on": [
-      "broad_information_gathering",
-      "source_comparison",
-      "architecture alternatives",
-      "failure mode discovery",
-      "contradiction search",
-      "design peer review",
-      "competitive and platform research",
-      "media workflow review",
-      "TikTok Shop product and creative strategy review",
-      "subordinate result synthesis",
-      "postmortem and remediation planning"
-    ],
-    "avoid_spending_compute_on": [
-      "large boilerplate code generation",
-      "mechanical formatting",
-      "simple deterministic transforms",
-      "bulk file rewrites",
-      "tasks with a reliable local tool oracle"
-    ],
+    "spend_compute_on": ["broad_information_gathering", "source_comparison", "architecture alternatives", "failure mode discovery", "contradiction search", "design peer review", "competitive and platform research", "media workflow review", "TikTok Shop product and creative strategy review", "subordinate result synthesis", "postmortem and remediation planning"],
+    "avoid_spending_compute_on": ["large boilerplate code generation", "mechanical formatting", "simple deterministic transforms", "bulk file rewrites", "tasks with a reliable local tool oracle"],
     "coding": {
       "default_mode": "REVIEW_PLAN_AND_PATCH_GUIDANCE",
       "bulk_code_generation_by_default": false,
@@ -121,16 +75,7 @@
   },
   "compute_allocation": {
     "default_mode": "HIGH_VALUE_SUPERVISORY_CONSUMPTION",
-    "priority_order": [
-      "RESEARCH_COVERAGE",
-      "SOURCE_TRIANGULATION",
-      "ALTERNATIVE_GENERATION",
-      "CONTRADICTION_DISCOVERY",
-      "ARCHITECTURE_REVIEW",
-      "RED_TEAM_REVIEW",
-      "SUBORDINATE_REVIEW",
-      "SYNTHESIS"
-    ],
+    "priority_order": ["RESEARCH_COVERAGE", "SOURCE_TRIANGULATION", "ALTERNATIVE_GENERATION", "CONTRADICTION_DISCOVERY", "ARCHITECTURE_REVIEW", "RED_TEAM_REVIEW", "SUBORDINATE_REVIEW", "SYNTHESIS"],
     "prefer_multiple_independent_research_lanes_over_one_very_long_monologue": true,
     "prefer_managerial_reasoning_over_bulk_implementation": true,
     "successful_lane_reuse_before_new_call": true,
@@ -141,18 +86,8 @@
     "default_max_distinct_research_lanes": 6,
     "default_max_parallel_deepseek_calls": 3,
     "default_max_deepseek_calls_per_mission": 8,
-    "expansion_ceiling": {
-      "max_distinct_research_lanes": 8,
-      "max_parallel_deepseek_calls": 4,
-      "max_deepseek_calls_per_mission": 12
-    },
-    "expansion_requires": [
-      "EXPLICIT_MISSION_REASON",
-      "INDEPENDENT_PARALLEL_RESEARCH_DIRECTIONS",
-      "BUDGET_PREFLIGHT_PASS",
-      "NO_DUPLICATE_LANE",
-      "EXPECTED_INFORMATION_GAIN"
-    ],
+    "expansion_ceiling": {"max_distinct_research_lanes": 8, "max_parallel_deepseek_calls": 4, "max_deepseek_calls_per_mission": 12},
+    "expansion_requires": ["EXPLICIT_MISSION_REASON", "INDEPENDENT_PARALLEL_RESEARCH_DIRECTIONS", "BUDGET_PREFLIGHT_PASS", "NO_DUPLICATE_LANE", "EXPECTED_INFORMATION_GAIN"],
     "successful_lane_is_never_repeated_without_new_evidence": true,
     "failed_lane_retry_limit": 1,
     "same_root_cause_retry": false,
@@ -180,17 +115,7 @@
     "cache_is_accelerator_not_checkpoint_or_evidence": true
   },
   "failure_and_termination": {
-    "required_failure_classes": [
-      "CONSTRAINT_VIOLATION",
-      "REPETITION",
-      "CONTEXT_LOSS",
-      "DERAILMENT",
-      "IGNORED_INPUT",
-      "REASONING_ACTION_MISMATCH",
-      "PREMATURE_TERMINATION",
-      "WEAK_VERIFICATION",
-      "PROVIDER_OR_TOOL_FAILURE"
-    ],
+    "required_failure_classes": ["CONSTRAINT_VIOLATION", "REPETITION", "CONTEXT_LOSS", "DERAILMENT", "IGNORED_INPUT", "REASONING_ACTION_MISMATCH", "PREMATURE_TERMINATION", "WEAK_VERIFICATION", "PROVIDER_OR_TOOL_FAILURE", "STALE_STATE_OR_WRITE_CONFLICT"],
     "repetition_detection_uses_normalized_action_and_argument_hash": true,
     "repeated_identical_action_without_new_evidence": "REPLAN_OR_CIRCUIT_BREAK",
     "completion_requires_acceptance_criteria_and_verification_artifacts": true,
@@ -236,19 +161,5 @@
     "irreversible_external_action": false,
     "human_approval_still_required_for_side_effects_outside_authorized_research_scope": true
   },
-  "success_metrics": [
-    "task_success_rate",
-    "accepted_recommendation_rate_after_chatgpt_review",
-    "research_coverage",
-    "contradiction_detection_rate",
-    "false_claim_rate",
-    "cost_per_accepted_decision",
-    "p95_research_latency",
-    "cache_hit_rate",
-    "cache_miss_tokens",
-    "duplicate_research_avoided",
-    "replan_rate",
-    "incident_root_cause_resolution_rate",
-    "coordination_overhead_ratio"
-  ]
+  "success_metrics": ["task_success_rate", "accepted_recommendation_rate_after_chatgpt_review", "research_coverage", "contradiction_detection_rate", "false_claim_rate", "cost_per_accepted_decision", "p95_research_latency", "cache_hit_rate", "cache_miss_tokens", "duplicate_research_avoided", "replan_rate", "incident_root_cause_resolution_rate", "coordination_overhead_ratio"]
 }
