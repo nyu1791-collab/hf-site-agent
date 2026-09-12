@@ -8,6 +8,8 @@ on:
       - scripts/longform_video_preflight.py
       - config/longform_video_reliability_policy.json
       - config/longform_video_objectives.json
+      - config/current_commander_handoff.json
+      - docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md
       - missions/news-video-pilot.json
       - .github/workflows/longform-video-preflight.yml
   workflow_dispatch:
@@ -47,13 +49,18 @@ jobs:
           python -m py_compile scripts/longform_video_preflight.py
           python -m json.tool config/longform_video_reliability_policy.json >/dev/null
           python -m json.tool config/longform_video_objectives.json >/dev/null
+          python -m json.tool config/current_commander_handoff.json >/dev/null
           python -m json.tool missions/news-video-pilot.json >/dev/null
           python - <<'PY'
           import json
           from pathlib import Path
           o=json.loads(Path('config/longform_video_objectives.json').read_text(encoding='utf-8'))
+          p=json.loads(Path('config/longform_video_reliability_policy.json').read_text(encoding='utf-8'))
+          h=json.loads(Path('config/current_commander_handoff.json').read_text(encoding='utf-8'))
+
           assert o['status'] == 'ENFORCED_STANDARD'
-          assert o['primary_goal'] == 'DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK'
+          assert o['schema_version'] == 'longform-video-objectives-v2'
+          assert o['primary_goal'] == 'DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK_AND_MAXIMUM_RESUMABILITY'
           gate=o['hard_completion_gate']
           assert gate['final_mp4_required'] is True
           assert gate['ffprobe_parse_required'] is True
@@ -61,13 +68,44 @@ jobs:
           assert gate['required_audio_streams'] == 1
           assert gate['width'] == 1080 and gate['height'] == 1920
           assert gate['subtitle_full_narration_coverage_ratio'] == 1.0
+          assert gate['decode_error_count_target'] == 0
+
           recovery=o['recovery_objectives']
           assert recovery['healthy_prior_scene_regeneration_after_later_scene_failure'] == 0
           assert recovery['successful_checkpoint_deletion_after_downstream_failure'] == 0
+          assert recovery['partial_file_accepted_as_checkpoint'] is False
+          assert recovery['cache_only_entry_accepted_as_durable_checkpoint'] is False
           assert recovery['resume_from_last_compatible_checkpoint'] is True
+          assert recovery['cross_run_resume_requires_verified_manifest'] is True
+
           asset=o['asset_objectives']
           assert asset['network_fetch_inside_ffmpeg_render'] is False
           assert asset['single_bad_asset_may_fail_whole_video'] is False
+          assert asset['asset_provenance_ledger_required'] is True
+
+          voice=o['voice_objectives']
+          assert voice['voice'] == 'VOICEVOX_ZUNDAMON_LOCAL'
+          assert voice['preserve_raw_voice_wav'] is True
+          assert voice['normalize_scene_audio_to_hz'] == 48000
+          assert voice['visual_only_edit_raw_voice_regeneration_count'] == 0
+
+          timeline=o['timeline_objectives']
+          assert timeline['audio_duration_source'] == 'FFPROBE_ACTUAL_GENERATED_WAV'
+          assert timeline['duration_inference_from_text_length'] is False
+          assert timeline['subtitle_text_source'] == 'NARRATION_MANIFEST'
+          assert timeline['subtitle_provider_internal_state_dependency'] is False
+
+          render=o['render_objectives']
+          assert render['monolithic_longform_encode'] is False
+          assert render['concat_manifest_relative_sanitized_paths_only'] is True
+          assert render['proxy_preview_default'] is False
+          assert render['proxy_preview_allowed_for_high_complexity_scene'] is True
+
+          hygiene=o['process_hygiene_objectives']
+          assert hygiene['unbounded_subprocess_count'] == 0
+          assert hygiene['subprocess_without_timeout_count'] == 0
+          assert hygiene['all_spawned_children_are_waited_or_terminated'] is True
+
           cost=o['cost_and_route_objectives']
           for k in (
               'paid_video_saas_execution_count',
@@ -78,10 +116,30 @@ jobs:
               'unknown_cost_route_execution_count',
           ):
               assert cost[k] == 0, (k, cost[k])
+
           retry=o['retry_budget']
           assert retry['infinite_retry'] is False
           assert retry['same_method_extra_retries_max'] <= 1
           assert retry['total_attempts_per_scene_max'] <= 3
+
+          continuity=o['continuity_objectives']
+          assert continuity['new_session_restore_success_ratio'] == 1.0
+          assert continuity['conversation_memory_required_for_resume'] is False
+          assert continuity['repository_state_required_for_resume'] is True
+
+          assert p['schema_version'] == 'longform-video-reliability-v2'
+          assert p['checkpoint_policy']['cache_is_not_durable_checkpoint_source_of_truth'] is True
+          assert p['voicevox_contract']['preserve_raw_synthesis_wav'] is True
+          assert p['voicevox_contract']['normalize_scene_input_to_hz'] == 48000
+          assert p['timeline']['subtitle_generation_must_not_depend_on_provider_internal_object'] is True
+          assert p['final_validation']['decode_error_count_target'] == 0
+          assert p['scene_media_contract']['concat_external_protocols_allowed'] is False
+          assert p['resource_policy']['proxy_preview_for_every_scene'] is False
+          assert p['pruning_policy']['asr_every_scene_for_known_tts_script'] is False
+
+          assert h['continuity']['portable_across_chat_tabs'] is True
+          assert h['continuity']['repository_is_source_of_truth'] is True
+
           print('LONGFORM_OBJECTIVES=PASS')
           PY
 
