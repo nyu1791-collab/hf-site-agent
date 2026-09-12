@@ -3,7 +3,10 @@ import time
 import unittest
 
 from scripts.mission_scheduler import MissionPlan, MissionReservationLedger, MissionTask, TaskResult
-from scripts.staging_parallel_scheduler import StagingParallelMissionScheduler
+from scripts.staging_parallel_scheduler import (
+    DIRECT_PROVIDER_CONCURRENCY_LIMIT,
+    StagingParallelMissionScheduler,
+)
 
 
 PROVIDERS = ("google", "nvidia", "groq", "openrouter")
@@ -84,6 +87,11 @@ class StagingParallelMissionSchedulerTests(unittest.TestCase):
         self.assertGreaterEqual(report["parallelism"]["max_parallel_observed"], 3)
         self.assertEqual(report["parallelism"]["max_parallel_subordinate_workers"], 3)
         self.assertEqual(report["parallelism"]["max_concurrent_requests_per_provider"], 3)
+        self.assertEqual(report["parallelism"]["openrouter_subordinate_provider_concurrency_limit"], 3)
+        self.assertEqual(
+            report["parallelism"]["provider_concurrency_limits"]["openrouter"],
+            3,
+        )
         self.assertFalse(self.scheduler.production_parallel_routing_allowed)
 
     def test_direct_nvidia_requests_remain_serial(self):
@@ -105,6 +113,12 @@ class StagingParallelMissionSchedulerTests(unittest.TestCase):
         report = self.scheduler.run(_plan(tasks), {item.task_id: handler for item in tasks})
         self.assertEqual(report["status"], "completed")
         self.assertEqual(maximum, 1)
+        self.assertEqual(DIRECT_PROVIDER_CONCURRENCY_LIMIT, 1)
+        self.assertEqual(report["parallelism"]["direct_provider_concurrency_limit"], 1)
+        self.assertEqual(
+            report["parallelism"]["provider_concurrency_limits"]["direct_providers"],
+            1,
+        )
 
     def test_parallelism_bound_rejects_four(self):
         with self.assertRaises(Exception):
