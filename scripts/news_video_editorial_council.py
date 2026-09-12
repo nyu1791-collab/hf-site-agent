@@ -29,9 +29,11 @@ MAX_OUTPUT_TOKENS = 900
 PREFERRED_FAMILIES = ("deepseek/", "nvidia/", "qwen/", "z-ai/", "inclusionai/")
 
 SYSTEM = (
-    "You are one member of a bounded editorial review board for a Japanese 60-100 second news short. "
+    "You are one member of a bounded editorial review board for a Japanese 60-120 second news short. "
     "Use only facts supplied in the mission JSON. Do not invent facts, names, numbers, dates, quotations, or sources. "
-    "Review factual risk, pacing, clarity, full-narration subtitle readability, Zundamon character placement, and visual-scene fit. "
+    "Review factual risk, pacing, clarity, full-narration subtitle readability, planned Zundamon character placement, "
+    "planned credits, and visual-scene fit. The mission contains the planned Zundamon overlay and credit configuration; "
+    "do not claim those elements are missing when they are explicitly present in the supplied mission. "
     "Distinguish official OpenAI statements from facts attributed to Reuters/Bloomberg reporting. "
     "Do not turn 'open to slowing' into a claim that OpenAI permanently stopped AI development. Return JSON only."
 )
@@ -46,15 +48,29 @@ def _load_mission() -> dict[str, Any]:
 
 def _prompt(mission: Mapping[str, Any]) -> str:
     compact = {
+        "title": mission.get("title"),
         "topic": mission.get("topic"),
         "sources": mission.get("sources"),
         "verified_facts": mission.get("verified_facts"),
         "seed_narration": mission.get("narration"),
         "scene_plan": mission.get("scenes"),
+        "zundamon": mission.get("zundamon"),
+        "voice": mission.get("voice"),
+        "credits": mission.get("credits"),
+        "format": mission.get("format"),
         "hard_rules": mission.get("hard_rules"),
+        "deterministic_render_contract": {
+            "full_spoken_text_subtitle_coverage_required": True,
+            "subtitle_intervals_derived_from_real_voicevox_chunk_wav_duration": True,
+            "zundamon_overlay_required": True,
+            "zundamon_motion_required": True,
+            "credits_required": ["VOICEVOX:ずんだもん", "official Zundamon project art source"],
+        },
     }
     return (
-        "Review this mission. Return exactly one JSON object with keys: "
+        "Review the PLANNED mission, not a rendered video. Assess whether the supplied plan is factually safe and "
+        "whether its subtitle/Zundamon/credit configuration satisfies the stated contract. Do not infer absence from "
+        "anything that is explicitly present below. Return exactly one JSON object with keys: "
         "verdict (PASS|PASS_WITH_CHANGES|REJECT), factual_risks (array), pacing_notes (array), "
         "subtitle_notes (array), visual_notes (array), and one_line_recommendation (string). "
         "Keep every array to at most 4 short items.\nMISSION:\n"
@@ -75,7 +91,7 @@ def _discover_free_models(api_key: str) -> tuple[list[str], dict[str, Any]]:
         headers={
             "Authorization": f"Bearer {api_key}",
             "Accept": "application/json",
-            "User-Agent": "hf-site-agent-news-editorial/2.0",
+            "User-Agent": "hf-site-agent-news-editorial/2.1",
         },
         method="GET",
     )
@@ -212,6 +228,13 @@ def main() -> int:
     mission = _load_mission()
     api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    base_safety = {
+        "repository_write": False,
+        "publish": False,
+        "deploy": False,
+        "paid_fallback": False,
+        "auto_top_up": False,
+    }
     if not api_key:
         _write({
             "schema_version": "news-video-editorial-council-v2",
@@ -220,11 +243,7 @@ def main() -> int:
             "selected_models": [],
             "success_count": 0,
             "reviews": [],
-            "repository_write": False,
-            "publish": False,
-            "deploy": False,
-            "paid_fallback": False,
-            "auto_top_up": False,
+            **base_safety,
         })
         return 0
 
@@ -238,11 +257,7 @@ def main() -> int:
             "selected_models": [],
             "success_count": 0,
             "reviews": [],
-            "repository_write": False,
-            "publish": False,
-            "deploy": False,
-            "paid_fallback": False,
-            "auto_top_up": False,
+            **base_safety,
         })
         return 0
 
@@ -275,11 +290,7 @@ def main() -> int:
         "success_count": success_count,
         "verdicts": verdicts,
         "reviews": reviews,
-        "repository_write": False,
-        "publish": False,
-        "deploy": False,
-        "paid_fallback": False,
-        "auto_top_up": False,
+        **base_safety,
     }
     _write(result)
     print(json.dumps({"status": result["status"], "selected_models": models, "success_count": success_count, "verdicts": verdicts}, ensure_ascii=False))
