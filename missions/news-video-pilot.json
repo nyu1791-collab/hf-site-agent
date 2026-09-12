@@ -1,0 +1,106 @@
+{
+  "schema_version": "news-video-pilot-v1",
+  "title": "NASAが『謎のX線天体』84個を発見",
+  "topic": "NASA/Chandra reports 84 hypersoft X-ray sources in six galaxies",
+  "published_at": "2026-09-09",
+  "primary_source": "https://science.nasa.gov/missions/chandra/nasas-chandra-unveils-mysterious-x-ray-objects/",
+  "verified_facts": [
+    "NASA published the Chandra article on 2026-09-09.",
+    "Researchers found 84 hypersoft X-ray sources in six galaxies using public Chandra archive data.",
+    "The sources emit unusually low-energy X-rays and are inferred to produce intense energetic ultraviolet radiation.",
+    "Their physical nature is not yet established.",
+    "Likely scenarios involve a black hole, neutron star, or white dwarf accreting material from a companion star.",
+    "They may help investigate Type Ia supernova progenitors and ionization of interstellar gas.",
+    "Type Ia supernovae are important for measuring the expansion of the universe.",
+    "Ionization of interstellar gas can affect how quickly stars form and influence galaxy life cycles."
+  ],
+  "hard_rules": [
+    "Do not use image generation AI.",
+    "Do not use generative video AI.",
+    "Use only source-grounded current facts and preserve uncertainty.",
+    "Use reusable internet images whose license is recorded in this mission.",
+    "Credit VOICEVOX:ずんだもん.",
+    "Do not publish or upload to any social platform."
+  ],
+  "narration": [
+    "NASAが、これまで見たことのない振る舞いをするX線天体を大量に見つけたのだ。9月9日、チャンドラX線観測衛星のデータを使った研究が発表されたのだ。",
+    "見つかったのは、6つの銀河にある84個の『超軟X線源』なのだ。普通よりかなり低いエネルギーのX線を出す一方で、強い紫外線も生み出していると考えられているのだ。",
+    "でも正体はまだ確定していないのだ。候補は、ブラックホールや中性子星、白色矮星が、相棒の星から物質を吸い込む連星系なのだ。",
+    "もし白色矮星が関係しているなら、Ia型超新星が爆発する前の姿を見つける手がかりになる可能性があるのだ。Ia型超新星は、宇宙の膨張を測る重要な目印なのだ。",
+    "さらに、この天体が出す強い紫外線は、銀河のガスから電子をはぎ取る仕組みの一部を説明できるかもしれないのだ。これは星が生まれる速さにも関わる重要な問題なのだ。",
+    "研究チームは、チャンドラの公開アーカイブを調べて、これまで見落とされていた領域を掘り起こしたのだ。本当に新しい天体の種類なのか、今後の観測がかなり楽しみなのだ。"
+  ],
+  "scenes": [
+    {
+      "caption": "NASAが謎のX線天体を発見",
+      "text": "NASAが、これまで見たことのない振る舞いをするX線天体を大量に見つけたのだ。9月9日、チャンドラX線観測衛星のデータを使った研究が発表されたのだ。",
+      "image_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Chandra_X-ray_Observatory.jpg",
+      "visual_role": "Chandra X-ray Observatory"
+    },
+    {
+      "caption": "6銀河で84個の超軟X線源",
+      "text": "見つかったのは、6つの銀河にある84個の『超軟X線源』なのだ。普通よりかなり低いエネルギーのX線を出す一方で、強い紫外線も生み出していると考えられているのだ。",
+      "image_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/M101-_A_Pinwheel_in_Many_Colors_%282012-m101_-_m101_1280%29.jpg",
+      "visual_role": "M101 Pinwheel galaxy"
+    },
+    {
+      "caption": "正体はまだ未確定",
+      "text": "でも正体はまだ確定していないのだ。候補は、ブラックホールや中性子星、白色矮星が、相棒の星から物質を吸い込む連星系なのだ。",
+      "image_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/White_dwarf_accretion_to_type_1a_supernova.png",
+      "visual_role": "Accreting white dwarf illustration"
+    },
+    {
+      "caption": "Ia型超新星の前段階か？",
+      "text": "もし白色矮星が関係しているなら、Ia型超新星が爆発する前の姿を見つける手がかりになる可能性があるのだ。Ia型超新星は、宇宙の膨張を測る重要な目印なのだ。",
+      "image_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Progenitor_of_type_Ia_supernova_cs.jpg",
+      "visual_role": "Type Ia supernova progenitor illustration"
+    },
+    {
+      "caption": "銀河のガス電離にも関係？",
+      "text": "さらに、この天体が出す強い紫外線は、銀河のガスから電子をはぎ取る仕組みの一部を説明できるかもしれないのだ。これは星が生まれる速さにも関わる重要な問題なのだ。",
+      "image_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/M101-_A_Pinwheel_in_Many_Colors_%282012-m101_-_m101_1280%29.jpg",
+      "visual_role": "Galaxy context"
+    },
+    {
+      "caption": "公開データから新天体候補",
+      "text": "研究チームは、チャンドラの公開アーカイブを調べて、これまで見落とされていた領域を掘り起こしたのだ。本当に新しい天体の種類なのか、今後の観測がかなり楽しみなのだ。",
+      "image_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Chandra_X-ray_Observatory.jpg",
+      "visual_role": "Chandra archive and observatory"
+    }
+  ],
+  "credits": [
+    {
+      "title": "Chandra X-ray Observatory",
+      "license": "Public Domain (NASA)",
+      "url": "https://commons.wikimedia.org/wiki/File:Chandra_X-ray_Observatory.jpg"
+    },
+    {
+      "title": "M101 - A Pinwheel in Many Colors",
+      "license": "Public Domain (NASA)",
+      "url": "https://commons.wikimedia.org/wiki/File:M101-_A_Pinwheel_in_Many_Colors_(2012-m101_-_m101_1280).jpg"
+    },
+    {
+      "title": "White dwarf accretion to type 1a supernova",
+      "license": "CC0 1.0",
+      "url": "https://commons.wikimedia.org/wiki/File:White_dwarf_accretion_to_type_1a_supernova.png"
+    },
+    {
+      "title": "Progenitor of type Ia supernova",
+      "license": "Public Domain (NASA/ESA)",
+      "url": "https://commons.wikimedia.org/wiki/File:Progenitor_of_type_Ia_supernova_cs.jpg"
+    }
+  ],
+  "voice": {
+    "engine": "VOICEVOX",
+    "speaker": "ずんだもん",
+    "style": "ノーマル",
+    "required_credit": "VOICEVOX:ずんだもん"
+  },
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "target_seconds": 60,
+    "publish": false
+  }
+}
