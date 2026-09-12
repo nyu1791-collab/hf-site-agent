@@ -42,9 +42,10 @@
       "max_tokens": 4096
     },
     "DEBUGGING": {
-      "thinking": true,
-      "reasoning_effort": "high",
-      "max_tokens": 8192
+      "thinking": false,
+      "reasoning_effort": null,
+      "max_tokens": 4096,
+      "selection_note": "Direct mode is retained for V4.1 debugging because prior A/B evidence showed better completion reliability, lower latency, and lower cost than thinking mode; the latest thinking-mode run returned VISIBLE_CONTENT_MISSING even with an 8192-token ceiling."
     }
   }
 }
