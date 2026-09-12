@@ -1,0 +1,17 @@
+{
+  "schema_version": "news-video-duration-policy-v1",
+  "default_target_seconds": 480,
+  "preferred_range_seconds": [420, 600],
+  "soft_minimum_seconds": 360,
+  "hard_maximum_seconds": 660,
+  "rules": [
+    "Choose duration from information density, not from a fixed platform target.",
+    "For substantial current-events explainers, prefer roughly 8 minutes and allow up to about 10 minutes when context materially improves understanding.",
+    "Do not pad a thin topic to hit a duration target; a clear 6-7 minute video is better than a repetitive 10 minute video.",
+    "Cover the prior context, triggering event, verified current facts, what changed, why it matters, uncertainty, and likely next developments when source material supports them.",
+    "Remove duplicated explanations before shortening substantive context.",
+    "Keep full spoken-word subtitle coverage at 100 percent.",
+    "Keep Zundamon stationary within each scene; vary pose/expression between scenes instead of continuous translation motion.",
+    "Use visual hierarchy for title, chapter heading, subheading, normal subtitles, and emphasized keywords through distinct size and color treatment."
+  ]
+}
