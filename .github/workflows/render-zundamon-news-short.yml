@@ -6,6 +6,8 @@ on:
       - ai-army/provider-v3
     paths:
       - missions/news-video-pilot.json
+      - scripts/render_zundamon_news_longform.py
+      - .github/workflows/render-zundamon-news-short.yml
 
 permissions:
   contents: read
@@ -117,6 +119,9 @@ jobs:
           report=json.loads((root/'render_report.json').read_text(encoding='utf-8'))
           subs=json.loads((root/'subtitle_manifest.json').read_text(encoding='utf-8'))
           assert report['status']=='RENDERED'
+          assert report['renderer_version']=='scene-single-pass-v2'
+          assert report['full_video_second_encode'] is False
+          assert report['scene_single_pass_encode'] is True
           assert report['resolution']=='1080x1920'
           assert report['voice']=='VOICEVOX:ずんだもん'
           assert report['image_generation_used'] is False
@@ -148,12 +153,14 @@ jobs:
           assert spoken==normalized, 'subtitle/spoken transcript coverage mismatch'
           print(json.dumps({
               'render':'PASS',
+              'renderer':report['renderer_version'],
               'resolution':probe,
               'audio_codec':audio,
               'duration':report['duration_seconds'],
               'subtitle_coverage':report['subtitle_coverage'],
               'zundamon_stationary':report['zundamon_stationary'],
-              'text_hierarchy':report['text_hierarchy']
+              'text_hierarchy':report['text_hierarchy'],
+              'visual_fallback_count':report.get('visual_fallback_count',0)
           }, ensure_ascii=False))
           PY
 
