@@ -1,5 +1,5 @@
 {
-  "schema_version": "deepseek-paid-supervisor-v1",
+  "schema_version": "deepseek-paid-supervisor-v2",
   "effective_date_jst": "2026-09-12",
   "status": "ACTIVE_SCOPED_EXCEPTION",
   "human_authorization": {
@@ -28,17 +28,19 @@
     "id": "deepseek",
     "base_url": "https://api.deepseek.com",
     "api_key_env": "DEEPSEEK_API_KEY",
-    "primary_model": "deepseek-v4-flash",
+    "canonical_request_model": "deepseek-v4-flash",
     "official_model_version": "DeepSeek-V4-Flash-0731",
-    "legacy_aliases_are_not_canonical": ["deepseek-flash"],
+    "legacy_or_response_aliases_are_not_configuration_ids": ["deepseek-flash"],
     "context_length_tokens": 1000000,
     "json_output": true,
     "tool_calls": true,
-    "context_cache_enabled_by_provider": true
+    "context_cache_enabled_by_provider": true,
+    "model_id_must_be_reverified_against_official_docs_before_future_migration": true
   },
   "hierarchy": {
     "top_commander": "chatgpt-work",
     "deepseek_rank": "EXECUTIVE_SUPERVISOR",
+    "deepseek_depth": 1,
     "deepseek_reports_to": "chatgpt-work",
     "deepseek_is_lowest_worker": false,
     "deepseek_is_bulk_coding_worker": false,
@@ -52,6 +54,8 @@
       "TIKTOK_SHOP_STRATEGY_SUPERVISOR",
       "SUBORDINATE_WORK_REVIEWER"
     ],
+    "execution_rule": "SUPERVISE_OR_USE_DETERMINISTIC_TOOL_FIRST; SELF_COMPLETE_ANALYSIS_WHEN_NO_VERIFIED_SUBORDINATE_OR_MACHINE_ORACLE_IS_BETTER",
+    "subordinate_max_depth": 2,
     "subordinate_execution_preference": [
       "DETERMINISTIC_TOOLS",
       "VERIFIED_FREE_OR_LOW_COST_SPECIALISTS",
@@ -59,7 +63,7 @@
       "OPENROUTER_FREE_WORKERS_WHEN_VERIFIED"
     ],
     "subordinate_route_must_be_verified_before_use": true,
-    "if_no_subordinate_route_is_verified": "DEEPSEEK_MAY_COMPLETE_ANALYSIS_ITSELF_WITHIN_BUDGET"
+    "worker_to_worker_delegation": false
   },
   "usage_policy": {
     "spend_compute_on": [
@@ -93,9 +97,21 @@
   },
   "research_fanout": {
     "pattern": "CHATGPT_TO_DEEPSEEK_SUPERVISOR_TO_BOUNDED_RESEARCH_LANES_TO_DEEPSEEK_SYNTHESIS_TO_CHATGPT_ADJUDICATION",
-    "max_distinct_research_lanes": 8,
-    "max_parallel_deepseek_calls": 4,
-    "max_deepseek_calls_per_mission": 12,
+    "default_max_distinct_research_lanes": 6,
+    "default_max_parallel_deepseek_calls": 3,
+    "default_max_deepseek_calls_per_mission": 8,
+    "expansion_ceiling": {
+      "max_distinct_research_lanes": 8,
+      "max_parallel_deepseek_calls": 4,
+      "max_deepseek_calls_per_mission": 12
+    },
+    "expansion_requires": [
+      "EXPLICIT_MISSION_REASON",
+      "INDEPENDENT_PARALLEL_RESEARCH_DIRECTIONS",
+      "BUDGET_PREFLIGHT_PASS",
+      "NO_DUPLICATE_LANE",
+      "EXPECTED_INFORMATION_GAIN"
+    ],
     "successful_lane_is_never_repeated_without_new_evidence": true,
     "failed_lane_retry_limit": 1,
     "same_root_cause_retry": false,
@@ -106,16 +122,39 @@
     "routing_and_light_triage": "low",
     "normal_research_and_peer_review": "high",
     "architecture_incident_and_red_team": "max",
+    "mapping_is_default_not_unmeasured_dogma": true,
     "do_not_use_max_for_mechanical_tasks": true
   },
   "context_and_cache": {
     "stable_shared_prefix_first": true,
+    "prefix_hash_required": true,
+    "prefix_boundary_marker_required": true,
     "put_canonical_policy_and_evidence_before_lane_specific_prompt": true,
     "lane_specific_instruction_after_shared_prefix": true,
     "reuse_identical_prefixes_to_maximize_provider_context_cache_hits": true,
     "send_artifact_refs_instead_of_repeating_large_raw_outputs": true,
+    "artifact_reference_fields": ["uri", "sha256", "bytes", "media_type", "produced_at"],
     "distilled_lane_result_only": true,
-    "no_hidden_scratchpad_required_in_handoff": true
+    "no_hidden_scratchpad_required_in_handoff": true,
+    "cache_is_accelerator_not_checkpoint_or_evidence": true
+  },
+  "failure_and_termination": {
+    "required_failure_classes": [
+      "CONSTRAINT_VIOLATION",
+      "REPETITION",
+      "CONTEXT_LOSS",
+      "DERAILMENT",
+      "IGNORED_INPUT",
+      "REASONING_ACTION_MISMATCH",
+      "PREMATURE_TERMINATION",
+      "WEAK_VERIFICATION",
+      "PROVIDER_OR_TOOL_FAILURE"
+    ],
+    "repetition_detection_uses_normalized_action_and_argument_hash": true,
+    "repeated_identical_action_without_new_evidence": "REPLAN_OR_CIRCUIT_BREAK",
+    "completion_requires_acceptance_criteria_and_verification_artifacts": true,
+    "termination_reason_required": true,
+    "preserve_successful_lane_outputs_on_partial_failure": true
   },
   "budget": {
     "guard_pricing_basis": "CURRENT_OFFICIAL_PEAK_RATE",
@@ -127,17 +166,10 @@
     "auto_top_up": false,
     "nonurgent_batch_prefers_off_peak": true,
     "urgent_user_request_runs_immediately": true,
+    "usage_based_estimate_is_not_authoritative_billing_statement": true,
     "pricing_per_million_usd": {
-      "off_peak": {
-        "prompt_cache_hit": 0.007,
-        "prompt_cache_miss": 0.22,
-        "output": 0.66
-      },
-      "peak": {
-        "prompt_cache_hit": 0.014,
-        "prompt_cache_miss": 0.44,
-        "output": 1.32
-      }
+      "off_peak": {"prompt_cache_hit": 0.007, "prompt_cache_miss": 0.22, "output": 0.66},
+      "peak": {"prompt_cache_hit": 0.014, "prompt_cache_miss": 0.44, "output": 1.32}
     }
   },
   "quality_contract": {
@@ -148,7 +180,8 @@
     "propose_remove_or_demote_not_only_add": true,
     "recommend_measurable_tests_and_metrics": true,
     "chatgpt_checks_primary_sources_before_policy_adoption": true,
-    "machine_oracle_over_model_vote_when_available": true
+    "machine_oracle_over_model_vote_when_available": true,
+    "blind_first_review_for_high_impact_anchor_risk": true
   },
   "safety": {
     "production_enabled": false,
@@ -171,8 +204,10 @@
     "cost_per_accepted_decision",
     "p95_research_latency",
     "cache_hit_rate",
+    "cache_miss_tokens",
     "duplicate_research_avoided",
     "replan_rate",
-    "incident_root_cause_resolution_rate"
+    "incident_root_cause_resolution_rate",
+    "coordination_overhead_ratio"
   ]
 }
