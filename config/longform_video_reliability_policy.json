@@ -1,0 +1,161 @@
+{
+  "schema_version": "longform-video-reliability-v1",
+  "effective_date_jst": "2026-09-12",
+  "status": "PERMANENT_STANDARD",
+  "production_path": {
+    "voice": "VOICEVOX_ZUNDAMON_LOCAL",
+    "render": "PYTHON_FFMPEG_FFPROBE",
+    "scene_first": true,
+    "concat_copy_preferred": true,
+    "final_reencode_only_when_required": true
+  },
+  "prohibited_video_saas": [
+    "descript",
+    "fal",
+    "fal.ai",
+    "runway",
+    "veed",
+    "heygen",
+    "higgsfield"
+  ],
+  "paid_policy": {
+    "video_saas_paid_execution": false,
+    "video_saas_free_credit_execution": false,
+    "auto_top_up": false,
+    "generic_paid_fallback": false,
+    "paid_sibling_substitution": false,
+    "unknown_cost_route": "BLOCK"
+  },
+  "checkpoint_policy": {
+    "preserve_healthy_outputs": true,
+    "destructive_reset_default": false,
+    "full_clean_requires_explicit_flag": true,
+    "partial_files_are_checkpoints": false,
+    "cache_identity": "CONTENT_ADDRESSED_WITH_MANIFEST"
+  },
+  "atomic_scene_commit": {
+    "temporary_suffix": ".partial.mp4",
+    "require_process_exit_zero": true,
+    "require_ffprobe_parse": true,
+    "require_media_contract": true,
+    "require_duration_measurement": true,
+    "promote_by_atomic_rename": true
+  },
+  "scene_media_contract": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "pixel_format": "yuv420p",
+    "video_codec": "h264",
+    "audio_codec": "aac",
+    "audio_sample_rate_hz": 48000,
+    "audio_channels": 2,
+    "required_video_streams": 1,
+    "required_audio_streams": 1,
+    "compare_before_concat": [
+      "codec_name",
+      "profile",
+      "width",
+      "height",
+      "pix_fmt",
+      "r_frame_rate",
+      "avg_frame_rate",
+      "time_base",
+      "audio_codec_name",
+      "sample_rate",
+      "channels",
+      "channel_layout",
+      "audio_time_base"
+    ]
+  },
+  "timeline": {
+    "source_of_truth": "timeline_manifest.json",
+    "audio_duration_source": "FFPROBE_ACTUAL_WAV_DURATION",
+    "infer_duration_from_text_length": false,
+    "subtitle_full_narration_coverage_required": true,
+    "negative_subtitle_timestamps_allowed": false,
+    "unintended_subtitle_overlap_allowed": false,
+    "drift_measurement_required": true,
+    "drift_threshold_status": "PROVISIONAL_UNTIL_FIXTURE_CALIBRATION"
+  },
+  "retry_policy": {
+    "infinite_retry": false,
+    "same_method_retry_is_bounded": true,
+    "same_root_cause_requires_method_change": true,
+    "retryable_classes": [
+      "TEMPORARY_NETWORK_TIMEOUT",
+      "FREE_ROUTE_429",
+      "FREE_ROUTE_5XX",
+      "TEMPORARY_DOWNLOAD_INTERRUPTION"
+    ],
+    "method_change_classes": [
+      "IMAGE_FORMAT_INCOMPATIBLE",
+      "ASSET_404_403",
+      "MEDIA_CONTRACT_MISMATCH"
+    ],
+    "non_retryable_classes": [
+      "MISSION_SCHEMA_INVALID",
+      "SUBTITLE_COVERAGE_MISMATCH",
+      "DISK_INSUFFICIENT",
+      "REQUIRED_TOOL_MISSING",
+      "FONT_FILTER_ENCODER_MISSING",
+      "MISSION_HASH_MISMATCH",
+      "RIGHTS_BLOCKED",
+      "POSITIVE_COST",
+      "PAID_TRANSITION",
+      "AUTO_TOP_UP_REQUIRED"
+    ]
+  },
+  "resource_policy": {
+    "scene_encode_parallelism": "BENCHMARK_BOUNDED_DEFAULT_LOW",
+    "concat_single_writer": true,
+    "check_free_disk_before_scene": true,
+    "delete_only_temp_or_partial_by_default": true
+  },
+  "toolchain_provenance_required": [
+    "git_commit_sha",
+    "renderer_version",
+    "ffmpeg_version",
+    "ffprobe_version",
+    "voicevox_engine_version_or_digest",
+    "voicevox_speaker_uuid",
+    "voicevox_style_id",
+    "font_identity",
+    "mission_hash",
+    "policy_version"
+  ],
+  "free_ai_reviewer_policy": {
+    "exact_free_id_required": true,
+    "fresh_catalog_and_price_check_required": true,
+    "empty_response_counts_as_success": false,
+    "paid_sibling_on_404": "BLOCK",
+    "unknown_provider_routing_on_429": "BLOCK",
+    "minimum_successes_to_claim_multi_ai_consensus": 2
+  },
+  "reliability_slo": {
+    "healthy_prior_scene_regeneration_after_later_scene_failure": 0,
+    "silent_success_count": 0,
+    "hash_mismatch_reuse_count": 0,
+    "subtitle_coverage_ratio": 1.0,
+    "concat_scene_contract_pass_ratio": 1.0,
+    "unrelated_scene_damage_from_single_asset_failure": 0,
+    "paid_video_saas_execution_count": 0,
+    "auto_paid_transition_count": 0,
+    "synthetic_recovery_fixture_required": true
+  },
+  "efficiency_kpi": [
+    "voice_cache_hit_rate",
+    "visual_cache_hit_rate",
+    "scene_cache_hit_rate",
+    "rerendered_scene_ratio",
+    "reused_scene_ratio",
+    "wasted_encode_seconds",
+    "checkpoint_restore_seconds",
+    "total_render_wall_seconds",
+    "p50_scene_render_seconds",
+    "p95_scene_render_seconds",
+    "peak_disk_bytes",
+    "visual_fallback_count",
+    "external_request_count"
+  ]
+}
