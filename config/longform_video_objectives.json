@@ -1,0 +1,124 @@
+{
+  "schema_version": "longform-video-objectives-v1",
+  "effective_date_jst": "2026-09-12",
+  "status": "ENFORCED_STANDARD",
+  "primary_goal": "DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK",
+  "goal_priority": [
+    "FINISHED_ARTIFACT_EXISTS_AND_PLAYS",
+    "PRESERVE_APPROVED_SCRIPT_AUDIO_AND_HEALTHY_SCENES",
+    "RECOVER_FROM_THE_SMALLEST_FAILED_UNIT",
+    "KEEP_AUDIO_SUBTITLE_VIDEO_TIMELINE_ALIGNED",
+    "MINIMIZE_REENCODE_NETWORK_AND_AI_WORK",
+    "KEEP_EXTERNAL_PAID_VIDEO_SAAS_USAGE_AT_ZERO",
+    "PRODUCE_TRACEABLE_REPRODUCIBLE_EVIDENCE"
+  ],
+  "hard_completion_gate": {
+    "final_mp4_required": true,
+    "file_size_gt_zero": true,
+    "ffprobe_parse_required": true,
+    "required_video_streams": 1,
+    "required_audio_streams": 1,
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "pixel_format": "yuv420p",
+    "video_codec": "h264",
+    "audio_codec": "aac",
+    "audio_sample_rate_hz": 48000,
+    "expected_duration_range_required": true,
+    "all_required_scenes_present": true,
+    "subtitle_full_narration_coverage_ratio": 1.0
+  },
+  "recovery_objectives": {
+    "healthy_prior_scene_regeneration_after_later_scene_failure": 0,
+    "healthy_audio_regeneration_when_only_visual_changes": 0,
+    "full_pipeline_restart_after_isolated_scene_failure": 0,
+    "successful_checkpoint_deletion_after_downstream_failure": 0,
+    "partial_file_accepted_as_checkpoint": false,
+    "resume_from_last_compatible_checkpoint": true,
+    "atomic_scene_promotion_required": true
+  },
+  "asset_objectives": {
+    "network_fetch_inside_ffmpeg_render": false,
+    "pre_download_and_decode_validate_assets": true,
+    "single_bad_asset_may_fail_whole_video": false,
+    "fallback_isolated_to_failed_asset_or_scene": true,
+    "rights_or_safety_failure_may_block": true,
+    "cache_by_content_hash_not_url_only": true
+  },
+  "timeline_objectives": {
+    "audio_duration_source": "FFPROBE_ACTUAL_GENERATED_WAV",
+    "duration_inference_from_text_length": false,
+    "subtitle_timestamps_monotonic": true,
+    "negative_subtitle_timestamp_count": 0,
+    "unintended_subtitle_overlap_count": 0,
+    "measure_scene_av_drift": true,
+    "measure_final_av_drift": true,
+    "drift_block_threshold": "CALIBRATE_WITH_FIXTURES_BEFORE_HARD_CODING"
+  },
+  "render_objectives": {
+    "render_unit": "SCENE_OR_CHAPTER",
+    "monolithic_longform_encode": false,
+    "normalize_before_concat": true,
+    "concat_copy_preferred_when_media_contract_matches": true,
+    "final_reencode_only_when_required": true,
+    "intermediate_fast_preset_preferred": true,
+    "scene_timeout_required": true,
+    "concat_single_writer": true,
+    "default_scene_encode_parallelism": 1,
+    "maximum_scene_encode_parallelism_without_benchmark_evidence": 2
+  },
+  "retry_budget": {
+    "infinite_retry": false,
+    "same_method_extra_retries_max": 1,
+    "total_attempts_per_scene_max": 3,
+    "same_root_cause_requires_method_change": true,
+    "retry_after_paid_transition_or_unknown_cost": false
+  },
+  "cost_and_route_objectives": {
+    "paid_video_saas_execution_count": 0,
+    "video_saas_free_credit_execution_count": 0,
+    "auto_top_up_count": 0,
+    "paid_fallback_count": 0,
+    "paid_sibling_substitution_count": 0,
+    "unknown_cost_route_execution_count": 0,
+    "free_ai_model_requires_fresh_exact_route_evidence": true
+  },
+  "delivery_contract": {
+    "finished_video_must_be_delivered_before_long_explanation": true,
+    "do_not_claim_complete_before_machine_gate_passes": true,
+    "creative_final_judgement_belongs_to_user": true,
+    "machine_review_scope": [
+      "artifact_exists",
+      "nonzero_size",
+      "ffprobe_readable",
+      "video_stream",
+      "audio_stream",
+      "resolution",
+      "duration_range"
+    ]
+  },
+  "observability_metrics": [
+    "voice_cache_hit_rate",
+    "visual_cache_hit_rate",
+    "scene_cache_hit_rate",
+    "reused_scene_ratio",
+    "rerendered_scene_ratio",
+    "wasted_encode_seconds",
+    "checkpoint_restore_seconds",
+    "total_render_wall_seconds",
+    "p50_scene_render_seconds",
+    "p95_scene_render_seconds",
+    "peak_disk_bytes",
+    "asset_fallback_count",
+    "external_request_count",
+    "retry_count_by_root_cause",
+    "final_av_drift_ms"
+  ],
+  "continuous_improvement": {
+    "collect_baseline_before_setting_arbitrary_speed_thresholds": true,
+    "regression_fixture_required": true,
+    "compare_new_pipeline_against_last_known_good": true,
+    "promote_new_threshold_only_with_measurement_evidence": true
+  }
+}
