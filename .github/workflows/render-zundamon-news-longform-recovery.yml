@@ -1,0 +1,137 @@
+name: Zundamon longform recovery - normalize still images
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/workflows/render-zundamon-news-longform-recovery.yml
+      - scripts/render_zundamon_news_longform_recovery.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zundamon-news-longform-recovery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install deterministic media tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk curl
+          ffmpeg -version | head -n 1
+
+      - name: Validate mission and recovery renderer
+        run: |
+          set -euo pipefail
+          python -m json.tool missions/news-video-pilot.json >/dev/null
+          python -m py_compile \
+            scripts/render_zundamon_news_longform.py \
+            scripts/render_zundamon_news_longform_recovery.py
+
+      - name: Start local VOICEVOX engine
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-latest
+          docker run --rm -d --name voicevox-news-recovery -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              echo "VOICEVOX_READY=1"
+              exit 0
+            fi
+            sleep 5
+          done
+          docker logs voicevox-news-recovery || true
+          exit 1
+
+      - name: Render longform with still-image normalization
+        run: |
+          set -euo pipefail
+          python scripts/render_zundamon_news_longform_recovery.py
+
+      - name: Validate final video and deterministic invariants
+        run: |
+          set -euo pipefail
+          python -m json.tool artifacts/news-video-pilot/render_report.json >/dev/null
+          python -m json.tool artifacts/news-video-pilot/subtitle_manifest.json >/dev/null
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          root=Path('artifacts/news-video-pilot')
+          report=json.loads((root/'render_report.json').read_text(encoding='utf-8'))
+          subs=json.loads((root/'subtitle_manifest.json').read_text(encoding='utf-8'))
+          assert report['status']=='RENDERED'
+          assert report['resolution']=='1080x1920'
+          assert report['voice']=='VOICEVOX:ずんだもん'
+          assert report['image_generation_used'] is False
+          assert report['video_generation_used'] is False
+          assert report['subtitle_coverage']==1.0
+          assert subs['coverage']==1.0
+          assert report['subtitle_chunk_count']==len(subs['chunks'])
+          assert report['zundamon_overlay'] is True
+          assert report['zundamon_motion'] is False
+          assert report['zundamon_stationary'] is True
+          assert report['zundamon_pose_count'] >= 4
+          assert report['text_hierarchy'] is True
+          assert 240 <= float(report['duration_seconds']) <= 600
+          video=root/report['file']
+          assert video.exists() and video.stat().st_size > 1_000_000
+          probe=subprocess.check_output([
+              'ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height,r_frame_rate',
+              '-of','csv=p=0',str(video)
+          ], text=True).strip()
+          audio=subprocess.check_output([
+              'ffprobe','-v','error','-select_streams','a:0','-show_entries','stream=codec_name',
+              '-of','default=nk=1:nw=1',str(video)
+          ], text=True).strip()
+          assert probe.startswith('1080,1920,'), probe
+          assert audio, 'missing audio stream'
+          transcript=(root/'transcript.txt').read_text(encoding='utf-8').strip()
+          spoken=''.join(str(row['spoken_text']) for row in subs['chunks'])
+          assert spoken==''.join(transcript.split()), 'subtitle/spoken transcript coverage mismatch'
+          print(json.dumps({
+              'render':'PASS',
+              'video_probe':probe,
+              'audio_codec':audio,
+              'duration':report['duration_seconds'],
+              'subtitle_coverage':report['subtitle_coverage'],
+              'zundamon_stationary':report['zundamon_stationary'],
+              'pose_count':report['zundamon_pose_count'],
+              'text_hierarchy':report['text_hierarchy']
+          }, ensure_ascii=False))
+          PY
+
+      - name: Audit repository for secret literals
+        run: python scripts/audit_secret_safety.py --root .
+
+      - name: Upload recovered longform video and evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: zundamon-news-recovered-${{ github.run_id }}
+          path: |
+            artifacts/news-video-pilot/**
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop VOICEVOX engine
+        if: always()
+        run: docker rm -f voicevox-news-recovery >/dev/null 2>&1 || true
