@@ -1,0 +1,122 @@
+name: Recover Zundamon longform tail only
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - scripts/recover_zundamon_longform_tail.py
+      - .github/zundamon-tail-recovery-trigger.txt
+      - .github/workflows/recover-zundamon-longform-tail.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: zundamon-tail-recovery-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install media tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk curl
+
+      - name: Restore completed scenes 1-10 from failed longform run
+        uses: actions/download-artifact@v6
+        with:
+          name: zundamon-news-video-34669777981
+          path: artifacts
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 34669777981
+
+      - name: Validate recovered partial bundle
+        run: |
+          set -euo pipefail
+          for i in $(seq -w 1 10); do
+            test -s "artifacts/news-video-pilot/clips/scene_${i}.mp4"
+          done
+          test -s artifacts/news-video-pilot/audio/scene_11.wav
+          test -s artifacts/news-video-pilot/images/scene_11.img
+          python -m py_compile \
+            scripts/render_zundamon_news_longform.py \
+            scripts/render_zundamon_news_longform_robust.py \
+            scripts/recover_zundamon_longform_tail.py
+
+      - name: Start local VOICEVOX engine
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-latest
+          docker run --rm -d --name voicevox-news-recovery -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              echo VOICEVOX_READY=1
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
+
+      - name: Rebuild only scenes 11-12 and assemble final MP4
+        run: |
+          set -euo pipefail
+          python scripts/recover_zundamon_longform_tail.py
+
+      - name: Machine acceptance
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          root=Path('artifacts/news-video-pilot')
+          report=json.loads((root/'recovery_report.json').read_text(encoding='utf-8'))
+          assert report['status']=='RENDERED_RECOVERY'
+          assert report['reused_scene_count']==10
+          assert report['rebuilt_scenes']==[11,12]
+          assert report['subtitle_coverage']==1.0
+          video=root/report['file']
+          assert video.exists() and video.stat().st_size>1_000_000
+          res=subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height','-of','csv=p=0:s=x',str(video)],text=True).strip()
+          assert res=='1080x1920',res
+          audio=subprocess.check_output(['ffprobe','-v','error','-select_streams','a:0','-show_entries','stream=codec_name','-of','default=nk=1:nw=1',str(video)],text=True).strip()
+          assert audio
+          dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nk=1:nw=1',str(video)],text=True).strip())
+          assert 240 <= dur <= 600,dur
+          print(json.dumps({'PASS':True,'resolution':res,'duration':dur,'bytes':video.stat().st_size,'visual_review':False}))
+          PY
+
+      - name: Upload final recovered video
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: zundamon-longform-tail-recovered-${{ github.run_id }}
+          path: |
+            artifacts/news-video-pilot/zundamon_openai_ai_slowdown_longform.mp4
+            artifacts/news-video-pilot/recovery_report.json
+            artifacts/news-video-pilot/subtitle_manifest.json
+            artifacts/news-video-pilot/transcript.txt
+            artifacts/news-video-pilot/credits.txt
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop VOICEVOX
+        if: always()
+        run: docker rm -f voicevox-news-recovery >/dev/null 2>&1 || true
