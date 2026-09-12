@@ -1,0 +1,124 @@
+name: Zundamon longform fast resume
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/workflows/render-zundamon-news-longform-resume.yml
+      - scripts/resume_zundamon_news_longform.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: zundamon-news-fast-resume-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resume:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install deterministic media tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk curl
+
+      - name: Download prior partial render artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: zundamon-news-video-34669777981
+          path: recovered
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 34669777981
+
+      - name: Restore reusable scenes and evidence
+        run: |
+          set -euo pipefail
+          test -d recovered/news-video-pilot
+          mkdir -p artifacts
+          cp -a recovered/news-video-pilot artifacts/
+          python -m py_compile scripts/render_zundamon_news_longform.py scripts/resume_zundamon_news_longform.py
+          echo "REUSED_CLIPS=$(find artifacts/news-video-pilot/clips -maxdepth 1 -name 'scene_*.mp4' | wc -l)"
+
+      - name: Start local VOICEVOX engine
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-latest
+          docker run --rm -d --name voicevox-news-resume -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              echo "VOICEVOX_READY=1"
+              exit 0
+            fi
+            sleep 5
+          done
+          docker logs voicevox-news-resume || true
+          exit 1
+
+      - name: Render only missing scenes and assemble final
+        run: |
+          set -euo pipefail
+          python scripts/resume_zundamon_news_longform.py
+
+      - name: Validate resumed final video
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          root=Path('artifacts/news-video-pilot')
+          report=json.loads((root/'render_report.json').read_text(encoding='utf-8'))
+          subs=json.loads((root/'subtitle_manifest.json').read_text(encoding='utf-8'))
+          assert report['status']=='RENDERED'
+          assert report['resume_mode'] is True
+          assert report['reused_scene_count'] >= 10
+          assert report['rendered_scene_count'] <= 2
+          assert report['subtitle_coverage']==1.0 and subs['coverage']==1.0
+          assert report['zundamon_stationary'] is True and report['zundamon_motion'] is False
+          assert report['zundamon_pose_count'] >= 4 and report['text_hierarchy'] is True
+          assert 240 <= float(report['duration_seconds']) <= 600
+          video=root/report['file']
+          assert video.exists() and video.stat().st_size > 1_000_000
+          v=subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height,r_frame_rate','-of','csv=p=0',str(video)], text=True).strip()
+          a=subprocess.check_output(['ffprobe','-v','error','-select_streams','a:0','-show_entries','stream=codec_name','-of','default=nk=1:nw=1',str(video)], text=True).strip()
+          assert v.startswith('1080,1920,'), v
+          assert a, 'missing audio'
+          transcript=(root/'transcript.txt').read_text(encoding='utf-8').strip()
+          spoken=''.join(str(row['spoken_text']) for row in subs['chunks'])
+          assert spoken==''.join(transcript.split())
+          print(json.dumps({'PASS':True,'probe':v,'audio':a,**report}, ensure_ascii=False))
+          PY
+
+      - name: Audit repository for secret literals
+        run: python scripts/audit_secret_safety.py --root .
+
+      - name: Upload fast-resumed final video
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: zundamon-news-fast-resume-${{ github.run_id }}
+          path: |
+            artifacts/news-video-pilot/**
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop VOICEVOX engine
+        if: always()
+        run: docker rm -f voicevox-news-resume >/dev/null 2>&1 || true
