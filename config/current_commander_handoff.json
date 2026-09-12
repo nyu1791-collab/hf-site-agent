@@ -1,8 +1,8 @@
 {
-  "schema_version": "top-commander-handoff-v2",
+  "schema_version": "top-commander-handoff-v3",
   "effective_date_jst": "2026-09-12",
-  "mission_id": "ai-army-longform-reliability-20260912",
-  "objective": "Preserve and improve the AI Army and long-form video production system using evidence-driven, bounded, resumable orchestration. New chat tabs or agent sessions must restore project rules from repository state instead of relying on conversational memory.",
+  "mission_id": "ai-army-monetization-and-media-20260912",
+  "objective": "Preserve and improve the AI Army, long-form video production, and rights-safe monetization systems using evidence-driven, bounded, resumable orchestration. New chat tabs or agent sessions must restore project rules from repository state instead of relying on conversational memory.",
   "continuity": {
     "portable_across_chat_tabs": true,
     "conversation_memory_is_not_source_of_truth": true,
@@ -15,6 +15,8 @@
       "config/longform_video_objectives.json",
       "config/longform_video_reliability_policy.json",
       "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+      "config/authorized_clipping_monetization_policy.json",
+      "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
       "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md"
     ],
     "restore_before_planning_or_external_calls": true,
@@ -27,6 +29,8 @@
     "longform_objectives": "config/longform_video_objectives.json",
     "longform_policy": "config/longform_video_reliability_policy.json",
     "longform_playbook": "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+    "authorized_clipping_policy": "config/authorized_clipping_monetization_policy.json",
+    "authorized_clipping_and_monetization_playbook": "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
     "research_synthesis": "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md"
   },
   "longform_fixed_rules": {
@@ -48,6 +52,22 @@
     "preserve_verified_checkpoints": true,
     "resume_smallest_failed_unit": true
   },
+  "clipping_fixed_rules": {
+    "authorized_creator_repurposing_and_official_clipping_adopted": true,
+    "generic_unlicensed_clipping_adopted": false,
+    "platform_monetization_and_copyright_permission_are_separate_gates": true,
+    "source_owner_or_explicit_written_commercial_license_required": true,
+    "credit_or_attribution_is_not_permission": true,
+    "captions_crop_zoom_only_are_not_assumed_sufficient_transformation": true,
+    "rights_manifest_required_per_source": true,
+    "human_approval_required_before_third_party_publication": true,
+    "fake_engagement_automation": false,
+    "direct_service_revenue_preferred_before_platform_ad_revenue": true,
+    "primary_first_offer": "CREATOR_OWNED_SHORT_FORM_REPURPOSING_SERVICE",
+    "deepseek_research_run_id": 34682071530,
+    "deepseek_research_status": "READY_2_OF_2",
+    "deepseek_conservative_peak_cost_usd": 0.00693572
+  },
   "multi_agent_fixed_rules": {
     "root_controller": "chatgpt-work",
     "single_agent_baseline_first": true,
@@ -65,6 +85,7 @@
   },
   "lanes": [
     "LONGFORM_VIDEO_RELIABILITY",
+    "AUTHORIZED_CLIPPING_MONETIZATION",
     "MULTI_AGENT_ORCHESTRATION",
     "FAILURE_RECOVERY",
     "EVALUATION_AND_REGRESSION",
@@ -73,6 +94,7 @@
   "priority_order": [
     "CONTEXT_AND_HANDOFF",
     "FAILURE_RECOVERY",
+    "AUTHORIZED_CLIPPING_MONETIZATION",
     "LONGFORM_VIDEO_RELIABILITY",
     "MULTI_AGENT_ORCHESTRATION",
     "EVALUATION_AND_REGRESSION"
@@ -85,7 +107,12 @@
     "agent loops always have time, request, token or message termination conditions",
     "cache is never treated as the sole durable checkpoint store",
     "final video validation includes ffprobe and decode-level error checking when a video is eventually produced",
-    "successful lanes are not needlessly re-run"
+    "successful lanes are not needlessly re-run",
+    "clipping source rights are verified before any edit enters the publishable queue",
+    "platform originality eligibility and copyright permission are evaluated independently",
+    "third-party monetized clips retain a human publication approval gate",
+    "missing revoked or expired license blocks publishing",
+    "near-duplicate mass output and engagement manipulation are blocked"
   ],
   "delivery": {
     "intermediate_to_user": false,
