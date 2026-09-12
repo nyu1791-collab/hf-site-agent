@@ -114,7 +114,8 @@ def main() -> int:
         raise SystemExit("auto top-up must remain disabled")
 
     step0 = policy.get("step_zero_failure") or {}
-    if int(step0.get("automatic_retry_count") or -1) != 0:
+    retry_count = step0.get("automatic_retry_count", -1)
+    if isinstance(retry_count, bool) or int(retry_count) != 0:
         raise SystemExit("step-zero automatic retries must remain disabled")
     print("CI_CONTROL_PLANE_GUARD=PASS")
     return 0
