@@ -11,6 +11,8 @@ import json
 import math
 from pathlib import Path
 import subprocess
+import sys
+import time
 from typing import Any, Mapping
 import urllib.parse
 import urllib.request
@@ -156,13 +158,14 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
     return path
 
 
-def make_scene(image: Path, audio: Path, output: Path) -> float:
+def make_scene(image: Path, audio: Path, output: Path, index: int) -> float:
     dur = duration(audio)
     filter_complex = (
         f"[0:v]scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,crop={WIDTH}:{HEIGHT},"
         "boxblur=28:2[bg];"
         f"[0:v]scale={WIDTH - 80}:{HEIGHT - 360}:force_original_aspect_ratio=decrease[fg];"
-        "[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p[v]"
+        "[bg][fg]overlay=(W-w)/2:(H-h)/2,"
+        "format=yuv420p[v]"
     )
     run([
         "ffmpeg", "-y", "-loop", "1", "-framerate", str(FPS), "-i", str(image), "-i", str(audio),
@@ -179,9 +182,9 @@ def make_credit_clip(output: Path, seconds: float = 4.0) -> None:
         "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", str(seconds),
         "-vf", (
             f"drawtext=font='{FONT}':text='VOICEVOX\\:ずんだもん':fontcolor=white:fontsize=54:"
-            "x=(w-text_w)/2:y=h*0.40:"
+            "x=(w-text_w)/2:y=h*0.40,"
             "drawtext=font='Noto Sans CJK JP':text='素材\\: Wikimedia Commons（PD / CC0）':fontcolor=white:fontsize=40:"
-            "x=(w-text_w)/2:y=h*0.49:"
+            "x=(w-text_w)/2:y=h*0.49,"
             "drawtext=font='Noto Sans CJK JP':text='情報源\\: NASA 2026-09-09':fontcolor=white:fontsize=36:"
             "x=(w-text_w)/2:y=h*0.56"
         ),
@@ -227,7 +230,7 @@ def main() -> int:
         clip_path = OUT_DIR / "clips" / f"scene_{index:02d}.mp4"
         download(image_url, image_path)
         synthesize(text, speaker_id, audio_path)
-        dur = make_scene(image_path, audio_path, clip_path)
+        dur = make_scene(image_path, audio_path, clip_path, index)
         scene_times.append((cursor, cursor + dur))
         cursor += dur
         clip_paths.append(clip_path)
