@@ -12,6 +12,22 @@
 
 日本語ナレーションの標準音声は **VOICEVOX ずんだもん** とする。ユーザーが明示的に変更しない限り他の有料TTSへ切り替えない。
 
+## 長編Reliabilityの正本
+
+4〜10分以上の長編動画では、[LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md](./LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md) を本書と併せて必ず読む。競合する場合、長編の耐障害性・checkpoint・cache・preflight・media contractについてはPlaybookを優先する。
+
+機械可読の固定条件は [`config/longform_video_reliability_policy.json`](../config/longform_video_reliability_policy.json) に保存する。レンダリング前には [`scripts/longform_video_preflight.py`](../scripts/longform_video_preflight.py) を使い、FFmpeg/ffprobe、encoder/filter/font、disk、Mission、禁止動画SaaS、実行時はローカルVOICEVOXずんだもんをfail-fast検査する。
+
+重要:
+
+- 通常実行で健康なaudio/image/Scene checkpointを破壊しない。
+- `.partial` を成功済み成果物として扱わない。
+- concat前に全Sceneのffprobe media contractを比較する。
+- file sizeやfilenameだけでcache互換を判定しない。
+- A/V driftは必ず計測するが、block閾値はfixture実測で校正するまで絶対値として固定しない。
+- free AI reviewerの公開catalogが無料でも、実行直前に404/429/EMPTYへ変化し得る。paid siblingへ自動移行しない。
+- `scripts/media_agent_runtime.py` に残るDescript/Fal/Runway等のlegacy/general routeは長編動画制作には適用しない。
+
 ## 長編パイプライン
 
 1. **Research / source lock**: 公開情報を出典付きで収集し、採用する事実と表現を固定する。台本承認後はレンダリング失敗を理由に再調査・再生成しない。
