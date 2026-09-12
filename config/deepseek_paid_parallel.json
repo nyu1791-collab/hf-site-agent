@@ -3,8 +3,8 @@
   "provider": "deepseek",
   "base_url": "https://api.deepseek.com",
   "api_key_env": "DEEPSEEK_API_KEY",
-  "model": "deepseek-v4-flash",
-  "model_version": "DeepSeek-V4-Flash-0731",
+  "model": "deepseek-flash",
+  "model_version": "DeepSeek-V4.1-Flash",
   "scope": "STAGING_ONLY",
   "enabled": true,
   "production_enabled": false,
@@ -32,7 +32,8 @@
       "prompt_cache_miss": 0.44,
       "output": 1.32
     },
-    "budget_guard": "peak"
+    "budget_guard": "peak",
+    "note": "Conservative legacy V4-Flash peak rates retained as an upper-bound guard until V4.1-Flash pricing is independently verified."
   },
   "roles": {
     "CODING_DEEP": {
