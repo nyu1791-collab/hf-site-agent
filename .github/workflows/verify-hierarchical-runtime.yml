@@ -6,6 +6,7 @@ on:
       - ai-army/provider-v3
       - main
     paths:
+      - ".github/workflows/**"
       - "scripts/**"
       - "config/**"
       - "schemas/**"
@@ -24,7 +25,7 @@ concurrency:
 
 jobs:
   runtime-contracts:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 12
     steps:
       - name: Checkout exact source without write credentials
@@ -56,6 +57,8 @@ jobs:
                   json.loads(path.read_text(encoding='utf-8'))
           print('JSON_VALIDATION=PASS')
           PY
+      - name: Enforce bounded CI control plane
+        run: python scripts/ci_control_plane_guard.py
       - name: Run bounded core regression set
         run: |
           python -m unittest \

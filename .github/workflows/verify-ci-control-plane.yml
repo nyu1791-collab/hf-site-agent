@@ -1,14 +1,6 @@
 name: Verify CI control plane
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-      - main
-    paths:
-      - ".github/workflows/**"
-      - "config/ci_execution_policy.json"
-      - "scripts/ci_control_plane_guard.py"
   workflow_dispatch:
 
 permissions:
