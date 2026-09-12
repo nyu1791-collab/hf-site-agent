@@ -95,7 +95,8 @@
     "capability_discovery_before_remote_agent_use": true,
     "route_by_task_fit_cost_latency_and_verified_availability": true,
     "unknown_route_cost_or_entitlement": "BLOCK",
-    "role_assignment_should_be_contract_driven_not_brand_driven": true
+    "role_assignment_should_be_contract_driven_not_brand_driven": true,
+    "paid_deepseek_supervisor_is_pre_authorized_when_scope_and_budget_match": true
   },
   "parallelism": {
     "parallelize_only_independent_tasks": true,
@@ -162,7 +163,7 @@
     "blocking_pre_execution_guardrail_for_irreversible_or_paid_actions": true,
     "permission_boundary_more_important_than_prompt_only_instruction": true,
     "human_approval_required_for": [
-      "PAID_EXECUTION",
+      "PAID_EXECUTION_EXCEPT_PREAUTHORIZED_DEEPSEEK_SUPERVISOR_SCOPE",
       "PAID_FALLBACK",
       "SECRET_MUTATION_OR_DISCLOSURE",
       "PRODUCTION_DEPLOY",
@@ -170,6 +171,21 @@
       "PR_MERGE",
       "IRREVERSIBLE_EXTERNAL_ACTION",
       "DURABLE_OBJECT_CHANGE"
+    ],
+    "preauthorized_paid_execution_exceptions": [
+      {
+        "provider": "deepseek",
+        "role": "EXECUTIVE_SUPERVISOR",
+        "policy_file": "config/deepseek_paid_supervisor_policy.json",
+        "repeat_per_call_approval_required": false,
+        "repository_write": false,
+        "deploy": false,
+        "publish": false,
+        "merge": false,
+        "secret_mutation_or_disclosure": false,
+        "auto_top_up": false,
+        "generic_paid_fallback": false
+      }
     ]
   },
   "tooling": {
@@ -212,7 +228,10 @@
       "stale_write_prevention_count",
       "duplicate_task_prevention_count",
       "lease_collision_count",
-      "guardrail_block_count"
+      "guardrail_block_count",
+      "deepseek_supervisor_acceptance_rate",
+      "deepseek_cost_per_accepted_decision",
+      "deepseek_duplicate_research_avoided"
     ],
     "adopt_multi_agent_change_only_if_total_system_value_improves": true
   },
@@ -252,11 +271,26 @@
   },
   "free_only_policy": {
     "free_only_mode": true,
+    "scope": "DEFAULT_FOR_ALL_ROUTES_EXCEPT_EXPLICIT_PREAUTHORIZED_PAID_EXCEPTIONS",
     "allow_paid_model": false,
     "allow_paid_fallback": false,
     "auto_top_up": false,
     "fresh_exact_model_evidence_required": true,
     "paid_sibling_substitution": false,
     "free_endpoint_failure_may_not_silently_route_to_paid": true
+  },
+  "paid_model_exceptions": {
+    "deepseek_supervisor": {
+      "enabled": true,
+      "preauthorized_by_user": true,
+      "persistent_across_chat_tabs": true,
+      "policy_file": "config/deepseek_paid_supervisor_policy.json",
+      "rank": "EXECUTIVE_SUPERVISOR",
+      "reports_to": "chatgpt-work",
+      "default_use": "RESEARCH_ARCHITECTURE_REVIEW_RED_TEAM_INCIDENT_AND_STRATEGY",
+      "bulk_coding_worker": false,
+      "chatgpt_final_adjudication_required": true,
+      "other_paid_provider_authorization": false
+    }
   }
 }
