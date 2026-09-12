@@ -1,4 +1,4 @@
-trigger=joint-ai-army-error-improvement-20260912-1
+trigger=joint-ai-army-error-improvement-20260912-2
 purpose=parallel-deepseek-v41-paid-plus-nvidia-google-independent-review
 deepseek_model=deepseek-flash
 deepseek_version=DeepSeek-V4.1-Flash
@@ -7,7 +7,7 @@ deepseek_max_paid_calls=2
 deepseek_max_cost_usd=0.10
 nvidia_paid_approved=false
 google_paid_approved=false
-target=error-analysis-safety-gates-runtime-reliability
+target=verify-direct-debugging-durable-nvidia-resume-safety-gates
 production_change=false
 merge=false
 deploy=false
