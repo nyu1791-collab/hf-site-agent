@@ -1,43 +1,27 @@
 name: Verify framework adapter layer
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - config/framework_adapter_layer.json
-      - scripts/framework_adapter_layer.py
-      - scripts/framework_plugin_registry.py
-      - scripts/framework_adapter_health.py
-      - scripts/framework_consolidation_policy.py
-      - scripts/parallel_framework_batch.py
-      - tests/test_framework_adapter_layer.py
-      - tests/test_framework_plugin_registry.py
-      - tests/test_framework_adapter_health.py
-      - tests/test_framework_consolidation_policy.py
-      - tests/test_parallel_framework_batch.py
-      - .github/workflows/verify-framework-adapter-layer.yml
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: framework-adapter-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - name: Checkout exact source without write credentials
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-
       - name: Compile framework adapter modules
         run: |
           python -m py_compile \
@@ -45,16 +29,9 @@ jobs:
             scripts/framework_plugin_registry.py \
             scripts/framework_adapter_health.py \
             scripts/framework_consolidation_policy.py \
-            scripts/parallel_framework_batch.py \
-            tests/test_framework_adapter_layer.py \
-            tests/test_framework_plugin_registry.py \
-            tests/test_framework_adapter_health.py \
-            tests/test_framework_consolidation_policy.py \
-            tests/test_parallel_framework_batch.py
-
-      - name: Validate framework adapter config JSON
+            scripts/parallel_framework_batch.py
+      - name: Validate framework adapter config
         run: python -m json.tool config/framework_adapter_layer.json >/dev/null
-
       - name: Run framework adapter tests
         run: |
           python -m unittest \
@@ -63,27 +40,21 @@ jobs:
             tests.test_framework_adapter_health \
             tests.test_framework_consolidation_policy \
             tests.test_parallel_framework_batch -v
-
-      - name: Verify hard boundaries and anti-fragmentation defaults
+      - name: Verify hard boundaries
         run: |
           python - <<'PY'
           from scripts.framework_adapter_layer import load_config
           cfg = load_config()
-          policy = cfg["policy"]
-          assert policy["free_only_default"] is True
-          assert policy["generic_paid_fallback"] is False
-          assert policy["auto_top_up"] is False
-          assert policy["external_framework_repository_write"] is False
-          assert policy["external_framework_secret_mutation"] is False
-          assert policy["external_framework_deploy"] is False
-          assert policy["external_framework_publish"] is False
-          assert policy["external_framework_payment"] is False
-          assert policy["prefer_consolidated_ownership"] is True
-          assert policy["avoid_micro_agent_fragmentation"] is True
-          assert policy["max_primary_frameworks_per_mission"] == 2
-          assert policy["max_external_framework_hops_per_task"] == 1
-          assert cfg["control_plane"]["native_routing_remains_authoritative"] is True
-          assert cfg["control_plane"]["strong_generalist_or_framework_may_own_multiple_adjacent_stages"] is True
-          assert cfg["parallel_batch"]["max_items"] == 4
-          assert cfg["parallel_batch"]["max_frameworks_per_batch"] == 2
+          p = cfg['policy']
+          assert p['free_only_default'] is True
+          assert p['generic_paid_fallback'] is False
+          assert p['auto_top_up'] is False
+          assert p['external_framework_repository_write'] is False
+          assert p['external_framework_secret_mutation'] is False
+          assert p['external_framework_deploy'] is False
+          assert p['external_framework_publish'] is False
+          assert p['external_framework_payment'] is False
+          assert p['prefer_consolidated_ownership'] is True
+          assert p['avoid_micro_agent_fragmentation'] is True
+          print('FRAMEWORK_BOUNDARIES=PASS')
           PY

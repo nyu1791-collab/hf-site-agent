@@ -1,0 +1,40 @@
+{
+  "schema_version": "ci-execution-policy-v1",
+  "strategy": "ONE_AUTOMATIC_CORE_GATE_PLUS_ONE_WORKFLOW_POLICY_GATE",
+  "long_lived_branch": "ai-army/provider-v3",
+  "max_automatic_workflows_per_push": 2,
+  "automatic_workflows": [
+    "verify-hierarchical-runtime.yml",
+    "verify-ci-control-plane.yml"
+  ],
+  "manual_specialist_workflows": [
+    "verify-free-media-capability-pool.yml",
+    "verify-value-optimized-ai-army.yml",
+    "verify-framework-adapter-layer.yml",
+    "verify-framework-parallel-governor.yml",
+    "verify-langgraph-persistence.yml",
+    "verify-live-worker.yml",
+    "verify-real-photo-sourcing.yml",
+    "verify-deepseek-joint-runtime.yml",
+    "verify-media-army.yml",
+    "deepseek-paid-parallel.yml"
+  ],
+  "step_zero_failure": {
+    "classifier": "runner_id_zero_and_steps_empty",
+    "automatic_retry_count": 0,
+    "reason": "Runner-allocation failures are infrastructure/quota failures; replaying does not repair source code and can amplify run volume."
+  },
+  "concurrency": {
+    "cancel_superseded_runs": true,
+    "group_by_workflow_and_ref": true
+  },
+  "paid_provider_policy": {
+    "deepseek_paid_parallel_manual_only": true,
+    "explicit_approval_marker_required": true,
+    "max_calls": 2,
+    "max_parallel_calls": 2,
+    "max_estimated_cost_usd": 0.05,
+    "generic_paid_fallback": false,
+    "auto_top_up": false
+  }
+}

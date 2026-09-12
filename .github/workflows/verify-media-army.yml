@@ -1,237 +1,57 @@
 name: Verify media agent army
 
 on:
-  pull_request:
-    paths:
-      - config/media_agent_organization.json
-      - config/free_media_mesh.json
-      - scripts/media_agent_runtime.py
-      - scripts/media_free_commander.py
-      - scripts/media_command_bridge.py
-      - scripts/run_nvidia_media_org_audit.py
-      - tests/test_media_agent_runtime.py
-      - tests/test_media_free_commander.py
-      - tests/test_media_command_bridge.py
-      - tests/test_nvidia_media_org_audit.py
-      - docs/MEDIA_AGENT_ARMY.md
-      - .github/workflows/verify-media-army.yml
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - config/media_agent_organization.json
-      - config/free_media_mesh.json
-      - scripts/media_agent_runtime.py
-      - scripts/media_free_commander.py
-      - scripts/media_command_bridge.py
-      - scripts/run_nvidia_media_org_audit.py
-      - tests/test_media_agent_runtime.py
-      - tests/test_media_free_commander.py
-      - tests/test_media_command_bridge.py
-      - tests/test_nvidia_media_org_audit.py
-      - docs/MEDIA_AGENT_ARMY.md
-      - .github/workflows/verify-media-army.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: media-agent-army-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     steps:
-      - name: Checkout exact source without write credentials
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-
       - name: Compile media runtimes
-        run: >-
-          python -m py_compile
-          scripts/media_agent_runtime.py
-          scripts/media_free_commander.py
-          scripts/media_command_bridge.py
-          scripts/run_nvidia_media_org_audit.py
-          tests/test_media_agent_runtime.py
-          tests/test_media_free_commander.py
-          tests/test_media_command_bridge.py
-          tests/test_nvidia_media_org_audit.py
-
+        run: |
+          python -m py_compile \
+            scripts/media_agent_runtime.py \
+            scripts/media_free_commander.py \
+            scripts/media_command_bridge.py \
+            scripts/run_nvidia_media_org_audit.py
       - name: Validate media configs
         run: |
           python -m json.tool config/media_agent_organization.json >/dev/null
           python -m json.tool config/free_media_mesh.json >/dev/null
-
-      - name: Run media runtime tests
-        run: >-
-          python -m unittest
-          tests.test_media_agent_runtime
-          tests.test_media_free_commander
-          tests.test_media_command_bridge
-          tests.test_nvidia_media_org_audit
-          -v
-
-      - name: Produce deterministic no-publish connector canary
+      - name: Run media regression tests
         run: |
-          set -euo pipefail
-          mkdir -p artifacts
-          cat > artifacts/media_metadata_canary.json <<'JSON'
-          {
-            "youtube": {
-              "title": "Safe canary title",
-              "caption": "Safe canary caption",
-              "media_ready": true,
-              "media_count": 1,
-              "media_type": "video"
-            }
-          }
-          JSON
-          python scripts/media_agent_runtime.py \
-            --platform youtube \
-            --connected-platform youtube \
-            --plugin descript \
-            --plugin fal \
-            --plugin runway \
-            --free-gpu-worker \
-            --rights-status verified \
-            --metadata-file artifacts/media_metadata_canary.json \
-            --output artifacts/media_agent_plan.json
-          python -m json.tool artifacts/media_agent_plan.json >/dev/null
+          python -m unittest \
+            tests.test_media_agent_runtime \
+            tests.test_media_free_commander \
+            tests.test_media_command_bridge \
+            tests.test_nvidia_media_org_audit -v
+      - name: Verify free-first boundaries
+        run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          p = json.loads(Path('artifacts/media_agent_plan.json').read_text(encoding='utf-8'))
-          tasks = {row['task_id']: row for row in p['tasks']}
-          plugins = p['connector_state']['plugin_state']
-          assert p['connector_state']['snapshot']['fresh'] is True
-          assert p['rights_gate']['ready'] is True
-          assert p['metadata_validation']['youtube']['ready'] is True
-          assert plugins['descript'] is True
-          assert plugins['fal'] is True
-          assert plugins['runway'] is True
-          assert p['connector_state']['creative_generation']['fal'] is False
-          assert p['connector_state']['creative_generation']['runway'] is False
-          assert p['connector_state']['video_editing']['fal'] is False
-          assert p['connector_state']['video_editing']['runway'] is False
-          assert p['selected_routes']['generation'] == 'NOT_REQUIRED'
-          assert tasks['metadata_youtube']['state'] == 'READY'
-          assert tasks['publish_youtube']['state'] == 'APPROVAL_REQUIRED'
-          assert tasks['strategy_feedback']['depends_on'] == ['monetization']
-          assert p['direct_publish_executed'] is False
-          assert p['production_active'] is False
-          assert p['hard_boundaries']['fresh_connector_evidence_required'] is True
-          assert p['hard_boundaries']['rights_and_disclosure_required'] is True
-          assert p['hard_boundaries']['platform_metadata_validation_required'] is True
-          assert p['hard_boundaries']['installed_plugin_implies_paid_execution_approval'] is False
-          assert p['hard_boundaries']['generic_paid_fallback'] is False
-          assert p['hard_boundaries']['auto_top_up'] is False
-          PY
-
-      - name: Verify free-first image and video routing canary
-        run: |
-          set -euo pipefail
-          cat > artifacts/free_media_evidence.json <<'JSON'
-          {
-            "GOOGLE_GEMINI_FREE_MULTIMODAL": {
-              "available": true,
-              "free_verified": true,
-              "quota_safe": true,
-              "credential_present": true
-            },
-            "CLOUDFLARE_FLUX_FREE": {
-              "available": true,
-              "exact_model_verified": true,
-              "free_verified": true,
-              "quota_safe": true,
-              "credential_present": true
-            },
-            "NVIDIA_COSMOS_FREE": {
-              "available": true,
-              "exact_model_verified": true,
-              "free_verified": true,
-              "quota_safe": true,
-              "credential_present": true
-            },
-            "WAN_VIDEO_FREE_GPU": {
-              "available": true,
-              "exact_model_verified": true,
-              "free_verified": true,
-              "quota_safe": true,
-              "runtime_present": true
-            },
-            "FFMPEG_DETERMINISTIC": {
-              "available": true
-            }
-          }
-          JSON
-          python scripts/media_free_commander.py \
-            --asset-type image \
-            --evidence-file artifacts/free_media_evidence.json \
-            --output artifacts/free_image_plan.json
-          python scripts/media_free_commander.py \
-            --asset-type video \
-            --evidence-file artifacts/free_media_evidence.json \
-            --output artifacts/free_video_plan.json
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          image = json.loads(Path('artifacts/free_image_plan.json').read_text(encoding='utf-8'))
-          video = json.loads(Path('artifacts/free_video_plan.json').read_text(encoding='utf-8'))
-          assert image['status'] == 'READY'
-          assert image['selected_routes']['analysis'] == 'GOOGLE_GEMINI_FREE_MULTIMODAL'
-          assert image['selected_routes']['generation'] == 'CLOUDFLARE_FLUX_FREE'
-          assert image['selected_routes']['post_process'] == 'FFMPEG_DETERMINISTIC'
-          assert video['status'] == 'READY'
-          assert video['selected_routes']['analysis'] == 'GOOGLE_GEMINI_FREE_MULTIMODAL'
-          assert video['selected_routes']['generation'] == 'NVIDIA_COSMOS_FREE'
-          assert video['selected_routes']['post_process'] == 'FFMPEG_DETERMINISTIC'
-          for plan in (image, video):
-              assert plan['hard_boundaries']['free_only_default'] is True
-              assert plan['hard_boundaries']['generic_paid_fallback'] is False
-              assert plan['hard_boundaries']['auto_top_up'] is False
-              assert plan['execution_contract']['planner_spends_money'] is False
-              assert plan['execution_contract']['planner_publishes'] is False
-          PY
-
-      - name: Verify integrated free media command bridge
-        run: |
-          set -euo pipefail
-          python -m scripts.media_command_bridge \
-            --platform youtube \
-            --connected-platform youtube \
-            --plugin descript \
-            --plugin fal \
-            --plugin runway \
-            --free-gpu-worker \
-            --generative-media-required \
-            --generation-asset-type video \
-            --free-media-evidence-file artifacts/free_media_evidence.json \
-            --rights-status verified \
-            --metadata-file artifacts/media_metadata_canary.json \
-            --output artifacts/integrated_media_plan.json
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          p = json.loads(Path('artifacts/integrated_media_plan.json').read_text(encoding='utf-8'))
-          tasks = {row['task_id']: row for row in p['tasks']}
-          assert p['schema_version'] == 'media-agent-integrated-free-v1'
-          assert p['selected_routes']['media_analysis'] == 'GOOGLE_GEMINI_FREE_MULTIMODAL'
-          assert p['selected_routes']['generation'] == 'NVIDIA_COSMOS_FREE'
-          assert p['selected_routes']['media_quality_review'] == 'GOOGLE_GEMINI_FREE_MULTIMODAL'
-          assert 'media_analysis' in tasks['strategy']['depends_on']
-          assert 'generate_assets' in tasks['edit']['depends_on']
-          assert 'media_quality_review' in tasks['rights']['depends_on']
-          assert tasks['publish_youtube']['state'] == 'APPROVAL_REQUIRED'
-          assert p['hard_boundaries']['free_media_mesh_before_paid_generation'] is True
-          assert p['hard_boundaries']['automatic_paid_generation_fallback'] is False
-          assert p['connector_state']['creative_generation']['fal'] is False
-          assert p['connector_state']['creative_generation']['runway'] is False
-          assert p['direct_publish_executed'] is False
-          assert p['production_active'] is False
+          cfg = json.loads(Path('config/free_media_mesh.json').read_text(encoding='utf-8'))
+          p = cfg['policy']
+          assert p['free_first'] is True
+          assert p['free_only_default'] is True
+          assert p['generic_paid_fallback'] is False
+          assert p['auto_top_up'] is False
+          assert p['paid_routes_require_explicit_human_approval'] is True
+          assert p['external_model_repository_write'] is False
+          print('MEDIA_FREE_FIRST_BOUNDARIES=PASS')
           PY

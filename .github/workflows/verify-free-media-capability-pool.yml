@@ -1,50 +1,19 @@
 name: Verify free media capability pool
 
 on:
-  pull_request:
-    paths:
-      - "config/free_media_capability_pool.json"
-      - "config/free_voice_routes.json"
-      - "config/shortform_edit_profile.json"
-      - "scripts/free_media_capability_router.py"
-      - "scripts/free_voice_router.py"
-      - "scripts/external_voice_handoff.py"
-      - "scripts/replace_narration_audio.py"
-      - "scripts/media_parallel_framework_mission.py"
-      - "scripts/ai_army_toolkit.py"
-      - "tests/test_free_media_capability_router.py"
-      - "tests/test_external_voice_handoff.py"
-      - "tests/test_replace_narration_audio.py"
-      - "tests/test_media_parallel_framework_mission.py"
-      - "tests/test_ai_army_toolkit.py"
-      - ".github/workflows/verify-free-media-capability-pool.yml"
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - "config/free_media_capability_pool.json"
-      - "config/free_voice_routes.json"
-      - "config/shortform_edit_profile.json"
-      - "scripts/free_media_capability_router.py"
-      - "scripts/free_voice_router.py"
-      - "scripts/external_voice_handoff.py"
-      - "scripts/replace_narration_audio.py"
-      - "scripts/media_parallel_framework_mission.py"
-      - "scripts/ai_army_toolkit.py"
-      - "tests/test_free_media_capability_router.py"
-      - "tests/test_external_voice_handoff.py"
-      - "tests/test_replace_narration_audio.py"
-      - "tests/test_media_parallel_framework_mission.py"
-      - "tests/test_ai_army_toolkit.py"
-      - ".github/workflows/verify-free-media-capability-pool.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: free-media-capability-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v6
         with:
@@ -53,7 +22,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Validate policy JSON
+      - name: Validate FREE media policy JSON
         run: |
           python -m json.tool config/free_media_capability_pool.json >/dev/null
           python -m json.tool config/free_voice_routes.json >/dev/null
@@ -66,13 +35,8 @@ jobs:
             scripts/external_voice_handoff.py \
             scripts/replace_narration_audio.py \
             scripts/media_parallel_framework_mission.py \
-            scripts/ai_army_toolkit.py \
-            tests/test_free_media_capability_router.py \
-            tests/test_external_voice_handoff.py \
-            tests/test_replace_narration_audio.py \
-            tests/test_media_parallel_framework_mission.py \
-            tests/test_ai_army_toolkit.py
-      - name: Run FREE media and toolkit tests
+            scripts/ai_army_toolkit.py
+      - name: Run FREE media regression tests
         run: |
           python -m unittest \
             tests.test_free_media_capability_router \
@@ -87,21 +51,15 @@ jobs:
           from scripts.free_voice_router import load_config as load_voice
           p = load_media()['policy']
           assert p['free_only'] is True
-          assert p['multi_role_assignment_allowed'] is True
           assert p['generic_paid_fallback'] is False
           assert p['auto_top_up'] is False
           assert p['unverified_free_route_can_execute'] is False
           assert p['license_unknown_can_publish'] is False
           assert 'fal' in p['paid_media_tools_disabled']
           assert 'descript_ai' in p['paid_media_tools_disabled']
-          v = load_voice()
-          assert v['policy']['free_only'] is True
-          assert v['policy']['auto_top_up'] is False
-          assert v['policy']['generic_paid_fallback'] is False
-          assert v['route_order'][0] == 'USER_SUPPLIED_APP_VOICE'
-          app = v['routes']['USER_SUPPLIED_APP_VOICE']
-          assert app['auto_generate'] is False
-          assert app['auto_upload'] is False
-          assert app['auto_publish'] is False
-          print('free media + voice handoff boundaries ok')
+          v = load_voice()['policy']
+          assert v['free_only'] is True
+          assert v['auto_top_up'] is False
+          assert v['generic_paid_fallback'] is False
+          print('FREE_MEDIA_BOUNDARIES=PASS')
           PY

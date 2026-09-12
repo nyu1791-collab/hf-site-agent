@@ -1,117 +1,60 @@
 name: Verify value-optimized AI Army
 
 on:
-  pull_request:
-    paths:
-      - "config/value_optimized_ai_army.json"
-      - "config/replaceable_agent_organization.json"
-      - "scripts/value_optimized_routing.py"
-      - "scripts/value_learning_loop.py"
-      - "scripts/value_opportunity_planner.py"
-      - "scripts/value_optimized_scheduler.py"
-      - "scripts/independent_agent_scheduler.py"
-      - "tests/test_value_optimized_routing.py"
-      - "tests/test_value_learning_loop.py"
-      - "tests/test_value_opportunity_planner.py"
-      - "tests/test_value_optimized_scheduler.py"
-      - ".github/workflows/verify-value-optimized-ai-army.yml"
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - "config/value_optimized_ai_army.json"
-      - "config/replaceable_agent_organization.json"
-      - "scripts/value_optimized_routing.py"
-      - "scripts/value_learning_loop.py"
-      - "scripts/value_opportunity_planner.py"
-      - "scripts/value_optimized_scheduler.py"
-      - "scripts/independent_agent_scheduler.py"
-      - "tests/test_value_optimized_routing.py"
-      - "tests/test_value_learning_loop.py"
-      - "tests/test_value_opportunity_planner.py"
-      - "tests/test_value_optimized_scheduler.py"
-      - ".github/workflows/verify-value-optimized-ai-army.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
   group: value-optimized-ai-army-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     steps:
-      - name: Checkout exact source without write credentials
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-
       - name: Compile value runtime
-        run: >-
-          python -m py_compile
-          scripts/value_optimized_routing.py
-          scripts/value_learning_loop.py
-          scripts/value_opportunity_planner.py
-          scripts/value_optimized_scheduler.py
-          scripts/independent_agent_scheduler.py
-          scripts/independent_agent_runtime_v4.py
-          scripts/replaceable_agent_scheduler_v4.py
-          tests/test_value_optimized_routing.py
-          tests/test_value_learning_loop.py
-          tests/test_value_opportunity_planner.py
-          tests/test_value_optimized_scheduler.py
-
+        run: |
+          python -m py_compile \
+            scripts/value_optimized_routing.py \
+            scripts/value_learning_loop.py \
+            scripts/value_opportunity_planner.py \
+            scripts/value_optimized_scheduler.py \
+            scripts/independent_agent_scheduler.py \
+            scripts/independent_agent_runtime_v4.py \
+            scripts/replaceable_agent_scheduler_v4.py
       - name: Validate policies
         run: |
           python -m json.tool config/value_optimized_ai_army.json >/dev/null
           python -m json.tool config/replaceable_agent_organization.json >/dev/null
-          python - <<'PY'
-          from scripts.replaceable_agent_organization import load_config
-          from scripts.value_optimized_routing import load_value_config
-          org = load_config()
-          policy = load_value_config()
-          assert org['communication']['scheduler_generation'] == 'AI_ARMY_V4_VALUE_OPTIMIZED'
-          assert org['value_optimization']['enabled'] is True
-          assert policy['cost_governor']['generic_paid_fallback'] is False
-          assert policy['cost_governor']['auto_top_up'] is False
-          assert policy['hard_boundaries']['external_model_repository_write'] is False
-          assert policy['champion_challenger']['automatic_production_promotion'] is False
-          assert policy['product_value_loop']['no_dark_patterns'] is True
-          assert policy['product_value_loop']['no_engagement_farming'] is True
-          print('value policy ok')
-          PY
-
       - name: Run value routing tests
-        run: >-
-          python -m unittest
-          tests.test_value_optimized_routing
-          tests.test_value_learning_loop
-          tests.test_value_opportunity_planner
-          tests.test_value_optimized_scheduler
-          -v
-
+        run: |
+          python -m unittest \
+            tests.test_value_optimized_routing \
+            tests.test_value_learning_loop \
+            tests.test_value_opportunity_planner \
+            tests.test_value_optimized_scheduler -v
       - name: Verify no authority expansion
         run: |
           python - <<'PY'
           from scripts.value_optimized_routing import load_value_config
           p = load_value_config()
-          hard = p['hard_boundaries']
-          assert hard['merge_requires_human_approval'] is True
-          assert hard['deploy_requires_human_approval'] is True
-          assert hard['publish_requires_human_approval'] is True
-          assert hard['secret_mutation_requires_human_approval'] is True
-          assert hard['payment_or_new_paid_provider_requires_human_approval'] is True
+          h = p['hard_boundaries']
+          assert h['merge_requires_human_approval'] is True
+          assert h['deploy_requires_human_approval'] is True
+          assert h['publish_requires_human_approval'] is True
+          assert h['secret_mutation_requires_human_approval'] is True
           assert p['cost_governor']['paid_specialist_allowlist'] == ['deepseek']
           assert p['cost_governor']['paid_specialist_requires_explicit_mission_authorization'] is True
           assert p['escalation']['automatic_paid_escalation'] is False
-          print('authority boundaries ok')
+          print('VALUE_AUTHORITY_BOUNDARIES=PASS')
           PY

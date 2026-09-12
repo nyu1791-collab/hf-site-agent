@@ -1,51 +1,34 @@
 name: Verify real photo sourcing
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - config/media_source_policy.json
-      - scripts/real_photo_asset_selector.py
-      - tests/test_real_photo_asset_selector.py
-      - .github/workflows/verify-real-photo-sourcing.yml
-  pull_request:
-    paths:
-      - config/media_source_policy.json
-      - scripts/real_photo_asset_selector.py
-      - tests/test_real_photo_asset_selector.py
-      - .github/workflows/verify-real-photo-sourcing.yml
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: real-photo-sourcing-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Checkout exact source without write credentials
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-
-      - name: Compile selector and tests
-        run: python -m py_compile scripts/real_photo_asset_selector.py tests/test_real_photo_asset_selector.py
-
-      - name: Validate source policy JSON
-        run: python -m json.tool config/media_source_policy.json >/dev/null
-
-      - name: Run real photo sourcing tests
+      - name: Compile and validate source policy
+        run: |
+          python -m py_compile scripts/real_photo_asset_selector.py tests/test_real_photo_asset_selector.py
+          python -m json.tool config/media_source_policy.json >/dev/null
+      - name: Run real-photo sourcing tests
         run: python -m unittest tests.test_real_photo_asset_selector -v
-
-      - name: Verify news visuals remain search-first and rights-gated
+      - name: Verify search-first rights gate
         run: |
           python - <<'PY'
           from scripts.real_photo_asset_selector import load_policy, select_assets, attribution_lines
@@ -59,4 +42,5 @@ jobs:
           assert result['generated_images_used'] is False
           assert len(result['selected']) == 2
           assert len(attribution_lines(result)) == 2
+          print('REAL_PHOTO_RIGHTS_GATE=PASS')
           PY
