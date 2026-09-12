@@ -1,0 +1,120 @@
+name: Multi-agent operating policy check
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - config/multi_agent_operating_policy.json
+      - docs/MULTI_AGENT_OPERATING_STANDARD.md
+      - docs/AGENT_HIERARCHY.md
+      - .github/workflows/multi-agent-policy-check.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: multi-agent-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate machine policy and hard safety invariants
+        run: |
+          set -euo pipefail
+          python -m json.tool config/multi_agent_operating_policy.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p=json.loads(Path('config/multi_agent_operating_policy.json').read_text(encoding='utf-8'))
+          assert p['status'] == 'PERMANENT_STANDARD'
+
+          a=p['architecture']
+          assert a['root_controller'] == 'chatgpt-work'
+          assert a['default_pattern'] == 'CENTRAL_MANAGER_WITH_SPECIALIST_TOOLS'
+          assert a['single_agent_preferred_when_sufficient'] is True
+          assert a['hierarchical_control'] is True
+          assert a['single_writer'] is True
+          assert a['direct_worker_to_worker_delegation'] is False
+          assert a['unbounded_agent_chat'] is False
+          assert a['max_delegation_depth'] == 2
+          assert a['max_parallel_direct_corps'] == 3
+          assert a['max_parallel_subordinate_workers'] == 1
+
+          contract=p['task_contract']
+          assert contract['typed_command_envelope_required'] is True
+          assert contract['typed_report_envelope_required'] is True
+          assert contract['schema_validate_before_side_effect'] is True
+
+          context=p['context_engineering']
+          assert context['context_quarantine_for_subagents'] is True
+          assert context['do_not_broadcast_full_conversation_to_all_agents'] is True
+          assert context['persistent_project_state_outside_model_context'] is True
+
+          parallel=p['parallelism']
+          assert parallel['parallelize_only_independent_tasks'] is True
+          assert parallel['dependency_join_required'] is True
+          assert parallel['shared_mutable_output_requires_single_writer'] is True
+          assert parallel['parallel_duplicate_agents_for_majority_vote_by_default'] is False
+
+          budget=p['termination_and_budgets']
+          assert budget['task_max_revisions'] == 3
+          assert budget['task_max_replans'] == 2
+          assert budget['max_tasks_per_user_request'] == 10
+          assert budget['infinite_loop'] is False
+          assert budget['every_external_call_requires_timeout'] is True
+          assert budget['stop_on_budget_exhaustion'] is True
+
+          reliability=p['reliability']
+          assert reliability['checkpoint_after_meaningful_stage'] is True
+          assert reliability['resume_from_last_verified_checkpoint'] is True
+          assert reliability['idempotency_required_for_side_effecting_operations'] is True
+          assert reliability['stale_result_must_not_overwrite_newer_state'] is True
+
+          security=p['security_and_permissions']
+          assert security['least_privilege_per_agent'] is True
+          assert security['workers_have_no_payment_secret_merge_deploy_publish_permissions'] is True
+          assert security['secret_values_never_returned_to_model'] is True
+          required_approvals={
+              'PAID_EXECUTION','PAID_FALLBACK','SECRET_MUTATION_OR_DISCLOSURE',
+              'PRODUCTION_DEPLOY','PUBLISH','PR_MERGE','IRREVERSIBLE_EXTERNAL_ACTION',
+              'DURABLE_OBJECT_CHANGE'
+          }
+          assert required_approvals.issubset(set(security['human_approval_required_for']))
+
+          obs=p['observability']
+          assert obs['trace_mission_task_agent_turn_tool_handoff'] is True
+          assert obs['trace_ids_propagate_across_agent_boundaries'] is True
+          assert obs['sensitive_payloads_redacted'] is True
+
+          evaluation=p['evaluation']
+          assert evaluation['compare_against_single_agent_baseline'] is True
+          assert evaluation['evaluate_system_not_only_individual_model'] is True
+          assert evaluation['adopt_multi_agent_change_only_if_total_system_value_improves'] is True
+
+          free=p['free_only_policy']
+          assert free['free_only_mode'] is True
+          assert free['allow_paid_model'] is False
+          assert free['allow_paid_fallback'] is False
+          assert free['auto_top_up'] is False
+          assert free['fresh_exact_model_evidence_required'] is True
+          assert free['paid_sibling_substitution'] is False
+
+          print('MULTI_AGENT_POLICY=PASS')
+          PY
