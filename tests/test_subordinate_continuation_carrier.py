@@ -86,7 +86,7 @@ class SubordinateContinuationCarrierTests(unittest.TestCase):
                 "successful_lane_count": 1,
             }
 
-        state, _ = run_continuation(
+        state, council = run_continuation(
             handoff=self.handoff,
             policy=self.policy,
             probe={},
@@ -101,6 +101,51 @@ class SubordinateContinuationCarrierTests(unittest.TestCase):
         self.assertEqual(state["deepseek_repeat_paid_calls"], 0)
         self.assertEqual(state["lower_ai_provider_calls"], 3)
         self.assertEqual(state["next_action"], "NVIDIA_FINAL_REVIEW")
+        final = {row["specialist_lane"]: row for row in council["results"]}
+        self.assertEqual(final["SCHEDULER_DAG"]["status"], "COUNCIL_OK")
+        self.assertEqual(final["FAILURE_RETRY"]["status"], "COUNCIL_OK")
+        self.assertEqual(council["successful_lane_count"], 2)
+
+    def test_initial_success_is_preserved_and_never_replayed(self):
+        calls = []
+        initial = {
+            "selected_models": [
+                {"specialist_lane": "FAILURE_RETRY"},
+                {"specialist_lane": "SCHEDULER_DAG"},
+            ],
+            "results": [
+                self.failed("FAILURE_RETRY", "network_error"),
+                self.success("SCHEDULER_DAG"),
+            ],
+            "provider_model_calls": 2,
+            "successful_lane_count": 1,
+        }
+
+        def runner(lanes, context):
+            calls.append(list(lanes))
+            return {
+                "results": [self.success("FAILURE_RETRY")],
+                "provider_model_calls": 1,
+                "successful_lane_count": 1,
+            }
+
+        state, council = run_continuation(
+            handoff=self.handoff,
+            policy=self.policy,
+            probe={},
+            benchmark={},
+            initial_council=initial,
+            source_head="head",
+            round_runner=runner,
+        )
+        self.assertEqual(calls, [["FAILURE_RETRY"]])
+        self.assertEqual(state["precompleted_lanes"], ["SCHEDULER_DAG"])
+        self.assertEqual(state["lower_ai_provider_calls"], 1)
+        self.assertEqual(set(state["completed_lanes"]), {"FAILURE_RETRY", "SCHEDULER_DAG"})
+        final = {row["specialist_lane"]: row for row in council["results"]}
+        self.assertEqual(final["SCHEDULER_DAG"]["status"], "COUNCIL_OK")
+        self.assertEqual(final["FAILURE_RETRY"]["status"], "COUNCIL_OK")
+        self.assertEqual(council["provider_model_calls"], 3)
 
     def test_rate_limit_checkpoints_instead_of_same_run_replay(self):
         calls = []
