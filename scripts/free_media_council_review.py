@@ -32,13 +32,14 @@ ARCHITECTURE_FILES = (
     ROOT / "config" / "framework_plugin_registry.json",
 )
 
-# Exact :free endpoints verified as zero-price on OpenRouter on 2026-09-12.
-# The previous DeepSeek R1 and Qwen3.6 Plus free endpoints returned 404 with a
-# paid-transition message. They are deliberately NOT replaced by paid siblings.
+# Exact :free endpoints whose official OpenRouter pages showed Price=Free on
+# 2026-09-12 immediately before this run. The provider may still withdraw a
+# free endpoint between catalog inspection and inference; if that happens we
+# fail closed and never substitute the paid sibling.
 MODELS = [
     "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "dots-studio/dots-3-note-preview:free",
-    "inclusionai/ling-3.0-flash:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "nex-agi/nex-n2.5-pro:free",
 ]
 MAX_PARALLEL_REVIEWERS = 3
 MAX_TOTAL_REQUESTS = 3
@@ -225,7 +226,7 @@ def main() -> int:
     started = time.monotonic()
     reviews = run_parallel_council(prompt, api_key)
     result = {
-        "schema_version": "free-media-council-longform-v4",
+        "schema_version": "free-media-council-longform-v5",
         "mission": "LONGFORM_RELIABILITY_REVIEW",
         "execution_mode": "PARALLEL",
         "max_parallel_reviewers": MAX_PARALLEL_REVIEWERS,
