@@ -1,0 +1,118 @@
+name: Pilot news short - Zundamon + licensed web images
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - missions/news-video-pilot.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zundamon-news-pilot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install deterministic media tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk curl
+          ffmpeg -version | head -n 1
+
+      - name: Validate mission and compile media scripts
+        run: |
+          set -euo pipefail
+          python -m json.tool missions/news-video-pilot.json >/dev/null
+          python -m py_compile scripts/news_video_editorial_council.py scripts/render_zundamon_news_short.py
+
+      - name: Run bounded free editorial council in parallel
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python scripts/news_video_editorial_council.py
+          python -m json.tool artifacts/news_video_editorial_council.json >/dev/null
+
+      - name: Start local VOICEVOX engine
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-latest
+          docker run --rm -d --name voicevox-news-pilot -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              echo "VOICEVOX_READY=1"
+              exit 0
+            fi
+            sleep 5
+          done
+          docker logs voicevox-news-pilot || true
+          exit 1
+
+      - name: Render vertical short to exact Zundamon narration timing
+        run: |
+          set -euo pipefail
+          python scripts/render_zundamon_news_short.py
+
+      - name: Validate rendered artifact and safety properties
+        run: |
+          set -euo pipefail
+          python -m json.tool artifacts/news-video-pilot/render_report.json >/dev/null
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          report=json.loads(Path('artifacts/news-video-pilot/render_report.json').read_text(encoding='utf-8'))
+          assert report['status']=='RENDERED'
+          assert report['resolution']=='1080x1920'
+          assert report['voice']=='VOICEVOX:ずんだもん'
+          assert report['image_generation_used'] is False
+          assert report['video_generation_used'] is False
+          video=Path('artifacts/news-video-pilot/zundamon_nasa_hypersoft_xray_short.mp4')
+          assert video.exists() and video.stat().st_size > 500_000
+          probe=subprocess.check_output([
+              'ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height',
+              '-of','csv=p=0:s=x',str(video)
+          ], text=True).strip()
+          assert probe=='1080x1920', probe
+          audio=subprocess.check_output([
+              'ffprobe','-v','error','-select_streams','a:0','-show_entries','stream=codec_name',
+              '-of','default=nk=1:nw=1',str(video)
+          ], text=True).strip()
+          assert audio, 'missing audio stream'
+          print(json.dumps({'render':'PASS','resolution':probe,'audio_codec':audio,'duration':report['duration_seconds']}, ensure_ascii=False))
+          PY
+
+      - name: Audit repository for secret literals
+        run: python scripts/audit_secret_safety.py --root .
+
+      - name: Upload pilot video and production evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: zundamon-news-video-${{ github.run_id }}
+          path: |
+            artifacts/news-video-pilot/**
+            artifacts/news_video_editorial_council.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop VOICEVOX engine
+        if: always()
+        run: docker rm -f voicevox-news-pilot >/dev/null 2>&1 || true
