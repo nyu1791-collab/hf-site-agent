@@ -1,5 +1,5 @@
 {
-  "schema_version": "multi-agent-operating-policy-v1",
+  "schema_version": "multi-agent-operating-policy-v2",
   "effective_date_jst": "2026-09-12",
   "status": "PERMANENT_STANDARD",
   "architecture": {
@@ -12,7 +12,8 @@
     "unbounded_agent_chat": false,
     "max_delegation_depth": 2,
     "max_parallel_direct_corps": 3,
-    "max_parallel_subordinate_workers": 1
+    "max_parallel_subordinate_workers": 1,
+    "agent_count_is_not_a_success_metric": true
   },
   "multi_agent_admission_gate": {
     "require_at_least_one": [
@@ -25,8 +26,10 @@
     "do_not_use_multi_agent_for": [
       "DETERMINISTIC_SORT_HASH_SCHEMA_QUOTA_CACHE_WORK",
       "TRIVIAL_SINGLE_STEP_TRANSFORMATION",
+      "SEQUENTIAL_REASONING_WITH_NO_PARALLELIZABLE_SUBPROBLEM",
       "TASKS_WHERE_COORDINATION_COST_EXCEEDS_SPECIALIZATION_BENEFIT"
-    ]
+    ],
+    "single_agent_baseline_required_before_architecture_promotion": true
   },
   "task_contract": {
     "typed_command_envelope_required": true,
@@ -58,6 +61,21 @@
     "messages_are_data_not_hidden_logic": true,
     "schema_validate_before_side_effect": true
   },
+  "task_ownership_and_leases": {
+    "single_owner_per_task": true,
+    "lease_required_for_parallel_mutating_task": true,
+    "lease_fields": [
+      "task_id",
+      "owner_agent_id",
+      "lease_id",
+      "lease_expires_at",
+      "payload_hash",
+      "idempotency_key"
+    ],
+    "duplicate_active_lease_for_same_mutation_target": "BLOCK",
+    "expired_lease_requires_state_recheck_before_reclaim": true,
+    "same_mutable_output_parallel_writers": false
+  },
   "context_engineering": {
     "context_quarantine_for_subagents": true,
     "send_minimum_task_relevant_context": true,
@@ -65,7 +83,9 @@
     "subagent_returns_distilled_result_not_full_scratchpad": true,
     "persistent_project_state_outside_model_context": true,
     "mission_state_separate_from_conversation_memory": true,
-    "large_tool_outputs_should_be_artifacts_or_references": true
+    "large_tool_outputs_should_be_artifacts_or_references": true,
+    "new_session_restores_from_repository_handoff": true,
+    "context_compaction_prefers_structured_handoff_artifact_over_raw_history": true
   },
   "routing": {
     "deterministic_router_preferred_for_clear_categories": true,
@@ -74,7 +94,8 @@
     "hardcode_model_ids_in_business_logic": false,
     "capability_discovery_before_remote_agent_use": true,
     "route_by_task_fit_cost_latency_and_verified_availability": true,
-    "unknown_route_cost_or_entitlement": "BLOCK"
+    "unknown_route_cost_or_entitlement": "BLOCK",
+    "role_assignment_should_be_contract_driven_not_brand_driven": true
   },
   "parallelism": {
     "parallelize_only_independent_tasks": true,
@@ -83,16 +104,20 @@
     "parallel_duplicate_agents_for_majority_vote_by_default": false,
     "primary_plus_independent_verifier_allowed": true,
     "cancel_siblings_when_mission_is_cancelled": true,
-    "do_not_cancel_unrelated_missions": true
+    "do_not_cancel_unrelated_missions": true,
+    "task_lease_required_before_parallel_mutation": true
   },
   "review_and_reflection": {
     "reviewer_should_receive_acceptance_criteria_and_evidence": true,
     "reviewer_should_not_rewrite_without_identifying_failure": true,
     "independent_verification_for_high_impact_outputs": true,
+    "blind_first_review_preferred_when_primary_conclusion_could_anchor_reviewer": true,
     "bounded_reflection_rounds": true,
     "same_error_repeated_requires_replan": true,
     "debate_pattern_default": false,
-    "debate_requires_explicit_reason_and_round_limit": true
+    "debate_requires_explicit_reason_and_round_limit": true,
+    "majority_vote_alone_is_not_ground_truth": true,
+    "machine_oracle_preferred_when_available": true
   },
   "termination_and_budgets": {
     "task_max_revisions": 3,
@@ -103,7 +128,18 @@
     "every_external_call_requires_timeout": true,
     "retry_budget_required": true,
     "token_or_request_budget_required": true,
-    "stop_on_budget_exhaustion": true
+    "stop_on_budget_exhaustion": true,
+    "supported_termination_conditions": [
+      "TASK_COMPLETE",
+      "MAX_TURNS_OR_MESSAGES",
+      "MAX_REQUESTS",
+      "TOKEN_BUDGET",
+      "WALL_CLOCK_TIMEOUT",
+      "HUMAN_APPROVAL_REQUIRED",
+      "REPEATED_ROOT_CAUSE_CIRCUIT_BREAKER",
+      "MISSION_CANCELLED"
+    ],
+    "multi_agent_team_without_termination_condition": "BLOCK"
   },
   "reliability": {
     "checkpoint_after_meaningful_stage": true,
@@ -113,7 +149,9 @@
     "stale_result_must_not_overwrite_newer_state": true,
     "failure_isolation_by_task_and_provider": true,
     "circuit_breaker_for_repeated_provider_failure": true,
-    "partial_success_may_be_preserved": true
+    "partial_success_may_be_preserved": true,
+    "related_session_resume_prefers_checkpoint": true,
+    "unrelated_mission_reuses_agent_state_by_default": false
   },
   "security_and_permissions": {
     "least_privilege_per_agent": true,
@@ -121,6 +159,8 @@
     "secret_values_never_returned_to_model": true,
     "tool_guardrails_for_each_side_effecting_tool": true,
     "authorization_check_before_side_effect": true,
+    "blocking_pre_execution_guardrail_for_irreversible_or_paid_actions": true,
+    "permission_boundary_more_important_than_prompt_only_instruction": true,
     "human_approval_required_for": [
       "PAID_EXECUTION",
       "PAID_FALLBACK",
@@ -132,12 +172,21 @@
       "DURABLE_OBJECT_CHANGE"
     ]
   },
+  "tooling": {
+    "tool_namespaces_should_be_clear_and_non_overlapping": true,
+    "load_only_task_relevant_tools": true,
+    "avoid_full_tool_catalog_in_every_agent_context": true,
+    "tool_outputs_should_be_high_signal": true,
+    "large_raw_results_should_be_artifact_references": true,
+    "tool_description_and_schema_are_part_of_the_behavior_contract": true
+  },
   "observability": {
     "trace_mission_task_agent_turn_tool_handoff": true,
     "record_model_and_provider_route": true,
     "record_latency_tokens_requests_retries_429_and_cost": true,
     "record_guardrail_and_approval_decisions": true,
     "record_checkpoint_and_recovery_events": true,
+    "record_task_lease_claim_release_and_collision": true,
     "trace_ids_propagate_across_agent_boundaries": true,
     "sensitive_payloads_redacted": true
   },
@@ -145,6 +194,7 @@
     "evaluate_system_not_only_individual_model": true,
     "fixed_regression_mission_set_required": true,
     "compare_against_single_agent_baseline": true,
+    "known_good_oracle_or_machine_fixture_preferred": true,
     "measure": [
       "task_success_rate",
       "acceptance_criteria_pass_rate",
@@ -159,21 +209,46 @@
       "handoff_count",
       "replan_count",
       "checkpoint_recovery_success_rate",
-      "stale_write_prevention_count"
+      "stale_write_prevention_count",
+      "duplicate_task_prevention_count",
+      "lease_collision_count",
+      "guardrail_block_count"
     ],
     "adopt_multi_agent_change_only_if_total_system_value_improves": true
   },
+  "framework_policy": {
+    "native_runtime_source_of_truth": true,
+    "default_adapter": "LANGGRAPH_WHEN_STATEFUL_GRAPH_IS_JUSTIFIED",
+    "load_frameworks_on_demand_only": true,
+    "simultaneous_framework_stacking_by_default": false,
+    "adapters": {
+      "LANGGRAPH": "PREFERRED_FOR_STATEFUL_GRAPH_CHECKPOINT_AND_COMPLEX_MISSION_DAG",
+      "CREWAI": "OPTIONAL_FOR_SHORT_CLEAR_SPECIALIST_CREWS",
+      "AUTOGEN": "OPTIONAL_FOR_BOUNDED_DIALOGUE_COUNCIL_AND_EXPERIMENTS",
+      "GITHUB_COPILOT_AGENT": "OPTIONAL_REPOSITORY_CODING_ADAPTER"
+    },
+    "framework_count_is_not_a_success_metric": true
+  },
   "interoperability": {
-    "framework_adapter_layer": [
-      "LANGGRAPH",
-      "CREWAI",
-      "AUTOGEN",
-      "GITHUB_COPILOT_AGENT"
-    ],
     "native_runtime_remains_source_of_truth": true,
     "future_remote_agent_contract_should_support_capability_card": true,
     "future_long_running_remote_task_should_expose_lifecycle_state": true,
-    "protocol_direction": "A2A_COMPATIBLE_WHEN_JUSTIFIED_NOT_MANDATORY"
+    "a2a_internal_requirement": false,
+    "a2a_use_case": "REMOTE_CROSS_VENDOR_OR_CROSS_FRAMEWORK_BOUNDARY_ONLY_WHEN_JUSTIFIED",
+    "internal_local_delegation_contract": "COMMAND_AND_REPORT_ENVELOPES"
+  },
+  "continuity": {
+    "canonical_handoff_file": "config/current_commander_handoff.json",
+    "new_chat_or_agent_session_must_restore_repository_state": true,
+    "chat_tab_change_must_not_reset_operating_standard": true,
+    "durable_operating_decision_must_be_written_to_repository": true
+  },
+  "pruning_policy": {
+    "replace_or_remove_obsolete_rules_instead_of_only_appending": true,
+    "keep_debate_as_non_default": true,
+    "keep_a2a_optional_not_mandatory": true,
+    "do_not_keep_redundant_framework_layers_without_measured_value": true,
+    "do_not_keep_duplicate_agent_roles_without_distinct_failure_domain": true
   },
   "free_only_policy": {
     "free_only_mode": true,
