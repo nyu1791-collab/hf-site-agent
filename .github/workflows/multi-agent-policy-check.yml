@@ -6,7 +6,9 @@ on:
       - ai-army/provider-v3
     paths:
       - config/multi_agent_operating_policy.json
+      - config/current_commander_handoff.json
       - docs/MULTI_AGENT_OPERATING_STANDARD.md
+      - docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md
       - docs/AGENT_HIERARCHY.md
       - .github/workflows/multi-agent-policy-check.yml
   workflow_dispatch:
@@ -38,12 +40,15 @@ jobs:
         run: |
           set -euo pipefail
           python -m json.tool config/multi_agent_operating_policy.json >/dev/null
+          python -m json.tool config/current_commander_handoff.json >/dev/null
           python - <<'PY'
           import json
           from pathlib import Path
 
           p=json.loads(Path('config/multi_agent_operating_policy.json').read_text(encoding='utf-8'))
+          h=json.loads(Path('config/current_commander_handoff.json').read_text(encoding='utf-8'))
           assert p['status'] == 'PERMANENT_STANDARD'
+          assert p['schema_version'] == 'multi-agent-operating-policy-v2'
 
           a=p['architecture']
           assert a['root_controller'] == 'chatgpt-work'
@@ -56,22 +61,40 @@ jobs:
           assert a['max_delegation_depth'] == 2
           assert a['max_parallel_direct_corps'] == 3
           assert a['max_parallel_subordinate_workers'] == 1
+          assert a['agent_count_is_not_a_success_metric'] is True
+
+          admission=p['multi_agent_admission_gate']
+          assert admission['single_agent_baseline_required_before_architecture_promotion'] is True
+          assert 'SEQUENTIAL_REASONING_WITH_NO_PARALLELIZABLE_SUBPROBLEM' in admission['do_not_use_multi_agent_for']
 
           contract=p['task_contract']
           assert contract['typed_command_envelope_required'] is True
           assert contract['typed_report_envelope_required'] is True
           assert contract['schema_validate_before_side_effect'] is True
 
+          lease=p['task_ownership_and_leases']
+          assert lease['single_owner_per_task'] is True
+          assert lease['lease_required_for_parallel_mutating_task'] is True
+          assert lease['duplicate_active_lease_for_same_mutation_target'] == 'BLOCK'
+          assert lease['same_mutable_output_parallel_writers'] is False
+
           context=p['context_engineering']
           assert context['context_quarantine_for_subagents'] is True
           assert context['do_not_broadcast_full_conversation_to_all_agents'] is True
           assert context['persistent_project_state_outside_model_context'] is True
+          assert context['new_session_restores_from_repository_handoff'] is True
 
           parallel=p['parallelism']
           assert parallel['parallelize_only_independent_tasks'] is True
           assert parallel['dependency_join_required'] is True
           assert parallel['shared_mutable_output_requires_single_writer'] is True
           assert parallel['parallel_duplicate_agents_for_majority_vote_by_default'] is False
+          assert parallel['task_lease_required_before_parallel_mutation'] is True
+
+          review=p['review_and_reflection']
+          assert review['debate_pattern_default'] is False
+          assert review['majority_vote_alone_is_not_ground_truth'] is True
+          assert review['machine_oracle_preferred_when_available'] is True
 
           budget=p['termination_and_budgets']
           assert budget['task_max_revisions'] == 3
@@ -80,17 +103,22 @@ jobs:
           assert budget['infinite_loop'] is False
           assert budget['every_external_call_requires_timeout'] is True
           assert budget['stop_on_budget_exhaustion'] is True
+          assert budget['multi_agent_team_without_termination_condition'] == 'BLOCK'
+          required_terminators={'TASK_COMPLETE','MAX_TURNS_OR_MESSAGES','MAX_REQUESTS','TOKEN_BUDGET','WALL_CLOCK_TIMEOUT','HUMAN_APPROVAL_REQUIRED','REPEATED_ROOT_CAUSE_CIRCUIT_BREAKER','MISSION_CANCELLED'}
+          assert required_terminators.issubset(set(budget['supported_termination_conditions']))
 
           reliability=p['reliability']
           assert reliability['checkpoint_after_meaningful_stage'] is True
           assert reliability['resume_from_last_verified_checkpoint'] is True
           assert reliability['idempotency_required_for_side_effecting_operations'] is True
           assert reliability['stale_result_must_not_overwrite_newer_state'] is True
+          assert reliability['unrelated_mission_reuses_agent_state_by_default'] is False
 
           security=p['security_and_permissions']
           assert security['least_privilege_per_agent'] is True
           assert security['workers_have_no_payment_secret_merge_deploy_publish_permissions'] is True
           assert security['secret_values_never_returned_to_model'] is True
+          assert security['blocking_pre_execution_guardrail_for_irreversible_or_paid_actions'] is True
           required_approvals={
               'PAID_EXECUTION','PAID_FALLBACK','SECRET_MUTATION_OR_DISCLOSURE',
               'PRODUCTION_DEPLOY','PUBLISH','PR_MERGE','IRREVERSIBLE_EXTERNAL_ACTION',
@@ -98,15 +126,42 @@ jobs:
           }
           assert required_approvals.issubset(set(security['human_approval_required_for']))
 
+          tooling=p['tooling']
+          assert tooling['load_only_task_relevant_tools'] is True
+          assert tooling['avoid_full_tool_catalog_in_every_agent_context'] is True
+          assert tooling['large_raw_results_should_be_artifact_references'] is True
+
           obs=p['observability']
           assert obs['trace_mission_task_agent_turn_tool_handoff'] is True
           assert obs['trace_ids_propagate_across_agent_boundaries'] is True
+          assert obs['record_task_lease_claim_release_and_collision'] is True
           assert obs['sensitive_payloads_redacted'] is True
 
           evaluation=p['evaluation']
           assert evaluation['compare_against_single_agent_baseline'] is True
           assert evaluation['evaluate_system_not_only_individual_model'] is True
+          assert evaluation['known_good_oracle_or_machine_fixture_preferred'] is True
           assert evaluation['adopt_multi_agent_change_only_if_total_system_value_improves'] is True
+
+          frameworks=p['framework_policy']
+          assert frameworks['native_runtime_source_of_truth'] is True
+          assert frameworks['load_frameworks_on_demand_only'] is True
+          assert frameworks['simultaneous_framework_stacking_by_default'] is False
+          assert frameworks['framework_count_is_not_a_success_metric'] is True
+
+          interop=p['interoperability']
+          assert interop['a2a_internal_requirement'] is False
+          assert interop['internal_local_delegation_contract'] == 'COMMAND_AND_REPORT_ENVELOPES'
+
+          continuity=p['continuity']
+          assert continuity['canonical_handoff_file'] == 'config/current_commander_handoff.json'
+          assert continuity['new_chat_or_agent_session_must_restore_repository_state'] is True
+          assert continuity['chat_tab_change_must_not_reset_operating_standard'] is True
+
+          pruning=p['pruning_policy']
+          assert pruning['replace_or_remove_obsolete_rules_instead_of_only_appending'] is True
+          assert pruning['keep_debate_as_non_default'] is True
+          assert pruning['keep_a2a_optional_not_mandatory'] is True
 
           free=p['free_only_policy']
           assert free['free_only_mode'] is True
@@ -115,6 +170,12 @@ jobs:
           assert free['auto_top_up'] is False
           assert free['fresh_exact_model_evidence_required'] is True
           assert free['paid_sibling_substitution'] is False
+
+          assert h['continuity']['portable_across_chat_tabs'] is True
+          assert h['continuity']['repository_is_source_of_truth'] is True
+          assert h['continuity']['restore_before_planning_or_external_calls'] is True
+          assert 'config/multi_agent_operating_policy.json' in h['continuity']['on_new_session_required_read_order']
+          assert 'config/longform_video_reliability_policy.json' in h['continuity']['on_new_session_required_read_order']
 
           print('MULTI_AGENT_POLICY=PASS')
           PY
