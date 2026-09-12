@@ -1,0 +1,70 @@
+{
+  "schema_version": "ai-army-org-chart-v1",
+  "effective_date_jst": "2026-09-12",
+  "status": "CANONICAL",
+  "design_goal": "Maximize verified task success, speed, recovery and useful research per unit cost while minimizing coordination overhead and error propagation.",
+  "hierarchy": {
+    "depth_0": {
+      "role": "TOP_COMMANDER",
+      "agent": "chatgpt-work",
+      "responsibilities": ["MISSION_OWNERSHIP", "FINAL_ADJUDICATION", "POLICY_INTERPRETATION", "CROSS_DOMAIN_INTEGRATION", "USER_DELIVERY"],
+      "final_decision_authority": true
+    },
+    "depth_1": {
+      "role": "EXECUTIVE_SUPERVISOR",
+      "agent": "paid-deepseek",
+      "policy": "config/deepseek_paid_supervisor_policy.json",
+      "responsibilities": ["BROAD_RESEARCH", "SOURCE_COMPARISON", "SYSTEM_ARCHITECTURE", "PEER_REVIEW", "RED_TEAM", "INCIDENT_DIAGNOSIS", "TASK_DECOMPOSITION", "SUBORDINATE_REVIEW", "MEDIA_STRATEGY", "TIKTOK_SHOP_STRATEGY"],
+      "default_bulk_coding": false,
+      "repository_write": false,
+      "final_user_answer": false
+    },
+    "depth_2": {
+      "role": "SPECIALIST_OR_WORKER",
+      "agents": ["verified-qwen", "verified-nvidia", "verified-groq", "verified-google", "verified-openrouter-free", "github-coding-adapter-when-justified"],
+      "activation": "ONLY_WHEN_ROUTE_IS_FRESHLY_VERIFIED_AND_SPECIALIZATION_OR_PARALLELISM_HAS_MEASURABLE_VALUE",
+      "responsibilities": ["BOUNDED_SPECIALIST_EXECUTION", "TARGETED_IMPLEMENTATION", "TARGETED_REVIEW", "INDEPENDENT_PARALLEL_RESEARCH_WHEN_JUSTIFIED"],
+      "worker_to_worker_delegation": false
+    }
+  },
+  "deterministic_bypass": {
+    "rule": "DO_NOT_CREATE_AN_AGENT_HOP_WHEN_A_MACHINE_ORACLE_OR_DETERMINISTIC_TOOL_CAN_DO_THE_WORK_RELIABLY",
+    "preferred_tools": ["PYTHON", "FFMPEG", "FFPROBE", "SCHEMA_VALIDATOR", "HASHING", "STATIC_CHECKS", "TEST_RUNNER", "QUOTA_LEDGER", "CHECKPOINT_STORE"],
+    "examples": ["MEDIA_STREAM_VALIDATION", "JSON_SCHEMA_VALIDATION", "HASH_COMPARISON", "CACHE_KEY_COMPUTATION", "SORTING", "QUOTA_ARITHMETIC", "FILE_EXISTENCE_AND_SIZE_CHECKS"]
+  },
+  "admission": {
+    "default": "SINGLE_AGENT_OR_DETERMINISTIC_TOOL",
+    "use_deepseek_supervisor_when": ["BROAD_RESEARCH", "HIGH_UNCERTAINTY", "MULTIPLE_EVIDENCE_SOURCES", "ARCHITECTURE_CHOICE", "FAILURE_DIAGNOSIS", "RED_TEAM", "STRATEGIC_SYNTHESIS"],
+    "add_depth_2_worker_when": ["INDEPENDENT_PARALLEL_WORK", "DISTINCT_SPECIALIST_DOMAIN", "TARGETED_IMPLEMENTATION_BENEFITS_FROM_SPECIALIST", "INDEPENDENT_VERIFICATION_MATERIALLY_REDUCES_HIGH_IMPACT_RISK"],
+    "avoid_multi_agent_when": ["SEQUENTIAL_REASONING", "TOOL_HEAVY_SHARED_STATE_WITHOUT_INDEPENDENT_BRANCHES", "TRIVIAL_TRANSFORM", "COORDINATION_OVERHEAD_EXCEEDS_EXPECTED_GAIN"]
+  },
+  "control_plane": {
+    "single_writer": true,
+    "task_lease_for_parallel_mutation": true,
+    "dependency_join": true,
+    "idempotency": true,
+    "stale_write_guard": true,
+    "checkpoint_after_meaningful_stage": true,
+    "preserve_partial_success": true,
+    "bounded_retry": true,
+    "bounded_replan": true,
+    "circuit_break_repeated_root_cause": true,
+    "machine_oracle_over_majority_vote": true
+  },
+  "failure_observability": {
+    "required_failure_classes": ["CONSTRAINT_VIOLATION", "REPETITION", "CONTEXT_LOSS", "DERAILMENT", "IGNORED_INPUT", "REASONING_ACTION_MISMATCH", "PREMATURE_TERMINATION", "WEAK_VERIFICATION", "PROVIDER_OR_TOOL_FAILURE"],
+    "termination_reason_required": true,
+    "trace_mission_task_agent_tool_checkpoint_guardrail": true
+  },
+  "forbidden_org_patterns": [
+    "PEER_SWARM_WITHOUT_OWNER",
+    "WORKER_TO_WORKER_UNBOUNDED_DELEGATION",
+    "MULTI_AGENT_MAJORITY_VOTE_AS_GROUND_TRUTH",
+    "PARALLEL_WRITERS_TO_SAME_MUTABLE_TARGET",
+    "AGENT_FOR_EVERY_DETERMINISTIC_STEP",
+    "DEEPSEEK_AS_BOILERPLATE_CODE_FACTORY",
+    "UNBOUNDED_RESEARCH_FANOUT",
+    "MODEL_BRAND_HARDCODED_AS_ROLE_WITHOUT_CAPABILITY_CHECK"
+  ],
+  "success_metrics": ["TASK_SUCCESS_RATE", "ACCEPTANCE_CRITERIA_PASS_RATE", "P95_LATENCY", "COST_PER_ACCEPTED_DECISION", "COORDINATION_OVERHEAD_RATIO", "ERROR_AMPLIFICATION_RATE", "CHECKPOINT_RECOVERY_SUCCESS_RATE", "RETRY_AND_REPLAN_RATE", "DUPLICATE_RESEARCH_AVOIDED"]
+}
