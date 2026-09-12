@@ -1,0 +1,50 @@
+{
+  "schema_version": "deepseek-paid-parallel-v1",
+  "provider": "deepseek",
+  "base_url": "https://api.deepseek.com",
+  "api_key_env": "DEEPSEEK_API_KEY",
+  "model": "deepseek-flash",
+  "model_version": "DeepSeek-V4.1-Flash",
+  "scope": "STAGING_ONLY",
+  "enabled": true,
+  "production_enabled": false,
+  "generic_paid_fallback": false,
+  "auto_top_up": false,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "approval_marker": "allow_deepseek_paid_trial=true",
+  "budget": {
+    "max_calls": 2,
+    "max_parallel_calls": 2,
+    "max_estimated_cost_usd": 0.05,
+    "max_output_tokens_per_call": 4096,
+    "stop_before_estimated_budget_exceeded": true
+  },
+  "pricing_per_million_usd": {
+    "off_peak": {
+      "prompt_cache_hit": 0.007,
+      "prompt_cache_miss": 0.22,
+      "output": 0.66
+    },
+    "peak": {
+      "prompt_cache_hit": 0.014,
+      "prompt_cache_miss": 0.44,
+      "output": 1.32
+    },
+    "budget_guard": "peak",
+    "note": "Conservative previous-generation peak rates retained as an upper-bound guard until V4.1-Flash pricing is independently re-verified."
+  },
+  "roles": {
+    "CODING_DEEP": {
+      "thinking": false,
+      "reasoning_effort": null,
+      "max_tokens": 4096
+    },
+    "DEBUGGING": {
+      "thinking": true,
+      "reasoning_effort": "high",
+      "max_tokens": 4096
+    }
+  }
+}
