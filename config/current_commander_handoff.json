@@ -1,0 +1,32 @@
+{
+  "schema_version": "top-commander-handoff-v1",
+  "mission_id": "error-hardening-20260912",
+  "objective": "Find and reduce the remaining AI Army correctness, retry, routing, orchestration, and interruption-recovery defects. Continue internally through lower agents instead of returning intermediate worker prose to the user. Preserve bounded autonomy and all hard safety boundaries.",
+  "lanes": [
+    "SCHEDULER_DAG",
+    "FAILURE_RETRY",
+    "TEST_VALIDATION",
+    "CAPABILITY_ROUTING"
+  ],
+  "priority_order": [
+    "FAILURE_RETRY",
+    "SCHEDULER_DAG",
+    "TEST_VALIDATION",
+    "CAPABILITY_ROUTING"
+  ],
+  "specific_checks": [
+    "DeepSeek V4.1 Flash direct-mode debugging must remain reliable and bounded",
+    "unknown provider usage must checkpoint instead of duplicate replay",
+    "worker circuit breaking and failure signals must suppress wasteful redispatch",
+    "critical lanes must receive independent validation before acceptance",
+    "partial or truncated reviewer output must be resumed only when reservation state is settled",
+    "successful lanes must not be needlessly re-run"
+  ],
+  "delivery": {
+    "intermediate_to_user": false,
+    "handoff_to_lower_ai": true,
+    "final_summary_only": true
+  },
+  "repository_mutation_by_external_ai": false,
+  "production_change": false
+}
