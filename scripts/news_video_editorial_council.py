@@ -155,7 +155,7 @@ def main() -> int:
     if not api_key:
         result = {
             "schema_version": "news-video-editorial-council-v1",
-            "status": "BLOCKED_MISSING_SECRET",
+            "status": "BLOCKED_MISSING_CREDENTIAL",
             "free_only": True,
             "requested_models": list(MODELS),
             "success_count": 0,
