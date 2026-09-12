@@ -1,0 +1,135 @@
+{
+  "schema_version": "deepseek-clipping-research-mission-v1",
+  "mission_id": "clipping-monetization-20260912",
+  "effective_date_jst": "2026-09-12",
+  "user_goal": "Evaluate whether authorized livestream highlight clipping should become a permanent AI Army monetization lane, and identify adjacent AI-automation businesses with strong revenue potential.",
+  "decision_owner": "chatgpt-top-commander",
+  "constraints": {
+    "paid_deepseek_authorized_for_this_mission": true,
+    "publishing_not_authorized_by_this_mission": true,
+    "production_deploy_not_authorized": true,
+    "pr_merge_not_authorized": true,
+    "secret_mutation_or_disclosure_not_authorized": true,
+    "do_not_recommend_unlicensed_mass_reposting": true,
+    "prefer_open_source_or_verified_free_media_tooling": true,
+    "existing_media_policy_prohibits_runway_fal_descript_veed_heygen_higgsfield": true
+  },
+  "fresh_primary_evidence": [
+    {
+      "source": "YouTube channel monetization policies",
+      "url": "https://support.google.com/youtube/answer/1311392?hl=ja",
+      "facts": [
+        "Reused content is content from YouTube or another online source without significant original commentary, substantive modifications, or educational or entertainment value.",
+        "The reused-content policy applies to the channel as a whole.",
+        "Monetizable examples include clips used for critical review, sports replays with explanation, reactions with commentary, and other creators' footage edited with a new story or commentary.",
+        "Since 2025-07-15 YouTube explicitly clarified that mass-produced/repetitive inauthentic content is not monetizable."
+      ]
+    },
+    {
+      "source": "YouTube Shorts monetization policies",
+      "url": "https://support.google.com/youtube/answer/12504220?hl=ja",
+      "facts": [
+        "Non-original Shorts such as unedited clips from movies/TV, reuploads of another creator's content, and compilations without original content are ineligible engaged views for Shorts revenue sharing.",
+        "Shorts monetization remains subject to reused-content, copyright, terms, and advertiser-friendly policies."
+      ]
+    },
+    {
+      "source": "YouTube monetizable content rights guidance",
+      "url": "https://support.google.com/youtube/answer/2490020?hl=ja",
+      "facts": [
+        "A creator must own or have all necessary commercial-use rights for audio and video elements.",
+        "If using another person's audio/video with permission, YouTube says written explicit permission for commercial use is required.",
+        "Commercial use may still be fair use in some cases, but commercial purpose can weigh against fair use and fair use is ultimately fact-specific."
+      ]
+    },
+    {
+      "source": "YouTube copyright claims",
+      "url": "https://support.google.com/youtube/answer/6013276",
+      "facts": [
+        "Content ID can block, monetize for the rightsholder, or track matched video segments, with policies varying by territory."
+      ]
+    },
+    {
+      "source": "TikTok Creator Rewards Program support",
+      "url": "https://support.tiktok.com/en/business-and-creator/creator-rewards-program/how-is-the-creator-rewards-program-different-from-the-tiktok-creator-fund",
+      "facts": [
+        "Qualifying videos must be original, high quality, and longer than one minute.",
+        "TikTok describes original content for the program as excluding Duets, Stitches, and sponsored content."
+      ]
+    },
+    {
+      "source": "TikTok Creator Rewards Program terms for Japan/Korea",
+      "url": "https://www.tiktok.com/legal/page/global/tiktok-creator-rewards-program-jp-kr/ko",
+      "facts": [
+        "Japan is covered by the Japan/Korea program terms; Japanese participants must be adults and meet program eligibility requirements including follower/view thresholds.",
+        "Eligible videos must be at least one minute and creators remain responsible for ownership, originality, and third-party rights including copyright, neighboring rights, voice and likeness rights.",
+        "Automation to artificially inflate views, followers or engagement is prohibited."
+      ]
+    },
+    {
+      "source": "TikTok intellectual property policy",
+      "url": "https://t.tiktok.com/legal/page/global/copyright-policy/en",
+      "facts": [
+        "TikTok does not allow copyright-infringing content; unauthorized copyrighted use can violate policy unless a legally valid exception applies.",
+        "Repeat infringement can lead to account bans."
+      ]
+    },
+    {
+      "source": "TikTok Shop Japan one-year update",
+      "url": "https://newsroom.tiktok.com/tiktok-shop-japan-1st-year-anniversary?lang=ja-JP",
+      "facts": [
+        "TikTok Shop launched in Japan on 2025-06-30.",
+        "From launch through 2026-06-30, more than 70% of GMV originated from content such as short videos and LIVE streams."
+      ]
+    },
+    {
+      "source": "YouTube Shopping Affiliate Program",
+      "url": "https://support.google.com/youtube/answer/13376398?hl=JA",
+      "facts": [
+        "The YouTube Shopping Affiliate Program is available to eligible creators based in Japan.",
+        "Eligibility requires YPP participation and the applicable subscriber threshold, plus other channel restrictions."
+      ]
+    },
+    {
+      "source": "Open-source livestream highlight clipper",
+      "url": "https://github.com/Cbhhhh211/livestream-highlight-clipper",
+      "facts": [
+        "An open-source implementation scores highlights using chat density, emotion keywords, and speech-chat overlap, then smooths and peak-detects candidate moments.",
+        "It uses local faster-whisper and supports review before export."
+      ]
+    },
+    {
+      "source": "WhisperX",
+      "url": "https://github.com/m-bain/whisperX",
+      "facts": [
+        "WhisperX provides word-level timestamps, forced alignment, VAD, batching, and optional speaker diarization, useful for precise clip boundaries and captions."
+      ]
+    },
+    {
+      "source": "Auto-Editor",
+      "url": "https://github.com/WyattBlue/auto-editor",
+      "facts": [
+        "Auto-Editor can automatically cut based on audio loudness and motion and supports configurable margins, useful for dead-space removal after highlight detection."
+      ]
+    }
+  ],
+  "candidate_business_models_to_evaluate": [
+    "Authorized official clipping service for streamers with written commercial-use license and revenue share",
+    "Creator-owned content repurposing: one livestream/podcast to Shorts/TikTok/Reels with original captions, context, commentary and CTA",
+    "Managed clipping SaaS/service for small creators where the source creator owns the footage",
+    "AI-assisted shopping review content using creator-owned footage plus YouTube Shopping/TikTok Shop affiliate monetization",
+    "Original AI news/explainer short-form channel with source citations and human editorial control",
+    "Local-business short-video production pipeline using client-provided footage",
+    "Digital product/course funnel from original long-form expertise content",
+    "B2B content repurposing agency for webinars/podcasts with client permission"
+  ],
+  "required_output_questions": [
+    "Should livestream highlight clipping become a permanent AI Army lane?",
+    "What exact permission model makes it commercially sustainable?",
+    "What must be added so clips are sufficiently transformative/original for platform monetization without pretending permission and reused-content are the same issue?",
+    "What should be fully automated versus human-approved?",
+    "What technical highlight-scoring stack should be used with open-source/free tooling?",
+    "What adjacent AI Army monetization models are safer or faster to revenue than generic clipping?",
+    "What hard kill-switches should prevent unlicensed, repetitive, spammy, or non-original publishing?"
+  ]
+}
