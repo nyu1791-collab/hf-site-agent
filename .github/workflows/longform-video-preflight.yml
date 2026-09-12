@@ -1,0 +1,97 @@
+name: Longform video static preflight
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - scripts/longform_video_preflight.py
+      - config/longform_video_reliability_policy.json
+      - missions/news-video-pilot.json
+      - .github/workflows/longform-video-preflight.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: longform-video-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install deterministic static media tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
+
+      - name: Compile and validate policy
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/longform_video_preflight.py
+          python -m json.tool config/longform_video_reliability_policy.json >/dev/null
+          python -m json.tool missions/news-video-pilot.json >/dev/null
+
+      - name: Run static preflight only
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python scripts/longform_video_preflight.py \
+            --mode static \
+            --min-free-gb 4 \
+            --report artifacts/longform-video-preflight.json
+
+      - name: Assert no rendering or video SaaS occurred
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('artifacts/longform-video-preflight.json')
+          r=json.loads(p.read_text(encoding='utf-8'))
+          assert r['status'] == 'PASS', r
+          assert r['render_performed'] is False, r
+          assert r['external_video_saas_called'] is False, r
+          assert r['blocking_failure_count'] == 0, r
+          names={row['name']: row for row in r['checks']}
+          for required in (
+              'tool.ffmpeg.present',
+              'tool.ffprobe.present',
+              'encoder.libx264',
+              'encoder.aac',
+              'filter.ass',
+              'filter.subtitles',
+              'font.noto_sans_cjk_jp',
+              'output.writable',
+              'disk.minimum_free',
+              'mission.subtitle_full_coverage',
+              'policy.route_has_no_prohibited_video_saas',
+              'policy.no_paid_video_transition',
+          ):
+              assert names.get(required, {}).get('ok') is True, (required, names.get(required))
+          print(json.dumps({'status':'PASS','render_performed':False,'video_saas_called':False}, sort_keys=True))
+          PY
+
+      - name: Upload preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: longform-video-preflight-${{ github.run_id }}
+          path: artifacts/longform-video-preflight.json
+          if-no-files-found: warn
+          retention-days: 7
