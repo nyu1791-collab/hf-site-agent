@@ -1,0 +1,5 @@
+run=2026-09-12-internal-continuation-v1
+mission=error-hardening-20260912
+handoff=top-commander-to-lower-ai
+max_paid_deepseek_usd_per_execution=0.10
+no_repo_write_by_external_ai=true
