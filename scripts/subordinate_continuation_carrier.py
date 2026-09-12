@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Bounded lower-AI continuation carrier.
 
-Top Commander emits a compact handoff once.  This carrier keeps intermediate
+Top Commander emits a compact handoff once. This carrier keeps intermediate
 work inside the AI organization: it sends only unresolved specialist lanes to
 fresh exact-free workers, carries advisory DeepSeek findings forward as context,
 and checkpoints instead of blindly replaying uncertain or rate-limited work.
-It performs no repository write, deploy, publish, secret mutation, paid
-fallback, or additional paid-model call.
+Already validated lanes are preserved across rounds and are never needlessly
+replayed. It performs no repository write, deploy, publish, secret mutation,
+paid fallback, or additional paid-model call.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ if __package__ in {None, ""}:  # pragma: no cover
 from scripts import failure_aware_specialist_council as base
 from scripts import failure_aware_specialist_retry as retry
 
-SCHEMA_VERSION = "subordinate-continuation-state-v1"
+SCHEMA_VERSION = "subordinate-continuation-state-v2"
 MAX_CONTEXT_CHARS = 2_400
 MAX_DEEPSEEK_FINDINGS = 2
 
@@ -60,6 +61,85 @@ def _valid_lanes(handoff: Mapping[str, Any], policy: Mapping[str, Any]) -> list[
     valid = set(base.LANE_PRIORITY)
     limit = max(1, int(policy.get("max_lanes_per_round") or 4))
     return [lane for lane in _bounded_unique(requested, limit=limit) if lane in valid]
+
+
+def _result_rows(report: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    rows = report.get("results") if isinstance(report.get("results"), list) else []
+    return [row for row in rows if isinstance(row, Mapping)]
+
+
+def _successful_lanes(report: Mapping[str, Any], lanes: Sequence[str]) -> list[str]:
+    wanted = {str(lane) for lane in lanes}
+    return _bounded_unique(
+        [
+            str(row.get("specialist_lane") or "")
+            for row in _result_rows(report)
+            if row.get("status") == "COUNCIL_OK"
+            and str(row.get("specialist_lane") or "") in wanted
+        ],
+        limit=max(1, len(wanted)),
+    )
+
+
+def _merge_council_reports(
+    initial: Mapping[str, Any],
+    rounds: Sequence[Mapping[str, Any]],
+    lane_order: Sequence[str],
+) -> dict[str, Any]:
+    """Preserve successful lane evidence across all continuation rounds.
+
+    A later failure must never erase an earlier COUNCIL_OK result. This also
+    ensures the final NVIDIA review sees the whole solved mission rather than
+    only the last retry round.
+    """
+    reports = [report for report in [initial, *rounds] if isinstance(report, Mapping) and report]
+    if not reports:
+        return {}
+    merged = dict(initial) if initial else dict(reports[-1])
+    by_lane: dict[str, dict[str, Any]] = {}
+    extras: list[dict[str, Any]] = []
+    attempts: list[dict[str, Any]] = []
+    total_provider_calls = 0
+
+    for report in reports:
+        total_provider_calls += int(report.get("provider_model_calls", report.get("model_calls", 0)) or 0)
+        raw_attempts = report.get("all_attempts") if isinstance(report.get("all_attempts"), list) else []
+        attempts.extend(dict(row) for row in raw_attempts if isinstance(row, Mapping))
+        for row in _result_rows(report):
+            lane = str(row.get("specialist_lane") or "")
+            if not lane:
+                extras.append(dict(row))
+                continue
+            existing = by_lane.get(lane)
+            if existing and existing.get("status") == "COUNCIL_OK":
+                continue
+            if row.get("status") == "COUNCIL_OK" or existing is None:
+                by_lane[lane] = dict(row)
+            else:
+                by_lane[lane] = dict(row)
+
+    ordered_lanes = _bounded_unique(
+        [*lane_order, *sorted(lane for lane in by_lane if lane not in set(lane_order))],
+        limit=max(len(by_lane), len(lane_order), 1) + 16,
+    )
+    final_rows = [by_lane[lane] for lane in ordered_lanes if lane in by_lane]
+    final_rows.extend(extras)
+    successful = sum(row.get("status") == "COUNCIL_OK" for row in final_rows if row.get("specialist_lane"))
+    lane_rows = sum(bool(row.get("specialist_lane")) for row in final_rows)
+
+    merged.update({
+        "schema_version": "failure-aware-specialist-council-continuation-v1",
+        "results": final_rows,
+        "provider_model_calls": total_provider_calls,
+        "model_calls": total_provider_calls,
+        "successful_lane_count": successful,
+        "failed_lane_count": max(0, lane_rows - successful),
+        "continuation_aggregated": True,
+        "continuation_round_count": len(rounds),
+    })
+    if attempts:
+        merged["all_attempts"] = attempts
+    return merged
 
 
 def _deepseek_seed_text(report: Mapping[str, Any]) -> str:
@@ -193,6 +273,7 @@ def run_continuation(
     probe: Mapping[str, Any],
     benchmark: Mapping[str, Any],
     deepseek_report: Mapping[str, Any] | None = None,
+    initial_council: Mapping[str, Any] | None = None,
     previous_state: Mapping[str, Any] | None = None,
     source_head: str = "",
     api_key: str = "",
@@ -204,31 +285,47 @@ def run_continuation(
     max_rounds = max(1, min(6, int(policy.get("max_rounds_per_run") or 3)))
     retry_categories = {str(item) for item in list(policy.get("same_run_retry_categories") or [])}
     checkpoint_categories = {str(item) for item in list(policy.get("checkpoint_categories") or [])}
-    requested = _valid_lanes(handoff, policy)
+    all_requested = _valid_lanes(handoff, policy)
+    initial = initial_council if isinstance(initial_council, Mapping) else {}
+    precompleted = _successful_lanes(initial, all_requested)
+    requested = [lane for lane in all_requested if lane not in set(precompleted)]
     previous = previous_state if isinstance(previous_state, Mapping) else {}
 
     if previous:
         previous_head = str(previous.get("source_head") or "")
         if previous_head and source_head and previous_head != source_head:
+            merged = _merge_council_reports(initial, [], all_requested)
             return ({
                 "schema_version": SCHEMA_VERSION,
                 "status": "CONTINUATION_CHECKPOINTED",
                 "source_head": source_head,
                 "stop_reason": "SOURCE_HEAD_CHANGED",
+                "requested_lanes": all_requested,
+                "precompleted_lanes": precompleted,
+                "completed_lanes": precompleted,
                 "remaining_lanes": requested,
                 "rounds_executed": 0,
                 "hard_boundaries": dict(hard),
-            }, {})
+            }, merged)
+        previous_completed = previous.get("completed_lanes") if isinstance(previous.get("completed_lanes"), list) else []
+        precompleted = _bounded_unique(
+            [*precompleted, *previous_completed],
+            limit=max(1, len(all_requested)),
+        )
         remaining = previous.get("remaining_lanes") if isinstance(previous.get("remaining_lanes"), list) else requested
-        requested = _bounded_unique(remaining, limit=max(1, int(policy.get("max_lanes_per_round") or 4)))
+        requested = [
+            lane for lane in _bounded_unique(remaining, limit=max(1, int(policy.get("max_lanes_per_round") or 4)))
+            if lane in set(all_requested) and lane not in set(precompleted)
+        ]
 
     state: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "mission_id": str(handoff.get("mission_id") or "")[:160],
         "source_head": str(source_head or "")[:80],
         "mode": "LOWER_AI_INTERNAL_HANDOFF",
-        "requested_lanes": list(requested),
-        "completed_lanes": [],
+        "requested_lanes": list(all_requested),
+        "precompleted_lanes": list(precompleted),
+        "completed_lanes": list(precompleted),
         "remaining_lanes": list(requested),
         "rounds": [],
         "rounds_executed": 0,
@@ -242,11 +339,21 @@ def run_continuation(
         "final_independent_review": continuation.get("final_independent_review") or "NVIDIA",
     }
     if not requested:
-        state.update(status="CONTINUATION_COMPLETE", next_action="NVIDIA_FINAL_REVIEW", stop_reason="NO_UNRESOLVED_LANES")
-        return state, {}
+        state.update(
+            status="CONTINUATION_COMPLETE",
+            next_action="NVIDIA_FINAL_REVIEW",
+            stop_reason="NO_UNRESOLVED_LANES",
+            lower_ai_provider_calls=0,
+        )
+        return state, _merge_council_reports(initial, [], all_requested)
     if not api_key and round_runner is None:
-        state.update(status="CONTINUATION_CHECKPOINTED", next_action="RESUME_LOWER_AI", stop_reason="OPENROUTER_SECRET_UNAVAILABLE")
-        return state, {}
+        state.update(
+            status="CONTINUATION_CHECKPOINTED",
+            next_action="RESUME_LOWER_AI",
+            stop_reason="OPENROUTER_SECRET_UNAVAILABLE",
+            lower_ai_provider_calls=0,
+        )
+        return state, _merge_council_reports(initial, [], all_requested)
 
     seed = _commander_context(handoff, deepseek_report or {})
     runner = round_runner or _filtered_round_runner(
@@ -256,8 +363,8 @@ def run_continuation(
         context=seed,
     )
     remaining = list(requested)
-    completed: list[str] = []
-    last_report: dict[str, Any] = {}
+    completed = list(precompleted)
+    round_reports: list[dict[str, Any]] = []
 
     for round_index in range(1, max_rounds + 1):
         if not remaining:
@@ -265,10 +372,11 @@ def run_continuation(
         round_context = json.dumps({
             "round": round_index,
             "remaining_lanes": remaining,
+            "completed_lanes": completed,
             "commander": seed,
         }, ensure_ascii=False, sort_keys=True, separators=(",", ":"))[:MAX_CONTEXT_CHARS]
         report = dict(runner(tuple(remaining), round_context))
-        last_report = report
+        round_reports.append(report)
         decision = _round_decision(
             report,
             remaining,
@@ -305,6 +413,7 @@ def run_continuation(
     state["remaining_lanes"] = remaining
     total_calls = sum(int(row.get("provider_model_calls", 0) or 0) for row in state["rounds"])
     state["lower_ai_provider_calls"] = total_calls
+    state["preserved_success_count"] = len(precompleted)
     if not remaining:
         state.update(status="CONTINUATION_COMPLETE", next_action="NVIDIA_FINAL_REVIEW", stop_reason="LOWER_AI_LANES_RESOLVED")
     else:
@@ -313,7 +422,7 @@ def run_continuation(
             next_action="RESUME_LOWER_AI_FROM_REDACTED_STATE",
             stop_reason=state.get("stop_reason") or "ROUND_LIMIT_REACHED",
         )
-    return state, last_report
+    return state, _merge_council_reports(initial, round_reports, all_requested)
 
 
 def _safe_path(raw: str) -> Path:
@@ -330,6 +439,7 @@ def main() -> int:
     parser.add_argument("--probe", default="artifacts/openrouter_expansion_probe.json")
     parser.add_argument("--benchmark", default="artifacts/openrouter_expansion_benchmark.json")
     parser.add_argument("--deepseek-seed", default="artifacts/deepseek_paid_parallel.json")
+    parser.add_argument("--initial-council", default="artifacts/worker_council_initial.json")
     parser.add_argument("--previous-state", default="")
     parser.add_argument("--source-head", default="")
     parser.add_argument("--output", default="artifacts/subordinate_continuation_state.json")
@@ -341,6 +451,7 @@ def main() -> int:
     probe_path = _safe_path(args.probe)
     benchmark_path = _safe_path(args.benchmark)
     deepseek_path = _safe_path(args.deepseek_seed)
+    initial_path = _safe_path(args.initial_council)
     output_path = _safe_path(args.output)
     council_path = _safe_path(args.council_output)
     previous_path = _safe_path(args.previous_state) if args.previous_state else None
@@ -350,6 +461,7 @@ def main() -> int:
     probe = _load(probe_path)
     benchmark = _load(benchmark_path)
     deepseek = _load(deepseek_path, optional=True)
+    initial = _load(initial_path, optional=True)
     previous = _load(previous_path, optional=True) if previous_path else {}
     source_head = str(args.source_head or os.environ.get("GITHUB_SHA") or "")
 
@@ -359,6 +471,7 @@ def main() -> int:
         probe=probe,
         benchmark=benchmark,
         deepseek_report=deepseek,
+        initial_council=initial,
         previous_state=previous,
         source_head=source_head,
         api_key=os.environ.get("OPENROUTER_API_KEY") or "",
@@ -370,6 +483,7 @@ def main() -> int:
     print(json.dumps({
         "status": state.get("status"),
         "rounds_executed": state.get("rounds_executed", 0),
+        "precompleted_lanes": state.get("precompleted_lanes", []),
         "completed_lanes": state.get("completed_lanes", []),
         "remaining_lanes": state.get("remaining_lanes", []),
         "lower_ai_provider_calls": state.get("lower_ai_provider_calls", 0),
