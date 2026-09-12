@@ -1,16 +1,17 @@
 {
-  "schema_version": "longform-video-objectives-v1",
+  "schema_version": "longform-video-objectives-v2",
   "effective_date_jst": "2026-09-12",
   "status": "ENFORCED_STANDARD",
-  "primary_goal": "DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK",
+  "primary_goal": "DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK_AND_MAXIMUM_RESUMABILITY",
   "goal_priority": [
     "FINISHED_ARTIFACT_EXISTS_AND_PLAYS",
     "PRESERVE_APPROVED_SCRIPT_AUDIO_AND_HEALTHY_SCENES",
     "RECOVER_FROM_THE_SMALLEST_FAILED_UNIT",
     "KEEP_AUDIO_SUBTITLE_VIDEO_TIMELINE_ALIGNED",
     "MINIMIZE_REENCODE_NETWORK_AND_AI_WORK",
-    "KEEP_EXTERNAL_PAID_VIDEO_SAAS_USAGE_AT_ZERO",
-    "PRODUCE_TRACEABLE_REPRODUCIBLE_EVIDENCE"
+    "KEEP_EXTERNAL_PAID_OR_FREEMIUM_VIDEO_SAAS_USAGE_AT_ZERO",
+    "PRODUCE_TRACEABLE_REPRODUCIBLE_EVIDENCE",
+    "ALLOW_NEW_CHAT_TABS_OR_AGENT_SESSIONS_TO_RESUME_FROM_REPOSITORY_STATE"
   ],
   "hard_completion_gate": {
     "final_mp4_required": true,
@@ -27,7 +28,8 @@
     "audio_sample_rate_hz": 48000,
     "expected_duration_range_required": true,
     "all_required_scenes_present": true,
-    "subtitle_full_narration_coverage_ratio": 1.0
+    "subtitle_full_narration_coverage_ratio": 1.0,
+    "decode_error_count_target": 0
   },
   "recovery_objectives": {
     "healthy_prior_scene_regeneration_after_later_scene_failure": 0,
@@ -35,8 +37,10 @@
     "full_pipeline_restart_after_isolated_scene_failure": 0,
     "successful_checkpoint_deletion_after_downstream_failure": 0,
     "partial_file_accepted_as_checkpoint": false,
+    "cache_only_entry_accepted_as_durable_checkpoint": false,
     "resume_from_last_compatible_checkpoint": true,
-    "atomic_scene_promotion_required": true
+    "atomic_scene_promotion_required": true,
+    "cross_run_resume_requires_verified_manifest": true
   },
   "asset_objectives": {
     "network_fetch_inside_ffmpeg_render": false,
@@ -44,11 +48,22 @@
     "single_bad_asset_may_fail_whole_video": false,
     "fallback_isolated_to_failed_asset_or_scene": true,
     "rights_or_safety_failure_may_block": true,
-    "cache_by_content_hash_not_url_only": true
+    "cache_by_content_hash_not_url_only": true,
+    "asset_provenance_ledger_required": true
+  },
+  "voice_objectives": {
+    "voice": "VOICEVOX_ZUNDAMON_LOCAL",
+    "preserve_raw_voice_wav": true,
+    "record_speaker_uuid_style_id_and_engine_version": true,
+    "raw_voice_and_normalized_scene_audio_have_distinct_hashes": true,
+    "normalize_scene_audio_to_hz": 48000,
+    "visual_only_edit_raw_voice_regeneration_count": 0
   },
   "timeline_objectives": {
     "audio_duration_source": "FFPROBE_ACTUAL_GENERATED_WAV",
     "duration_inference_from_text_length": false,
+    "subtitle_text_source": "NARRATION_MANIFEST",
+    "subtitle_provider_internal_state_dependency": false,
     "subtitle_timestamps_monotonic": true,
     "negative_subtitle_timestamp_count": 0,
     "unintended_subtitle_overlap_count": 0,
@@ -61,12 +76,21 @@
     "monolithic_longform_encode": false,
     "normalize_before_concat": true,
     "concat_copy_preferred_when_media_contract_matches": true,
+    "concat_manifest_relative_sanitized_paths_only": true,
     "final_reencode_only_when_required": true,
     "intermediate_fast_preset_preferred": true,
     "scene_timeout_required": true,
     "concat_single_writer": true,
     "default_scene_encode_parallelism": 1,
-    "maximum_scene_encode_parallelism_without_benchmark_evidence": 2
+    "maximum_scene_encode_parallelism_without_benchmark_evidence": 2,
+    "proxy_preview_default": false,
+    "proxy_preview_allowed_for_high_complexity_scene": true
+  },
+  "process_hygiene_objectives": {
+    "unbounded_subprocess_count": 0,
+    "subprocess_without_timeout_count": 0,
+    "unclosed_file_handle_known_count": 0,
+    "all_spawned_children_are_waited_or_terminated": true
   },
   "retry_budget": {
     "infinite_retry": false,
@@ -95,7 +119,8 @@
       "video_stream",
       "audio_stream",
       "resolution",
-      "duration_range"
+      "duration_range",
+      "decode_errors"
     ]
   },
   "observability_metrics": [
@@ -113,12 +138,22 @@
     "asset_fallback_count",
     "external_request_count",
     "retry_count_by_root_cause",
-    "final_av_drift_ms"
+    "final_av_drift_ms",
+    "final_decode_error_count",
+    "subprocess_timeout_count",
+    "proxy_preview_count"
   ],
+  "continuity_objectives": {
+    "canonical_handoff_file": "config/current_commander_handoff.json",
+    "new_session_restore_success_ratio": 1.0,
+    "conversation_memory_required_for_resume": false,
+    "repository_state_required_for_resume": true
+  },
   "continuous_improvement": {
     "collect_baseline_before_setting_arbitrary_speed_thresholds": true,
     "regression_fixture_required": true,
     "compare_new_pipeline_against_last_known_good": true,
-    "promote_new_threshold_only_with_measurement_evidence": true
+    "promote_new_threshold_only_with_measurement_evidence": true,
+    "remove_or_downgrade_rules_that_add_cost_without_measured_value": true
   }
 }
