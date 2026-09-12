@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-"""Render the current long-form Zundamon news explainer deterministically.
+"""Single-pass-per-scene long-form Zundamon renderer.
 
-Design goals:
-- 100% narration/subtitle coverage using real VOICEVOX WAV durations.
-- Zundamon is stationary within every scene; expressions change by scene.
-- Main title, chapter heading, subheading, and narration subtitles use distinct
-  size/color hierarchy.
-- No image-generation or generative-video model is used.
+Each scene is encoded once with headings, subtitles, and a stationary Zundamon
+pose already burned in. Finished scene clips are concatenated with stream copy,
+so the whole long-form program is never re-encoded a second time.
 """
 from __future__ import annotations
 
@@ -15,6 +12,7 @@ import json
 import math
 from pathlib import Path
 import re
+import shutil
 import subprocess
 from typing import Any, Mapping
 import urllib.parse
@@ -29,6 +27,7 @@ HEIGHT = 1920
 FPS = 30
 FONT = "Noto Sans CJK JP"
 MAX_DOWNLOAD_BYTES = 40_000_000
+RENDERER_VERSION = "scene-single-pass-v2"
 
 
 def run(cmd: list[str]) -> None:
@@ -57,19 +56,24 @@ def load_mission() -> dict[str, Any]:
     poses = zundamon.get("poses")
     if not isinstance(poses, list) or len(poses) < 4:
         raise ValueError("longform mission requires at least four Zundamon pose URLs")
-    hierarchy = mission.get("text_hierarchy")
-    if not isinstance(hierarchy, Mapping):
+    if not isinstance(mission.get("text_hierarchy"), Mapping):
         raise ValueError("mission requires text_hierarchy configuration")
     return mission
 
 
+def reset_workdirs() -> None:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    for name in ("audio", "images", "poses", "composites", "clips", "scene_ass"):
+        path = OUT_DIR / name
+        if path.exists():
+            shutil.rmtree(path)
+        path.mkdir(parents=True, exist_ok=True)
+    for stale in ("render_report.json", "subtitle_manifest.json", "subtitles.ass", "concat.txt", "joined.mp4"):
+        (OUT_DIR / stale).unlink(missing_ok=True)
+
+
 def http_json(url: str, *, data: bytes | None = None, headers: Mapping[str, str] | None = None) -> Any:
-    request = urllib.request.Request(
-        url,
-        data=data,
-        headers=dict(headers or {}),
-        method="POST" if data is not None else "GET",
-    )
+    request = urllib.request.Request(url, data=data, headers=dict(headers or {}), method="POST" if data is not None else "GET")
     with urllib.request.urlopen(request, timeout=120) as response:  # nosec B310
         return json.loads(response.read(2_000_000).decode("utf-8"))
 
@@ -97,13 +101,8 @@ def synthesize(text: str, speaker_id: int, output: Path) -> None:
     query["volumeScale"] = 1.0
     synth_url = f"{VOICEVOX}/synthesis?" + urllib.parse.urlencode({"speaker": speaker_id})
     payload = json.dumps(query, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(
-        synth_url,
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=180) as response:  # nosec B310
+    request = urllib.request.Request(synth_url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(request, timeout=180) as response:  # nosec B310
         audio = response.read(50_000_000)
     if len(audio) < 1_000:
         raise RuntimeError("VOICEVOX synthesis returned an unexpectedly small WAV")
@@ -111,10 +110,7 @@ def synthesize(text: str, speaker_id: int, output: Path) -> None:
 
 
 def duration(path: Path) -> float:
-    text = capture([
-        "ffprobe", "-v", "error", "-show_entries", "format=duration",
-        "-of", "default=nk=1:nw=1", str(path),
-    ])
+    text = capture(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nk=1:nw=1", str(path)])
     value = float(text)
     if not math.isfinite(value) or value <= 0:
         raise ValueError(f"invalid duration for {path}")
@@ -138,23 +134,32 @@ def _validate_https_url(url: str) -> None:
 
 def download(url: str, output: Path) -> None:
     _validate_https_url(url)
-    request = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "Mozilla/5.0 (compatible; hf-site-agent-longform-news/1.0)",
-            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        },
-    )
-    with urllib.request.urlopen(request, timeout=120) as response:  # nosec B310
-        content_type = str(response.headers.get("Content-Type") or "").lower()
-        data = response.read(MAX_DOWNLOAD_BYTES + 1)
-    if len(data) > MAX_DOWNLOAD_BYTES:
-        raise RuntimeError(f"downloaded visual exceeded size bound: {url}")
-    if len(data) < 2_000:
-        raise RuntimeError(f"downloaded visual too small: {url}")
-    if content_type and not content_type.startswith("image/"):
-        raise RuntimeError(f"visual URL did not return an image: {url} ({content_type})")
-    output.write_bytes(data)
+    last_error: Exception | None = None
+    for attempt in range(2):
+        try:
+            request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; hf-site-agent-longform-news/2.0)", "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"})
+            with urllib.request.urlopen(request, timeout=120) as response:  # nosec B310
+                content_type = str(response.headers.get("Content-Type") or "").lower()
+                data = response.read(MAX_DOWNLOAD_BYTES + 1)
+            if len(data) > MAX_DOWNLOAD_BYTES:
+                raise RuntimeError(f"downloaded visual exceeded size bound: {url}")
+            if len(data) < 2_000:
+                raise RuntimeError(f"downloaded visual too small: {url}")
+            if content_type and not content_type.startswith("image/"):
+                raise RuntimeError(f"visual URL did not return an image: {url} ({content_type})")
+            output.write_bytes(data)
+            return
+        except Exception as exc:
+            last_error = exc
+            if attempt == 0:
+                continue
+    raise RuntimeError(f"visual download failed after two attempts: {url}: {last_error}")
+
+
+def make_visual_fallback(output: Path, url: str) -> None:
+    host = urllib.parse.urlparse(url).hostname or "source-unavailable"
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", host)[:60] or "source"
+    run(["ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c=0x10131a:s={WIDTH}x{HEIGHT}:r=1:d=1", "-vf", f"drawtext=font='{FONT}':text='SOURCE VISUAL UNAVAILABLE':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=h*0.42,drawtext=font='{FONT}':text='{safe}':fontcolor=white:fontsize=34:x=(w-text_w)/2:y=h*0.50", "-frames:v", "1", str(output)])
 
 
 def normalize_text(text: str) -> str:
@@ -207,57 +212,18 @@ def subtitle_chunks(scene: Mapping[str, Any]) -> list[str]:
 def concat_audio(parts: list[Path], output: Path) -> None:
     listing = output.with_suffix(".concat.txt")
     listing.write_text("".join(f"file '{p.as_posix()}'\n" for p in parts), encoding="utf-8")
-    run([
-        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(listing),
-        "-c:a", "pcm_s16le", str(output),
-    ])
+    run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(listing), "-c:a", "pcm_s16le", str(output)])
 
 
 def highlighted_subtitle(text: str, terms: list[str]) -> str:
     value = escape_ass(display_chunk(text))
     for term in sorted({str(t) for t in terms if str(t)}, key=len, reverse=True):
         safe = escape_ass(term)
-        value = value.replace(
-            safe,
-            r"{\c&H004FE8FF&\b1}" + safe + r"{\c&H00FFFFFF&\b1}",
-        )
+        value = value.replace(safe, r"{\c&H004FE8FF&\b1}" + safe + r"{\c&H00FFFFFF&\b1}")
     return value
 
 
-def write_ass(
-    mission: Mapping[str, Any],
-    subtitle_rows: list[dict[str, Any]],
-    scene_times: list[tuple[float, float]],
-    total_end: float,
-) -> Path:
-    title = escape_ass(str(mission.get("title") or mission.get("topic") or "NEWS"))
-    scenes = mission.get("scenes") if isinstance(mission.get("scenes"), list) else []
-    events: list[str] = []
-    events.append(
-        f"Dialogue: 4,0:00:00.00,{ass_time(min(7.0, total_end))},Title,,0,0,0,,{title}"
-    )
-    for index, (start, end) in enumerate(scene_times):
-        scene = scenes[index] if index < len(scenes) and isinstance(scenes[index], Mapping) else {}
-        caption = escape_ass(str(scene.get("caption") or ""))
-        subcaption = escape_ass(str(scene.get("subcaption") or ""))
-        if caption:
-            events.append(
-                f"Dialogue: 3,{ass_time(start)},{ass_time(end)},Chapter,,0,0,0,,{caption}"
-            )
-        if subcaption:
-            events.append(
-                f"Dialogue: 2,{ass_time(start)},{ass_time(end)},Subheading,,0,0,0,,{subcaption}"
-            )
-    for row in subtitle_rows:
-        terms = row.get("highlight_terms") if isinstance(row.get("highlight_terms"), list) else []
-        text = highlighted_subtitle(str(row["display_text"]), [str(x) for x in terms])
-        events.append(
-            f"Dialogue: 1,{ass_time(float(row['start']))},{ass_time(float(row['end']))},Body,,0,0,0,,{text}"
-        )
-    events.append(
-        f"Dialogue: 5,0:00:00.00,{ass_time(total_end + 5.0)},Watermark,,0,0,0,,VOICEVOX:ずんだもん"
-    )
-    ass = """[Script Info]
+ASS_HEADER = """[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
@@ -274,59 +240,66 @@ Style: Watermark,Noto Sans CJK JP,25,&H00FFFFFF,&H000000FF,&H00101010,&H55000000
 
 [Events]
 Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
-""" + "\n".join(events) + "\n"
-    path = OUT_DIR / "subtitles.ass"
-    path.write_text(ass, encoding="utf-8")
+"""
+
+
+def write_scene_ass(mission: Mapping[str, Any], scene: Mapping[str, Any], scene_index: int, scene_duration: float, local_rows: list[dict[str, Any]]) -> Path:
+    events: list[str] = []
+    if scene_index == 1:
+        title = escape_ass(str(mission.get("title") or mission.get("topic") or "NEWS"))
+        events.append(f"Dialogue: 4,0:00:00.00,{ass_time(min(7.0, scene_duration))},Title,,0,0,0,,{title}")
+    caption = escape_ass(str(scene.get("caption") or ""))
+    subcaption = escape_ass(str(scene.get("subcaption") or ""))
+    if caption:
+        events.append(f"Dialogue: 3,0:00:00.00,{ass_time(scene_duration)},Chapter,,0,0,0,,{caption}")
+    if subcaption:
+        events.append(f"Dialogue: 2,0:00:00.00,{ass_time(scene_duration)},Subheading,,0,0,0,,{subcaption}")
+    for row in local_rows:
+        terms = row.get("highlight_terms") if isinstance(row.get("highlight_terms"), list) else []
+        text = highlighted_subtitle(str(row["display_text"]), [str(x) for x in terms])
+        events.append(f"Dialogue: 1,{ass_time(float(row['local_start']))},{ass_time(float(row['local_end']))},Body,,0,0,0,,{text}")
+    events.append(f"Dialogue: 5,0:00:00.00,{ass_time(scene_duration)},Watermark,,0,0,0,,VOICEVOX:ずんだもん")
+    path = OUT_DIR / "scene_ass" / f"scene_{scene_index:02d}.ass"
+    path.write_text(ASS_HEADER + "\n".join(events) + "\n", encoding="utf-8")
     return path
 
 
-def make_scene(image: Path, audio: Path, pose: Path, output: Path) -> float:
-    dur = duration(audio)
-    z_width = 330
-    filter_complex = (
-        f"[0:v]scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,crop={WIDTH}:{HEIGHT},"
-        "boxblur=24:2[bg];"
-        f"[0:v]scale={WIDTH - 70}:{HEIGHT - 330}:force_original_aspect_ratio=decrease[fg];"
-        "[bg][fg]overlay=(W-w)/2:(H-h)/2[base];"
-        f"[2:v]scale={z_width}:-1:flags=neighbor[z];"
-        "[base][z]overlay=x='W-w-38':y='H-h-285':format=auto,format=yuv420p[v]"
-    )
-    run([
-        "ffmpeg", "-y",
-        "-loop", "1", "-framerate", str(FPS), "-i", str(image),
-        "-i", str(audio),
-        "-loop", "1", "-framerate", str(FPS), "-i", str(pose),
-        "-filter_complex", filter_complex,
-        "-map", "[v]", "-map", "1:a:0",
-        "-t", f"{dur:.3f}", "-r", str(FPS),
-        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "21",
-        "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
-        "-movflags", "+faststart", str(output),
-    ])
-    return dur
+def write_global_ass(mission: Mapping[str, Any], subtitle_rows: list[dict[str, Any]], scene_times: list[tuple[float, float]]) -> None:
+    scenes = mission.get("scenes") if isinstance(mission.get("scenes"), list) else []
+    events: list[str] = []
+    total_end = scene_times[-1][1] if scene_times else 0.0
+    title = escape_ass(str(mission.get("title") or mission.get("topic") or "NEWS"))
+    events.append(f"Dialogue: 4,0:00:00.00,{ass_time(min(7.0, total_end))},Title,,0,0,0,,{title}")
+    for index, (start, end) in enumerate(scene_times):
+        scene = scenes[index] if index < len(scenes) and isinstance(scenes[index], Mapping) else {}
+        caption = escape_ass(str(scene.get("caption") or ""))
+        subcaption = escape_ass(str(scene.get("subcaption") or ""))
+        if caption:
+            events.append(f"Dialogue: 3,{ass_time(start)},{ass_time(end)},Chapter,,0,0,0,,{caption}")
+        if subcaption:
+            events.append(f"Dialogue: 2,{ass_time(start)},{ass_time(end)},Subheading,,0,0,0,,{subcaption}")
+    for row in subtitle_rows:
+        terms = row.get("highlight_terms") if isinstance(row.get("highlight_terms"), list) else []
+        text = highlighted_subtitle(str(row["display_text"]), [str(x) for x in terms])
+        events.append(f"Dialogue: 1,{ass_time(float(row['start']))},{ass_time(float(row['end']))},Body,,0,0,0,,{text}")
+    events.append(f"Dialogue: 5,0:00:00.00,{ass_time(total_end)},Watermark,,0,0,0,,VOICEVOX:ずんだもん")
+    (OUT_DIR / "subtitles.ass").write_text(ASS_HEADER + "\n".join(events) + "\n", encoding="utf-8")
+
+
+def compose_scene_still(image: Path, pose: Path, output: Path) -> None:
+    filter_complex = (f"[0:v]scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,crop={WIDTH}:{HEIGHT},boxblur=20:2[bg];" f"[0:v]scale={WIDTH - 70}:{HEIGHT - 330}:force_original_aspect_ratio=decrease[fg];" "[bg][fg]overlay=(W-w)/2:(H-h)/2[base];" "[1:v]scale=330:-1:flags=lanczos,format=rgba[z];" "[base][z]overlay=x=W-w-38:y=H-h-285:format=auto,format=yuv420p[v]")
+    run(["ffmpeg", "-y", "-i", str(image), "-i", str(pose), "-filter_complex", filter_complex, "-map", "[v]", "-frames:v", "1", str(output)])
+
+
+def render_scene(composite: Path, audio: Path, ass_path: Path, output: Path, scene_duration: float) -> None:
+    run(["ffmpeg", "-y", "-loop", "1", "-framerate", str(FPS), "-i", str(composite), "-i", str(audio), "-vf", f"ass={ass_path.as_posix()}", "-map", "0:v:0", "-map", "1:a:0", "-t", f"{scene_duration:.3f}", "-r", str(FPS), "-c:v", "libx264", "-preset", "superfast", "-crf", "21", "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1", "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2", "-movflags", "+faststart", str(output)])
 
 
 def make_credit_clip(output: Path, mission: Mapping[str, Any], seconds: float = 5.0) -> None:
     primary_host = urllib.parse.urlparse(str(mission.get("primary_source") or "")).hostname or "OpenAI"
-    safe_host = primary_host.replace(":", "")
-    run([
-        "ffmpeg", "-y",
-        "-f", "lavfi", "-i", f"color=c=0x10131a:s={WIDTH}x{HEIGHT}:r={FPS}:d={seconds}",
-        "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
-        "-t", str(seconds),
-        "-vf", (
-            f"drawtext=font='{FONT}':text='VOICEVOX\\:ずんだもん':fontcolor=white:fontsize=54:"
-            "x=(w-text_w)/2:y=h*0.33,"
-            "drawtext=font='Noto Sans CJK JP':text='立ち絵\\: 東北ずん子・ずんだもんPJ公式':fontcolor=white:fontsize=38:"
-            "x=(w-text_w)/2:y=h*0.43,"
-            "drawtext=font='Noto Sans CJK JP':text='画像\\: Web出典はcredits.txtに記録':fontcolor=white:fontsize=36:"
-            "x=(w-text_w)/2:y=h*0.51,"
-            f"drawtext=font='Noto Sans CJK JP':text='一次情報\\: {safe_host}':fontcolor=white:fontsize=34:"
-            "x=(w-text_w)/2:y=h*0.59"
-        ),
-        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "21", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2", "-shortest", str(output),
-    ])
+    safe_host = re.sub(r"[^A-Za-z0-9._-]+", "_", primary_host)[:60] or "OpenAI"
+    vf = (f"drawtext=font='{FONT}':text='VOICEVOX\\:ずんだもん':fontcolor=white:fontsize=54:x=(w-text_w)/2:y=h*0.33," f"drawtext=font='{FONT}':text='Zundamon official project art':fontcolor=white:fontsize=38:x=(w-text_w)/2:y=h*0.43," f"drawtext=font='{FONT}':text='Visual sources are recorded in credits.txt':fontcolor=white:fontsize=32:x=(w-text_w)/2:y=h*0.51," f"drawtext=font='{FONT}':text='Primary source\\: {safe_host}':fontcolor=white:fontsize=34:x=(w-text_w)/2:y=h*0.59")
+    run(["ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c=0x10131a:s={WIDTH}x{HEIGHT}:r={FPS}:d={seconds}", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", str(seconds), "-vf", vf, "-r", str(FPS), "-c:v", "libx264", "-preset", "superfast", "-crf", "21", "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1", "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2", "-shortest", str(output)])
 
 
 def safe_output_name(value: Any) -> str:
@@ -341,28 +314,16 @@ def write_text_outputs(mission: Mapping[str, Any]) -> None:
     transcript = "\n\n".join(str(row.get("text") or "") for row in scenes if isinstance(row, Mapping))
     (OUT_DIR / "transcript.txt").write_text(transcript + "\n", encoding="utf-8")
     credits = mission.get("credits") if isinstance(mission.get("credits"), list) else []
-    lines = [
-        "Audio: VOICEVOX:ずんだもん",
-        "Zundamon art: 東北ずん子・ずんだもんPJ公式",
-        "",
-        "Primary source:",
-        str(mission.get("primary_source") or ""),
-        "",
-        "Visual sources:",
-    ]
+    lines = ["Audio: VOICEVOX:ずんだもん", "Zundamon art: 東北ずん子・ずんだもんPJ公式", "", "Primary source:", str(mission.get("primary_source") or ""), "", "Visual sources:"]
     for row in credits:
         if isinstance(row, Mapping):
-            lines.append(
-                f"- {row.get('title')}: {row.get('usage_note') or row.get('license') or 'source recorded'} — {row.get('url')}"
-            )
+            lines.append(f"- {row.get('title')}: {row.get('usage_note') or row.get('license') or 'source recorded'} — {row.get('url')}")
     (OUT_DIR / "credits.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def main() -> int:
     mission = load_mission()
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    for name in ("audio", "images", "poses", "clips"):
-        (OUT_DIR / name).mkdir(exist_ok=True)
+    reset_workdirs()
     write_text_outputs(mission)
 
     pose_urls = [str(url).strip() for url in mission["zundamon"]["poses"]]
@@ -380,6 +341,7 @@ def main() -> int:
     cursor = 0.0
     spoken_normalized = ""
     subtitle_normalized = ""
+    fallback_visuals = 0
 
     for scene_index, raw in enumerate(scenes, start=1):
         if not isinstance(raw, Mapping):
@@ -392,9 +354,13 @@ def main() -> int:
         highlight_terms = raw.get("highlight_terms") if isinstance(raw.get("highlight_terms"), list) else []
 
         image_path = OUT_DIR / "images" / f"scene_{scene_index:02d}.img"
-        scene_audio = OUT_DIR / "audio" / f"scene_{scene_index:02d}.wav"
-        clip_path = OUT_DIR / "clips" / f"scene_{scene_index:02d}.mp4"
-        download(image_url, image_path)
+        try:
+            download(image_url, image_path)
+        except Exception as exc:
+            fallback_visuals += 1
+            image_path = OUT_DIR / "images" / f"scene_{scene_index:02d}_fallback.png"
+            print(f"WARNING: scene {scene_index} visual fallback: {exc}", flush=True)
+            make_visual_fallback(image_path, image_url)
 
         part_paths: list[Path] = []
         part_durations: list[float] = []
@@ -406,102 +372,62 @@ def main() -> int:
             part_durations.append(duration(part_path))
             spoken_normalized += spoken
             subtitle_normalized += normalize_text(chunk)
+
+        scene_audio = OUT_DIR / "audio" / f"scene_{scene_index:02d}.wav"
         concat_audio(part_paths, scene_audio)
-
-        local_cursor = cursor
-        for part_index, (chunk, part_duration) in enumerate(zip(chunks, part_durations, strict=True), start=1):
-            subtitle_rows.append({
-                "scene": scene_index,
-                "part": part_index,
-                "start": round(local_cursor, 3),
-                "end": round(local_cursor + part_duration, 3),
-                "spoken_text": normalize_text(chunk),
-                "display_text": chunk,
-                "highlight_terms": [str(x) for x in highlight_terms],
-            })
-            local_cursor += part_duration
-
-        pose = pose_paths[(scene_index - 1) % len(pose_paths)]
-        scene_duration = make_scene(image_path, scene_audio, pose, clip_path)
+        scene_duration = duration(scene_audio)
         expected_duration = sum(part_durations)
         if abs(scene_duration - expected_duration) > 0.40:
-            raise RuntimeError(
-                f"scene audio concat drift too large: scene={scene_index} actual={scene_duration} expected={expected_duration}"
-            )
-        if subtitle_rows:
+            raise RuntimeError(f"scene audio concat drift too large: scene={scene_index} actual={scene_duration} expected={expected_duration}")
+
+        local_rows: list[dict[str, Any]] = []
+        local_cursor = 0.0
+        for part_index, (chunk, part_duration) in enumerate(zip(chunks, part_durations, strict=True), start=1):
+            local_end = local_cursor + part_duration
+            row = {"scene": scene_index, "part": part_index, "start": round(cursor + local_cursor, 3), "end": round(cursor + local_end, 3), "local_start": round(local_cursor, 3), "local_end": round(local_end, 3), "spoken_text": normalize_text(chunk), "display_text": chunk, "highlight_terms": [str(x) for x in highlight_terms]}
+            local_rows.append(row)
+            subtitle_rows.append(row)
+            local_cursor = local_end
+        if local_rows:
+            local_rows[-1]["local_end"] = round(scene_duration, 3)
             subtitle_rows[-1]["end"] = round(cursor + scene_duration, 3)
+
+        pose = pose_paths[(scene_index - 1) % len(pose_paths)]
+        composite = OUT_DIR / "composites" / f"scene_{scene_index:02d}.png"
+        compose_scene_still(image_path, pose, composite)
+        ass_path = write_scene_ass(mission, raw, scene_index, scene_duration, local_rows)
+        clip_path = OUT_DIR / "clips" / f"scene_{scene_index:02d}.mp4"
+        render_scene(composite, scene_audio, ass_path, clip_path, scene_duration)
         scene_times.append((cursor, cursor + scene_duration))
         cursor += scene_duration
         clip_paths.append(clip_path)
+        print(json.dumps({"scene": scene_index, "duration": round(scene_duration, 3), "renderer": RENDERER_VERSION, "fallback_visuals": fallback_visuals}, ensure_ascii=False), flush=True)
 
-    expected_spoken = "".join(
-        normalize_text(str(row.get("text") or "")) for row in scenes if isinstance(row, Mapping)
-    )
+    expected_spoken = "".join(normalize_text(str(row.get("text") or "")) for row in scenes if isinstance(row, Mapping))
     if spoken_normalized != expected_spoken or subtitle_normalized != expected_spoken:
         raise RuntimeError("full narration/subtitle coverage check failed")
 
+    write_global_ass(mission, subtitle_rows, scene_times)
     credit_clip = OUT_DIR / "clips" / "credits.mp4"
     make_credit_clip(credit_clip, mission, 5.0)
     clip_paths.append(credit_clip)
 
     concat_file = OUT_DIR / "concat.txt"
     concat_file.write_text("".join(f"file '{path.as_posix()}'\n" for path in clip_paths), encoding="utf-8")
-    joined = OUT_DIR / "joined.mp4"
-    run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_file), "-c", "copy", str(joined)])
-
-    ass_path = write_ass(mission, subtitle_rows, scene_times, cursor)
     output_name = safe_output_name(mission.get("output_file"))
     final_path = OUT_DIR / output_name
-    run([
-        "ffmpeg", "-y", "-i", str(joined),
-        "-vf", f"ass={ass_path.as_posix()}",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-        "-c:a", "copy", "-movflags", "+faststart", str(final_path),
-    ])
+    run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_file), "-c", "copy", "-movflags", "+faststart", str(final_path)])
 
     total_duration = duration(final_path)
     if not (240.0 <= total_duration <= 600.0):
         raise RuntimeError(f"unexpected longform duration: {total_duration}")
 
-    subtitle_manifest = {
-        "schema_version": "news-video-subtitles-v2",
-        "coverage": 1.0,
-        "spoken_normalized_characters": len(expected_spoken),
-        "chunks": subtitle_rows,
-    }
-    (OUT_DIR / "subtitle_manifest.json").write_text(
-        json.dumps(subtitle_manifest, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    subtitle_manifest = {"schema_version": "news-video-subtitles-v3", "coverage": 1.0, "spoken_normalized_characters": len(expected_spoken), "chunks": subtitle_rows}
+    (OUT_DIR / "subtitle_manifest.json").write_text(json.dumps(subtitle_manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    report = {
-        "status": "RENDERED",
-        "file": final_path.name,
-        "duration_seconds": round(total_duration, 3),
-        "resolution": f"{WIDTH}x{HEIGHT}",
-        "fps": FPS,
-        "voice": "VOICEVOX:ずんだもん",
-        "image_generation_used": False,
-        "video_generation_used": False,
-        "scene_count": len(scenes),
-        "subtitle_chunk_count": len(subtitle_rows),
-        "subtitle_coverage": 1.0,
-        "speaker_id": speaker_id,
-        "zundamon_overlay": True,
-        "zundamon_motion": False,
-        "zundamon_stationary": True,
-        "zundamon_pose_count": len(pose_paths),
-        "text_hierarchy": True,
-        "title_style": "green-large",
-        "chapter_style": "yellow-large",
-        "subheading_style": "cyan-medium",
-        "subtitle_style": "white-with-keyword-highlights",
-    }
-    (OUT_DIR / "render_report.json").write_text(
-        json.dumps(report, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    print(json.dumps(report, ensure_ascii=False))
+    report = {"status": "RENDERED", "renderer_version": RENDERER_VERSION, "file": final_path.name, "duration_seconds": round(total_duration, 3), "resolution": f"{WIDTH}x{HEIGHT}", "fps": FPS, "voice": "VOICEVOX:ずんだもん", "image_generation_used": False, "video_generation_used": False, "scene_count": len(scenes), "subtitle_chunk_count": len(subtitle_rows), "subtitle_coverage": 1.0, "speaker_id": speaker_id, "zundamon_overlay": True, "zundamon_motion": False, "zundamon_stationary": True, "zundamon_pose_count": len(pose_paths), "text_hierarchy": True, "title_style": "green-large", "chapter_style": "yellow-large", "subheading_style": "cyan-medium", "subtitle_style": "white-with-keyword-highlights", "full_video_second_encode": False, "scene_single_pass_encode": True, "visual_fallback_count": fallback_visuals}
+    (OUT_DIR / "render_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(report, ensure_ascii=False), flush=True)
     return 0
 
 
