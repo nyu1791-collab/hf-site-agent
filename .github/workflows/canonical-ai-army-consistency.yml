@@ -12,9 +12,11 @@ on:
       - 'config/current_commander_handoff.json'
       - 'config/permanent_standards_manifest.json'
       - 'config/legacy_deepseek_compatibility.json'
+      - 'config/ci_execution_policy.json'
       - 'config/model_registry.json'
       - 'scripts/ai_army_routing_facade.py'
       - 'scripts/validate_permanent_ai_army_state.py'
+      - 'scripts/ci_control_plane_guard.py'
       - 'scripts/agent_architecture_admission.py'
       - 'scripts/commander_routing.py'
       - 'scripts/deepseek_supervisor_research.py'
@@ -23,6 +25,7 @@ on:
       - 'tests/test_ai_army_routing_facade.py'
       - '.github/workflows/deepseek-*.yml'
       - '.github/workflows/canonical-ai-army-consistency.yml'
+      - '.github/workflows/verify-hierarchical-runtime.yml'
   workflow_dispatch:
 
 permissions:
@@ -49,6 +52,7 @@ jobs:
           python -m py_compile \
             scripts/ai_army_routing_facade.py \
             scripts/validate_permanent_ai_army_state.py \
+            scripts/ci_control_plane_guard.py \
             scripts/agent_architecture_admission.py \
             scripts/deepseek_supervisor_research.py
 
@@ -62,11 +66,17 @@ jobs:
           python -m json.tool config/current_commander_handoff.json >/dev/null
           python -m json.tool config/permanent_standards_manifest.json >/dev/null
           python -m json.tool config/legacy_deepseek_compatibility.json >/dev/null
+          python -m json.tool config/ci_execution_policy.json >/dev/null
 
       - name: Run permanent organization consistency validator
         run: |
           set -euo pipefail
           python scripts/validate_permanent_ai_army_state.py
+
+      - name: Enforce bounded CI control plane
+        run: |
+          set -euo pipefail
+          python scripts/ci_control_plane_guard.py
 
       - name: Run routing facade regression tests
         run: |
