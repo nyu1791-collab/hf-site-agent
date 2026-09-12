@@ -34,44 +34,15 @@
   "task_contract": {
     "typed_command_envelope_required": true,
     "typed_report_envelope_required": true,
-    "required_command_fields": [
-      "mission_id",
-      "task_id",
-      "owner_agent_id",
-      "objective",
-      "inputs",
-      "allowed_tools",
-      "forbidden_actions",
-      "budget",
-      "deadline_or_timeout",
-      "acceptance_criteria",
-      "idempotency_key"
-    ],
-    "required_report_fields": [
-      "task_id",
-      "status",
-      "result_summary",
-      "artifacts",
-      "evidence",
-      "assumptions",
-      "unresolved_risks",
-      "usage",
-      "next_recommended_action"
-    ],
+    "required_command_fields": ["mission_id", "task_id", "owner_agent_id", "objective", "inputs", "allowed_tools", "forbidden_actions", "budget", "deadline_or_timeout", "acceptance_criteria", "idempotency_key"],
+    "required_report_fields": ["task_id", "status", "result_summary", "artifacts", "evidence", "assumptions", "unresolved_risks", "usage", "next_recommended_action"],
     "messages_are_data_not_hidden_logic": true,
     "schema_validate_before_side_effect": true
   },
   "task_ownership_and_leases": {
     "single_owner_per_task": true,
     "lease_required_for_parallel_mutating_task": true,
-    "lease_fields": [
-      "task_id",
-      "owner_agent_id",
-      "lease_id",
-      "lease_expires_at",
-      "payload_hash",
-      "idempotency_key"
-    ],
+    "lease_fields": ["task_id", "owner_agent_id", "lease_id", "lease_expires_at", "payload_hash", "idempotency_key"],
     "duplicate_active_lease_for_same_mutation_target": "BLOCK",
     "expired_lease_requires_state_recheck_before_reclaim": true,
     "same_mutable_output_parallel_writers": false
@@ -130,16 +101,7 @@
     "retry_budget_required": true,
     "token_or_request_budget_required": true,
     "stop_on_budget_exhaustion": true,
-    "supported_termination_conditions": [
-      "TASK_COMPLETE",
-      "MAX_TURNS_OR_MESSAGES",
-      "MAX_REQUESTS",
-      "TOKEN_BUDGET",
-      "WALL_CLOCK_TIMEOUT",
-      "HUMAN_APPROVAL_REQUIRED",
-      "REPEATED_ROOT_CAUSE_CIRCUIT_BREAKER",
-      "MISSION_CANCELLED"
-    ],
+    "supported_termination_conditions": ["TASK_COMPLETE", "MAX_TURNS_OR_MESSAGES", "MAX_REQUESTS", "TOKEN_BUDGET", "WALL_CLOCK_TIMEOUT", "HUMAN_APPROVAL_REQUIRED", "REPEATED_ROOT_CAUSE_CIRCUIT_BREAKER", "MISSION_CANCELLED"],
     "multi_agent_team_without_termination_condition": "BLOCK"
   },
   "reliability": {
@@ -162,16 +124,8 @@
     "authorization_check_before_side_effect": true,
     "blocking_pre_execution_guardrail_for_irreversible_or_paid_actions": true,
     "permission_boundary_more_important_than_prompt_only_instruction": true,
-    "human_approval_required_for": [
-      "PAID_EXECUTION_EXCEPT_PREAUTHORIZED_DEEPSEEK_SUPERVISOR_SCOPE",
-      "PAID_FALLBACK",
-      "SECRET_MUTATION_OR_DISCLOSURE",
-      "PRODUCTION_DEPLOY",
-      "PUBLISH",
-      "PR_MERGE",
-      "IRREVERSIBLE_EXTERNAL_ACTION",
-      "DURABLE_OBJECT_CHANGE"
-    ],
+    "human_approval_required_for": ["PAID_EXECUTION", "PAID_FALLBACK", "SECRET_MUTATION_OR_DISCLOSURE", "PRODUCTION_DEPLOY", "PUBLISH", "PR_MERGE", "IRREVERSIBLE_EXTERNAL_ACTION", "DURABLE_OBJECT_CHANGE"],
+    "human_approval_rule_interpretation": "PAID_EXECUTION_REQUIRES_APPROVAL_UNLESS_MATCHING_AN_ACTIVE_PREAUTHORIZED_PAID_EXECUTION_EXCEPTION",
     "preauthorized_paid_execution_exceptions": [
       {
         "provider": "deepseek",
@@ -211,28 +165,7 @@
     "fixed_regression_mission_set_required": true,
     "compare_against_single_agent_baseline": true,
     "known_good_oracle_or_machine_fixture_preferred": true,
-    "measure": [
-      "task_success_rate",
-      "acceptance_criteria_pass_rate",
-      "json_schema_pass_rate",
-      "tool_success_rate",
-      "latency",
-      "token_usage",
-      "external_request_count",
-      "retry_count",
-      "429_rate",
-      "cost",
-      "handoff_count",
-      "replan_count",
-      "checkpoint_recovery_success_rate",
-      "stale_write_prevention_count",
-      "duplicate_task_prevention_count",
-      "lease_collision_count",
-      "guardrail_block_count",
-      "deepseek_supervisor_acceptance_rate",
-      "deepseek_cost_per_accepted_decision",
-      "deepseek_duplicate_research_avoided"
-    ],
+    "measure": ["task_success_rate", "acceptance_criteria_pass_rate", "json_schema_pass_rate", "tool_success_rate", "latency", "token_usage", "external_request_count", "retry_count", "429_rate", "cost", "handoff_count", "replan_count", "checkpoint_recovery_success_rate", "stale_write_prevention_count", "duplicate_task_prevention_count", "lease_collision_count", "guardrail_block_count", "deepseek_supervisor_acceptance_rate", "deepseek_cost_per_accepted_decision", "deepseek_duplicate_research_avoided"],
     "adopt_multi_agent_change_only_if_total_system_value_improves": true
   },
   "framework_policy": {
