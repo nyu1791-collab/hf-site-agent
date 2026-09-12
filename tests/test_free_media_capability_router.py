@@ -37,19 +37,26 @@ class FreeMediaCapabilityRouterTests(unittest.TestCase):
 
     def test_independent_fact_check_prefers_different_provider_when_available(self):
         cfg = load_config()
-        # Add fact-check capability to Google in this test so the router has a
-        # genuine independent alternative to a Qwen producer.
-        cfg["candidates"]["GOOGLE_GEMINI_FREE_MULTIMODAL"]["capabilities"] += [
+        # Resolve the current Google candidate by capability/provider instead of
+        # pinning a display ID that can legitimately change as models rotate.
+        google_candidate_id = next(
+            candidate_id
+            for candidate_id, candidate in cfg["candidates"].items()
+            if candidate.get("provider") == "google"
+        )
+        google = cfg["candidates"][google_candidate_id]
+        google["capabilities"] = list(google.get("capabilities") or []) + [
             "citation_review", "claim_verification", "counterargument", "reasoning"
         ]
-        cfg["candidates"]["GOOGLE_GEMINI_FREE_MULTIMODAL"]["work_types"] += ["FACT_CHECK"]
+        google["work_types"] = list(google.get("work_types") or []) + ["FACT_CHECK"]
         evidence = {
             "QWEN_TEXT_FREE_RUNTIME": ready(),
-            "GOOGLE_GEMINI_FREE_MULTIMODAL": ready(),
+            google_candidate_id: ready(),
         }
         plan = build_capability_plan(evidence, work_types=["SCRIPT_DRAFT", "FACT_CHECK"], config=cfg)
         self.assertEqual(plan["assignments"]["SCRIPT_DRAFT"]["candidate_id"], "QWEN_TEXT_FREE_RUNTIME")
         self.assertEqual(plan["assignments"]["FACT_CHECK"]["provider"], "google")
+        self.assertEqual(plan["assignments"]["FACT_CHECK"]["candidate_id"], google_candidate_id)
 
     def test_unverified_free_route_never_executes(self):
         evidence = {
