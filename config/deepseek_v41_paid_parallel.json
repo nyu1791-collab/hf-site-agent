@@ -17,7 +17,7 @@
   "budget": {
     "max_calls": 2,
     "max_parallel_calls": 2,
-    "max_estimated_cost_usd": 0.05,
+    "max_estimated_cost_usd": 0.5,
     "max_output_tokens_per_call": 8192,
     "stop_before_estimated_budget_exceeded": true
   },
