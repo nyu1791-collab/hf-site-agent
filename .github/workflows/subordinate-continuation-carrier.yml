@@ -39,11 +39,13 @@ jobs:
           mkdir -p artifacts
           python -m py_compile \
             scripts/subordinate_continuation_carrier.py \
+            scripts/subordinate_continuation_carrier_v2.py \
             scripts/failure_aware_specialist_retry.py \
             scripts/failure_aware_specialist_council.py \
             scripts/organization_coordination.py \
             scripts/deepseek_paid_parallel.py \
             scripts/deepseek_v41_paid_parallel.py \
+            scripts/staging_parallel_scheduler.py \
             scripts/run_nvidia_worker_expansion_self_heal.py \
             scripts/run_nvidia_google_staging_focused.py
           python -m json.tool config/subordinate_continuation_policy.json >/dev/null
@@ -51,6 +53,8 @@ jobs:
           python -m json.tool config/deepseek_v41_paid_parallel.json >/dev/null
           python -m unittest \
             tests.test_subordinate_continuation_carrier \
+            tests.test_subordinate_continuation_carrier_v2 \
+            tests.test_staging_parallel_scheduler \
             tests.test_deepseek_v41_policy_alignment -v
           python - <<'PY'
           import json
@@ -122,7 +126,7 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           set -euo pipefail
-          python scripts/subordinate_continuation_carrier.py \
+          python scripts/subordinate_continuation_carrier_v2.py \
             --handoff config/current_commander_handoff.json \
             --policy config/subordinate_continuation_policy.json \
             --probe artifacts/openrouter_expansion_probe.json \
@@ -222,10 +226,14 @@ jobs:
           import json
           from pathlib import Path
           state = json.loads(Path('artifacts/subordinate_continuation_state.json').read_text())
+          council = json.loads(Path('artifacts/worker_council.json').read_text())
           hard = state.get('hard_boundaries') or {}
           assert state.get('deepseek_repeat_paid_calls') == 0
           assert state.get('duplicate_replay_on_uncertain_usage') is False
           assert float(state.get('max_paid_cost_usd_per_execution', 0)) <= 0.10
+          assert council.get('schema_version') == 'failure-aware-specialist-council-v8'
+          assert council.get('length_exhaustion_policy') == 'EXPLICIT_LENGTH_STOP_ONLY'
+          assert council.get('empty_visible_content_is_length_exhaustion') is False
           for key in ('repository_write','merge','deploy','publish','secret_readback','secret_mutation','auto_top_up','generic_paid_fallback','production_active'):
               assert hard.get(key) is False
           PY
