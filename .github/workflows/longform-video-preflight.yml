@@ -7,6 +7,7 @@ on:
     paths:
       - scripts/longform_video_preflight.py
       - config/longform_video_reliability_policy.json
+      - config/longform_video_objectives.json
       - missions/news-video-pilot.json
       - .github/workflows/longform-video-preflight.yml
   workflow_dispatch:
@@ -40,12 +41,49 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
 
-      - name: Compile and validate policy
+      - name: Compile and validate policy and objectives
         run: |
           set -euo pipefail
           python -m py_compile scripts/longform_video_preflight.py
           python -m json.tool config/longform_video_reliability_policy.json >/dev/null
+          python -m json.tool config/longform_video_objectives.json >/dev/null
           python -m json.tool missions/news-video-pilot.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          o=json.loads(Path('config/longform_video_objectives.json').read_text(encoding='utf-8'))
+          assert o['status'] == 'ENFORCED_STANDARD'
+          assert o['primary_goal'] == 'DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK'
+          gate=o['hard_completion_gate']
+          assert gate['final_mp4_required'] is True
+          assert gate['ffprobe_parse_required'] is True
+          assert gate['required_video_streams'] == 1
+          assert gate['required_audio_streams'] == 1
+          assert gate['width'] == 1080 and gate['height'] == 1920
+          assert gate['subtitle_full_narration_coverage_ratio'] == 1.0
+          recovery=o['recovery_objectives']
+          assert recovery['healthy_prior_scene_regeneration_after_later_scene_failure'] == 0
+          assert recovery['successful_checkpoint_deletion_after_downstream_failure'] == 0
+          assert recovery['resume_from_last_compatible_checkpoint'] is True
+          asset=o['asset_objectives']
+          assert asset['network_fetch_inside_ffmpeg_render'] is False
+          assert asset['single_bad_asset_may_fail_whole_video'] is False
+          cost=o['cost_and_route_objectives']
+          for k in (
+              'paid_video_saas_execution_count',
+              'video_saas_free_credit_execution_count',
+              'auto_top_up_count',
+              'paid_fallback_count',
+              'paid_sibling_substitution_count',
+              'unknown_cost_route_execution_count',
+          ):
+              assert cost[k] == 0, (k, cost[k])
+          retry=o['retry_budget']
+          assert retry['infinite_retry'] is False
+          assert retry['same_method_extra_retries_max'] <= 1
+          assert retry['total_attempts_per_scene_max'] <= 3
+          print('LONGFORM_OBJECTIVES=PASS')
+          PY
 
       - name: Run static preflight only
         run: |
