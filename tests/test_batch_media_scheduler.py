@@ -8,7 +8,7 @@ import time
 import unittest
 from pathlib import Path
 
-from scripts.batch_media_scheduler import BatchPolicy, FileLeaseManager, LeaseBusyError, MediaJob, MediaJobFailure, ResourceVector, StaleWriteError, admit_wave, atomic_compare_and_swap_json, effective_parallelism, file_sha256_or_empty, run_batch
+from scripts.batch_media_scheduler import BatchPolicy, FileLeaseManager, LeaseBusyError, MediaJob, MediaJobFailure, ResourceVector, StaleWriteError, admit_wave, atomic_compare_and_swap_json, effective_parallelism, file_sha256_or_empty, run_batch, run_batch_with_leases
 
 
 def job(n: int, *, rights: bool = True, demand: ResourceVector | None = None) -> MediaJob:
@@ -104,6 +104,51 @@ class BatchMediaSchedulerTests(unittest.TestCase):
             self.assertFalse(mgr.release("job-1", "wrong-token"))
             self.assertTrue(mgr.release("job-1", token))
             self.assertTrue(mgr.acquire("job-1", "runner-b"))
+
+    def test_mutating_path_acquires_and_releases_lease(self):
+        with tempfile.TemporaryDirectory() as td:
+            mgr = FileLeaseManager(Path(td), ttl_seconds=60)
+            seen_lease = []
+
+            def handler(j: MediaJob):
+                seen_lease.append(mgr._path(j.job_id).exists())
+                return "ok"
+
+            out = run_batch_with_leases([job(1)], handler, lease_manager=mgr, policy=self.policy, capacity=self.capacity)
+            self.assertEqual(out[0].status, "READY")
+            self.assertEqual(seen_lease, [True])
+            self.assertFalse(mgr._path("job-1").exists())
+            token = mgr.acquire("job-1", "after-success")
+            self.assertTrue(mgr.release("job-1", token))
+
+    def test_mutating_path_releases_lease_after_handler_failure(self):
+        with tempfile.TemporaryDirectory() as td:
+            mgr = FileLeaseManager(Path(td), ttl_seconds=60)
+
+            def handler(_: MediaJob):
+                raise MediaJobFailure("DETERMINISTIC_MEDIA", "bad media")
+
+            out = run_batch_with_leases([job(1)], handler, lease_manager=mgr, policy=self.policy, capacity=self.capacity)
+            self.assertEqual(out[0].status, "FAILED")
+            self.assertEqual(out[0].failure_class, "DETERMINISTIC_MEDIA")
+            self.assertFalse(mgr._path("job-1").exists())
+
+    def test_mutating_path_blocks_when_external_lease_is_held(self):
+        with tempfile.TemporaryDirectory() as td:
+            mgr = FileLeaseManager(Path(td), ttl_seconds=60)
+            token = mgr.acquire("job-1", "external-owner")
+            calls = 0
+
+            def handler(_: MediaJob):
+                nonlocal calls
+                calls += 1
+                return "should-not-run"
+
+            out = run_batch_with_leases([job(1)], handler, lease_manager=mgr, policy=self.policy, capacity=self.capacity)
+            self.assertEqual(out[0].status, "FAILED")
+            self.assertEqual(out[0].failure_class, "STALE_WRITE")
+            self.assertEqual(calls, 0)
+            self.assertTrue(mgr.release("job-1", token))
 
     def test_compare_and_swap_rejects_stale_manifest(self):
         with tempfile.TemporaryDirectory() as td:
