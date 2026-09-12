@@ -1,5 +1,5 @@
 {
-  "schema_version": "ai-army-org-chart-v1",
+  "schema_version": "ai-army-org-chart-v2",
   "effective_date_jst": "2026-09-12",
   "status": "CANONICAL",
   "design_goal": "Maximize verified task success, speed, recovery and useful research per unit cost while minimizing coordination overhead and error propagation.",
@@ -36,7 +36,11 @@
     "default": "SINGLE_AGENT_OR_DETERMINISTIC_TOOL",
     "use_deepseek_supervisor_when": ["BROAD_RESEARCH", "HIGH_UNCERTAINTY", "MULTIPLE_EVIDENCE_SOURCES", "ARCHITECTURE_CHOICE", "FAILURE_DIAGNOSIS", "RED_TEAM", "STRATEGIC_SYNTHESIS"],
     "add_depth_2_worker_when": ["INDEPENDENT_PARALLEL_WORK", "DISTINCT_SPECIALIST_DOMAIN", "TARGETED_IMPLEMENTATION_BENEFITS_FROM_SPECIALIST", "INDEPENDENT_VERIFICATION_MATERIALLY_REDUCES_HIGH_IMPACT_RISK"],
-    "avoid_multi_agent_when": ["SEQUENTIAL_REASONING", "TOOL_HEAVY_SHARED_STATE_WITHOUT_INDEPENDENT_BRANCHES", "TRIVIAL_TRANSFORM", "COORDINATION_OVERHEAD_EXCEEDS_EXPECTED_GAIN"]
+    "avoid_multi_agent_when": ["SEQUENTIAL_REASONING", "TOOL_HEAVY_SHARED_STATE_WITHOUT_INDEPENDENT_BRANCHES", "TRIVIAL_TRANSFORM", "COORDINATION_OVERHEAD_EXCEEDS_EXPECTED_GAIN"],
+    "production_routing_change_requires_measured_evidence": true,
+    "shadow_policy": "config/agent_efficiency_policy.json",
+    "shadow_advisor": "scripts/agent_architecture_admission.py",
+    "single_vs_multi_evaluator": "scripts/agent_efficiency_eval.py"
   },
   "control_plane": {
     "single_writer": true,
@@ -52,9 +56,34 @@
     "machine_oracle_over_majority_vote": true
   },
   "failure_observability": {
-    "required_failure_classes": ["CONSTRAINT_VIOLATION", "REPETITION", "CONTEXT_LOSS", "DERAILMENT", "IGNORED_INPUT", "REASONING_ACTION_MISMATCH", "PREMATURE_TERMINATION", "WEAK_VERIFICATION", "PROVIDER_OR_TOOL_FAILURE"],
+    "required_failure_classes": ["CONSTRAINT_VIOLATION", "REPETITION", "CONTEXT_LOSS", "DERAILMENT", "IGNORED_INPUT", "REASONING_ACTION_MISMATCH", "PREMATURE_TERMINATION", "WEAK_VERIFICATION", "PROVIDER_OR_TOOL_FAILURE", "STALE_STATE_OR_WRITE_CONFLICT"],
     "termination_reason_required": true,
-    "trace_mission_task_agent_tool_checkpoint_guardrail": true
+    "trace_mission_task_agent_tool_checkpoint_guardrail": true,
+    "event_schema": "schemas/agent_failure_event.schema.json",
+    "same_root_cause_retry_without_new_evidence": false
+  },
+  "deepseek_supervisor_runtime": {
+    "mission_schema": "schemas/deepseek_supervisor_mission.schema.json",
+    "runner": "scripts/deepseek_supervisor_research.py",
+    "workflow": ".github/workflows/deepseek-supervisor-research.yml",
+    "trigger_scope": "ONE_MISSION_FILE_UNDER_MISSIONS_DEEPSEEK_SUPERVISOR",
+    "default_research_lanes": 6,
+    "default_parallel_calls": 3,
+    "default_call_cap": 8,
+    "expanded_hard_lanes": 8,
+    "expanded_hard_parallel_calls": 4,
+    "expanded_hard_call_cap": 12,
+    "mission_cost_cap_usd": 0.5,
+    "daily_estimated_cost_cap_usd": 3.0,
+    "chatgpt_final_adjudication_required": true,
+    "automatic_execution_on_unrelated_pushes": false
+  },
+  "measurement": {
+    "shadow_before_promotion": true,
+    "compare_same_fixture_against_single_controller": true,
+    "primary_metrics": ["TASK_SUCCESS_RATE", "ACCEPTANCE_CRITERIA_PASS_RATE", "ESCAPED_DEFECT_RATE", "P50_LATENCY", "P95_LATENCY", "TOKEN_USAGE", "REQUEST_COUNT", "ESTIMATED_COST", "RETRY_COUNT", "COORDINATION_OVERHEAD_RATIO"],
+    "deepseek_supervisor_metrics": ["ACCEPTED_RECOMMENDATION_RATE", "COST_PER_ACCEPTED_DECISION", "CACHE_HIT_RATE", "DUPLICATE_RESEARCH_AVOIDED", "REPLAN_RATE"],
+    "hard_zero_metrics": ["SILENT_SUCCESS", "STALE_WRITE_ACCEPT", "DUPLICATE_MUTATION_LEASE", "UNBOUNDED_LOOP", "UNAUTHORIZED_PAID_ROUTE", "HEALTHY_ARTIFACT_DESTROYED_BY_DOWNSTREAM_FAILURE"]
   },
   "forbidden_org_patterns": [
     "PEER_SWARM_WITHOUT_OWNER",
