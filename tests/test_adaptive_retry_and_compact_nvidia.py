@@ -32,6 +32,19 @@ class AdaptiveRetryBudgetTests(unittest.TestCase):
         self.assertTrue(policy["exclude"])
         self.assertLess(REDISPATCH_REASONING_MAX_TOKENS, LENGTH_EXHAUSTION_REDISPATCH_TOKENS)
 
+    def test_empty_visible_content_without_length_signal_does_not_inflate_budget(self):
+        rows = [
+            {
+                "status": "COUNCIL_FAILED",
+                "error": "empty_visible_content",
+                "finish_reason": "stop",
+                "http_status": 200,
+            }
+        ]
+        self.assertEqual(length_exhaustion_count(rows), 0)
+        self.assertEqual(redispatch_output_token_budget(rows), PRIMARY_OUTPUT_TOKENS)
+        self.assertEqual(redispatch_reasoning_policy(rows), dict(council_core.COUNCIL_REASONING))
+
     def test_rate_limit_does_not_increase_output_budget(self):
         rows = [
             {
