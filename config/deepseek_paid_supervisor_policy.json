@@ -1,12 +1,12 @@
 {
-  "schema_version": "deepseek-paid-supervisor-v2",
+  "schema_version": "deepseek-paid-supervisor-v3",
   "effective_date_jst": "2026-09-12",
   "status": "ACTIVE_SCOPED_EXCEPTION",
   "human_authorization": {
     "authorized": true,
     "persistent_for_allowed_scope": true,
     "authorized_by_user_on": "2026-09-12",
-    "purpose": "Use paid DeepSeek heavily as a senior supervisor for research, architecture, peer review, decomposition, red-team analysis, incident diagnosis, media strategy, TikTok Shop strategy, and supervision of subordinate AI work.",
+    "purpose": "Use paid DeepSeek heavily and routinely as a senior supervisor for research, architecture, peer review, decomposition, red-team analysis, incident diagnosis, media strategy, TikTok Shop strategy, and supervision of subordinate AI work.",
     "repeat_per_call_approval_required": false
   },
   "precedence": {
@@ -65,6 +65,30 @@
     "subordinate_route_must_be_verified_before_use": true,
     "worker_to_worker_delegation": false
   },
+  "supervisor_admission": {
+    "routine_complex_missions_auto_admit": true,
+    "user_reapproval_per_mission": false,
+    "use_by_default_when_any": [
+      "BROAD_RESEARCH",
+      "MULTI_SOURCE_COMPARISON",
+      "HIGH_UNCERTAINTY",
+      "ARCHITECTURE_OR_SYSTEM_DESIGN",
+      "RED_TEAM_OR_COUNTERARGUMENT_REVIEW",
+      "INCIDENT_OR_ROOT_CAUSE_ANALYSIS",
+      "STRATEGIC_SYNTHESIS",
+      "MEDIA_OR_COMMERCE_STRATEGY",
+      "SUBORDINATE_TASK_DECOMPOSITION",
+      "SUBORDINATE_RESULT_REVIEW"
+    ],
+    "skip_by_default_when_all_work_is": [
+      "TRIVIAL_TRANSFORM",
+      "DETERMINISTIC_VALIDATION",
+      "MECHANICAL_FORMATTING",
+      "LARGE_BOILERPLATE_CODE_GENERATION",
+      "REPETITIVE_FILE_EDITING"
+    ],
+    "principle": "USE_DEEPSEEK_OFTEN_FOR_HIGH_INFORMATION_GAIN_SUPERVISORY_WORK; DO_NOT_WASTE_IT_ON_LOW_JUDGMENT_MECHANICAL_WORK"
+  },
   "usage_policy": {
     "spend_compute_on": [
       "broad_information_gathering",
@@ -94,6 +118,23 @@
       "may_generate_small_targeted_patch": true,
       "prefer_delegate_large_implementation_to_specialist": true
     }
+  },
+  "compute_allocation": {
+    "default_mode": "HIGH_VALUE_SUPERVISORY_CONSUMPTION",
+    "priority_order": [
+      "RESEARCH_COVERAGE",
+      "SOURCE_TRIANGULATION",
+      "ALTERNATIVE_GENERATION",
+      "CONTRADICTION_DISCOVERY",
+      "ARCHITECTURE_REVIEW",
+      "RED_TEAM_REVIEW",
+      "SUBORDINATE_REVIEW",
+      "SYNTHESIS"
+    ],
+    "prefer_multiple_independent_research_lanes_over_one_very_long_monologue": true,
+    "prefer_managerial_reasoning_over_bulk_implementation": true,
+    "successful_lane_reuse_before_new_call": true,
+    "stop_when_additional_calls_have_low_expected_information_gain": true
   },
   "research_fanout": {
     "pattern": "CHATGPT_TO_DEEPSEEK_SUPERVISOR_TO_BOUNDED_RESEARCH_LANES_TO_DEEPSEEK_SYNTHESIS_TO_CHATGPT_ADJUDICATION",
