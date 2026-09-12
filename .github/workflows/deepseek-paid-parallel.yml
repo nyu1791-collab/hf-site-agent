@@ -1,4 +1,4 @@
-name: "DeepSeek V4 paid parallel engineering corps"
+name: "DeepSeek V4.1 Flash paid parallel engineering corps"
 
 on:
   workflow_dispatch:
@@ -36,19 +36,21 @@ jobs:
           set -euo pipefail
           grep -Fxq 'allow_deepseek_paid_trial=true' .github/worker-expansion-trigger.txt
 
-      - name: Compile current DeepSeek V4 paid parallel path
+      - name: Compile bounded DeepSeek V4.1 Flash path
         run: |
           set -euo pipefail
-          python -m py_compile scripts/deepseek_paid_parallel.py
+          python -m py_compile scripts/deepseek_paid_parallel.py scripts/deepseek_v41_paid_parallel.py
           python -m json.tool config/deepseek_paid_parallel.json >/dev/null
+          python -m json.tool config/deepseek_v41_paid_parallel.json >/dev/null
 
-      - name: Run deterministic paid parallel regression tests
+      - name: Run shared deterministic paid parallel regression tests
         run: python -m unittest tests.test_deepseek_paid_parallel -v
 
-      - name: Verify paid path stays offline in dry run
+      - name: Verify V4.1 Flash paid path stays offline in dry run
         run: |
           set -euo pipefail
-          python scripts/deepseek_paid_parallel.py \
+          python scripts/deepseek_v41_paid_parallel.py \
+            --config config/deepseek_v41_paid_parallel.json \
             --approval-file .github/worker-expansion-trigger.txt \
             --output artifacts/deepseek_paid_parallel_dry_run.json
           python -m json.tool artifacts/deepseek_paid_parallel_dry_run.json >/dev/null
@@ -57,22 +59,23 @@ jobs:
           from pathlib import Path
           report = json.loads(Path('artifacts/deepseek_paid_parallel_dry_run.json').read_text(encoding='utf-8'))
           assert report['status'] == 'DRY_RUN_READY'
-          assert report['requested_model'] == 'deepseek-v4-flash'
+          assert report['requested_model'] == 'deepseek-flash'
           assert report['explicit_paid_approval'] is True
           assert report['paid_calls'] == 0
           assert report['production_enabled'] is False
           assert report['generic_paid_fallback'] is False
           assert report['repository_write'] is False
-          print('DEEPSEEK_PAID_DRY_RUN=PASS')
+          print('DEEPSEEK_V41_PAID_DRY_RUN=PASS')
           PY
 
-      - name: Run bounded paid DeepSeek V4 specialists in parallel
+      - name: Run bounded paid DeepSeek V4.1 Flash specialists in parallel
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           set -euo pipefail
-          python scripts/deepseek_paid_parallel.py \
+          python scripts/deepseek_v41_paid_parallel.py \
             --network \
+            --config config/deepseek_v41_paid_parallel.json \
             --approval-file .github/worker-expansion-trigger.txt \
             --output artifacts/deepseek_paid_parallel.json
           python -m json.tool artifacts/deepseek_paid_parallel.json >/dev/null
@@ -90,7 +93,7 @@ jobs:
               'cost_exposure_usd': report.get('cost_exposure_usd', 0),
           }, sort_keys=True))
           assert report.get('status') in {'PARALLEL_READY', 'PARALLEL_PARTIAL'}
-          assert report.get('requested_model') == 'deepseek-v4-flash'
+          assert report.get('requested_model') == 'deepseek-flash'
           assert report.get('exact_model_listed') is True
           assert report.get('explicit_paid_approval') is True
           assert int(report.get('paid_calls', 0)) <= 2
@@ -105,11 +108,11 @@ jobs:
           assert report.get('publish') is False
           PY
 
-      - name: Upload redacted DeepSeek parallel evidence
+      - name: Upload redacted DeepSeek V4.1 parallel evidence
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: deepseek-paid-parallel-${{ github.run_id }}
+          name: deepseek-v41-paid-parallel-${{ github.run_id }}
           path: |
             artifacts/deepseek_paid_parallel_dry_run.json
             artifacts/deepseek_paid_parallel.json
