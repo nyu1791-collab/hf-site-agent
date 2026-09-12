@@ -9,6 +9,8 @@ on:
       - config/current_commander_handoff.json
       - docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md
       - scripts/check_tiktok_shop_influence_policy.py
+      - scripts/tiktok_shop_claim_gate.py
+      - schemas/tiktok_shop_claim_manifest.schema.json
       - .github/workflows/tiktok-shop-influence-policy-check.yml
   pull_request:
     paths:
@@ -16,6 +18,8 @@ on:
       - config/current_commander_handoff.json
       - docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md
       - scripts/check_tiktok_shop_influence_policy.py
+      - scripts/tiktok_shop_claim_gate.py
+      - schemas/tiktok_shop_claim_manifest.schema.json
       - .github/workflows/tiktok-shop-influence-policy-check.yml
 
 permissions:
@@ -31,12 +35,74 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Validate JSON
+      - name: Validate JSON and Python
         run: |
           python -m json.tool config/tiktok_shop_influence_policy.json >/dev/null
           python -m json.tool config/current_commander_handoff.json >/dev/null
+          python -m json.tool schemas/tiktok_shop_claim_manifest.schema.json >/dev/null
+          python -m py_compile scripts/check_tiktok_shop_influence_policy.py scripts/tiktok_shop_claim_gate.py
       - name: Enforce permanent influence rules
         run: python scripts/check_tiktok_shop_influence_policy.py
+      - name: Claim gate accepts grounded fresh claims
+        run: |
+          cat >/tmp/tiktok-claims-pass.json <<'EOF'
+          {
+            "manifest_id":"ci-pass",
+            "market":"JP",
+            "product_url":"https://example.invalid/product",
+            "product_snapshot_hash":"0123456789abcdef",
+            "policy_snapshot_hash":"fedcba9876543210",
+            "policy_rechecked_at":"2026-09-12T08:00:00Z",
+            "aigc_disclosure_required":true,
+            "claims":[
+              {
+                "claim_id":"spec-1","text":"容量は500ml","claim_type":"PRODUCT_SPEC",
+                "evidence_refs":["product-page:snapshot#capacity"],"status":"VERIFIED",
+                "retrieved_at":"2026-09-12T07:50:00Z","expires_at":null,"source_tier":"PRODUCT_PAGE",
+                "sample_size":null,"original_language_retained":null,"market_scope":"JP","notes":""
+              },
+              {
+                "claim_id":"price-1","text":"現在表示価格は1000円","claim_type":"PRICE",
+                "evidence_refs":["product-page:snapshot#price"],"status":"VERIFIED",
+                "retrieved_at":"2026-09-12T07:50:00Z","expires_at":"2026-09-12T10:00:00Z","source_tier":"PRODUCT_PAGE",
+                "sample_size":null,"original_language_retained":null,"market_scope":"JP","notes":"volatile"
+              },
+              {
+                "claim_id":"review-1","text":"今回確認した中国語レビューでは辛さを評価する声が複数あった","claim_type":"LOCAL_REVIEW_PATTERN",
+                "evidence_refs":["reviews:sample-1"],"status":"VERIFIED",
+                "retrieved_at":"2026-09-12T07:30:00Z","expires_at":null,"source_tier":"LOCAL_REVIEW_SAMPLE",
+                "sample_size":12,"original_language_retained":true,"market_scope":"CN-language reviews sampled for this product","notes":"scope-limited"
+              }
+            ]
+          }
+          EOF
+          python scripts/tiktok_shop_claim_gate.py /tmp/tiktok-claims-pass.json --now 2026-09-12T08:30:00Z --max-policy-age-hours 2 >/tmp/pass-report.json
+          grep '"status": "PASS"' /tmp/pass-report.json
+      - name: Claim gate blocks expired unsupported commerce claim
+        run: |
+          cat >/tmp/tiktok-claims-block.json <<'EOF'
+          {
+            "manifest_id":"ci-block",
+            "market":"JP",
+            "product_url":"https://example.invalid/product",
+            "product_snapshot_hash":"0123456789abcdef",
+            "policy_snapshot_hash":"fedcba9876543210",
+            "policy_rechecked_at":"2026-09-12T08:00:00Z",
+            "claims":[
+              {
+                "claim_id":"price-bad","text":"今だけ1000円","claim_type":"PRICE",
+                "evidence_refs":[],"status":"VERIFIED",
+                "retrieved_at":"2026-09-12T06:00:00Z","expires_at":"2026-09-12T07:00:00Z","source_tier":"NONE",
+                "sample_size":null,"original_language_retained":null,"market_scope":"JP","notes":""
+              }
+            ]
+          }
+          EOF
+          if python scripts/tiktok_shop_claim_gate.py /tmp/tiktok-claims-block.json --now 2026-09-12T08:30:00Z >/tmp/block-report.json; then
+            echo 'Expected claim gate to block expired unsupported price claim' >&2
+            exit 1
+          fi
+          grep '"status": "BLOCK"' /tmp/block-report.json
       - name: Confirm this checker has no paid or publishing capability
         run: |
           python - <<'PY'
