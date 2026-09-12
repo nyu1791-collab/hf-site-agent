@@ -1,0 +1,158 @@
+name: "DeepSeek paid clipping research"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - config/deepseek_clipping_research_mission.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deepseek-paid-clipping-research
+  cancel-in-progress: true
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact triggering source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Run two bounded paid DeepSeek V4.1 Flash research lanes
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python - <<'PY'
+          import concurrent.futures
+          import json
+          import os
+          import time
+          import urllib.request
+          from pathlib import Path
+
+          mission = json.loads(Path('config/deepseek_clipping_research_mission.json').read_text(encoding='utf-8'))
+          api_key = os.environ.get('DEEPSEEK_API_KEY','')
+          if not api_key:
+              raise SystemExit('DEEPSEEK_API_KEY missing')
+
+          roles = [
+              {
+                  'id': 'policy-risk',
+                  'role': 'PLATFORM_POLICY_AND_RIGHTS_ANALYST',
+                  'instruction': 'Independently assess monetization viability, copyright/reused-content risk, permission models, and the safest scalable operating model for livestream highlight clipping on YouTube and TikTok. Distinguish platform monetization eligibility from copyright permission. Recommend hard gates and rejection criteria.'
+              },
+              {
+                  'id': 'automation-business',
+                  'role': 'AUTOMATION_AND_BUSINESS_ARCHITECT',
+                  'instruction': 'Design a low-cost AI Army pipeline for authorized livestream highlight clipping, including highlight scoring, ASR, chat-spike signals, vertical reframing, captions, QA, human approval, publishing handoff, analytics feedback, and business models. Also rank adjacent AI-automation monetization opportunities by speed-to-revenue, defensibility, policy risk, capital cost, and automation fit.'
+              },
+          ]
+
+          system = '''You are DeepSeek V4.1 Flash acting as a paid research specialist under explicit human approval. You are advisory only: do not publish, deploy, merge, mutate secrets, or claim external actions. Use the supplied fresh evidence bundle and your reasoning. Do not assume that attribution alone grants copyright permission. Do not recommend mass reposting or policy-evasion. Return a JSON object with keys: verdict, key_findings, recommended_architecture, monetization_models, hard_gates, rejected_patterns, adjacent_opportunities, confidence. Be concrete and prioritize sustainable revenue over raw view count.'''
+          evidence = json.dumps(mission, ensure_ascii=False)
+          peak_in = 0.44
+          peak_out = 1.32
+          max_tokens = 3000
+          max_total_cost = 0.05
+
+          def rough_tokens(s):
+              return max(1, (len(s)+3)//4)
+
+          def call(role):
+              user = f"ROLE={role['role']}\nTASK={role['instruction']}\nMISSION_AND_EVIDENCE={evidence}\nReturn JSON only."
+              reserve = (rough_tokens(system+user)*peak_in + max_tokens*peak_out)/1_000_000
+              if reserve > max_total_cost/2:
+                  raise RuntimeError(f'preflight reserve too high: {reserve}')
+              payload = {
+                  'model':'deepseek-flash',
+                  'messages':[{'role':'system','content':system},{'role':'user','content':user}],
+                  'max_tokens':max_tokens,
+                  'stream':False,
+                  'response_format':{'type':'json_object'},
+                  'thinking':{'type':'enabled'},
+                  'reasoning_effort':'high'
+              }
+              req = urllib.request.Request(
+                  'https://api.deepseek.com/chat/completions',
+                  data=json.dumps(payload,ensure_ascii=False).encode('utf-8'),
+                  headers={'Authorization':f'Bearer {api_key}','Content-Type':'application/json','Accept':'application/json','User-Agent':'hf-site-agent-clipping-research/1'},
+                  method='POST'
+              )
+              t=time.monotonic()
+              with urllib.request.urlopen(req, timeout=120) as r:
+                  obj=json.loads(r.read(1_000_000).decode('utf-8'))
+              latency_ms=int((time.monotonic()-t)*1000)
+              choices=obj.get('choices') or []
+              if not choices:
+                  raise RuntimeError('choices missing')
+              content=(choices[0].get('message') or {}).get('content')
+              result=json.loads(content)
+              usage=obj.get('usage') or {}
+              prompt=int(usage.get('prompt_tokens') or 0)
+              hit=int(usage.get('prompt_cache_hit_tokens') or 0)
+              miss=int(usage.get('prompt_cache_miss_tokens') or max(0,prompt-hit))
+              completion=int(usage.get('completion_tokens') or 0)
+              conservative_cost=(hit*0.014 + miss*0.44 + completion*1.32)/1_000_000
+              return {
+                  'lane':role['id'], 'role':role['role'], 'status':'READY',
+                  'requested_model':'deepseek-flash', 'response_model':obj.get('model'),
+                  'latency_ms':latency_ms, 'usage':usage,
+                  'conservative_peak_cost_usd':round(conservative_cost,8),
+                  'result':result
+              }
+
+          outputs=[]
+          errors=[]
+          with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+              futs={ex.submit(call,r):r for r in roles}
+              for fut, role in list(futs.items()):
+                  try:
+                      outputs.append(fut.result())
+                  except Exception as e:
+                      errors.append({'lane':role['id'],'status':'FAILED','error_class':type(e).__name__,'detail':str(e)[:240]})
+
+          total_cost=sum(float(x.get('conservative_peak_cost_usd') or 0) for x in outputs)
+          report={
+              'schema_version':'deepseek-clipping-research-v1',
+              'mission_id':mission['mission_id'],
+              'status':'READY' if len(outputs)==2 else ('PARTIAL' if outputs else 'FAILED'),
+              'model':'deepseek-flash',
+              'paid_calls':len(outputs)+len(errors),
+              'successful_calls':len(outputs),
+              'max_calls':2,
+              'max_parallel_calls':2,
+              'cost_cap_usd':max_total_cost,
+              'conservative_peak_cost_usd':round(total_cost,8),
+              'production_change':False,
+              'publish':False,
+              'deploy':False,
+              'merge':False,
+              'secret_mutation':False,
+              'results':outputs,
+              'errors':errors,
+          }
+          if total_cost > max_total_cost:
+              raise RuntimeError('cost cap exceeded')
+          Path('artifacts/deepseek_clipping_research.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({k:report[k] for k in ['status','paid_calls','successful_calls','cost_cap_usd','conservative_peak_cost_usd']},ensure_ascii=False))
+          if not outputs:
+              raise SystemExit(1)
+          PY
+
+      - name: Upload redacted research artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: deepseek-clipping-research-${{ github.run_id }}
+          path: artifacts/deepseek_clipping_research.json
+          if-no-files-found: ignore
+          retention-days: 7
