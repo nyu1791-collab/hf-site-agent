@@ -1,5 +1,9 @@
 # Agent Hierarchy
 
+## 恒久参照
+
+本Hierarchyの運用・拡張は `docs/MULTI_AGENT_OPERATING_STANDARD.md` と `config/multi_agent_operating_policy.json` を必ず併読する。Agent数を増やすこと自体を目的にせず、Single-Agent baselineより総合価値が上がる場合だけMulti-Agent化する。Typed Command/Report、Context quarantine、Trace、bounded retry/replan、Single Writer、Human approval gateは恒久条件とする。
+
 ## 指揮系統
 
 唯一のRootは `chatgpt-work` です。RootがMissionを解釈し、適任の直属CommanderへCommandを発行します。Commanderは許可されたSpecialistだけを生成し、Specialistは同じTaskのOpenRouter Workerだけを限定的に生成します。WorkerからRoot、別Commander、同格Agentへの直接報告・委任はありません。
@@ -50,4 +54,3 @@ Idempotency台帳には `mission_id`、`command_id`、`idempotency_key`、`opera
 6. 小さなPR、全Regression、Worker/health、Actionsを確認する。
 
 完了状態は自動的に本番確定へ進まず、`AWAITING_USER_FINAL_APPROVAL` で停止します。
-
