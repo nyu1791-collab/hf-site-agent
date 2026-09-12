@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nyu1791-collab/hf-site-agent/schemas/agent_failure_event.schema.json",
+  "title": "AI Army Failure Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mission_id",
+    "task_id",
+    "agent_id",
+    "failure_class",
+    "termination_reason",
+    "retryable",
+    "same_action_retry_allowed",
+    "occurred_at",
+    "trace_id"
+  ],
+  "properties": {
+    "mission_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "task_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "agent_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "trace_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "failure_class": {
+      "enum": [
+        "CONSTRAINT_VIOLATION",
+        "REPETITION",
+        "CONTEXT_LOSS",
+        "DERAILMENT",
+        "IGNORED_INPUT",
+        "REASONING_ACTION_MISMATCH",
+        "PREMATURE_TERMINATION",
+        "WEAK_VERIFICATION",
+        "PROVIDER_OR_TOOL_FAILURE",
+        "STALE_STATE_OR_WRITE_CONFLICT"
+      ]
+    },
+    "termination_reason": {
+      "enum": [
+        "ACCEPTANCE_CRITERIA_NOT_MET",
+        "MAX_TURNS_OR_MESSAGES",
+        "MAX_REQUESTS",
+        "TOKEN_BUDGET",
+        "COST_BUDGET",
+        "WALL_CLOCK_TIMEOUT",
+        "HUMAN_APPROVAL_REQUIRED",
+        "REPEATED_ROOT_CAUSE_CIRCUIT_BREAKER",
+        "PROVIDER_UNAVAILABLE",
+        "TOOL_FAILURE",
+        "STALE_STATE",
+        "MISSION_CANCELLED",
+        "POLICY_BLOCK"
+      ]
+    },
+    "retryable": {"type": "boolean"},
+    "same_action_retry_allowed": {"type": "boolean"},
+    "retry_requires_method_change": {"type": "boolean", "default": false},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "provider": {"type": ["string", "null"], "maxLength": 120},
+    "model": {"type": ["string", "null"], "maxLength": 240},
+    "checkpoint_id": {"type": ["string", "null"], "maxLength": 240},
+    "action_hash": {"type": ["string", "null"], "maxLength": 128},
+    "payload_hash": {"type": ["string", "null"], "maxLength": 128},
+    "new_evidence_since_previous_attempt": {"type": "boolean", "default": false},
+    "last_verified_artifact_refs": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {"type": "string", "maxLength": 2000}
+    },
+    "detail": {"type": "string", "maxLength": 4000},
+    "recommended_recovery": {"type": "string", "maxLength": 4000},
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "latency_ms": {"type": "integer", "minimum": 0},
+        "request_count": {"type": "integer", "minimum": 0},
+        "retry_count": {"type": "integer", "minimum": 0},
+        "input_tokens": {"type": "integer", "minimum": 0},
+        "output_tokens": {"type": "integer", "minimum": 0},
+        "estimated_cost_usd": {"type": "number", "minimum": 0}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"failure_class": {"const": "REPETITION"}}},
+      "then": {
+        "properties": {
+          "same_action_retry_allowed": {"const": false},
+          "retry_requires_method_change": {"const": true}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"failure_class": {"const": "STALE_STATE_OR_WRITE_CONFLICT"}}},
+      "then": {"properties": {"same_action_retry_allowed": {"const": false}}}
+    }
+  ]
+}
