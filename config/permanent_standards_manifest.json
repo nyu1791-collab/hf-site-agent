@@ -1,0 +1,70 @@
+{
+  "schema_version": "permanent-standards-manifest-v1",
+  "effective_date_jst": "2026-09-12",
+  "purpose": "Make critical AI Army and long-form video rules recoverable and reusable across new chat tabs/sessions without relying on transient conversation context.",
+  "canonical_branch": "ai-army/provider-v3",
+  "startup_rule": "READ_AND_APPLY_ALL_REQUIRED_STANDARDS_BEFORE_PLANNING_OR_EXECUTION",
+  "required_standards": [
+    {
+      "id": "ai-army-hierarchy",
+      "path": "docs/AGENT_HIERARCHY.md",
+      "priority": 1
+    },
+    {
+      "id": "multi-agent-operating-standard",
+      "path": "docs/MULTI_AGENT_OPERATING_STANDARD.md",
+      "machine_policy": "config/multi_agent_operating_policy.json",
+      "priority": 1
+    },
+    {
+      "id": "longform-video-objectives",
+      "path": "docs/LONGFORM_VIDEO_OBJECTIVES.md",
+      "machine_policy": "config/longform_video_objectives.json",
+      "priority": 1
+    },
+    {
+      "id": "longform-video-reliability",
+      "path": "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+      "machine_policy": "config/longform_video_reliability_policy.json",
+      "priority": 1
+    }
+  ],
+  "non_negotiable_runtime_flags": {
+    "FREE_ONLY_MODE": true,
+    "ALLOW_PAID_MODEL": false,
+    "ALLOW_PAID_FALLBACK": false,
+    "AUTO_TOP_UP": false
+  },
+  "non_negotiable_human_approval_actions": [
+    "PAID_EXECUTION",
+    "PAID_FALLBACK",
+    "SECRET_MUTATION_OR_DISCLOSURE",
+    "MAIN_DIRECT_PUSH",
+    "PR_MERGE",
+    "PRODUCTION_DEPLOY",
+    "PUBLISH",
+    "DURABLE_OBJECT_CHANGE",
+    "IRREVERSIBLE_EXTERNAL_ACTION"
+  ],
+  "cross_tab_behavior": {
+    "do_not_rely_on_chat_memory_only": true,
+    "repository_files_are_durable_source_of_truth": true,
+    "on_new_tab_recover_from_manifest_first": true,
+    "reconfirm_current_branch_head_before_code_change": true,
+    "reconfirm_pr_state_before_code_change": true,
+    "do_not_assume_previous_live_provider_evidence_is_fresh": true,
+    "do_not_assume_previous_quota_evidence_is_fresh": true
+  },
+  "longform_video_primary_goal": "DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK",
+  "multi_agent_primary_goal": "USE_HIERARCHICAL_SPECIALIZATION_ONLY_WHEN_SYSTEM_VALUE_EXCEEDS_COORDINATION_COST",
+  "forbidden_drift": [
+    "TURN_AI_ARMY_INTO_UNBOUNDED_SWARM",
+    "BROADCAST_FULL_CONTEXT_TO_EVERY_AGENT",
+    "ALLOW_WORKER_TO_WORKER_DELEGATION",
+    "REPLACE_TYPED_CONTRACTS_WITH_FREEFORM_CHAT",
+    "REGENERATE_HEALTHY_VIDEO_STAGES_AFTER_ISOLATED_FAILURE",
+    "RENDER_LONGFORM_VIDEO_MONOLITHICALLY_BY_DEFAULT",
+    "SILENTLY_ROUTE_FREE_FAILURE_TO_PAID_MODEL_OR_SERVICE",
+    "CLAIM_VIDEO_COMPLETE_BEFORE_MACHINE_GATE_PASS"
+  ]
+}
