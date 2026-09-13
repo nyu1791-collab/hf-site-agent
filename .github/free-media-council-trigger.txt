@@ -1,3 +1,4 @@
-FREE_MEDIA_COUNCIL_REVIEW=2026-09-11T17:xx+09:00
-MODELS=deepseek-r1-free,nemotron-3-nano-omni-free,qwen3.6-plus-free
+FREE_MEDIA_COUNCIL_REVIEW=2026-09-13T12:42+09:00
+MODELS=nvidia-nemotron-ultra-free,google-gemma4-free,nex-n2.5-pro-free
 POLICY=FREE_ONLY_NO_PAID_FALLBACK
+PURPOSE=CROSS_SOURCE_VIDEO_RELIABILITY_CROSS_CHECK
