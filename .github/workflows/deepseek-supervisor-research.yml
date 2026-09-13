@@ -106,7 +106,7 @@ jobs:
           MISSION_PATH: ${{ steps.mission.outputs.path }}
         run: |
           set -euo pipefail
-          python scripts/deepseek_supervisor_research_resilient.py "$MISSION_PATH" --output artifacts/deepseek_supervisor_research.json
+          python -m scripts.deepseek_supervisor_research_resilient "$MISSION_PATH" --output artifacts/deepseek_supervisor_research.json
 
       - name: Upload redacted supervisor report
         if: always()
