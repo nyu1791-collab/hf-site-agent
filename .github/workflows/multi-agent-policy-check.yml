@@ -256,9 +256,9 @@ jobs:
           cross=m['cross_tab_behavior']
           assert cross['priority_zero_manifest_is_expandable_startup_index'] is True
           assert cross['do_not_duplicate_full_required_standard_list_into_commander_handoff'] is True
-          standards={entry['id']:entry for entry in m['standards']}
-          assert standards['MULTI_AGENT_OPERATING_STANDARD']['path'] == 'config/multi_agent_operating_policy.json'
-          assert standards['CI_EXECUTION_CONTROL']['path'] == 'config/ci_execution_policy.json'
+          standards={entry['id']:entry for entry in m['required_standards']}
+          assert standards['multi-agent-operating-standard']['machine_policy'] == 'config/multi_agent_operating_policy.json'
+          assert standards['ci-execution-control-plane']['machine_policy'] == 'config/ci_execution_policy.json'
 
           print('MULTI_AGENT_POLICY=PASS')
           PY
