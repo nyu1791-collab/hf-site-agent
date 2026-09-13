@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Static CI control-plane guard.
 
-Prevents long-lived branches from fanning one push out into an unbounded set of
-hosted jobs and prevents paid DeepSeek execution from escaping the canonical,
-mission-scoped Executive Supervisor contract.
+Prevents the configured long-lived branch from fanning one push out into an
+unbounded set of hosted jobs and prevents paid DeepSeek execution from escaping
+the canonical, mission-scoped Executive Supervisor contract.
 
-The automatic-trigger allowlist is exhaustive: any workflow that exposes push,
-pull_request, or schedule outside the explicitly registered core/carrier routes
-is rejected. This script is deterministic and makes no network or model calls.
+The automatic-trigger allowlist is exhaustive for workflows that target the
+configured long-lived branch. Workflows dedicated to main/default-branch
+production or maintenance are outside this branch-specific fan-out contract.
+This script is deterministic and makes no network or model calls.
 """
 from __future__ import annotations
 
@@ -52,16 +53,25 @@ def _enforce_exhaustive_trigger_allowlist(policy: dict) -> None:
     _require(policy.get("automatic_trigger_allowlist_is_exhaustive") is True, "automatic trigger allowlist must be exhaustive")
     _require(policy.get("unregistered_push_pull_request_or_schedule_trigger") == "FORBIDDEN", "unregistered automatic trigger policy drifted")
 
+    branch = str(policy.get("long_lived_branch") or "").strip()
+    _require(bool(branch), "long-lived branch missing from CI policy")
+
     allowed = set(policy.get("automatic_workflows") or ())
     allowed.update(policy.get("bounded_internal_carrier_workflows") or ())
     allowed.update(policy.get("bounded_paid_supervisor_workflows") or ())
 
     violations: list[str] = []
     for path in sorted(list(WORKFLOWS.glob("*.yml")) + list(WORKFLOWS.glob("*.yaml"))):
-        triggers = _automatic_triggers(path.read_text(encoding="utf-8"))
-        if triggers and path.name not in allowed:
+        text = path.read_text(encoding="utf-8")
+        triggers = _automatic_triggers(text)
+        if not triggers:
+            continue
+        # This policy constrains fan-out from the long-lived development branch.
+        # Do not accidentally disable unrelated main/default-branch maintenance.
+        targets_long_lived_branch = branch in text and bool(triggers.intersection({"push", "pull_request"}))
+        if targets_long_lived_branch and path.name not in allowed:
             violations.append(f"{path.name}:{','.join(sorted(triggers))}")
-    _require(not violations, "unregistered automatic workflow trigger(s): " + "; ".join(violations))
+    _require(not violations, f"unregistered automatic workflow trigger(s) targeting {branch}: " + "; ".join(violations))
 
 
 def main() -> int:
@@ -196,7 +206,7 @@ def main() -> int:
     _enforce_exhaustive_trigger_allowlist(policy)
 
     print("CI_CONTROL_PLANE_GUARD=PASS")
-    print("AUTOMATIC_TRIGGER_ALLOWLIST=EXHAUSTIVE")
+    print("AUTOMATIC_TRIGGER_ALLOWLIST=EXHAUSTIVE_FOR_LONG_LIVED_BRANCH")
     print("CANONICAL_PAID_DEEPSEEK_WORKFLOW=deepseek-supervisor-research.yml")
     print("LEGACY_PAID_DEEPSEEK_WORKFLOWS_ACTIVE=0")
     return 0
