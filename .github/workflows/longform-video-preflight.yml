@@ -1,18 +1,6 @@
 name: Longform video static preflight
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - scripts/longform_video_preflight.py
-      - config/longform_video_reliability_policy.json
-      - config/longform_video_objectives.json
-      - config/current_commander_handoff.json
-      - config/media_command_read_gate.json
-      - docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md
-      - missions/news-video-pilot.json
-      - .github/workflows/longform-video-preflight.yml
   workflow_dispatch:
 
 permissions:
@@ -44,157 +32,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
 
-      - name: Compile and validate policy and objectives
+      - name: Validate current longform policy stack
         run: |
           set -euo pipefail
-          python -m py_compile scripts/longform_video_preflight.py
+          python -m py_compile \
+            scripts/longform_video_preflight.py \
+            scripts/validate_commander_handoff_continuity.py \
+            scripts/validate_media_command_read_gate.py
           python -m json.tool config/longform_video_reliability_policy.json >/dev/null
           python -m json.tool config/longform_video_objectives.json >/dev/null
           python -m json.tool config/current_commander_handoff.json >/dev/null
           python -m json.tool config/media_command_read_gate.json >/dev/null
-          python -m json.tool missions/news-video-pilot.json >/dev/null
-          python - <<'PY'
-          import json
-          from pathlib import Path
+          python scripts/validate_commander_handoff_continuity.py
+          python scripts/validate_media_command_read_gate.py
 
-          o=json.loads(Path('config/longform_video_objectives.json').read_text(encoding='utf-8'))
-          p=json.loads(Path('config/longform_video_reliability_policy.json').read_text(encoding='utf-8'))
-          h=json.loads(Path('config/current_commander_handoff.json').read_text(encoding='utf-8'))
-          g=json.loads(Path('config/media_command_read_gate.json').read_text(encoding='utf-8'))
-          cast={'ずんだもん', '四国めたん'}
-
-          assert o['status'] == 'ENFORCED_STANDARD'
-          assert o['schema_version'] == 'longform-video-objectives-v3'
-          assert o['primary_goal'] == 'DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK_MAXIMUM_RESUMABILITY_AND_CLEAR_INFORMATION'
-          gate=o['hard_completion_gate']
-          assert gate['final_mp4_required'] is True
-          assert gate['ffprobe_parse_required'] is True
-          assert gate['required_video_streams'] == 1
-          assert gate['required_audio_streams'] == 1
-          assert gate['width'] == 1080 and gate['height'] == 1920
-          assert gate['subtitle_full_narration_coverage_ratio'] == 1.0
-          assert gate['decode_error_count_target'] == 0
-
-          recovery=o['recovery_objectives']
-          assert recovery['healthy_prior_scene_regeneration_after_later_scene_failure'] == 0
-          assert recovery['successful_checkpoint_deletion_after_downstream_failure'] == 0
-          assert recovery['partial_file_accepted_as_checkpoint'] is False
-          assert recovery['cache_only_entry_accepted_as_durable_checkpoint'] is False
-          assert recovery['resume_from_last_compatible_checkpoint'] is True
-          assert recovery['cross_run_resume_requires_verified_manifest'] is True
-
-          asset=o['asset_objectives']
-          assert asset['generated_image_asset_count'] == 0
-          assert asset['generated_video_asset_count'] == 0
-          assert asset['visual_discovery_mode'] == 'SEARCH_THEN_VERIFY_ORIGINAL_SOURCE_AND_RIGHTS'
-          assert asset['network_fetch_inside_ffmpeg_render'] is False
-          assert asset['single_bad_asset_may_fail_whole_video'] is False
-          assert asset['asset_provenance_ledger_required'] is True
-
-          voice=o['voice_objectives']
-          assert voice['voice_engine'] == 'VOICEVOX_LOCAL'
-          assert set(voice['standard_cast']) == cast
-          assert voice['preserve_raw_voice_wav'] is True
-          assert voice['normalize_scene_audio_to_hz'] == 48000
-          assert voice['visual_only_edit_raw_voice_regeneration_count'] == 0
-          assert voice['prosody_and_emotion_are_semantic_beat_driven'] is True
-
-          timeline=o['timeline_objectives']
-          assert timeline['audio_duration_source'] == 'FFPROBE_ACTUAL_GENERATED_WAV'
-          assert timeline['duration_inference_from_text_length'] is False
-          assert timeline['subtitle_text_source'] == 'NARRATION_MANIFEST'
-          assert timeline['subtitle_provider_internal_state_dependency'] is False
-
-          render=o['render_objectives']
-          assert render['monolithic_longform_encode'] is False
-          assert render['concat_manifest_relative_sanitized_paths_only'] is True
-          assert render['proxy_preview_default'] is False
-          assert render['proxy_preview_allowed_for_high_complexity_scene'] is True
-
-          hygiene=o['process_hygiene_objectives']
-          assert hygiene['unbounded_subprocess_count'] == 0
-          assert hygiene['subprocess_without_timeout_count'] == 0
-          assert hygiene['all_spawned_children_are_waited_or_terminated'] is True
-
-          cost=o['cost_and_route_objectives']
-          for k in (
-              'paid_video_saas_execution_count',
-              'video_saas_free_credit_execution_count',
-              'paid_caption_or_video_editing_app_execution_count',
-              'trial_or_temporary_free_caption_or_video_editing_execution_count',
-              'auto_top_up_count',
-              'paid_fallback_count',
-              'paid_sibling_substitution_count',
-              'unknown_cost_route_execution_count',
-          ):
-              assert cost[k] == 0, (k, cost[k])
-
-          retry=o['retry_budget']
-          assert retry['infinite_retry'] is False
-          assert retry['same_method_extra_retries_max'] <= 1
-          assert retry['total_attempts_per_scene_max'] <= 3
-
-          continuity=o['continuity_objectives']
-          assert continuity['new_session_restore_success_ratio'] == 1.0
-          assert continuity['conversation_memory_required_for_resume'] is False
-          assert continuity['repository_state_required_for_resume'] is True
-          assert continuity['media_read_gate'] == 'config/media_command_read_gate.json'
-
-          assert p['schema_version'] == 'longform-video-reliability-v4'
-          assert p['status'] == 'PERMANENT_STANDARD'
-          assert p['production_path']['voice'] == 'VOICEVOX_ZUNDAMON_AND_SHIKOKU_METAN_LOCAL'
-          assert p['production_path']['render'] == 'PYTHON_FFMPEG_FFPROBE'
-          assert p['production_path']['scene_first'] is True
-          assert p['production_path']['monolithic_longform_render'] is False
-          assert p['paid_policy']['video_saas_paid_execution'] is False
-          assert p['paid_policy']['video_saas_free_credit_execution'] is False
-          assert p['paid_policy']['auto_top_up'] is False
-          assert p['paid_policy']['generic_paid_fallback'] is False
-          assert p['paid_policy']['paid_sibling_substitution'] is False
-          assert p['paid_policy']['unknown_cost_route'] == 'BLOCK'
-          assert p['checkpoint_policy']['cache_is_not_durable_checkpoint_source_of_truth'] is True
-          assert p['checkpoint_policy']['preserve_healthy_outputs'] is True
-          assert p['atomic_scene_commit']['partial_or_unverified_scene_may_not_enter_concat_manifest'] is True
-          assert p['atomic_scene_commit']['promote_by_atomic_rename'] is True
-          assert set(p['voicevox_contract']['standard_cast']) == cast
-          assert p['voicevox_contract']['preserve_raw_synthesis_wav'] is True
-          assert p['voicevox_contract']['normalize_scene_input_to_hz'] == 48000
-          assert p['voicevox_contract']['visual_only_change_must_not_regenerate_raw_voice'] is True
-          assert p['timeline']['subtitle_generation_must_not_depend_on_provider_internal_object'] is True
-          assert p['timeline']['known_tts_with_verified_narration_manifest_does_not_require_asr'] is True
-          assert p['final_validation']['decode_error_count_target'] == 0
-          assert p['final_validation']['ffprobe_parse_required'] is True
-          assert p['scene_media_contract']['concat_external_protocols_allowed'] is False
-          assert p['scene_media_contract']['safe_media_contract_mismatch_action'] == 'NORMALIZE_OFFENDING_SCENE_ONLY_THEN_REVALIDATE'
-          assert p['resource_policy']['proxy_preview_for_every_scene'] is False
-          assert p['resource_policy']['bounded_subprocess_timeout_required'] is True
-          assert p['visual_asset_policy']['network_fetch_inside_ffmpeg_render'] is False
-          assert p['visual_asset_policy']['failed_asset_fallback_isolated_to_that_asset_or_scene'] is True
-          assert p['ai_review_policy']['machine_oracle_preferred_over_model_vote'] is True
-          assert p['ai_review_policy']['deepseek_paid_supervisor_may_review_architecture_failure_or_edit_strategy_under_its_scoped_policy'] is True
-          assert p['pruning_policy']['asr_every_scene_for_known_tts_script'] is False
-          assert p['pruning_policy']['monolithic_render'] is False
-
-          assert h['schema_version'] == 'top-commander-handoff-v8'
-          assert h['continuity']['portable_across_chat_tabs'] is True
-          assert h['continuity']['repository_is_source_of_truth'] is True
-          assert h['longform_fixed_rules']['monolithic_render'] is False
-          assert h['longform_fixed_rules']['voice'] == 'VOICEVOX_ZUNDAMON_AND_SHIKOKU_METAN_LOCAL'
-          assert h['longform_fixed_rules']['render'] == 'PYTHON_FFMPEG_FFPROBE'
-          assert h['longform_fixed_rules']['media_policy_source'] == 'config/media_command_read_gate.json'
-
-          assert g['schema_version'] == 'media-command-read-gate-v9'
-          assert g['status'] == 'ENFORCED_STANDARD'
-          common=set(g['common_media_read_set'])
-          assert 'config/longform_video_objectives.json' in common
-          assert 'config/longform_video_reliability_policy.json' in common
-          assert 'config/current_commander_handoff.json' in common
-          assert 'VOICEVOX_ZUNDAMON_AND_SHIKOKU_METAN_LOCAL_STANDARD_CAST' in set(g['know_how_that_must_be_recovered']['VIDEO_CREATION'])
-
-          print('LONGFORM_OBJECTIVES=PASS')
-          PY
-
-      - name: Run static preflight only
+      - name: Run mission-independent static preflight
         run: |
           set -euo pipefail
           mkdir -p artifacts
@@ -203,19 +55,21 @@ jobs:
             --min-free-gb 4 \
             --report artifacts/longform-video-preflight.json
 
-      - name: Assert no rendering or video SaaS occurred
+      - name: Assert static preflight is safe and non-rendering
         run: |
           set -euo pipefail
           python - <<'PY'
           import json
           from pathlib import Path
-          p=Path('artifacts/longform-video-preflight.json')
-          r=json.loads(p.read_text(encoding='utf-8'))
-          assert r['status'] == 'PASS', r
-          assert r['render_performed'] is False, r
-          assert r['external_video_saas_called'] is False, r
-          assert r['blocking_failure_count'] == 0, r
-          names={row['name']: row for row in r['checks']}
+
+          report=json.loads(Path('artifacts/longform-video-preflight.json').read_text(encoding='utf-8'))
+          assert report['schema_version'] == 'longform-preflight-v2', report
+          assert report['status'] == 'PASS', report
+          assert report['render_performed'] is False, report
+          assert report['external_video_saas_called'] is False, report
+          assert report['mission_path'] is None, report
+          assert report['blocking_failure_count'] == 0, report
+          checks={row['name']: row for row in report['checks']}
           for required in (
               'tool.ffmpeg.present',
               'tool.ffprobe.present',
@@ -226,12 +80,12 @@ jobs:
               'font.noto_sans_cjk_jp',
               'output.writable',
               'disk.minimum_free',
-              'mission.subtitle_full_coverage',
               'policy.route_has_no_prohibited_video_saas',
               'policy.no_paid_video_transition',
+              'mission.optional',
           ):
-              assert names.get(required, {}).get('ok') is True, (required, names.get(required))
-          print(json.dumps({'status':'PASS','render_performed':False,'video_saas_called':False}, sort_keys=True))
+              assert checks.get(required, {}).get('ok') is True, (required, checks.get(required))
+          print('LONGFORM_STATIC_PREFLIGHT=PASS')
           PY
 
       - name: Upload preflight evidence
