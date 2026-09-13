@@ -36,6 +36,7 @@ on:
       - 'scripts/ai_army_routing_facade.py'
       - 'scripts/validate_permanent_ai_army_state.py'
       - 'scripts/validate_media_command_read_gate.py'
+      - 'scripts/validate_commander_handoff_continuity.py'
       - 'scripts/validate_creator_monetization_state.py'
       - 'scripts/validate_cross_source_knowhow.py'
       - 'scripts/validate_cross_source_second_pass.py'
@@ -104,6 +105,7 @@ jobs:
             scripts/ai_army_routing_facade.py \
             scripts/validate_permanent_ai_army_state.py \
             scripts/validate_media_command_read_gate.py \
+            scripts/validate_commander_handoff_continuity.py \
             scripts/validate_creator_monetization_state.py \
             scripts/validate_cross_source_knowhow.py \
             scripts/validate_cross_source_second_pass.py \
@@ -156,6 +158,11 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_permanent_ai_army_state.py
+
+      - name: Enforce commander handoff continuity
+        run: |
+          set -euo pipefail
+          python scripts/validate_commander_handoff_continuity.py
 
       - name: Enforce media command read gate
         run: |
