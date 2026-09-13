@@ -47,6 +47,7 @@ jobs:
           mas=json.loads(Path('config/multi_agent_operating_policy.json').read_text())
           org=json.loads(Path('config/ai_army_org_chart.json').read_text())
           handoff=json.loads(Path('config/current_commander_handoff.json').read_text())
+          manifest=json.loads(Path('config/permanent_standards_manifest.json').read_text())
           legacy_pointer=json.loads(Path('config/deepseek_paid_autonomy.json').read_text())
           legacy_registry=json.loads(Path('config/legacy_deepseek_compatibility.json').read_text())
 
@@ -144,9 +145,25 @@ jobs:
           assert org['control_plane']['single_writer'] is True
           assert org['control_plane']['machine_oracle_over_majority_vote'] is True
 
-          assert handoff['schema_version']=='top-commander-handoff-v7'
-          assert 'config/deepseek_paid_supervisor_policy.json' in handoff['continuity']['on_new_session_required_read_order']
-          assert 'config/ai_army_org_chart.json' in handoff['continuity']['on_new_session_required_read_order']
+          # Cross-tab handoff v8 is deliberately compact. Detailed DeepSeek and
+          # organization standards are resolved via the permanent manifest and
+          # active-standard pointers instead of being duplicated in startup order.
+          assert handoff['schema_version']=='top-commander-handoff-v8'
+          startup=handoff['continuity']['on_new_session_required_read_order']
+          assert startup[:4]==[
+              'README.md',
+              'config/current_commander_handoff.json',
+              'config/permanent_standards_manifest.json',
+              'docs/AI_ARMY_MASTER_RULEBOOK.md',
+          ]
+          assert handoff['continuity']['read_order_is_bootstrap_not_full_standard_copy'] is True
+          active=handoff['active_standards']
+          assert active['deepseek_supervisor_policy']=='config/deepseek_paid_supervisor_policy.json'
+          assert active['org_chart']=='config/ai_army_org_chart.json'
+          assert active['permanent_manifest']=='config/permanent_standards_manifest.json'
+          standards={x.get('id'):x for x in manifest.get('required_standards',[]) if isinstance(x,dict)}
+          assert standards['deepseek-executive-supervisor']['machine_policy']=='config/deepseek_paid_supervisor_policy.json'
+          assert standards['ai-army-org-chart']['machine_policy']=='config/ai_army_org_chart.json'
           assert handoff['canonical_routing_fixed_rules']['policy_entrypoint']=='scripts/ai_army_routing_facade.py'
           assert handoff['canonical_routing_fixed_rules']['paid_deepseek_supervisor_is_not_mandatory_for_every_task'] is True
           fixed=handoff['deepseek_supervisor_fixed_rules']
