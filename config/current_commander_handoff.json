@@ -54,6 +54,27 @@
     "tiktok_shop_influence_playbook": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
     "research_synthesis": "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md"
   },
+  "temporary_user_overrides": {
+    "media_production_hold": {
+      "status": "ACTIVE_UNTIL_EXPLICIT_USER_RELEASE",
+      "permanent_standard": false,
+      "blocked_now": [
+        "IMAGE_GENERATION",
+        "VIDEO_GENERATION",
+        "VOICE_GENERATION",
+        "MEDIA_RENDER"
+      ],
+      "allowed_now": [
+        "RESEARCH",
+        "ANALYSIS",
+        "TEXTUAL_SPECIFICATION",
+        "RIGHTS_REVIEW",
+        "REPOSITORY_POLICY_AND_VALIDATION_WORK"
+      ],
+      "must_not_be_promoted_into_permanent_media_standard": true,
+      "release_rule": "Remove or change this temporary override only after a later explicit user instruction authorizes production."
+    }
+  },
   "peer_review_status": {
     "completed": true,
     "deepseek_domains_reviewed": 8,
@@ -236,7 +257,7 @@
     "new sessions restore current commander handoff, permanent manifest and master rulebook before task-specific planning",
     "task-specific media and monetization rules are restored from semantic read gates rather than copied wholesale into this handoff",
     "handoff media voice rule matches the durable two-voice VOICEVOX cast",
-    "blanket media production holds remain absent from commander handoff and permanent media standards",
+    "temporary media execution holds remain temporary user overrides and never become permanent media standards",
     "all new policy-facing route selection enters scripts/ai_army_routing_facade.py",
     "legacy commander routing remains compatibility-only",
     "paid DeepSeek supervisor authorization survives tab changes without granting blanket paid-provider access",
