@@ -1,48 +1,86 @@
 # 日本向けメディアパイプライン仕様
 
-この文書は、Colab / Kaggle / GitHub Actions / ローカルPython環境等で動かす動画制作パイプラインの固定境界を定める。Cloudflare Workerは企画・承認・状態管理に留め、重い動画処理やGPU処理を持ち込まない。
+この文書は、Colab / Kaggle / GitHub Actions / ローカルPython環境等で動かす動画制作パイプラインの恒久境界を定める。最終目標は「AIが作業したこと」ではなく、**ユーザーが実際に再生でき、見やすく、内容を理解できる完成MP4を受け取ること**である。途中工程の成功だけでは完成としない。
 
 ## 固定方針
 
-このリポジトリの動画制作では、Runway、Fal/fal.ai、Descript、VEED、HeyGen、Higgsfield等の「限定無料クレジット後に課金へ移る動画制作／編集SaaS」を使わない。接続済み・無料残高ありであっても実行経路に選ばない。
+動画本体の標準制作経路は Python / FFmpeg / ffprobe / Pillow / OpenCV / MoviePy / ASS字幕等のローカルまたは無料実行環境とする。
 
-外部サービスを使う場合は、利用時点で完全無料であり、自動課金、有料Fallback、クレジット購入要求がないことを確認できるものだけに限定する。確認できない場合は停止する。
+Runway、Fal/fal.ai、Descript、VEED、HeyGen、Higgsfield等の「限定無料クレジット後に課金へ移る動画制作／編集SaaS」は使わない。字幕AI・動画編集AIについても、有料アプリ、有料サイト、無料体験、期間限定無料、無料クレジット消費型を標準経路に入れない。外部字幕／編集ツールは、利用時点で完全無料かつ自動課金・有料Fallback・購入要求がないことを確認できる場合だけ候補にできる。不明ならBLOCKする。
 
-動画本体は Python / FFmpeg / ffprobe / Pillow / OpenCV / MoviePy 等のローカルまたは無料実行環境で生成する。
+### 映像・画像素材
 
-日本語ナレーションの標準音声は **VOICEVOX ずんだもん** とする。ユーザーが明示的に変更しない限り他の有料TTSへ切り替えない。
+このプロジェクトの標準動画制作では、**画像生成AIと動画生成AIを素材作成に使わない**。画像・映像素材は検索から発見し、元ページ・公式ページ・一次資料等へ戻って取得する。
+
+検索結果は発見手段であって利用許諾ではない。採用前に元URL、出典、権利状態、必要なクレジット、取得日時を記録する。事実の証拠として使う画像は企業・人物・施設・公式資料・一次ソース等を優先し、単なるイメージ素材と明確に区別する。
+
+外部素材はレンダリング途中に直接HTTP参照せず、事前にローカル化し、取得成功、非ゼロサイズ、デコード可能、最低解像度、権利状態を検査する。1素材の404や破損で無関係なSceneまで再生成しない。
+
+## 音声キャスト
+
+標準音声エンジンは **VOICEVOXローカル** とし、恒久標準キャストは次の2名とする。
+
+- **ずんだもん**: 視聴者目線、疑問、反応、感情、導入等の第一候補。
+- **四国めたん**: 解説、訂正、事実整理、補足等の第二話者候補。
+
+役割分担は固定法則ではなく動画内容に応じて入れ替えてよい。VOICEVOXのstyle id等は実行時に取得し、古い固定IDを信用しない。感情・疑問・驚き・警告・重要な結論では、速度・間・イントネーション等を意味単位で調整する。全編を同じ平坦な音声で読ませない。
 
 ## 長編Reliabilityの正本
 
-4〜10分以上の長編動画では、[LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md](./LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md) を本書と併せて必ず読む。競合する場合、長編の耐障害性・checkpoint・cache・preflight・media contractについてはPlaybookを優先する。
+長尺動画では `config/longform_video_reliability_policy.json` と `config/longform_video_objectives.json`、および `LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md` を本書と併せて必ず読む。耐障害性、Checkpoint、cache、preflight、media contractについて競合する場合は機械可読Policyを優先する。
 
-機械可読の固定条件は [`config/longform_video_reliability_policy.json`](../config/longform_video_reliability_policy.json) に保存する。レンダリング前には [`scripts/longform_video_preflight.py`](../scripts/longform_video_preflight.py) を使い、FFmpeg/ffprobe、encoder/filter/font、disk、Mission、禁止動画SaaS、実行時はローカルVOICEVOXずんだもんをfail-fast検査する。
+重要原則:
 
-重要:
-
-- 通常実行で健康なaudio/image/Scene checkpointを破壊しない。
+- 長尺を1つの巨大FFmpeg処理にしない。
+- **Scene Render → Checkpoint → Join** を標準とする。
+- 健康なaudio/image/subtitle/Scene checkpointを後段失敗で破壊しない。
 - `.partial` を成功済み成果物として扱わない。
 - concat前に全Sceneのffprobe media contractを比較する。
-- file sizeやfilenameだけでcache互換を判定しない。
-- A/V driftは必ず計測するが、block閾値はfixture実測で校正するまで絶対値として固定しない。
-- free AI reviewerの公開catalogが無料でも、実行直前に404/429/EMPTYへ変化し得る。paid siblingへ自動移行しない。
-- `scripts/media_agent_runtime.py` に残るDescript/Fal/Runway等のlegacy/general routeは長編動画制作には適用しない。
+- 実WAV時間を字幕・映像タイムラインの基準にする。
+- 無限リトライしない。同じ根本原因なら方式を変更する。
+- 外部素材取得はレンダリング前に完了する。
+- 完成判定は最終MP4の機械ゲート通過で行う。
+
+## AI分業型制作
+
+AIを同じ仕事の人数増加として使わず、工程ごとに専門化する。
+
+- **ChatGPT / Work**: 最高指揮官。全体計画、タスク分解、情報源の採否、構成・台本統合、技術案の最終選択、完成MP4の受け渡しを担当する。
+- **DeepSeek Executive Supervisor**: 長尺構成レビュー、情報密度レビュー、根本原因分析、FFmpeg／レンダリング設計レビュー、部下AI結果の査読を担当する。大量コード生成要員にはしない。正確なモデルID・費用・予算は `config/deepseek_paid_supervisor_policy.json` を正本とする。
+- **NVIDIA系専門AI**: 必要時にFFmpegコマンド、codec/filter契約、メモリ、処理負荷、長尺失敗を独立監査する。
+- **Qwen等の実装専門AI**: 必要時に限定的なPython/FFmpeg修正コードを担当する。
+- **Web検索・無料調査手段**: 最新情報、時系列、一次ソース、画像候補を収集する。
+- **VOICEVOX**: 音声生成。
+- **FFmpeg / ffprobe / Python**: 実処理と機械検証。
+
+同じ台本を複数AIへ無意味に重複生成させず、調査 → 構成 → 批評 → 修正 → 制作 → 技術検証へ分ける。AIの意見が割れた場合はChatGPTがSource of Truthと機械検証を見て最終判断する。
+
+## 制作前に固定するもの
+
+動画テーマ、想定視聴者、目的、自然な目標尺、縦型／横型、VOICEVOX話者、キャラクター、字幕体系、画像ソース方針、章構成、ニュースであれば基準日時を先に決める。
+
+長尺ニュース・解説は必ず10分に固定しない。内容が5〜6分で十分なら引き延ばさず、背景説明が必要なら8〜10分以上も許容する。6〜10分は開始時の目安であって義務ではない。同じ説明の言い換えで尺を稼がない。
+
+ニュースでは可能な範囲で「何が起きたか」だけでなく、「以前の経緯」「なぜ重要か」「現在どうなっているか」「今後の注目点」まで説明する。
 
 ## 長編パイプライン
 
-1. **Research / source lock**: 公開情報を出典付きで収集し、採用する事実と表現を固定する。台本承認後はレンダリング失敗を理由に再調査・再生成しない。
-2. **Rights manifest**: 入力ごとに source_type、permission_status、attribution、取得日時、SHA-256を記録する。権利が pending または blocked の素材はレンダリング対象にしない。
-3. **Asset materialization**: 外部画像をレンダリング中に直接読むのではなく、事前に作業領域へ取得する。取得成功、非ゼロサイズ、画像デコード、最低寸法を確認する。失敗素材だけ代替へ切り替える。
-4. **Script segmentation**: 台本を章・Scene・字幕ブロックに分ける。長編動画を1つの巨大な処理単位にしない。
-5. **Zundamon narration**: VOICEVOXずんだもんで章または字幕ブロック単位にWAVを生成する。成功済みWAVをキャッシュする。
-6. **Audio duration probe**: ffprobe等で各WAVの実時間を取得し、その実測値を映像尺と字幕タイミングの基準にする。文字数から秒数を推測して固定しない。
-7. **Captions**: ナレーション全文を字幕でカバーする。意味の切れ目で短く分割し、タイトル／章タイトル／小見出し／本文で文字サイズ・太さ・位置を分ける。ずんだもん・重要画像との安全領域を固定する。
-8. **Scene render**: Sceneごとに個別MP4を生成する。基本条件は 1080x1920 / 30fps / 同一Video Codec / 同一Audio Codec / 同一Sample Rate / 同一Pixel Format。途中Sceneは高速presetを優先する。
-9. **Scene validation**: 各Sceneの存在、非ゼロサイズ、映像・音声ストリーム、解像度、尺を機械検査する。失敗Sceneのみ再試行する。
-10. **Checkpoint**: 素材、音声、字幕、Sceneレンダリング、Scene検証、結合状態を保存する。失敗時は最後の正常地点から再開する。
-11. **Concat**: 全Sceneが同一条件なら concat copy を優先する。必要な場合だけ最終再エンコードする。
-12. **Final mechanical QA**: final.mp4 の存在、非ゼロサイズ、映像ストリーム、音声ストリーム、1080x1920、想定尺、ffprobe正常読込を確認する。
-13. **Artifact handoff**: 検査を通過したら、重いAI最終目視レビューを待たずに完成動画を先に提示する。
+1. **Research / source lock**: 公開情報を出典付きで収集し、公式発表、報道、二次情報、噂を区別する。
+2. **Fact check / claim ledger**: 事実、日付、数値、引用元を固定する。
+3. **Structure**: ChatGPTが章構成を作り、必要ならDeepSeekが構成・情報量をレビューする。
+4. **Script lock**: 台本を確定し、レンダリング失敗を理由に成功済み台本を無駄に作り直さない。
+5. **Rights manifest**: 画像・映像・BGM・SE等の権利状態と出典を保存する。
+6. **Asset materialization**: 検索で見つけた外部素材をローカルへ取得・検証する。画像生成・動画生成は標準経路に使わない。
+7. **Script segmentation**: 台本を章・Scene・字幕ブロックに分ける。
+8. **VOICEVOX narration**: ずんだもん／四国めたんを内容に応じて意味単位で生成し、成功WAVを保存する。
+9. **Audio duration probe**: ffprobeで各WAVの実時間を取得する。文字数から秒数を推測しない。
+10. **Captions**: ナレーション全文を字幕でカバーし、正規化した読み上げ全文と字幕全文のcoverageを機械確認する。
+11. **Scene render**: Sceneごとに個別MP4を生成する。
+12. **Scene validation**: 各Sceneを機械検証し、正常SceneのみCheckpointへ昇格する。
+13. **Checkpoint**: 素材、音声、字幕、Scene、結合状態を保存する。
+14. **Concat**: Scene contractが一致すれば `-c copy` 相当を優先し、必要な場合のみ再エンコードする。
+15. **Final mechanical QA**: final.mp4の存在、非ゼロサイズ、映像/音声ストリーム、解像度、fps、codec、尺、subtitle coverage、decode error等を確認する。
+16. **Artifact handoff**: 機械ゲート通過後、重いAI全編目視を必須待ちにせず、ChatGPTが完成MP4をユーザーへ渡す。
 
 ## Checkpoint状態
 
@@ -57,71 +95,83 @@ scene_validated
 final_concat_done
 ```
 
-成功済み成果物は後段の失敗で削除しない。
+成功済み成果物は後段の失敗で削除しない。映像だけを直す場合に正常VOICEVOX音声を再生成しない。
 
-### 再実行禁止の例
+## 字幕設計
 
-映像レンダリングだけ失敗した場合、以下をやり直さない。
+全文ナレーションを意味単位で短く分割して字幕化する。構造階層は最低限、**Title / Chapter / Subheading / Body**を持たせ、重要語はサイズ・太さ・色で補助強調する。色だけに意味を依存させない。
 
-- 台本生成
-- 情報収集
-- VOICEVOX音声生成
-- 正常取得済み画像の再取得
-- 成功済みSceneの再レンダリング
+スマホ視聴を前提に本文字幕も十分大きくし、キャラクター・重要画像・プラットフォームUIと重ならないSafe Areaを設ける。背景へ長文を敷き詰めない。
 
-失敗工程より前の正常成果物を再利用する。
+## ずんだもん・四国めたんの画面運用
 
-## ずんだもん運用
+長尺ニュース・解説ではキャラクターの**基本アンカー位置は安定**させ、字幕や証拠画像を邪魔しない。ただし「位置が安定」=「完全静止」ではない。
 
-- 音声はVOICEVOXずんだもんを標準とする。
-- 立ち絵を使う場合、画面内の基本位置は固定する。
-- 通常、笑顔、驚き、困惑、解説、考える、強調等の公式立ち絵を章単位で切り替える。
-- 1枚だけを長時間表示し続けない。
-- 立ち絵と字幕が重ならない安全領域を固定する。
+まばたき、微小上下動、軽いスケール変化、表情・ポーズ差し替え、発話中の強調、リアクション等を意味のあるBeatで使う。全編ぴょこぴょこ動かしたり、毎セリフで出入りさせたりしない。話していない側は少し小さく・暗く・リアクション状態にし、Evidence画像が主役の時は一時的に退避してよい。
+
+1つのBeatで主役の演出は原則1つにする。巨大字幕、強いSE、大ズーム、キャラ登場、強い音声感情を同時に最大化しない。
+
+## 画像・画面変化
+
+長尺で同じ画像を何十秒も固定しない。画像枚数そのものをKPIにはせず、新しい人物・場所・企業・重要数字・証拠・反転・結論等の**意味変化**で切り替える。
+
+静止画は必要に応じてslow push、pan、crop reveal、focus mask等の控えめな動きを加えられる。証拠画像とイメージ画像を明示的に区別する。
+
+## ニュース出典の扱い
+
+公式発表、報道、SNS・噂を同じ証拠強度で扱わない。
+
+- 公式発表: 「○○は〜と発表した」のように主体を明示する。
+- 報道: 「Reutersは〜と報じている」のように報道主体を明示する。
+- 間接報道: 誰が誰を引用しているか可能な限り明示する。
+- SNS・噂: 検証されていないものを事実として断定しない。
 
 ## Scene失敗時の処理
 
-- Sceneごとに個別タイムアウトを設定する。
-- 再試行回数には上限を設ける。
-- 無限リトライは禁止。
-- 同一原因で連続失敗した場合は、再試行を続けずDeepSeek/NVIDIA/Qwen等の技術レビュー担当へエラー情報を渡す。
-- 修正後も成功済みScene・WAV・字幕・画像は再利用する。
+失敗時は、どのSceneか、素材取得か、音声か、字幕か、FFmpegか、concatかを分類する。複数AIへ「原因候補を大量に出せ」と投げるより、**最初に発生したFatal Errorと根本原因を特定し、最小修正を選ぶ**。
 
-## AI分業
+同一方式の追加リトライは原則1回まで。同じ根本原因が続けば処理方式を変更する。修正案を全部混ぜず、ChatGPTが最小・安全・再発防止になる修正だけ採用する。
 
-- **ChatGPT**: 全体統括、工程設計、タスク分解、採用判断、最終統合、完成動画の受け渡し。
-- **DeepSeek**: 難しい原因分析、長尺動画構成レビュー、FFmpeg／レンダリング問題分析、修正案。
-- **NVIDIA/Qwen等**: コードレビュー、個別エラー解析、字幕／音声同期、素材確認、構成レビュー。
-- **Python/FFmpeg**: 実際の機械処理。
+## 推奨メディア契約
 
-同じ仕事を複数AIへ重複させず、異なる専門役割に分ける。
+縦型標準は 1080×1920 / 30fps / H.264 / yuv420p / AAC / 48kHz / stereo。全Sceneを同じ契約に揃える。途中Sceneだけfpsやsample rateが異なる状態を避ける。
 
-## 有料DeepSeekの例外
+## 作業ディレクトリ
 
-ユーザーが明示承認した有料DeepSeekは、技術分析・設計・レビューのために利用できる。ただし、既存の予算・呼び出し上限、秘密値非表示、STAGING_ONLY、repository_write=false、deploy=false、publish=false、no auto top-up、no generic paid fallback等のガードは維持する。
+```text
+work/audio/
+work/images/
+work/subtitles/
+work/scenes/
+artifacts/
+reports/
+```
 
-この例外を、Runway/Fal/Descript等の動画制作SaaSへの課金許可として解釈してはならない。
+成功済みSceneは後段失敗だけを理由に削除しない。不要な一時ファイル整理は最終成果物とCheckpointの健全性確認後に行う。
 
-## 初期のShorts構成
+## GitHub Actionsでの注意
 
-| 時間 | 役割 | 例 |
-| --- | --- | --- |
-| 0–2秒 | フック | 「9割が最初に間違える点」 |
-| 2–6秒 | 課題 | 誰の何が困るか |
-| 6–18秒 | 実演 | 一つの手順・比較・検証 |
-| 18–26秒 | 反転 | 失敗例、例外、意外な結果 |
-| 26–30秒 | 行動 | 保存、次回予告、質問 |
+実行前にtimeout、disk、RAM、artifact容量、VOICEVOX起動状態、全外部素材のローカル化を確認する。画像取得 → 音声生成 → Sceneレンダリング → 結合を分離し、レンダリング中のネットワーク依存をなくす。
 
-数値は固定ルールではなく、利用者が入力した視聴データで更新する。人気の断定やバズの保証は行わない。
+## BGM・SE
+
+BGMは `config/free_audio_source_registry.json` と `config/dova_curated_bgm_catalog.json` を読む。DOVA-SYNDROME / OpenTracks系を主要候補とし、「野良猫は宇宙を目指した」等を内容に合う場合の候補として扱う。ただし同じ曲を機械的に連続使用しない。
+
+ナレーションを最優先にし、BGMはducking、SEは意味のある箇所へ限定する。無音も演出として使う。重大な場面でBGM・SE・字幕・キャラ動作を全て最大化しない。
 
 ## 費用・公開ゲート
 
-- 動画制作系は無料ローカル処理を標準にする。
-- 外部動画制作／編集SaaSの無料クレジットを消費しない。
+- 動画・字幕編集は無料ローカル処理を標準とする。
+- 有料アプリ、有料サイト、無料体験、一時無料クレジット型の制作・編集経路は使わない。
+- 画像生成AI・動画生成AIを標準素材取得に使わない。
 - 完全無料か確認できない外部サービスは呼ばない。
-- 有料DeepSeekは技術参謀の例外であり、既存の費用ガード内に限定する。
-- 自動チャージは禁止。
-- 本番Deploy、無断Publish、PR Merge、秘密値表示は禁止。
-- 権利確認、内容レビュー、明示承認が必要な公開処理は承認前に実行しない。
+- 有料DeepSeekは既存のExecutive Supervisor例外内でのみ利用でき、動画制作SaaSへの課金許可にはならない。
+- 自動チャージ、有料Fallbackは禁止。
+- main直接Push、PR Merge、本番Deploy、無断Publish、秘密値表示は禁止。
+- 権利確認や明示承認が必要な公開処理は承認前に実行しない。
+
+## 完成定義
+
+完成とは「調査が終わった」「台本ができた」「Sceneが全部できた」ではない。最終的に**再生可能な完成MP4が生成され、機械QAを通過し、ChatGPTからユーザーへ渡せる状態**を完成とする。
 
 データ形式の正本は [media_pipeline_plan.schema.json](../schemas/media_pipeline_plan.schema.json)。
