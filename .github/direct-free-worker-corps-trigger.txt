@@ -1,7 +1,0 @@
-trigger=direct-free-worker-corps-v8-independent-agent-live-validation
-purpose=live-benchmark-zai-siliconflow-reconcile-role-slots-and-prove-independent-agent-local-revision-peer-deltas-direct-handoff-and-failure-isolation
-network=true
-max_model_calls=15
-provider_fallback=false
-paid_fallback=false
-production=false
