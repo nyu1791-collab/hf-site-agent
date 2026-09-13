@@ -1,5 +1,0 @@
-Media Army upper-model review trigger.
-
-Scope: canonical config/media_agent_organization.json + scripts/media_agent_runtime.py.
-Review Descript/Fal/Runway/Post Bridge integration, social research/publishing boundaries, monetization feedback, failure isolation and cost controls.
-No merge, deploy, publish, secret mutation, auto top-up or generic paid fallback.
