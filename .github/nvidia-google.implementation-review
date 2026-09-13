@@ -1,11 +1,11 @@
-trigger=longform-render-avif-hardening-20260912-1
-purpose=independent-review-of-longform-input-normalization-and-render-resilience
-deepseek_model=deepseek-flash
-deepseek_version=DeepSeek-V4.1-Flash
+trigger=cross-source-knowhow-audit-20260913-1
+purpose=independent-review-of-ai-army-video-retention-and-tiktok-shop-deltas
+deepseek_model=deepseek-v4-flash
+deepseek_version=DeepSeek-V4-Flash-0731
 deepseek_paid_approved=true
 nvidia_paid_approved=false
 google_paid_approved=false
-target=review-png-normalization-avif-loop-failure-and-longform-render-resilience
+target=review-cross-source-knowhow-deltas-against-current-canonical-standards-and-measurable-evidence
 production_change=false
 merge=false
 deploy=false
