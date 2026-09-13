@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config/media_audio_motion_retention_policy.json"
+MANIFEST = ROOT / "config/permanent_standards_manifest.json"
 
 
 def require(condition: bool, message: str) -> None:
@@ -16,8 +17,18 @@ def require(condition: bool, message: str) -> None:
 
 def main() -> int:
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     require(policy.get("schema_version") == "media-audio-motion-retention-v4", "media creative policy must remain v4 or be deliberately migrated with this validator")
     require(policy.get("status") == "ENFORCED_STANDARD", "media creative policy is not enforced")
+
+    indexed = {
+        item.get("machine_policy")
+        for item in (manifest.get("required_standards") or [])
+        if isinstance(item, dict)
+    }
+    require("config/media_audio_motion_retention_policy.json" in indexed, "media audio/motion/visual policy is no longer indexed by the permanent manifest")
+    media_gate = manifest.get("media_command_gate") or {}
+    require(media_gate.get("audio_motion_retention_policy") == "config/media_audio_motion_retention_policy.json", "media command gate no longer points to the creative policy")
 
     visual = policy.get("visual_asset_acquisition") or {}
     require(visual.get("generated_image_assets_allowed") is False, "generated image assets were re-enabled")
@@ -58,6 +69,7 @@ def main() -> int:
 
     print(json.dumps({
         "status": "PASS",
+        "permanent_manifest_indexed": True,
         "generated_image_ai_default": False,
         "actual_cast_visuals_required": True,
         "character_motion_required": True,
