@@ -12,6 +12,9 @@ on:
       - 'config/current_commander_handoff.json'
       - 'config/permanent_standards_manifest.json'
       - 'config/media_command_read_gate.json'
+      - 'config/media_audio_motion_retention_policy.json'
+      - 'config/free_audio_source_registry.json'
+      - 'config/dova_curated_bgm_catalog.json'
       - 'config/monetization_command_read_gate.json'
       - 'config/creator_monetization_policy.json'
       - 'config/monetization_opportunity_backlog.json'
@@ -122,6 +125,9 @@ jobs:
           python -m json.tool config/current_commander_handoff.json >/dev/null
           python -m json.tool config/permanent_standards_manifest.json >/dev/null
           python -m json.tool config/media_command_read_gate.json >/dev/null
+          python -m json.tool config/media_audio_motion_retention_policy.json >/dev/null
+          python -m json.tool config/free_audio_source_registry.json >/dev/null
+          python -m json.tool config/dova_curated_bgm_catalog.json >/dev/null
           python -m json.tool config/monetization_command_read_gate.json >/dev/null
           python -m json.tool config/creator_monetization_policy.json >/dev/null
           python -m json.tool config/monetization_opportunity_backlog.json >/dev/null
