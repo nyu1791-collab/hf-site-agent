@@ -1,72 +1,72 @@
-# Role-based Model Registry
+# Role-based Model Registry — Technical Reference
 
-`config/model_registry.json` はRoleとModelを分離した台帳です。Model IDをPrompt、Workflow、Runtimeへ大量に直書きせず、`provider_id → model_binding_role → 現行Catalog/Probe` の順で解決します。
+**Status:** implementation reference, not live Provider/readiness authority.
 
-## LifecycleとDiscovery
+`config/model_registry.json` はRoleとModelの候補・互換情報を分離するMachine-readable台帳です。ただし、この文書やRegistryに過去から残る候補名・期待ID・互換IDだけでは、現在のModel availability、free status、quota、cost、Provider readiness、routing authorityを証明しません。
 
-各Model recordは `model_id`、`provider`、`role_candidates`、`capabilities`、`status`、`lifecycle`、`discovered_at`、`last_verified_at`、`probe_status`、`benchmark_status`、`cost_class`、`quota_status` を保持します。Lifecycleは `STABLE`、`GA`、`PREVIEW`、`EXPERIMENTAL`、`LEGACY`、`DEPRECATED`、`REMOVED`、`UNKNOWN` のいずれかです。
+現在の実行権限とRoutingは `config/current_commander_handoff.json`、`config/permanent_standards_manifest.json`、`docs/AI_ARMY_MASTER_RULEBOOK.md`、関連Machine Policy、`scripts/ai_army_routing_facade.py` を優先します。外部Provider利用前はcurrent catalog/account evidenceを再取得し、古い文書の数値やModel名を現在値として流用しません。
 
-`STABLE`/`GA`だけがPrimary候補です。`PREVIEW`/`EXPERIMENTAL`は未承認の評価対象、`LEGACY`/`DEPRECATED`/`REMOVED`/`UNKNOWN`はRouting不可です。新モデルは `DISCOVERED → CAPABILITY_CHECKED → COST_CHECKED → PROBED → BENCHMARKED → CANDIDATE → EXPLICIT_APPROVAL → ACTIVE` の順で進み、発見だけでActiveにはなりません。
+## Lifecycle と Discovery
 
-Googleの `Gemini 3.8 Flash`、NVIDIAの `Nemotron 3.5 Lightning 30B A3B`、Groqのユーザー提供候補、OpenRouterの現行Free Worker群は `model_discovery.provider_targets` に評価対象として記録します。Google/NVIDIAの正確なIDが未確認の候補は `model_id=null`、Groqの画面由来IDは `USER_OBSERVED_UNVERIFIED` とし、Production RegistryのPrimaryには使用しません。
+評価Recordは、実装が対応する範囲でModel identity、Provider、Role candidate、Capability、Lifecycle、発見時刻、最終検証時刻、Probe、Benchmark、Cost、Quota等を保持します。未検証値は推測せず `null` / `UNKNOWN` / `NOT_RUN` 等として保持します。
 
-Phase 6で指示された期待ID（`gemini-3.8-flash`、
-`qwen/qwen3.8-27b`、NVIDIAの2候補、
-`z-ai/glm-5.3-flash:free`）は、別の `expected_candidates` に
-`EXPECTED_UNVERIFIED` として記録します。これは検証作業の照合先であり、
-モデル一覧への存在証明、Free証明、Probe結果、Benchmark結果、Role候補、
-Primary/ACTIVE登録を意味しません。Provider Catalogが返す正確なIDと一致する
-まで、実行候補にはなりません。
+標準的な昇格順は次です。
 
-旧固定Commander Roleは `LEGACY_DISABLED` を維持し、旧IDは `compatibility_model_ids` にのみ残します。旧IDを `primary_model`、`fallback_models`、`candidate_models`、Active経路へ戻すことは禁止です。
+`DISCOVERED → CAPABILITY_CHECKED → COST_CHECKED → PROBED → BENCHMARKED → CANDIDATE → EXPLICIT_APPROVAL → ACTIVE`
 
-## 現行Role
+重要な境界:
 
-| Role | Agent | Provider | 初期状態 |
-|---|---|---|---|
-| `ROLE_GOOGLE_GENERAL_COMMANDER` | `google-general-commander` | Google | `UNVERIFIED`, inactive |
-| `ROLE_NVIDIA_ENGINEERING_COMMANDER` | `nvidia-engineering-commander` | NVIDIA | `UNVERIFIED`, inactive |
-| `ROLE_GROQ_RAPID_EXECUTION_COMMANDER` | `groq-rapid-commander` | Groq | `UNVERIFIED`, inactive |
-| `ROLE_GOOGLE_SPECIALIST` | Google specialists | Google | `UNVERIFIED`, inactive |
-| `ROLE_NVIDIA_SPECIALIST` | NVIDIA specialists | NVIDIA | `UNVERIFIED`, inactive |
-| `ROLE_GROQ_SPECIALIST` | Groq specialists | Groq | `UNVERIFIED`, inactive |
-| `ROLE_OPENROUTER_WORKER` | 各 `<role>-worker` | OpenRouter | `UNVERIFIED`, inactive |
+- DiscoveryだけでActiveにしない。
+- 名前が似ているModelへ自動置換しない。
+- Exact Model IDを現在のProvider Catalogまたは公式Account evidenceで確認する。
+- Free/zero-cost、Quota、Capability、Route bindingを別々に検証する。
+- Probe成功はProduction activationを意味しない。
+- Historical `enabled` / candidate / compatibility値は現在の実行権限にならない。
+- Unknown cost/quota/paid transitionはfail-closed。
 
-Google、NVIDIA、GroqのCommander Model IDは、現行公式Catalog、価格・Quota、能力、実Endpoint Probeが揃うまで空欄です。Gemini、DeepSeek、GPT-OSS等の名称だけからID、価格、Free状態を推測して登録しません。旧固定Roleは `LEGACY_DISABLED` として互換検査用に隔離され、新Routingから参照されません。
+## Expected / Compatibility records
 
-## Free Workerの選定
+過去のPhaseや移行作業で、ユーザー指定または期待候補を `EXPECTED_UNVERIFIED`、旧Modelをcompatibility/legacy情報として残す場合があります。これは検証時の照合や回帰テストのための情報であり、存在証明・Free証明・Role割当・Fallback許可・ACTIVE登録ではありません。
 
-`scripts/probe_free_workers.py` は既定ではDry Runです。Catalog・Credits・Model Endpointへ接続するには、承認済みの手動Actionsから明示的に `--network` を付けます。そのうえで次の順に動きます。
+古い固定RoleやModel IDを、現在の `primary_model`、fallback、candidate、routing authorityへ復活させてはいけません。Legacy情報が必要な理由は「以前の経路を再発させないことを検査する」ためです。
 
-1. 現行OpenRouter Catalogを読み取る。
-2. `GENERAL_WORKER`、`CODING_WORKER`、`REVIEW_WORKER`、`FAST_WORKER`ごとに、正確な `:free` suffix、入力・出力価格0、必要Context、Tool/Structured Output、Role能力を確認する。
-3. 各Role最大1候補、全体最大4件だけをProbeする。
-4. 応答Modelが要求IDと一致し、`usage.cost=0`、Credits前後不変、`provider.allow_fallbacks=false`、Retry 0を満たす場合だけ `FREE_ACTIVE` とする。
-5. Catalog掲載だけ、個別ページのFree表記、Model mismatch、429、401/403、Cost不明、Credits不明は実行可能候補にしない。
+## Free route の選定原則
 
-`openrouter/free` は動的RouterなのでCommander、重大判断、Deploy判断、最終Reviewには使いません。低リスクWorkerでも、現在のRole条件とProbeを満たした記録が必要です。
+Free routeを使う場合も固定IDを盲信せず、利用時点のCatalog/evidenceから厳格に判定します。実装に応じて少なくとも以下を確認します。
+
+1. Exact Model IDとProvider endpoint/route。
+2. 現在のFree/zero-cost evidence。
+3. 現在のQuota / account eligibility evidence。
+4. 必要CapabilityとContext。
+5. Provider fallback / paid transitionが無効であること。
+6. Retry・Request・Token・Concurrencyがboundedであること。
+7. Probe応答Modelが要求IDと一致すること。
+8. Usage/cost evidenceがPolicy条件を満たすこと。
+
+`:free`等のラベルだけで重大判断や最終Reviewを許可しません。モデル名・Catalog掲載・古い成功Artifactだけでも現在の実行許可にはなりません。
 
 ## Evaluation record projection
 
-既存のv1キーとの互換性を保つため、`scripts/model_registry.py` の
-`normalized_model_records()` が各Modelをv2評価レコードへ射影します。射影はRegistryを変更せず、Lifecycle、Role candidates、Capabilities、Probe、Benchmark、Cost、Quotaを含む安定した評価レコードを返します。未検証の値は推測せず、`None`、`UNKNOWN`または`NOT_RUN`のまま保持します。
+既存Schema/実装との互換性のため、`scripts/model_registry.py` 等がMachine-readable Registryを評価用Recordへ射影することがあります。射影はRegistryのAuthorityを拡大せず、Lifecycle、Role candidate、Capability、Probe、Benchmark、Cost、Quota等を構造化して比較するためのものです。
 
-## Provider別ポリシー
+射影処理が不明値を補完・推測したり、historical recordを現在のProvider evidenceへ昇格させたりしてはいけません。
 
-Provider台帳は [`config/provider_registry.json`](../config/provider_registry.json) で管理します。Google/NVIDIA/Groqは `COMMANDER_PROVIDER`、OpenRouterは `WORKER_PROVIDER` です。全Providerで初期値は `enabled=false`、`probe_status=NOT_RUN`、Paid Model/Fallback/Auto top-up=falseです。
+## Provider / Quota の可変値
 
-OpenRouterだけに既存の1000 requests/day、900 Hard Stop、15 RPM、429停止、UTC日替わりの1回Probeを適用します。Google、NVIDIA、Groqへ900回ルールを流用しません。Quota APIがないProviderは無制限として扱わず、Quota不明で停止します。GroqについてはProbe応答のRate Limit Headerを許可されたQuota項目だけ記録します。
+Provider classification、RPM/TPM/RPD/TPD、daily cap、Hard Stop、credits、rate-limit header、free-tier条件、Model ID等は時間とAccountで変わり得ます。この文書へ固定値を恒久ルールとして複製しません。
 
-## 有効化条件
+実行時は以下を優先します。
 
-Provider/Roleの `active=true` は自動変更しません。少なくとも次を満たし、ChatGPT Workが明示承認した場合だけ切替候補になります。
+- current Machine-readable Registry / Policy
+- current official Provider Catalog / pricing / quota evidence
+- current account-specific evidence when required
+- current exact-route Probe result
+- current safety/cost gate
 
-- Provider Authが成功。
-- 指定Modelが現行Catalogまたは公式Account情報で存在。
-- Context、Multimodal、Tool Calling、Structured Output、Code能力がRole条件を満たす。
-- Retry 0の最小Probeが成功し、応答Modelと指定IDが一致。
-- Freeの場合は価格0、Usage Cost 0、Credits不変、Paid Fallbackなし。
-- Quota、Rate Limit、Health、Circuitが安全状態。
-- Commander契約、専門Mission、Worker契約を検証し、20〜50件の比較結果を保存。
+過去に使用したOpenRouter等の数値制限は回帰FixtureやLegacy configに残る場合がありますが、別Providerへ流用せず、現在値として扱いません。
 
-Probeはレジストリを直接変更しません。成功しても `FREE_ACTIVE` の昇格、Production swap、公開、決済は別承認です。
+## Activation boundary
+
+Provider/Role/ModelのActive化は、少なくともcurrent evidence、必要Capability、Cost/Quota safety、bounded Probe、Routing contract、Human Approval Gate等の現行Policy条件を満たした場合だけ候補になります。
+
+Registry、Probe、Benchmark、文書のいずれか1つだけでProduction activation、Paid fallback、Deploy、Publish、Secrets操作を許可することはありません。ChatGPT / Workが最終Authorityを保持します。
