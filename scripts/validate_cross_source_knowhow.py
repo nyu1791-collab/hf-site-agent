@@ -53,14 +53,19 @@ def main() -> int:
     require(sum(int(v) for v in dims.values()) == int(scoring.get("total_points") or 0) == 100, "score dimensions must total 100")
     require(scoring.get("platform_specific_numbers_must_not_be_generalized") is True, "cross-platform numeric guard missing")
     require(scoring.get("ai_reviewer_vote_is_not_primary_evidence") is True, "AI reviewer vote became primary evidence")
+    require(scoring.get("current_official_source_beats_stale_secondary_summary") is True, "current official source precedence missing")
 
     sources = matrix.get("sources") or []
     source_ids = unique_ids(sources, "sources")
     required_sources = {
-        "YT_RETENTION", "TIKTOK_CREATIVE_CODES", "TIKTOK_SHOP_JP_GMV",
+        "YT_RETENTION", "YT_CTR", "YT_ANALYTICS_API",
+        "TIKTOK_CREATIVE_CODES", "TIKTOK_SHOP_JP_GMV", "TIKTOK_SHOP_JP_QUALITY",
         "META_REELS_SAFE_ZONE", "OPENAI_AGENT_GUIDE", "ANTHROPIC_MULTI_AGENT",
-        "NVIDIA_AGENT_EVAL", "ITU_BS1770", "WHISPERX", "MASROUTER",
-        "DEEPSEEK_AUDIT_20260913",
+        "GOOGLE_VERTEX_AGENT_EVAL", "GOOGLE_ADK_EVAL_OBSERVABILITY",
+        "MICROSOFT_AGENT_FRAMEWORK_EVAL", "NVIDIA_AGENT_EVAL", "HF_SMOLAGENTS",
+        "LANGGRAPH_DURABILITY", "CREWAI_FLOWS", "MICROSOFT_AUTOGEN",
+        "ITU_BS1770", "WHISPERX", "MASROUTER", "SCIREP_SHORT_VIDEO_TRUST",
+        "DEEPSEEK_AUDIT_20260913", "NVIDIA_GOOGLE_REVIEW_20260913",
     }
     require(required_sources <= source_ids, f"missing required evidence sources: {sorted(required_sources - source_ids)}")
 
@@ -73,11 +78,14 @@ def main() -> int:
         "K07_TIKTOK_JP_GMV_FUNNEL", "K08_PRODUCT_PROOF_SHOTS",
         "K09_TRUST_EXPERTISE_OVER_PERFORMED_AUTHENTICITY",
         "K10_AGENT_REPRODUCIBLE_EVAL_ARTIFACT",
+        "K18_GOLDEN_AND_FAILURE_DATASETS", "K20_TOOL_SELECTION_EVAL",
     }
     require(required_canonical <= candidate_ids, f"missing canonical candidates: {sorted(required_canonical - candidate_ids)}")
     by_id = {str(x["id"]): x for x in candidates}
     for cid in required_canonical:
         require(by_id[cid].get("disposition") == "CANONICAL_ADOPT", f"{cid}: must remain canonical")
+    require(by_id.get("K11_ADAPTIVE_MULTI_AGENT_ROUTING", {}).get("disposition") == "EXPERIMENT", "adaptive routing must remain experiment")
+    require(by_id.get("K19_DURABILITY_MODE_BY_RISK", {}).get("disposition") == "EXPERIMENT", "durability-mode tuning must remain experiment")
     for item in candidates:
         score = item.get("score") or {}
         component_keys = [k for k in dims if k in score]
@@ -91,6 +99,7 @@ def main() -> int:
     require("CTR_ONLY_OPTIMIZATION" in hard_rejections, "CTR-only rejection missing")
     require("COPY_ONE_PLATFORM_NUMERIC_HEURISTIC_TO_OTHER_PLATFORMS" in hard_rejections, "cross-platform heuristic rejection missing")
     require("SYNTHESIZE_OR_INVENT_MISSING_PLATFORM_ANALYTICS" in hard_rejections, "synthetic analytics rejection missing")
+    require("UPPER_AGENT_OUTPUT_AS_EVIDENCE_AUTHORITY_WITHOUT_PRIMARY_SOURCE_OR_LOCAL_MEASUREMENT" in hard_rejections, "upper-agent authority guard missing")
 
     require(metrics.get("status") == "PERMANENT_STANDARD", "measurement registry not permanent")
     rules = metrics.get("global_rules") or {}
@@ -103,6 +112,8 @@ def main() -> int:
     required_metrics = {
         "AI_TASK_SUCCESS_RATE", "AI_LATENCY_MS", "AI_TOKEN_USAGE", "AI_ERROR_RATE",
         "AI_COORDINATION_OVERHEAD_RATIO", "AI_CHECKPOINT_RECOVERY_SUCCESS_RATE",
+        "AI_TOOL_SELECTION_ACCURACY", "AI_TOOL_INPUT_ACCURACY", "AI_TOOL_CALL_SUCCESS_RATE",
+        "AI_UNNECESSARY_TOOL_CALL_RATE",
         "VIDEO_DECODE_ERROR_COUNT", "VIDEO_CAPTION_COVERAGE_RATIO",
         "VIDEO_INTEGRATED_LOUDNESS_LUFS", "VIDEO_TRUE_PEAK_DBTP",
         "VIDEO_SAFE_ZONE_COLLISION_COUNT", "YT_IMPRESSIONS_CTR",
@@ -111,6 +122,12 @@ def main() -> int:
         "SHOP_RETURN_RATE", "SHOP_REFUND_RATE", "SHOP_POLICY_VIOLATION_RATE",
     }
     require(required_metrics <= mids, f"measurement registry missing metrics: {sorted(required_metrics - mids)}")
+
+    ai = metrics.get("ai_army") or {}
+    fixtures = ai.get("fixture_dataset_contract") or {}
+    require(fixtures.get("golden_and_real_failure_cases_required_for_architecture_or_routing_promotion") is True, "golden/failure fixture gate missing")
+    require(fixtures.get("same_fixture_set_for_baseline_and_variant") is True, "baseline/variant fixture parity missing")
+    require(fixtures.get("fixture_change_requires_version_bump") is True, "fixture versioning requirement missing")
 
     video = metrics.get("video") or {}
     retention = video.get("retention_feedback_contract") or {}
@@ -144,9 +161,11 @@ def main() -> int:
         "evidence_sources": len(sources),
         "adjudicated_candidates": len(candidates),
         "metric_ids": len(mids),
-        "canonical_adoptions": len(required_canonical),
+        "canonical_adoptions_checked": len(required_canonical),
+        "google_microsoft_hf_sources_required": True,
         "platform_numeric_cross_copy": "BLOCKED",
         "missing_analytics_synthesis": "BLOCKED",
+        "upper_agent_as_ground_truth": "BLOCKED",
     }, ensure_ascii=False, sort_keys=True))
     return 0
 
