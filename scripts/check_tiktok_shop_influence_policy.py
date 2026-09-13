@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config" / "tiktok_shop_influence_policy.json"
 HANDOFF = ROOT / "config" / "current_commander_handoff.json"
+MEDIA_GATE = ROOT / "config" / "media_command_read_gate.json"
 
 
 def load(path: Path) -> dict:
@@ -21,6 +22,7 @@ def load(path: Path) -> dict:
 def main() -> int:
     p = load(POLICY)
     h = load(HANDOFF)
+    gate = load(MEDIA_GATE)
 
     assert p["status"] == "PERMANENT_CONDITIONAL_STANDARD"
     assert p["platform_grounding"]["first_3_seconds_are_priority"] is True
@@ -45,9 +47,21 @@ def main() -> int:
     assert p["experimentation"]["promote_on_sales_alone"] is False
     assert p["experimentation"]["winning_pattern_may_not_relax_evidence_or_policy_gates"] is True
 
-    required_reads = h["continuity"]["on_new_session_required_read_order"]
+    # Handoff v8 is intentionally compact. TikTok-specific rules must be
+    # restored through the semantic media gate, not duplicated in startup order.
+    continuity = h["continuity"]
+    assert continuity["read_order_is_bootstrap_not_full_standard_copy"] is True
+    assert continuity["task_specific_gate_resolution"]["media"] == "config/media_command_read_gate.json"
+    active = h["active_standards"]
+    assert active["tiktok_shop_influence_policy"] == "config/tiktok_shop_influence_policy.json"
+    assert active["tiktok_shop_influence_playbook"] == "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md"
+
+    trigger = gate["trigger_read_sets"]["TIKTOK_SHOP_COMMERCE"]
+    required_reads = set(trigger["required"])
     assert "config/tiktok_shop_influence_policy.json" in required_reads
     assert "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md" in required_reads
+    assert gate["new_session_behavior"]["do_not_rely_on_prior_tab_summary_as_substitute"] is True
+
     assert "EVIDENCE_BASED_TIKTOK_SHOP_COMMERCE" in h["lanes"]
     assert h["tiktok_shop_fixed_rules"]["fake_reviews"] is False
     assert h["tiktok_shop_fixed_rules"]["fake_urgency_or_scarcity"] is False
