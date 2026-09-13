@@ -11,6 +11,11 @@ on:
       - 'config/agent_efficiency_policy.json'
       - 'config/current_commander_handoff.json'
       - 'config/permanent_standards_manifest.json'
+      - 'config/media_command_read_gate.json'
+      - 'config/longform_video_objectives.json'
+      - 'config/longform_video_reliability_policy.json'
+      - 'config/authorized_clipping_monetization_policy.json'
+      - 'config/tiktok_shop_influence_policy.json'
       - 'config/legacy_deepseek_compatibility.json'
       - 'config/ci_execution_policy.json'
       - 'config/model_registry.json'
@@ -18,6 +23,7 @@ on:
       - 'config/bulk_media_worker_pool.json'
       - 'scripts/ai_army_routing_facade.py'
       - 'scripts/validate_permanent_ai_army_state.py'
+      - 'scripts/validate_media_command_read_gate.py'
       - 'scripts/ci_control_plane_guard.py'
       - 'scripts/agent_architecture_admission.py'
       - 'scripts/commander_routing.py'
@@ -30,8 +36,15 @@ on:
       - 'schemas/batch_media_job.schema.json'
       - 'schemas/media_batch_command.schema.json'
       - 'docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md'
+      - 'docs/MEDIA_COMMAND_READ_GATE.md'
+      - 'docs/MEDIA_PIPELINE.md'
+      - 'docs/LONGFORM_VIDEO_OBJECTIVES.md'
+      - 'docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md'
+      - 'docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md'
+      - 'docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md'
       - 'docs/BATCH_MEDIA_ORCHESTRATION.md'
       - 'docs/MEDIA_BATCH_COMMAND_CENTER.md'
+      - 'docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md'
       - 'tests/test_ai_army_routing_facade.py'
       - 'tests/test_deepseek_json_guard.py'
       - 'tests/test_batch_media_scheduler.py'
@@ -66,6 +79,7 @@ jobs:
           python -m py_compile \
             scripts/ai_army_routing_facade.py \
             scripts/validate_permanent_ai_army_state.py \
+            scripts/validate_media_command_read_gate.py \
             scripts/ci_control_plane_guard.py \
             scripts/agent_architecture_admission.py \
             scripts/deepseek_supervisor_research.py \
@@ -83,6 +97,11 @@ jobs:
           python -m json.tool config/agent_efficiency_policy.json >/dev/null
           python -m json.tool config/current_commander_handoff.json >/dev/null
           python -m json.tool config/permanent_standards_manifest.json >/dev/null
+          python -m json.tool config/media_command_read_gate.json >/dev/null
+          python -m json.tool config/longform_video_objectives.json >/dev/null
+          python -m json.tool config/longform_video_reliability_policy.json >/dev/null
+          python -m json.tool config/authorized_clipping_monetization_policy.json >/dev/null
+          python -m json.tool config/tiktok_shop_influence_policy.json >/dev/null
           python -m json.tool config/legacy_deepseek_compatibility.json >/dev/null
           python -m json.tool config/ci_execution_policy.json >/dev/null
           python -m json.tool config/batch_media_orchestration_policy.json >/dev/null
@@ -95,6 +114,11 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_permanent_ai_army_state.py
+
+      - name: Enforce media command read gate
+        run: |
+          set -euo pipefail
+          python scripts/validate_media_command_read_gate.py
 
       - name: Enforce bounded CI control plane
         run: |
