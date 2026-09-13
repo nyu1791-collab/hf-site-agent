@@ -1,25 +1,123 @@
 {
-  "schema_version": "permanent-standards-manifest-v4",
-  "effective_date_jst": "2026-09-12",
-  "purpose": "Make critical AI Army, paid DeepSeek supervisor, routing, CI control-plane, long-form video, authorized clipping, bounded batch media orchestration, TikTok Shop commerce, and measurable efficiency rules recoverable and reusable across new chat tabs/sessions without relying on transient conversation context.",
+  "schema_version": "permanent-standards-manifest-v5",
+  "effective_date_jst": "2026-09-13",
+  "purpose": "Make critical AI Army, paid DeepSeek supervisor, routing, CI control-plane, media command read gates, long-form video, authorized clipping, bounded batch media orchestration, TikTok Shop commerce, and measurable efficiency rules recoverable and reusable across new chat tabs/sessions without relying on transient conversation context.",
   "canonical_branch": "ai-army/provider-v3",
   "startup_rule": "READ_CURRENT_COMMANDER_HANDOFF_AND_REQUIRED_STANDARDS_BEFORE_PLANNING_OR_EXECUTION",
   "required_standards": [
-    {"id": "current-commander-handoff", "machine_policy": "config/current_commander_handoff.json", "priority": 0},
-    {"id": "ai-army-org-chart", "machine_policy": "config/ai_army_org_chart.json", "human_doc": "docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md", "priority": 1},
-    {"id": "canonical-routing-facade", "runtime": "scripts/ai_army_routing_facade.py", "priority": 1},
-    {"id": "multi-agent-operating-standard", "path": "docs/MULTI_AGENT_OPERATING_STANDARD.md", "machine_policy": "config/multi_agent_operating_policy.json", "priority": 1},
-    {"id": "deepseek-executive-supervisor", "machine_policy": "config/deepseek_paid_supervisor_policy.json", "runtime": "scripts/deepseek_supervisor_research.py", "resilient_entrypoint": "scripts/deepseek_supervisor_research_resilient.py", "parser_guard": "scripts/deepseek_json_guard.py", "workflow": ".github/workflows/deepseek-supervisor-research.yml", "priority": 1},
-    {"id": "ci-execution-control-plane", "machine_policy": "config/ci_execution_policy.json", "validator": "scripts/ci_control_plane_guard.py", "priority": 1},
-    {"id": "agent-efficiency-shadow-evaluation", "machine_policy": "config/agent_efficiency_policy.json", "admission": "scripts/agent_architecture_admission.py", "evaluation": "scripts/agent_efficiency_eval.py", "priority": 1},
-    {"id": "legacy-deepseek-compatibility-registry", "machine_policy": "config/legacy_deepseek_compatibility.json", "authority": "HISTORICAL_COMPATIBILITY_ONLY", "priority": 2},
-    {"id": "permanent-ai-army-consistency-gate", "validator": "scripts/validate_permanent_ai_army_state.py", "workflow": ".github/workflows/canonical-ai-army-consistency.yml", "priority": 1},
-    {"id": "peer-review-adjudication", "machine_policy": "config/peer_review_adopted_deltas_20260912.json", "priority": 1},
-    {"id": "longform-video-objectives", "path": "docs/LONGFORM_VIDEO_OBJECTIVES.md", "machine_policy": "config/longform_video_objectives.json", "priority": 1},
-    {"id": "longform-video-reliability", "path": "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md", "machine_policy": "config/longform_video_reliability_policy.json", "priority": 1},
-    {"id": "authorized-clipping-and-monetization", "path": "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md", "machine_policy": "config/authorized_clipping_monetization_policy.json", "priority": 1},
-    {"id": "bounded-batch-media-orchestration", "path": "docs/BATCH_MEDIA_ORCHESTRATION.md", "machine_policy": "config/batch_media_orchestration_policy.json", "worker_pool": "config/bulk_media_worker_pool.json", "job_schema": "schemas/batch_media_job.schema.json", "runtime": "scripts/batch_media_scheduler.py", "command_center": "scripts/media_batch_command_center.py", "command_schema": "schemas/media_batch_command.schema.json", "command_doc": "docs/MEDIA_BATCH_COMMAND_CENTER.md", "priority": 1},
-    {"id": "tiktok-shop-influence", "path": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md", "machine_policy": "config/tiktok_shop_influence_policy.json", "priority": 1}
+    {
+      "id": "current-commander-handoff",
+      "machine_policy": "config/current_commander_handoff.json",
+      "priority": 0
+    },
+    {
+      "id": "media-command-read-gate",
+      "machine_policy": "config/media_command_read_gate.json",
+      "human_doc": "docs/MEDIA_COMMAND_READ_GATE.md",
+      "priority": 0
+    },
+    {
+      "id": "ai-army-org-chart",
+      "machine_policy": "config/ai_army_org_chart.json",
+      "human_doc": "docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md",
+      "priority": 1
+    },
+    {
+      "id": "canonical-routing-facade",
+      "runtime": "scripts/ai_army_routing_facade.py",
+      "priority": 1
+    },
+    {
+      "id": "multi-agent-operating-standard",
+      "path": "docs/MULTI_AGENT_OPERATING_STANDARD.md",
+      "machine_policy": "config/multi_agent_operating_policy.json",
+      "priority": 1
+    },
+    {
+      "id": "deepseek-executive-supervisor",
+      "machine_policy": "config/deepseek_paid_supervisor_policy.json",
+      "runtime": "scripts/deepseek_supervisor_research.py",
+      "resilient_entrypoint": "scripts/deepseek_supervisor_research_resilient.py",
+      "parser_guard": "scripts/deepseek_json_guard.py",
+      "workflow": ".github/workflows/deepseek-supervisor-research.yml",
+      "priority": 1
+    },
+    {
+      "id": "ci-execution-control-plane",
+      "machine_policy": "config/ci_execution_policy.json",
+      "validator": "scripts/ci_control_plane_guard.py",
+      "priority": 1
+    },
+    {
+      "id": "agent-efficiency-shadow-evaluation",
+      "machine_policy": "config/agent_efficiency_policy.json",
+      "admission": "scripts/agent_architecture_admission.py",
+      "evaluation": "scripts/agent_efficiency_eval.py",
+      "priority": 1
+    },
+    {
+      "id": "legacy-deepseek-compatibility-registry",
+      "machine_policy": "config/legacy_deepseek_compatibility.json",
+      "authority": "HISTORICAL_COMPATIBILITY_ONLY",
+      "priority": 2
+    },
+    {
+      "id": "permanent-ai-army-consistency-gate",
+      "validator": "scripts/validate_permanent_ai_army_state.py",
+      "workflow": ".github/workflows/canonical-ai-army-consistency.yml",
+      "priority": 1
+    },
+    {
+      "id": "peer-review-adjudication",
+      "machine_policy": "config/peer_review_adopted_deltas_20260912.json",
+      "priority": 1
+    },
+    {
+      "id": "media-pipeline",
+      "path": "docs/MEDIA_PIPELINE.md",
+      "priority": 1
+    },
+    {
+      "id": "longform-video-objectives",
+      "path": "docs/LONGFORM_VIDEO_OBJECTIVES.md",
+      "machine_policy": "config/longform_video_objectives.json",
+      "priority": 1
+    },
+    {
+      "id": "longform-video-reliability",
+      "path": "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+      "machine_policy": "config/longform_video_reliability_policy.json",
+      "priority": 1
+    },
+    {
+      "id": "media-research-synthesis",
+      "path": "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md",
+      "priority": 1
+    },
+    {
+      "id": "authorized-clipping-and-monetization",
+      "path": "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
+      "machine_policy": "config/authorized_clipping_monetization_policy.json",
+      "priority": 1
+    },
+    {
+      "id": "bounded-batch-media-orchestration",
+      "path": "docs/BATCH_MEDIA_ORCHESTRATION.md",
+      "machine_policy": "config/batch_media_orchestration_policy.json",
+      "worker_pool": "config/bulk_media_worker_pool.json",
+      "job_schema": "schemas/batch_media_job.schema.json",
+      "runtime": "scripts/batch_media_scheduler.py",
+      "command_center": "scripts/media_batch_command_center.py",
+      "command_schema": "schemas/media_batch_command.schema.json",
+      "command_doc": "docs/MEDIA_BATCH_COMMAND_CENTER.md",
+      "priority": 1
+    },
+    {
+      "id": "tiktok-shop-influence",
+      "path": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
+      "machine_policy": "config/tiktok_shop_influence_policy.json",
+      "priority": 1
+    }
   ],
   "canonical_ai_army_execution": {
     "policy_entrypoint": "scripts/ai_army_routing_facade.py",
@@ -36,6 +134,18 @@
     "ci_execution_policy": "config/ci_execution_policy.json",
     "ci_control_plane_guard": "scripts/ci_control_plane_guard.py"
   },
+  "media_command_gate": {
+    "policy": "config/media_command_read_gate.json",
+    "human_doc": "docs/MEDIA_COMMAND_READ_GATE.md",
+    "semantic_intent_not_exact_keyword_match": true,
+    "mixed_media_intents_are_additive": true,
+    "must_complete_before_media_planning_or_external_media_calls": true,
+    "conversation_memory_is_not_a_substitute": true,
+    "re_read_current_repository_versions_after_tab_or_session_change": true,
+    "video_creation_reads_video_know_how": true,
+    "clipping_reads_authorized_clipping_know_how": true,
+    "tiktok_shop_reads_commerce_know_how": true
+  },
   "default_runtime_flags": {
     "FREE_ONLY_MODE": true,
     "ALLOW_PAID_MODEL": false,
@@ -50,7 +160,18 @@
       "policy": "config/deepseek_paid_supervisor_policy.json",
       "persistent_authorization": true,
       "repeat_per_call_approval_required": false,
-      "allowed_scope": ["RESEARCH", "ARCHITECTURE", "PEER_REVIEW", "RED_TEAM", "INCIDENT_ANALYSIS", "STRATEGY", "TASK_DECOMPOSITION", "SUBORDINATE_REVIEW", "MEDIA_STRATEGY", "TIKTOK_SHOP_STRATEGY"],
+      "allowed_scope": [
+        "RESEARCH",
+        "ARCHITECTURE",
+        "PEER_REVIEW",
+        "RED_TEAM",
+        "INCIDENT_ANALYSIS",
+        "STRATEGY",
+        "TASK_DECOMPOSITION",
+        "SUBORDINATE_REVIEW",
+        "MEDIA_STRATEGY",
+        "TIKTOK_SHOP_STRATEGY"
+      ],
       "bulk_coding_worker": false,
       "mandatory_hop_for_every_task": false,
       "repository_write_by_deepseek": false,
@@ -64,11 +185,23 @@
       "other_paid_provider_authorization": false
     }
   ],
-  "human_approval_actions": ["PAID_EXECUTION_NOT_MATCHING_ACTIVE_PREAUTHORIZED_EXCEPTION", "PAID_FALLBACK", "SECRET_MUTATION_OR_DISCLOSURE", "MAIN_DIRECT_PUSH", "PR_MERGE", "PRODUCTION_DEPLOY", "PUBLISH", "DURABLE_OBJECT_CHANGE", "IRREVERSIBLE_EXTERNAL_ACTION"],
+  "human_approval_actions": [
+    "PAID_EXECUTION_NOT_MATCHING_ACTIVE_PREAUTHORIZED_EXCEPTION",
+    "PAID_FALLBACK",
+    "SECRET_MUTATION_OR_DISCLOSURE",
+    "MAIN_DIRECT_PUSH",
+    "PR_MERGE",
+    "PRODUCTION_DEPLOY",
+    "PUBLISH",
+    "DURABLE_OBJECT_CHANGE",
+    "IRREVERSIBLE_EXTERNAL_ACTION"
+  ],
   "cross_tab_behavior": {
     "do_not_rely_on_chat_memory_only": true,
     "repository_files_are_durable_source_of_truth": true,
     "on_new_tab_recover_from_current_commander_handoff_first": true,
+    "media_command_read_gate_survives_tab_change": true,
+    "media_task_re_reads_repository_know_how_before_media_work": true,
     "deepseek_supervisor_preauthorization_survives_tab_change": true,
     "deepseek_exception_does_not_expand_to_other_paid_providers": true,
     "canonical_router_survives_tab_change": true,
@@ -103,6 +236,7 @@
     "ALLOW_HISTORICAL_DEEPSEEK_EXPERIMENT_CONFIG_TO_AUTHORIZE_EXECUTION",
     "KEEP_LEGACY_PAID_DEEPSEEK_WORKFLOWS_ACTIVE_AFTER_CANONICAL_SUPERVISOR_MIGRATION",
     "LET_CI_EXECUTION_LIMITS_DRIFT_FROM_DEEPSEEK_SUPERVISOR_POLICY",
+    "SKIP_MEDIA_COMMAND_READ_GATE_OR_USE_CHAT_MEMORY_AS_SUBSTITUTE",
     "TURN_BULK_MEDIA_POOL_INTO_UNBOUNDED_AGENT_SWARM",
     "INCREASE_MEDIA_PARALLELISM_ABOVE_3_WITHOUT_SHADOW_AND_SOAK_EVIDENCE",
     "REGENERATE_HEALTHY_VIDEO_STAGES_AFTER_ISOLATED_FAILURE",
