@@ -42,6 +42,19 @@ def main() -> int:
     require(supervisor.get("status") == "ACTIVE_SCOPED_EXCEPTION", "DeepSeek supervisor exception inactive")
     require(ci_policy.get("schema_version") == "ci-execution-policy-v2", "CI execution policy is not canonical v2")
 
+    standards = manifest.get("required_standards") or []
+    by_standard = {str(x.get("id")): x for x in standards if isinstance(x, dict)}
+    require("master-rulebook" in by_standard, "permanent manifest lost compact master rulebook")
+    require(by_standard["master-rulebook"].get("path") == "docs/AI_ARMY_MASTER_RULEBOOK.md", "master rulebook path drift")
+    require(by_standard["master-rulebook"].get("priority") == 0, "master rulebook must remain priority 0")
+    require((ROOT / "docs/AI_ARMY_MASTER_RULEBOOK.md").is_file(), "master rulebook file missing")
+    cross_tab = manifest.get("cross_tab_behavior") or {}
+    require(cross_tab.get("priority_zero_manifest_is_expandable_startup_index") is True, "priority-zero manifest startup index drift")
+    require(cross_tab.get("master_rulebook_survives_tab_change") is True, "master rulebook cross-tab continuity lost")
+    require(cross_tab.get("do_not_duplicate_full_required_standard_list_into_commander_handoff") is True, "startup duplication guard lost")
+    read_order = list(((handoff.get("continuity") or {}).get("on_new_session_required_read_order") or []))
+    require("config/permanent_standards_manifest.json" in read_order, "commander handoff must restore permanent manifest")
+
     auth = supervisor.get("human_authorization") or {}
     safety = supervisor.get("safety") or {}
     provider = supervisor.get("provider") or {}
@@ -134,6 +147,7 @@ def main() -> int:
         "status": "PASS",
         "canonical_router": "scripts/ai_army_routing_facade.py",
         "deepseek_role": "EXECUTIVE_SUPERVISOR",
+        "master_rulebook": "PRIORITY_0",
         "active_paid_deepseek_workflow": ".github/workflows/deepseek-supervisor-research.yml",
         "legacy_paid_workflows_active": 0,
         "automatic_ci_workflow_cap": int(ci_policy.get("max_automatic_workflows_per_push") or 0),
