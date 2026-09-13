@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail closed on regressions to the permanent character-visual/news-background standard."""
+"""Fail closed on regressions to permanent character, caption and searched-background standards."""
 from __future__ import annotations
 
 import json
@@ -18,7 +18,7 @@ def require(condition: bool, message: str) -> None:
 def main() -> int:
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    require(policy.get("schema_version") == "media-audio-motion-retention-v4", "media creative policy must remain v4 or be deliberately migrated with this validator")
+    require(policy.get("schema_version") == "media-audio-motion-retention-v5", "media creative policy must remain v5 or be deliberately migrated with this validator")
     require(policy.get("status") == "ENFORCED_STANDARD", "media creative policy is not enforced")
 
     indexed = {
@@ -50,6 +50,69 @@ def main() -> int:
     require(motion.get("stable_anchor_does_not_mean_frozen_character") is True, "stable anchor may freeze characters again")
     require(motion.get("visible_standard_cast_characters_require_state_driven_motion_or_expression_change") is True, "visible standard cast no longer requires state-driven motion/expression change")
 
+    profile = policy.get("zundamon_metan_editing_profile") or {}
+    require(profile.get("status") == "MANDATORY_SERIES_STANDARD", "Zundamon/Metan editing profile is no longer mandatory")
+
+    authoring = profile.get("authoring_environment") or {}
+    require(authoring.get("preferred_editor") == "YMM4", "YMM4 is no longer the preferred Zundamon/Metan editor")
+    require(authoring.get("voice_engine") == "VOICEVOX", "VOICEVOX integration drifted")
+    require(authoring.get("ymm4_voicevox_link_for_automatic_lipsync") is True, "YMM4/VOICEVOX automatic lip sync was disabled")
+    require(authoring.get("automatic_mouth_animation_required") is True, "mouth animation is no longer required")
+    require(authoring.get("automatic_blink_required") is True, "automatic blink is no longer required")
+    require(authoring.get("character_assets_must_support_mouth_and_eye_state_changes") is True, "character assets no longer require eye/mouth states")
+    require(authoring.get("non_ymm4_fallback_must_reproduce_same_visible_behavior") is True, "non-YMM4 fallback may now reduce visible behavior")
+
+    bounce = profile.get("speech_start_bounce") or {}
+    require(bounce.get("required") is True, "speech-start bounce was disabled")
+    require(bounce.get("trigger") == "START_OF_EACH_SPEAKING_TURN", "speech-start bounce trigger drifted")
+    require(bounce.get("scale_sequence") == [1.0, 1.05, 1.0], "speech-start scale bounce must remain 100%-105%-100%")
+    require(bounce.get("vertical_bounce_required") is True, "Y-axis speech-start bounce was disabled")
+    require(bounce.get("easing_required") is True, "speech-start easing was disabled")
+
+    focus = profile.get("speaker_focus_switch") or {}
+    active = focus.get("active_speaker") or {}
+    inactive = focus.get("inactive_listener") or {}
+    require(focus.get("required") is True, "speaker focus switching was disabled")
+    require(active.get("scale") == 1.05, "active speaker scale must remain 1.05")
+    require(active.get("brightness_percent") == 100, "active speaker brightness must remain 100%")
+    require(active.get("z_order") == "FRONTMOST_CHARACTER", "active speaker must remain frontmost")
+    require(inactive.get("scale") == 1.0, "inactive listener scale must remain 1.00")
+    require(inactive.get("brightness_percent") == 80, "inactive listener brightness must remain 80%")
+    require(focus.get("switch_on_voice_turn") is True, "speaker focus no longer switches on voice turn")
+    require(focus.get("focus_change_must_follow_audio_turn_timing") is True, "speaker focus no longer follows audio timing")
+
+    expression = profile.get("expression_and_pose") or {}
+    require(expression.get("change_every_sentence_count_range") == [1, 2], "expression cadence must remain every 1-2 sentences")
+    require(expression.get("emotion_mapped_expression_required") is True, "emotion-mapped expressions were disabled")
+    require(expression.get("reaction_symbols_should_be_added_frequently_when_semantically_appropriate") is True, "reaction-symbol editing rule was disabled")
+    required_symbols = {"sweat_mark", "anger_mark", "question_mark", "surprise_mark", "emphasis_symbol"}
+    require(required_symbols.issubset(set(expression.get("reaction_symbols") or [])), "reaction symbol set regressed")
+
+    caption = profile.get("caption_professional_style") or {}
+    fonts = list(caption.get("preferred_fonts_in_order") or [])
+    for required_font in ("ラグランパンチ", "キルゴシック", "源ノ角ゴシック Heavy", "コーポレート・ロゴ"):
+        require(required_font in fonts, f"preferred caption font missing: {required_font}")
+    require(caption.get("base_text_color") == "#FFFFFF", "base caption text must remain white")
+    require(caption.get("double_outline_required") is True, "double-outline caption style was disabled")
+    inner = caption.get("inner_outline") or {}
+    outer = caption.get("outer_outline") or {}
+    require(inner.get("color") == "#000000", "inner caption outline must remain black")
+    require(inner.get("width_px_range") == [3, 5], "inner caption outline width drifted")
+    require(outer.get("width_px_range") == [6, 10], "outer caption outline width drifted")
+    require(outer.get("color_source") == "CURRENT_SPEAKER_CHARACTER_COLOR", "outer caption outline no longer follows speaker color")
+    colors = caption.get("character_theme_colors") or {}
+    require(colors.get("ずんだもん") == "#8BC34A", "Zundamon caption color drifted")
+    require(colors.get("四国めたん") == "#E91E63", "Shikoku Metan caption color drifted")
+    require(set(caption.get("emphasis_word_colors") or []) == {"#FFEB3B", "#F44336"}, "emphasis word colors drifted")
+    require(caption.get("emphasis_word_scale") == 1.2, "emphasis word scale must remain 1.2")
+    require(caption.get("caption_backplate_required") is True, "caption backplate was disabled")
+    require(caption.get("max_characters_per_line") == 15, "caption line limit must remain 15 characters")
+    require(caption.get("preferred_characters_per_line_range") == [13, 15], "caption preferred line range drifted")
+    require(caption.get("timing_source") == "VOICE_AUDIO_BOUNDARY", "caption timing source must remain audio boundary")
+    require(caption.get("timing_precision") == "MILLISECOND_LEVEL", "caption timing must remain millisecond-level")
+    require(caption.get("caption_start_must_match_speech_start") is True, "caption start no longer matches speech start")
+    require(caption.get("caption_switch_must_match_voice_turn_or_phrase_change") is True, "caption switch no longer follows voice turn/phrase change")
+
     contextual = policy.get("contextual_visuals") or {}
     require(contextual.get("news_backgrounds_prefer_search_collected_real_or_official_images_over_abstract_generated_visuals") is True, "searched real/official news-background preference drifted")
     require(contextual.get("audio_visualizer_is_not_a_semantic_news_background") is True, "audio visualizer is being treated as semantic news background again")
@@ -64,16 +127,32 @@ def main() -> int:
         "character_motion_present_when_required",
         "voice_waveform_not_used_as_character_substitute",
         "news_background_source_and_semantic_match",
+        "ymm4_or_equivalent_lipsync_present",
+        "blink_present",
+        "speech_start_bounce_present",
+        "speaker_focus_switch_present",
+        "expression_change_cadence",
+        "double_outline_caption_style",
+        "caption_max_15_characters_per_line",
+        "caption_audio_boundary_sync_ms",
     ):
         require(item in qa, f"media QA contract missing: {item}")
 
     print(json.dumps({
         "status": "PASS",
+        "schema_version": policy.get("schema_version"),
         "permanent_manifest_indexed": True,
         "generated_image_ai_default": False,
         "actual_cast_visuals_required": True,
-        "character_motion_required": True,
-        "waveform_character_substitution": False,
+        "preferred_editor": authoring.get("preferred_editor"),
+        "voice_engine": authoring.get("voice_engine"),
+        "automatic_lipsync": authoring.get("ymm4_voicevox_link_for_automatic_lipsync"),
+        "automatic_blink": authoring.get("automatic_blink_required"),
+        "speech_start_scale_sequence": bounce.get("scale_sequence"),
+        "active_speaker_scale": active.get("scale"),
+        "inactive_brightness_percent": inactive.get("brightness_percent"),
+        "caption_max_characters_per_line": caption.get("max_characters_per_line"),
+        "caption_timing_precision": caption.get("timing_precision"),
         "news_background_mode": visual.get("news_background_default_mode"),
     }, ensure_ascii=False, sort_keys=True))
     return 0
