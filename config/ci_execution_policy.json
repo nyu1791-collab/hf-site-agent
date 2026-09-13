@@ -8,6 +8,8 @@
     "canonical-ai-army-consistency.yml"
   ],
   "automatic_workflow_rule": "The second automatic workflow is path-scoped to canonical policy/routing changes and does not run on unrelated pushes.",
+  "automatic_trigger_allowlist_is_exhaustive": true,
+  "unregistered_push_pull_request_or_schedule_trigger": "FORBIDDEN",
   "max_bounded_internal_carriers": 1,
   "bounded_internal_carrier_workflows": [
     "subordinate-continuation.yml"
@@ -44,7 +46,11 @@
     "verify-real-photo-sourcing.yml",
     "verify-deepseek-joint-runtime.yml",
     "verify-media-army.yml",
-    "subordinate-continuation-carrier.yml"
+    "subordinate-continuation-carrier.yml",
+    "direct-free-worker-corps.yml",
+    "free-media-council-review.yml",
+    "longform-video-preflight.yml",
+    "organization-nvidia-audit.yml"
   ],
   "retired_paid_deepseek_workflows": [
     "deepseek-paid-parallel.yml",
