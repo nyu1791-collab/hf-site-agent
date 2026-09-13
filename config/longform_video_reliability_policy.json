@@ -1,23 +1,73 @@
 {
-  "schema_version": "longform-video-reliability-v3",
-  "effective_date_jst": "2026-09-12",
+  "schema_version": "longform-video-reliability-v4",
+  "effective_date_jst": "2026-09-13",
   "status": "PERMANENT_STANDARD",
+  "primary_outcome": "A_PLAYABLE_UNDERSTANDABLE_FINISHED_MP4_DELIVERED_TO_THE_USER_NOT_MERE_INTERMEDIATE_AI_ACTIVITY",
+  "ai_division": {
+    "top_commander": "CHATGPT_WORK",
+    "chatgpt_duties": ["overall_plan", "task_decomposition", "source_adjudication", "script_and_structure_integration", "final_technical_and_creative_decision", "artifact_handoff"],
+    "executive_supervisor": "DEEPSEEK",
+    "deepseek_policy_source": "config/deepseek_paid_supervisor_policy.json",
+    "deepseek_duties": ["longform_structure_review", "root_cause_analysis", "ffmpeg_and_render_architecture_review", "information_density_review", "subordinate_result_review"],
+    "deepseek_is_not_bulk_coder": true,
+    "technical_audit_candidates": ["NVIDIA_SPECIALIST"],
+    "implementation_candidates": ["QWEN_SPECIALIST", "DETERMINISTIC_PYTHON"],
+    "research_lane": "WEB_SEARCH_AND_VERIFIED_FREE_RESEARCH_TOOLS",
+    "voice_engine": "VOICEVOX_LOCAL",
+    "render_engine": "FFMPEG_FFPROBE",
+    "same_task_broadcast_to_many_agents_by_default": false,
+    "specialize_by_stage_instead_of_duplicate_generation": true,
+    "chatgpt_final_adjudication_required": true
+  },
   "production_path": {
-    "voice": "VOICEVOX_ZUNDAMON_LOCAL",
+    "voice": "VOICEVOX_ZUNDAMON_AND_SHIKOKU_METAN_LOCAL",
     "render": "PYTHON_FFMPEG_FFPROBE",
     "scene_first": true,
     "concat_copy_preferred": true,
     "final_reencode_only_when_required": true,
-    "monolithic_longform_render": false
+    "monolithic_longform_render": false,
+    "default_stage_order": ["research", "fact_check", "structure", "deepseek_review_when_high_value", "script_lock", "visual_asset_collection", "voice_generation", "subtitle_timeline", "scene_render", "checkpoint", "concat", "mechanical_qa", "artifact_handoff"]
+  },
+  "content_design": {
+    "theme_audience_purpose_orientation_voice_cast_caption_style_visual_source_and_chapter_plan_before_render": true,
+    "news_requires_before_context_why_it_matters_current_state_and_next_watchpoints_when_supported": true,
+    "target_duration_is_content_driven_not_fixed": true,
+    "news_explainer_duration_starting_heuristic_minutes": [6, 10],
+    "duration_heuristic_is_not_a_mandate": true,
+    "padding_by_rephrasing_or_repetition": false,
+    "typical_longform_chapter_count_starting_range": [8, 12],
+    "chapter_count_is_not_a_hard_rule": true
   },
   "prohibited_video_saas": ["descript", "fal", "fal.ai", "runway", "veed", "heygen", "higgsfield"],
   "paid_policy": {
     "video_saas_paid_execution": false,
     "video_saas_free_credit_execution": false,
+    "caption_or_video_editing_paid_app_execution": false,
+    "caption_or_video_editing_paid_site_execution": false,
+    "caption_or_video_editing_trial_or_temporary_free_execution": false,
+    "verified_permanently_free_external_caption_or_editing_tool_may_be_considered": true,
     "auto_top_up": false,
     "generic_paid_fallback": false,
     "paid_sibling_substitution": false,
     "unknown_cost_route": "BLOCK"
+  },
+  "visual_asset_policy": {
+    "generated_image_assets": false,
+    "generated_video_assets": false,
+    "default_source": "SEARCH_AND_SOURCE_COLLECTION",
+    "search_result_is_discovery_not_license": true,
+    "prefer_official_or_primary_visuals_for_claim_evidence": true,
+    "rights_cleared_illustrative_assets_allowed": true,
+    "original_source_and_reuse_terms_verification_required": true,
+    "network_fetch_inside_ffmpeg_render": false,
+    "pre_download_required": true,
+    "http_200_or_success_required": true,
+    "nonzero_size_required": true,
+    "decode_validation_required": true,
+    "minimum_resolution_check_required": true,
+    "failed_asset_fallback_isolated_to_that_asset_or_scene": true,
+    "provenance_ledger_required": true,
+    "provenance_fields": ["source", "source_url", "rights_status", "attribution", "retrieved_at", "content_sha256", "decode_status", "usage_scene_ids", "normalized_derivative_sha256"]
   },
   "checkpoint_policy": {
     "preserve_healthy_outputs": true,
@@ -28,7 +78,8 @@
     "cache_is_not_durable_checkpoint_source_of_truth": true,
     "verified_cross_run_outputs_use_artifact_or_explicit_checkpoint_store": true,
     "checkpoint_manifest_atomic_commit": true,
-    "resume_manifest_must_revalidate_hash_and_media_contract": true
+    "resume_manifest_must_revalidate_hash_and_media_contract": true,
+    "minimum_stage_states": ["assets_ready", "voice_ready", "subtitles_ready", "scene_rendered", "scene_validated", "final_concat_done"]
   },
   "atomic_scene_commit": {
     "temporary_suffix": ".partial.mp4",
@@ -60,7 +111,9 @@
     "unsafe_or_unknown_contract_mismatch_action": "BLOCK_SCENE_PROMOTION"
   },
   "voicevox_contract": {
-    "speaker": "ずんだもん",
+    "standard_cast": ["ずんだもん", "四国めたん"],
+    "primary_default": "ずんだもん",
+    "dialogue_secondary_default": "四国めたん",
     "discover_style_from_speakers_endpoint": true,
     "record_speaker_uuid": true,
     "record_style_id": true,
@@ -70,7 +123,9 @@
     "raw_sample_rate_may_be_hz": 24000,
     "normalize_scene_input_to_hz": 48000,
     "normalized_audio_is_separate_derivative_with_own_hash": true,
-    "visual_only_change_must_not_regenerate_raw_voice": true
+    "visual_only_change_must_not_regenerate_raw_voice": true,
+    "split_script_into_semantic_or_caption_units": true,
+    "emotion_and_prosody_map_required_for_dialogue_or_explainer_when_applicable": true
   },
   "timeline": {
     "source_of_truth": "timeline_manifest.json",
@@ -79,12 +134,37 @@
     "subtitle_full_narration_coverage_required": true,
     "subtitle_generation_must_not_depend_on_provider_internal_object": true,
     "narration_manifest_is_subtitle_text_source_of_truth": true,
+    "normalized_narration_and_caption_text_coverage_check_required": true,
     "negative_subtitle_timestamps_allowed": false,
     "unintended_subtitle_overlap_allowed": false,
     "drift_measurement_required": true,
     "drift_threshold_status": "PROVISIONAL_UNTIL_FIXTURE_CALIBRATION",
     "unknown_or_third_party_speech_prefers_word_level_alignment": true,
     "known_tts_with_verified_narration_manifest_does_not_require_asr": true
+  },
+  "caption_contract": {
+    "structural_hierarchy": ["TITLE", "CHAPTER", "SUBHEADING", "BODY"],
+    "keyword_emphasis_allowed": true,
+    "semantic_chunking_required": true,
+    "full_screen_text_dump": false,
+    "safe_area_required_for_character_and_platform_ui": true,
+    "color_is_navigation_not_decoration_only": true,
+    "color_alone_must_not_encode_meaning": true
+  },
+  "character_contract": {
+    "stable_anchor_preferred_for_longform_news_or_explainer": true,
+    "long_frozen_portrait_allowed": false,
+    "expression_and_pose_switches_by_semantic_beat": true,
+    "subtle_state_driven_motion_allowed": true,
+    "constant_large_motion": false,
+    "active_speaker_emphasis": true,
+    "caption_overlap_allowed": false
+  },
+  "news_source_contract": {
+    "official_statement_and_media_report_are_distinct_evidence_types": true,
+    "rumor_or_social_claim_must_not_be_presented_as_official_fact": true,
+    "script_language_should_attribute_reported_claims_to_the_reporting_source": true,
+    "primary_evidence_preferred_when_available": true
   },
   "audio_quality": {
     "measure_loudness_before_normalization": true,
@@ -103,12 +183,16 @@
     "decode_error_count_recorded": true,
     "decode_error_count_target": 0,
     "sampled_decode_allowed_only_when_full_decode_exceeds_declared_time_budget": true,
-    "sampled_decode_fallback_requires_recorded_reason_and_budget": true
+    "sampled_decode_fallback_requires_recorded_reason_and_budget": true,
+    "heavy_ai_full_video_visual_review_required_before_handoff": false,
+    "mechanical_gate_then_prompt_user_review_is_allowed": true
   },
   "retry_policy": {
     "infinite_retry": false,
     "same_method_retry_is_bounded": true,
+    "same_method_extra_retries_max": 1,
     "same_root_cause_requires_method_change": true,
+    "first_fatal_error_or_root_cause_before_cascade_errors": true,
     "retryable_classes": ["TEMPORARY_NETWORK_TIMEOUT", "FREE_ROUTE_429", "FREE_ROUTE_5XX", "TEMPORARY_DOWNLOAD_INTERRUPTION"],
     "retry_profiles": {
       "FREE_ROUTE_429": "HONOR_RETRY_AFTER_ELSE_EXPONENTIAL_BACKOFF_WITH_JITTER_AND_REDUCE_CONCURRENCY",
@@ -135,21 +219,21 @@
     "high_complexity_scene_proxy_preview_optional": true,
     "proxy_preview_for_every_scene": false
   },
-  "asset_policy": {
-    "network_fetch_inside_ffmpeg_render": false,
-    "pre_download_required": true,
-    "decode_validation_required": true,
-    "content_hash_required": true,
-    "url_only_cache_key": false,
-    "single_bad_asset_must_not_fail_unrelated_scenes": true,
-    "provenance_ledger_required": true,
-    "provenance_fields": ["source", "retrieved_at", "content_sha256", "decode_status", "rights_status", "normalized_derivative_sha256"]
+  "work_directory_layout": {
+    "audio": "work/audio/",
+    "images": "work/images/",
+    "subtitles": "work/subtitles/",
+    "scenes": "work/scenes/",
+    "artifacts": "artifacts/",
+    "reports": "reports/",
+    "successful_scene_cleanup_before_final_handoff": false
   },
   "github_actions_storage_policy": {
     "cache_role": "OPTIONAL_REGENERABLE_ACCELERATOR",
     "artifact_role": "VERIFIED_CROSS_JOB_OR_CROSS_RUN_OUTPUT",
     "cache_hit_may_not_prove_checkpoint_success": true,
-    "cross_runner_resume_requires_verified_manifest": true
+    "cross_runner_resume_requires_verified_manifest": true,
+    "preflight_checks": ["timeout_budget", "disk_capacity", "available_ram", "artifact_size_budget", "voicevox_ready", "all_external_assets_materialized"]
   },
   "toolchain_provenance_required": ["git_commit_sha", "renderer_version", "ffmpeg_version", "ffprobe_version", "voicevox_engine_version_or_digest", "voicevox_speaker_uuid", "voicevox_style_id", "font_identity", "mission_hash", "policy_version"],
   "ai_review_policy": {
@@ -158,7 +242,11 @@
     "empty_response_counts_as_success": false,
     "unknown_provider_routing": "BLOCK",
     "multi_ai_consensus_is_not_mechanical_truth": true,
-    "deepseek_paid_supervisor_may_review_architecture_failure_or_edit_strategy_under_its_scoped_policy": true
+    "deepseek_paid_supervisor_may_review_architecture_failure_or_edit_strategy_under_its_scoped_policy": true,
+    "nvidia_specialist_focus": ["ffmpeg_command", "codec_and_filter_contract", "memory_and_resource_pressure", "longform_render_failure"],
+    "qwen_specialist_focus": ["targeted_python_patch", "targeted_ffmpeg_patch", "mechanical_implementation"],
+    "do_not_merge_all_agent_suggestions": true,
+    "chatgpt_selects_smallest_safe_root_cause_fix": true
   },
   "reliability_slo": {
     "healthy_prior_scene_regeneration_after_later_scene_failure": 0,
@@ -171,18 +259,21 @@
     "cache_only_checkpoint_acceptance_count": 0,
     "final_decode_error_count": 0,
     "paid_video_saas_execution_count": 0,
+    "paid_caption_or_editing_app_execution_count": 0,
+    "generated_image_asset_count": 0,
+    "generated_video_asset_count": 0,
     "auto_paid_transition_count": 0,
     "synthetic_recovery_fixture_required": true
   },
-  "efficiency_kpi": [
-    "voice_cache_hit_rate", "visual_cache_hit_rate", "scene_cache_hit_rate", "rerendered_scene_ratio", "reused_scene_ratio", "wasted_encode_seconds", "checkpoint_restore_seconds", "total_render_wall_seconds", "p50_scene_render_seconds", "p95_scene_render_seconds", "peak_disk_bytes", "peak_ram_bytes", "swap_growth_bytes", "visual_fallback_count", "external_request_count", "subprocess_timeout_count", "decode_validation_seconds", "proxy_preview_count", "scene_normalization_count"
-  ],
+  "efficiency_kpi": ["voice_cache_hit_rate", "visual_cache_hit_rate", "scene_cache_hit_rate", "rerendered_scene_ratio", "reused_scene_ratio", "wasted_encode_seconds", "checkpoint_restore_seconds", "total_render_wall_seconds", "p50_scene_render_seconds", "p95_scene_render_seconds", "peak_disk_bytes", "peak_ram_bytes", "swap_growth_bytes", "visual_fallback_count", "external_request_count", "subprocess_timeout_count", "decode_validation_seconds", "proxy_preview_count", "scene_normalization_count"],
   "pruning_policy": {
     "asr_every_scene_for_known_tts_script": false,
     "proxy_render_every_scene": false,
     "url_only_cache_identity": false,
     "latest_unpinned_toolchain_in_reproducible_path": false,
     "monolithic_render": false,
-    "agent_debate_for_mechanical_validation": false
+    "agent_debate_for_mechanical_validation": false,
+    "blanket_media_production_hold": false,
+    "image_or_video_generation_for_default_visual_assets": false
   }
 }
