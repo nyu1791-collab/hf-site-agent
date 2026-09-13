@@ -5,13 +5,13 @@ on:
     branches:
       - ai-army/provider-v3
     paths:
+      - 'README.md'
       - 'config/ai_army_org_chart.json'
       - 'config/multi_agent_operating_policy.json'
       - 'config/deepseek_paid_supervisor_policy.json'
       - 'config/agent_efficiency_policy.json'
       - 'config/current_commander_handoff.json'
       - 'config/permanent_standards_manifest.json'
-      - 'config/current_media_execution_state.json'
       - 'config/media_command_read_gate.json'
       - 'config/media_audio_motion_retention_policy.json'
       - 'config/free_audio_source_registry.json'
@@ -43,6 +43,9 @@ on:
       - 'scripts/second_pass_governance.py'
       - 'scripts/ci_control_plane_guard.py'
       - 'scripts/agent_architecture_admission.py'
+      - 'scripts/agent_efficiency_eval.py'
+      - 'scripts/check_tiktok_shop_influence_policy.py'
+      - 'scripts/tiktok_shop_claim_gate.py'
       - 'scripts/commander_routing.py'
       - 'scripts/deepseek_supervisor_research.py'
       - 'scripts/deepseek_supervisor_research_resilient.py'
@@ -55,6 +58,7 @@ on:
       - 'schemas/untrusted_content_envelope.schema.json'
       - 'schemas/claim_evidence_ledger.schema.json'
       - 'schemas/creative_experiment.schema.json'
+      - 'schemas/tiktok_shop_claim_manifest.schema.json'
       - 'docs/AI_ARMY_MASTER_RULEBOOK.md'
       - 'docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md'
       - 'docs/MEDIA_COMMAND_READ_GATE.md'
@@ -70,6 +74,8 @@ on:
       - 'docs/MEDIA_BATCH_COMMAND_CENTER.md'
       - 'docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md'
       - 'tests/test_ai_army_routing_facade.py'
+      - 'tests/test_agent_efficiency_policy_regression.py'
+      - 'tests/test_tiktok_shop_claim_gate.py'
       - 'tests/test_deepseek_json_guard.py'
       - 'tests/test_batch_media_scheduler.py'
       - 'tests/test_media_batch_command_center.py'
@@ -112,6 +118,9 @@ jobs:
             scripts/second_pass_governance.py \
             scripts/ci_control_plane_guard.py \
             scripts/agent_architecture_admission.py \
+            scripts/agent_efficiency_eval.py \
+            scripts/check_tiktok_shop_influence_policy.py \
+            scripts/tiktok_shop_claim_gate.py \
             scripts/deepseek_supervisor_research.py \
             scripts/deepseek_supervisor_research_resilient.py \
             scripts/deepseek_json_guard.py \
@@ -152,6 +161,7 @@ jobs:
           python -m json.tool schemas/untrusted_content_envelope.schema.json >/dev/null
           python -m json.tool schemas/claim_evidence_ledger.schema.json >/dev/null
           python -m json.tool schemas/creative_experiment.schema.json >/dev/null
+          python -m json.tool schemas/tiktok_shop_claim_manifest.schema.json >/dev/null
           python -m json.tool examples/media_batch_3way.template.json >/dev/null
 
       - name: Run permanent organization consistency validator
@@ -168,6 +178,11 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_media_command_read_gate.py
+
+      - name: Enforce TikTok Shop policy continuity
+        run: |
+          set -euo pipefail
+          python scripts/check_tiktok_shop_influence_policy.py
 
       - name: Enforce creator monetization continuity and program evidence
         run: |
@@ -194,6 +209,8 @@ jobs:
           set -euo pipefail
           python -m unittest \
             tests.test_ai_army_routing_facade \
+            tests.test_agent_efficiency_policy_regression \
+            tests.test_tiktok_shop_claim_gate \
             tests.test_deepseek_json_guard \
             tests.test_batch_media_scheduler \
             tests.test_media_batch_command_center \
