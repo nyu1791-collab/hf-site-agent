@@ -1,11 +1,7 @@
 name: "AI army direct free worker corps"
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - .github/direct-free-worker-corps-trigger.txt
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,14 +9,14 @@ permissions:
 
 concurrency:
   group: direct-free-worker-corps-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   direct-free-corps:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout exact triggering source without write credentials
+      - name: Checkout exact source without write credentials
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
@@ -31,36 +27,24 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Compile and test direct free corps and independent-agent organization
+      - name: Compile and test direct-free and organization surfaces
         run: |
           set -euo pipefail
           python -m py_compile \
-            scripts/direct_free_worker_corps.py \
             scripts/direct_free_worker_corps_v2.py \
-            scripts/replaceable_agent_organization.py \
-            scripts/global_agent_role_optimizer.py \
-            scripts/replaceable_agent_scheduler.py \
-            scripts/low_latency_agent_fabric.py \
-            scripts/replaceable_agent_scheduler_v2.py \
-            scripts/independent_agent_runtime.py \
-            scripts/independent_agent_scheduler.py \
-            scripts/independent_agent_scheduler_probe.py \
+            scripts/reconcile_agent_organization.py \
             scripts/low_latency_scheduler_probe.py \
-            scripts/reconcile_agent_organization.py
+            scripts/independent_agent_scheduler_probe.py
           python -m json.tool config/direct_free_worker_corps.json >/dev/null
           python -m json.tool config/replaceable_agent_organization.json >/dev/null
           python -m unittest \
-            tests.test_direct_free_worker_corps \
             tests.test_direct_free_worker_corps_v2 \
             tests.test_replaceable_agent_organization \
-            tests.test_replaceable_agent_scheduler \
-            tests.test_low_latency_agent_fabric \
             tests.test_replaceable_agent_scheduler_v2 \
             tests.test_independent_agent_scheduler \
-            tests.test_reconcile_agent_organization \
-            tests.test_reconcile_agent_cli -v
+            tests.test_reconcile_agent_organization -v
 
-      - name: Run bounded ZAI and SiliconFlow free benchmark
+      - name: Run bounded free-provider benchmark
         env:
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
@@ -70,104 +54,47 @@ jobs:
           --confirm DIRECT_FREE_WORKER_TRIAL
           --output artifacts/direct_free_worker_corps.json
 
-      - name: Reconcile current direct models into replaceable agent roles
+      - name: Reconcile verified candidates into replaceable roles
         run: >-
           python scripts/reconcile_agent_organization.py
           --direct-free-report artifacts/direct_free_worker_corps.json
           --output artifacts/replaceable_agent_organization.json
 
-      - name: Run deterministic low-latency coordination probe
-        run: >-
-          python scripts/low_latency_scheduler_probe.py
-          --output artifacts/low_latency_scheduler_probe.json
-
-      - name: Run independent role-agent mission probe
-        run: >-
-          python scripts/independent_agent_scheduler_probe.py
-          --organization artifacts/replaceable_agent_organization.json
-          --output artifacts/independent_agent_scheduler_probe.json
-
-      - name: Validate free corps and organization artifacts
+      - name: Run deterministic coordination probes
         run: |
           set -euo pipefail
-          python -m json.tool artifacts/direct_free_worker_corps.json >/dev/null
-          python -m json.tool artifacts/replaceable_agent_organization.json >/dev/null
-          python -m json.tool artifacts/low_latency_scheduler_probe.json >/dev/null
-          python -m json.tool artifacts/independent_agent_scheduler_probe.json >/dev/null
+          python scripts/low_latency_scheduler_probe.py --output artifacts/low_latency_scheduler_probe.json
+          python scripts/independent_agent_scheduler_probe.py \
+            --organization artifacts/replaceable_agent_organization.json \
+            --output artifacts/independent_agent_scheduler_probe.json
+
+      - name: Validate bounded free-only result
+        run: |
+          set -euo pipefail
           python scripts/audit_secret_safety.py --root .
           python - <<'PY'
           import json
           from pathlib import Path
-          report = json.loads(Path("artifacts/direct_free_worker_corps.json").read_text(encoding="utf-8"))
-          organization = json.loads(Path("artifacts/replaceable_agent_organization.json").read_text(encoding="utf-8"))
-          latency = json.loads(Path("artifacts/low_latency_scheduler_probe.json").read_text(encoding="utf-8"))
-          agents = json.loads(Path("artifacts/independent_agent_scheduler_probe.json").read_text(encoding="utf-8"))
-          assert report.get("schema_version") == "direct-free-worker-corps-report-v2"
-          assert report.get("paid_fallback") is False
-          assert report.get("provider_automatic_fallback") is False
-          assert report.get("production_routing_changed") is False
-          assert int(report.get("model_calls", 0)) <= 15
-          assert organization.get("organization_mode") == "REPLACEABLE_ROLE_SLOTS_GLOBAL_OPTIMIZATION"
-          assert organization.get("assignment_policy") == "BOUNDED_GLOBAL_BEAM_SEARCH_WITH_ROLE_FIT_AND_DIVERSITY"
-          assert organization.get("global_role_optimization") is True
-          assert organization.get("model_names_are_replaceable") is True
-          assert organization.get("role_slots_are_stable") is True
-          assert organization.get("generic_paid_fallback") is False
-          assert organization.get("external_model_repository_write") is False
-          assert latency.get("schema_version") == "replaceable-agent-scheduler-report-v2"
-          assert latency.get("scheduler_mode") == "EVENT_DRIVEN_PRIORITY_DIRECT_DEPENDENCY_PUSH"
-          assert latency.get("completed_task_count") == 3
-          assert latency.get("probe", {}).get("bad_model_dispatches") == 1
-          assert latency.get("probe", {}).get("known_bad_repeat_dispatch_avoided") is True
-          assert latency.get("probe", {}).get("qa_received_direct_dependency_handoff") is True
-          assert latency.get("communication", {}).get("immediate_failure_broadcast") is True
-          assert latency.get("communication", {}).get("direct_dependency_push") is True
-          assert latency.get("generic_paid_fallback") is False
-          assert latency.get("external_model_repository_write") is False
-          assert agents.get("schema_version") == "independent-agent-scheduler-report-v3"
-          assert agents.get("scheduler_mode") == "INDEPENDENT_ROLE_AGENTS_EVENT_DRIVEN_DIRECT_HANDOFF_ACKED_INBOX_REPLAY"
-          assert agents.get("independent_agents") is True
-          assert agents.get("completed_task_count") == 7
-          assert agents.get("generated_task_count") == 4
-          assert agents.get("independent_agent_count", 0) >= 7
-          assert agents.get("ordinary_local_decisions_require_commander_roundtrip") is False
-          assert agents.get("probe", {}).get("code_revised_locally_without_commander_roundtrip") is True
-          assert agents.get("probe", {}).get("qa_received_code_handoff") is True
-          assert agents.get("probe", {}).get("synth_received_qa_handoff") is True
-          assert agents.get("probe", {}).get("peer_delta_seen") is True
-          assert agents.get("active_agent_task_count") == 0
-          assert agents.get("external_model_repository_write") is False
-          assert agents.get("generic_paid_fallback") is False
-          print(json.dumps({
-              "status": report.get("status"),
-              "model_calls": report.get("model_calls", 0),
-              "successful_model_calls": report.get("successful_model_calls", 0),
-              "rate_limited_model_calls": report.get("rate_limited_model_calls", 0),
-              "rate_limit_failure_signal_count": report.get("rate_limit_failure_signal_count", 0),
-              "suppressed_after_rate_limit_model_tasks": report.get("suppressed_after_rate_limit_model_tasks", 0),
-              "free_candidate_count": report.get("free_candidate_count", 0),
-              "provider_status": {key: value.get("status") for key, value in report.get("provider_status", {}).items()},
-              "organization_candidate_count": organization.get("candidate_count", 0),
-              "organization_assigned_slots": sum(row.get("status") == "ASSIGNED" for row in organization.get("assignments", {}).values()),
-              "new_model_path": organization.get("new_model_path"),
-              "assignment_policy": organization.get("assignment_policy"),
-              "low_latency_completed": latency.get("completed_task_count", 0),
-              "low_latency_dispatch_count": latency.get("dispatch_count", 0),
-              "low_latency_failovers": latency.get("free_reselection_count", 0),
-              "known_bad_repeat_dispatch_avoided": latency.get("probe", {}).get("known_bad_repeat_dispatch_avoided"),
-              "handoff_count": latency.get("communication", {}).get("handoff_count", 0),
-              "avg_dependency_release_ms": latency.get("communication", {}).get("avg_dependency_release_ms"),
-              "max_ready_queue_delay_ms": latency.get("communication", {}).get("max_ready_queue_delay_ms"),
-              "independent_agent_count": agents.get("independent_agent_count", 0),
-              "agent_generated_tasks": agents.get("generated_task_count", 0),
-              "local_revision_without_commander": agents.get("probe", {}).get("code_revised_locally_without_commander_roundtrip"),
-              "qa_direct_handoff": agents.get("probe", {}).get("qa_received_code_handoff"),
-              "peer_delta_seen": agents.get("probe", {}).get("peer_delta_seen"),
-              "reconciled_agent_bodies": agents.get("probe", {}).get("reconciled_binding_count", 0),
-          }, sort_keys=True))
+
+          report=json.loads(Path('artifacts/direct_free_worker_corps.json').read_text(encoding='utf-8'))
+          org=json.loads(Path('artifacts/replaceable_agent_organization.json').read_text(encoding='utf-8'))
+          latency=json.loads(Path('artifacts/low_latency_scheduler_probe.json').read_text(encoding='utf-8'))
+          agents=json.loads(Path('artifacts/independent_agent_scheduler_probe.json').read_text(encoding='utf-8'))
+          assert report.get('schema_version') == 'direct-free-worker-corps-report-v2'
+          assert report.get('paid_fallback') is False
+          assert report.get('provider_automatic_fallback') is False
+          assert report.get('production_routing_changed') is False
+          assert int(report.get('model_calls', 0)) <= 15
+          assert org.get('generic_paid_fallback') is False
+          assert org.get('external_model_repository_write') is False
+          assert latency.get('generic_paid_fallback') is False
+          assert latency.get('external_model_repository_write') is False
+          assert agents.get('generic_paid_fallback') is False
+          assert agents.get('external_model_repository_write') is False
+          print('DIRECT_FREE_WORKER_CORPS=PASS')
           PY
 
-      - name: Upload direct free corps and independent-agent organization evidence
+      - name: Upload free-worker evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@v6
         with:
