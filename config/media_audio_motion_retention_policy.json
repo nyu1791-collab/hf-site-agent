@@ -1,14 +1,28 @@
 {
-  "schema_version": "media-audio-motion-retention-v1",
+  "schema_version": "media-audio-motion-retention-v2",
   "effective_date_jst": "2026-09-13",
   "status": "ENFORCED_STANDARD",
-  "purpose": "Make free background music, sound effects, voice prosody, character motion, attention hierarchy and anti-boredom editing defaults recoverable and executable across future media tasks without requiring the user to restate them.",
-  "applies_to": ["VIDEO_CREATION", "SHORTS", "LONGFORM", "NEWS_EXPLAINER", "TIKTOK_SHOP_COMMERCE", "CLIPPING_REPURPOSING"],
+  "purpose": "Make free background music, sound effects, voice prosody, character motion, caption hierarchy, contextual visual switching, attention choreography and anti-boredom editing defaults recoverable and executable across future media tasks without requiring the user to restate them.",
+  "applies_to": [
+    "VIDEO_CREATION",
+    "SHORTS",
+    "LONGFORM",
+    "NEWS_EXPLAINER",
+    "TIKTOK_SHOP_COMMERCE",
+    "CLIPPING_REPURPOSING"
+  ],
   "semantic_default": {
     "auto_apply_on_media_intent": true,
     "user_does_not_need_to_repeat_rules": true,
     "explicit_user_override_allowed": true,
     "safety_rights_cost_rules_cannot_be_silently_disabled": true
+  },
+  "authority_and_references": {
+    "free_audio_source_registry": "config/free_audio_source_registry.json",
+    "dova_curated_bgm_catalog": "config/dova_curated_bgm_catalog.json",
+    "media_command_read_gate": "config/media_command_read_gate.json",
+    "master_rulebook": "docs/AI_ARMY_MASTER_RULEBOOK.md",
+    "conversation_memory_is_not_source_of_truth": true
   },
   "free_only_audio": {
     "paid_music_or_sfx_services": false,
@@ -26,8 +40,32 @@
     "minimum_pool_targets_before_scale": {
       "bgm_tracks_total": 18,
       "sfx_total": 48,
-      "bgm_moods": ["neutral_tech", "bright", "calm", "curious", "suspense", "serious", "urgent", "warm"],
-      "sfx_categories": ["entry", "pop", "click", "whoosh", "impact", "reveal", "number", "warning", "transition", "soft_chime", "comedy", "confirmation", "error", "silence_marker"]
+      "bgm_moods": [
+        "neutral_tech",
+        "bright",
+        "calm",
+        "curious",
+        "suspense",
+        "serious",
+        "urgent",
+        "warm"
+      ],
+      "sfx_categories": [
+        "entry",
+        "pop",
+        "click",
+        "whoosh",
+        "impact",
+        "reveal",
+        "number",
+        "warning",
+        "transition",
+        "soft_chime",
+        "comedy",
+        "confirmation",
+        "error",
+        "silence_marker"
+      ]
     },
     "selection_rules": [
       "Do not use every available sound in one video.",
@@ -42,8 +80,14 @@
     "bgm_must_not_mask_speech": true,
     "sfx_must_not_mask_key_words": true,
     "automatic_or_keyframed_ducking_under_speech": true,
-    "bgm_level_starting_heuristic_relative_to_narration_lu": [-20, -12],
-    "sfx_level_starting_heuristic_relative_to_narration_db": [-12, -6],
+    "bgm_level_starting_heuristic_relative_to_narration_lu": [
+      -20,
+      -12
+    ],
+    "sfx_level_starting_heuristic_relative_to_narration_db": [
+      -12,
+      -6
+    ],
     "heuristics_are_not_universal_mastering_targets": true,
     "measure_integrated_loudness_true_peak_clipping_and_silence": true,
     "prefer_short_fades_and_crossfades_over_hard_audio_edges": true,
@@ -67,34 +111,165 @@
     "secondary_voice_when_dialogue_helps": "四国めたん",
     "runtime_discover_styles_and_ids": true,
     "do_not_hardcode_stale_style_ids": true,
-    "allowed_query_adjustments": ["speedScale", "pitchScale", "intonationScale", "volumeScale", "pause_length", "interrogative_upspeak", "accent_phrase_adjustment"],
-    "emotion_tags": ["neutral", "curious", "surprised", "serious", "warning", "excited", "skeptical", "relieved", "sad_or_grave"],
+    "allowed_query_adjustments": [
+      "speedScale",
+      "pitchScale",
+      "intonationScale",
+      "volumeScale",
+      "pause_length",
+      "interrogative_upspeak",
+      "accent_phrase_adjustment"
+    ],
+    "emotion_tags": [
+      "neutral",
+      "curious",
+      "surprised",
+      "serious",
+      "warning",
+      "excited",
+      "skeptical",
+      "relieved",
+      "sad_or_grave"
+    ],
     "rules": [
       "Map emotion to voice parameters deliberately instead of using one flat preset for the entire video.",
       "Change prosody at semantic beats, not every word.",
       "Use punctuation and pause design to improve phrasing before extreme parameter changes.",
+      "Match stronger prosody to meaningful emphasis, question, surprise, warning, correction, payoff or emotional turn.",
       "Avoid cartoonishly strong pitch or speed changes during serious news, disasters, death, injury or corrections.",
       "Measure actual WAV duration with ffprobe after every generated chunk and drive caption/video timing from that duration."
     ]
   },
+  "character_direction": {
+    "default_role_split_is_experiment_not_universal_law": true,
+    "zundamon_default_role": [
+      "audience_proxy",
+      "curiosity",
+      "question",
+      "reaction",
+      "emotion"
+    ],
+    "shikoku_metan_default_role": [
+      "explainer",
+      "correction",
+      "fact_structure",
+      "clarification"
+    ],
+    "role_reversal_allowed_when_story_reason_exists": true,
+    "fixed_screen_side_is_starting_experiment_not_permanent_truth": true,
+    "active_speaker_priority": "speaker > semantic focal > non-speaker reaction",
+    "two_character_large_frame_is_exception": [
+      "opening",
+      "closing",
+      "conflict",
+      "comedy",
+      "summary"
+    ],
+    "serious_news_restraint_overrides_comedy": true
+  },
   "character_motion": {
     "no_long_static_talking_portrait": true,
     "motion_is_state_driven": true,
-    "speaker_states": ["idle", "speaking", "reaction", "emphasis", "enter", "exit", "grave_mode"],
-    "recommended_micro_motion": ["blink", "subtle_bob", "small_scale_pulse", "expression_swap", "head_or_body_tilt_if_asset_allows", "short_entry_or_exit_motion"],
+    "speaker_states": [
+      "idle",
+      "speaking",
+      "reaction",
+      "emphasis",
+      "enter",
+      "exit",
+      "grave_mode"
+    ],
+    "recommended_micro_motion": [
+      "blink",
+      "subtle_bob",
+      "small_scale_pulse",
+      "expression_swap",
+      "head_or_body_tilt_if_asset_allows",
+      "short_entry_or_exit_motion"
+    ],
     "active_speaker_emphasis": true,
     "inactive_speaker_should_not_compete": true,
-    "inactive_speaker_options": ["slightly_smaller", "slightly_dimmer", "reaction_expression", "temporary_hide_for_evidence_frame"],
+    "inactive_speaker_options": [
+      "slightly_smaller",
+      "slightly_dimmer",
+      "reaction_expression",
+      "temporary_hide_for_evidence_frame"
+    ],
+    "entry_exit_rule": "Use full entrance/exit mainly for first appearance, scene reset, major section change, or evidence-focus handoff; do not enter/exit on every line.",
+    "pose_change_rule": "Change expression/pose on semantic beats, not per syllable or every caption.",
     "avoid_constant_large_motion": true,
     "avoid_every_line_full_entry_exit": true,
     "motion_must_not_cover_captions_or_evidence": true,
     "serious_topic_reduces_comedic_motion": true
   },
+  "caption_grammar": {
+    "captions_are_attention_ui_not_transcript_dump": true,
+    "full_narration_coverage_required": true,
+    "default_lines_per_block": "1_OR_2",
+    "semantic_chunking_required": true,
+    "hierarchy_levels": [
+      "baseline",
+      "emphasis",
+      "peak"
+    ],
+    "baseline_should_already_be_large_on_phone": true,
+    "one_strongest_keyword_or_phrase_per_beat_by_default": true,
+    "emphasis_can_use": [
+      "size",
+      "weight",
+      "color"
+    ],
+    "do_not_encode_meaning_by_color_alone": true,
+    "consistent_semantic_color_mapping_across_series_is_preferred": true,
+    "no_word_by_word_bounce_as_default": true,
+    "no_background_prose_or_headline_wall": true,
+    "small_source_or_attribution_strip_is_allowed_as_metadata": true,
+    "platform_safe_zone_must_be_checked": true
+  },
+  "contextual_visuals": {
+    "background_text_is_not_the_default_visual": true,
+    "switch_on_semantic_triggers": [
+      "new_entity_or_person_or_place",
+      "claim_to_evidence",
+      "important_number_or_stat",
+      "contrast_or_reversal",
+      "outcome_or_conclusion"
+    ],
+    "no_universal_switch_every_n_seconds_rule": true,
+    "evidence_vs_illustration_must_be_labeled": true,
+    "EVIDENCE": "Primary/official/source material directly tied to a claim.",
+    "ILLUSTRATIVE": "Rights-cleared representative image or B-roll that must not be presented as proof.",
+    "search_engine_result_is_discovery_not_license": true,
+    "final_asset_requires_original_source_and_reuse_terms_verification": true,
+    "asset_ledger_fields": [
+      "original_url",
+      "asset_title",
+      "creator_or_source",
+      "license_and_url",
+      "attribution",
+      "retrieval_date",
+      "transformation_notes",
+      "evidence_or_illustrative",
+      "verification_timestamp"
+    ],
+    "still_image_motion_when_helpful": [
+      "slow_push",
+      "pan",
+      "crop_reveal",
+      "parallax_like_layer_motion",
+      "highlight_box",
+      "pointer_or_focus_mask"
+    ]
+  },
   "visual_attention_hierarchy": {
     "one_primary_hero_per_beat": true,
-    "hero_candidates": ["evidence_image", "character", "emphasis_caption", "important_number"],
+    "hero_candidates": [
+      "evidence_image",
+      "character",
+      "emphasis_caption",
+      "important_number"
+    ],
     "supporting_elements_must_be_visually_subordinate": true,
-    "still_images_should_receive_purposeful_motion_when_helpful": ["slow_push", "pan", "crop_reveal", "parallax_like_layer_motion", "highlight_box", "pointer_or_focus_mask"],
     "no_motion_for_motion_sake": true,
     "scene_change_interval_is_not_fixed": true,
     "change_visuals_on_semantic_events": true
@@ -121,7 +296,9 @@
       "both_characters_large_at_all_times",
       "background_text_wall",
       "unrelated_stock_visuals_for_primary_claims",
-      "rapid_bgm_switching_without_story_reason"
+      "rapid_bgm_switching_without_story_reason",
+      "flat_voice_for_entire_video",
+      "long_static_talking_portrait"
     ]
   },
   "collision_avoidance": {
@@ -130,18 +307,83 @@
     "if_evidence_image_is_dominant_reduce_character_size_and_sfx_density": true,
     "if_voice_emotion_is_high_reduce_bgm_and_visual_effect_intensity": true,
     "if_major_sfx_hits_duck_bgm_temporarily": true,
+    "if_character_entry_is_hero_reduce_caption_pop_and_zoom": true,
     "never_stack_major_sfx_major_zoom_major_caption_pop_and_character_entry_without_explicit_reason": true
   },
   "sensitive_topic_mode": {
-    "triggers": ["death", "disaster", "major_accident", "victim_harm", "war_casualties", "medical_emergency", "correction_of_harmful_falsehood"],
-    "disable_or_reduce": ["comedy_sfx", "bouncy_motion", "celebratory_bgm", "exaggerated_voice_pitch", "meme_reaction"],
-    "prefer": ["neutral_or_grave_bgm_or_silence", "restrained_motion", "clear_evidence", "calm_prosody"]
+    "triggers": [
+      "death",
+      "disaster",
+      "major_accident",
+      "victim_harm",
+      "war_casualties",
+      "medical_emergency",
+      "correction_of_harmful_falsehood"
+    ],
+    "disable_or_reduce": [
+      "comedy_sfx",
+      "bouncy_motion",
+      "celebratory_bgm",
+      "exaggerated_voice_pitch",
+      "meme_reaction"
+    ],
+    "prefer": [
+      "neutral_or_grave_bgm_or_silence",
+      "restrained_motion",
+      "clear_evidence",
+      "calm_prosody"
+    ]
+  },
+  "originality_and_series_identity": {
+    "stable_series_elements": [
+      "character_identity",
+      "typography_system",
+      "semantic_color_system",
+      "sound_grammar",
+      "broad_layout_language"
+    ],
+    "episode_specific_elements": [
+      "hook",
+      "story",
+      "evidence",
+      "image_sequence",
+      "dialogue_shape",
+      "conclusion"
+    ],
+    "do_not_mass_produce_same_template_with_only_nouns_swapped": true,
+    "substantive_original_commentary_required_for_originality_goal": true
   },
   "evaluation": {
-    "machine_qa": ["caption_coverage", "decode_errors", "audio_presence", "integrated_loudness", "true_peak", "clipping", "unexpected_silence", "safe_zone_collision", "asset_license_manifest_complete"],
-    "viewer_metrics_when_available": ["stayed_to_watch_or_viewed_vs_swiped", "average_view_duration", "average_percentage_viewed", "retention_dips", "retention_spikes", "rewatch_or_loop_behavior", "shares", "saves_or_equivalent", "comments"],
+    "machine_qa": [
+      "caption_coverage",
+      "decode_errors",
+      "audio_presence",
+      "integrated_loudness",
+      "true_peak",
+      "clipping",
+      "unexpected_silence",
+      "safe_zone_collision",
+      "asset_license_manifest_complete"
+    ],
+    "viewer_metrics_when_available": [
+      "stayed_to_watch_or_viewed_vs_swiped",
+      "average_view_duration",
+      "average_percentage_viewed",
+      "retention_dips",
+      "retention_spikes",
+      "rewatch_or_loop_behavior",
+      "shares",
+      "saves_or_equivalent",
+      "comments"
+    ],
     "a_b_testing_rule": "Change one primary creative variable per test where practical; do not claim causality from a single uncontrolled video.",
     "missing_analytics": "UNKNOWN_NOT_ZERO"
+  },
+  "durability": {
+    "must_be_indexed_by_permanent_manifest": true,
+    "must_be_required_by_media_command_read_gate": true,
+    "must_be_re_read_after_new_tab_or_session": true,
+    "chat_memory_alone_never_satisfies_restore": true
   },
   "publication": {
     "public_publish_requires_human_approval": true,
