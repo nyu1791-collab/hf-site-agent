@@ -1,0 +1,41 @@
+{
+  "mission_id": "zundamon-metan-character-direction-recovery-20260913",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "RESEARCH ONLY. Recover one failed lane from the prior Zundamon/Shikoku Metan short-form editing audit. Focus only on character direction and series grammar: speaker-turn entrance/exit, stable screen-side or role-color conventions, reaction poses, non-speaker behavior, when to show both characters, role division versus occasional reversal, comedic timing without undermining news credibility, and scalable cue rules. Do not render or generate media, publish, deploy, merge, mutate secrets, or write repository content. Distinguish durable rules from hypotheses. Return ADOPT / EXPERIMENT / DEMOTE / REJECT, failure modes, and measurable tests. ChatGPT makes final adjudication.",
+  "shared_evidence": [
+    {
+      "source": "user creative direction 2026-09-13",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T17:23:00+09:00",
+      "summary": "User wants Zundamon and Shikoku Metan to appear in sync with dialogue, not as permanent decoration; the aim is a high-quality energetic but understandable vertical short. Production is explicitly prohibited for now."
+    },
+    {
+      "source": "prior DeepSeek audit mission zundamon-metan-shortform-editing-audit-20260913",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T17:23:00+09:00",
+      "summary": "Four usable lanes converged on one dominant attention target per beat, semantic visual switching, large hierarchical captions, sparse semantic SFX, strategic silence, rights verification, and rejection of fixed cut intervals/effect spam. Character-direction lane failed output parsing and requires bounded recovery only."
+    }
+  ],
+  "lanes": [
+    {
+      "id": "character-direction-recovery",
+      "objective": "Design the minimum coherent Zundamon/Metan character grammar for a recurring Japanese news/information short. Evaluate fixed left/right positioning, speaker entrance/exit, non-speaker dim/exit/reaction, two-character simultaneous frames, facial/pose changes, role assignment (audience question/emotion vs explainer/correction), occasional role reversal, comedic punctuation, serious-news restraint, and automation/scalability. Avoid character motion on every syllable. Provide rules, exceptions, tests, and rollback criteria."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 1,
+  "max_calls": 2,
+  "max_output_tokens_per_lane": 3072,
+  "max_output_tokens_synthesis": 3072,
+  "max_estimated_cost_usd": 0.04,
+  "known_estimated_daily_spend_before_mission_usd": 2.95,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}
