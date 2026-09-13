@@ -1,16 +1,17 @@
 {
-  "schema_version": "creator-monetization-policy-v1",
+  "schema_version": "creator-monetization-policy-v2",
   "effective_date_jst": "2026-09-13",
   "status": "PERMANENT_STANDARD",
-  "purpose": "Build diversified, measurable and platform-compliant revenue using the AI Army as a research, creative, analytics and operations amplifier while preserving human originality, approval, rights, disclosure and platform-policy gates.",
+  "purpose": "Build diversified, measurable and platform-compliant revenue using the AI Army as a research, creative, analytics, workflow-integration and operations amplifier while preserving human originality, approval, rights, disclosure, security and platform-policy gates.",
   "source_of_truth": "repository",
   "primary_goal": "MAXIMIZE_RISK_ADJUSTED_REPEATABLE_REVENUE_NOT_VANITY_REACH_OR_AUTOMATED_POST_VOLUME",
   "portfolio_architecture": {
     "near_term_cash_engine": "OFF_PLATFORM_CLIENT_SERVICE_REVENUE",
     "compounding_media_engine": "ORIGINAL_CONTENT_PLUS_PLATFORM_NATIVE_AND_INTERMEDIATED_MONETIZATION",
-    "recurring_revenue_engine": "MEMBERSHIPS_SUBSCRIPTIONS_AND_PREMIUM_CONTENT_WHEN_AUDIENCE_FIT_EXISTS",
+    "recurring_revenue_engine": "MEMBERSHIPS_SUBSCRIPTIONS_PAID_RESEARCH_AND_PREMIUM_CONTENT_WHEN_AUDIENCE_FIT_EXISTS",
     "dependency_rule": "DO_NOT_RELY_ON_ONE_PLATFORM_PAYOUT_PROGRAM_AS_THE_ONLY_BUSINESS_MODEL",
-    "distribution_rule": "USE_PLATFORMS_FOR_AUDIENCE_AND_DEMAND_DISCOVERY_BUT_PRESERVE_PORTABLE_CLIENT_AND_AUDIENCE_VALUE_WHEN_PRACTICAL"
+    "distribution_rule": "USE_PLATFORMS_FOR_AUDIENCE_AND_DEMAND_DISCOVERY_BUT_PRESERVE_PORTABLE_CLIENT_AND_AUDIENCE_VALUE_WHEN_PRACTICAL",
+    "complexity_value_rule": "PREFER_HIGH_JUDGMENT_AI_AUGMENTED_OUTCOMES_OVER_COMMODITIZED_LOW_COMPLEXITY_AI_EXECUTION"
   },
   "revenue_lane_taxonomy": [
     "PLATFORM_NATIVE_PAYOUT",
@@ -69,9 +70,10 @@
       "score": 85,
       "disposition": "ADOPT",
       "evidence_program_id": "YOUTUBE_SHOPPING_AFFILIATE_JP",
-      "why": "Japan is currently supported; product tagging and commissions can compound with evergreen original video content.",
+      "optional_amplifier_program_id": "YOUTUBE_AFFILIATE_PARTNERSHIPS_BOOST",
+      "why": "Japan is currently supported; product tagging and commissions can compound with evergreen original video content, while eligible accounts may gain additional reach through Affiliate Partnerships Boost.",
       "metrics": ["QUALIFIED_VIEWS", "PRODUCT_CLICKS", "AFFILIATE_CTR", "ORDERS", "COMMISSION_GROSS", "COMMISSION_REVERSAL_RATE", "COMMISSION_NET", "PAYOUT_LAG_DAYS"],
-      "guardrails": ["DISCLOSURE", "PRODUCT_CLAIM_EVIDENCE", "RETURNS_AND_REVERSALS", "PROGRAM_REVERIFY_AT_EXECUTION"]
+      "guardrails": ["DISCLOSURE", "PRODUCT_CLAIM_EVIDENCE", "RETURNS_AND_REVERSALS", "PROGRAM_REVERIFY_AT_EXECUTION", "TEMPORARY_INCENTIVE_NOT_BASELINE_ECONOMICS"]
     },
     {
       "id": "M04_INSTAGRAM_AFFILIATE_TAGS_JP",
@@ -90,8 +92,10 @@
       "disposition": "ADOPT",
       "program_ids": ["YOUTUBE_CREATOR_PARTNERSHIPS_JP", "INSTAGRAM_CREATOR_MARKETPLACE_JP", "TIKTOK_ONE"],
       "why": "Official marketplaces reduce cold-outreach dependence and create structured paid collaboration opportunities.",
-      "ai_army_roles": ["ELIGIBILITY_PRECHECK", "BRAND_FIT_RESEARCH", "PORTFOLIO_DRAFT", "PITCH_DRAFT", "DELIVERABLE_TRACKING", "CAMPAIGN_REPORT_DRAFT"],
-      "human_gates": ["FINAL_PITCH_SEND", "RATE_NEGOTIATION", "CONTRACT_ACCEPTANCE", "CLAIMS", "DISCLOSURE", "PUBLISH", "REPORT_SIGNOFF"],
+      "ai_army_roles": ["ELIGIBILITY_PRECHECK", "BRAND_FIT_RESEARCH", "PORTFOLIO_DRAFT", "PITCH_DRAFT", "DELIVERABLE_TRACKING", "CAMPAIGN_REPORT_DRAFT", "RIGHTS_TERM_INVENTORY"],
+      "human_gates": ["FINAL_PITCH_SEND", "RATE_NEGOTIATION", "CONTRACT_ACCEPTANCE", "USAGE_RIGHTS", "CLAIMS", "DISCLOSURE", "PUBLISH", "REPORT_SIGNOFF"],
+      "commercial_components_to_price_separately_when_applicable": ["CREATIVE_PRODUCTION_FEE", "ORGANIC_USAGE_TERM", "PAID_MEDIA_OR_WHITELISTING", "TERRITORY", "EXCLUSIVITY", "RENEWAL_OR_EXTENSION"],
+      "default_rights_rule": "DO_NOT_SILENTLY_GRANT_PERPETUAL_GLOBAL_EXCLUSIVE_USAGE",
       "prohibited": ["MASS_UNSOLICITED_OUTREACH", "AUTONOMOUS_CONTRACT_ACCEPTANCE", "FABRICATED_METRICS", "FAKE_RATE_CARD_EVIDENCE"]
     },
     {
@@ -164,22 +168,54 @@
       "why": "Real upside, but Content Monetization is invite-based and Fast Track primarily benefits established cross-platform creators. Re-check eligibility when scale makes it relevant."
     },
     {
-      "id": "M14_OFF_PLATFORM_MEMBERSHIP_DIGITAL_PRODUCTS",
+      "id": "M14_OFF_PLATFORM_PAID_RESEARCH_MEMBERSHIP_DIGITAL_PRODUCTS",
       "category": "OWNED_OR_RECURRING_AUDIENCE_REVENUE",
-      "score": 76,
+      "score": 78,
       "disposition": "EXPERIMENT",
-      "why": "Reduces platform payout dependency and can improve recurring economics, but requires a real audience and a clear paid value proposition.",
-      "examples_are_not_endorsements": ["PATREON", "NOTE", "SUBSTACK", "GUMROAD", "KO_FI"],
-      "verify_fees_and_terms_before_execution": true
+      "why": "Paid research/newsletters, memberships and digital products reduce platform payout dependency and can create recurring economics, but require a real paid value proposition and editorial quality.",
+      "offers": ["PAID_RESEARCH_OR_NEWSLETTER", "PREMIUM_INTELLIGENCE_BRIEF", "MEMBERSHIP_OR_COMMUNITY", "TEMPLATE_OR_DIGITAL_PRODUCT"],
+      "ai_army_roles": ["SOURCE_RESEARCH", "FACT_CHECK", "DATA_REFRESH", "STRUCTURING", "DRAFTING", "ARCHIVE_SEARCH", "SUBSCRIBER_ANALYTICS"],
+      "human_gates": ["EDITORIAL_THESIS", "FINAL_PUBLICATION", "PRICING", "COPYRIGHT_OR_LICENSE_REVIEW"],
+      "metrics": ["FREE_TO_PAID_CONVERSION", "MRR", "CHURN", "GROSS_MARGIN_PERCENT", "CORRECTION_RATE", "HUMAN_EDITORIAL_HOURS"],
+      "examples_are_not_endorsements": ["PATREON", "NOTE", "SUBSTACK", "BEEHIIV", "GUMROAD", "KO_FI"],
+      "verify_fees_and_terms_before_execution": true,
+      "prohibited": ["SCRAPE_AND_REPACKAGE_COPYRIGHTED_WORK", "AUTOMATED_FILLER_AS_PREMIUM_VALUE"]
     },
     {
       "id": "M15_THREADS_AND_OTHER_DISTRIBUTION",
       "category": "DISTRIBUTION_ONLY_NO_CONFIRMED_NATIVE_PAYOUT",
       "score": 60,
       "disposition": "HOLD",
-      "why": "Can be useful for audience acquisition and routing traffic to monetized properties, but do not count distribution reach as revenue without a verified monetization path."
+      "why": "Can be useful for audience acquisition and routing traffic to monetized properties, but do not count distribution reach as revenue without a verified monetization path.",
+      "promotion_requires": ["DEFINED_MONETIZED_DESTINATION", "ATTRIBUTION_METHOD", "MEASURED_DOWNSTREAM_REVENUE_OR_QUALIFIED_LEAD_METRIC"],
+      "vanity_reach_is_not_revenue": true
+    },
+    {
+      "id": "M16_AI_WORKFLOW_INTEGRATION_AND_AGENT_OPERATIONS_SERVICE",
+      "category": "OFF_PLATFORM_CLIENT_SERVICE_REVENUE",
+      "score": 90,
+      "disposition": "ADOPT",
+      "offer": "Bounded AI workflow/integration service for SMEs: discovery, process baseline, information retrieval/decision support, workflow automation, QA/reporting, human approval gates, security/data boundaries and measured ROI review.",
+      "why": "Current 2026 labor-market and OECD evidence shows growing demand for AI integration while secure targeted SME implementation remains uneven. Higher-judgment orchestration and workflow outcomes are more defensible than commoditized low-complexity AI execution.",
+      "external_evidence_refs": ["UPWORK_AI_APPS_INTEGRATION_JUNE_2026", "UPWORK_IN_DEMAND_AI_INTEGRATION_2026", "UPWORK_FUTURE_WORKFORCE_AI_ORCHESTRATOR_2026", "OECD_D4SME_2026"],
+      "ai_army_roles": ["PROCESS_MAPPING", "REQUIREMENTS", "RISK_AND_DATA_BOUNDARY_REVIEW", "WORKFLOW_DESIGN", "PROMPT_OR_AGENT_DESIGN", "TOOL_INTEGRATION_PLAN", "TEST_FIXTURES", "QA", "ROI_REPORT_DRAFT", "MAINTENANCE_REPORTING"],
+      "human_gates": ["CLIENT_SCOPE", "DATA_ACCESS", "SECRET_OR_CREDENTIAL_HANDLING", "PRODUCTION_SIDE_EFFECTS", "PRICE_AND_CONTRACT", "FINAL_DEPLOY_OR_ACTIVATION"],
+      "delivery_principles": ["SELL_BUSINESS_OUTCOME_NOT_AGENT_COUNT", "BASELINE_TIME_COST_ERROR_RATE_BEFORE_CLAIMING_ROI", "BOUNDED_AUTONOMY", "LEAST_PRIVILEGE", "HUMAN_CONTROL_FOR_CONSEQUENTIAL_ACTIONS", "AUDITABLE_FAILURE_AND_ROLLBACK"],
+      "metrics": ["TIME_TO_FIRST_REVENUE_DAYS", "IMPLEMENTATION_HOURS", "MONTHLY_RETAINER_REVENUE", "GROSS_MARGIN_PERCENT", "MEASURED_CLIENT_TIME_SAVED", "MEASURED_CLIENT_COST_SAVED", "ERROR_OR_REWORK_DELTA", "WORKFLOW_SUCCESS_RATE", "INCIDENT_COUNT", "CLIENT_RETENTION_RATE"],
+      "prohibited": ["UNBOUNDED_AUTONOMOUS_OPERATION_AS_DEFAULT", "UNNECESSARY_SECRET_COLLECTION", "UNVERIFIED_ROI_CLAIMS", "CLIENT_PRODUCTION_ACTION_WITHOUT_AUTHORITY"]
     }
   ],
+  "market_evidence": {
+    "status": "SUPPORTING_NOT_GUARANTEED_DEMAND",
+    "sources": [
+      {"id":"UPWORK_AI_APPS_INTEGRATION_JUNE_2026","scope":"US_UPWORK_MARKETPLACE","observation":"AI Apps & Integration +34% month-over-month and +33% year-over-year in June 2026; useful demand signal, not Japan-wide demand proof."},
+      {"id":"UPWORK_IN_DEMAND_AI_INTEGRATION_2026","scope":"UPWORK_MARKETPLACE","observation":"AI Integration +178% year-over-year and AI Video Generation/Editing +329%; growth rate is not equivalent to total market size or expected income."},
+      {"id":"UPWORK_FUTURE_WORKFORCE_AI_ORCHESTRATOR_2026","scope":"UPWORK_MARKETPLACE_AND_SURVEY","observation":"Higher-complexity AI-augmented professional services showed stronger earnings than lower-complexity AI execution, supporting an outcome-oriented AI Orchestrator positioning."},
+      {"id":"OECD_D4SME_2026","scope":"NON_REPRESENTATIVE_SAMPLE_OVER_2000_SMES_12_OECD_COUNTRIES","observation":"AI adoption is rising while targeted secure integration, maintenance, skills and cybersecurity remain barriers."},
+      {"id":"CREATOR_MARKETING_2026_MEDILL","scope":"209_SENIOR_MARKETING_DECISION_MAKERS","observation":"91% reported creator programs with an always-on component and 80% increasing creator budgets; supports recurring creator-service opportunity, not guaranteed client demand."},
+      {"id":"BEEHIIV_PAID_NEWSLETTER_2026","scope":"BEEHIIV_PLATFORM_DATA","observation":"Paid subscription revenue on beehiiv reached $19M in 2025, +138% from 2024; supports paid-newsletter experimentation but is vendor-specific evidence."}
+    ]
+  },
   "approval_gates": {
     "research_and_internal_analysis": "ALLOWED",
     "draft_pitch_or_proposal": "ALLOWED_WITH_FACTUAL_METRIC_CHECK",
@@ -195,7 +231,7 @@
     "secret_or_identity_document_handling": "NO_MODEL_DISCLOSURE_OR_UNREQUESTED_MUTATION"
   },
   "originality_and_quality": {
-    "ai_army_role": "AMPLIFY_HUMAN_ORIGINALITY_EXPERTISE_RESEARCH_AND_PRODUCTION_QUALITY",
+    "ai_army_role": "AMPLIFY_HUMAN_ORIGINALITY_EXPERTISE_RESEARCH_PRODUCTION_QUALITY_AND_WORKFLOW_OUTCOMES",
     "not_role": "MASS_LOW_VALUE_AUTOMATED_POST_FACTORY",
     "youtube_mass_produced_or_repetitive_inauthentic_content": "BLOCK_AS_MONETIZATION_STRATEGY",
     "facebook_minor_edit_reposts_or_low_value_reactions": "BLOCK_AS_MONETIZATION_STRATEGY",
@@ -209,7 +245,7 @@
     "claim_evidence_ledger_required_for_product_or_numeric_claims": true,
     "modeled_income_or_rate_card_numbers_must_be_labeled_modeled": true,
     "observed_and_modeled_economics_must_not_be_mixed": true,
-    "no_fabricated_reach_sales_conversion_or_client_results": true,
+    "no_fabricated_reach_sales_conversion_client_results_or_roi": true,
     "current_platform_program_terms_reverified_before_application_or_publish": true
   },
   "portfolio_metrics": [
@@ -220,6 +256,7 @@
     "HUMAN_REVIEW_HOURS",
     "REWORK_RATE",
     "REPEAT_CLIENT_RATE",
+    "CLIENT_RETENTION_RATE",
     "MRR",
     "SUBSCRIBER_CHURN",
     "AFFILIATE_COMMISSION_REVERSAL_RATE",
@@ -227,7 +264,10 @@
     "PLATFORM_DEPENDENCY_SHARE",
     "POLICY_VIOLATION_COUNT",
     "DISCLOSURE_COMPLIANCE_RATE",
-    "CLAIM_COMPLIANCE_INCIDENTS"
+    "CLAIM_COMPLIANCE_INCIDENTS",
+    "MEASURED_CLIENT_TIME_SAVED",
+    "MEASURED_CLIENT_COST_SAVED",
+    "WORKFLOW_SUCCESS_RATE"
   ],
   "forbidden": [
     "GUARANTEED_INCOME_CLAIMS",
@@ -242,6 +282,8 @@
     "AUTONOMOUS_PUBLICATION_WITHOUT_REQUIRED_APPROVAL",
     "PROGRAM_ELIGIBILITY_OR_PAYOUT_ASSUMED_PERMANENT",
     "MIX_PLATFORM_NATIVE_PAYOUT_WITH_CLIENT_FEES_IN_ONE_UNLABELED_METRIC",
-    "PRESENT_MODELED_ECONOMICS_AS_OBSERVED_RESULTS"
+    "PRESENT_MODELED_ECONOMICS_AS_OBSERVED_RESULTS",
+    "PRESENT_MODELED_ROI_AS_OBSERVED_CLIENT_SAVINGS",
+    "SELL_UNBOUNDED_AUTONOMOUS_AGENT_OPERATION_AS_DEFAULT"
   ]
 }
