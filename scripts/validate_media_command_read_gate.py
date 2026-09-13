@@ -34,6 +34,12 @@ def main() -> int:
     handoff = load_json("config/current_commander_handoff.json")
     media_creative = load_json("config/media_audio_motion_retention_policy.json")
 
+    obsolete_hold_path = ROOT / "config/current_media_execution_state.json"
+    require(not obsolete_hold_path.exists(), "obsolete blanket media-production hold state was reintroduced")
+    gate_text = json.dumps(gate, ensure_ascii=False)
+    require("HOLD_MEDIA_PRODUCTION" not in gate_text, "blanket media-production hold marker was reintroduced into media gate")
+    require("current_media_execution_state" not in gate_text, "obsolete media execution-state dependency was reintroduced")
+
     require(gate.get("status") == "ENFORCED_STANDARD", "media command read gate is not enforced")
     semantic = gate.get("semantic_triggering") or {}
     require(semantic.get("exact_keyword_match_required") is False, "media trigger drifted to exact keyword matching")
@@ -82,11 +88,7 @@ def main() -> int:
     clip = trigger_sets.get("CLIPPING_REPURPOSING") or {}
     shop = trigger_sets.get("TIKTOK_SHOP_COMMERCE") or {}
 
-    require_paths(
-        list(video.get("required") or []),
-        {"docs/LONGFORM_VIDEO_OBJECTIVES.md"},
-        "video creation read set",
-    )
+    require_paths(list(video.get("required") or []), {"docs/LONGFORM_VIDEO_OBJECTIVES.md"}, "video creation read set")
     require_paths(
         list(clip.get("required") or []),
         {
@@ -100,19 +102,13 @@ def main() -> int:
     )
     require_paths(
         list(shop.get("required") or []),
-        {
-            "config/tiktok_shop_influence_policy.json",
-            "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
-        },
+        {"config/tiktok_shop_influence_policy.json", "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md"},
         "TikTok Shop read set",
     )
     conditional_shop = (shop.get("conditional_required") or {}).get("if_existing_or_third_party_media_is_repurposed") or []
     require_paths(
         list(conditional_shop),
-        {
-            "config/authorized_clipping_monetization_policy.json",
-            "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
-        },
+        {"config/authorized_clipping_monetization_policy.json", "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md"},
         "TikTok Shop repurposing conditional read set",
     )
 
@@ -122,12 +118,21 @@ def main() -> int:
         "voice_prosody_and_emotion_mapped_to_semantic_beats",
         "one_primary_attention_hero_per_beat",
         "large_semantically_chunked_captions_with_baseline_emphasis_peak_hierarchy",
+        "one_strongest_keyword_or_phrase_per_beat_by_default",
         "no_background_prose_or_headline_wall",
         "contextual_visuals_switch_on_semantic_events_not_fixed_intervals",
         "evidence_visuals_and_illustrative_visuals_are_distinct",
         "search_engine_result_is_discovery_not_license",
         "DOVA_OR_OPENTRACKS_PREFERRED_THIRD_PARTY_FREE_BGM_SOURCE",
+        "Noraneko_wa_Uchu_wo_Mezashita_is_high_priority_candidate_when_mood_fits",
+        "rotate_bgm_across_videos_and_avoid_mechanical_repetition",
         "bgm_ducking_and_sfx_collision_avoidance_preserve_narration_intelligibility",
+        "sfx_has_semantic_grammar_and_silence_is_first_class_event",
+        "full_narration_caption_coverage",
+        "caption_safe_zones_and_visual_hierarchy",
+        "rights_manifest_and_asset_provenance",
+        "failed_scene_only_retry_and_previous_good_preservation",
+        "ffprobe_and_full_decode_machine_QA",
     ):
         require(required_know_how in video_know_how, f"video creative know-how missing: {required_know_how}")
 
@@ -140,9 +145,18 @@ def main() -> int:
 
     creative_default = media_creative.get("semantic_default") or {}
     creative_durability = media_creative.get("durability") or {}
+    voice = media_creative.get("voice_prosody") or {}
+    motion = media_creative.get("character_motion") or {}
+    collision = media_creative.get("collision_avoidance") or {}
     require(creative_default.get("auto_apply_on_media_intent") is True, "creative standard no longer auto-applies")
     require(creative_default.get("user_does_not_need_to_repeat_rules") is True, "creative standard now requires repeated user instruction")
     require(creative_durability.get("must_be_re_read_after_new_tab_or_session") is True, "creative standard cross-tab reread lost")
+    require(voice.get("default_primary_voice") == "ずんだもん", "Zundamon default voice rule drifted")
+    require(voice.get("secondary_voice_when_dialogue_helps") == "四国めたん", "Shikoku Metan dialogue rule drifted")
+    require(motion.get("no_long_static_talking_portrait") is True, "anti-static character motion rule drifted")
+    require(motion.get("motion_is_state_driven") is True, "state-driven character motion rule drifted")
+    require(collision.get("max_attention_dominant_elements_per_beat") == 1, "one-primary-hero collision rule drifted")
+    require(collision.get("never_stack_major_sfx_major_zoom_major_caption_pop_and_character_entry_without_explicit_reason") is True, "major-effect collision guard drifted")
 
     manifest_gate = manifest.get("media_command_gate") or {}
     require(manifest_gate.get("policy") == "config/media_command_read_gate.json", "permanent manifest lost media gate policy")
@@ -181,7 +195,11 @@ def main() -> int:
         "semantic_intent": True,
         "mixed_intents_additive": True,
         "cross_tab_reread": True,
+        "blanket_media_production_hold_absent": True,
         "creative_standard_reread": True,
+        "zundamon_metan_voice_rules": True,
+        "character_motion_rules": True,
+        "effect_collision_guard": True,
         "free_audio_registry_reread": True,
         "dova_catalog_reread": True,
         "cross_source_evidence_read": True,
