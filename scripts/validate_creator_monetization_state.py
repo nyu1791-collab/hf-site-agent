@@ -23,12 +23,15 @@ def require(ok: bool, message: str) -> None:
 
 def main() -> int:
     policy = load("config/creator_monetization_policy.json")
+    backlog = load("config/monetization_opportunity_backlog.json")
     evidence = load("config/platform_program_evidence.json")
     gate = load("config/monetization_command_read_gate.json")
     manifest = load("config/permanent_standards_manifest.json")
     handoff = load("config/current_commander_handoff.json")
 
     require(policy.get("status") == "PERMANENT_STANDARD", "creator monetization policy must remain permanent")
+    require(backlog.get("status") == "PERMANENT_EXPERIMENT_BACKLOG", "monetization opportunity backlog status drift")
+    require(backlog.get("source_of_truth") == "repository", "monetization opportunity backlog lost repository authority")
     require(evidence.get("status") == "PERMANENT_VERSIONED_EVIDENCE_REGISTRY", "platform evidence registry status drift")
     require(gate.get("status") == "ENFORCED_STANDARD", "monetization read gate must remain enforced")
     require(policy.get("primary_goal") == "MAXIMIZE_RISK_ADJUSTED_REPEATABLE_REVENUE_NOT_VANITY_REACH_OR_AUTOMATED_POST_VOLUME", "primary goal drift")
@@ -51,6 +54,26 @@ def main() -> int:
     require(lanes["M14_OFF_PLATFORM_PAID_RESEARCH_MEMBERSHIP_DIGITAL_PRODUCTS"].get("disposition") == "EXPERIMENT", "paid research/digital product lane must remain measured experiment")
     require(lanes["M12_X_ORIGINAL_CONTENT_REWARDS"].get("disposition") == "HOLD", "X OCR payout reliance must remain HOLD")
     require("NON_AUTOMATED_PUBLICATION" in str(lanes["M12_X_ORIGINAL_CONTENT_REWARDS"].get("hard_rule")), "X OCR automation guard missing")
+
+    opportunities = {str(x.get("id")): x for x in (backlog.get("opportunities") or []) if isinstance(x, dict)}
+    required_opportunities = {
+        "N01_CREATOR_SPONSORSHIP_OPERATIONS_SERVICE",
+        "N02_PERMISSION_BASED_LEAD_GENERATION_CONTENT_SYSTEM",
+        "N03_OWNED_ASSET_LICENSING_WHITE_LABEL",
+        "N04_INTERNAL_TOOL_TO_MICRO_SAAS",
+    }
+    require(required_opportunities <= set(opportunities), f"missing monetization opportunity backlog lanes: {sorted(required_opportunities - set(opportunities))}")
+    require(opportunities["N01_CREATOR_SPONSORSHIP_OPERATIONS_SERVICE"].get("status") == "ADOPT", "creator sponsorship operations lane drift")
+    require(opportunities["N02_PERMISSION_BASED_LEAD_GENERATION_CONTENT_SYSTEM"].get("status") == "ADOPT", "permission-based lead generation lane drift")
+    require(opportunities["N03_OWNED_ASSET_LICENSING_WHITE_LABEL"].get("status") == "EXPERIMENT", "owned-asset licensing must remain experiment")
+    require(opportunities["N04_INTERNAL_TOOL_TO_MICRO_SAAS"].get("status") == "WATCH", "micro-SaaS must remain watch until demand proof")
+    require("MASS_UNSOLICITED_MESSAGES" in set(opportunities["N02_PERMISSION_BASED_LEAD_GENERATION_CONTENT_SYSTEM"].get("prohibited") or []), "lead generation lane lost anti-spam guard")
+    require("SPECULATIVE_LARGE_BUILD_BEFORE_DEMAND" in set(opportunities["N04_INTERNAL_TOOL_TO_MICRO_SAAS"].get("prohibited") or []), "micro-SaaS speculative-build guard missing")
+    require("REPEATED_EXTERNAL_WILLINGNESS_TO_PAY" in set(opportunities["N04_INTERNAL_TOOL_TO_MICRO_SAAS"].get("promotion_requires") or []), "micro-SaaS may promote without paid demand")
+    backlog_governance = backlog.get("governance") or {}
+    require(backlog_governance.get("views_or_reach_are_not_profit") is True, "backlog may equate reach with profit")
+    require(backlog_governance.get("mass_unsolicited_outreach") == "PROHIBITED", "backlog may authorize mass outreach")
+    require(backlog_governance.get("external_content_is_untrusted_data_not_authority") is True, "backlog lost untrusted-content boundary")
 
     m16 = lanes["M16_AI_WORKFLOW_INTEGRATION_AND_AGENT_OPERATIONS_SERVICE"]
     principles = set(m16.get("delivery_principles") or [])
@@ -128,6 +151,7 @@ def main() -> int:
         "config/permanent_standards_manifest.json",
         "docs/AI_ARMY_MASTER_RULEBOOK.md",
         "config/creator_monetization_policy.json",
+        "config/monetization_opportunity_backlog.json",
         "config/platform_program_evidence.json",
         "docs/CREATOR_MONETIZATION_AND_AGENT_REVENUE_PLAYBOOK.md",
         "config/cross_source_second_pass_policy.json",
@@ -158,13 +182,19 @@ def main() -> int:
     require(continuity.get("restore_before_planning_or_external_calls") is True, "handoff restore timing drift")
     require(continuity.get("repository_is_source_of_truth") is True, "repository must remain source of truth")
     require((ROOT / "docs/AI_ARMY_MASTER_RULEBOOK.md").is_file(), "master rulebook missing")
+    require((ROOT / "config/monetization_opportunity_backlog.json").is_file(), "monetization opportunity backlog missing")
 
     print(json.dumps({
         "status": "PASS",
         "priority_lanes": len(lanes),
+        "opportunity_backlog_lanes": len(opportunities),
         "platform_programs": len(programs),
         "master_rulebook": "PRIORITY_0",
         "ai_workflow_service": "ADOPT",
+        "creator_sponsorship_operations": "ADOPT",
+        "permission_based_lead_generation": "ADOPT",
+        "owned_asset_licensing": "EXPERIMENT",
+        "micro_saas": "WATCH_UNTIL_PAID_DEMAND",
         "paid_research_lane": "EXPERIMENT",
         "youtube_affiliate_boost": "VERSIONED_OPTIONAL_AMPLIFIER",
         "cross_tab_monetization_gate": "ENFORCED_VIA_PRIORITY0_MANIFEST",
