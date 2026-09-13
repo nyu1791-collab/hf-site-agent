@@ -18,7 +18,7 @@
     {"id": "longform-video-objectives", "path": "docs/LONGFORM_VIDEO_OBJECTIVES.md", "machine_policy": "config/longform_video_objectives.json", "priority": 1},
     {"id": "longform-video-reliability", "path": "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md", "machine_policy": "config/longform_video_reliability_policy.json", "priority": 1},
     {"id": "authorized-clipping-and-monetization", "path": "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md", "machine_policy": "config/authorized_clipping_monetization_policy.json", "priority": 1},
-    {"id": "bounded-batch-media-orchestration", "path": "docs/BATCH_MEDIA_ORCHESTRATION.md", "machine_policy": "config/batch_media_orchestration_policy.json", "worker_pool": "config/bulk_media_worker_pool.json", "job_schema": "schemas/batch_media_job.schema.json", "runtime": "scripts/batch_media_scheduler.py", "priority": 1},
+    {"id": "bounded-batch-media-orchestration", "path": "docs/BATCH_MEDIA_ORCHESTRATION.md", "machine_policy": "config/batch_media_orchestration_policy.json", "worker_pool": "config/bulk_media_worker_pool.json", "job_schema": "schemas/batch_media_job.schema.json", "runtime": "scripts/batch_media_scheduler.py", "command_center": "scripts/media_batch_command_center.py", "command_schema": "schemas/media_batch_command.schema.json", "command_doc": "docs/MEDIA_BATCH_COMMAND_CENTER.md", "priority": 1},
     {"id": "tiktok-shop-influence", "path": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md", "machine_policy": "config/tiktok_shop_influence_policy.json", "priority": 1}
   ],
   "canonical_ai_army_execution": {
