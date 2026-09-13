@@ -12,6 +12,8 @@ on:
       - 'config/current_commander_handoff.json'
       - 'config/permanent_standards_manifest.json'
       - 'config/media_command_read_gate.json'
+      - 'config/cross_source_knowhow_evidence_matrix.json'
+      - 'config/cross_domain_measurement_registry.json'
       - 'config/longform_video_objectives.json'
       - 'config/longform_video_reliability_policy.json'
       - 'config/authorized_clipping_monetization_policy.json'
@@ -24,6 +26,7 @@ on:
       - 'scripts/ai_army_routing_facade.py'
       - 'scripts/validate_permanent_ai_army_state.py'
       - 'scripts/validate_media_command_read_gate.py'
+      - 'scripts/validate_cross_source_knowhow.py'
       - 'scripts/ci_control_plane_guard.py'
       - 'scripts/agent_architecture_admission.py'
       - 'scripts/commander_routing.py'
@@ -37,6 +40,7 @@ on:
       - 'schemas/media_batch_command.schema.json'
       - 'docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md'
       - 'docs/MEDIA_COMMAND_READ_GATE.md'
+      - 'docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md'
       - 'docs/MEDIA_PIPELINE.md'
       - 'docs/LONGFORM_VIDEO_OBJECTIVES.md'
       - 'docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md'
@@ -80,6 +84,7 @@ jobs:
             scripts/ai_army_routing_facade.py \
             scripts/validate_permanent_ai_army_state.py \
             scripts/validate_media_command_read_gate.py \
+            scripts/validate_cross_source_knowhow.py \
             scripts/ci_control_plane_guard.py \
             scripts/agent_architecture_admission.py \
             scripts/deepseek_supervisor_research.py \
@@ -98,6 +103,8 @@ jobs:
           python -m json.tool config/current_commander_handoff.json >/dev/null
           python -m json.tool config/permanent_standards_manifest.json >/dev/null
           python -m json.tool config/media_command_read_gate.json >/dev/null
+          python -m json.tool config/cross_source_knowhow_evidence_matrix.json >/dev/null
+          python -m json.tool config/cross_domain_measurement_registry.json >/dev/null
           python -m json.tool config/longform_video_objectives.json >/dev/null
           python -m json.tool config/longform_video_reliability_policy.json >/dev/null
           python -m json.tool config/authorized_clipping_monetization_policy.json >/dev/null
@@ -119,6 +126,11 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_media_command_read_gate.py
+
+      - name: Enforce cross-source evidence and measurement governance
+        run: |
+          set -euo pipefail
+          python scripts/validate_cross_source_knowhow.py
 
       - name: Enforce bounded CI control plane
         run: |
