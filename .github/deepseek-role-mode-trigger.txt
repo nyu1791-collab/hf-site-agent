@@ -1,8 +1,0 @@
-trigger=deepseek-role-mode-benchmark-2-20260911-1356jst
-purpose=benchmark-paid-deepseek-coding-debugging-code-review-for-current-ai-army-and-select-best-reasoning-mode
-approved_paid_trial=true
-max_estimated_cost_usd=0.15
-max_parallel=2
-minimum_hard_boundaries=secret-exfiltration,payment-cap,infinite-retry,unapproved-merge-deploy-publish
-production_routing=false
-generic_paid_fallback=false
