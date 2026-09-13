@@ -47,6 +47,7 @@ def main() -> int:
     require("RENDER" in before, "read gate no longer precedes render")
     require(execution.get("conversation_memory_alone_is_insufficient") is True, "chat memory became sufficient for media gate")
     require(execution.get("tab_or_session_change_does_not_waive_gate") is True, "tab/session change now waives media gate")
+    require(execution.get("measurement_plan_required_for_optimization_claim") is True, "optimization may be claimed without measurement plan")
 
     common = list(gate.get("common_media_read_set") or [])
     require_paths(
@@ -54,6 +55,9 @@ def main() -> int:
         {
             "config/current_commander_handoff.json",
             "config/permanent_standards_manifest.json",
+            "config/cross_source_knowhow_evidence_matrix.json",
+            "config/cross_domain_measurement_registry.json",
+            "docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md",
             "docs/MEDIA_PIPELINE.md",
             "config/longform_video_objectives.json",
             "config/longform_video_reliability_policy.json",
@@ -108,6 +112,7 @@ def main() -> int:
     require(manifest_gate.get("mixed_media_intents_are_additive") is True, "manifest mixed-intent media rule missing")
     require(manifest_gate.get("conversation_memory_is_not_a_substitute") is True, "manifest allows chat memory to replace media source read")
     require(manifest_gate.get("re_read_current_repository_versions_after_tab_or_session_change") is True, "manifest no longer requires cross-tab media reread")
+    require(manifest_gate.get("cross_source_evidence_and_measurement_rules_are_required") is True, "manifest lost cross-source media governance")
 
     standards = manifest.get("required_standards") or []
     media_entries = [entry for entry in standards if isinstance(entry, dict) and entry.get("id") == "media-command-read-gate"]
@@ -124,6 +129,8 @@ def main() -> int:
         "semantic_intent": True,
         "mixed_intents_additive": True,
         "cross_tab_reread": True,
+        "cross_source_evidence_read": True,
+        "measurement_registry_read": True,
         "video_creation_know_how": True,
         "clipping_know_how": True,
         "tiktok_shop_know_how": True,
