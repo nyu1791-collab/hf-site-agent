@@ -2,165 +2,67 @@
 
 AI Army / Provider-v3 の実験・検証リポジトリ。
 
-## 0. 新しいチャット／タブ／AIセッションで最初に読むもの
+## Source of Truth と新セッション復元
 
-**会話履歴をこのプロジェクトの正本にしない。** タブを変更した場合、別AIセッションから再開した場合、または長時間中断後に復旧する場合は、作業を始める前に次の順でRepository stateを復元する。
+会話履歴や古いhandoffをこのプロジェクトの正本にしない。作業開始時は現在の `ai-army/provider-v3` HEAD と PR #40 の状態を確認し、次の4ファイルをBootstrapとしてこの順に読む。
 
 1. `README.md`
 2. `config/current_commander_handoff.json`
-3. `config/multi_agent_operating_policy.json`
-4. `docs/MULTI_AGENT_OPERATING_STANDARD.md`
-5. `config/longform_video_objectives.json`
-6. `config/longform_video_reliability_policy.json`
-7. `docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md`
-8. `docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md`
+3. `config/permanent_standards_manifest.json`
+4. `docs/AI_ARMY_MASTER_RULEBOOK.md`
 
-恒久的な運用判断が変わった場合は、チャット内だけで終わらせずRepository側の正本も更新する。`config/current_commander_handoff.json` が新しいセッションの継続入口である。
+この4ファイルは全ルールの複製ではない。詳細は `config/permanent_standards_manifest.json` から、依頼の意味に応じたSemantic Gateを解決する。
 
-## 動画制作の固定運用ルール
+- 動画・音声・字幕・キャラクター・BGM・SFX・画像素材・切り抜き・TikTok Shopメディア: `config/media_command_read_gate.json`
+- 収益化・案件・アフィリエイト・Creator Program・AI workflow service: `config/monetization_command_read_gate.json`
 
-このリポジトリで長編動画を制作する場合、以下を標準ルールとして扱う。チャットや別タブで毎回説明し直す必要はない。
+詳細が文書間で異なる場合は、最新の明示的ユーザー指示と安全境界を守ったうえで、現行Machine-readable Policy・Validator・CIを優先する。恒久ルールを変更する場合は会話だけで終わらせず、Machine Policy / Rulebook / Validator / CI / Read Gateの整合性を同じ変更で確認する。
 
-### 1. 外部のフリーミアム動画制作SaaSは使用しない
+## AI Army の固定境界
 
-動画の生成・編集・字幕・音声・アップスケール等を目的として、次のような「最初だけ無料／少量無料だが、継続利用ですぐ課金へ移行する外部サービス」は使用しない。
+- ChatGPT / Work がTop Commanderかつ最終判断者。
+- 有料DeepSeekは `config/deepseek_paid_supervisor_policy.json` の範囲だけで使うExecutive Supervisor。全タスクの必須hopでも大量boilerplate coderでもない。
+- Deterministic ToolまたはSingle Agentで十分ならそれを優先する。
+- Single Writerを維持し、同一mutable targetの並列変更にはTask Leaseを要求する。
+- 最大Delegation Depthは2、1ユーザー依頼あたり最大10 Tasks。無限Swarm・無限Reflection・無限Replanは禁止。
+- Machine Oracle / Schema / Test / Hash / ffprobe等をAI多数決より優先する。
+- 通常Routeはfree-first。Auto Top-up、Generic Paid Fallback、Paid sibling自動置換は禁止。
+- DeepSeek例外は他の有料Provider、Repository Write、main Push、PR Merge、Deploy、Publish、Secrets操作、支払い操作へ権限を拡張しない。
 
-- Runway
-- Fal / fal.ai
-- Descript
-- VEED
-- HeyGen
-- Higgsfield
-- その他、同種のクレジット制・従量課金制・無料枠消費型の動画制作／編集SaaS
+## メディア制作
 
-接続済み・インストール済みであっても、動画制作の実行経路として選択しない。無料クレジットが残っていても使わない。
+メディア作業では、計画・素材取得・音声生成・レンダリングより前に `config/media_command_read_gate.json` の現行版を読む。READMEへ詳細ルールを重複させない。
 
-外部サービスを使う場合は、利用時点で **完全無料であり、自動課金・有料Fallback・クレジット購入を要求しないことが確認できるものだけ** を許可する。不明な場合は fail-closed とする。
+現在の恒久標準の要点:
 
-### 2. 動画本体はローカル／無料実行系で作る
+- 標準VOICEVOX castは **ずんだもん + 四国めたん**。Speaker / Style IDは実行時に利用可能状態を確認する。
+- 音声はSemantic Beat単位でPause・Speed・Pitch・Intonation・Emotionを設計し、長時間の平坦読みを標準にしない。
+- キャラクターはIdle / Speaking / Reaction / Emphasis等の状態で控えめに動かし、長時間の完全静止立ち絵へ退行させない。
+- 1 Semantic Beatにつき主役となるAttention Heroは原則1つ。Caption / Evidence / Character / SFX / Zoomを理由なく競合させない。
+- 視覚素材は検索 → Original Source確認 → Rights確認 → 事前取得・Decode検証を基本とする。Generated Image / Generated Video Assetは現行Longform標準経路にしない。
+- 第三者Free BGMはDOVA-SYNDROME / OpenTracksを優先候補とし、`config/free_audio_source_registry.json` と `config/dova_curated_bgm_catalog.json` の現行条件を守る。
+- 長尺はScene / Chapter単位で `Scene -> Validate -> Checkpoint -> Join`。Monolithic Renderへ戻さない。
+- Timelineは文字数推測ではなく、生成済みWAVの実時間をffprobeで測定して決める。
+- Partial / Unverified SceneをConcatへ入れない。失敗時は最小失敗単位だけを再処理し、正常な成果物を保持する。
+- 完成判定は最終MP4のffprobe、Video/Audio stream、Media Contract、Decode integrity、字幕Coverage等のMachine QAを通す。
+- Runway、Fal/fal.ai、Descript、VEED、HeyGen、Higgsfield等のPaid/Freemium/Trial media SaaSを標準制作経路にしない。Unknown cost routeはfail-closed。
 
-実レンダリングの標準経路は次のとおり。
+詳細は以下をSemantic Gateから現行版で復元する。
 
-- Python
-- FFmpeg / ffprobe
-- Pillow / OpenCV / MoviePy などのローカル処理
-- Colab / Kaggle / GitHub Actions 等の無料実行枠（無料であることを確認できる場合のみ）
-- 権利確認済みの無料素材、または自前生成素材
+- `config/media_audio_motion_retention_policy.json`
+- `config/free_audio_source_registry.json`
+- `config/dova_curated_bgm_catalog.json`
+- `config/longform_video_objectives.json`
+- `config/longform_video_reliability_policy.json`
+- `docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md`
+- `docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md`
 
-AIは企画・台本・技術レビュー・素材設計を担当し、反復的な映像処理はPython/FFmpegへ渡す。
+## CI / Compatibility
 
-### 3. ナレーションは「ずんだもん」で固定
+CIの実行権限と自動fan-outは `config/ci_execution_policy.json` を正本とし、`scripts/ci_control_plane_guard.py` で検査する。旧実験コードを保持する場合でも、それだけで現行Routing権限・有料実行権限・自動発火権限を復活させてはならない。
 
-日本語動画の標準ナレーションは **VOICEVOXのずんだもん** とする。ユーザーが明示的に変更を指示しない限り、外部有料TTSへ切り替えない。
+`config/legacy_deepseek_compatibility.json` は古いDeepSeek設定を実行するためのファイルではなく、旧経路が現行Authorityへ復帰しないことを検証するための互換・回帰ガードである。削除理由がない限り履歴的なコードやテストを「古い名前」だけで削除しない。
 
-- 章または字幕ブロック単位で音声生成
-- 生成済みWAVはキャッシュして再利用
-- 実際のWAV長を測定し、映像尺・字幕タイミングの基準にする
-- 映像修正だけでVOICEVOXを再生成しない
-- VOICEVOX raw WAVと48kHz正規化済みScene音声を別成果物として保持する
+## Hard Boundaries
 
-### 4. 長編はScene単位で生成して最後に結合
-
-5分、10分、それ以上でも1本の巨大なFFmpeg処理へまとめない。
-
-`Scene 01 -> Scene 02 -> ... -> Scene N -> concat -> final.mp4`
-
-各Sceneは同一条件へ正規化する。
-
-- 1080x1920
-- 30fps
-- 同一Video Codec
-- 同一Audio Codec
-- 同一Sample Rate
-- 同一Pixel Format
-
-成功済みSceneは再生成しない。失敗したSceneだけ再試行し、最後にconcat copyを優先する。必要な場合だけ最終再エンコードする。
-
-### 5. Checkpoint / 再開を必須にする
-
-各Scene／章について少なくとも以下を記録する。
-
-- 素材取得済み
-- 音声生成済み
-- 字幕生成済み
-- Sceneレンダリング済み
-- Scene検証済み
-- 最終結合済み
-
-失敗した場合は最後の正常Checkpointから再開する。成功済みの台本、音声、画像、字幕、Sceneを削除・再生成しない。
-
-**GitHub Actions cacheは高速化用であり、唯一のCheckpoint正本にしない。** runを跨いで残す検証済み成果物はArtifactまたは明示的Checkpoint manifestで管理する。
-
-### 6. 素材障害を全体障害にしない
-
-レンダリング中に外部URLを直接読み込まない。必要素材は事前取得し、サイズ・デコード・content hash・rights/statusを検査する。1素材だけ失敗した場合は代替素材に切り替え、動画全体を停止しない。
-
-### 7. 字幕とずんだもん表示
-
-- ナレーション全文を字幕でカバーする
-- 長文を短い読みやすいブロックへ分割する
-- タイトル／章タイトル／本文で文字サイズ・太さ・位置を分ける
-- 重要画像やずんだもん立ち絵と字幕が重ならない安全領域を固定する
-- ずんだもんの画面位置は基本固定し、章ごとに表情・公式立ち絵を切り替えて単調さを抑える
-- 字幕の正本はNarration Manifestとし、特定TTS provider内部stateへ結合しない
-
-### 8. AIの分業
-
-- **ChatGPT**: 最高司令部。全体設計、工程分解、統合、最終成果物の受け渡し
-- **DeepSeek**: 難しい技術レビュー、FFmpeg／レンダリング原因分析、長尺構成レビュー、修正案
-- **NVIDIA / Qwen等**: コードレビュー、エラー解析、字幕／音声同期、素材確認、構成レビュー等の専門担当
-- **Python / FFmpeg**: 実際の機械処理
-
-同じ仕事を複数AIへ重複発注せず、役割を分ける。Multi-Agentを使う前にSingle-Agent baselineで十分でないか確認し、並列mutationではTask lease / single writerを守る。
-
-### 9. 有料DeepSeekの扱い
-
-ユーザーが明示承認した **有料DeepSeek** は、その承認Scope内の技術分析・設計・レビュー用途の例外として利用できる。ただし、この許可はRunway/Fal/Descript等の有料・フリーミアム動画制作サービスへは波及しない。
-
-DeepSeek利用も既存の予算上限・呼び出し上限・秘密値非表示・STAGING_ONLY・repository_write=false・deploy=false・publish=false等のガードを維持する。新しいMissionで有料実行の承認が継続しているか不明な場合はfail-closedとする。
-
-### 10. 完成判定
-
-重い最終目視レビューを必須にしない。最低限、以下を機械的に通過すれば完成候補とする。
-
-- MP4が存在する
-- ファイルサイズが0ではない
-- 映像ストリームがある
-- 音声ストリームがある
-- 1080x1920
-- 想定尺の範囲内
-- ffprobeで正常読込可能
-- 可能な範囲でdecode smoke testを通過し、decode errorを0にする
-
-完成後は分析報告より先に、実際に再生できる動画をユーザーへ提示する。
-
-## 組織AIの固定運用ルール
-
-- Top Commanderは1つ。最終統合責任を保持する。
-- Agent数そのものを性能指標にしない。
-- 明確に独立したWorkstreamだけを並列化する。
-- 同じmutable targetへ複数Writerを置かない。
-- 並列mutationにはTask lease / ownershipを要求する。
-- Context全文を全Agentへ配らず、必要Context + Artifact referenceだけを渡す。
-- 重大成果物はPrimary + Independent Verifierまたはmachine oracleで検査する。
-- Debate / majority voteは標準経路ではない。
-- Agent loopは必ずturn/request/token/time/circuit等の停止条件を持つ。
-- Paid / secret / merge / deploy / publish / irreversible actionはblocking guardrail + Human Gateを維持する。
-- Frameworkはon-demand。Native runtimeを正本とし、LangGraphをstateful graphの第一候補、CrewAI/AutoGen/Copilot系は限定Adapterとする。
-- A2Aはremote cross-vendor境界が必要な場合だけ検討し、内部通信の必須規格にはしない。
-
-## 詳細仕様
-
-- [Current Commander Handoff](config/current_commander_handoff.json)
-- [Multi-Agent Operating Policy](config/multi_agent_operating_policy.json)
-- [Multi-Agent Operating Standard](docs/MULTI_AGENT_OPERATING_STANDARD.md)
-- [Long-form Video Objectives](config/longform_video_objectives.json)
-- [Long-form Video Reliability Policy](config/longform_video_reliability_policy.json)
-- [Long-form Video Reliability Playbook](docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md)
-- [AI Army / Long-form Research Synthesis](docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md)
-- [Media Agent Army](docs/MEDIA_AGENT_ARMY.md)
-- [日本向けメディアパイプライン](docs/MEDIA_PIPELINE.md)
-
-## 変更禁止境界
-
-動画制作・組織AI改善のために main 直接Push、PR Merge、本番Deploy、無断Publish、秘密値表示・秘密値変更を行わない。
+明示された権限がない限り、main直接Push、PR Merge、本番Deploy、公開Publish、Secrets変更・開示、Durable Object変更、Auto Top-up、Generic Paid Fallback、不可逆な外部操作を行わない。
