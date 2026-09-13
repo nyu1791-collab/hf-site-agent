@@ -1,0 +1,151 @@
+{
+  "schema_version": "media-audio-motion-retention-v1",
+  "effective_date_jst": "2026-09-13",
+  "status": "ENFORCED_STANDARD",
+  "purpose": "Make free background music, sound effects, voice prosody, character motion, attention hierarchy and anti-boredom editing defaults recoverable and executable across future media tasks without requiring the user to restate them.",
+  "applies_to": ["VIDEO_CREATION", "SHORTS", "LONGFORM", "NEWS_EXPLAINER", "TIKTOK_SHOP_COMMERCE", "CLIPPING_REPURPOSING"],
+  "semantic_default": {
+    "auto_apply_on_media_intent": true,
+    "user_does_not_need_to_repeat_rules": true,
+    "explicit_user_override_allowed": true,
+    "safety_rights_cost_rules_cannot_be_silently_disabled": true
+  },
+  "free_only_audio": {
+    "paid_music_or_sfx_services": false,
+    "auto_purchase": false,
+    "auto_subscription": false,
+    "paid_fallback": false,
+    "unknown_or_unverifiable_license": "BLOCK",
+    "random_free_music_from_unverified_channels": "BLOCK",
+    "license_evidence_required_before_use": true,
+    "cache_downloaded_assets_with_provenance": true,
+    "do_not_redistribute_raw_third_party_audio": true
+  },
+  "audio_asset_pool": {
+    "goal": "Maintain a broad reusable pool so each video can choose a small coherent subset instead of reusing the same sounds mechanically.",
+    "minimum_pool_targets_before_scale": {
+      "bgm_tracks_total": 18,
+      "sfx_total": 48,
+      "bgm_moods": ["neutral_tech", "bright", "calm", "curious", "suspense", "serious", "urgent", "warm"],
+      "sfx_categories": ["entry", "pop", "click", "whoosh", "impact", "reveal", "number", "warning", "transition", "soft_chime", "comedy", "confirmation", "error", "silence_marker"]
+    },
+    "selection_rules": [
+      "Do not use every available sound in one video.",
+      "Choose one dominant BGM mood per semantic segment and switch only at meaningful story boundaries.",
+      "Rotate tracks across videos with a cooldown to reduce audible repetition.",
+      "Reserve distinctive SFX for stable semantic meanings so the audience learns the audio grammar.",
+      "Use silence as an intentional audio event when it improves contrast or gravity."
+    ]
+  },
+  "audio_mix": {
+    "narration_is_primary": true,
+    "bgm_must_not_mask_speech": true,
+    "sfx_must_not_mask_key_words": true,
+    "automatic_or_keyframed_ducking_under_speech": true,
+    "bgm_level_starting_heuristic_relative_to_narration_lu": [-20, -12],
+    "sfx_level_starting_heuristic_relative_to_narration_db": [-12, -6],
+    "heuristics_are_not_universal_mastering_targets": true,
+    "measure_integrated_loudness_true_peak_clipping_and_silence": true,
+    "prefer_short_fades_and_crossfades_over_hard_audio_edges": true,
+    "serious_or_sensitive_topic_can_disable_comedic_sfx_or_upbeat_bgm": true,
+    "keep_intelligibility_over_energy": true
+  },
+  "sound_grammar": {
+    "ENTRY": "First appearance or chapter re-entry of a speaker/character.",
+    "EVIDENCE": "Reveal of a primary source, official document, chart or proof frame.",
+    "NUMBER": "A number that materially changes understanding.",
+    "REVEAL": "A factual reversal, correction or unexpected conclusion.",
+    "WARNING": "Risk, caveat, contradiction or important limitation.",
+    "TRANSITION": "Semantic section change, not every cut.",
+    "COMEDY": "Light reaction only when the topic permits it.",
+    "CONFIRMATION": "Resolved point or verified conclusion.",
+    "SILENCE": "Deliberate absence of BGM/SFX to create contrast before or after an important beat."
+  },
+  "voice_prosody": {
+    "default_engine": "VOICEVOX_LOCAL",
+    "default_primary_voice": "ずんだもん",
+    "secondary_voice_when_dialogue_helps": "四国めたん",
+    "runtime_discover_styles_and_ids": true,
+    "do_not_hardcode_stale_style_ids": true,
+    "allowed_query_adjustments": ["speedScale", "pitchScale", "intonationScale", "volumeScale", "pause_length", "interrogative_upspeak", "accent_phrase_adjustment"],
+    "emotion_tags": ["neutral", "curious", "surprised", "serious", "warning", "excited", "skeptical", "relieved", "sad_or_grave"],
+    "rules": [
+      "Map emotion to voice parameters deliberately instead of using one flat preset for the entire video.",
+      "Change prosody at semantic beats, not every word.",
+      "Use punctuation and pause design to improve phrasing before extreme parameter changes.",
+      "Avoid cartoonishly strong pitch or speed changes during serious news, disasters, death, injury or corrections.",
+      "Measure actual WAV duration with ffprobe after every generated chunk and drive caption/video timing from that duration."
+    ]
+  },
+  "character_motion": {
+    "no_long_static_talking_portrait": true,
+    "motion_is_state_driven": true,
+    "speaker_states": ["idle", "speaking", "reaction", "emphasis", "enter", "exit", "grave_mode"],
+    "recommended_micro_motion": ["blink", "subtle_bob", "small_scale_pulse", "expression_swap", "head_or_body_tilt_if_asset_allows", "short_entry_or_exit_motion"],
+    "active_speaker_emphasis": true,
+    "inactive_speaker_should_not_compete": true,
+    "inactive_speaker_options": ["slightly_smaller", "slightly_dimmer", "reaction_expression", "temporary_hide_for_evidence_frame"],
+    "avoid_constant_large_motion": true,
+    "avoid_every_line_full_entry_exit": true,
+    "motion_must_not_cover_captions_or_evidence": true,
+    "serious_topic_reduces_comedic_motion": true
+  },
+  "visual_attention_hierarchy": {
+    "one_primary_hero_per_beat": true,
+    "hero_candidates": ["evidence_image", "character", "emphasis_caption", "important_number"],
+    "supporting_elements_must_be_visually_subordinate": true,
+    "still_images_should_receive_purposeful_motion_when_helpful": ["slow_push", "pan", "crop_reveal", "parallax_like_layer_motion", "highlight_box", "pointer_or_focus_mask"],
+    "no_motion_for_motion_sake": true,
+    "scene_change_interval_is_not_fixed": true,
+    "change_visuals_on_semantic_events": true
+  },
+  "anti_boredom_patterns": {
+    "allowed": [
+      "question_answer_turns",
+      "evidence_reveal",
+      "before_after_or_claim_reality_contrast",
+      "micro_pattern_interrupt",
+      "change_of_visual_hero",
+      "short_silence_before_reveal",
+      "camera_or_crop_motion_on_still_evidence",
+      "speaker_emotion_change",
+      "caption_hierarchy_change",
+      "semantic_transition",
+      "recap_or_payoff"
+    ],
+    "forbidden_default": [
+      "constant_zoom",
+      "sound_effect_on_every_cut",
+      "animated_every_word",
+      "random_transition_pack_usage",
+      "both_characters_large_at_all_times",
+      "background_text_wall",
+      "unrelated_stock_visuals_for_primary_claims",
+      "rapid_bgm_switching_without_story_reason"
+    ]
+  },
+  "collision_avoidance": {
+    "max_attention_dominant_elements_per_beat": 1,
+    "if_emphasis_caption_is_dominant_reduce_character_motion": true,
+    "if_evidence_image_is_dominant_reduce_character_size_and_sfx_density": true,
+    "if_voice_emotion_is_high_reduce_bgm_and_visual_effect_intensity": true,
+    "if_major_sfx_hits_duck_bgm_temporarily": true,
+    "never_stack_major_sfx_major_zoom_major_caption_pop_and_character_entry_without_explicit_reason": true
+  },
+  "sensitive_topic_mode": {
+    "triggers": ["death", "disaster", "major_accident", "victim_harm", "war_casualties", "medical_emergency", "correction_of_harmful_falsehood"],
+    "disable_or_reduce": ["comedy_sfx", "bouncy_motion", "celebratory_bgm", "exaggerated_voice_pitch", "meme_reaction"],
+    "prefer": ["neutral_or_grave_bgm_or_silence", "restrained_motion", "clear_evidence", "calm_prosody"]
+  },
+  "evaluation": {
+    "machine_qa": ["caption_coverage", "decode_errors", "audio_presence", "integrated_loudness", "true_peak", "clipping", "unexpected_silence", "safe_zone_collision", "asset_license_manifest_complete"],
+    "viewer_metrics_when_available": ["stayed_to_watch_or_viewed_vs_swiped", "average_view_duration", "average_percentage_viewed", "retention_dips", "retention_spikes", "rewatch_or_loop_behavior", "shares", "saves_or_equivalent", "comments"],
+    "a_b_testing_rule": "Change one primary creative variable per test where practical; do not claim causality from a single uncontrolled video.",
+    "missing_analytics": "UNKNOWN_NOT_ZERO"
+  },
+  "publication": {
+    "public_publish_requires_human_approval": true,
+    "volatile_platform_audio_rights_recheck_at_publish_time": true,
+    "attribution_text_must_be_preserved_when_required": true
+  }
+}
