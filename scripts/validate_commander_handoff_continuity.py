@@ -85,6 +85,9 @@ def main() -> int:
 
     serialized_handoff = json.dumps(handoff, ensure_ascii=False)
     require("VOICEVOX_ZUNDAMON_LOCAL" not in serialized_handoff, "stale Zundamon-only handoff token returned")
+    require("media_production_hold" not in serialized_handoff, "media production hold was reintroduced into commander handoff")
+    require("ACTIVE_UNTIL_EXPLICIT_USER_RELEASE" not in serialized_handoff, "legacy media production hold release marker was reintroduced")
+    require("HOLD_MEDIA_PRODUCTION" not in serialized_handoff, "blanket media production hold marker was reintroduced")
 
     durable_cast = set(((media_creative.get("voice_prosody") or {}).get("durable_standard_cast") or []))
     longform_cast = set(((longform.get("voicevox_contract") or {}).get("standard_cast") or []))
@@ -95,17 +98,12 @@ def main() -> int:
     require("config/current_commander_handoff.json" in common_media, "media gate no longer rereads commander handoff")
     require("config/permanent_standards_manifest.json" in common_media, "media gate no longer rereads permanent manifest")
 
-    temporary = (handoff.get("temporary_user_overrides") or {}).get("media_production_hold")
-    if temporary is not None:
-        require(isinstance(temporary, dict), "temporary media production hold must be an object")
-        require(temporary.get("permanent_standard") is False, "temporary media hold was promoted to permanent standard")
-        require(temporary.get("must_not_be_promoted_into_permanent_media_standard") is True, "temporary hold lacks anti-promotion guard")
-        require(temporary.get("status") == "ACTIVE_UNTIL_EXPLICIT_USER_RELEASE", "temporary media hold has ambiguous release semantics")
-        blocked = set(temporary.get("blocked_now") or [])
-        require({"IMAGE_GENERATION", "VIDEO_GENERATION", "VOICE_GENERATION", "MEDIA_RENDER"}.issubset(blocked), "temporary media hold does not cover all production modes")
+    overrides = handoff.get("temporary_user_overrides") or {}
+    require("media_production_hold" not in overrides, "media production hold must stay absent from temporary overrides")
 
     gate_text = json.dumps(media_gate, ensure_ascii=False)
-    require("ACTIVE_UNTIL_EXPLICIT_USER_RELEASE" not in gate_text, "temporary user hold leaked into permanent media gate")
+    require("ACTIVE_UNTIL_EXPLICIT_USER_RELEASE" not in gate_text, "legacy media production hold leaked into permanent media gate")
+    require("HOLD_MEDIA_PRODUCTION" not in gate_text, "blanket media production hold leaked into permanent media gate")
 
     print(json.dumps({
         "status": "PASS",
@@ -113,7 +111,7 @@ def main() -> int:
         "compact_bootstrap": True,
         "semantic_task_gates": True,
         "voicevox_cast": ["ずんだもん", "四国めたん"],
-        "temporary_media_hold_is_not_permanent": True,
+        "media_production_hold_absent": True,
         "stale_single_voice_token_absent": True,
     }, ensure_ascii=False, sort_keys=True))
     return 0
