@@ -32,7 +32,7 @@ Factual current-event, product, numeric, offer and policy claims use claim-level
 
 When a video command arrives, reread the current media command gate and required media standards before planning, asset fetch, voice generation, render or publish handoff.
 
-Default production is local/deterministic: scene/chapter units, VOICEVOX Zundamon where applicable, audio-first timing from actual generated WAV duration, pre-downloaded/decode-validated assets, rights/provenance ledger, content-addressed checkpoints, atomic partial-to-verified scene promotion and failed-unit-only retry. Preserve healthy prior work after an isolated failure.
+Default production is local/deterministic: scene/chapter units, VOICEVOX Zundammon where applicable, audio-first timing from actual generated WAV duration, pre-downloaded/decode-validated assets, rights/provenance ledger, content-addressed checkpoints, atomic partial-to-verified scene promotion and failed-unit-only retry. Preserve healthy prior work after an isolated failure.
 
 A finished vertical contract is normally 1080x1920, 30 fps, H.264, yuv420p, AAC 48 kHz unless a task-specific contract says otherwise. Completion requires machine QA: ffprobe, decode integrity, stream/codec/dimension checks, caption coverage and applicable loudness/true-peak/silence/black/freeze/safe-zone checks. Do not claim completion before the machine gate passes.
 
@@ -60,7 +60,7 @@ Measure the Japan commerce funnel as `GMV = Impressions × Product CTR × CVR ×
 
 The goal is risk-adjusted repeatable revenue, not vanity reach or maximum posting volume. Use multiple engines:
 
-- **Near-term service cash:** creative/UGC production, retention/analytics/localization/social operations, and bounded AI workflow/integration services for SMEs.
+- **Near-term service cash:** creative/UGC production, retention/analytics/localization/social operations, bounded AI workflow/integration services, creator-campaign operations and permission-based lead-generation systems for SMEs.
 - **Brand/marketplace revenue:** official YouTube Creator Partnerships, Instagram Creator Marketplace and TikTok One when current account eligibility permits.
 - **Affiliate commerce:** YouTube Shopping, Instagram affiliate product tags and suitable current affiliate programs; measure net commissions after reversals/refunds and payout lag.
 - **Owned/recurring value:** memberships, subscriptions, paid research/newsletters, premium information products or communities only when paid value is real.
@@ -72,6 +72,15 @@ Do not rely on one platform payout program. Separate observed revenue from model
 ### AI workflow / agent integration service
 
 Productize business outcomes rather than “an AI agent.” Candidate deliverables include bounded information retrieval, decision-support briefs, workflow automation, QA/reporting, structured content operations and human-approved handoffs. Start with a baseline of time/cost/error rate, define allowed data and tools, keep human control for consequential actions, and report measured ROI after deployment. Do not request or expose client secrets unnecessarily and do not sell unbounded autonomous operation as a default.
+
+### Additional non-video revenue lanes
+
+The permanent experiment backlog is `config/monetization_opportunity_backlog.json`. It must stay small and be pruned when a bounded test does not show paid demand or positive unit economics.
+
+- **Creator sponsorship operations — ADOPT:** sell creator discovery/vetting, brief preparation, rights/disclosure tracking, deliverable operations and business-outcome reporting to brands or creators. This is different from earning a sponsorship on the user's own account. AI may research, shortlist, draft briefs and normalize reporting; sending outreach, committing rates/contracts, usage rights and publication remain human-approved.
+- **Permission-based lead-generation content systems — ADOPT:** sell a measurable path from useful content → landing/lead magnet → qualification → CRM-ready handoff → human sales follow-up. Optimize qualified leads, meetings, sales and contribution margin, not impressions. Scraped spam lists, mass unsolicited outreach and unauthorized personal-data use are prohibited.
+- **Owned-asset licensing / white-label kits — EXPERIMENT:** sell or license only genuinely owned or commercially licensed templates, research/reporting frameworks, datasets from permitted sources, style systems or workflow kits. Validate with a paid pilot or presale before building a large library; measure support burden, refund rate and renewal/repeat use.
+- **Internal tool → Micro-SaaS — WATCH:** productize software only after a repeated paid service workflow reveals a narrow recurring problem and customers show willingness to pay. Measure support hours, model/hosting cost, gross margin, churn, reliability and security. Do not start a large speculative SaaS build merely because the AI Army can code it.
 
 ### Paid research / newsletter / premium intelligence
 
@@ -94,6 +103,8 @@ Japan commercial-disclosure requirements and current platform labels must be che
 ## 9. Measurement, promotion and pruning
 
 New know-how must state evidence, applicability, expected value, measurement and rollback. High scores do not override local experiments when transferability is uncertain. Promotion requires a reproducible measured win without quality, rights, policy or economic guardrail regression.
+
+For revenue lanes, treat the profit chain as reach/attention → owned or attributable intent → qualified lead/order → gross revenue → net revenue → contribution margin. Include refunds/returns/chargebacks, platform/payment fees, human labor, AI/API/tool cost and approved acquisition cost. A view, follower, click or GMV increase is not by itself a profit win.
 
 Keep the rulebook short by moving volatile facts and long evidence lists into registries. If a rule duplicates an existing authority, adds no measurable value, becomes stale, conflicts with current official evidence or creates a second source of truth, demote or delete it instead of accumulating prose.
 
