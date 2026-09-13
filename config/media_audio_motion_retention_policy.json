@@ -1,8 +1,8 @@
 {
-  "schema_version": "media-audio-motion-retention-v3",
-  "effective_date_jst": "2026-09-13",
+  "schema_version": "media-audio-motion-retention-v4",
+  "effective_date_jst": "2026-09-14",
   "status": "ENFORCED_STANDARD",
-  "purpose": "Make free background music, sound effects, VOICEVOX cast/prosody, character motion, caption hierarchy, search-collected contextual visuals, attention choreography and anti-boredom editing defaults recoverable and executable across future media tasks without requiring the user to restate them.",
+  "purpose": "Make free background music, sound effects, VOICEVOX cast/prosody, actual character presence and motion, caption hierarchy, search-collected contextual visuals, attention choreography and anti-boredom editing defaults recoverable and executable across future media tasks without requiring the user to restate them.",
   "applies_to": ["VIDEO_CREATION", "SHORTS", "LONGFORM", "NEWS_EXPLAINER", "TIKTOK_SHOP_COMMERCE", "CLIPPING_REPURPOSING"],
   "semantic_default": {
     "auto_apply_on_media_intent": true,
@@ -44,14 +44,18 @@
   "visual_asset_acquisition": {
     "generated_image_assets_allowed": false,
     "generated_video_assets_allowed": false,
+    "generated_background_images_allowed": false,
     "default_mode": "SEARCH_DISCOVER_THEN_VERIFY_AND_MATERIALIZE",
+    "news_background_default_mode": "SEARCH_COLLECTED_RIGHTS_VERIFIED_REAL_OR_OFFICIAL_VISUAL",
     "search_engine_result_is_discovery_not_license": true,
     "prefer_primary_or_official_visuals_for_factual_claims": true,
     "rights_cleared_illustrative_visuals_allowed": true,
     "original_source_and_reuse_terms_must_be_verified": true,
     "pre_download_before_render": true,
     "decode_validate_before_render": true,
-    "single_bad_asset_must_not_restart_unrelated_scenes": true
+    "single_bad_asset_must_not_restart_unrelated_scenes": true,
+    "news_background_must_semantically_match_current_narration_or_claim": true,
+    "audio_waveform_or_voice_visualizer_is_not_default_background": true
   },
   "audio_asset_pool": {
     "goal": "Maintain a broad reusable pool so each video can choose a small coherent subset instead of reusing the same sounds mechanically.",
@@ -121,7 +125,11 @@
     "fixed_screen_side_is_starting_experiment_not_permanent_truth": true,
     "active_speaker_priority": "speaker > semantic focal > non-speaker reaction",
     "two_character_large_frame_is_exception": ["opening", "closing", "conflict", "comedy", "summary"],
-    "serious_news_restraint_overrides_comedy": true
+    "serious_news_restraint_overrides_comedy": true,
+    "standard_cast_actual_character_visuals_required_when_series_or_task_uses_them": true,
+    "voice_waveform_or_audio_visualizer_cannot_substitute_for_character_presence": true,
+    "placeholder_voice_panel_cannot_substitute_for_character_presence": true,
+    "temporary_character_hide_or_reduction_allowed_when_evidence_or_caption_is_primary_hero": true
   },
   "character_motion": {
     "no_long_static_talking_portrait": true,
@@ -137,7 +145,8 @@
     "avoid_constant_large_motion": true,
     "avoid_every_line_full_entry_exit": true,
     "motion_must_not_cover_captions_or_evidence": true,
-    "serious_topic_reduces_comedic_motion": true
+    "serious_topic_reduces_comedic_motion": true,
+    "visible_standard_cast_characters_require_state_driven_motion_or_expression_change": true
   },
   "caption_grammar": {
     "captions_are_attention_ui_not_transcript_dump": true,
@@ -167,7 +176,9 @@
     "search_engine_result_is_discovery_not_license": true,
     "final_asset_requires_original_source_and_reuse_terms_verification": true,
     "asset_ledger_fields": ["original_url", "asset_title", "creator_or_source", "license_and_url", "attribution", "retrieval_date", "transformation_notes", "evidence_or_illustrative", "verification_timestamp"],
-    "still_image_motion_when_helpful": ["slow_push", "pan", "crop_reveal", "parallax_like_layer_motion", "highlight_box", "pointer_or_focus_mask"]
+    "still_image_motion_when_helpful": ["slow_push", "pan", "crop_reveal", "parallax_like_layer_motion", "highlight_box", "pointer_or_focus_mask"],
+    "news_backgrounds_prefer_search_collected_real_or_official_images_over_abstract_generated_visuals": true,
+    "audio_visualizer_is_not_a_semantic_news_background": true
   },
   "visual_attention_hierarchy": {
     "one_primary_hero_per_beat": true,
@@ -179,7 +190,7 @@
   },
   "anti_boredom_patterns": {
     "allowed": ["question_answer_turns", "evidence_reveal", "before_after_or_claim_reality_contrast", "micro_pattern_interrupt", "change_of_visual_hero", "short_silence_before_reveal", "camera_or_crop_motion_on_still_evidence", "speaker_emotion_change", "caption_hierarchy_change", "semantic_transition", "recap_or_payoff"],
-    "forbidden_default": ["constant_zoom", "sound_effect_on_every_cut", "animated_every_word", "random_transition_pack_usage", "both_characters_large_at_all_times", "background_text_wall", "unrelated_stock_visuals_for_primary_claims", "rapid_bgm_switching_without_story_reason", "flat_voice_for_entire_video", "long_static_talking_portrait"]
+    "forbidden_default": ["constant_zoom", "sound_effect_on_every_cut", "animated_every_word", "random_transition_pack_usage", "both_characters_large_at_all_times", "background_text_wall", "unrelated_stock_visuals_for_primary_claims", "rapid_bgm_switching_without_story_reason", "flat_voice_for_entire_video", "long_static_talking_portrait", "voice_waveform_as_character_substitute", "audio_visualizer_as_default_news_background"]
   },
   "collision_avoidance": {
     "max_attention_dominant_elements_per_beat": 1,
@@ -202,7 +213,7 @@
     "substantive_original_commentary_required_for_originality_goal": true
   },
   "evaluation": {
-    "machine_qa": ["caption_coverage", "decode_errors", "audio_presence", "integrated_loudness", "true_peak", "clipping", "unexpected_silence", "safe_zone_collision", "asset_license_manifest_complete"],
+    "machine_qa": ["caption_coverage", "decode_errors", "audio_presence", "integrated_loudness", "true_peak", "clipping", "unexpected_silence", "safe_zone_collision", "asset_license_manifest_complete", "required_character_presence", "character_motion_present_when_required", "voice_waveform_not_used_as_character_substitute", "news_background_source_and_semantic_match"],
     "viewer_metrics_when_available": ["stayed_to_watch_or_viewed_vs_swiped", "average_view_duration", "average_percentage_viewed", "retention_dips", "retention_spikes", "rewatch_or_loop_behavior", "shares", "saves_or_equivalent", "comments"],
     "a_b_testing_rule": "Change one primary creative variable per test where practical; do not claim causality from a single uncontrolled video.",
     "missing_analytics": "UNKNOWN_NOT_ZERO"
