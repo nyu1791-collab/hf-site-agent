@@ -1,0 +1,155 @@
+{
+  "schema_version": "media-command-read-gate-v1",
+  "effective_date_jst": "2026-09-13",
+  "status": "ENFORCED_STANDARD",
+  "purpose": "Force repository-backed media know-how restoration before any video, clipping/repurposing, or TikTok Shop media task, including after chat-tab/session changes.",
+  "source_of_truth": "repository",
+  "semantic_triggering": {
+    "exact_keyword_match_required": false,
+    "classify_by_user_intent": true,
+    "mixed_intents_are_additive": true,
+    "examples": {
+      "VIDEO_CREATION": [
+        "動画を作って",
+        "動画制作して",
+        "ショートを作って",
+        "ニュース動画にして",
+        "MP4にして"
+      ],
+      "CLIPPING_REPURPOSING": [
+        "切り抜いて",
+        "クリップ化して",
+        "Shorts向けに抜き出して",
+        "再編集して",
+        "ハイライトにして"
+      ],
+      "TIKTOK_SHOP_COMMERCE": [
+        "TikTok Shop動画を作って",
+        "商品紹介動画にして",
+        "売れる商品動画を作って",
+        "TikTokショップ用にして"
+      ]
+    }
+  },
+  "execution_gate": {
+    "must_complete_before": [
+      "PLANNING_MEDIA_PIPELINE",
+      "EXTERNAL_MEDIA_TOOL_CALL",
+      "ASSET_FETCH",
+      "VOICE_GENERATION",
+      "RENDER",
+      "PUBLISHING_HANDOFF"
+    ],
+    "must_not_claim_gate_complete_without_reading_required_repository_sources": true,
+    "conversation_memory_alone_is_insufficient": true,
+    "tab_or_session_change_does_not_waive_gate": true,
+    "user_explicit_instruction_may_change_output_goal_but_does_not_silently_disable_safety_cost_or_rights_rules": true
+  },
+  "common_media_read_set": [
+    "config/current_commander_handoff.json",
+    "config/permanent_standards_manifest.json",
+    "docs/MEDIA_PIPELINE.md",
+    "config/longform_video_objectives.json",
+    "config/longform_video_reliability_policy.json",
+    "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+    "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md"
+  ],
+  "trigger_read_sets": {
+    "VIDEO_CREATION": {
+      "inherits": [
+        "common_media_read_set"
+      ],
+      "required": [
+        "docs/LONGFORM_VIDEO_OBJECTIVES.md"
+      ],
+      "apply_when": "The requested deliverable is a new video/MP4/Short/long-form media artifact, including news/explainer/product video."
+    },
+    "CLIPPING_REPURPOSING": {
+      "inherits": [
+        "common_media_read_set"
+      ],
+      "required": [
+        "config/authorized_clipping_monetization_policy.json",
+        "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
+        "config/batch_media_orchestration_policy.json",
+        "docs/BATCH_MEDIA_ORCHESTRATION.md",
+        "docs/MEDIA_BATCH_COMMAND_CENTER.md"
+      ],
+      "apply_when": "The user asks to cut, clip, highlight, reframe, repurpose, remix, or transform existing media."
+    },
+    "TIKTOK_SHOP_COMMERCE": {
+      "inherits": [
+        "common_media_read_set"
+      ],
+      "required": [
+        "config/tiktok_shop_influence_policy.json",
+        "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md"
+      ],
+      "conditional_required": {
+        "if_existing_or_third_party_media_is_repurposed": [
+          "config/authorized_clipping_monetization_policy.json",
+          "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md"
+        ]
+      },
+      "apply_when": "The task is a TikTok Shop/product-commerce video, script, edit, cover, caption, or conversion-focused media plan."
+    }
+  },
+  "know_how_that_must_be_recovered": {
+    "VIDEO_CREATION": [
+      "scene_or_chapter_first_rendering",
+      "VOICEVOX_ZUNDAMON_LOCAL",
+      "audio_first_timeline_using_ffprobe_actual_wav_duration",
+      "full_narration_caption_coverage",
+      "caption_safe_zones_and_visual_hierarchy",
+      "pre_download_and_decode_validate_assets",
+      "rights_manifest_and_asset_provenance",
+      "content_addressed_checkpoint_reuse",
+      "atomic_partial_to_verified_scene_promotion",
+      "failed_scene_only_retry_and_previous_good_preservation",
+      "1080x1920_30fps_h264_yuv420p_aac_48khz_contract",
+      "ffprobe_and_full_decode_machine_QA",
+      "no_paid_or_freemium_video_SaaS"
+    ],
+    "CLIPPING_REPURPOSING": [
+      "rights_and_platform_monetization_are_separate_gates",
+      "authorized_sources_only_for_scalable_workflow",
+      "ASR_VAD_word_alignment_when_unknown_third_party_speech_requires_it",
+      "multi_signal_highlight_scoring",
+      "near_duplicate_suppression",
+      "sentence_semantic_boundary_refinement",
+      "face_or_subject_aware_vertical_reframe",
+      "captions_crop_zoom_alone_are_not_sufficient_transformation",
+      "technical_machine_QA_before_export",
+      "human_approval_before_third_party_publication"
+    ],
+    "TIKTOK_SHOP_COMMERCE": [
+      "first_3_seconds_are_priority",
+      "one_primary_persona_and_one_primary_purchase_motive",
+      "curiosity_understanding_evidence_trust_desire_objection_reduction_transparent_action_funnel",
+      "product_page_ingest_before_script_finalization",
+      "claim_to_evidence_mapping",
+      "demonstration_and_multiple_use_scenes",
+      "review_deduplication_and_cluster_based_evidence",
+      "show_who_product_is_and_is_not_for",
+      "subtitle_as_attention_UI_not_transcript_dump",
+      "cover_matches_video",
+      "volatile_price_coupon_stock_shipping_reverified_at_publish_time",
+      "no_fake_reviews_no_fake_scarcity_no_unverified_claims",
+      "AIGC_and_platform_policy_refreshed_at_publish_time"
+    ]
+  },
+  "forbidden_shortcuts": [
+    "SKIP_REPOSITORY_READ_BECAUSE_CHAT_MEMORY_SEEMS_SUFFICIENT",
+    "USE_PROHIBITED_MEDIA_SAAS_BECAUSE_IT_IS_CONNECTED",
+    "CLAIM_VIDEO_COMPLETE_BEFORE_MACHINE_GATE_PASS",
+    "TREAT_ATTRIBUTION_AS_COPYRIGHT_PERMISSION",
+    "USE_CAPTIONS_OR_CROP_ONLY_AS_DEFAULT_TRANSFORMATION",
+    "REGENERATE_HEALTHY_MEDIA_STAGES_AFTER_ISOLATED_FAILURE",
+    "PUBLISH_THIRD_PARTY_MEDIA_WITHOUT_REQUIRED_HUMAN_APPROVAL"
+  ],
+  "new_session_behavior": {
+    "permanent_manifest_must_point_to_this_policy": true,
+    "media_task_must_re_read_current_repository_versions": true,
+    "do_not_rely_on_prior_tab_summary_as_substitute": true
+  }
+}
