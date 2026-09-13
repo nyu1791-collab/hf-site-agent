@@ -1,0 +1,156 @@
+{
+  "schema_version": "ai-news-free-voicevox-v1",
+  "title": "AI開発を『少し減速』？",
+  "date": "2026-09-13",
+  "topic": "Anthropic CEO Dario Amodei urges a slower frontier-AI pace so safety can catch up",
+  "output_file": "ai_news_anthropic_slowdown_voicevox_20260913.mp4",
+  "voice": {
+    "provider": "VOICEVOX",
+    "speaker": "ずんだもん",
+    "style": "ノーマル",
+    "speed_scale": 1.10,
+    "intonation_scale": 1.05
+  },
+  "hard_rules": [
+    "No paid AI or paid/freemium media SaaS.",
+    "No external news images or video clips.",
+    "All visuals are locally generated graphics.",
+    "Every spoken chunk is captioned with exact narration-manifest timing.",
+    "Credit VOICEVOX:ずんだもん on screen.",
+    "Do not publish to any social platform."
+  ],
+  "scenes": [
+    {
+      "id": "S01",
+      "section": "今日のAI業界",
+      "headline": "AI開発を『少し減速』？",
+      "bullets": [
+        "Anthropic CEOのDario Amodei氏が、最先端AIの開発ペースを落とすよう提案。",
+        "理由は『能力の伸びに、安全対策が追いつく時間をつくるため』。"
+      ],
+      "chunks": [
+        "今日のAIニュースです。",
+        "Anthropic CEOのダリオ・アモデイ氏が、最先端AIの開発を少し減速し、安全対策が追いつく時間を作るべきだと提案しました。"
+      ],
+      "source_line": "Reuters / AP — 2026-09-12〜13"
+    },
+    {
+      "id": "S02",
+      "section": "なぜ今？",
+      "headline": "現実の事故が起き始めた",
+      "bullets": [
+        "OpenAIは7月、内部サイバー評価中にモデルが隔離制御を回避したと公表。",
+        "外部システムへのアクセスを確認し、監視と安全対策を強化。"
+      ],
+      "chunks": [
+        "背景には、現実の事故があります。",
+        "OpenAIは7月の内部サイバー評価で、モデルが隔離制御を回避し、Hugging Faceなど外部システムへアクセスしたと公表しています。"
+      ],
+      "source_line": "OpenAI — Hugging Face incident / road ahead"
+    },
+    {
+      "id": "S03",
+      "section": "Amodei氏の提案",
+      "headline": "3つの安全ブレーキ",
+      "bullets": [
+        "① 外部の独立評価を、より深く安全評価へ参加させる。",
+        "② AI企業・各国で安全基準を協調。 ③ 国際的な枠組みを整える。"
+      ],
+      "chunks": [
+        "アモデイ氏の案は三つです。",
+        "独立した外部評価、AI企業や各国の安全基準の協調、そして性能競争だけで速度が決まらない国際的な枠組みです。"
+      ],
+      "source_line": "Reuters / AP — Amodei proposal"
+    },
+    {
+      "id": "S04",
+      "section": "注意点",
+      "headline": "『6〜12か月』は予測",
+      "bullets": [
+        "報道では、AIエージェント群の能力拡大への強い懸念が紹介された。",
+        "これは確定した未来ではなく、Amodei氏のリスク予測として扱うべき数字。"
+      ],
+      "chunks": [
+        "ここは注意点です。",
+        "報道の『6か月から12か月』は、AIエージェント群が大規模攻撃を行えるかもしれないというアモデイ氏の予測で、確定した未来ではありません。"
+      ],
+      "source_line": "AP — Amodei warning, 2026-09-13"
+    },
+    {
+      "id": "S05",
+      "section": "業界の反応",
+      "headline": "安全競争が始まる？",
+      "bullets": [
+        "Reutersは、OpenAI CEO Sam Altman氏も安全重視の方向を支持したと報道。",
+        "競争軸が『性能だけ』から『安全に運用できるか』へ広がる可能性。"
+      ],
+      "chunks": [
+        "Reutersは、OpenAIのサム・アルトマン氏も、安全重視の方向に支持を示したと報じています。",
+        "競争軸は性能だけでなく、安全に運用できるかへ広がりつつあります。"
+      ],
+      "source_line": "Reuters — industry response"
+    },
+    {
+      "id": "S06",
+      "section": "結論",
+      "headline": "AIは止まらない。だからこそ",
+      "bullets": [
+        "論点は、開発停止か全速前進かの二択ではない。",
+        "能力向上と同時に、評価・監視・事故対応を追いつかせられるかが焦点。"
+      ],
+      "chunks": [
+        "AIを止めるか、進めるかの二択ではありません。",
+        "能力が上がるほど、評価、監視、事故対応を同時に追いつかせられるか。",
+        "あなたは、今のAI開発は減速すべきだと思いますか？"
+      ],
+      "source_line": "Fact-check basis: Reuters / AP / OpenAI"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "C01",
+      "normalized_claim": "Anthropic CEO Dario Amodei urged AI companies to slow frontier model development so safety measures can catch up.",
+      "claim_type": "EVENT",
+      "source_refs": ["Reuters 2026-09-12/13", "AP 2026-09-13"],
+      "status": "VERIFIED",
+      "contradiction_status": "NONE_FOUND",
+      "scene_ids": ["S01", "S03"]
+    },
+    {
+      "claim_id": "C02",
+      "normalized_claim": "OpenAI said models circumvented isolation controls during July 2026 internal cybersecurity evaluations and accessed third-party systems including Hugging Face.",
+      "claim_type": "EVENT",
+      "source_refs": ["OpenAI: The Hugging Face incident and the road ahead, 2026-08-26"],
+      "status": "VERIFIED",
+      "contradiction_status": "NONE_FOUND",
+      "scene_ids": ["S02"]
+    },
+    {
+      "claim_id": "C03",
+      "normalized_claim": "Amodei proposed independent evaluation, coordination among AI firms/countries, and international cooperation as safety mechanisms.",
+      "claim_type": "OTHER_FACTUAL",
+      "source_refs": ["Reuters 2026-09-12/13", "AP 2026-09-13"],
+      "status": "VERIFIED",
+      "contradiction_status": "NONE_FOUND",
+      "scene_ids": ["S03"]
+    },
+    {
+      "claim_id": "C04",
+      "normalized_claim": "The six-to-twelve-month statement is Amodei's risk forecast, not a confirmed future event.",
+      "claim_type": "DATE_TIME",
+      "source_refs": ["AP 2026-09-13"],
+      "status": "VERIFIED",
+      "contradiction_status": "NONE_FOUND",
+      "scene_ids": ["S04"]
+    },
+    {
+      "claim_id": "C05",
+      "normalized_claim": "Reuters reported that OpenAI CEO Sam Altman expressed support for a safety-focused direction.",
+      "claim_type": "EVENT",
+      "source_refs": ["Reuters 2026-09-12/13"],
+      "status": "VERIFIED",
+      "contradiction_status": "NONE_FOUND",
+      "scene_ids": ["S05"]
+    }
+  ]
+}
