@@ -1,14 +1,6 @@
 name: Free media council review
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - .github/free-media-council-trigger.txt
-      - scripts/free_media_council_review.py
-      - config/free_media_capability_pool.json
-      - .github/workflows/free-media-council-review.yml
   workflow_dispatch:
 
 permissions:
@@ -16,7 +8,7 @@ permissions:
 
 concurrency:
   group: free-media-council-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   review:
