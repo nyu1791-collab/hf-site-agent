@@ -1,57 +1,48 @@
-# Direct API Validation
+# Direct API Validation — Manual Diagnostic Reference
 
-このPhaseは、Google / NVIDIA / Groqを直属Commander候補として実証するための手動・読取専用検証です。検証中はProvider/Model Registryを変更せず、`enabled=false`、`activation_approved=false`、本番Routing未接続を維持します。OpenRouterはCommander候補に含めず、既存の専用Free Worker Probeで別管理します。
+**Status:** manual/read-only Provider diagnostic. This document does not define the current AI Army hierarchy or activate routing.
+
+この経路は、Google / NVIDIA / Groq等の外部Providerについて、Catalog、Exact Model ID、Auth/Health、Quota/Cost、Capabilityを**手動かつboundedに評価するための互換診断**です。検証中はProvider/Model Registryを変更せず、本番Routing・Deploy・Publish・Secrets変更を行いません。
+
+現在の指揮系統・実行権限・Paid exceptionは `config/current_commander_handoff.json`、`config/permanent_standards_manifest.json`、`docs/AI_ARMY_MASTER_RULEBOOK.md`、`scripts/ai_army_routing_facade.py` と関連Machine Policyを優先します。この診断で高評価になったProvider/Modelも、それだけでCommander、Specialist、ACTIVE、Production routeには昇格しません。
 
 ## ゲート順
 
-1. Providerの公式Model Catalogを1回だけ認証付きで取得し、Health/Authを同時に確認する。
-2. Quota・Credit・Rate Limitを確認する。不明なQuotaを無制限とは扱わない。
-3. Catalogに実在する候補だけを、正確なModel IDで1回ずつ最小Probeする。
-4. `PROBE_OK`、Usage parse、無料アクセスの証拠が揃った候補だけをCapability Testへ進める。
-5. Structured Output、Tool Calling、Command Schemaを確認する。
-6. 共通6 MissionとProvider固有Missionを実行し、100点の比較表を作る。
-7. Hard Failがなく、採点条件を満たす候補だけを`COMMANDER_CANDIDATE`、最終選抜候補を`COMMANDER_SELECTED`としてレポートする。
+1. Current Provider Catalog / account evidenceからExact Model IDとEndpointを確認する。
+2. Quota、Credit、Rate Limit、Free/zero-cost条件、Paid transition有無を確認する。不明値を無制限・無料とみなさない。
+3. Catalogに実在する候補だけを、bounded request / token / timeout / retry条件で最小Probeする。
+4. Probe応答Model、Usage、Cost/Quota evidenceを検証する。
+5. 必要なStructured Output、Tool Calling、Schema、Mission能力を対象範囲だけ確認する。
+6. Machine-readable reportを保存し、現在のPolicy Gateで別途adjudicateする。
 
-Probeは1回限り・Retry 0です。401/403/429/402、Credit枯渇、Provider停止を検知したら同じProviderへの追加候補Probeを止めます。実行は`--network`と完全一致する`--confirm DIRECT_API_VALIDATION`の両方が必要です。
+Unknown cost、Quota不明、Paid transition、401/403/402、Credit exhaustion等はFail Closedです。429/5xx/timeoutも無限Retryや別の有料Modelへの自動Fallback理由にはしません。
 
-既定のCLIはCapability/Mission段階を無効、候補数1、Mission数2、要求総数12に制限します。要求総数は最大24までしか指定できません。NVIDIAは`TRIAL_CREDITS`扱いのため、別承認なしでは認証付きProbe自体を行わず、`--allow-trial-credits`を明示した場合だけ進みます。
+## 実行境界
 
-## 実行例
+実装が要求する明示的なnetwork flag / confirmation token / request ceilingを省略しません。CLIやWorkflowの現在の引数・上限はコードをSource of Truthとして確認し、この文書へ固定値を恒久複製しません。
 
-デフォルトは通信しないdry-runです。
+Secretは環境参照からのみ読み、値を標準出力、JSON、Artifact、Commitへ出しません。候補Modelを入力できる場合でも、current catalog/evidenceで確認できないIDは実行候補にしません。
 
-```bash
-python scripts/direct_api_validation.py \
-  --network \
-  --confirm DIRECT_API_VALIDATION \
-  --capabilities \
-  --missions \
-  --output artifacts/direct_api_report.json
-```
+## Free access / readiness
 
-必要なSecretは環境変数から読むだけです。値は標準出力、JSON、Artifact、Commitへ出しません。候補Modelは環境変数で明示できますが、Catalogに存在しないIDはProbeしません。
+Free/zero-cost判定はProviderごとの現在のofficial/account evidenceを使用します。`FREE_TIER`、`FREE_PLAN`、`FREE_ENDPOINT`、`:free`等の分類名や過去の成功記録だけで現在のCost=0を断定しません。
 
-```text
-GOOGLE_API_KEY
-NVIDIA_API_KEY
-GROQ_API_KEY
-```
+次の概念を分離します。
 
-`GOOGLE_CANDIDATE_MODELS`、`NVIDIA_CANDIDATE_MODELS`、`GROQ_CANDIDATE_MODELS`はカンマ区切りで指定できます。未指定時も候補ヒントをCatalogとの完全一致に使うだけで、CatalogにないIDを採用しません。
+- Model discovered
+- Exact route verified
+- Capability verified
+- Zero-cost/free eligibility verified
+- Quota safe
+- Probe passed
+- Candidate for a task
+- Current routing authorization
+- Production activation
 
-## Free accessの分類
+前段の成功は後段を自動許可しません。
 
-Provider Registryでは、`FREE_TIER`、`FREE_PLAN`、`TRIAL_CREDITS`、`FREE_ENDPOINT`、`PAID`、`UNKNOWN`を区別します。`UNKNOWN`と`PAID`は無料検証を通過できません。GoogleのQuota情報、NVIDIAのCredit/Quota情報、GroqのRate Limit Headerが取得できない場合は、成功応答だけで`FREE_ACCESS_CONFIRMED`にしません。
+## 結果の扱い
 
-## 公式Source
+Direct API Validationの成果物は**診断Evidence**です。Registry mutation、Provider activation、Paid fallback、Production routing、Deploy、Publish、Secret mutationを自動実行しません。ChatGPT / Workが現行Policy・Validator・CIと合わせて最終判断します。
 
-- Google AI for Developers: <https://ai.google.dev/gemini-api/docs/models>
-- Google Generate Content API: <https://ai.google.dev/api/generate-content>
-- NVIDIA Build / NIM: <https://build.nvidia.com/models>
-- GroqCloud Models: <https://console.groq.com/docs/models>
-- GroqCloud Rate Limits: <https://console.groq.com/docs/rate-limits>
-- OpenRouter Models API（Worker専用）: <https://openrouter.ai/api/v1/models>
-
-## 停止状態
-
-レポートの最終状態は常に`DIRECT_API_VALIDATED_AWAITING_ACTIVATION`です。Commander選抜が成功しても自動有効化・本番Routing・Deploy・Publishは行いません。OpenRouter Worker検証が別途成功し、利用者が承認した後にのみActivation Phaseを開始します。
+外部ProviderのModel名、料金、Quota、Rate Limit、Endpointは変化するため、古い結果はfresh evidenceの代わりになりません。新しい実行前に再確認します。
