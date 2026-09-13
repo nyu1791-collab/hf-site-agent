@@ -32,7 +32,7 @@ Factual current-event, product, numeric, offer and policy claims use claim-level
 
 When a video command arrives, reread the current media command gate and required media standards before planning, asset fetch, voice generation, render or publish handoff.
 
-Default production is local/deterministic: scene/chapter units, VOICEVOX Zundammon where applicable, audio-first timing from actual generated WAV duration, pre-downloaded/decode-validated assets, rights/provenance ledger, content-addressed checkpoints, atomic partial-to-verified scene promotion and failed-unit-only retry. Preserve healthy prior work after an isolated failure.
+Default production is local/deterministic: scene/chapter units, VOICEVOX Zundamon where applicable, audio-first timing from actual generated WAV duration, pre-downloaded/decode-validated assets, rights/provenance ledger, content-addressed checkpoints, atomic partial-to-verified scene promotion and failed-unit-only retry. Preserve healthy prior work after an isolated failure.
 
 A finished vertical contract is normally 1080x1920, 30 fps, H.264, yuv420p, AAC 48 kHz unless a task-specific contract says otherwise. Completion requires machine QA: ffprobe, decode integrity, stream/codec/dimension checks, caption coverage and applicable loudness/true-peak/silence/black/freeze/safe-zone checks. Do not claim completion before the machine gate passes.
 
