@@ -1,0 +1,40 @@
+{
+  "schema_version": "second-pass-artifact-contracts-v1",
+  "effective_date_jst": "2026-09-13",
+  "status": "PERMANENT_STANDARD",
+  "purpose": "Operationalize second-pass security, claim provenance and experiment-validity rules with provider-independent machine-readable artifacts and deterministic validation.",
+  "schemas": {
+    "untrusted_content_envelope": "schemas/untrusted_content_envelope.schema.json",
+    "claim_evidence_ledger": "schemas/claim_evidence_ledger.schema.json",
+    "creative_experiment": "schemas/creative_experiment.schema.json"
+  },
+  "runtime_guard": "scripts/second_pass_governance.py",
+  "tests": "tests/test_second_pass_governance.py",
+  "evaluation_reproducibility_extension": {
+    "required_when_applicable": [
+      "dataset_or_fixture_version",
+      "dataset_or_fixture_content_sha256",
+      "scorer_or_grader_id",
+      "scorer_or_grader_version_or_hash",
+      "judge_provider_model_if_model_judge_used",
+      "judge_configuration_if_model_judge_used",
+      "tool_harness_version",
+      "effective_config_hash",
+      "git_sha"
+    ],
+    "model_judge_is_never_unversioned_ground_truth": true,
+    "human_anchor_or_machine_oracle_preferred_for_judge_calibration_when_available": true,
+    "no_universal_inter_rater_threshold": true,
+    "judge_position_or_order_bias_should_be_tested_for_high_impact_pairwise_gates": true,
+    "unsupported_or_uncalibrated_judge_capability_is_UNKNOWN_not_PASS": true
+  },
+  "execution_rules": {
+    "external_content_must_be_wrapped_before_cross_agent_handoff": true,
+    "wrapped_untrusted_content_has_evidence_authority_only": true,
+    "claim_ledger_required_when_cross_source_second_pass_policy_marks_claim_scope_required": true,
+    "creative_experiment_contract_required_before_causal_winner_claim": true,
+    "observational_result_cannot_be_promoted_to_causal_winner": true,
+    "failed_srm_cannot_be_promoted_to_causal_winner": true,
+    "deterministic_guard_failure_is_fail_closed_for_publish_or_side_effect_handoff": true
+  }
+}
