@@ -14,6 +14,7 @@ on:
       - 'config/media_command_read_gate.json'
       - 'config/monetization_command_read_gate.json'
       - 'config/creator_monetization_policy.json'
+      - 'config/monetization_opportunity_backlog.json'
       - 'config/platform_program_evidence.json'
       - 'config/cross_source_knowhow_evidence_matrix.json'
       - 'config/cross_domain_measurement_registry.json'
@@ -123,6 +124,7 @@ jobs:
           python -m json.tool config/media_command_read_gate.json >/dev/null
           python -m json.tool config/monetization_command_read_gate.json >/dev/null
           python -m json.tool config/creator_monetization_policy.json >/dev/null
+          python -m json.tool config/monetization_opportunity_backlog.json >/dev/null
           python -m json.tool config/platform_program_evidence.json >/dev/null
           python -m json.tool config/cross_source_knowhow_evidence_matrix.json >/dev/null
           python -m json.tool config/cross_domain_measurement_registry.json >/dev/null
