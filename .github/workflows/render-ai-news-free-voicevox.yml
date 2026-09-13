@@ -1,0 +1,103 @@
+name: Free VOICEVOX AI news pilot
+
+on:
+  push:
+    branches:
+      - ai-army/video-pilot-20260913-free
+    paths:
+      - missions/ai-news-free-20260913.json
+      - scripts/render_ai_news_free_voicevox.py
+      - .github/workflows/render-ai-news-free-voicevox.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: free-voicevox-ai-news-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact scratch branch source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install free deterministic media tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk curl
+          python -m pip install --disable-pip-version-check --no-cache-dir pillow
+          ffmpeg -version | head -n 1
+
+      - name: Validate mission and renderer
+        run: |
+          set -euo pipefail
+          python -m json.tool missions/ai-news-free-20260913.json >/dev/null
+          python -m py_compile scripts/render_ai_news_free_voicevox.py
+
+      - name: Start free local VOICEVOX engine
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-latest
+          docker run --rm -d --name voicevox-ai-news -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              echo "VOICEVOX_READY=1"
+              curl -fsS http://127.0.0.1:50021/version
+              exit 0
+            fi
+            sleep 3
+          done
+          docker logs voicevox-ai-news || true
+          exit 1
+
+      - name: Render with Zundamon and full captions
+        run: |
+          set -euo pipefail
+          python scripts/render_ai_news_free_voicevox.py
+
+      - name: Enforce machine completion gate
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('artifacts/ai-news-free-20260913')
+          r=json.loads((root/'render_report.json').read_text(encoding='utf-8'))
+          assert r['status']=='RENDERED_AND_MACHINE_VERIFIED'
+          assert r['voice']=='VOICEVOX:ずんだもん'
+          assert r['paid_ai_calls']==0 and r['paid_media_calls']==0
+          assert r['external_news_assets']==0
+          assert r['caption_coverage']==1.0
+          assert r['decode_error_count']==0
+          c=r['contract']
+          assert c['video_codec']=='h264' and c['width']==1080 and c['height']==1920 and c['pix_fmt']=='yuv420p'
+          assert c['audio_codec']=='aac' and c['sample_rate']==48000 and c['channels']==2
+          video=root/r['file']
+          assert video.exists() and video.stat().st_size > 1_000_000
+          print(json.dumps({'machine_gate':'PASS','file':r['file'],'duration':c['duration_seconds'],'voice':r['voice'],'caption_coverage':r['caption_coverage']},ensure_ascii=False))
+          PY
+
+      - name: Upload verified video artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: free-voicevox-ai-news-${{ github.run_id }}
+          path: artifacts/ai-news-free-20260913/**
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop VOICEVOX engine
+        if: always()
+        run: docker rm -f voicevox-ai-news >/dev/null 2>&1 || true
