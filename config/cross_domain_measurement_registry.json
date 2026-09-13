@@ -1,5 +1,5 @@
 {
-  "schema_version": "cross-domain-measurement-registry-v1",
+  "schema_version": "cross-domain-measurement-registry-v2",
   "effective_date_jst": "2026-09-13",
   "status": "PERMANENT_STANDARD",
   "purpose": "Make AI Army, video quality/retention and TikTok Shop improvements measurable, platform-scoped, reproducible and reversible instead of intuition-driven.",
@@ -17,7 +17,7 @@
   "experiment_lifecycle": ["PROPOSED", "SHADOW", "EXPERIMENT", "CANONICAL", "DEMOTED", "REJECTED"],
   "ai_army": {
     "artifact": "artifacts/evaluation/ai_army_eval.json",
-    "required_dimensions": ["QUALITY", "LATENCY", "COST", "COORDINATION", "RELIABILITY", "RECOVERY"],
+    "required_dimensions": ["QUALITY", "LATENCY", "COST", "COORDINATION", "RELIABILITY", "RECOVERY", "TOOL_USE"],
     "metrics": [
       {"id":"AI_TASK_SUCCESS_RATE","unit":"ratio","aggregation":["mean","count"],"canonical":true},
       {"id":"AI_ACCEPTANCE_CRITERIA_PASS_RATE","unit":"ratio","aggregation":["mean","count"],"canonical":true},
@@ -26,6 +26,10 @@
       {"id":"AI_TOKEN_USAGE","unit":"tokens","aggregation":["sum","mean","p95"],"canonical":true},
       {"id":"AI_EXTERNAL_REQUEST_COUNT","unit":"count","aggregation":["sum","mean"],"canonical":true},
       {"id":"AI_TOOL_CALL_COUNT","unit":"count","aggregation":["sum","mean"],"canonical":true},
+      {"id":"AI_TOOL_SELECTION_ACCURACY","unit":"ratio","definition":"correct tool selection / labeled tool-selection opportunities","availability":"WHEN_DETERMINISTIC_OR_LABELED_ORACLE_EXISTS","canonical":true},
+      {"id":"AI_TOOL_INPUT_ACCURACY","unit":"ratio","definition":"tool calls with acceptable arguments / labeled tool-call opportunities","availability":"WHEN_DETERMINISTIC_OR_LABELED_ORACLE_EXISTS","canonical":true},
+      {"id":"AI_TOOL_CALL_SUCCESS_RATE","unit":"ratio","definition":"successful tool calls / attempted tool calls","canonical":true},
+      {"id":"AI_UNNECESSARY_TOOL_CALL_RATE","unit":"ratio","definition":"unnecessary tool calls / all tool calls under labeled fixture","availability":"WHEN_LABELED_ORACLE_EXISTS","canonical":true},
       {"id":"AI_ERROR_RATE","unit":"ratio","aggregation":["mean","count"],"canonical":true},
       {"id":"AI_429_RATE","unit":"ratio","aggregation":["mean","count"],"canonical":true},
       {"id":"AI_RETRY_COUNT","unit":"count","aggregation":["sum","mean"],"canonical":true},
@@ -39,6 +43,14 @@
       {"id":"AI_CONTEXT_INPUT_TOKENS_BY_ROLE","unit":"tokens","aggregation":["sum","mean","p95"],"canonical":true},
       {"id":"AI_CONTEXT_COMPACTION_COUNT","unit":"count","aggregation":["sum"],"canonical":true}
     ],
+    "fixture_dataset_contract": {
+      "golden_and_real_failure_cases_required_for_architecture_or_routing_promotion": true,
+      "fixture_fields": ["fixture_id", "task_class", "input_ref_or_hash", "acceptance_criteria", "expected_output_or_oracle_ref", "allowed_tools", "forbidden_actions", "source", "created_at", "last_verified_at"],
+      "same_fixture_set_for_baseline_and_variant": true,
+      "production_failure_may_be_promoted_to_regression_fixture_after_redaction": true,
+      "fixture_change_requires_version_bump": true,
+      "do_not_tune_and_report_on_same_untracked_fixture_mutation": true
+    },
     "comparison_contract": {
       "single_agent_or_deterministic_baseline_required_when_applicable": true,
       "same_fixture_set": true,
@@ -48,7 +60,7 @@
       "minimum_sample_size": "CALIBRATE_BY_FIXTURE_VARIANCE; DO_NOT_HARDCODE_UNIVERSAL_N",
       "adaptive_routing_status": "EXPERIMENT_UNTIL_LOCAL_ABLATION_PROVES_TOTAL_SYSTEM_VALUE"
     },
-    "reproducibility_fields": ["git_sha", "mission_fixture_id", "effective_config_hash", "topology", "agent_roles", "provider_model_bindings", "tool_allowlists", "budgets", "timeouts", "parallelism", "randomness_controls_when_available", "started_at", "ended_at"]
+    "reproducibility_fields": ["git_sha", "mission_fixture_id", "fixture_set_version", "effective_config_hash", "topology", "agent_roles", "provider_model_bindings", "tool_allowlists", "budgets", "timeouts", "parallelism", "randomness_controls_when_available", "started_at", "ended_at"]
   },
   "video": {
     "technical_artifact": "artifacts/evaluation/video_technical_qa.json",
