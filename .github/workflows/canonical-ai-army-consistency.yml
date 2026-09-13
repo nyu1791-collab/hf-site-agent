@@ -11,6 +11,7 @@ on:
       - 'config/agent_efficiency_policy.json'
       - 'config/current_commander_handoff.json'
       - 'config/permanent_standards_manifest.json'
+      - 'config/current_media_execution_state.json'
       - 'config/media_command_read_gate.json'
       - 'config/media_audio_motion_retention_policy.json'
       - 'config/free_audio_source_registry.json'
@@ -124,6 +125,7 @@ jobs:
           python -m json.tool config/agent_efficiency_policy.json >/dev/null
           python -m json.tool config/current_commander_handoff.json >/dev/null
           python -m json.tool config/permanent_standards_manifest.json >/dev/null
+          python -m json.tool config/current_media_execution_state.json >/dev/null
           python -m json.tool config/media_command_read_gate.json >/dev/null
           python -m json.tool config/media_audio_motion_retention_policy.json >/dev/null
           python -m json.tool config/free_audio_source_registry.json >/dev/null
