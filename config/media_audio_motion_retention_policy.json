@@ -1,8 +1,8 @@
 {
-  "schema_version": "media-audio-motion-retention-v4",
+  "schema_version": "media-audio-motion-retention-v5",
   "effective_date_jst": "2026-09-14",
   "status": "ENFORCED_STANDARD",
-  "purpose": "Make free background music, sound effects, VOICEVOX cast/prosody, actual character presence and motion, caption hierarchy, search-collected contextual visuals, attention choreography and anti-boredom editing defaults recoverable and executable across future media tasks without requiring the user to restate them.",
+  "purpose": "Make free background music, sound effects, VOICEVOX cast/prosody, actual character presence and motion, YMM4-style Zundamon/Metan editing, caption hierarchy, search-collected contextual visuals, attention choreography and anti-boredom editing defaults recoverable and executable across future media tasks without requiring the user to restate them.",
   "applies_to": ["VIDEO_CREATION", "SHORTS", "LONGFORM", "NEWS_EXPLAINER", "TIKTOK_SHOP_COMMERCE", "CLIPPING_REPURPOSING"],
   "semantic_default": {
     "auto_apply_on_media_intent": true,
@@ -32,7 +32,10 @@
   },
   "editing_tool_policy": {
     "default_path": "LOCAL_OR_VERIFIED_COMPLETELY_FREE",
-    "local_tools": ["FFmpeg", "ffprobe", "Python", "Pillow", "OpenCV", "MoviePy", "ASS_SUBTITLES"],
+    "preferred_character_editing_environment": "YMM4",
+    "preferred_voice_integration": "YMM4_WITH_VOICEVOX",
+    "local_tools": ["YMM4", "VOICEVOX", "FFmpeg", "ffprobe", "Python", "Pillow", "OpenCV", "MoviePy", "ASS_SUBTITLES"],
+    "ymm4_unavailable_behavior": "USE_DETERMINISTIC_EQUIVALENT_ONLY_IF_IT_REPRODUCES_THE_REQUIRED_LIPSYNC_BLINK_BOUNCE_FOCUS_EXPRESSION_AND_CAPTION_CONTRACT",
     "paid_video_editing_apps_or_sites_allowed": false,
     "paid_caption_apps_or_sites_allowed": false,
     "freemium_or_trial_credit_video_editing_allowed": false,
@@ -148,6 +151,91 @@
     "serious_topic_reduces_comedic_motion": true,
     "visible_standard_cast_characters_require_state_driven_motion_or_expression_change": true
   },
+  "zundamon_metan_editing_profile": {
+    "status": "MANDATORY_SERIES_STANDARD",
+    "applies_when": "ZUNDAMON_OR_SHIKOKU_METAN_IS_USED_AS_A_VISIBLE_OR_SPEAKING_CHARACTER",
+    "authoring_environment": {
+      "preferred_editor": "YMM4",
+      "voice_engine": "VOICEVOX",
+      "ymm4_voicevox_link_for_automatic_lipsync": true,
+      "automatic_mouth_animation_required": true,
+      "automatic_blink_required": true,
+      "character_assets_must_support_mouth_and_eye_state_changes": true,
+      "non_ymm4_fallback_must_reproduce_same_visible_behavior": true
+    },
+    "speech_start_bounce": {
+      "required": true,
+      "trigger": "START_OF_EACH_SPEAKING_TURN",
+      "axis": "Y_AND_SCALE",
+      "scale_sequence": [1.0, 1.05, 1.0],
+      "vertical_bounce_required": true,
+      "easing_required": true,
+      "rule": "Use a short bounce at speech onset; do not keep the character continuously bouncing during the whole line."
+    },
+    "speaker_focus_switch": {
+      "required": true,
+      "active_speaker": {
+        "scale": 1.05,
+        "brightness_percent": 100,
+        "z_order": "FRONTMOST_CHARACTER"
+      },
+      "inactive_listener": {
+        "scale": 1.0,
+        "brightness_percent": 80,
+        "z_order": "BEHIND_ACTIVE_SPEAKER"
+      },
+      "switch_on_voice_turn": true,
+      "focus_change_must_follow_audio_turn_timing": true
+    },
+    "expression_and_pose": {
+      "change_every_sentence_count_range": [1, 2],
+      "emotion_mapped_expression_required": true,
+      "pose_change_when_semantically_useful": true,
+      "reaction_symbols": ["sweat_mark", "anger_mark", "question_mark", "surprise_mark", "emphasis_symbol"],
+      "reaction_symbols_should_be_added_frequently_when_semantically_appropriate": true,
+      "sensitive_topic_mode_may_suppress_comedic_symbols": true
+    },
+    "caption_professional_style": {
+      "preferred_fonts_in_order": ["ラグランパンチ", "キルゴシック", "源ノ角ゴシック Heavy", "源ノ角ゴシック Bold", "コーポレート・ロゴ"],
+      "fallback_font_rule": "USE_HEAVY_OR_BOLD_JAPANESE_GOTHIC_IF_PREFERRED_FONT_IS_UNAVAILABLE",
+      "base_text_color": "#FFFFFF",
+      "double_outline_required": true,
+      "inner_outline": {
+        "color": "#000000",
+        "width_px_range": [3, 5]
+      },
+      "outer_outline": {
+        "width_px_range": [6, 10],
+        "color_source": "CURRENT_SPEAKER_CHARACTER_COLOR"
+      },
+      "character_theme_colors": {
+        "ずんだもん": "#8BC34A",
+        "四国めたん": "#E91E63"
+      },
+      "emphasis_word_colors": ["#FFEB3B", "#F44336"],
+      "emphasis_word_scale": 1.2,
+      "caption_backplate_required": true,
+      "caption_backplate_options": ["ROUNDED_SEMITRANSPARENT_BLACK_BOX", "CURRENT_SPEAKER_CHARACTER_COLOR_BAND"],
+      "max_characters_per_line": 15,
+      "preferred_characters_per_line_range": [13, 15],
+      "line_break_must_respect_semantic_phrase_boundary_when_possible": true,
+      "timing_source": "VOICE_AUDIO_BOUNDARY",
+      "timing_precision": "MILLISECOND_LEVEL",
+      "caption_start_must_match_speech_start": true,
+      "caption_switch_must_match_voice_turn_or_phrase_change": true
+    },
+    "hard_fail_conditions": [
+      "VISIBLE_CHARACTER_WITHOUT_MOUTH_ANIMATION_WHEN_SPEAKING",
+      "VISIBLE_CHARACTER_WITHOUT_BLINK_OR_EQUIVALENT_EYE_MOTION_OVER_EXTENDED_APPEARANCE",
+      "NO_SPEECH_START_BOUNCE",
+      "ACTIVE_AND_INACTIVE_CHARACTERS_HAVE_SAME_VISUAL_FOCUS_WITHOUT_REASON",
+      "NO_EXPRESSION_CHANGE_ACROSS_MORE_THAN_TWO_SENTENCES_WHEN_CHARACTER_REMAINS_VISIBLE",
+      "CAPTION_LINE_EXCEEDS_15_CHARACTERS_WITHOUT_UNBREAKABLE_PROPER_NOUN_REASON",
+      "CAPTION_TIMING_IS_ESTIMATED_FROM_TEXT_LENGTH_INSTEAD_OF_AUDIO_TIMING",
+      "SINGLE_OUTLINE_ONLY_WHEN_DOUBLE_OUTLINE_IS_SUPPORTED",
+      "CHARACTER_THEME_COLOR_NOT_REFLECTED_IN_OUTER_CAPTION_OUTLINE_OR_EQUIVALENT_SPEAKER_CUE"
+    ]
+  },
   "caption_grammar": {
     "captions_are_attention_ui_not_transcript_dump": true,
     "full_narration_coverage_required": true,
@@ -213,7 +301,7 @@
     "substantive_original_commentary_required_for_originality_goal": true
   },
   "evaluation": {
-    "machine_qa": ["caption_coverage", "decode_errors", "audio_presence", "integrated_loudness", "true_peak", "clipping", "unexpected_silence", "safe_zone_collision", "asset_license_manifest_complete", "required_character_presence", "character_motion_present_when_required", "voice_waveform_not_used_as_character_substitute", "news_background_source_and_semantic_match"],
+    "machine_qa": ["caption_coverage", "decode_errors", "audio_presence", "integrated_loudness", "true_peak", "clipping", "unexpected_silence", "safe_zone_collision", "asset_license_manifest_complete", "required_character_presence", "character_motion_present_when_required", "voice_waveform_not_used_as_character_substitute", "news_background_source_and_semantic_match", "ymm4_or_equivalent_lipsync_present", "blink_present", "speech_start_bounce_present", "speaker_focus_switch_present", "expression_change_cadence", "double_outline_caption_style", "caption_max_15_characters_per_line", "caption_audio_boundary_sync_ms"],
     "viewer_metrics_when_available": ["stayed_to_watch_or_viewed_vs_swiped", "average_view_duration", "average_percentage_viewed", "retention_dips", "retention_spikes", "rewatch_or_loop_behavior", "shares", "saves_or_equivalent", "comments"],
     "a_b_testing_rule": "Change one primary creative variable per test where practical; do not claim causality from a single uncontrolled video.",
     "missing_analytics": "UNKNOWN_NOT_ZERO"
