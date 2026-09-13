@@ -3,7 +3,7 @@
 
 This command never renders video and never calls an external paid/freemium
 media service. It verifies the local deterministic toolchain, mission shape,
-free disk, policy, and (in runtime mode) the local VOICEVOX Zundamon engine.
+free disk, policy, and (in runtime mode) the local VOICEVOX standard cast.
 """
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ DEFAULT_OUTPUT_DIR = ROOT / "artifacts" / "news-video-pilot"
 DEFAULT_VOICEVOX = "http://127.0.0.1:50021"
 COMMAND_TIMEOUT_SECONDS = 20
 VOICEVOX_TIMEOUT_SECONDS = 10
+STANDARD_CAST = ("ずんだもん", "四国めたん")
 
 
 def run_capture(cmd: list[str], *, timeout: int = COMMAND_TIMEOUT_SECONDS) -> tuple[int, str]:
@@ -220,6 +221,21 @@ def http_json(url: str) -> Any:
         return json.loads(response.read(2_000_000).decode("utf-8"))
 
 
+def _select_voicevox_style(speakers: Any, speaker_name: str) -> dict[str, Any] | None:
+    for speaker in speakers if isinstance(speakers, list) else []:
+        if not isinstance(speaker, Mapping) or speaker.get("name") != speaker_name:
+            continue
+        styles = speaker.get("styles") if isinstance(speaker.get("styles"), list) else []
+        normal = next((row for row in styles if isinstance(row, Mapping) and row.get("name") == "ノーマル"), None)
+        selected = normal or next((row for row in styles if isinstance(row, Mapping)), None)
+        return {
+            "speaker_uuid": speaker.get("speaker_uuid"),
+            "style_name": selected.get("name") if isinstance(selected, Mapping) else None,
+            "style_id": selected.get("id") if isinstance(selected, Mapping) else None,
+        }
+    return None
+
+
 def voicevox_checks(checks: list[dict[str, Any]], base_url: str) -> dict[str, Any] | None:
     try:
         base = _assert_local_voicevox_url(base_url)
@@ -241,22 +257,16 @@ def voicevox_checks(checks: list[dict[str, Any]], base_url: str) -> dict[str, An
         add_check(checks, "voicevox.speakers", False, f"{type(exc).__name__}: {exc}")
         return {"version": version}
 
-    zundamon: dict[str, Any] | None = None
-    for speaker in speakers if isinstance(speakers, list) else []:
-        if not isinstance(speaker, Mapping) or speaker.get("name") != "ずんだもん":
-            continue
-        styles = speaker.get("styles") if isinstance(speaker.get("styles"), list) else []
-        normal = next((row for row in styles if isinstance(row, Mapping) and row.get("name") == "ノーマル"), None)
-        selected = normal or next((row for row in styles if isinstance(row, Mapping)), None)
-        zundamon = {
-            "speaker_uuid": speaker.get("speaker_uuid"),
-            "style_name": selected.get("name") if isinstance(selected, Mapping) else None,
-            "style_id": selected.get("id") if isinstance(selected, Mapping) else None,
-        }
-        break
-    ok = bool(zundamon and isinstance(zundamon.get("style_id"), int))
-    add_check(checks, "voicevox.zundamon_style", ok, zundamon or "ずんだもん not found")
-    return {"version": version, "zundamon": zundamon}
+    resolved: dict[str, Any] = {}
+    for speaker_name, check_name in (("ずんだもん", "zundamon"), ("四国めたん", "shikoku_metan")):
+        selected = _select_voicevox_style(speakers, speaker_name)
+        ok = bool(selected and isinstance(selected.get("style_id"), int))
+        add_check(checks, f"voicevox.{check_name}_style", ok, selected or f"{speaker_name} not found")
+        resolved[speaker_name] = selected
+
+    cast_ok = all(isinstance((resolved.get(name) or {}).get("style_id"), int) for name in STANDARD_CAST)
+    add_check(checks, "voicevox.standard_cast", cast_ok, {name: resolved.get(name) for name in STANDARD_CAST})
+    return {"version": version, "standard_cast": resolved}
 
 
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
@@ -299,7 +309,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--voicevox-url", default=DEFAULT_VOICEVOX)
     parser.add_argument("--min-free-gb", type=float, default=4.0)
-    parser.add_argument("--route", action="append", default=["VOICEVOX_ZUNDAMON_LOCAL", "PYTHON_FFMPEG_FFPROBE"])
+    parser.add_argument("--route", action="append", default=["VOICEVOX_ZUNDAMON_AND_SHIKOKU_METAN_LOCAL", "PYTHON_FFMPEG_FFPROBE"])
     parser.add_argument("--report", type=Path)
     return parser.parse_args()
 
