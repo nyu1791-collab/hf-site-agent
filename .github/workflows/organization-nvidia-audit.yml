@@ -1,11 +1,6 @@
 name: NVIDIA independent-agent organization audit
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - .github/organization-nvidia-audit-trigger.txt
   workflow_dispatch:
 
 permissions:
@@ -14,7 +9,7 @@ permissions:
 
 concurrency:
   group: nvidia-organization-audit-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   audit:
