@@ -7,6 +7,7 @@ on:
     paths:
       - config/multi_agent_operating_policy.json
       - config/current_commander_handoff.json
+      - config/permanent_standards_manifest.json
       - config/ai_army_org_chart.json
       - config/deepseek_paid_supervisor_policy.json
       - scripts/ai_army_routing_facade.py
@@ -44,6 +45,7 @@ jobs:
           set -euo pipefail
           python -m json.tool config/multi_agent_operating_policy.json >/dev/null
           python -m json.tool config/current_commander_handoff.json >/dev/null
+          python -m json.tool config/permanent_standards_manifest.json >/dev/null
           python -m json.tool config/ai_army_org_chart.json >/dev/null
           python -m json.tool config/deepseek_paid_supervisor_policy.json >/dev/null
           python - <<'PY'
@@ -52,6 +54,7 @@ jobs:
 
           p=json.loads(Path('config/multi_agent_operating_policy.json').read_text(encoding='utf-8'))
           h=json.loads(Path('config/current_commander_handoff.json').read_text(encoding='utf-8'))
+          m=json.loads(Path('config/permanent_standards_manifest.json').read_text(encoding='utf-8'))
           o=json.loads(Path('config/ai_army_org_chart.json').read_text(encoding='utf-8'))
           d=json.loads(Path('config/deepseek_paid_supervisor_policy.json').read_text(encoding='utf-8'))
           assert p['status'] == 'PERMANENT_STANDARD'
@@ -228,14 +231,34 @@ jobs:
           assert d['routing_integration']['mandatory_paid_hop_for_every_task'] is False
           assert d['routing_integration']['chatgpt_final_authority_on_all_routes'] is True
 
-          assert h['schema_version'] == 'top-commander-handoff-v7'
-          assert h['continuity']['portable_across_chat_tabs'] is True
-          assert h['continuity']['repository_is_source_of_truth'] is True
-          assert h['continuity']['restore_before_planning_or_external_calls'] is True
-          assert 'config/multi_agent_operating_policy.json' in h['continuity']['on_new_session_required_read_order']
-          assert 'config/ci_execution_policy.json' in h['continuity']['on_new_session_required_read_order']
+          assert h['schema_version'] == 'top-commander-handoff-v8'
+          hc=h['continuity']
+          assert hc['portable_across_chat_tabs'] is True
+          assert hc['repository_is_source_of_truth'] is True
+          assert hc['restore_before_planning_or_external_calls'] is True
+          assert hc['read_order_is_bootstrap_not_full_standard_copy'] is True
+          bootstrap=hc['on_new_session_required_read_order']
+          assert bootstrap[:4] == [
+              'README.md',
+              'config/current_commander_handoff.json',
+              'config/permanent_standards_manifest.json',
+              'docs/AI_ARMY_MASTER_RULEBOOK.md',
+          ]
+          assert hc['task_specific_gate_resolution']['media'] == 'config/media_command_read_gate.json'
+          assert hc['task_specific_gate_resolution']['monetization'] == 'config/monetization_command_read_gate.json'
+          assert h['active_standards']['multi_agent_policy'] == 'config/multi_agent_operating_policy.json'
+          assert h['active_standards']['ci_execution_policy'] == 'config/ci_execution_policy.json'
           assert h['canonical_routing_fixed_rules']['policy_entrypoint'] == 'scripts/ai_army_routing_facade.py'
           assert h['canonical_routing_fixed_rules']['paid_deepseek_supervisor_is_not_mandatory_for_every_task'] is True
+          assert 'media_production_hold' not in json.dumps(h, ensure_ascii=False)
+
+          assert m['schema_version'] == 'permanent-standards-manifest-v11'
+          cross=m['cross_tab_behavior']
+          assert cross['priority_zero_manifest_is_expandable_startup_index'] is True
+          assert cross['do_not_duplicate_full_required_standard_list_into_commander_handoff'] is True
+          standards={entry['id']:entry for entry in m['standards']}
+          assert standards['MULTI_AGENT_OPERATING_STANDARD']['path'] == 'config/multi_agent_operating_policy.json'
+          assert standards['CI_EXECUTION_CONTROL']['path'] == 'config/ci_execution_policy.json'
 
           print('MULTI_AGENT_POLICY=PASS')
           PY
