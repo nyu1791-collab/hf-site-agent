@@ -9,6 +9,7 @@ on:
       - config/longform_video_reliability_policy.json
       - config/longform_video_objectives.json
       - config/current_commander_handoff.json
+      - config/media_command_read_gate.json
       - docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md
       - missions/news-video-pilot.json
       - .github/workflows/longform-video-preflight.yml
@@ -50,17 +51,21 @@ jobs:
           python -m json.tool config/longform_video_reliability_policy.json >/dev/null
           python -m json.tool config/longform_video_objectives.json >/dev/null
           python -m json.tool config/current_commander_handoff.json >/dev/null
+          python -m json.tool config/media_command_read_gate.json >/dev/null
           python -m json.tool missions/news-video-pilot.json >/dev/null
           python - <<'PY'
           import json
           from pathlib import Path
+
           o=json.loads(Path('config/longform_video_objectives.json').read_text(encoding='utf-8'))
           p=json.loads(Path('config/longform_video_reliability_policy.json').read_text(encoding='utf-8'))
           h=json.loads(Path('config/current_commander_handoff.json').read_text(encoding='utf-8'))
+          g=json.loads(Path('config/media_command_read_gate.json').read_text(encoding='utf-8'))
+          cast={'ずんだもん', '四国めたん'}
 
           assert o['status'] == 'ENFORCED_STANDARD'
-          assert o['schema_version'] == 'longform-video-objectives-v2'
-          assert o['primary_goal'] == 'DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK_AND_MAXIMUM_RESUMABILITY'
+          assert o['schema_version'] == 'longform-video-objectives-v3'
+          assert o['primary_goal'] == 'DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK_MAXIMUM_RESUMABILITY_AND_CLEAR_INFORMATION'
           gate=o['hard_completion_gate']
           assert gate['final_mp4_required'] is True
           assert gate['ffprobe_parse_required'] is True
@@ -79,15 +84,20 @@ jobs:
           assert recovery['cross_run_resume_requires_verified_manifest'] is True
 
           asset=o['asset_objectives']
+          assert asset['generated_image_asset_count'] == 0
+          assert asset['generated_video_asset_count'] == 0
+          assert asset['visual_discovery_mode'] == 'SEARCH_THEN_VERIFY_ORIGINAL_SOURCE_AND_RIGHTS'
           assert asset['network_fetch_inside_ffmpeg_render'] is False
           assert asset['single_bad_asset_may_fail_whole_video'] is False
           assert asset['asset_provenance_ledger_required'] is True
 
           voice=o['voice_objectives']
-          assert voice['voice'] == 'VOICEVOX_ZUNDAMON_LOCAL'
+          assert voice['voice_engine'] == 'VOICEVOX_LOCAL'
+          assert set(voice['standard_cast']) == cast
           assert voice['preserve_raw_voice_wav'] is True
           assert voice['normalize_scene_audio_to_hz'] == 48000
           assert voice['visual_only_edit_raw_voice_regeneration_count'] == 0
+          assert voice['prosody_and_emotion_are_semantic_beat_driven'] is True
 
           timeline=o['timeline_objectives']
           assert timeline['audio_duration_source'] == 'FFPROBE_ACTUAL_GENERATED_WAV'
@@ -110,6 +120,8 @@ jobs:
           for k in (
               'paid_video_saas_execution_count',
               'video_saas_free_credit_execution_count',
+              'paid_caption_or_video_editing_app_execution_count',
+              'trial_or_temporary_free_caption_or_video_editing_execution_count',
               'auto_top_up_count',
               'paid_fallback_count',
               'paid_sibling_substitution_count',
@@ -126,10 +138,11 @@ jobs:
           assert continuity['new_session_restore_success_ratio'] == 1.0
           assert continuity['conversation_memory_required_for_resume'] is False
           assert continuity['repository_state_required_for_resume'] is True
+          assert continuity['media_read_gate'] == 'config/media_command_read_gate.json'
 
-          assert p['schema_version'] == 'longform-video-reliability-v3'
+          assert p['schema_version'] == 'longform-video-reliability-v4'
           assert p['status'] == 'PERMANENT_STANDARD'
-          assert p['production_path']['voice'] == 'VOICEVOX_ZUNDAMON_LOCAL'
+          assert p['production_path']['voice'] == 'VOICEVOX_ZUNDAMON_AND_SHIKOKU_METAN_LOCAL'
           assert p['production_path']['render'] == 'PYTHON_FFMPEG_FFPROBE'
           assert p['production_path']['scene_first'] is True
           assert p['production_path']['monolithic_longform_render'] is False
@@ -143,6 +156,7 @@ jobs:
           assert p['checkpoint_policy']['preserve_healthy_outputs'] is True
           assert p['atomic_scene_commit']['partial_or_unverified_scene_may_not_enter_concat_manifest'] is True
           assert p['atomic_scene_commit']['promote_by_atomic_rename'] is True
+          assert set(p['voicevox_contract']['standard_cast']) == cast
           assert p['voicevox_contract']['preserve_raw_synthesis_wav'] is True
           assert p['voicevox_contract']['normalize_scene_input_to_hz'] == 48000
           assert p['voicevox_contract']['visual_only_change_must_not_regenerate_raw_voice'] is True
@@ -154,19 +168,28 @@ jobs:
           assert p['scene_media_contract']['safe_media_contract_mismatch_action'] == 'NORMALIZE_OFFENDING_SCENE_ONLY_THEN_REVALIDATE'
           assert p['resource_policy']['proxy_preview_for_every_scene'] is False
           assert p['resource_policy']['bounded_subprocess_timeout_required'] is True
-          assert p['asset_policy']['network_fetch_inside_ffmpeg_render'] is False
-          assert p['asset_policy']['single_bad_asset_must_not_fail_unrelated_scenes'] is True
+          assert p['visual_asset_policy']['network_fetch_inside_ffmpeg_render'] is False
+          assert p['visual_asset_policy']['failed_asset_fallback_isolated_to_that_asset_or_scene'] is True
           assert p['ai_review_policy']['machine_oracle_preferred_over_model_vote'] is True
           assert p['ai_review_policy']['deepseek_paid_supervisor_may_review_architecture_failure_or_edit_strategy_under_its_scoped_policy'] is True
           assert p['pruning_policy']['asr_every_scene_for_known_tts_script'] is False
           assert p['pruning_policy']['monolithic_render'] is False
 
-          assert h['schema_version'] == 'top-commander-handoff-v7'
+          assert h['schema_version'] == 'top-commander-handoff-v8'
           assert h['continuity']['portable_across_chat_tabs'] is True
           assert h['continuity']['repository_is_source_of_truth'] is True
           assert h['longform_fixed_rules']['monolithic_render'] is False
-          assert h['longform_fixed_rules']['voice'] == 'VOICEVOX_ZUNDAMON_LOCAL'
+          assert h['longform_fixed_rules']['voice'] == 'VOICEVOX_ZUNDAMON_AND_SHIKOKU_METAN_LOCAL'
           assert h['longform_fixed_rules']['render'] == 'PYTHON_FFMPEG_FFPROBE'
+          assert h['longform_fixed_rules']['media_policy_source'] == 'config/media_command_read_gate.json'
+
+          assert g['schema_version'] == 'media-command-read-gate-v9'
+          assert g['status'] == 'ENFORCED_STANDARD'
+          common=set(g['common_media_read_set'])
+          assert 'config/longform_video_objectives.json' in common
+          assert 'config/longform_video_reliability_policy.json' in common
+          assert 'config/current_commander_handoff.json' in common
+          assert 'VOICEVOX_ZUNDAMON_AND_SHIKOKU_METAN_LOCAL_STANDARD_CAST' in set(g['know_how_that_must_be_recovered']['VIDEO_CREATION'])
 
           print('LONGFORM_OBJECTIVES=PASS')
           PY
