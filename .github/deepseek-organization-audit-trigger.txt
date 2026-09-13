@@ -1,9 +1,0 @@
-trigger=deepseek-organization-audit-v3-20260911-1356jst
-purpose=full-organization-code-routing-autonomy-latency-duplication-safety-review-with-minimum-hard-boundaries
-paid_deepseek_authorized=true
-thinking_mode=direct-disabled
-max_paid_calls=1
-max_conservative_cost_usd=0.06
-minimum_hard_boundaries=secret-exfiltration,payment-cap,infinite-retry,unapproved-merge-deploy-publish
-generic_paid_fallback=false
-production=false
