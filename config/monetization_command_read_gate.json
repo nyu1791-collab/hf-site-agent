@@ -1,17 +1,17 @@
 {
-  "schema_version": "monetization-command-read-gate-v2",
+  "schema_version": "monetization-command-read-gate-v3",
   "effective_date_jst": "2026-09-13",
   "status": "ENFORCED_STANDARD",
-  "purpose": "Force repository-backed monetization and platform-program know-how restoration before planning or executing creator-revenue, sponsorship, affiliate, membership, paid-research, AI-workflow client-service or platform-monetization tasks, including after chat-tab/session changes.",
+  "purpose": "Force repository-backed monetization and platform-program know-how restoration before planning or executing creator-revenue, sponsorship, affiliate, membership, paid-research, AI-workflow client-service, lead-generation, licensing or productization tasks, including after chat-tab/session changes.",
   "source_of_truth": "repository",
   "semantic_triggering": {
     "exact_keyword_match_required": false,
     "classify_by_user_intent": true,
     "mixed_intents_are_additive": true,
-    "examples": ["収益化したい", "儲けたい", "案件を探して", "スポンサー案件", "ブランド案件", "アフィリエイト", "YouTubeで稼ぐ", "Instagramで稼ぐ", "TikTokで稼ぐ", "Xで収益化", "会員収益", "UGC案件", "SNS運用代行", "クライアント向け動画制作", "AI導入で稼ぐ", "AIエージェント案件", "有料ニュースレター", "調査レポートを売る"]
+    "examples": ["収益化したい", "儲けたい", "案件を探して", "スポンサー案件", "ブランド案件", "アフィリエイト", "YouTubeで稼ぐ", "Instagramで稼ぐ", "TikTokで稼ぐ", "Xで収益化", "会員収益", "UGC案件", "SNS運用代行", "クライアント向け動画制作", "AI導入で稼ぐ", "AIエージェント案件", "有料ニュースレター", "調査レポートを売る", "リード獲得で稼ぐ", "案件運用を代行する", "テンプレートを売る", "Micro-SaaSにする"]
   },
   "execution_gate": {
-    "must_complete_before": ["MONETIZATION_OPPORTUNITY_SELECTION", "REVENUE_FORECAST", "BRAND_OR_CLIENT_PITCH_PLANNING", "PLATFORM_PROGRAM_APPLICATION_PLANNING", "AFFILIATE_CONTENT_PLAN", "MEMBERSHIP_OR_SUBSCRIPTION_PLAN", "PAID_RESEARCH_OR_DIGITAL_PRODUCT_PLAN", "AI_WORKFLOW_CLIENT_SERVICE_PLAN", "EXTERNAL_OUTREACH", "ACCOUNT_OR_PAYMENT_ACTION", "PUBLICATION_HANDOFF"],
+    "must_complete_before": ["MONETIZATION_OPPORTUNITY_SELECTION", "REVENUE_FORECAST", "BRAND_OR_CLIENT_PITCH_PLANNING", "PLATFORM_PROGRAM_APPLICATION_PLANNING", "AFFILIATE_CONTENT_PLAN", "MEMBERSHIP_OR_SUBSCRIPTION_PLAN", "PAID_RESEARCH_OR_DIGITAL_PRODUCT_PLAN", "AI_WORKFLOW_CLIENT_SERVICE_PLAN", "LEAD_GENERATION_SERVICE_PLAN", "LICENSING_OR_PRODUCTIZATION_PLAN", "EXTERNAL_OUTREACH", "ACCOUNT_OR_PAYMENT_ACTION", "PUBLICATION_HANDOFF"],
     "conversation_memory_alone_is_insufficient": true,
     "tab_or_session_change_does_not_waive_gate": true,
     "current_platform_evidence_must_be_reverified_for_program_specific_action": true,
@@ -25,6 +25,7 @@
     "config/permanent_standards_manifest.json",
     "docs/AI_ARMY_MASTER_RULEBOOK.md",
     "config/creator_monetization_policy.json",
+    "config/monetization_opportunity_backlog.json",
     "config/platform_program_evidence.json",
     "docs/CREATOR_MONETIZATION_AND_AGENT_REVENUE_PLAYBOOK.md",
     "config/cross_source_knowhow_evidence_matrix.json",
@@ -55,6 +56,9 @@
     "near_term_service_revenue_and_long_term_platform_revenue_are_separate_engines",
     "platform_native_payout_merchant_commission_brand_deal_service_and_recurring_revenue_must_not_be_mixed_unlabeled",
     "off_platform_creative_ugc_analytics_localization_social_ops_and_ai_workflow_integration_are_high_priority_near_term_cash_lanes",
+    "permission_based_lead_generation_and_creator_campaign_operations_are_additional_service_lanes",
+    "owned_asset_licensing_is_experimental_and_requires_real_rights_and_paid_demand",
+    "micro_saas_is_watch_only_until_a_repeated_paid_workflow_proves_demand_and_support_economics",
     "prefer_high_judgment_business_outcomes_over_commoditized_low_complexity_ai_execution",
     "ai_workflow_service_requires_process_baseline_bounded_autonomy_least_privilege_human_control_and_measured_roi",
     "paid_research_newsletter_premium_intelligence_and_digital_products_are_experiment_lanes_when_real_paid_value_exists",
@@ -84,6 +88,7 @@
     "FAKE_ENGAGEMENT_OR_REVIEWS",
     "COPY_OR_MINIMALLY_EDIT_CONTENT_FOR_SCALE",
     "HIDE_AFFILIATE_OR_SPONSORED_RELATIONSHIP_WHEN_DISCLOSURE_REQUIRED",
+    "BUILD_SPECULATIVE_MICRO_SAAS_BEFORE_PAID_DEMAND_VALIDATION",
     "AUTO_ACCEPT_CONTRACT_RATE_OR_USAGE_RIGHTS",
     "AUTO_APPLY_TO_PROGRAM_WITHOUT_USER_APPROVAL",
     "AUTO_ACTIVATE_CLIENT_PRODUCTION_SIDE_EFFECT_WITHOUT_AUTHORITY",
