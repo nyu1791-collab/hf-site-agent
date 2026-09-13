@@ -5,7 +5,9 @@ Prevents long-lived branches from fanning one push out into an unbounded set of
 hosted jobs and prevents paid DeepSeek execution from escaping the canonical,
 mission-scoped Executive Supervisor contract.
 
-This script is deterministic and makes no network or model calls.
+The automatic-trigger allowlist is exhaustive: any workflow that exposes push,
+pull_request, or schedule outside the explicitly registered core/carrier routes
+is rejected. This script is deterministic and makes no network or model calls.
 """
 from __future__ import annotations
 
@@ -40,6 +42,26 @@ def _has_automatic_trigger(text: str, trigger: str) -> bool:
 def _require(condition: bool, message: str) -> None:
     if not condition:
         raise SystemExit(message)
+
+
+def _automatic_triggers(text: str) -> set[str]:
+    return {trigger for trigger in ("push", "pull_request", "schedule") if _has_automatic_trigger(text, trigger)}
+
+
+def _enforce_exhaustive_trigger_allowlist(policy: dict) -> None:
+    _require(policy.get("automatic_trigger_allowlist_is_exhaustive") is True, "automatic trigger allowlist must be exhaustive")
+    _require(policy.get("unregistered_push_pull_request_or_schedule_trigger") == "FORBIDDEN", "unregistered automatic trigger policy drifted")
+
+    allowed = set(policy.get("automatic_workflows") or ())
+    allowed.update(policy.get("bounded_internal_carrier_workflows") or ())
+    allowed.update(policy.get("bounded_paid_supervisor_workflows") or ())
+
+    violations: list[str] = []
+    for path in sorted(list(WORKFLOWS.glob("*.yml")) + list(WORKFLOWS.glob("*.yaml"))):
+        triggers = _automatic_triggers(path.read_text(encoding="utf-8"))
+        if triggers and path.name not in allowed:
+            violations.append(f"{path.name}:{','.join(sorted(triggers))}")
+    _require(not violations, "unregistered automatic workflow trigger(s): " + "; ".join(violations))
 
 
 def main() -> int:
@@ -83,8 +105,6 @@ def main() -> int:
         if "cancel-in-progress: true" not in text:
             raise SystemExit(f"manual specialist must cancel duplicate dispatches: {name}")
 
-    # One explicit bounded internal carrier may remain automatic in addition to
-    # the core gates. It is path-scoped and has read-only repository authority.
     carriers = list(policy.get("bounded_internal_carrier_workflows") or ())
     carrier_limit = int(policy.get("max_bounded_internal_carriers") or 0)
     _require(0 <= len(carriers) <= carrier_limit <= 1, "bounded internal carrier fan-out limit violated")
@@ -110,8 +130,6 @@ def main() -> int:
             if required not in text:
                 raise SystemExit(f"bounded carrier guard missing {required}: {name}")
 
-    # Canonical paid DeepSeek is no longer the old two-call engineering trial.
-    # Exactly one mission-scoped supervisor workflow may expose DEEPSEEK_API_KEY.
     paid_supervisors = list(policy.get("bounded_paid_supervisor_workflows") or ())
     paid_limit = int(policy.get("max_bounded_paid_supervisor_workflows") or 0)
     _require(len(paid_supervisors) == 1, "exactly one paid supervisor workflow is required")
@@ -175,7 +193,10 @@ def main() -> int:
     if isinstance(retry_count, bool) or int(retry_count) != 0:
         raise SystemExit("step-zero automatic retries must remain disabled")
 
+    _enforce_exhaustive_trigger_allowlist(policy)
+
     print("CI_CONTROL_PLANE_GUARD=PASS")
+    print("AUTOMATIC_TRIGGER_ALLOWLIST=EXHAUSTIVE")
     print("CANONICAL_PAID_DEEPSEEK_WORKFLOW=deepseek-supervisor-research.yml")
     print("LEGACY_PAID_DEEPSEEK_WORKFLOWS_ACTIVE=0")
     return 0
