@@ -15,6 +15,7 @@ on:
       - 'config/cross_source_knowhow_evidence_matrix.json'
       - 'config/cross_domain_measurement_registry.json'
       - 'config/cross_source_second_pass_policy.json'
+      - 'config/second_pass_artifact_contracts.json'
       - 'config/longform_video_objectives.json'
       - 'config/longform_video_reliability_policy.json'
       - 'config/authorized_clipping_monetization_policy.json'
@@ -29,6 +30,7 @@ on:
       - 'scripts/validate_media_command_read_gate.py'
       - 'scripts/validate_cross_source_knowhow.py'
       - 'scripts/validate_cross_source_second_pass.py'
+      - 'scripts/second_pass_governance.py'
       - 'scripts/ci_control_plane_guard.py'
       - 'scripts/agent_architecture_admission.py'
       - 'scripts/commander_routing.py'
@@ -40,6 +42,9 @@ on:
       - 'schemas/deepseek_supervisor_mission.schema.json'
       - 'schemas/batch_media_job.schema.json'
       - 'schemas/media_batch_command.schema.json'
+      - 'schemas/untrusted_content_envelope.schema.json'
+      - 'schemas/claim_evidence_ledger.schema.json'
+      - 'schemas/creative_experiment.schema.json'
       - 'docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md'
       - 'docs/MEDIA_COMMAND_READ_GATE.md'
       - 'docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md'
@@ -57,6 +62,7 @@ on:
       - 'tests/test_batch_media_scheduler.py'
       - 'tests/test_media_batch_command_center.py'
       - 'tests/test_media_batch_command_center_ffmpeg.py'
+      - 'tests/test_second_pass_governance.py'
       - '.github/workflows/deepseek-*.yml'
       - '.github/workflows/canonical-ai-army-consistency.yml'
       - '.github/workflows/verify-hierarchical-runtime.yml'
@@ -89,6 +95,7 @@ jobs:
             scripts/validate_media_command_read_gate.py \
             scripts/validate_cross_source_knowhow.py \
             scripts/validate_cross_source_second_pass.py \
+            scripts/second_pass_governance.py \
             scripts/ci_control_plane_guard.py \
             scripts/agent_architecture_admission.py \
             scripts/deepseek_supervisor_research.py \
@@ -110,6 +117,7 @@ jobs:
           python -m json.tool config/cross_source_knowhow_evidence_matrix.json >/dev/null
           python -m json.tool config/cross_domain_measurement_registry.json >/dev/null
           python -m json.tool config/cross_source_second_pass_policy.json >/dev/null
+          python -m json.tool config/second_pass_artifact_contracts.json >/dev/null
           python -m json.tool config/longform_video_objectives.json >/dev/null
           python -m json.tool config/longform_video_reliability_policy.json >/dev/null
           python -m json.tool config/authorized_clipping_monetization_policy.json >/dev/null
@@ -120,6 +128,9 @@ jobs:
           python -m json.tool config/bulk_media_worker_pool.json >/dev/null
           python -m json.tool schemas/batch_media_job.schema.json >/dev/null
           python -m json.tool schemas/media_batch_command.schema.json >/dev/null
+          python -m json.tool schemas/untrusted_content_envelope.schema.json >/dev/null
+          python -m json.tool schemas/claim_evidence_ledger.schema.json >/dev/null
+          python -m json.tool schemas/creative_experiment.schema.json >/dev/null
           python -m json.tool examples/media_batch_3way.template.json >/dev/null
 
       - name: Run permanent organization consistency validator
@@ -155,7 +166,8 @@ jobs:
             tests.test_deepseek_json_guard \
             tests.test_batch_media_scheduler \
             tests.test_media_batch_command_center \
-            tests.test_media_batch_command_center_ffmpeg -v
+            tests.test_media_batch_command_center_ffmpeg \
+            tests.test_second_pass_governance -v
 
       - name: Prove no paid call occurs in consistency CI
         run: |
