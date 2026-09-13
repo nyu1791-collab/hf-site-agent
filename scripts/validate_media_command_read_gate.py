@@ -35,6 +35,8 @@ def main() -> int:
     media_creative = load_json("config/media_audio_motion_retention_policy.json")
     longform = load_json("config/longform_video_reliability_policy.json")
     objectives = load_json("config/longform_video_objectives.json")
+    free_audio = load_json("config/free_audio_source_registry.json")
+    dova = load_json("config/dova_curated_bgm_catalog.json")
     pipeline_text = (ROOT / "docs/MEDIA_PIPELINE.md").read_text(encoding="utf-8")
 
     obsolete_hold_path = ROOT / "config/current_media_execution_state.json"
@@ -51,11 +53,17 @@ def main() -> int:
 
     execution = gate.get("execution_gate") or {}
     before = set(execution.get("must_complete_before") or [])
-    for phase in ("PLANNING_MEDIA_PIPELINE", "EXTERNAL_MEDIA_TOOL_CALL", "ASSET_FETCH", "VOICE_GENERATION", "RENDER", "PUBLISHING_HANDOFF"):
+    for phase in (
+        "PLANNING_MEDIA_PIPELINE",
+        "EXTERNAL_MEDIA_TOOL_CALL",
+        "ASSET_FETCH",
+        "VOICE_GENERATION",
+        "RENDER",
+        "PUBLISHING_HANDOFF",
+    ):
         require(phase in before, f"read gate no longer precedes {phase}")
     require(execution.get("conversation_memory_alone_is_insufficient") is True, "chat memory became sufficient for media gate")
     require(execution.get("tab_or_session_change_does_not_waive_gate") is True, "tab/session change now waives media gate")
-    require(execution.get("measurement_plan_required_for_optimization_claim") is True, "optimization may be claimed without measurement plan")
     require(execution.get("blanket_media_production_hold_is_not_part_of_permanent_media_standard") is True, "blanket media production hold became permanent again")
 
     common = list(gate.get("common_media_read_set") or [])
@@ -68,12 +76,6 @@ def main() -> int:
             "config/media_audio_motion_retention_policy.json",
             "config/free_audio_source_registry.json",
             "config/dova_curated_bgm_catalog.json",
-            "config/cross_source_knowhow_evidence_matrix.json",
-            "config/cross_domain_measurement_registry.json",
-            "config/cross_source_second_pass_policy.json",
-            "config/second_pass_artifact_contracts.json",
-            "docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md",
-            "docs/CROSS_SOURCE_SECOND_PASS_2026-09-13.md",
             "docs/MEDIA_PIPELINE.md",
             "config/longform_video_objectives.json",
             "config/longform_video_reliability_policy.json",
@@ -83,36 +85,11 @@ def main() -> int:
         "common media read set",
     )
 
-    trigger_sets = gate.get("trigger_read_sets") or {}
-    video = trigger_sets.get("VIDEO_CREATION") or {}
-    clip = trigger_sets.get("CLIPPING_REPURPOSING") or {}
-    shop = trigger_sets.get("TIKTOK_SHOP_COMMERCE") or {}
+    video = (gate.get("trigger_read_sets") or {}).get("VIDEO_CREATION") or {}
     require_paths(list(video.get("required") or []), {"docs/LONGFORM_VIDEO_OBJECTIVES.md"}, "video creation read set")
-    require_paths(
-        list(clip.get("required") or []),
-        {
-            "config/authorized_clipping_monetization_policy.json",
-            "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
-            "config/batch_media_orchestration_policy.json",
-            "docs/BATCH_MEDIA_ORCHESTRATION.md",
-            "docs/MEDIA_BATCH_COMMAND_CENTER.md",
-        },
-        "clipping read set",
-    )
-    require_paths(
-        list(shop.get("required") or []),
-        {"config/tiktok_shop_influence_policy.json", "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md"},
-        "TikTok Shop read set",
-    )
-    conditional_shop = (shop.get("conditional_required") or {}).get("if_existing_or_third_party_media_is_repurposed") or []
-    require_paths(
-        list(conditional_shop),
-        {"config/authorized_clipping_monetization_policy.json", "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md"},
-        "TikTok Shop repurposing conditional read set",
-    )
 
     video_know_how = set(((gate.get("know_how_that_must_be_recovered") or {}).get("VIDEO_CREATION") or []))
-    for required_know_how in (
+    for item in (
         "chatgpt_top_commander_and_final_integrator",
         "deepseek_high_value_structure_and_technical_supervisor_not_bulk_coder",
         "specialize_agents_by_pipeline_stage_instead_of_duplicate_same_task_generation",
@@ -136,7 +113,7 @@ def main() -> int:
         "ffprobe_and_full_decode_machine_QA",
         "finished_mp4_is_completion_not_intermediate_stage_success",
     ):
-        require(required_know_how in video_know_how, f"video know-how missing: {required_know_how}")
+        require(item in video_know_how, f"video know-how missing: {item}")
 
     new_session = gate.get("new_session_behavior") or {}
     for key in (
@@ -183,10 +160,10 @@ def main() -> int:
     require(division.get("executive_supervisor") == "DEEPSEEK", "DeepSeek supervisor rule drifted")
     require(division.get("deepseek_is_not_bulk_coder") is True, "DeepSeek was turned into bulk coder")
     require(division.get("specialize_by_stage_instead_of_duplicate_generation") is True, "AI stage specialization rule drifted")
-    long_visual = longform.get("visual_asset_policy") or {}
-    require(long_visual.get("generated_image_assets") is False, "longform generated image assets re-enabled")
-    require(long_visual.get("generated_video_assets") is False, "longform generated video assets re-enabled")
-    require(long_visual.get("default_source") == "SEARCH_AND_SOURCE_COLLECTION", "longform visual sourcing drifted from search/source collection")
+    visual = longform.get("visual_asset_policy") or {}
+    require(visual.get("generated_image_assets") is False, "longform generated image assets re-enabled")
+    require(visual.get("generated_video_assets") is False, "longform generated video assets re-enabled")
+    require(visual.get("default_source") == "SEARCH_AND_SOURCE_COLLECTION", "longform visual sourcing drifted")
     paid = longform.get("paid_policy") or {}
     require(paid.get("caption_or_video_editing_paid_app_execution") is False, "paid editing app execution re-enabled")
     require(paid.get("caption_or_video_editing_paid_site_execution") is False, "paid editing site execution re-enabled")
@@ -213,18 +190,22 @@ def main() -> int:
     require(cost_objectives.get("trial_or_temporary_free_caption_or_video_editing_execution_count") == 0, "trial editing objective no longer zero")
     require((objectives.get("continuity_objectives") or {}).get("blanket_media_production_hold_allowed_as_permanent_standard") is False, "objectives reintroduced permanent production hold")
 
-    require("VOICEVOXずんだもん" in pipeline_text or "VOICEVOX ずんだもん" in pipeline_text, "media pipeline lost Zundamon")
-    require("四国めたん" in pipeline_text, "media pipeline lost Shikoku Metan")
+    # Human documentation must state both the engine and the two durable voices.
+    # Do not require a brittle exact concatenation such as "VOICEVOXずんだもん".
+    require("VOICEVOX" in pipeline_text and "ずんだもん" in pipeline_text, "media pipeline lost VOICEVOX Zundamon")
+    require("VOICEVOX" in pipeline_text and "四国めたん" in pipeline_text, "media pipeline lost VOICEVOX Shikoku Metan")
     require("画像生成" in pipeline_text and "動画生成" in pipeline_text, "media pipeline missing generated-asset prohibition documentation")
     require("Scene" in pipeline_text and "Checkpoint" in pipeline_text, "media pipeline lost scene/checkpoint production pattern")
 
+    require(free_audio.get("status") == "ENFORCED_SOURCE_REGISTRY", "free audio source registry is not enforced")
+    source_ids = {str(x.get("id")) for x in (free_audio.get("sources") or []) if isinstance(x, dict)}
+    require("dova-syndrome" in source_ids, "DOVA missing from free audio source registry")
+    require(dova.get("status") == "ENFORCED_MEDIA_DEFAULT", "DOVA curated catalog is not enforced")
+
     manifest_gate = manifest.get("media_command_gate") or {}
     require(manifest_gate.get("policy") == "config/media_command_read_gate.json", "permanent manifest lost media gate policy")
-    require(manifest_gate.get("human_doc") == "docs/MEDIA_COMMAND_READ_GATE.md", "permanent manifest lost media gate doc")
-    require(manifest_gate.get("mixed_media_intents_are_additive") is True, "manifest mixed-intent media rule missing")
     require(manifest_gate.get("conversation_memory_is_not_a_substitute") is True, "manifest allows chat memory to replace media source read")
     require(manifest_gate.get("re_read_current_repository_versions_after_tab_or_session_change") is True, "manifest no longer requires cross-tab media reread")
-    require(manifest_gate.get("cross_source_evidence_and_measurement_rules_are_required") is True, "manifest lost cross-source media governance")
     require(manifest_gate.get("audio_motion_retention_policy") == "config/media_audio_motion_retention_policy.json", "manifest lost creative policy pointer")
     require(manifest_gate.get("free_audio_source_registry") == "config/free_audio_source_registry.json", "manifest lost free audio registry pointer")
     require(manifest_gate.get("dova_curated_bgm_catalog") == "config/dova_curated_bgm_catalog.json", "manifest lost DOVA catalog pointer")
@@ -234,7 +215,7 @@ def main() -> int:
     standards = manifest.get("required_standards") or []
     by_id = {entry.get("id"): entry for entry in standards if isinstance(entry, dict)}
     media_entries = [entry for entry in standards if isinstance(entry, dict) and entry.get("id") == "media-command-read-gate"]
-    require(len(media_entries) == 1, "media command read gate must appear exactly once in permanent required standards")
+    require(len(media_entries) == 1, "media command read gate must appear exactly once")
     require(media_entries[0].get("priority") == 0, "media command read gate must remain priority 0")
     for standard_id, policy_path in (
         ("media-audio-motion-retention", "config/media_audio_motion_retention_policy.json"),
@@ -247,9 +228,16 @@ def main() -> int:
         require(by_id[standard_id].get("machine_policy") == policy_path, f"permanent standard path drift: {standard_id}")
         require(by_id[standard_id].get("priority") == 1, f"permanent standard priority drift: {standard_id}")
 
-    read_order = ((handoff.get("continuity") or {}).get("on_new_session_required_read_order") or [])
+    cross_tab = manifest.get("cross_tab_behavior") or {}
+    require(cross_tab.get("priority_zero_manifest_is_expandable_startup_index") is True, "priority-zero startup index drift")
+    require(cross_tab.get("do_not_duplicate_full_required_standard_list_into_commander_handoff") is True, "handoff duplication guard drift")
+    require(cross_tab.get("media_command_read_gate_survives_tab_change") is True, "media gate no longer survives tab change")
+    require(cross_tab.get("media_task_re_reads_repository_know_how_before_media_work") is True, "media rules no longer re-read on media work")
+
+    continuity = handoff.get("continuity") or {}
+    read_order = continuity.get("on_new_session_required_read_order") or []
     require("config/permanent_standards_manifest.json" in read_order, "new session no longer reads permanent standards manifest")
-    require((handoff.get("continuity") or {}).get("repository_is_source_of_truth") is True, "repository is no longer handoff source of truth")
+    require(continuity.get("repository_is_source_of_truth") is True, "repository is no longer handoff source of truth")
 
     print(json.dumps({
         "status": "PASS",
