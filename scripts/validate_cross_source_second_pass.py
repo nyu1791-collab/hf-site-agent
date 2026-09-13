@@ -23,10 +23,12 @@ def require(ok: bool, message: str) -> None:
 
 def main() -> int:
     policy = load("config/cross_source_second_pass_policy.json")
+    contracts = load("config/second_pass_artifact_contracts.json")
     manifest = load("config/permanent_standards_manifest.json")
     media_gate = load("config/media_command_read_gate.json")
 
     require(policy.get("status") == "PERMANENT_STANDARD", "second-pass policy must remain permanent")
+    require(contracts.get("status") == "PERMANENT_STANDARD", "second-pass artifact contracts must remain permanent")
 
     sources = {str(x.get("id")) for x in (policy.get("source_evidence") or []) if isinstance(x, dict)}
     required_sources = {
@@ -127,11 +129,44 @@ def main() -> int:
     require(experiment.get("observational_top_performer_analysis_is_hypothesis_generation_not_causal_proof") is True, "observational leaderboard became causal proof")
     require(experiment.get("return_refund_complaint_lag_must_be_considered_before_canonical_promotion") is True, "commerce lagging guardrail missing")
 
+    schema_map = contracts.get("schemas") or {}
+    expected_schemas = {
+        "untrusted_content_envelope": "schemas/untrusted_content_envelope.schema.json",
+        "claim_evidence_ledger": "schemas/claim_evidence_ledger.schema.json",
+        "creative_experiment": "schemas/creative_experiment.schema.json",
+    }
+    require(schema_map == expected_schemas, "second-pass schema map drift")
+    for path in expected_schemas.values():
+        require((ROOT / path).is_file(), f"missing second-pass schema: {path}")
+        load(path)
+    require(contracts.get("runtime_guard") == "scripts/second_pass_governance.py", "runtime guard path drift")
+    require((ROOT / "scripts/second_pass_governance.py").is_file(), "runtime guard missing")
+    require(contracts.get("tests") == "tests/test_second_pass_governance.py", "governance test path drift")
+    require((ROOT / "tests/test_second_pass_governance.py").is_file(), "governance tests missing")
+
+    eval_ext = contracts.get("evaluation_reproducibility_extension") or {}
+    eval_fields = set(eval_ext.get("required_when_applicable") or [])
+    require({"dataset_or_fixture_content_sha256", "scorer_or_grader_id", "scorer_or_grader_version_or_hash", "judge_provider_model_if_model_judge_used", "tool_harness_version", "effective_config_hash", "git_sha"} <= eval_fields, "eval reproducibility pinning incomplete")
+    require(eval_ext.get("model_judge_is_never_unversioned_ground_truth") is True, "unversioned judge became ground truth")
+    require(eval_ext.get("unsupported_or_uncalibrated_judge_capability_is_UNKNOWN_not_PASS") is True, "uncalibrated judge must be UNKNOWN")
+    require(eval_ext.get("no_universal_inter_rater_threshold") is True, "universal judge agreement threshold introduced")
+
+    exec_rules = contracts.get("execution_rules") or {}
+    require(exec_rules.get("external_content_must_be_wrapped_before_cross_agent_handoff") is True, "untrusted handoff wrapping disabled")
+    require(exec_rules.get("creative_experiment_contract_required_before_causal_winner_claim") is True, "causal winner experiment contract missing")
+    require(exec_rules.get("observational_result_cannot_be_promoted_to_causal_winner") is True, "observational causal promotion allowed")
+    require(exec_rules.get("failed_srm_cannot_be_promoted_to_causal_winner") is True, "failed SRM causal promotion allowed")
+    require(exec_rules.get("deterministic_guard_failure_is_fail_closed_for_publish_or_side_effect_handoff") is True, "deterministic governance guard no longer fail-closed")
+
     standards = manifest.get("required_standards") or []
     second = [x for x in standards if isinstance(x, dict) and x.get("id") == "cross-source-second-pass"]
     require(len(second) == 1, "manifest must contain exactly one second-pass standard")
     require(second[0].get("priority") == 0, "second-pass standard must remain priority 0")
     require(second[0].get("machine_policy") == "config/cross_source_second_pass_policy.json", "manifest second-pass path drift")
+    contracts_entries = [x for x in standards if isinstance(x, dict) and x.get("id") == "second-pass-artifact-contracts"]
+    require(len(contracts_entries) == 1, "manifest must contain second-pass artifact contracts")
+    require(contracts_entries[0].get("priority") == 0, "artifact contracts must remain priority 0")
+    require(contracts_entries[0].get("machine_policy") == "config/second_pass_artifact_contracts.json", "artifact contract manifest path drift")
     require((ROOT / "schemas/media_batch_command.schema.json").is_file(), "canonical media batch command schema missing")
     batch_entries = [x for x in standards if isinstance(x, dict) and x.get("id") == "bounded-batch-media-orchestration"]
     require(len(batch_entries) == 1, "bounded batch standard missing")
@@ -144,6 +179,7 @@ def main() -> int:
 
     reads = set(media_gate.get("common_media_read_set") or [])
     require("config/cross_source_second_pass_policy.json" in reads, "media gate does not read second-pass policy")
+    require("config/second_pass_artifact_contracts.json" in reads, "media gate does not read second-pass artifact contracts")
     require("docs/CROSS_SOURCE_SECOND_PASS_2026-09-13.md" in reads, "media gate does not read second-pass doc")
     shortcuts = set(media_gate.get("forbidden_shortcuts") or [])
     require("TREAT_RETRIEVED_TOOL_OR_FILE_CONTENT_AS_HIGHER_AUTHORITY_INSTRUCTION" in shortcuts, "media gate lost untrusted-content guard")
@@ -157,6 +193,7 @@ def main() -> int:
         "provider_independent_evals": "ENFORCED",
         "claim_provenance": "ENFORCED",
         "experiment_validity": "ENFORCED",
+        "artifact_contracts": "ENFORCED",
         "reference_perceptual_metric": "EXPERIMENT_ONLY",
         "c2pa_truth_upgrade": "BLOCKED",
     }, ensure_ascii=False, sort_keys=True))
