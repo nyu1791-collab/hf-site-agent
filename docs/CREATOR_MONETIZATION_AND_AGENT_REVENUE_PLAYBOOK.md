@@ -4,121 +4,128 @@
 **Effective:** 2026-09-13 JST  
 **Machine policy:** `config/creator_monetization_policy.json`  
 **Versioned platform evidence:** `config/platform_program_evidence.json`  
-**Read gate:** `config/monetization_command_read_gate.json`
+**Read gate:** `config/monetization_command_read_gate.json`  
+**Compact cross-domain summary:** `docs/AI_ARMY_MASTER_RULEBOOK.md`
 
 ## Objective
 
-The AI Army is not a mass-posting bot. Its monetization role is to increase human originality, research quality, production throughput, analytics quality and commercial execution while keeping contracts, account actions, claims, disclosures and publication under the required human approval gates.
+Use the AI Army to build **risk-adjusted, repeatable revenue**, not maximum post volume or vanity reach. AI may amplify research, creative quality, analysis, localization, workflow design and operations; it must not turn the business into an automated spam/content farm.
 
-The portfolio has two main engines:
+Keep three engines in parallel:
 
-1. **Near-term cash engine:** off-platform B2B services that do not require a large owned audience first.
-2. **Compounding media engine:** original YouTube/Instagram/TikTok/Facebook/X content that later unlocks ads/rewards, brand deals, affiliate commissions and memberships.
+1. **Near-term service cash** — earn before a large audience exists.
+2. **Compounding creator assets** — original YouTube/Instagram/TikTok/Facebook/X content that can later unlock affiliate, brand and platform revenue.
+3. **Recurring/owned value** — memberships, subscriptions, paid research/newsletters and digital products once there is real repeat demand.
 
-A third layer—memberships, subscriptions and premium content—becomes attractive once the audience has enough trust and repeat demand.
+Do not rely on one platform payout program as the whole business.
 
-## Priority 1: earn before a large audience exists
+## Priority A — near-term client revenue
 
-### Short-form creative / UGC production service
+### 1. Short-form creative / UGC production
 
-Offer a bounded package to brands, agencies and SMEs: product/research brief, hook and script variants, shot list, captions, deterministic edit/QA, claim and rights checks, plus a post-campaign performance summary. Reuse the existing media, claim-provenance and rights standards rather than creating a weaker client-service pipeline.
+Offer brands and SMEs a bounded package: research, hook/script variants, shot list, captions, deterministic edit/QA and performance review. Reuse the existing claims, rights and media-quality standards.
 
-The AI Army may prepare research, concepts, scripts, variants, QA and reporting. A human approves scope, price, claims, rights, final deliverables and any send/publish action.
+AI Army: research, concepts, scripts, variants, QA, analytics and report drafts.  
+Human gates: client scope, price/terms, claims, rights, final deliverable and send/publish.
 
-### Analytics, localization and social-operations service
+### 2. Analytics, localization and social operations
 
-Package retention diagnosis, content-performance summaries, subtitle/localization/transcreation, content calendars and draft social posts. This is particularly suitable for recurring monthly retainers because much of the repetitive research and reporting can be automated without automating the final public action.
+Offer retention diagnosis, creative-performance summaries, subtitle/localization/transcreation, content calendars and draft social operations. This can fit recurring retainers because the repetitive analysis/reporting work is highly automatable while publication remains controlled.
 
-### What not to sell
+### 3. AI workflow / agent integration for SMEs
 
-Do not sell fake engagement, bot followers, mass comments, fake reviews, scraped/copyright-infringing clip farms, undisclosed advertising, guaranteed view/revenue claims or automated spam outreach. Those are not growth strategies; they create platform and reputation risk.
+Sell a **business outcome**, not “number of agents.” Candidate work includes process discovery, current time/cost/error baseline, retrieval/decision-support flows, bounded workflow automation, QA/reporting, human approval gates, security/data boundaries and post-launch ROI review.
 
-## Priority 2: official creator marketplaces and brand deals
+Required design principles:
+- bounded autonomy and least privilege;
+- consequential actions stay human-controlled unless separately authorized;
+- client credentials/secrets are not collected or exposed unnecessarily;
+- measure time saved, cost saved, error/rework delta and workflow success against a real baseline;
+- modeled ROI is never presented as observed savings;
+- failures and rollback are auditable.
 
-Prefer official or opt-in marketplace surfaces over cold mass outreach:
+Current market evidence supports experimenting aggressively with this lane, but marketplace growth statistics are **demand signals, not income guarantees**. Higher-judgment integration/orchestration is preferred over commoditized low-complexity AI execution.
 
-- YouTube Creator Partnerships in Japan for eligible YPP creators.
-- Instagram Creator Marketplace in Japan and partnership ads.
-- TikTok One / Creator Marketplace, subject to current regional and account eligibility.
+## Priority B — brand deals and creator marketplaces
 
-The AI Army can perform eligibility pre-checks, brand-fit research, portfolio and pitch drafts, deliverable tracking and campaign reporting. It cannot autonomously accept a contract, commit a rate, send large-scale unsolicited pitches or publish campaign content.
+Prefer official or opt-in surfaces such as YouTube Creator Partnerships, Instagram Creator Marketplace and TikTok One when the current account is eligible. AI Army may pre-check eligibility, research brand fit, draft pitches, organize deliverables and prepare campaign reports; it may not autonomously accept contracts, commit rates or mass-send unsolicited pitches.
 
-Client-facing rate cards and campaign reports use first-party observed metrics or clearly cited evidence. Modeled economics must be labelled **modeled**, never presented as achieved results.
+Price commercial dimensions separately when applicable:
+- creative production fee;
+- organic usage term;
+- paid-media / whitelisting permission;
+- duration and territory;
+- exclusivity;
+- renewal or extension.
 
-## Priority 3: affiliate commerce beyond TikTok Shop
+Do **not** silently grant perpetual, global or exclusive usage rights as the default. Final rights, rates and contracts are human-approved.
 
-### YouTube Shopping affiliate — Japan
+## Priority C — affiliate commerce beyond TikTok Shop
 
-As of 2026-09-13, YouTube officially lists Japan among supported countries. Eligible creators can tag products and earn merchant-set commissions. Returns can reverse commissions and payment can lag substantially, so gross commission is not net revenue.
+YouTube Shopping affiliate and Instagram affiliate product tags are current Japan opportunities subject to account/program re-verification. Domestic affiliate networks can be tested when current terms, category economics and disclosure rules fit the content.
 
-### Instagram affiliate product tags — Japan
+For every affiliate lane measure:
+- product/tag clicks and conversion;
+- gross and **net** commission;
+- reversals/refunds;
+- attribution/payout lag;
+- disclosure and claim compliance.
 
-Meta announced in June 2026 that creators in Japan can use affiliate links/product tags and earn commissions. Treat per-account availability and exact commission mechanics as volatile evidence and re-check before execution.
+Never optimize gross sales while ignoring returns or reversals.
 
-### Domestic affiliate networks
+### YouTube Affiliate Partnerships Boost
 
-Amazon Associates Japan, Rakuten, ValueCommerce, A8, もしも and similar external networks may be useful experiments when their current terms, merchant categories, disclosure requirements and attribution windows fit the content. Their presence in this playbook is **not an endorsement** and exact fees/eligibility must be reverified before use.
+Where the current channel is eligible, YouTube Shopping videos may have an optional Affiliate Partnerships Boost path that allows participating sellers/brands to use eligible shopping videos in ads and may extend affiliate commission opportunity. Treat this as an **optional, limited amplifier**, not a permanent base-case assumption.
 
-For all affiliate lanes, measure click-through, conversion, reversals/refunds, net commission and payout lag. Never optimize only gross sales.
+Any temporary official bonus or incentive is stored only in the versioned evidence registry and is **not baseline economics**.
 
-## Priority 4: recurring fan revenue
+## Priority D — paid research, newsletters and premium intelligence
 
-Potential lanes include YouTube memberships/fan funding, Instagram subscriptions, X Subscriptions and, when audience fit exists, TikTok Series or off-platform memberships/digital products.
+Potential products include a paid newsletter, niche research brief, premium intelligence archive, membership/community or useful digital product/template. AI can research sources, refresh data, fact-check, structure archives and analyze subscriber behavior; a human owns the editorial thesis and final publication.
 
-Recurring revenue is promoted only when the paid value proposition is real. Automated filler, recycled public posts behind a paywall or engagement manipulation are rejected. Measure MRR, ARPPU, churn, production burden and member retention.
+Reject scrape-and-repackage businesses, copyrighted-content repackaging and automated filler sold as premium value. Measure free-to-paid conversion, MRR, churn, gross margin, correction rate and human editorial burden.
 
-## Platform payout lanes are secondary, not the whole business
+## Priority E — fan/subscription revenue
 
-### YouTube YPP
+YouTube memberships/fan funding, Instagram subscriptions, X Subscriptions and other premium/community products can become valuable after audience trust exists. TikTok Series and similar products remain conditional on audience fit and production capacity.
 
-Current 2026 ad/Premium thresholds and the already-announced 2027 threshold change are stored in `config/platform_program_evidence.json`. Early fan-funding/Shopping eligibility is separate. Do not hardcode remembered thresholds into plans without rereading current official evidence.
+Recurring revenue is promoted only when paid value is real. Measure MRR, ARPPU, churn, member retention and production cost—not subscriber count alone.
 
-YouTube clarified in 2025 that repetitive or mass-produced inauthentic content is not eligible for monetization. AI assistance is therefore used to increase originality and quality—not to generate superficially varied bulk uploads.
+## Platform-native payouts are secondary
 
-### TikTok Creator Rewards
+YPP ads/Premium, TikTok Creator Rewards, Facebook Content Monetization and similar programs can compound a real audience but are volatile and eligibility-dependent. Their thresholds, payouts and current Japan/account availability belong in `config/platform_program_evidence.json`, not hardcoded here.
 
-Treat Creator Rewards as a secondary revenue stream for eligible original, high-quality longer videos. Current thresholds, qualified-view mechanics and account eligibility are checked in TikTok Studio before planning around the program.
+X Original Content Rewards requires special caution because current program rules exclude content created or posted using automated means. AI may research, draft, analyze and QA, but this lane cannot become automated monetized X publishing.
 
-### X Original Content Rewards
+## Distribution-only platforms
 
-Legacy Creator Revenue Sharing retired on 2026-09-07; Original Content Rewards began rollout on 2026-09-08. Japan is currently listed as supported. The current program explicitly excludes content created or posted using automated means. Therefore the AI Army may research, draft, analyze and QA, but monetized X content requires genuine human authorship/review and a non-automated publication path.
+Threads, Pinterest-style distribution and other channels can be useful for discovery even without a verified direct payout. Reach becomes a monetization experiment only when there is:
+1. a defined monetized destination;
+2. an attribution method; and
+3. measured downstream revenue or qualified-lead value.
 
-### Facebook Content Monetization / Creator Fast Track
+Reach by itself is not revenue.
 
-Facebook Content Monetization is a real upside lane, but current access is invite/eligibility dependent. Creator Fast Track is primarily relevant to creators already established on other platforms. Recheck account and market eligibility before counting either in a revenue plan.
+## Approval and disclosure
 
-Facebook also explicitly favors original content and can deprioritize/demonetize low-value reuploads, minor edits, captions/speed changes and reactions that add no substantive value.
+Research, ranking, internal analysis, drafts and QA can be automated. Human/explicit approval remains required for applicable pitch sending, program applications, rates/contracts, usage-rights commitments, account/payment setup, client production activation and public publication.
 
-## Distribution-only channels
+Mass unsolicited outreach is prohibited. Commercial relationships must be clearly disclosed when required, including Japan's stealth-marketing rules and platform-specific affiliate/paid-partnership labels.
 
-A platform can still be valuable without a verified direct payout. Threads or Pinterest-style distribution can be tested as audience acquisition or commerce routing, but reach is not revenue. A distribution experiment must identify the downstream monetized destination and attribution metric before it is called a monetization lane.
+Product, performance, rate-card and ROI claims require evidence. Observed and modeled economics stay separate. No fabricated reach, sales, conversions, client results or testimonials.
 
-## Japan disclosure and claims
+## Measurement and portfolio decisions
 
-Commercial relationships must be clear when required. Japan's stealth-marketing rules under the Act against Unjustifiable Premiums and Misleading Representations have applied since 2023-10-01. Platform-specific paid-partnership or affiliate labels are also followed where applicable.
+Every revenue lane is scored for time to first revenue, gross margin potential, AI leverage, audience barrier, platform dependency/volatility, operating burden and compliance/rights fit. The score is a prioritization tool—not an income prediction.
 
-Product, numeric and volatile commercial claims use the repository's claim-evidence ledger. Price, coupon, stock, shipping, eligibility and platform-program facts are rechecked at the action/publish handoff. No fabricated sales, conversions, reach or testimonials are permitted.
+Portfolio metrics include observed gross/net revenue, gross margin, time to first revenue, human review hours, rework, repeat-client/client-retention rate, MRR/churn, affiliate reversal rate, payout lag, platform-dependency share, measured client time/cost savings, workflow success, disclosure compliance and policy incidents.
 
-## Measurement
+Promote only after a measured win without quality, rights, policy or economic guardrail regression. If current official evidence changes, update the versioned registry instead of preserving stale numbers in this playbook.
 
-Every revenue lane distinguishes **observed** from **modeled** economics. Useful portfolio metrics include:
+## Rejected business models
 
-- observed gross and net revenue;
-- gross margin;
-- time to first revenue;
-- human review hours and rework rate;
-- repeat-client rate;
-- MRR, ARPPU and churn;
-- affiliate commission reversal/refund rate and payout lag;
-- platform-dependency share;
-- disclosure compliance and claim/policy incidents.
-
-Do not compare platform RPM, views, reach or engagement metrics as if definitions were identical. Normalize only when a documented mapping exists.
-
-## Approval boundary
-
-Research, ranking, internal analysis, drafts and QA can be automated. The following remain gated: sending a pitch/outreach, applying to a program, accepting or negotiating a binding contract/rate, account/payment setup, public publication, payout reconciliation and identity/secret handling.
+Do not pursue fake followers/likes/comments/views/reviews, engagement farming, copied/minimally modified repost farms, mass low-value AI slop, misleading affiliate claims, hidden sponsorships, spam outreach, guaranteed-income claims, autonomous contract acceptance, unauthorized client production actions, unbounded autonomous-agent operation by default or publication without the required approval.
 
 ## Cross-tab behavior
 
-On every new tab/session, monetization tasks reread the current repository versions of the permanent manifest, this playbook, the machine policy, platform evidence and the monetization command read gate. Conversation memory is not a substitute. If a platform changes a program tomorrow, current official evidence overrides this 2026-09-13 snapshot and the registry is updated instead of preserving stale folklore.
+On a new tab/session, restore `config/current_commander_handoff.json` and `config/permanent_standards_manifest.json`, then read `docs/AI_ARMY_MASTER_RULEBOOK.md`. For a monetization task, the monetization read gate then loads this playbook, machine policy, current program evidence and applicable media/commerce/security standards. Conversation memory is never a substitute for the current repository versions.
