@@ -36,6 +36,10 @@ def main() -> int:
     legacy = load_json("config/legacy_deepseek_compatibility.json")
     model_registry = load_json("config/model_registry.json")
     ci_policy = load_json("config/ci_execution_policy.json")
+    media_gate = load_json("config/media_command_read_gate.json")
+    media_creative = load_json("config/media_audio_motion_retention_policy.json")
+    free_audio = load_json("config/free_audio_source_registry.json")
+    dova = load_json("config/dova_curated_bgm_catalog.json")
 
     require(manifest.get("canonical_branch") == "ai-army/provider-v3", "wrong canonical branch")
     require(org.get("status") == "CANONICAL", "AI Army org chart is not canonical")
@@ -48,12 +52,70 @@ def main() -> int:
     require(by_standard["master-rulebook"].get("path") == "docs/AI_ARMY_MASTER_RULEBOOK.md", "master rulebook path drift")
     require(by_standard["master-rulebook"].get("priority") == 0, "master rulebook must remain priority 0")
     require((ROOT / "docs/AI_ARMY_MASTER_RULEBOOK.md").is_file(), "master rulebook file missing")
+
+    durable_media = {
+        "media-audio-motion-retention": "config/media_audio_motion_retention_policy.json",
+        "free-audio-source-registry": "config/free_audio_source_registry.json",
+        "dova-curated-bgm-catalog": "config/dova_curated_bgm_catalog.json",
+    }
+    for standard_id, path in durable_media.items():
+        require(standard_id in by_standard, f"permanent manifest lost media standard: {standard_id}")
+        require(by_standard[standard_id].get("machine_policy") == path, f"media standard path drift: {standard_id}")
+        require(by_standard[standard_id].get("priority") == 1, f"media standard priority drift: {standard_id}")
+        require((ROOT / path).is_file(), f"media standard file missing: {path}")
+
     cross_tab = manifest.get("cross_tab_behavior") or {}
     require(cross_tab.get("priority_zero_manifest_is_expandable_startup_index") is True, "priority-zero manifest startup index drift")
     require(cross_tab.get("master_rulebook_survives_tab_change") is True, "master rulebook cross-tab continuity lost")
     require(cross_tab.get("do_not_duplicate_full_required_standard_list_into_commander_handoff") is True, "startup duplication guard lost")
+    require(cross_tab.get("media_audio_motion_retention_survives_tab_change") is True, "media creative standard cross-tab continuity lost")
+    require(cross_tab.get("free_audio_source_registry_survives_tab_change") is True, "free audio registry cross-tab continuity lost")
+    require(cross_tab.get("dova_curated_bgm_preference_survives_tab_change") is True, "DOVA preference cross-tab continuity lost")
     read_order = list(((handoff.get("continuity") or {}).get("on_new_session_required_read_order") or []))
     require("config/permanent_standards_manifest.json" in read_order, "commander handoff must restore permanent manifest")
+
+    media_common = list(media_gate.get("common_media_read_set") or [])
+    for required_path in (
+        "docs/AI_ARMY_MASTER_RULEBOOK.md",
+        "config/media_audio_motion_retention_policy.json",
+        "config/free_audio_source_registry.json",
+        "config/dova_curated_bgm_catalog.json",
+    ):
+        require(required_path in media_common, f"media gate lost required read: {required_path}")
+    media_new_session = media_gate.get("new_session_behavior") or {}
+    require(media_new_session.get("master_rulebook_must_be_re_read") is True, "media gate no longer rereads master rulebook")
+    require(media_new_session.get("audio_motion_retention_policy_must_be_re_read") is True, "media gate no longer rereads creative standard")
+    require(media_new_session.get("free_audio_source_registry_must_be_re_read") is True, "media gate no longer rereads free audio registry")
+    require(media_new_session.get("dova_curated_bgm_catalog_must_be_re_read") is True, "media gate no longer rereads DOVA catalog")
+    require(media_new_session.get("do_not_rely_on_prior_tab_summary_as_substitute") is True, "media gate allows tab summary to replace repository restore")
+
+    media_default = media_creative.get("semantic_default") or {}
+    media_durability = media_creative.get("durability") or {}
+    character_motion = media_creative.get("character_motion") or {}
+    prosody = media_creative.get("voice_prosody") or {}
+    captions = media_creative.get("caption_grammar") or {}
+    contextual = media_creative.get("contextual_visuals") or {}
+    hierarchy = media_creative.get("visual_attention_hierarchy") or {}
+    collision = media_creative.get("collision_avoidance") or {}
+    require(media_default.get("auto_apply_on_media_intent") is True, "media creative standard lost automatic application")
+    require(media_default.get("user_does_not_need_to_repeat_rules") is True, "media creative standard requires user repetition")
+    require(media_durability.get("must_be_indexed_by_permanent_manifest") is True, "media creative manifest durability lost")
+    require(media_durability.get("must_be_required_by_media_command_read_gate") is True, "media creative gate durability lost")
+    require(media_durability.get("must_be_re_read_after_new_tab_or_session") is True, "media creative cross-tab reread lost")
+    require(character_motion.get("no_long_static_talking_portrait") is True, "static talking portrait became default")
+    require(prosody.get("default_engine") == "VOICEVOX_LOCAL", "VOICEVOX local default drift")
+    require(captions.get("no_background_prose_or_headline_wall") is True, "background text wall prohibition lost")
+    require(contextual.get("search_engine_result_is_discovery_not_license") is True, "search result incorrectly treated as license")
+    require(hierarchy.get("one_primary_hero_per_beat") is True, "one-primary-hero attention rule lost")
+    require(int(collision.get("max_attention_dominant_elements_per_beat") or 0) == 1, "attention collision ceiling drift")
+
+    require(free_audio.get("status") == "ENFORCED_SOURCE_REGISTRY", "free audio source registry is not enforced")
+    source_ids = {str(x.get("id")) for x in (free_audio.get("sources") or []) if isinstance(x, dict)}
+    require("dova-syndrome" in source_ids, "DOVA missing from free audio source registry")
+    require(dova.get("status") == "ENFORCED_MEDIA_DEFAULT", "DOVA curated catalog is not enforced")
+    dova_future = dova.get("future_execution") or {}
+    require(dova_future.get("user_need_not_repeat_dova_preference") is True, "DOVA preference requires user repetition")
+    require(dova_future.get("user_need_not_repeat_noraneko_preference") is True, "Noraneko preference requires user repetition")
 
     auth = supervisor.get("human_authorization") or {}
     safety = supervisor.get("safety") or {}
@@ -148,6 +210,7 @@ def main() -> int:
         "canonical_router": "scripts/ai_army_routing_facade.py",
         "deepseek_role": "EXECUTIVE_SUPERVISOR",
         "master_rulebook": "PRIORITY_0",
+        "media_creative_restore": "ENFORCED",
         "active_paid_deepseek_workflow": ".github/workflows/deepseek-supervisor-research.yml",
         "legacy_paid_workflows_active": 0,
         "automatic_ci_workflow_cap": int(ci_policy.get("max_automatic_workflows_per_push") or 0),
