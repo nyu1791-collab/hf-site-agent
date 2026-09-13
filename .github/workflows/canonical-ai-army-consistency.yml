@@ -25,13 +25,18 @@ on:
       - 'scripts/deepseek_supervisor_research_resilient.py'
       - 'scripts/deepseek_json_guard.py'
       - 'scripts/batch_media_scheduler.py'
+      - 'scripts/media_batch_command_center.py'
       - 'schemas/deepseek_supervisor_mission.schema.json'
       - 'schemas/batch_media_job.schema.json'
+      - 'schemas/media_batch_command.schema.json'
       - 'docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md'
       - 'docs/BATCH_MEDIA_ORCHESTRATION.md'
+      - 'docs/MEDIA_BATCH_COMMAND_CENTER.md'
       - 'tests/test_ai_army_routing_facade.py'
       - 'tests/test_deepseek_json_guard.py'
       - 'tests/test_batch_media_scheduler.py'
+      - 'tests/test_media_batch_command_center.py'
+      - 'tests/test_media_batch_command_center_ffmpeg.py'
       - '.github/workflows/deepseek-*.yml'
       - '.github/workflows/canonical-ai-army-consistency.yml'
       - '.github/workflows/verify-hierarchical-runtime.yml'
@@ -66,7 +71,8 @@ jobs:
             scripts/deepseek_supervisor_research.py \
             scripts/deepseek_supervisor_research_resilient.py \
             scripts/deepseek_json_guard.py \
-            scripts/batch_media_scheduler.py
+            scripts/batch_media_scheduler.py \
+            scripts/media_batch_command_center.py
 
       - name: Validate canonical JSON policy stack
         run: |
@@ -82,6 +88,8 @@ jobs:
           python -m json.tool config/batch_media_orchestration_policy.json >/dev/null
           python -m json.tool config/bulk_media_worker_pool.json >/dev/null
           python -m json.tool schemas/batch_media_job.schema.json >/dev/null
+          python -m json.tool schemas/media_batch_command.schema.json >/dev/null
+          python -m json.tool examples/media_batch_3way.template.json >/dev/null
 
       - name: Run permanent organization consistency validator
         run: |
@@ -99,7 +107,9 @@ jobs:
           python -m unittest \
             tests.test_ai_army_routing_facade \
             tests.test_deepseek_json_guard \
-            tests.test_batch_media_scheduler -v
+            tests.test_batch_media_scheduler \
+            tests.test_media_batch_command_center \
+            tests.test_media_batch_command_center_ffmpeg -v
 
       - name: Prove no paid call occurs in consistency CI
         run: |
