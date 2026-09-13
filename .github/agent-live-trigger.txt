@@ -1,2 +1,0 @@
-trigger=2026-09-10T20:20:00+09:00
-purpose=validate-expanded-openrouter-worker-pool-5-per-role-20-unique-keep-google-critical-only
