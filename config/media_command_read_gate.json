@@ -1,8 +1,8 @@
 {
-  "schema_version": "media-command-read-gate-v7",
+  "schema_version": "media-command-read-gate-v8",
   "effective_date_jst": "2026-09-13",
   "status": "ENFORCED_STANDARD",
-  "purpose": "Force repository-backed media know-how restoration, current media execution-state restoration, creative-direction restoration, measurement, untrusted-content security, claim provenance, experiment validity, free-audio/BGM/SFX rules, character motion/prosody/caption/contextual-visual rules, and executable artifact-contract rules before any video, clipping/repurposing, or TikTok Shop media task, including after chat-tab/session changes.",
+  "purpose": "Force repository-backed media know-how restoration, creative-direction restoration, measurement, untrusted-content security, claim provenance, experiment validity, free-audio/BGM/SFX rules, character motion/prosody/caption/contextual-visual rules, and executable artifact-contract rules before any video, clipping/repurposing, or TikTok Shop media task, including after chat-tab/session changes.",
   "source_of_truth": "repository",
   "semantic_triggering": {
     "exact_keyword_match_required": false,
@@ -19,8 +19,6 @@
     "must_not_claim_gate_complete_without_reading_required_repository_sources": true,
     "conversation_memory_alone_is_insufficient": true,
     "tab_or_session_change_does_not_waive_gate": true,
-    "current_media_execution_state_must_be_read_and_applied": true,
-    "explicit_user_release_required_when_current_state_holds_media_production": true,
     "measurement_plan_required_for_optimization_claim": true,
     "claim_ledger_required_when_second_pass_policy_marks_claim_type_in_scope": true,
     "machine_contracts_required_when_untrusted_claim_or_experiment_artifacts_are_used": true,
@@ -29,7 +27,6 @@
   "common_media_read_set": [
     "config/current_commander_handoff.json",
     "config/permanent_standards_manifest.json",
-    "config/current_media_execution_state.json",
     "docs/AI_ARMY_MASTER_RULEBOOK.md",
     "config/media_audio_motion_retention_policy.json",
     "config/free_audio_source_registry.json",
@@ -160,8 +157,6 @@
   },
   "forbidden_shortcuts": [
     "SKIP_REPOSITORY_READ_BECAUSE_CHAT_MEMORY_SEEMS_SUFFICIENT",
-    "SKIP_CURRENT_MEDIA_EXECUTION_STATE_ON_MEDIA_TASK",
-    "SILENTLY_RELEASE_MEDIA_PRODUCTION_HOLD_WITHOUT_EXPLICIT_USER_INSTRUCTION",
     "SKIP_MASTER_RULEBOOK_ON_MEDIA_TASK",
     "SKIP_AUDIO_MOTION_PROSODY_CAPTION_CONTEXTUAL_VISUAL_AND_COLLISION_RULES_ON_MEDIA_TASK",
     "SKIP_FREE_AUDIO_SOURCE_REGISTRY_OR_DOVA_CURATED_BGM_DEFAULTS_WHEN_SELECTING_BACKGROUND_MUSIC",
@@ -193,7 +188,6 @@
   "new_session_behavior": {
     "permanent_manifest_must_point_to_this_policy": true,
     "media_task_must_re_read_current_repository_versions": true,
-    "current_media_execution_state_must_be_re_read": true,
     "master_rulebook_must_be_re_read": true,
     "audio_motion_retention_policy_must_be_re_read": true,
     "free_audio_source_registry_must_be_re_read": true,
