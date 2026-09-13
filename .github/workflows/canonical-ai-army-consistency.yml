@@ -49,6 +49,7 @@ on:
       - 'schemas/untrusted_content_envelope.schema.json'
       - 'schemas/claim_evidence_ledger.schema.json'
       - 'schemas/creative_experiment.schema.json'
+      - 'docs/AI_ARMY_MASTER_RULEBOOK.md'
       - 'docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md'
       - 'docs/MEDIA_COMMAND_READ_GATE.md'
       - 'docs/CREATOR_MONETIZATION_AND_AGENT_REVENUE_PLAYBOOK.md'
