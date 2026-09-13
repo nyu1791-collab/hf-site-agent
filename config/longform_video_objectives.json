@@ -1,18 +1,35 @@
 {
-  "schema_version": "longform-video-objectives-v2",
-  "effective_date_jst": "2026-09-12",
+  "schema_version": "longform-video-objectives-v3",
+  "effective_date_jst": "2026-09-13",
   "status": "ENFORCED_STANDARD",
-  "primary_goal": "DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK_AND_MAXIMUM_RESUMABILITY",
+  "primary_goal": "DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK_MAXIMUM_RESUMABILITY_AND_CLEAR_INFORMATION",
   "goal_priority": [
     "FINISHED_ARTIFACT_EXISTS_AND_PLAYS",
+    "USER_CAN_UNDERSTAND_THE_CONTENT",
     "PRESERVE_APPROVED_SCRIPT_AUDIO_AND_HEALTHY_SCENES",
     "RECOVER_FROM_THE_SMALLEST_FAILED_UNIT",
     "KEEP_AUDIO_SUBTITLE_VIDEO_TIMELINE_ALIGNED",
     "MINIMIZE_REENCODE_NETWORK_AND_AI_WORK",
-    "KEEP_EXTERNAL_PAID_OR_FREEMIUM_VIDEO_SAAS_USAGE_AT_ZERO",
+    "KEEP_EXTERNAL_PAID_OR_FREEMIUM_VIDEO_AND_CAPTION_EDITING_SAAS_USAGE_AT_ZERO",
+    "KEEP_GENERATED_IMAGE_AND_VIDEO_ASSET_USAGE_AT_ZERO",
     "PRODUCE_TRACEABLE_REPRODUCIBLE_EVIDENCE",
     "ALLOW_NEW_CHAT_TABS_OR_AGENT_SESSIONS_TO_RESUME_FROM_REPOSITORY_STATE"
   ],
+  "ai_division_objectives": {
+    "chatgpt_is_top_commander_and_final_integrator": true,
+    "deepseek_is_high_value_supervisor_not_bulk_coder": true,
+    "nvidia_may_independently_audit_ffmpeg_resource_and_codec_failures": true,
+    "qwen_or_deterministic_python_may_handle_targeted_implementation": true,
+    "same_task_duplicate_generation_by_many_agents_default": false,
+    "specialized_pipeline_stage_delegation_default": true
+  },
+  "content_objectives": {
+    "duration_is_content_driven": true,
+    "news_explainer_starting_range_minutes": [6, 10],
+    "range_is_not_hard_target": true,
+    "no_padding_by_repetition": true,
+    "news_context_before_event_why_it_matters_current_state_and_next_watchpoints_when_supported": true
+  },
   "hard_completion_gate": {
     "final_mp4_required": true,
     "file_size_gt_zero": true,
@@ -43,6 +60,9 @@
     "cross_run_resume_requires_verified_manifest": true
   },
   "asset_objectives": {
+    "generated_image_asset_count": 0,
+    "generated_video_asset_count": 0,
+    "visual_discovery_mode": "SEARCH_THEN_VERIFY_ORIGINAL_SOURCE_AND_RIGHTS",
     "network_fetch_inside_ffmpeg_render": false,
     "pre_download_and_decode_validate_assets": true,
     "single_bad_asset_may_fail_whole_video": false,
@@ -52,12 +72,22 @@
     "asset_provenance_ledger_required": true
   },
   "voice_objectives": {
-    "voice": "VOICEVOX_ZUNDAMON_LOCAL",
+    "voice_engine": "VOICEVOX_LOCAL",
+    "standard_cast": ["ずんだもん", "四国めたん"],
     "preserve_raw_voice_wav": true,
     "record_speaker_uuid_style_id_and_engine_version": true,
     "raw_voice_and_normalized_scene_audio_have_distinct_hashes": true,
     "normalize_scene_audio_to_hz": 48000,
-    "visual_only_edit_raw_voice_regeneration_count": 0
+    "visual_only_edit_raw_voice_regeneration_count": 0,
+    "prosody_and_emotion_are_semantic_beat_driven": true
+  },
+  "caption_objectives": {
+    "full_narration_coverage_ratio": 1.0,
+    "semantic_chunks": true,
+    "structural_hierarchy": ["TITLE", "CHAPTER", "SUBHEADING", "BODY"],
+    "keyword_emphasis": true,
+    "character_and_platform_safe_area": true,
+    "normalized_narration_caption_text_match_check": true
   },
   "timeline_objectives": {
     "audio_duration_source": "FFPROBE_ACTUAL_GENERATED_WAV",
@@ -102,6 +132,8 @@
   "cost_and_route_objectives": {
     "paid_video_saas_execution_count": 0,
     "video_saas_free_credit_execution_count": 0,
+    "paid_caption_or_video_editing_app_execution_count": 0,
+    "trial_or_temporary_free_caption_or_video_editing_execution_count": 0,
     "auto_top_up_count": 0,
     "paid_fallback_count": 0,
     "paid_sibling_substitution_count": 0,
@@ -112,42 +144,17 @@
     "finished_video_must_be_delivered_before_long_explanation": true,
     "do_not_claim_complete_before_machine_gate_passes": true,
     "creative_final_judgement_belongs_to_user": true,
-    "machine_review_scope": [
-      "artifact_exists",
-      "nonzero_size",
-      "ffprobe_readable",
-      "video_stream",
-      "audio_stream",
-      "resolution",
-      "duration_range",
-      "decode_errors"
-    ]
+    "heavy_ai_full_video_visual_review_is_not_required_for_handoff": true,
+    "machine_review_scope": ["artifact_exists", "nonzero_size", "ffprobe_readable", "video_stream", "audio_stream", "resolution", "duration_range", "decode_errors", "subtitle_coverage", "asset_rights_manifest"]
   },
-  "observability_metrics": [
-    "voice_cache_hit_rate",
-    "visual_cache_hit_rate",
-    "scene_cache_hit_rate",
-    "reused_scene_ratio",
-    "rerendered_scene_ratio",
-    "wasted_encode_seconds",
-    "checkpoint_restore_seconds",
-    "total_render_wall_seconds",
-    "p50_scene_render_seconds",
-    "p95_scene_render_seconds",
-    "peak_disk_bytes",
-    "asset_fallback_count",
-    "external_request_count",
-    "retry_count_by_root_cause",
-    "final_av_drift_ms",
-    "final_decode_error_count",
-    "subprocess_timeout_count",
-    "proxy_preview_count"
-  ],
+  "observability_metrics": ["voice_cache_hit_rate", "visual_cache_hit_rate", "scene_cache_hit_rate", "reused_scene_ratio", "rerendered_scene_ratio", "wasted_encode_seconds", "checkpoint_restore_seconds", "total_render_wall_seconds", "p50_scene_render_seconds", "p95_scene_render_seconds", "peak_disk_bytes", "asset_fallback_count", "external_request_count", "retry_count_by_root_cause", "final_av_drift_ms", "final_decode_error_count", "subprocess_timeout_count", "proxy_preview_count"],
   "continuity_objectives": {
     "canonical_handoff_file": "config/current_commander_handoff.json",
+    "media_read_gate": "config/media_command_read_gate.json",
     "new_session_restore_success_ratio": 1.0,
     "conversation_memory_required_for_resume": false,
-    "repository_state_required_for_resume": true
+    "repository_state_required_for_resume": true,
+    "blanket_media_production_hold_allowed_as_permanent_standard": false
   },
   "continuous_improvement": {
     "collect_baseline_before_setting_arbitrary_speed_thresholds": true,
