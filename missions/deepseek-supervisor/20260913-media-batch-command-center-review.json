@@ -1,0 +1,97 @@
+{
+  "mission_id": "media-batch-command-center-review-20260913",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Act as Executive Supervisor and adversarial peer reviewer under ChatGPT. Review the newly implemented Media Batch Command Center on canonical branch ai-army/provider-v3 at baseline HEAD ddd320745138e27efc47a1ee42ab39c3485deb08. Do not merely confirm that tests pass: actively search for correctness, concurrency, stale-write, recovery, rights, filesystem, FFmpeg/ffprobe, checkpoint, resource-admission, schema, and CI blind spots that could corrupt or falsely promote outputs in real use. Repository implementation and current permanent policies are source of truth. Return a severity-ranked review with evidence, exact failure scenarios, smallest safe remediation, and tests that would prove each accepted fix. Separate MUST_FIX_BEFORE_BROADER_USE from SHOULD_FIX and NICE_TO_HAVE. Avoid speculative redesign, unbounded workers, paid media services, or code churn. Do not write to the repository; ChatGPT will adjudicate every recommendation.",
+  "shared_evidence": [
+    {
+      "source": "canonical branch HEAD ddd320745138e27efc47a1ee42ab39c3485deb08",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T11:00:00+09:00",
+      "summary": "Current canonical branch contains the Media Batch Command Center implementation and its tests. PR #40 is still open/draft/unmerged. main, deploy, publish, secrets, and Durable Objects are untouched. Review this exact implementation, not stale handoff assumptions."
+    },
+    {
+      "source": "config/permanent_standards_manifest.json + config/batch_media_orchestration_policy.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T11:00:00+09:00",
+      "summary": "The command center is a priority-1 runtime under bounded-batch-media-orchestration. Permanent constraints include job-level parallelism only, max parallel jobs 3, later jobs queue, Single Writer per job, per-job rights verification, resource admission, NORMAL/DEGRADED/PAUSED backpressure, job leases, stale-write rejection, atomic manifest commit, content-addressed checkpoint identity, preserve verified checkpoints, isolated job failure, no unbounded swarm, no generic paid fallback, no paid/freemium video SaaS, and no claiming completion before machine gate pass. Parallelism above 3 is prohibited without new shadow/soak evidence."
+    },
+    {
+      "source": "scripts/batch_media_scheduler.py",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T11:00:00+09:00",
+      "summary": "Scheduler bounds BatchPolicy.max_parallel_jobs to 1..3, computes effective parallelism from backpressure and cpu slots, performs ResourceVector admission in bounded waves, isolates RIGHTS_BLOCK, classifies no-capacity as RESOURCE_EXHAUSTED/CANCELLED, uses ThreadPoolExecutor per admitted wave, retries only TRANSIENT_PROVIDER, and has FileLeaseManager using O_CREAT|O_EXCL lease files with TTL and token-bound release. Mutating handlers run through run_batch_with_leases. Scheduler also provides atomic_compare_and_swap_json with pre/post base-hash checks, though reviewers must verify whether the command center actually uses all CAS guarantees required by policy."
+    },
+    {
+      "source": "scripts/media_batch_command_center.py",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T11:00:00+09:00",
+      "summary": "Command center exposes lock/plan/run. lock hashes each local source with SHA-256. _build_jobs rehashes source before execution, validates <=10 jobs, safe mp4 basename, unique output_name within one manifest, start>=0, duration>0 and <=3600, allowed layout, resource vector, and job rights flag. render path probes source, detects audio, injects deterministic stereo silence if absent, uses FFmpeg trim/reframe and H.264/AAC normalization, writes a unique partial mp4, probes candidate, checks H.264/yuv420p/30fps plus AAC/48kHz/stereo and 1080x1920 for vertical modes, then promotes only validated output. Existing final+sidecar can be reused only when job_id, input hash, start, duration, layout, output hash, and current ffprobe contract match. Previous output is intended to survive replacement or sidecar commit failure. Mutating jobs use scheduler leases. Paid/provider/video-SaaS calls are zero. Adversarially inspect TOCTOU between source hash and FFmpeg read, output/sidecar transactional semantics, lease identity vs output identity, cross-manifest collisions, symlinks/path aliasing, cleanup after timeout/crash, partial file handling, source shorter than requested region, preserve-mode codec dimension constraints, ffprobe-only validation vs decode integrity, and any policy promise the implementation does not actually enforce."
+    },
+    {
+      "source": "schemas/media_batch_command.schema.json + examples/media_batch_3way.template.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T11:00:00+09:00",
+      "summary": "Manifest schema allows 1..10 jobs with job_id, input_path, rights_verified, start_seconds, duration_seconds <=3600, output_name basename mp4, optional layout, optional input SHA-256 and ResourceVector. Example defines three rights-cleared jobs with one cpu slot each and vertical-fit/crop. Review schema/runtime parity, dangerous-but-schema-valid values, zero resource declarations, output_dir/path behavior, and whether locked manifests are distinguishable/enforced as locked before run."
+    },
+    {
+      "source": "tests/test_media_batch_command_center.py + tests/test_batch_media_scheduler.py",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T11:00:00+09:00",
+      "summary": "Unit tests cover source hash locking, per-job rights isolation, output contract acceptance/rejection, prior-good video rollback when sidecar commit is forced to fail, NORMAL/DEGRADED/PAUSED parallel limits, fourth-job queueing, resource shortage, bounded transient retry, deterministic no-retry, lease exclusivity/token release, mutating lease lifecycle, external lease conflict, stale JSON CAS rejection, result ordering, and AI-free path. Identify missing adversarial tests rather than repeating covered cases."
+    },
+    {
+      "source": "tests/test_media_batch_command_center_ffmpeg.py + canonical-ai-army-consistency workflow",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T11:00:00+09:00",
+      "summary": "Real integration test creates three synthetic 1.2-second MP4 sources with H.264/AAC, executes all three with mocked cpu_count=3, requires PASS and ready_count=3, and verifies output/sidecar vertical dimensions and 48kHz audio. Canonical consistency CI compiles code, validates policies/schemas, runs scheduler/unit/real-FFmpeg tests, and confirms no DeepSeek secret in that free consistency workflow. Latest pre-review CI passed. Review whether this happy-path 3-way test is enough for crash/recovery/concurrency/media edge cases."
+    },
+    {
+      "source": "config/deepseek_paid_supervisor_policy.json + .github/workflows/deepseek-supervisor-research.yml",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T11:00:00+09:00",
+      "summary": "DeepSeek is preauthorized only as Executive Supervisor for architecture/peer-review/red-team/subordinate review. It has no repository write, merge, deploy, publish, secret mutation/disclosure, auto top-up, generic paid fallback, or paid media generation authority. Normal fanout is 6 lanes, max 3 parallel and max 8 calls. ChatGPT remains final adjudicator."
+    }
+  ],
+  "lanes": [
+    {
+      "id": "transaction-recovery",
+      "objective": "Red-team output promotion, previous-good preservation, sidecar transaction ordering, crash/power-loss windows, partial cleanup, checkpoint reuse, stale sidecars, and restart behavior. Find any state where a failed or interrupted replacement can destroy a verified old clip, leave a new clip paired with old metadata, or cause false checkpoint reuse. Give minimal fixes and deterministic failure-injection tests."
+    },
+    {
+      "id": "concurrency-filesystem",
+      "objective": "Red-team concurrency and filesystem identity. Examine whether leases keyed by job_id are sufficient when different job_ids/manifests target the same final output or path aliases/symlinks resolve to the same file; examine lease TTL expiry during long FFmpeg runs, cross-process races, output_dir collisions, and source/output aliasing. Rank actual exploit/corruption scenarios and propose smallest safe locking/identity changes."
+    },
+    {
+      "id": "media-correctness",
+      "objective": "Red-team FFmpeg and ffprobe correctness on realistic media: source shorter than start+duration, VFR, rotation metadata, odd dimensions, preserve mode, missing/invalid audio, multiple streams, timestamp discontinuities, long-GOP seeking, damaged packets, truncated-but-probeable outputs, color/SAR/DAR issues, and timeout/orphan process behavior. Distinguish machine-gate defects from acceptable scope limits and propose tests with synthetic fixtures where practical."
+    },
+    {
+      "id": "rights-input-integrity",
+      "objective": "Review rights and source-integrity enforcement. Determine whether rights_verified boolean plus source SHA-256 can be bypassed or become stale between validation and FFmpeg read (TOCTOU, symlink retarget, file replacement, input/output overlap). Do not invent legal requirements beyond current policy; focus on whether the implementation faithfully enforces the declared per-job rights and locked-source contract."
+    },
+    {
+      "id": "schema-resource-ci",
+      "objective": "Audit schema/runtime parity, resource accounting, backpressure, batch report semantics, and CI coverage. Look for zero or misleading resource declarations, memory/disk not reflecting real FFmpeg usage, max-parallel claims not actually measured, skipped FFmpeg tests when tools are absent, status/report cases that could report PASS incorrectly, and policy promises not continuously tested. Recommend only measurable additions with clear acceptance criteria."
+    },
+    {
+      "id": "architecture-adjudication",
+      "objective": "Perform final architectural contradiction review against permanent batch-media, longform-reliability, multi-agent, and DeepSeek-supervisor rules. Identify redundant layers or policy drift, but prefer the smallest coherent patch. Produce a final ordered table: severity, finding, concrete failure scenario, evidence, MUST_FIX/SHOULD_FIX/NICE_TO_HAVE, minimal remediation, regression test, and whether the current Command Center is safe for broader non-production use as-is."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 8,
+  "max_output_tokens_per_lane": 4096,
+  "max_output_tokens_synthesis": 6144,
+  "max_estimated_cost_usd": 0.20,
+  "known_estimated_daily_spend_before_mission_usd": 0.05785508,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}
