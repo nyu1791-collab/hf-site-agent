@@ -2,8 +2,8 @@
 """Fail-fast preflight for the zero-video-SaaS long-form pipeline.
 
 This command never renders video and never calls an external paid/freemium
-media service. It verifies the local deterministic toolchain, mission shape,
-free disk, policy, and (in runtime mode) the local VOICEVOX standard cast.
+media service. It verifies the local deterministic toolchain, optional mission
+shape, free disk, policy, and (in runtime mode) the local VOICEVOX standard cast.
 """
 from __future__ import annotations
 
@@ -21,8 +21,7 @@ from typing import Any, Iterable, Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_POLICY = ROOT / "config" / "longform_video_reliability_policy.json"
-DEFAULT_MISSION = ROOT / "missions" / "news-video-pilot.json"
-DEFAULT_OUTPUT_DIR = ROOT / "artifacts" / "news-video-pilot"
+DEFAULT_OUTPUT_DIR = ROOT / "artifacts" / "longform-preflight"
 DEFAULT_VOICEVOX = "http://127.0.0.1:50021"
 COMMAND_TIMEOUT_SECONDS = 20
 VOICEVOX_TIMEOUT_SECONDS = 10
@@ -274,7 +273,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     policy = policy_checks(checks, args.policy, args.route)
     versions = toolchain_checks(checks)
     storage_checks(checks, args.output_dir, args.min_free_gb)
-    mission = mission_checks(checks, args.mission)
+    mission = None
+    if args.mission is not None:
+        mission = mission_checks(checks, args.mission)
+    else:
+        add_check(checks, "mission.optional", True, "no mission supplied; policy/toolchain preflight only", blocking=False)
     voicevox = None
     if args.mode == "runtime":
         voicevox = voicevox_checks(checks, args.voicevox_url)
@@ -283,13 +286,13 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
 
     blocking_failures = [row for row in checks if row["blocking"] and not row["ok"]]
     return {
-        "schema_version": "longform-preflight-v1",
+        "schema_version": "longform-preflight-v2",
         "mode": args.mode,
         "status": "PASS" if not blocking_failures else "BLOCKED",
         "render_performed": False,
         "external_video_saas_called": False,
         "policy_path": str(args.policy),
-        "mission_path": str(args.mission),
+        "mission_path": str(args.mission) if args.mission is not None else None,
         "output_dir": str(args.output_dir),
         "toolchain": versions,
         "voicevox": voicevox,
@@ -305,7 +308,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("static", "runtime"), default="static")
     parser.add_argument("--policy", type=Path, default=DEFAULT_POLICY)
-    parser.add_argument("--mission", type=Path, default=DEFAULT_MISSION)
+    parser.add_argument("--mission", type=Path)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--voicevox-url", default=DEFAULT_VOICEVOX)
     parser.add_argument("--min-free-gb", type=float, default=4.0)
