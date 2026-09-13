@@ -1,25 +1,33 @@
-# 階層型AI部隊ランタイム
+# 階層型AI部隊ランタイム — Compatibility Implementation Reference
 
-このプロジェクトのAgentはモデル名ではなく、親子関係・権限・予算を持つ実行上のRoleです。指揮権は `chatgpt-work` に残し、命令は下向き、Reportは上向きにのみ流します。Peer間の委任、Swarm、多数決、失敗時の自動昇格はありません。
+> **Status: LEGACY_COMPATIBILITY_IMPLEMENTATION_DOC / NOT POLICY AUTHORITY**
+>
+> この文書は `scripts/agent_runtime.py` 周辺の互換ランタイム実装・回帰検証を理解するために残す技術資料です。現在のAI Armyの指揮権、Provider選択、有料実行権限、Delegation方針を決定するSource of Truthではありません。
+>
+> 現行Policy Authorityは `config/current_commander_handoff.json` → `config/permanent_standards_manifest.json` → `docs/AI_ARMY_MASTER_RULEBOOK.md` と、Manifestが指すMachine-readable Policy / Validator / CIです。新しいPolicy-facing routingは `scripts/ai_army_routing_facade.py` を入口とし、ChatGPT / WorkがTop Commander、DeepSeekはScoped Executive Supervisor、狭い処理ではDirect SpecialistまたはDeterministic Tool bypassを使用できます。
+>
+> 以下のGoogle / NVIDIA / Groq Commander → Specialist → OpenRouter Worker構造は、既存互換ランタイムの実装モデルを説明するものです。これだけを根拠にProviderを有効化したり、現在のrouting authorityへ昇格したりしてはいけません。
 
-## 現行階層
+この互換ランタイムではAgentをモデル名ではなく、親子関係・権限・予算を持つ実行上のRoleとして扱います。指揮権は `chatgpt-work` に残し、命令は下向き、Reportは上向きにのみ流します。Peer間の委任、Swarm、多数決、失敗時の自動昇格はありません。
+
+## 互換ランタイム階層
 
 | 階級 | `agent_id` | Provider | 親 | 主な担当 |
 |---|---|---|---|---|
 | 最高司令 | `chatgpt-work` | Work | なし | Mission解釈、承認、統合、最終判断 |
-| 直属Commander | `google-general-commander` | Google | `chatgpt-work` | Research、Planning、長文書、Multimodal、情報統合 |
-| 直属Commander | `nvidia-engineering-commander` | NVIDIA | `chatgpt-work` | Repository、Coding、Debug、Test、Infrastructure |
-| 直属Commander | `groq-rapid-commander` | Groq | `chatgpt-work` | 高速要約、分類、抽出、JSON、ログ一次判定 |
-| Specialist | `<role>-specialist` | 親Provider | 直属Commander | 承認済みTaskの分解・下書き |
+| 互換Commander | `google-general-commander` | Google | `chatgpt-work` | Research、Planning、長文書、Multimodal、情報統合 |
+| 互換Commander | `nvidia-engineering-commander` | NVIDIA | `chatgpt-work` | Repository、Coding、Debug、Test、Infrastructure |
+| 互換Commander | `groq-rapid-commander` | Groq | `chatgpt-work` | 高速要約、分類、抽出、JSON、ログ一次判定 |
+| Specialist | `<role>-specialist` | 親Provider | 互換Commander | 承認済みTaskの分解・下書き |
 | Worker | `<role>-worker` | OpenRouter | Specialist | 低リスク・限定範囲の実働 |
 
-`scripts/agent_runtime.py` の `default_agent_specs()` が有限の登録表です。現在の全Roleは `active=false`、`requires_explicit_approval=true` で初期化されます。Workerは子Agentを生成できず、各Agentの `max_children`、`max_parallel`、`max_depth` は有限です。
+`scripts/agent_runtime.py` の `default_agent_specs()` がこの互換ランタイムの有限登録表です。Roleの `active` / approval状態は実装と現行Registryを実行時に確認し、この文書の記述から有効状態を推測しません。Workerは子Agentを生成できず、各Agentの `max_children`、`max_parallel`、`max_depth` は有限です。
 
 ```mermaid
 flowchart TD
-  C[ChatGPT Work] --> G[Google Commander]
-  C --> N[NVIDIA Commander]
-  C --> R[Groq Commander]
+  C[ChatGPT Work] --> G[Compatibility Google Commander]
+  C --> N[Compatibility NVIDIA Commander]
+  C --> R[Compatibility Groq Commander]
   G --> S[Provider Specialist]
   N --> S
   R --> S
@@ -27,7 +35,7 @@ flowchart TD
   W --> P[Python / API / Tools]
 ```
 
-同じTaskを3Providerへ常時送らず、通常は適任Providerを1つだけ選びます。独立検証が必要な場合のみPrimary＋Verifierの2経路まで許可します。OpenRouterはWorker Providerであり、ChatGPT Work直属Commanderにはなりません。
+この図は互換実装のTopologyであり、現在のPolicy-facing routing決定図ではありません。同じTaskを3Providerへ常時送らず、独立検証が必要な場合もMachine Oracle / deterministic validatorを優先します。
 
 ## Command / Report契約
 
@@ -46,18 +54,24 @@ Reportは会話全文を上へコピーせず、`summary`、`result`、`artifact
 5. Artifactは内容ハッシュをIDとして渡し、CacheはGlobal / Mission / Commander / Workerの層で照合します。長時間MissionはStageごとにCheckpointを保存します。
 6. URL、重複排除、Sort、Hash、JSON/Schema検証、HTTP Status、Retry、Quota、Queue、Cache照合は通常コードで処理し、LLMには意味判断だけを渡します。
 
-## ProviderとModel
+これらのCommand/Report、Cancellation、Idempotency、Checkpoint、bounded execution原則は現行Policyでも価値があるため、この文書を残す主な理由です。
 
-Provider Registryは Google、NVIDIA、Groqを `COMMANDER_PROVIDER`、OpenRouterを `WORKER_PROVIDER` として分離します。現在は全Providerが `enabled=false`、`probe_status=NOT_RUN` です。成功Probe、健全性確認、Circuit CLOSED、明示承認が揃うまで有効化できません。
+## Provider / Modelに関する注意
 
-Model RegistryはRoleとModel IDを分離します。新3CommanderのModel IDは現行公式Catalogと実Endpointを確認するまで空欄で、推測登録しません。OpenRouter Workerは `scripts/probe_free_workers.py` が現行Catalogから候補を取得し、正確な `:free` ID、価格0、必要能力、Context、応答Model一致、`usage.cost=0`、Credits不変、Fallbackなしを満たしたものだけを選びます。
+この互換ランタイムには、Google / NVIDIA / GroqをCommander Provider、OpenRouterをWorker Providerとして扱う実装・テストが残っています。それは**現在のProvider readiness、無料枠、Exact Model ID、Quota、routing authorityを証明しません**。
 
-Worker実行は手入力Modelを信頼しません。`agent_executor.py` は別ArtifactのProbe ReportとSpecialist→Worker Role対応を照合し、Provider/Roleの明示承認、共通Adapter、OpenRouter専用Ledgerを通過した場合だけ一件を送信します。
+Provider / Modelの実行可否は毎回、現行Registry、exact route evidence、cost/quota evidence、Policy、Probe結果を確認してください。古い文書に記録されたModel IDやRPM/RPD/日次上限を現在値として流用してはいけません。UnknownはFail Closedです。
 
-`FREE_ONLY_MODE=true`、Paid Model/Fallback/Web Search/Auto top-upはOFFです。OpenRouter専用には既存の日次1000、900 Hard Stop、15 RPM、429 Circuit Stopを保持し、Google/NVIDIA/Groqへ同じ数字を流用しません。Quota不明は無制限利用ではなく停止条件です。
+OpenRouter等について過去に使用した数値上限やHard Stopは、当時の互換実装・回帰検証条件としてコードや履歴に残る場合があります。現在の外部Provider条件を意味しないため、実Provider利用前に最新の公式・アカウントEvidenceを再確認します。
 
-## 旧構成と導入状態
+## 現行Policyとの境界
 
-旧Qwen/DeepSeek等の固定Commander経路は `LEGACY_DISABLED` として隔離し、新Routingの候補ではありません。既存の専門Role名は互換再利用しますが、現在のProvider Commander・Specialist・Workerは未承認状態です。
+- ChatGPT / Workが最終Authorityです。
+- Paid DeepSeekの実行権限は `config/deepseek_paid_supervisor_policy.json` とcanonical supervisor workflowのScoped Exceptionだけです。
+- 互換Commander定義はDeepSeek Supervisor、Direct Specialist bypass、Deterministic Tool bypassを上書きしません。
+- 旧Registryやhistorical `enabled` flagは実行権限になりません。
+- `FREE_ONLY_MODE`等の既定安全境界、Auto Top-up禁止、Generic Paid Fallback禁止を維持します。
+- Provider readiness / quota / costは古い文書から推測せず、fresh evidenceを要求します。
+- main Push、PR Merge、Deploy、Publish、Secrets操作等はHuman Approval Gateを維持します。
 
-基盤のCancellation、Idempotency、Secret監査、Provider Registry、共通Adapter、Quota/Circuit、Routing、Dynamic Worker選定はローカル契約テストで検証します。実Provider Probe、20〜50件の実Mission比較、Roleの `active=true`、本番切替は未実施で、最終承認後の別段階です。
+この文書は互換実装を削除せず安全に保守・回帰検証するための資料であり、新規セッションのBootstrap文書としては使用しません。
