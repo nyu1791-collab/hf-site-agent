@@ -121,20 +121,20 @@ def main() -> int:
     require(cross_tab.get("monetization_command_read_gate_survives_tab_change") is True, "monetization gate not durable across tabs")
     require(cross_tab.get("monetization_task_re_reads_repository_know_how_before_work") is True, "monetization task does not reread repo")
 
+    # New sessions already restore the permanent manifest before planning. The
+    # monetization files are priority standards inside that manifest, avoiding
+    # a second conflicting startup list in the commander handoff.
     continuity = handoff.get("continuity") or {}
-    read_order = set(continuity.get("on_new_session_required_read_order") or [])
-    require("config/monetization_command_read_gate.json" in read_order, "handoff does not restore monetization gate")
-    require("config/creator_monetization_policy.json" in read_order, "handoff does not restore creator monetization policy")
-    require("config/platform_program_evidence.json" in read_order, "handoff does not restore platform program evidence")
-    active = handoff.get("active_standards") or {}
-    require(active.get("creator_monetization_policy") == "config/creator_monetization_policy.json", "handoff active monetization policy drift")
-    require(active.get("platform_program_evidence") == "config/platform_program_evidence.json", "handoff active platform evidence drift")
+    read_order = list(continuity.get("on_new_session_required_read_order") or [])
+    require("config/permanent_standards_manifest.json" in read_order, "handoff must restore permanent manifest")
+    require(continuity.get("restore_before_planning_or_external_calls") is True, "handoff restore timing drift")
+    require(continuity.get("repository_is_source_of_truth") is True, "repository must remain source of truth")
 
     print(json.dumps({
         "status": "PASS",
         "priority_lanes": len(lanes),
         "platform_programs": len(programs),
-        "cross_tab_monetization_gate": "ENFORCED",
+        "cross_tab_monetization_gate": "ENFORCED_VIA_PRIORITY0_MANIFEST",
         "mass_auto_post_monetization": "BLOCKED",
         "mass_unsolicited_outreach": "BLOCKED",
         "income_guarantee": "BLOCKED",
