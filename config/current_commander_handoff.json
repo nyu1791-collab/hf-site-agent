@@ -1,8 +1,8 @@
 {
-  "schema_version": "top-commander-handoff-v7",
-  "effective_date_jst": "2026-09-12",
+  "schema_version": "top-commander-handoff-v8",
+  "effective_date_jst": "2026-09-13",
   "mission_id": "ai-army-canonical-supervisor-routing-20260912",
-  "objective": "Preserve and improve the AI Army with ChatGPT as Top Commander, paid DeepSeek as a bounded Executive Supervisor for high-value supervisory work, direct specialist bypass for narrow verified execution, deterministic-tool bypass for mechanical work, and repository-backed permanent policy continuity across chat tabs.",
+  "objective": "Preserve and improve the AI Army with ChatGPT as Top Commander, paid DeepSeek as a bounded Executive Supervisor for high-value supervisory work, direct specialist bypass for narrow verified execution, deterministic-tool bypass for mechanical work, repository-backed permanent policy continuity across chat tabs, and drift-free task-specific media restoration through the permanent manifest and semantic read gates.",
   "continuity": {
     "portable_across_chat_tabs": true,
     "conversation_memory_is_not_source_of_truth": true,
@@ -11,30 +11,21 @@
       "README.md",
       "config/current_commander_handoff.json",
       "config/permanent_standards_manifest.json",
-      "config/ai_army_org_chart.json",
-      "docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md",
-      "config/multi_agent_operating_policy.json",
-      "config/deepseek_paid_supervisor_policy.json",
-      "config/ci_execution_policy.json",
-      "config/agent_efficiency_policy.json",
-      "config/peer_review_adopted_deltas_20260912.json",
-      "config/legacy_deepseek_compatibility.json",
-      "docs/MULTI_AGENT_OPERATING_STANDARD.md",
-      "config/longform_video_objectives.json",
-      "config/longform_video_reliability_policy.json",
-      "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
-      "config/authorized_clipping_monetization_policy.json",
-      "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
-      "config/tiktok_shop_influence_policy.json",
-      "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
-      "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md"
+      "docs/AI_ARMY_MASTER_RULEBOOK.md"
     ],
+    "read_order_is_bootstrap_not_full_standard_copy": true,
+    "task_specific_gate_resolution": {
+      "media": "config/media_command_read_gate.json",
+      "monetization": "config/monetization_command_read_gate.json",
+      "rule": "Resolve detailed task-specific standards from the current permanent manifest and semantic gate instead of duplicating their full lists inside this handoff."
+    },
     "restore_before_planning_or_external_calls": true,
     "if_chat_instruction_conflicts_with_repository_policy": "FOLLOW_LATEST_EXPLICIT_USER_INSTRUCTION_WITHIN_SAFETY_BOUNDARIES_AND_UPDATE_REPOSITORY_IF_IT_CHANGES_THE_PERMANENT_STANDARD",
     "write_new_durable_operating_decisions_back_to_repository": true
   },
   "active_standards": {
     "permanent_manifest": "config/permanent_standards_manifest.json",
+    "master_rulebook": "docs/AI_ARMY_MASTER_RULEBOOK.md",
     "org_chart": "config/ai_army_org_chart.json",
     "canonical_org_doc": "docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md",
     "canonical_routing_facade": "scripts/ai_army_routing_facade.py",
@@ -50,6 +41,10 @@
     "legacy_deepseek_registry": "config/legacy_deepseek_compatibility.json",
     "peer_review_adjudication": "config/peer_review_adopted_deltas_20260912.json",
     "multi_agent_standard": "docs/MULTI_AGENT_OPERATING_STANDARD.md",
+    "media_command_gate": "config/media_command_read_gate.json",
+    "media_audio_motion_retention": "config/media_audio_motion_retention_policy.json",
+    "free_audio_source_registry": "config/free_audio_source_registry.json",
+    "dova_curated_bgm_catalog": "config/dova_curated_bgm_catalog.json",
     "longform_objectives": "config/longform_video_objectives.json",
     "longform_policy": "config/longform_video_reliability_policy.json",
     "longform_playbook": "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
@@ -58,6 +53,27 @@
     "tiktok_shop_influence_policy": "config/tiktok_shop_influence_policy.json",
     "tiktok_shop_influence_playbook": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
     "research_synthesis": "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md"
+  },
+  "temporary_user_overrides": {
+    "media_production_hold": {
+      "status": "ACTIVE_UNTIL_EXPLICIT_USER_RELEASE",
+      "permanent_standard": false,
+      "blocked_now": [
+        "IMAGE_GENERATION",
+        "VIDEO_GENERATION",
+        "VOICE_GENERATION",
+        "MEDIA_RENDER"
+      ],
+      "allowed_now": [
+        "RESEARCH",
+        "ANALYSIS",
+        "TEXTUAL_SPECIFICATION",
+        "RIGHTS_REVIEW",
+        "REPOSITORY_POLICY_AND_VALIDATION_WORK"
+      ],
+      "must_not_be_promoted_into_permanent_media_standard": true,
+      "release_rule": "Remove or change this temporary override only after a later explicit user instruction authorizes production."
+    }
   },
   "peer_review_status": {
     "completed": true,
@@ -164,8 +180,9 @@
     "git_history_preserves_retired_experiments": true
   },
   "longform_fixed_rules": {
-    "video_creation_not_started_by_this_integration_mission": true,
-    "voice": "VOICEVOX_ZUNDAMON_LOCAL",
+    "task_specific_media_execution_state_is_not_a_permanent_standard": true,
+    "media_policy_source": "config/media_command_read_gate.json",
+    "voice": "VOICEVOX_ZUNDAMON_AND_SHIKOKU_METAN_LOCAL",
     "render": "PYTHON_FFMPEG_FFPROBE",
     "prohibited_freemium_video_saas": ["descript", "fal", "fal.ai", "runway", "veed", "heygen", "higgsfield"],
     "external_video_service_requires_verified_completely_free_route": true,
@@ -237,7 +254,10 @@
   "lanes": ["CANONICAL_AI_ARMY_ROUTING", "DEEPSEEK_EXECUTIVE_SUPERVISION", "CI_CONTROL_PLANE", "LONGFORM_VIDEO_RELIABILITY", "AUTHORIZED_CLIPPING_MONETIZATION", "EVIDENCE_BASED_TIKTOK_SHOP_COMMERCE", "MULTI_AGENT_ORCHESTRATION", "FAILURE_RECOVERY", "EVALUATION_AND_REGRESSION", "CONTEXT_AND_HANDOFF"],
   "priority_order": ["CONTEXT_AND_HANDOFF", "CANONICAL_AI_ARMY_ROUTING", "DEEPSEEK_EXECUTIVE_SUPERVISION", "CI_CONTROL_PLANE", "FAILURE_RECOVERY", "EVIDENCE_BASED_TIKTOK_SHOP_COMMERCE", "AUTHORIZED_CLIPPING_MONETIZATION", "LONGFORM_VIDEO_RELIABILITY", "MULTI_AGENT_ORCHESTRATION", "EVALUATION_AND_REGRESSION"],
   "specific_checks": [
-    "new sessions restore canonical policy files before planning",
+    "new sessions restore current commander handoff, permanent manifest and master rulebook before task-specific planning",
+    "task-specific media and monetization rules are restored from semantic read gates rather than copied wholesale into this handoff",
+    "handoff media voice rule matches the durable two-voice VOICEVOX cast",
+    "temporary media execution holds remain temporary user overrides and never become permanent media standards",
     "all new policy-facing route selection enters scripts/ai_army_routing_facade.py",
     "legacy commander routing remains compatibility-only",
     "paid DeepSeek supervisor authorization survives tab changes without granting blanket paid-provider access",
