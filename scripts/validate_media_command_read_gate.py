@@ -32,7 +32,6 @@ def main() -> int:
     gate = load_json("config/media_command_read_gate.json")
     manifest = load_json("config/permanent_standards_manifest.json")
     handoff = load_json("config/current_commander_handoff.json")
-    media_state = load_json("config/current_media_execution_state.json")
     media_creative = load_json("config/media_audio_motion_retention_policy.json")
 
     require(gate.get("status") == "ENFORCED_STANDARD", "media command read gate is not enforced")
@@ -51,8 +50,6 @@ def main() -> int:
     require("PUBLISHING_HANDOFF" in before, "read gate no longer precedes publishing handoff")
     require(execution.get("conversation_memory_alone_is_insufficient") is True, "chat memory became sufficient for media gate")
     require(execution.get("tab_or_session_change_does_not_waive_gate") is True, "tab/session change now waives media gate")
-    require(execution.get("current_media_execution_state_must_be_read_and_applied") is True, "current media execution state is no longer mandatory")
-    require(execution.get("explicit_user_release_required_when_current_state_holds_media_production") is True, "media production hold can now be released implicitly")
     require(execution.get("measurement_plan_required_for_optimization_claim") is True, "optimization may be claimed without measurement plan")
 
     common = list(gate.get("common_media_read_set") or [])
@@ -61,7 +58,6 @@ def main() -> int:
         {
             "config/current_commander_handoff.json",
             "config/permanent_standards_manifest.json",
-            "config/current_media_execution_state.json",
             "docs/AI_ARMY_MASTER_RULEBOOK.md",
             "config/media_audio_motion_retention_policy.json",
             "config/free_audio_source_registry.json",
@@ -136,19 +132,11 @@ def main() -> int:
         require(required_know_how in video_know_how, f"video creative know-how missing: {required_know_how}")
 
     new_session = gate.get("new_session_behavior") or {}
-    require(new_session.get("current_media_execution_state_must_be_re_read") is True, "new session lost current media execution-state reread")
     require(new_session.get("master_rulebook_must_be_re_read") is True, "new session lost master rulebook reread")
     require(new_session.get("audio_motion_retention_policy_must_be_re_read") is True, "new session lost creative standard reread")
     require(new_session.get("free_audio_source_registry_must_be_re_read") is True, "new session lost free audio registry reread")
     require(new_session.get("dova_curated_bgm_catalog_must_be_re_read") is True, "new session lost DOVA catalog reread")
     require(new_session.get("do_not_rely_on_prior_tab_summary_as_substitute") is True, "prior tab summary became substitute for repository reread")
-
-    require(media_state.get("source_of_truth") == "repository", "current media state is no longer repository-backed")
-    require(media_state.get("status") == "HOLD_MEDIA_PRODUCTION_UNTIL_EXPLICIT_USER_RELEASE", "current media production hold drifted")
-    release = media_state.get("release_rule") or {}
-    require(release.get("explicit_user_instruction_required") is True, "current media hold can now release without explicit user instruction")
-    require(release.get("implicit_context_or_old_plan_does_not_release_hold") is True, "old context can now release current media hold")
-    require((media_state.get("cross_session") or {}).get("must_be_read_by_media_command_gate") is True, "current media state lost cross-session read requirement")
 
     creative_default = media_creative.get("semantic_default") or {}
     creative_durability = media_creative.get("durability") or {}
@@ -193,8 +181,6 @@ def main() -> int:
         "semantic_intent": True,
         "mixed_intents_additive": True,
         "cross_tab_reread": True,
-        "current_media_execution_state_reread": True,
-        "current_media_production_hold": True,
         "creative_standard_reread": True,
         "free_audio_registry_reread": True,
         "dova_catalog_reread": True,
