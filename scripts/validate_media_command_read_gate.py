@@ -112,7 +112,7 @@ def main() -> int:
     standards = manifest.get("required_standards") or []
     media_entries = [entry for entry in standards if isinstance(entry, dict) and entry.get("id") == "media-command-read-gate"]
     require(len(media_entries) == 1, "media command read gate must appear exactly once in permanent required standards")
-    require(int(media_entries[0].get("priority") or 99) == 0, "media command read gate must remain priority 0")
+    require(media_entries[0].get("priority") == 0, "media command read gate must remain priority 0")
 
     read_order = ((handoff.get("continuity") or {}).get("on_new_session_required_read_order") or [])
     require("config/permanent_standards_manifest.json" in read_order, "new session no longer reads permanent standards manifest")
