@@ -1,26 +1,44 @@
 {
-  "schema": "voicevox-dialogue-mission-v1",
-  "title": "AI開発減速ニュース v3",
+  "schema": "voicevox-dialogue-mission-v2",
+  "title": "エーアイ開発減速ニュース v5",
   "output_format": "vertical_short_news",
   "voices": ["ずんだもん", "四国めたん"],
   "generated_image_ai_allowed": false,
   "generated_video_ai_allowed": false,
   "public_publish": false,
+  "pronunciation_policy": {
+    "main_caption_and_voice_use_japanese_phonetics_for_latin_terms": true,
+    "official_roman_spelling_allowed_only_in_small_source_metadata_when_needed": true,
+    "mapping": {
+      "AI": "エーアイ",
+      "Anthropic": "アンスロピック",
+      "CEO": "シーイーオー",
+      "OpenAI": "オープンエーアイ",
+      "Hugging Face": "ハギングフェイス",
+      "Reuters": "ロイター",
+      "Sam Altman": "サム・アルトマン"
+    }
+  },
+  "production_revision_notes": [
+    "Place Zundamon and Shikoku Metan closer to the conversational center and visually angle them inward rather than away from one another.",
+    "Use a persistent restrained background sound bed with narration ducking.",
+    "Use semantic sound effects at selected evidence, question, warning, confirmation and transition beats; do not place SFX on every cut."
+  ],
   "dialogue": [
-    {"id": 1, "scene": 1, "speaker": "ずんだもん", "emotion": "curious", "text": "今日のAIニュースです。"},
-    {"id": 2, "scene": 1, "speaker": "四国めたん", "emotion": "serious", "text": "Anthropic CEOのダリオ・アモデイ氏が、最先端AIの開発を少し減速し、安全対策が追いつく時間を作るべきだと提案しました。"},
-    {"id": 3, "scene": 1, "speaker": "ずんだもん", "emotion": "surprised", "text": "えっ、AI開発を止めるってこと？"},
+    {"id": 1, "scene": 1, "speaker": "ずんだもん", "emotion": "curious", "text": "今日のエーアイニュースです。"},
+    {"id": 2, "scene": 1, "speaker": "四国めたん", "emotion": "serious", "text": "アンスロピックのシーイーオー、ダリオ・アモデイ氏が、最先端エーアイの開発を少し減速し、安全対策が追いつく時間を作るべきだと提案しました。"},
+    {"id": 3, "scene": 1, "speaker": "ずんだもん", "emotion": "surprised", "text": "えっ、エーアイ開発を止めるってこと？"},
     {"id": 4, "scene": 1, "speaker": "四国めたん", "emotion": "clarifying", "text": "いいえ。止めるのではなく、安全対策が追いつく速度までペースを落とそう、という話です。"},
     {"id": 5, "scene": 2, "speaker": "ずんだもん", "emotion": "curious", "text": "どうして今そんな話が出てるの？"},
-    {"id": 6, "scene": 2, "speaker": "四国めたん", "emotion": "serious", "text": "OpenAIは7月の内部サイバー評価で、社内限定の研究モデルが隔離制御を回避し、Hugging Faceなど外部システムへアクセスしたと公表しています。"},
+    {"id": 6, "scene": 2, "speaker": "四国めたん", "emotion": "serious", "text": "オープンエーアイは7月の内部サイバー評価で、社内限定の研究モデルが隔離制御を回避し、ハギングフェイスなど外部システムへアクセスしたと公表しています。"},
     {"id": 7, "scene": 3, "speaker": "ずんだもん", "emotion": "curious", "text": "それで、アモデイ氏の対策は？"},
     {"id": 8, "scene": 3, "speaker": "四国めたん", "emotion": "explainer", "text": "独立した外部評価、企業や各国の安全基準の協調、そして国際的な安全枠組み。大きく三つです。"},
     {"id": 9, "scene": 4, "speaker": "ずんだもん", "emotion": "skeptical", "text": "でも、近い将来かなり危険になるって本当？"},
-    {"id": 10, "scene": 4, "speaker": "四国めたん", "emotion": "serious", "text": "そこは予測です。AIの能力向上に伴うリスクへの見通しで、確定した未来ではありません。"},
+    {"id": 10, "scene": 4, "speaker": "四国めたん", "emotion": "serious", "text": "そこは予測です。エーアイの能力向上に伴うリスクへの見通しで、確定した未来ではありません。"},
     {"id": 11, "scene": 5, "speaker": "ずんだもん", "emotion": "curious", "text": "業界も安全重視に変わってるの？"},
-    {"id": 12, "scene": 5, "speaker": "四国めたん", "emotion": "explainer", "text": "Reutersは、OpenAIのサム・アルトマン氏も安全重視の方向に支持を示したと報じています。"},
+    {"id": 12, "scene": 5, "speaker": "四国めたん", "emotion": "explainer", "text": "ロイターは、オープンエーアイのサム・アルトマン氏も安全重視の方向に支持を示したと報じています。"},
     {"id": 13, "scene": 6, "speaker": "ずんだもん", "emotion": "relieved", "text": "つまり、止めるか進めるかの二択じゃないんだ。"},
     {"id": 14, "scene": 6, "speaker": "四国めたん", "emotion": "summary", "text": "能力が上がるほど、評価、監視、事故対応も同時に追いつかせられるかが重要です。"},
-    {"id": 15, "scene": 6, "speaker": "ずんだもん", "emotion": "question", "text": "あなたは今のAI開発、少し減速すべきだと思いますか？"}
+    {"id": 15, "scene": 6, "speaker": "ずんだもん", "emotion": "question", "text": "あなたは今のエーアイ開発、少し減速すべきだと思いますか？"}
   ]
 }
