@@ -56,10 +56,31 @@ def main() -> int:
     assert active["tiktok_shop_influence_policy"] == "config/tiktok_shop_influence_policy.json"
     assert active["tiktok_shop_influence_playbook"] == "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md"
 
-    trigger = gate["trigger_read_sets"]["TIKTOK_SHOP_COMMERCE"]
+    # Read Gate v10 uses intent-specific trigger_sets and an explicit mixed-intent
+    # expansion instead of the retired trigger_read_sets shape. Shop clipping
+    # must therefore restore both commerce and clipping know-how.
+    assert gate["schema_version"] == "media-command-read-gate-v10"
+    trigger = gate["trigger_sets"]["TIKTOK_SHOP_COMMERCE"]
     required_reads = set(trigger["required"])
     assert "config/tiktok_shop_influence_policy.json" in required_reads
     assert "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md" in required_reads
+    assert "config/cross_source_knowhow_evidence_matrix.json" in required_reads
+    assert "config/cross_source_second_pass_policy.json" in required_reads
+    assert "config/second_pass_artifact_contracts.json" in required_reads
+
+    repurpose_reads = set(
+        (trigger.get("conditional") or {}).get(
+            "if_existing_or_third_party_media_is_repurposed", []
+        )
+    )
+    assert "config/authorized_clipping_monetization_policy.json" in repurpose_reads
+    assert "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md" in repurpose_reads
+    assert "config/batch_media_orchestration_policy.json" in repurpose_reads
+    assert set(gate["mixed_intent_expansions"]["SHOP_CLIPPING"]) == {
+        "TIKTOK_SHOP_COMMERCE",
+        "CLIPPING_REPURPOSING",
+    }
+    assert gate["knowledge_restore_execution"]["shop_clipping_must_union_shop_and_clipping_knowhow"] is True
     assert gate["new_session_behavior"]["do_not_rely_on_prior_tab_summary_as_substitute"] is True
 
     assert "EVIDENCE_BASED_TIKTOK_SHOP_COMMERCE" in h["lanes"]
