@@ -43,6 +43,7 @@ on:
       - 'scripts/validate_media_character_visual_standard.py'
       - 'scripts/validate_media_character_reaction_cache.py'
       - 'scripts/validate_zundamon_metan_production_quality.py'
+      - 'scripts/validate_video_retention_efficiency.py'
       - 'scripts/prepare_character_reaction_pack.py'
       - 'scripts/validate_commander_handoff_continuity.py'
       - 'scripts/validate_creator_monetization_state.py'
@@ -132,6 +133,7 @@ jobs:
             scripts/validate_media_character_visual_standard.py \
             scripts/validate_media_character_reaction_cache.py \
             scripts/validate_zundamon_metan_production_quality.py \
+            scripts/validate_video_retention_efficiency.py \
             scripts/prepare_character_reaction_pack.py \
             scripts/validate_commander_handoff_continuity.py \
             scripts/validate_creator_monetization_state.py \
@@ -223,6 +225,11 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_zundamon_metan_production_quality.py
+
+      - name: Enforce viewer retention and quality-preserving efficiency
+        run: |
+          set -euo pipefail
+          python scripts/validate_video_retention_efficiency.py
 
       - name: Enforce TikTok Shop policy continuity
         run: |
