@@ -1,16 +1,9 @@
 #!/usr/bin/env python3
 """Compile one fast, bounded media preproduction mission.
 
-The mission uses four independent root lanes only where work is genuinely
-independent, then one Single Writer join. Native V4 remains the authority.
-External framework diversity is deliberately capped to two execution styles
-(LangGraph and CrewAI); deterministic rights/claim and automation planning stay
-on Native V4.
-
-Current media policy is authoritative. The retired
-``config/shortform_edit_profile.json`` is forbidden. Generated image/video
-assets are not a default production source. Shop clips explicitly restore both
-TikTok Shop know-how and authorized clipping know-how.
+Four genuinely independent root lanes feed one Single Writer join. Reusable
+media assets are cache-first: registered assets and deterministic character
+layout/motion presets are checked before any new search or download.
 """
 from __future__ import annotations
 
@@ -20,6 +13,7 @@ from scripts.parallel_framework_batch import ParallelBatchItem, build_parallel_b
 
 
 RETIRED_SHORTFORM_PROFILE = "config/shortform_edit_profile.json"
+DEFAULT_REUSABLE_ASSET_STANDARD = "config/media_reusable_asset_standard.json"
 
 
 def _unique(values: list[str]) -> list[str]:
@@ -31,6 +25,7 @@ def _intent_read_set(
     media_policy: str,
     media_read_gate: str,
     source_policy: str,
+    reusable_asset_standard: str,
     clipping_policy: str,
     shop_policy: str,
     repurposing: bool,
@@ -41,6 +36,7 @@ def _intent_read_set(
     paths = [
         media_read_gate,
         media_policy,
+        reusable_asset_standard,
         source_policy,
         "config/multi_agent_operating_policy.json",
         "config/agent_efficiency_policy.json",
@@ -66,10 +62,10 @@ def _intent_read_set(
         paths.append(photo_manifest)
     if voice_route_config:
         paths.append(voice_route_config)
-    require = _unique(paths)
-    if RETIRED_SHORTFORM_PROFILE in require:
+    required = _unique(paths)
+    if RETIRED_SHORTFORM_PROFILE in required:
         raise ValueError("retired shortform edit profile may not be used")
-    return require
+    return required
 
 
 def build_media_parallel_items(
@@ -78,6 +74,7 @@ def build_media_parallel_items(
     media_policy: str = "config/media_audio_motion_retention_policy.json",
     media_read_gate: str = "config/media_command_read_gate.json",
     source_policy: str = "config/media_source_policy.json",
+    reusable_asset_standard: str = DEFAULT_REUSABLE_ASSET_STANDARD,
     clipping_policy: str = "config/authorized_clipping_monetization_policy.json",
     shop_policy: str = "config/tiktok_shop_influence_policy.json",
     repurposing: bool = False,
@@ -98,6 +95,7 @@ def build_media_parallel_items(
         media_policy=media_policy,
         media_read_gate=media_read_gate,
         source_policy=source_policy,
+        reusable_asset_standard=reusable_asset_standard,
         clipping_policy=clipping_policy,
         shop_policy=shop_policy,
         repurposing=repurposing,
@@ -122,7 +120,11 @@ def build_media_parallel_items(
     source_hint = (
         f" An optional rights manifest is available at {photo_manifest}; revalidate it against the current task."
         if photo_manifest
-        else " Discover current real or official visuals through search, then verify source and reuse rights before materializing."
+        else (
+            f" Check {reusable_asset_standard} first. Use a registered verified cache hit or known registered "
+            "source before search. Search only when no registered asset is semantically suitable; search is "
+            "discovery, not a license."
+        )
     )
     voice_hint = (
         f" A task-specific voice route is declared in {voice_route_config}; it may supplement but not override the current media policy."
@@ -152,14 +154,16 @@ def build_media_parallel_items(
                 "read_set": read_set,
                 "read_only_lane": True,
                 "single_writer_scope": "research",
+                "cache_first_registered_assets": True,
             },
         ),
         ParallelBatchItem(
             item_id="rights_and_claims",
             objective=(
                 f"Independently verify rights, provenance, freshness and material factual claims for: {subject}. "
-                "Use deterministic or source-backed checks where available. Block unknown reuse rights. "
-                "Do not rewrite the creative plan; return pass/block findings and exact unresolved risks."
+                "Use deterministic or source-backed checks where available. Cached assets still require current "
+                "rights/publication checks when the registry says so. Block unknown reuse rights. Return pass/block "
+                "findings and exact unresolved risks."
                 + commerce_research
                 + repurpose_research
             ),
@@ -181,12 +185,13 @@ def build_media_parallel_items(
             item_id="edit_plan",
             objective=(
                 f"Design the current-policy edit and caption plan for: {subject}. "
-                f"Treat {media_policy} as authoritative for YMM4-or-equivalent character behavior, "
-                "VOICEVOX timing, speech-start bounce, speaker focus, expression cadence, double-outline captions "
-                "and the 13-15 character caption target. Use rights-verified real or official visuals; "
-                "do not introduce generated image/video assets as a default source. "
-                "Return scene order, semantic visual match, character state changes, caption segmentation, "
-                "audio-boundary timing, attribution placement and machine-QA checkpoints."
+                f"Treat {media_policy} as authoritative for YMM4-or-equivalent character behavior and "
+                f"{reusable_asset_standard} as authoritative for standard cast size, position and deterministic "
+                "motion presets. Do not search for character motion downloads. Use VOICEVOX timing, speech-start "
+                "bounce, speaker focus, expression cadence, double-outline captions and the 13-15 character "
+                "caption target. Use rights-verified real or official visuals; do not introduce generated image/"
+                "video assets as a default source. Return scene order, semantic visual match, character state "
+                "changes, caption segmentation, audio-boundary timing, attribution placement and machine-QA checkpoints."
                 + commerce_research
                 + repurpose_research
                 + source_hint
@@ -206,13 +211,18 @@ def build_media_parallel_items(
                 "generated_video_assets_allowed": False,
                 "subtitle_alignment_required_after_voice_import": True,
                 "current_media_policy_required": True,
+                "reusable_asset_standard_required": True,
+                "standard_character_layout_preset_required": True,
             },
         ),
         ParallelBatchItem(
             item_id="automation_patch",
             objective=(
                 f"Propose the minimal deterministic local automation plan for producing the media about: {subject}. "
-                "Prefer existing FFmpeg/ffprobe/local tooling, actual audio-duration measurement, scene checkpoints, "
+                "Run scripts/media_asset_resolver.py before any new asset search: verified cache hit first, known "
+                "registered URL only on cache miss, search only for unregistered or semantically mismatched needs. "
+                "Generate character size/position/motion from presets instead of downloading motion assets. Prefer "
+                "existing FFmpeg/ffprobe/local tooling, actual audio-duration measurement, scene checkpoints, "
                 "idempotent outputs and smallest-failed-unit resume. Keep repository writes, merge, deploy, publish, "
                 "secret mutation and paid fallback outside this lane. Return a patch/review proposal only."
             ),
@@ -226,6 +236,8 @@ def build_media_parallel_items(
                 "read_set": read_set,
                 "deterministic_validator_available": True,
                 "ffmpeg_final_assembly": True,
+                "asset_resolver": "scripts/media_asset_resolver.py",
+                "cache_first_assets": True,
                 "repository_write": False,
                 "paid_fallback": False,
             },
@@ -241,6 +253,7 @@ def build_media_parallel_tasks(
     media_policy: str = "config/media_audio_motion_retention_policy.json",
     media_read_gate: str = "config/media_command_read_gate.json",
     source_policy: str = "config/media_source_policy.json",
+    reusable_asset_standard: str = DEFAULT_REUSABLE_ASSET_STANDARD,
     clipping_policy: str = "config/authorized_clipping_monetization_policy.json",
     shop_policy: str = "config/tiktok_shop_influence_policy.json",
     repurposing: bool = False,
@@ -254,6 +267,7 @@ def build_media_parallel_tasks(
         media_policy=media_policy,
         media_read_gate=media_read_gate,
         source_policy=source_policy,
+        reusable_asset_standard=reusable_asset_standard,
         clipping_policy=clipping_policy,
         shop_policy=shop_policy,
         repurposing=repurposing,
@@ -275,11 +289,11 @@ def build_media_parallel_tasks(
         items=items,
         framework_config=framework_config,
         final_objective=(
-            f"Integrate the independent research, rights/claim verification, edit plan and deterministic automation proposal for: {topic}. "
-            f"Resolve disagreements using evidence and machine checks. Preserve {required_intent}. "
-            "Do not revive the retired shortform edit profile or generated-media default. "
-            "Produce one Single Writer, machine-checkable handoff for deterministic local assembly; "
-            "surface blocked rights/claims instead of guessing."
+            f"Integrate the independent research, rights/claim verification, edit plan and deterministic automation "
+            f"proposal for: {topic}. Resolve disagreements using evidence and machine checks. Preserve "
+            f"{required_intent}. Preserve cache-first reusable assets and deterministic cast layout/motion presets. "
+            "Do not revive the retired shortform edit profile or generated-media default. Produce one Single Writer, "
+            "machine-checkable handoff for deterministic local assembly; surface blocked rights/claims instead of guessing."
         ),
     )
 
