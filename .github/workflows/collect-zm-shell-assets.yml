@@ -1,14 +1,14 @@
 name: "Collect Zundamon Metan lip-sync shell assets"
 
 on:
-  push:
-    branches: [ai-army/provider-v3]
-    paths:
-      - '.github/workflows/collect-zm-shell-assets.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: collect-zm-shell-assets-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   collect:
