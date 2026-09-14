@@ -156,7 +156,7 @@ def main() -> int:
     ):
         require(session.get(key) is True, f"media session restore guarantee missing: {key}")
 
-    require(batch.get("schema_version") == "batch-media-orchestration-v2", "batch media policy must be v2")
+    require(batch.get("schema_version") == "batch-media-orchestration-v3", "batch media policy must be v3")
     architecture = batch.get("architecture") or {}
     require(architecture.get("job_level_parallelism") is True, "job-level media parallelism disabled")
     require(int(architecture.get("default_parallel_jobs") or 0) == 3, "normal media fast path must target up to 3 independent jobs")
@@ -170,6 +170,25 @@ def main() -> int:
     require(fast.get("rights_claim_and_machine_qa_gates_are_never_relaxed") is True, "fast path weakens quality/rights gates")
     require(fast.get("downshift_immediately_on_resource_provider_or_write_contention") is True, "fast path cannot downshift under pressure")
     require((batch.get("promotion_and_scale") or {}).get("parallelism_above_3") == "BLOCK_UNTIL_SEPARATE_POLICY_CHANGE_WITH_SHADOW_AND_SOAK_EVIDENCE", "parallelism above 3 lost its block")
+
+    prereview = batch.get("pre_delivery_rereview") or {}
+    require(prereview.get("required_after_candidate_completion_before_user_handoff") is True, "pre-delivery rereview is not mandatory")
+    require(prereview.get("healthy_verified_artifacts_must_not_be_regenerated_for_unrelated_fix") is True, "pre-delivery fix may destroy healthy checkpoints")
+    rereview_checks = set(prereview.get("checklist") or [])
+    for item in (
+        "ALL_USER_REQUIREMENTS_SATISFIED",
+        "NO_UNNECESSARY_FEATURE_OR_DUPLICATE_PROCESSING_REMAINS",
+        "RIGHTS_CLAIMS_EVIDENCE_AND_QA_WERE_NOT_BYPASSED_FOR_SPEED",
+        "IMPLEMENTED_DESIGNED_AUDIO_COMPLETE_AND_VIDEO_COMPLETE_STATES_ARE_NOT_CONFUSED",
+        "APPLICABLE_MACHINE_VALIDATORS_OR_CI_RESULTS_ARE_REPORTED_TRUTHFULLY",
+    ):
+        require(item in rereview_checks, f"pre-delivery rereview lost required check: {item}")
+
+    reporting = batch.get("truthful_final_reporting") or {}
+    require(reporting.get("never_claim_ci_success_without_observed_success") is True, "final reporting may invent CI success")
+    require(reporting.get("never_claim_finished_video_without_playable_final_artifact") is True, "final reporting may call missing video complete")
+    require(reporting.get("never_report_design_only_as_implemented") is True, "final reporting may confuse design and implementation")
+    require(reporting.get("never_report_audio_only_as_video_complete") is True, "final reporting may confuse audio and video completion")
 
     ai = batch.get("ai_boundary") or {}
     require(ai.get("multi_agent_debate_for_mechanical_media") is False, "mechanical media debate was enabled")
@@ -190,6 +209,7 @@ def main() -> int:
         "batch_policy": batch.get("schema_version"),
         "normal_fast_path_parallel_jobs": architecture.get("default_parallel_jobs"),
         "max_parallel_jobs": architecture.get("max_parallel_jobs"),
+        "pre_delivery_rereview": True,
         "retired_shortform_profile_blocked": True,
     }, ensure_ascii=False, sort_keys=True))
     return 0
