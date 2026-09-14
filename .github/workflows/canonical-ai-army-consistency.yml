@@ -17,6 +17,7 @@ on:
       - 'config/media_audio_motion_retention_policy.json'
       - 'config/media_reusable_asset_standard.json'
       - 'config/media_character_reaction_cache_policy.json'
+      - 'config/zundamon_metan_production_quality_policy.json'
       - 'config/free_audio_source_registry.json'
       - 'config/dova_curated_bgm_catalog.json'
       - 'config/monetization_command_read_gate.json'
@@ -41,6 +42,7 @@ on:
       - 'scripts/validate_media_command_read_gate.py'
       - 'scripts/validate_media_character_visual_standard.py'
       - 'scripts/validate_media_character_reaction_cache.py'
+      - 'scripts/validate_zundamon_metan_production_quality.py'
       - 'scripts/prepare_character_reaction_pack.py'
       - 'scripts/validate_commander_handoff_continuity.py'
       - 'scripts/validate_creator_monetization_state.py'
@@ -73,6 +75,7 @@ on:
       - 'docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md'
       - 'docs/MEDIA_COMMAND_READ_GATE.md'
       - 'docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md'
+      - 'docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md'
       - 'docs/CREATOR_MONETIZATION_AND_AGENT_REVENUE_PLAYBOOK.md'
       - 'docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md'
       - 'docs/CROSS_SOURCE_SECOND_PASS_2026-09-13.md'
@@ -128,6 +131,7 @@ jobs:
             scripts/validate_media_command_read_gate.py \
             scripts/validate_media_character_visual_standard.py \
             scripts/validate_media_character_reaction_cache.py \
+            scripts/validate_zundamon_metan_production_quality.py \
             scripts/prepare_character_reaction_pack.py \
             scripts/validate_commander_handoff_continuity.py \
             scripts/validate_creator_monetization_state.py \
@@ -163,6 +167,7 @@ jobs:
           python -m json.tool config/media_audio_motion_retention_policy.json >/dev/null
           python -m json.tool config/media_reusable_asset_standard.json >/dev/null
           python -m json.tool config/media_character_reaction_cache_policy.json >/dev/null
+          python -m json.tool config/zundamon_metan_production_quality_policy.json >/dev/null
           python -m json.tool config/free_audio_source_registry.json >/dev/null
           python -m json.tool config/dova_curated_bgm_catalog.json >/dev/null
           python -m json.tool config/monetization_command_read_gate.json >/dev/null
@@ -213,6 +218,11 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_media_character_reaction_cache.py
+
+      - name: Enforce Zundamon Metan production quality and speed rules
+        run: |
+          set -euo pipefail
+          python scripts/validate_zundamon_metan_production_quality.py
 
       - name: Enforce TikTok Shop policy continuity
         run: |
