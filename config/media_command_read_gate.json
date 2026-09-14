@@ -9,11 +9,7 @@
     "classify_by_meaning_not_literal_keywords": true,
     "mixed_intents_are_additive": true,
     "compound_shop_clipping_must_expand_to_both_shop_and_clipping": true,
-    "supported_intents": [
-      "VIDEO_CREATION",
-      "CLIPPING_REPURPOSING",
-      "TIKTOK_SHOP_COMMERCE"
-    ]
+    "supported_intents": ["VIDEO_CREATION", "CLIPPING_REPURPOSING", "TIKTOK_SHOP_COMMERCE"]
   },
   "execution_gate": {
     "must_resolve_required_read_set_before_planning": true,
@@ -31,12 +27,7 @@
     "machine_policies_before_human_playbooks": true,
     "exact_same_head_and_blob_cache_allowed": true,
     "cache_scope": "ACTIVE_MEDIA_TASK_OR_SESSION",
-    "cache_key_fields": [
-      "repository",
-      "head_sha",
-      "path",
-      "blob_sha"
-    ],
+    "cache_key_fields": ["repository", "head_sha", "path", "blob_sha"],
     "invalidate_cache_on_head_or_blob_change": true,
     "do_not_open_same_blob_twice_in_one_gate_run": true,
     "longform_sources_only_when_longform_intent": true,
@@ -50,15 +41,14 @@
     "config/multi_agent_operating_policy.json",
     "config/agent_efficiency_policy.json",
     "config/media_audio_motion_retention_policy.json",
+    "config/media_reusable_asset_standard.json",
     "config/free_audio_source_registry.json",
     "config/dova_curated_bgm_catalog.json",
     "docs/MEDIA_PIPELINE.md"
   ],
   "trigger_sets": {
     "VIDEO_CREATION": {
-      "required": [
-        "config/media_source_policy.json"
-      ],
+      "required": ["config/media_source_policy.json"],
       "conditional": {
         "if_longform": [
           "config/longform_video_objectives.json",
@@ -117,19 +107,9 @@
     }
   },
   "mixed_intent_expansions": {
-    "SHOP_CLIPPING": [
-      "TIKTOK_SHOP_COMMERCE",
-      "CLIPPING_REPURPOSING"
-    ],
-    "SHOP_VIDEO": [
-      "TIKTOK_SHOP_COMMERCE",
-      "VIDEO_CREATION"
-    ],
-    "SHOP_CLIPPING_VIDEO": [
-      "TIKTOK_SHOP_COMMERCE",
-      "CLIPPING_REPURPOSING",
-      "VIDEO_CREATION"
-    ]
+    "SHOP_CLIPPING": ["TIKTOK_SHOP_COMMERCE", "CLIPPING_REPURPOSING"],
+    "SHOP_VIDEO": ["TIKTOK_SHOP_COMMERCE", "VIDEO_CREATION"],
+    "SHOP_CLIPPING_VIDEO": ["TIKTOK_SHOP_COMMERCE", "CLIPPING_REPURPOSING", "VIDEO_CREATION"]
   },
   "parallel_execution_standard": {
     "independent_read_only_lanes_may_start_concurrently": true,
@@ -154,10 +134,13 @@
       "parallelize only independent work; join dependencies explicitly",
       "single writer owns each mutable output",
       "current media creative policy controls YMM4-or-equivalent visible behavior, VOICEVOX timing, character motion and captions",
+      "reusable registered assets are resolved cache-first before search, while rights and semantic fit remain mandatory",
+      "character size, position and recurring motion come from deterministic presets rather than per-video reinvention or motion downloads",
       "machine validators outrank model votes"
     ],
     "video_creation": [
       "search is discovery, not a license",
+      "check the reusable asset registry and verified cache before new search or download",
       "use rights-verified real or official visuals by default",
       "measure actual audio duration and align captions to audio boundaries",
       "longform-only reliability material is loaded only for longform work"
@@ -181,6 +164,10 @@
     "SHOP_CLIP_WITHOUT_BOTH_SHOP_AND_CLIPPING_KNOWHOW",
     "LOAD_LONGFORM_STACK_FOR_EVERY_SHORTFORM_TASK",
     "REOPEN_IDENTICAL_BLOB_REPEATEDLY_IN_ONE_GATE_RUN",
+    "RESEARCH_REGISTERED_REUSABLE_ASSET_AGAIN_BEFORE_CHECKING_CACHE",
+    "REDOWNLOAD_VERIFIED_CACHED_ASSET_WITHOUT_REASON",
+    "DOWNLOAD_CHARACTER_MOTION_INSTEAD_OF_USING_PRESET",
+    "REINVENT_STANDARD_CHARACTER_SIZE_OR_POSITION_EVERY_VIDEO",
     "PARALLEL_WRITE_TO_SAME_OUTPUT",
     "RIGHTS_GATE_BYPASS_FOR_SPEED",
     "CLAIM_GATE_BYPASS_FOR_SPEED",
@@ -190,9 +177,7 @@
     "AUTO_PAID_FALLBACK"
   ],
   "retired_references": {
-    "forbidden_paths": [
-      "config/shortform_edit_profile.json"
-    ],
+    "forbidden_paths": ["config/shortform_edit_profile.json"],
     "reason": "SUPERSEDED_BY_MEDIA_AUDIO_MOTION_RETENTION_POLICY_AND_INTENT_SPECIFIC_PLAYBOOKS"
   },
   "new_session_behavior": {
@@ -201,6 +186,7 @@
     "master_rulebook_must_be_re_read": true,
     "media_pipeline_must_be_re_read": true,
     "audio_motion_retention_policy_must_be_re_read": true,
+    "reusable_asset_standard_must_be_re_read": true,
     "free_audio_source_registry_must_be_re_read": true,
     "dova_curated_bgm_catalog_must_be_re_read": true,
     "do_not_rely_on_prior_tab_summary_as_substitute": true,
