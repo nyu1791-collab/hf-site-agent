@@ -42,6 +42,8 @@
     "config/agent_efficiency_policy.json",
     "config/media_audio_motion_retention_policy.json",
     "config/media_reusable_asset_standard.json",
+    "config/media_character_reaction_cache_policy.json",
+    "docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md",
     "config/free_audio_source_registry.json",
     "config/dova_curated_bgm_catalog.json",
     "docs/MEDIA_PIPELINE.md"
@@ -135,14 +137,19 @@
       "single writer owns each mutable output",
       "current media creative policy controls YMM4-or-equivalent visible behavior, VOICEVOX timing, character motion and captions",
       "reusable registered assets are resolved cache-first before search, while rights and semantic fit remain mandatory",
+      "Zundamon and Metan reaction assets are downloaded once, preprocessed into a verified local reaction pack, and reused without per-video search or download",
+      "character motion must include expression, pose, lateral, scale, tilt, focus or reaction-state changes; vertical bounce alone is insufficient",
+      "VOICEVOX pronunciation text is separate from on-screen caption text; English brand and technical terms use official Latin spelling in captions by default",
       "character size, position and recurring motion come from deterministic presets rather than per-video reinvention or motion downloads",
       "machine validators outrank model votes"
     ],
     "video_creation": [
       "search is discovery, not a license",
       "check the reusable asset registry and verified cache before new search or download",
+      "resolve the Zundamon/Metan reaction pack before character rendering and load its inventory once per render",
       "use rights-verified real or official visuals by default",
       "measure actual audio duration and align captions to audio boundaries",
+      "keep katakana pronunciation in voice_text while using official English spelling in caption_text for English proper nouns and technical terms",
       "longform-only reliability material is loaded only for longform work"
     ],
     "clipping_repurposing": [
@@ -166,6 +173,9 @@
     "REOPEN_IDENTICAL_BLOB_REPEATEDLY_IN_ONE_GATE_RUN",
     "RESEARCH_REGISTERED_REUSABLE_ASSET_AGAIN_BEFORE_CHECKING_CACHE",
     "REDOWNLOAD_VERIFIED_CACHED_ASSET_WITHOUT_REASON",
+    "SEARCH_OR_DOWNLOAD_ZUNDAMON_METAN_REACTION_ASSETS_PER_VIDEO",
+    "USE_VERTICAL_BOUNCE_AS_ONLY_CHARACTER_MOTION",
+    "COPY_KATAKANA_TTS_READING_DIRECTLY_TO_ENGLISH_CAPTION_TERM",
     "DOWNLOAD_CHARACTER_MOTION_INSTEAD_OF_USING_PRESET",
     "REINVENT_STANDARD_CHARACTER_SIZE_OR_POSITION_EVERY_VIDEO",
     "PARALLEL_WRITE_TO_SAME_OUTPUT",
@@ -187,6 +197,8 @@
     "media_pipeline_must_be_re_read": true,
     "audio_motion_retention_policy_must_be_re_read": true,
     "reusable_asset_standard_must_be_re_read": true,
+    "character_reaction_cache_policy_must_be_re_read": true,
+    "reaction_subtitle_human_standard_must_be_re_read": true,
     "free_audio_source_registry_must_be_re_read": true,
     "dova_curated_bgm_catalog_must_be_re_read": true,
     "do_not_rely_on_prior_tab_summary_as_substitute": true,
