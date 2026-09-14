@@ -2,7 +2,7 @@
   "schema_version": "zundamon-metan-production-quality-v1",
   "effective_date_jst": "2026-09-14",
   "status": "ENFORCED_STANDARD",
-  "purpose": "Add durable preparation, editing-speed, visible-compositing and retention-quality rules for Zundamon/Shikoku Metan production without weakening the existing character, caption, rights, audio or anti-boredom standards.",
+  "purpose": "Add durable preparation, editing-speed, visible-compositing, viewer-retention and quality-preserving efficiency rules for Zundamon/Shikoku Metan production without weakening the existing character, caption, rights, factual, audio or anti-boredom standards.",
   "applies_when": ["ZUNDAMON_OR_SHIKOKU_METAN_VIDEO_CREATION"],
   "extends": {
     "creative_policy": "config/media_audio_motion_retention_policy.json",
@@ -10,7 +10,9 @@
     "reusable_asset_standard": "config/media_reusable_asset_standard.json",
     "free_audio_registry": "config/free_audio_source_registry.json",
     "curated_bgm_catalog": "config/dova_curated_bgm_catalog.json",
-    "read_gate": "config/media_command_read_gate.json"
+    "read_gate": "config/media_command_read_gate.json",
+    "measurement_registry": "config/cross_domain_measurement_registry.json",
+    "batch_orchestration": "config/batch_media_orchestration_policy.json"
   },
   "authoring_template": {
     "preferred_editor": "YMM4",
@@ -53,6 +55,7 @@
     "alpha_or_black_key_preprocessing_must_not_cut_skin_or_line_art": true,
     "fixture_states_required": ["closed", "small_open", "open_or_wide_open"],
     "fixture_required_for_each_visible_character": ["zundamon", "metan"],
+    "fixture_uses_full_face_composite_not_isolated_mouth_sprite": true,
     "fixture_pass_required_before_full_render_when_asset_revision_or_geometry_changes": true,
     "fixture_result_reusable_when_source_sha_pack_revision_output_geometry_and_anchor_profile_match": true,
     "final_visual_qa_samples_both_speaking_and_resting_mouth_states": true
@@ -104,6 +107,20 @@
     "rendered_pixel_width_check_preferred_when_available": true,
     "caption_chunks_should_align_with_spoken_phrase_boundaries": true
   },
+  "caption_layout_and_timing_axes": {
+    "separate_axes": ["semantic_chunk", "rendered_width", "timing_readability", "emphasis"],
+    "rendered_width_is_primary_layout_constraint": true,
+    "character_count_is_fallback_guard_not_primary_wrap_driver": true,
+    "caption_cue_timing_comes_from_measured_voice_timing": true,
+    "caption_overlay_owns_width_token_kinsoku_checks": true,
+    "final_composite_rechecks_safe_zone_and_overlay_collisions_not_duplicate_caption_layout_logic": true,
+    "emphasis_applied_after_semantic_segmentation": true,
+    "emphasis_must_not_break_width_or_timing_constraints": true,
+    "universal_japanese_read_speed_number_forbidden_without_channel_evidence": true,
+    "mechanical_caption_checks_should_be_deterministic_before_visual_review": true,
+    "human_review_focus": ["semantic_preference", "emphasis_judgment", "technical_token_rendering", "caption_panel_balance", "intentional_exception"],
+    "repair_only_failing_axis_when_dependency_graph_allows": true
+  },
   "voice_prosody_starting_heuristics": {
     "shortform_or_news_speed_scale_range": [1.10, 1.20],
     "shortform_or_news_intonation_scale_range": [1.10, 1.20],
@@ -138,6 +155,19 @@
     "sensitive_or_serious_topic_reduces_comedic_shake_and_filters": true,
     "do_not_stack_major_sfx_zoom_caption_pop_and_character_entry_without_reason": true
   },
+  "attention_and_motion_budget": {
+    "semantic_beat_driven_not_fixed_interval_driven": true,
+    "one_primary_motion_event_per_semantic_beat_by_default": true,
+    "subordinate_idle_motion_allowed_when_it_does_not_compete": true,
+    "stable_resting_state_required": true,
+    "speech_start_bounce_is_micro_accent_not_primary_motion": true,
+    "speaker_focus_is_state_change_not_permission_for_constant_zoom": true,
+    "evidence_or_diagram_becomes_primary_visual_when_it_carries_the_claim": true,
+    "listener_reaction_must_not_compete_with_evidence_or_caption": true,
+    "do_not_add_motion_only_to_satisfy_cadence": true,
+    "no_universal_motion_event_count_or_cut_interval": true,
+    "serious_topic_restraint_overrides_attention_stimulation": true
+  },
   "explanation_panel_visual_brightness": {
     "general_news_explainer_default_is_lifted_midtones_not_near_black": true,
     "preferred_panel_families": ["medium_navy", "blue", "cyan", "teal", "purple", "light_neutral_when_context_allows"],
@@ -149,6 +179,7 @@
     "dark_theme_panel_average_luma_percent_starting_range": [24, 45],
     "diagram_accent_fill_luma_percent_starting_range": [35, 70],
     "luma_ranges_are_heuristics_not_hard_mastering_targets": true,
+    "numeric_luma_and_contrast_thresholds_require_channel_calibration_before_becoming_hard_gates": true,
     "serious_or_grave_topic_may_intentionally_use_darker_treatment_with_reason": true,
     "brightness_change_must_not_reduce_caption_or_evidence_legibility": true
   },
@@ -177,6 +208,22 @@
     "hook_must_match_actual_video_content": true,
     "necessary_disclaimer_or_sensitive_context_may_override": true
   },
+  "viewer_retention_story_framework": {
+    "applies_to_shortform_or_news_explainer_when_story_fits": true,
+    "title_thumbnail_or_cover_promise_must_be_delivered_immediately": true,
+    "early_value_or_promise_should_be_explicit_unless_the_hook_already_fulfills_it": true,
+    "first_verifiable_evidence_should_not_be_artificially_delayed_for_suspense": true,
+    "character_contrast_may_carry_tension_without_fabricating_conflict": true,
+    "curiosity_gap_must_be_resolved_inside_the_video": true,
+    "payoff_must_arrive_before_generic_call_to_action": true,
+    "generic_stay_tuned_close_forbidden": true,
+    "maximum_unresolved_questions_at_close": 1,
+    "exact_story_timing_blocks_are_templates_not_hard_laws": true,
+    "late_compelling_moment_may_move_earlier_only_when_story_logic_or_retention_evidence_supports_it": true,
+    "tiktok_advertising_creative_heuristics_are_hypothesis_sources_not_universal_organic_law": true,
+    "factual_accuracy_claim_completeness_and_serious_topic_tone_override_retention_heuristics": true,
+    "no_claim_that_any_structure_guarantees_views_or_retention": true
+  },
   "jet_cut_and_pause_policy": {
     "remove_unintentional_dead_air": true,
     "trim_redundant_turn_gaps": true,
@@ -190,7 +237,12 @@
     "low_cost_preview_before_expensive_full_render_required_when_visual_layers_changed": true,
     "preview_may_be_low_resolution_contact_sheet_or_short_fixture": true,
     "risk_based_sampling_over_fixed_timestamp_only_sampling": true,
-    "required_risk_samples": ["zundamon_closed_and_open_mouth", "metan_closed_and_open_mouth", "blink_or_eye_state", "densest_caption", "longest_latin_token", "darkest_explainer_panel", "brightest_explainer_panel", "safe_zone_edge", "active_and_inactive_speaker_focus"],
+    "risk_triggered_for_changed_or_high_risk_layers_not_uniform_for_every_unchanged_stage": true,
+    "required_risk_samples": ["first_three_seconds", "zundamon_closed_and_open_mouth", "metan_closed_and_open_mouth", "blink_or_eye_state", "densest_caption", "longest_latin_token", "darkest_explainer_panel", "brightest_explainer_panel", "safe_zone_edge", "active_and_inactive_speaker_focus"],
+    "face_layer_full_composite_fixture_is_primary_catch_for_mouth_geometry": true,
+    "panel_layer_preview_is_primary_catch_for_unintended_darkness_or_contrast_failure": true,
+    "caption_layout_preview_is_primary_catch_for_wrap_and_width_failure": true,
+    "post_render_sampling_is_secondary_confirmation_not_primary_defect_discovery": true,
     "preview_failure_blocks_full_render": true,
     "final_handoff_requires_post_render_visual_sample_review": true,
     "technical_decode_pass_alone_is_not_visual_quality_pass": true
@@ -201,14 +253,18 @@
     "panel_palette_or_layout_change_preserves_voice_and_character_assets": true,
     "mouth_anchor_or_sprite_change_preserves_unchanged_voice_and_timing": true,
     "voice_or_script_change_regenerates_only_affected_utterances_when_possible": true,
+    "caption_axis_failure_repairs_only_the_failing_axis_when_dependency_graph_allows": true,
     "full_rerender_requires_dependency_invalidation_not_convenience": true,
+    "full_rerender_requires_recorded_dependency_reason": true,
     "healthy_verified_artifacts_are_content_hash_reusable": true
   },
   "quality_and_speed_balance": {
     "template_and_cache_before_rebuilding": true,
     "batch_mechanical_steps_when_safe": true,
     "quality_rights_claim_and_machine_qa_gates_never_disabled_for_speed": true,
-    "healthy_verified_stages_not_regenerated_for_unrelated_fix": true
+    "healthy_verified_stages_not_regenerated_for_unrelated_fix": true,
+    "engagement_optimization_never_overrides_factual_visual_audio_or_rights_quality_gates": true,
+    "speed_improvement_must_be_measured_with_quality_guardrails_held_constant": true
   },
   "machine_qa_additions": [
     "opening_hook_present_when_applicable",
@@ -225,10 +281,16 @@
     "mouth_alignment_fixture_passed_for_current_character_geometry",
     "only_one_mouth_state_active_per_character",
     "captions_break_on_semantic_phrase_boundaries",
+    "caption_four_axes_checked_separately",
+    "rendered_width_is_primary_caption_layout_oracle_when_available",
     "latin_and_technical_tokens_not_split",
     "explanation_panels_not_unintentionally_muddy_or_near_black",
+    "motion_budget_has_no_competing_primary_events_without_reason",
+    "hook_and_early_content_deliver_the_packaging_promise",
+    "curiosity_gap_resolves_inside_the_video_when_used",
     "risk_based_visual_preview_passed_before_expensive_render_when_applicable",
-    "post_render_visual_samples_reviewed_before_handoff"
+    "post_render_visual_samples_reviewed_before_handoff",
+    "full_rerender_has_recorded_dependency_reason_when_used"
   ],
   "forbidden_shortcuts": [
     "REBUILD_STANDARD_TIMELINE_LAYOUT_FROM_SCRATCH_EVERY_VIDEO",
@@ -246,9 +308,17 @@
     "COMPOSITE_CROPPED_MOUTH_WITHOUT_SHARED_CANVAS_OR_ANCHOR_METADATA",
     "STACK_MULTIPLE_MOUTH_STATES_ON_ONE_CHARACTER",
     "SPLIT_CAPTION_BY_RAW_CHARACTER_COUNT_BEFORE_SEMANTIC_BOUNDARY_ANALYSIS",
+    "USE_CHARACTER_COUNT_AS_PRIMARY_CAPTION_WIDTH_ORACLE",
     "SPLIT_LATIN_BRAND_PRODUCT_PERSON_OR_TECHNICAL_TOKEN",
     "DEFAULT_GENERAL_EXPLAINER_TO_LARGE_NEAR_BLACK_PANEL",
     "RUN_EXPENSIVE_FULL_RENDER_BEFORE_AVAILABLE_LOW_COST_VISUAL_FIXTURE_QA",
-    "FULL_RERENDER_FOR_CAPTION_ONLY_OR_PALETTE_ONLY_FIX_WITHOUT_DEPENDENCY_REASON"
+    "RUN_UNIFORM_PREVIEW_ON_UNCHANGED_LOW_RISK_STAGES",
+    "FULL_RERENDER_FOR_CAPTION_ONLY_OR_PALETTE_ONLY_FIX_WITHOUT_DEPENDENCY_REASON",
+    "FULL_RERENDER_WITHOUT_RECORDED_DEPENDENCY_REASON",
+    "ADD_MOTION_ONLY_TO_SATISFY_FIXED_CADENCE",
+    "DELAY_CORE_EVIDENCE_FOR_FAKE_SUSPENSE",
+    "USE_GENERIC_STAY_TUNED_CLOSE_INSTEAD_OF_PAYOFF",
+    "TREAT_TIKTOK_ADVERTISING_HEURISTIC_AS_UNIVERSAL_ORGANIC_LAW",
+    "OPTIMIZE_ENGAGEMENT_BY_WEAKENING_FACTUAL_VISUAL_AUDIO_OR_RIGHTS_QUALITY"
   ]
 }
