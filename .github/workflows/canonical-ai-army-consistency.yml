@@ -10,6 +10,7 @@ on:
       - 'config/multi_agent_operating_policy.json'
       - 'config/deepseek_paid_supervisor_policy.json'
       - 'config/agent_efficiency_policy.json'
+      - 'config/framework_adapter_layer.json'
       - 'config/current_commander_handoff.json'
       - 'config/permanent_standards_manifest.json'
       - 'config/media_command_read_gate.json'
@@ -53,6 +54,9 @@ on:
       - 'scripts/deepseek_json_guard.py'
       - 'scripts/batch_media_scheduler.py'
       - 'scripts/media_batch_command_center.py'
+      - 'scripts/media_parallel_framework_mission.py'
+      - 'scripts/parallel_framework_batch.py'
+      - 'scripts/framework_parallel_governor.py'
       - 'schemas/deepseek_supervisor_mission.schema.json'
       - 'schemas/batch_media_job.schema.json'
       - 'schemas/media_batch_command.schema.json'
@@ -81,6 +85,7 @@ on:
       - 'tests/test_batch_media_scheduler.py'
       - 'tests/test_media_batch_command_center.py'
       - 'tests/test_media_batch_command_center_ffmpeg.py'
+      - 'tests/test_media_parallel_framework_mission.py'
       - 'tests/test_second_pass_governance.py'
       - '.github/workflows/deepseek-*.yml'
       - '.github/workflows/canonical-ai-army-consistency.yml'
@@ -127,7 +132,10 @@ jobs:
             scripts/deepseek_supervisor_research_resilient.py \
             scripts/deepseek_json_guard.py \
             scripts/batch_media_scheduler.py \
-            scripts/media_batch_command_center.py
+            scripts/media_batch_command_center.py \
+            scripts/media_parallel_framework_mission.py \
+            scripts/parallel_framework_batch.py \
+            scripts/framework_parallel_governor.py
 
       - name: Validate canonical JSON policy stack
         run: |
@@ -136,6 +144,7 @@ jobs:
           python -m json.tool config/multi_agent_operating_policy.json >/dev/null
           python -m json.tool config/deepseek_paid_supervisor_policy.json >/dev/null
           python -m json.tool config/agent_efficiency_policy.json >/dev/null
+          python -m json.tool config/framework_adapter_layer.json >/dev/null
           python -m json.tool config/current_commander_handoff.json >/dev/null
           python -m json.tool config/permanent_standards_manifest.json >/dev/null
           python -m json.tool config/media_command_read_gate.json >/dev/null
@@ -222,6 +231,7 @@ jobs:
             tests.test_batch_media_scheduler \
             tests.test_media_batch_command_center \
             tests.test_media_batch_command_center_ffmpeg \
+            tests.test_media_parallel_framework_mission \
             tests.test_second_pass_governance -v
 
       - name: Prove no paid call occurs in consistency CI

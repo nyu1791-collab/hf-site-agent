@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed validator for the permanent media command read gate."""
+"""Fail closed on media read-gate drift and unsafe media fast-path regressions."""
 from __future__ import annotations
 
 import json
@@ -7,13 +7,16 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+GATE = ROOT / "config/media_command_read_gate.json"
+BATCH = ROOT / "config/batch_media_orchestration_policy.json"
+MEDIA = ROOT / "config/media_audio_motion_retention_policy.json"
 
 
-def load_json(path: str) -> dict[str, Any]:
-    obj = json.loads((ROOT / path).read_text(encoding="utf-8"))
-    if not isinstance(obj, dict):
+def load(path: Path) -> dict[str, Any]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
         raise AssertionError(f"{path}: object required")
-    return obj
+    return value
 
 
 def require(condition: bool, message: str) -> None:
@@ -21,239 +24,173 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
-def require_paths(paths: list[str], required: set[str], label: str) -> None:
-    missing = required - set(paths)
-    require(not missing, f"{label}: missing required read paths: {sorted(missing)}")
-    for path in required:
-        require((ROOT / path).is_file(), f"{label}: repository source missing: {path}")
+def _paths(value: Any) -> set[str]:
+    out: set[str] = set()
+    if isinstance(value, str):
+        if value.endswith((".json", ".md")) and ("/" in value):
+            out.add(value)
+    elif isinstance(value, list):
+        for item in value:
+            out.update(_paths(item))
+    elif isinstance(value, dict):
+        for item in value.values():
+            out.update(_paths(item))
+    return out
 
 
 def main() -> int:
-    gate = load_json("config/media_command_read_gate.json")
-    manifest = load_json("config/permanent_standards_manifest.json")
-    handoff = load_json("config/current_commander_handoff.json")
-    media_creative = load_json("config/media_audio_motion_retention_policy.json")
-    longform = load_json("config/longform_video_reliability_policy.json")
-    objectives = load_json("config/longform_video_objectives.json")
-    free_audio = load_json("config/free_audio_source_registry.json")
-    dova = load_json("config/dova_curated_bgm_catalog.json")
-    pipeline_text = (ROOT / "docs/MEDIA_PIPELINE.md").read_text(encoding="utf-8")
+    gate = load(GATE)
+    batch = load(BATCH)
+    media = load(MEDIA)
 
-    obsolete_hold_path = ROOT / "config/current_media_execution_state.json"
-    require(not obsolete_hold_path.exists(), "obsolete blanket media-production hold state was reintroduced")
-    gate_text = json.dumps(gate, ensure_ascii=False)
-    require("HOLD_MEDIA_PRODUCTION" not in gate_text, "blanket media-production hold marker was reintroduced into media gate")
-    require("current_media_execution_state" not in gate_text, "obsolete media execution-state dependency was reintroduced")
+    require(gate.get("schema_version") == "media-command-read-gate-v10", "media read gate must be v10")
+    require(gate.get("status") == "ENFORCED_STANDARD", "media read gate is not enforced")
 
-    require(gate.get("status") == "ENFORCED_STANDARD", "media command read gate is not enforced")
     semantic = gate.get("semantic_triggering") or {}
-    require(semantic.get("exact_keyword_match_required") is False, "media trigger drifted to exact keyword matching")
-    require(semantic.get("classify_by_user_intent") is True, "semantic media intent classification disabled")
+    require(semantic.get("classify_by_meaning_not_literal_keywords") is True, "media intent classification regressed to keyword matching")
     require(semantic.get("mixed_intents_are_additive") is True, "mixed media intents are no longer additive")
+    require(semantic.get("compound_shop_clipping_must_expand_to_both_shop_and_clipping") is True, "shop clipping no longer forces both knowledge domains")
 
-    execution = gate.get("execution_gate") or {}
-    before = set(execution.get("must_complete_before") or [])
-    for phase in (
-        "PLANNING_MEDIA_PIPELINE",
-        "EXTERNAL_MEDIA_TOOL_CALL",
-        "ASSET_FETCH",
-        "VOICE_GENERATION",
-        "RENDER",
-        "PUBLISHING_HANDOFF",
-    ):
-        require(phase in before, f"read gate no longer precedes {phase}")
-    require(execution.get("conversation_memory_alone_is_insufficient") is True, "chat memory became sufficient for media gate")
-    require(execution.get("tab_or_session_change_does_not_waive_gate") is True, "tab/session change now waives media gate")
-    require(execution.get("blanket_media_production_hold_is_not_part_of_permanent_media_standard") is True, "blanket media production hold became permanent again")
+    restore = gate.get("knowledge_restore_execution") or {}
+    require(restore.get("resolve_required_paths_as_union") is True, "required media paths are not unioned")
+    require(restore.get("deduplicate_paths_before_read") is True, "media read set is not deduplicated")
+    require(restore.get("repository_reads_may_run_in_parallel") is True, "independent repository reads may no longer run in parallel")
+    max_reads = int(restore.get("max_parallel_repository_reads") or 0)
+    require(1 <= max_reads <= 4, "repository read parallelism must remain bounded at 1..4")
+    require(restore.get("exact_same_head_and_blob_cache_allowed") is True, "exact-head/blob media read cache was disabled")
+    require(restore.get("invalidate_cache_on_head_or_blob_change") is True, "media read cache does not invalidate on repository change")
+    require(restore.get("do_not_open_same_blob_twice_in_one_gate_run") is True, "same media blob may be reread redundantly")
+    require(restore.get("machine_policies_before_human_playbooks") is True, "human prose may precede machine policy")
+    require(restore.get("longform_sources_only_when_longform_intent") is True, "longform stack became an unconditional media dependency")
+    require(restore.get("shop_clipping_must_union_shop_and_clipping_knowhow") is True, "shop clipping knowledge union was disabled")
 
     common = list(gate.get("common_media_read_set") or [])
-    require_paths(
-        common,
-        {
-            "config/current_commander_handoff.json",
-            "config/permanent_standards_manifest.json",
-            "docs/AI_ARMY_MASTER_RULEBOOK.md",
-            "config/media_audio_motion_retention_policy.json",
-            "config/free_audio_source_registry.json",
-            "config/dova_curated_bgm_catalog.json",
-            "docs/MEDIA_PIPELINE.md",
-            "config/longform_video_objectives.json",
-            "config/longform_video_reliability_policy.json",
-            "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
-            "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md",
-        },
-        "common media read set",
-    )
-
-    video = (gate.get("trigger_read_sets") or {}).get("VIDEO_CREATION") or {}
-    require_paths(list(video.get("required") or []), {"docs/LONGFORM_VIDEO_OBJECTIVES.md"}, "video creation read set")
-
-    video_know_how = set(((gate.get("know_how_that_must_be_recovered") or {}).get("VIDEO_CREATION") or []))
-    for item in (
-        "chatgpt_top_commander_and_final_integrator",
-        "deepseek_high_value_structure_and_technical_supervisor_not_bulk_coder",
-        "specialize_agents_by_pipeline_stage_instead_of_duplicate_same_task_generation",
-        "scene_render_checkpoint_join_longform_pattern",
-        "content_driven_duration_not_fixed_ten_minutes",
-        "VOICEVOX_ZUNDAMON_AND_SHIKOKU_METAN_LOCAL_STANDARD_CAST",
-        "stable_anchor_does_not_mean_frozen_character",
-        "state_driven_character_motion_instead_of_long_static_portraits",
-        "voice_prosody_and_emotion_mapped_to_semantic_beats",
-        "one_primary_attention_hero_per_beat",
-        "longform_title_chapter_subheading_body_caption_hierarchy",
-        "NO_GENERATED_IMAGE_OR_VIDEO_ASSETS_SEARCH_AND_RIGHTS_VERIFIED_COLLECTION_ONLY",
-        "NO_PAID_OR_FREEMIUM_OR_TRIAL_CAPTION_OR_VIDEO_EDITING_APPS_OR_SITES",
-        "DOVA_OR_OPENTRACKS_PREFERRED_THIRD_PARTY_FREE_BGM_SOURCE",
-        "full_narration_caption_coverage",
-        "normalized_narration_and_caption_text_coverage_check",
-        "rights_manifest_and_asset_provenance",
-        "failed_scene_only_retry_and_previous_good_preservation",
-        "first_fatal_error_and_root_cause_before_cascade_errors",
-        "concat_copy_preferred_when_scene_contract_matches",
-        "ffprobe_and_full_decode_machine_QA",
-        "finished_mp4_is_completion_not_intermediate_stage_success",
+    required_common = {
+        "config/current_commander_handoff.json",
+        "config/permanent_standards_manifest.json",
+        "docs/AI_ARMY_MASTER_RULEBOOK.md",
+        "config/multi_agent_operating_policy.json",
+        "config/agent_efficiency_policy.json",
+        "config/media_audio_motion_retention_policy.json",
+        "config/free_audio_source_registry.json",
+        "config/dova_curated_bgm_catalog.json",
+        "docs/MEDIA_PIPELINE.md",
+    }
+    require(required_common.issubset(set(common)), "lean common media restore set lost a required current standard")
+    require(len(common) == len(set(common)), "common media read set contains duplicates")
+    for longform_only in (
+        "config/longform_video_objectives.json",
+        "config/longform_video_reliability_policy.json",
+        "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+        "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md",
     ):
-        require(item in video_know_how, f"video know-how missing: {item}")
+        require(longform_only not in common, f"longform-only source leaked into every media task: {longform_only}")
+    for claim_heavy in (
+        "config/cross_source_knowhow_evidence_matrix.json",
+        "config/cross_source_second_pass_policy.json",
+        "config/second_pass_artifact_contracts.json",
+    ):
+        require(claim_heavy not in common, f"claim-governance source leaked into every media task: {claim_heavy}")
 
-    new_session = gate.get("new_session_behavior") or {}
+    triggers = gate.get("trigger_sets") or {}
+    require({"VIDEO_CREATION", "CLIPPING_REPURPOSING", "TIKTOK_SHOP_COMMERCE"}.issubset(triggers), "media trigger set missing")
+
+    video = triggers["VIDEO_CREATION"]
+    longform = ((video.get("conditional") or {}).get("if_longform") or [])
+    require("config/longform_video_objectives.json" in longform, "longform objectives are not restored for longform work")
+    require("config/longform_video_reliability_policy.json" in longform, "longform reliability policy is not restored for longform work")
+
+    clipping_required = set(triggers["CLIPPING_REPURPOSING"].get("required") or [])
+    for path in (
+        "config/authorized_clipping_monetization_policy.json",
+        "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
+        "config/batch_media_orchestration_policy.json",
+        "docs/BATCH_MEDIA_ORCHESTRATION.md",
+        "docs/MEDIA_BATCH_COMMAND_CENTER.md",
+    ):
+        require(path in clipping_required, f"clipping know-how missing from read gate: {path}")
+
+    shop_required = set(triggers["TIKTOK_SHOP_COMMERCE"].get("required") or [])
+    for path in (
+        "config/tiktok_shop_influence_policy.json",
+        "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
+        "config/cross_source_knowhow_evidence_matrix.json",
+        "config/cross_domain_measurement_registry.json",
+        "config/cross_source_second_pass_policy.json",
+        "config/second_pass_artifact_contracts.json",
+    ):
+        require(path in shop_required, f"shop know-how missing from read gate: {path}")
+
+    shop_repurpose = set(((triggers["TIKTOK_SHOP_COMMERCE"].get("conditional") or {}).get("if_existing_or_third_party_media_is_repurposed") or []))
+    require("config/authorized_clipping_monetization_policy.json" in shop_repurpose, "shop repurposing does not restore clipping rights policy")
+    require("docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md" in shop_repurpose, "shop repurposing does not restore clipping playbook")
+
+    expansions = gate.get("mixed_intent_expansions") or {}
+    require(set(expansions.get("SHOP_CLIPPING") or []) == {"TIKTOK_SHOP_COMMERCE", "CLIPPING_REPURPOSING"}, "SHOP_CLIPPING expansion drift")
+    require({"TIKTOK_SHOP_COMMERCE", "CLIPPING_REPURPOSING", "VIDEO_CREATION"}.issubset(set(expansions.get("SHOP_CLIPPING_VIDEO") or [])), "SHOP_CLIPPING_VIDEO expansion drift")
+
+    parallel = gate.get("parallel_execution_standard") or {}
+    require(parallel.get("independent_read_only_lanes_may_start_concurrently") is True, "independent media lanes were serialized")
+    require(int(parallel.get("max_direct_parallel_corps") or 0) == 3, "media direct parallel corps ceiling must remain 3")
+    require(parallel.get("dependency_join_required") is True, "parallel media dependency join missing")
+    require(parallel.get("same_mutable_output_requires_single_writer") is True, "parallel media single-writer rule missing")
+    require(parallel.get("rights_and_claim_gates_cannot_be_skipped_for_speed") is True, "speed may bypass rights/claim gates")
+    require(parallel.get("deterministic_mechanical_work_prefers_tools_over_agent_debate") is True, "mechanical media work regressed to agent debate")
+    require(parallel.get("duplicate_agents_for_majority_vote_by_default") is False, "duplicate majority-vote agents became default")
+
+    retired = set((gate.get("retired_references") or {}).get("forbidden_paths") or [])
+    require("config/shortform_edit_profile.json" in retired, "retired shortform profile is no longer blocked")
+    active_gate_paths = _paths({"common": common, "triggers": triggers, "expansions": expansions})
+    require("config/shortform_edit_profile.json" not in active_gate_paths, "retired shortform edit profile returned to active media reads")
+
+    for path in sorted(active_gate_paths):
+        require((ROOT / path).is_file(), f"media read gate references missing file: {path}")
+
+    session = gate.get("new_session_behavior") or {}
     for key in (
         "master_rulebook_must_be_re_read",
-        "media_pipeline_must_be_re_read",
-        "longform_objectives_must_be_re_read",
-        "longform_reliability_policy_must_be_re_read",
         "audio_motion_retention_policy_must_be_re_read",
         "free_audio_source_registry_must_be_re_read",
         "dova_curated_bgm_catalog_must_be_re_read",
         "do_not_rely_on_prior_tab_summary_as_substitute",
     ):
-        require(new_session.get(key) is True, f"new session continuity lost: {key}")
+        require(session.get(key) is True, f"media session restore guarantee missing: {key}")
 
-    creative_default = media_creative.get("semantic_default") or {}
-    creative_durability = media_creative.get("durability") or {}
-    voice = media_creative.get("voice_prosody") or {}
-    motion = media_creative.get("character_motion") or {}
-    collision = media_creative.get("collision_avoidance") or {}
-    visual_acquisition = media_creative.get("visual_asset_acquisition") or {}
-    editing = media_creative.get("editing_tool_policy") or {}
-    require(creative_default.get("auto_apply_on_media_intent") is True, "creative standard no longer auto-applies")
-    require(creative_default.get("user_does_not_need_to_repeat_rules") is True, "creative standard now requires repeated user instruction")
-    require(creative_default.get("blanket_media_production_hold_is_not_a_default_rule") is True, "creative standard reintroduced media hold")
-    require(creative_durability.get("must_be_re_read_after_new_tab_or_session") is True, "creative standard cross-tab reread lost")
-    require(set(voice.get("durable_standard_cast") or []) == {"ずんだもん", "四国めたん"}, "VOICEVOX durable cast drifted")
-    require(voice.get("default_primary_voice") == "ずんだもん", "Zundamon default voice rule drifted")
-    require(voice.get("secondary_voice_when_dialogue_helps") == "四国めたん", "Shikoku Metan dialogue rule drifted")
-    require(motion.get("no_long_static_talking_portrait") is True, "anti-static character motion rule drifted")
-    require(motion.get("stable_anchor_does_not_mean_frozen_character") is True, "stable-anchor/frozen-character distinction drifted")
-    require(collision.get("max_attention_dominant_elements_per_beat") == 1, "one-primary-hero collision rule drifted")
-    require(collision.get("never_stack_major_sfx_major_zoom_major_caption_pop_and_character_entry_without_explicit_reason") is True, "major-effect collision guard drifted")
-    require(visual_acquisition.get("generated_image_assets_allowed") is False, "generated image assets were re-enabled")
-    require(visual_acquisition.get("generated_video_assets_allowed") is False, "generated video assets were re-enabled")
-    require(visual_acquisition.get("default_mode") == "SEARCH_DISCOVER_THEN_VERIFY_AND_MATERIALIZE", "search-collected visual default drifted")
-    require(editing.get("paid_video_editing_apps_or_sites_allowed") is False, "paid video editing app/site was re-enabled")
-    require(editing.get("paid_caption_apps_or_sites_allowed") is False, "paid caption app/site was re-enabled")
-    require(editing.get("freemium_or_trial_credit_video_editing_allowed") is False, "freemium/trial video editing was re-enabled")
-    require(editing.get("freemium_or_trial_credit_captioning_allowed") is False, "freemium/trial captioning was re-enabled")
+    require(batch.get("schema_version") == "batch-media-orchestration-v2", "batch media policy must be v2")
+    architecture = batch.get("architecture") or {}
+    require(architecture.get("job_level_parallelism") is True, "job-level media parallelism disabled")
+    require(int(architecture.get("default_parallel_jobs") or 0) == 3, "normal media fast path must target up to 3 independent jobs")
+    require(int(architecture.get("max_parallel_jobs") or 0) == 3, "media parallelism safety ceiling drifted")
+    require(architecture.get("stage_level_agent_swarm") is False, "mechanical stage swarm was enabled")
+    require(architecture.get("single_writer_per_job") is True, "batch media single-writer rule lost")
 
-    require(longform.get("status") == "PERMANENT_STANDARD", "longform reliability is no longer permanent")
-    division = longform.get("ai_division") or {}
-    require(division.get("top_commander") == "CHATGPT_WORK", "ChatGPT top commander rule drifted")
-    require(division.get("executive_supervisor") == "DEEPSEEK", "DeepSeek supervisor rule drifted")
-    require(division.get("deepseek_is_not_bulk_coder") is True, "DeepSeek was turned into bulk coder")
-    require(division.get("specialize_by_stage_instead_of_duplicate_generation") is True, "AI stage specialization rule drifted")
-    visual = longform.get("visual_asset_policy") or {}
-    require(visual.get("generated_image_assets") is False, "longform generated image assets re-enabled")
-    require(visual.get("generated_video_assets") is False, "longform generated video assets re-enabled")
-    require(visual.get("default_source") == "SEARCH_AND_SOURCE_COLLECTION", "longform visual sourcing drifted")
-    paid = longform.get("paid_policy") or {}
-    require(paid.get("caption_or_video_editing_paid_app_execution") is False, "paid editing app execution re-enabled")
-    require(paid.get("caption_or_video_editing_paid_site_execution") is False, "paid editing site execution re-enabled")
-    require(paid.get("caption_or_video_editing_trial_or_temporary_free_execution") is False, "trial/temporary-free editing execution re-enabled")
-    voicevox = longform.get("voicevox_contract") or {}
-    require(set(voicevox.get("standard_cast") or []) == {"ずんだもん", "四国めたん"}, "longform VOICEVOX standard cast drifted")
-    content = longform.get("content_design") or {}
-    require(content.get("target_duration_is_content_driven_not_fixed") is True, "longform duration became fixed")
-    require(content.get("padding_by_rephrasing_or_repetition") is False, "longform padding by repetition re-enabled")
-    character = longform.get("character_contract") or {}
-    require(character.get("stable_anchor_preferred_for_longform_news_or_explainer") is True, "stable anchor preference drifted")
-    require(character.get("long_frozen_portrait_allowed") is False, "long frozen portrait re-enabled")
-    final_validation = longform.get("final_validation") or {}
-    require(final_validation.get("heavy_ai_full_video_visual_review_required_before_handoff") is False, "heavy AI visual review became mandatory before handoff")
+    fast = batch.get("fast_path") or {}
+    require(fast.get("enabled") is True, "media fast path is disabled")
+    require(fast.get("start_independent_jobs_without_artificial_serial_wait") is True, "independent media jobs are artificially serialized")
+    require(fast.get("rights_claim_and_machine_qa_gates_are_never_relaxed") is True, "fast path weakens quality/rights gates")
+    require(fast.get("downshift_immediately_on_resource_provider_or_write_contention") is True, "fast path cannot downshift under pressure")
+    require((batch.get("promotion_and_scale") or {}).get("parallelism_above_3") == "BLOCK_UNTIL_SEPARATE_POLICY_CHANGE_WITH_SHADOW_AND_SOAK_EVIDENCE", "parallelism above 3 lost its block")
 
-    require(objectives.get("status") == "ENFORCED_STANDARD", "longform objectives no longer enforced")
-    asset_objectives = objectives.get("asset_objectives") or {}
-    require(asset_objectives.get("generated_image_asset_count") == 0, "generated image objective no longer zero")
-    require(asset_objectives.get("generated_video_asset_count") == 0, "generated video objective no longer zero")
-    voice_objectives = objectives.get("voice_objectives") or {}
-    require(set(voice_objectives.get("standard_cast") or []) == {"ずんだもん", "四国めたん"}, "objective VOICEVOX cast drifted")
-    cost_objectives = objectives.get("cost_and_route_objectives") or {}
-    require(cost_objectives.get("paid_caption_or_video_editing_app_execution_count") == 0, "paid caption/video editing objective no longer zero")
-    require(cost_objectives.get("trial_or_temporary_free_caption_or_video_editing_execution_count") == 0, "trial editing objective no longer zero")
-    require((objectives.get("continuity_objectives") or {}).get("blanket_media_production_hold_allowed_as_permanent_standard") is False, "objectives reintroduced permanent production hold")
+    ai = batch.get("ai_boundary") or {}
+    require(ai.get("multi_agent_debate_for_mechanical_media") is False, "mechanical media debate was enabled")
+    require(ai.get("generic_paid_fallback") is False, "batch media generic paid fallback enabled")
+    require(ai.get("paid_media_generation") is False, "batch media paid generation enabled")
+    require(ai.get("auto_top_up") is False, "batch media auto top-up enabled")
 
-    # Human documentation must state both the engine and the two durable voices.
-    # Do not require a brittle exact concatenation such as "VOICEVOXずんだもん".
-    require("VOICEVOX" in pipeline_text and "ずんだもん" in pipeline_text, "media pipeline lost VOICEVOX Zundamon")
-    require("VOICEVOX" in pipeline_text and "四国めたん" in pipeline_text, "media pipeline lost VOICEVOX Shikoku Metan")
-    require("画像生成" in pipeline_text and "動画生成" in pipeline_text, "media pipeline missing generated-asset prohibition documentation")
-    require("Scene" in pipeline_text and "Checkpoint" in pipeline_text, "media pipeline lost scene/checkpoint production pattern")
-
-    require(free_audio.get("status") == "ENFORCED_SOURCE_REGISTRY", "free audio source registry is not enforced")
-    source_ids = {str(x.get("id")) for x in (free_audio.get("sources") or []) if isinstance(x, dict)}
-    require("dova-syndrome" in source_ids, "DOVA missing from free audio source registry")
-    require(dova.get("status") == "ENFORCED_MEDIA_DEFAULT", "DOVA curated catalog is not enforced")
-
-    manifest_gate = manifest.get("media_command_gate") or {}
-    require(manifest_gate.get("policy") == "config/media_command_read_gate.json", "permanent manifest lost media gate policy")
-    require(manifest_gate.get("conversation_memory_is_not_a_substitute") is True, "manifest allows chat memory to replace media source read")
-    require(manifest_gate.get("re_read_current_repository_versions_after_tab_or_session_change") is True, "manifest no longer requires cross-tab media reread")
-    require(manifest_gate.get("audio_motion_retention_policy") == "config/media_audio_motion_retention_policy.json", "manifest lost creative policy pointer")
-    require(manifest_gate.get("free_audio_source_registry") == "config/free_audio_source_registry.json", "manifest lost free audio registry pointer")
-    require(manifest_gate.get("dova_curated_bgm_catalog") == "config/dova_curated_bgm_catalog.json", "manifest lost DOVA catalog pointer")
-    require(manifest_gate.get("video_creation_reads_audio_motion_caption_contextual_visual_rules") is True, "manifest no longer requires creative media rules")
-    require(manifest_gate.get("background_music_prefers_curated_verified_free_sources") is True, "manifest lost curated free BGM preference")
-
-    standards = manifest.get("required_standards") or []
-    by_id = {entry.get("id"): entry for entry in standards if isinstance(entry, dict)}
-    media_entries = [entry for entry in standards if isinstance(entry, dict) and entry.get("id") == "media-command-read-gate"]
-    require(len(media_entries) == 1, "media command read gate must appear exactly once")
-    require(media_entries[0].get("priority") == 0, "media command read gate must remain priority 0")
-    for standard_id, policy_path in (
-        ("media-audio-motion-retention", "config/media_audio_motion_retention_policy.json"),
-        ("free-audio-source-registry", "config/free_audio_source_registry.json"),
-        ("dova-curated-bgm-catalog", "config/dova_curated_bgm_catalog.json"),
-        ("longform-video-objectives", "config/longform_video_objectives.json"),
-        ("longform-video-reliability", "config/longform_video_reliability_policy.json"),
-    ):
-        require(standard_id in by_id, f"permanent standards lost {standard_id}")
-        require(by_id[standard_id].get("machine_policy") == policy_path, f"permanent standard path drift: {standard_id}")
-        require(by_id[standard_id].get("priority") == 1, f"permanent standard priority drift: {standard_id}")
-
-    cross_tab = manifest.get("cross_tab_behavior") or {}
-    require(cross_tab.get("priority_zero_manifest_is_expandable_startup_index") is True, "priority-zero startup index drift")
-    require(cross_tab.get("do_not_duplicate_full_required_standard_list_into_commander_handoff") is True, "handoff duplication guard drift")
-    require(cross_tab.get("media_command_read_gate_survives_tab_change") is True, "media gate no longer survives tab change")
-    require(cross_tab.get("media_task_re_reads_repository_know_how_before_media_work") is True, "media rules no longer re-read on media work")
-
-    continuity = handoff.get("continuity") or {}
-    read_order = continuity.get("on_new_session_required_read_order") or []
-    require("config/permanent_standards_manifest.json" in read_order, "new session no longer reads permanent standards manifest")
-    require(continuity.get("repository_is_source_of_truth") is True, "repository is no longer handoff source of truth")
+    visual = media.get("visual_asset_acquisition") or {}
+    require(visual.get("generated_image_assets_allowed") is False, "generated images became default media assets")
+    require(visual.get("generated_video_assets_allowed") is False, "generated video became default media assets")
 
     print(json.dumps({
         "status": "PASS",
-        "media_gate": "ENFORCED_STANDARD",
-        "cross_tab_reread": True,
-        "blanket_media_production_hold_absent": True,
-        "ai_division_longform_rules": True,
-        "zundamon_metan_voice_rules": True,
-        "search_only_visual_assets": True,
-        "no_paid_freemium_trial_editing": True,
-        "scene_checkpoint_join": True,
-        "character_motion_rules": True,
-        "effect_collision_guard": True,
-        "free_audio_registry_reread": True,
-        "dova_catalog_reread": True,
-        "final_mp4_completion_contract": True,
+        "media_gate": gate.get("schema_version"),
+        "common_read_count": len(common),
+        "max_parallel_repository_reads": max_reads,
+        "shop_clipping_union": True,
+        "batch_policy": batch.get("schema_version"),
+        "normal_fast_path_parallel_jobs": architecture.get("default_parallel_jobs"),
+        "max_parallel_jobs": architecture.get("max_parallel_jobs"),
+        "retired_shortform_profile_blocked": True,
     }, ensure_ascii=False, sort_keys=True))
     return 0
 

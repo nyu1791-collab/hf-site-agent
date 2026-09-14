@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Build one bounded parallel media-production mission across pluggable frameworks.
+"""Compile one fast, bounded media preproduction mission.
 
-Native V4 remains sovereign. LangGraph, AutoGen, CrewAI and Copilot-like
-adapters are bounded execution styles only. The mission deliberately keeps four
-root lanes so framework use does not turn into micro-agent fragmentation.
+The mission uses four independent root lanes only where work is genuinely
+independent, then one Single Writer join. Native V4 remains the authority.
+External framework diversity is deliberately capped to two execution styles
+(LangGraph and CrewAI); deterministic rights/claim and automation planning stay
+on Native V4.
 
-For short-form news, previously approved generated assets may be reused together
-with rights-cleared real photos. New image/video generation is outside this
-mission. Narration may arrive as a user-supplied TikTok/CapCut/VOICEVOX/editor
-audio handoff; Whisper-style alignment and FFmpeg remain deterministic/free
-post-production stages after the planning council.
+Current media policy is authoritative. The retired
+``config/shortform_edit_profile.json`` is forbidden. Generated image/video
+assets are not a default production source. Shop clips explicitly restore both
+TikTok Shop know-how and authorized clipping know-how.
 """
-
 from __future__ import annotations
 
 from typing import Any, Mapping
@@ -19,24 +19,127 @@ from typing import Any, Mapping
 from scripts.parallel_framework_batch import ParallelBatchItem, build_parallel_batch_tasks
 
 
+RETIRED_SHORTFORM_PROFILE = "config/shortform_edit_profile.json"
+
+
+def _unique(values: list[str]) -> list[str]:
+    return list(dict.fromkeys(v for v in values if v))
+
+
+def _intent_read_set(
+    *,
+    media_policy: str,
+    media_read_gate: str,
+    source_policy: str,
+    clipping_policy: str,
+    shop_policy: str,
+    repurposing: bool,
+    tiktok_shop: bool,
+    photo_manifest: str | None,
+    voice_route_config: str | None,
+) -> list[str]:
+    paths = [
+        media_read_gate,
+        media_policy,
+        source_policy,
+        "config/multi_agent_operating_policy.json",
+        "config/agent_efficiency_policy.json",
+    ]
+    if tiktok_shop:
+        paths.extend([
+            shop_policy,
+            "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
+            "config/cross_source_knowhow_evidence_matrix.json",
+            "config/cross_domain_measurement_registry.json",
+            "config/cross_source_second_pass_policy.json",
+            "config/second_pass_artifact_contracts.json",
+        ])
+    if repurposing:
+        paths.extend([
+            clipping_policy,
+            "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
+            "config/batch_media_orchestration_policy.json",
+            "docs/BATCH_MEDIA_ORCHESTRATION.md",
+            "docs/MEDIA_BATCH_COMMAND_CENTER.md",
+        ])
+    if photo_manifest:
+        paths.append(photo_manifest)
+    if voice_route_config:
+        paths.append(voice_route_config)
+    require = _unique(paths)
+    if RETIRED_SHORTFORM_PROFILE in require:
+        raise ValueError("retired shortform edit profile may not be used")
+    return require
+
+
 def build_media_parallel_items(
     *,
     topic: str,
-    photo_manifest: str = "config/ai_news_real_photo_manifest.json",
-    voice_route_config: str = "config/free_voice_routes.json",
-    shortform_profile: str = "config/shortform_edit_profile.json",
+    media_policy: str = "config/media_audio_motion_retention_policy.json",
+    media_read_gate: str = "config/media_command_read_gate.json",
+    source_policy: str = "config/media_source_policy.json",
+    clipping_policy: str = "config/authorized_clipping_monetization_policy.json",
+    shop_policy: str = "config/tiktok_shop_influence_policy.json",
+    repurposing: bool = False,
+    tiktok_shop: bool = False,
+    photo_manifest: str | None = None,
+    voice_route_config: str | None = None,
+    shortform_profile: str | None = None,
 ) -> tuple[ParallelBatchItem, ...]:
     subject = str(topic or "").strip()
     if not subject:
         raise ValueError("topic is required")
+    if shortform_profile:
+        raise ValueError(
+            "shortform_edit_profile is retired; use media_audio_motion_retention_policy"
+        )
+
+    read_set = _intent_read_set(
+        media_policy=media_policy,
+        media_read_gate=media_read_gate,
+        source_policy=source_policy,
+        clipping_policy=clipping_policy,
+        shop_policy=shop_policy,
+        repurposing=repurposing,
+        tiktok_shop=tiktok_shop,
+        photo_manifest=photo_manifest,
+        voice_route_config=voice_route_config,
+    )
+
+    commerce_research = (
+        " For TikTok Shop work, ingest current product-page evidence, separate stable product facts "
+        "from volatile price/coupon/stock/shipping claims, map material claims to evidence and treat "
+        "persona/purchase motive as hypotheses rather than facts."
+        if tiktok_shop
+        else ""
+    )
+    repurpose_research = (
+        " Because existing or third-party media is being repurposed, verify source/license scope "
+        "separately from platform monetization eligibility before edit execution."
+        if repurposing
+        else ""
+    )
+    source_hint = (
+        f" An optional rights manifest is available at {photo_manifest}; revalidate it against the current task."
+        if photo_manifest
+        else " Discover current real or official visuals through search, then verify source and reuse rights before materializing."
+    )
+    voice_hint = (
+        f" A task-specific voice route is declared in {voice_route_config}; it may supplement but not override the current media policy."
+        if voice_route_config
+        else " Follow the current media policy for VOICEVOX/audio timing and measure actual audio duration."
+    )
 
     return (
         ParallelBatchItem(
             item_id="research",
             objective=(
-                f"Research and structure verified facts for: {subject}. "
-                "Separate confirmed facts, reported claims and interpretation. "
-                "Return concise source-backed claims for a short-form video script and mark uncertainty explicitly."
+                f"Research and structure verified facts and source candidates for: {subject}. "
+                "Separate confirmed facts, reported claims and interpretation; preserve provenance, "
+                "freshness and uncertainty. Return concise evidence-backed inputs for the script/edit plan."
+                + commerce_research
+                + repurpose_research
+                + source_hint
             ),
             slot="CONTEXT_LIBRARIAN",
             risk_level="MEDIUM",
@@ -46,72 +149,85 @@ def build_media_parallel_items(
                 "framework_fallback_to_native": True,
                 "checkpoint_required": True,
                 "priority": "HIGH",
-                "read_set": [photo_manifest, shortform_profile],
+                "read_set": read_set,
+                "read_only_lane": True,
+                "single_writer_scope": "research",
             },
         ),
         ParallelBatchItem(
-            item_id="adversarial_review",
+            item_id="rights_and_claims",
             objective=(
-                f"Act as an independent adversarial reviewer for the short-form news topic: {subject}. "
-                "Identify exaggeration, missing caveats, unsupported causal language, weak hooks and claims needing stronger evidence. "
-                "Also flag narration wording that could become misleading when compressed into captions. "
-                "Do not rewrite the final script; return bounded corrections and risk flags."
+                f"Independently verify rights, provenance, freshness and material factual claims for: {subject}. "
+                "Use deterministic or source-backed checks where available. Block unknown reuse rights. "
+                "Do not rewrite the creative plan; return pass/block findings and exact unresolved risks."
+                + commerce_research
+                + repurpose_research
             ),
             slot="QA_VALIDATOR",
-            risk_level="MEDIUM",
-            framework_preference=("AUTOGEN",),
-            framework_capabilities=("debate", "delegation", "parallel_agents"),
+            risk_level="HIGH" if (repurposing or tiktok_shop) else "MEDIUM",
+            framework_preference=("NATIVE_V4",),
+            framework_capabilities=("general",),
             metadata={
                 "framework_fallback_to_native": True,
-                "framework_max_turns": 4,
                 "priority": "HIGH",
+                "read_set": read_set,
+                "read_only_lane": True,
+                "deterministic_validator_available": True,
+                "rights_gate_required": True,
+                "claim_gate_required": bool(tiktok_shop),
             },
         ),
         ParallelBatchItem(
             item_id="edit_plan",
             objective=(
-                f"Design a concise vertical short-form edit plan for: {subject}. "
-                f"Use rights-cleared real photos declared in {photo_manifest} plus pre-existing generated assets explicitly approved by the commander. "
-                "Do not generate new images or video. Reuse approved stills with crop, pan, zoom, cut, emphasis text and scene recycling. "
-                f"Follow the pacing constraints in {shortform_profile}. "
-                f"Treat narration as a replaceable audio handoff governed by {voice_route_config}; prefer user-supplied TikTok/CapCut/VOICEVOX/editor audio when verified. "
-                "Plan subtitle segmentation from the script, then require post-import speech alignment/audio QA before final burn-in. "
-                "Return scene order, cut timing, still reuse strategy, on-screen text, subtitle density, audio handoff points and attribution placement."
+                f"Design the current-policy edit and caption plan for: {subject}. "
+                f"Treat {media_policy} as authoritative for YMM4-or-equivalent character behavior, "
+                "VOICEVOX timing, speech-start bounce, speaker focus, expression cadence, double-outline captions "
+                "and the 13-15 character caption target. Use rights-verified real or official visuals; "
+                "do not introduce generated image/video assets as a default source. "
+                "Return scene order, semantic visual match, character state changes, caption segmentation, "
+                "audio-boundary timing, attribution placement and machine-QA checkpoints."
+                + commerce_research
+                + repurpose_research
+                + source_hint
+                + voice_hint
             ),
             slot="OPERATIONS_LEAD",
-            risk_level="LOW",
+            risk_level="MEDIUM",
             framework_preference=("CREWAI",),
-            framework_capabilities=("role_crew", "parallel_agents", "tool_use"),
+            framework_capabilities=("role_crew", "tool_use"),
             metadata={
                 "framework_fallback_to_native": True,
                 "framework_internal_delegation": False,
                 "framework_max_agents": 2,
-                "priority": "NORMAL",
-                "read_set": [photo_manifest, voice_route_config, shortform_profile],
-                "approved_generated_assets_allowed": True,
-                "new_media_generation_allowed": False,
-                "external_voice_handoff_preferred": True,
+                "priority": "HIGH",
+                "read_set": read_set,
+                "generated_image_assets_allowed": False,
+                "generated_video_assets_allowed": False,
                 "subtitle_alignment_required_after_voice_import": True,
+                "current_media_policy_required": True,
             },
         ),
         ParallelBatchItem(
             item_id="automation_patch",
             objective=(
-                f"Propose a minimal deterministic automation patch for producing the vertical video about: {subject}. "
-                "Prefer FFmpeg and existing local tooling. The pipeline must accept a verified external narration audio file, "
-                "replace any placeholder voice without rebuilding visual assets, normalize loudness, optionally realign subtitles with a free local ASR route, "
-                "and keep attribution metadata. Return patch/review proposal only; do not write the repository, merge, deploy, publish, mutate secrets or enable paid services."
+                f"Propose the minimal deterministic local automation plan for producing the media about: {subject}. "
+                "Prefer existing FFmpeg/ffprobe/local tooling, actual audio-duration measurement, scene checkpoints, "
+                "idempotent outputs and smallest-failed-unit resume. Keep repository writes, merge, deploy, publish, "
+                "secret mutation and paid fallback outside this lane. Return a patch/review proposal only."
             ),
             slot="ENGINEERING_AGENT",
             risk_level="MEDIUM",
-            framework_preference=("GITHUB_COPILOT",),
-            framework_capabilities=("coding", "repository_context", "agent_mode"),
+            framework_preference=("NATIVE_V4",),
+            framework_capabilities=("repository_context", "general"),
             metadata={
                 "framework_fallback_to_native": True,
                 "priority": "NORMAL",
+                "read_set": read_set,
                 "deterministic_validator_available": True,
-                "external_voice_replaceable": True,
                 "ffmpeg_final_assembly": True,
+                "repository_write": False,
+                "paid_fallback": False,
             },
         ),
     )
@@ -122,25 +238,48 @@ def build_media_parallel_tasks(
     batch_id: str,
     topic: str,
     framework_config: Mapping[str, Any],
-    photo_manifest: str = "config/ai_news_real_photo_manifest.json",
-    voice_route_config: str = "config/free_voice_routes.json",
-    shortform_profile: str = "config/shortform_edit_profile.json",
+    media_policy: str = "config/media_audio_motion_retention_policy.json",
+    media_read_gate: str = "config/media_command_read_gate.json",
+    source_policy: str = "config/media_source_policy.json",
+    clipping_policy: str = "config/authorized_clipping_monetization_policy.json",
+    shop_policy: str = "config/tiktok_shop_influence_policy.json",
+    repurposing: bool = False,
+    tiktok_shop: bool = False,
+    photo_manifest: str | None = None,
+    voice_route_config: str | None = None,
+    shortform_profile: str | None = None,
 ):
     items = build_media_parallel_items(
         topic=topic,
+        media_policy=media_policy,
+        media_read_gate=media_read_gate,
+        source_policy=source_policy,
+        clipping_policy=clipping_policy,
+        shop_policy=shop_policy,
+        repurposing=repurposing,
+        tiktok_shop=tiktok_shop,
         photo_manifest=photo_manifest,
         voice_route_config=voice_route_config,
         shortform_profile=shortform_profile,
     )
+
+    intent_note = []
+    if tiktok_shop:
+        intent_note.append("TikTok Shop claim/evidence/freshness policy")
+    if repurposing:
+        intent_note.append("authorized clipping rights and monetization policy")
+    required_intent = ", ".join(intent_note) if intent_note else "current media production policy"
+
     return build_parallel_batch_tasks(
         batch_id=batch_id,
         items=items,
         framework_config=framework_config,
         final_objective=(
-            f"Integrate research, adversarial review, edit planning and automation proposal for: {topic}. "
-            "Resolve disagreements using evidence. Allow only commander-approved pre-existing generated stills and rights-cleared real photos; do not generate new media. "
-            "Use a verified external narration handoff when supplied, require subtitle/audio QA after import, preserve attribution requirements, "
-            "and produce one Single Writer handoff for deterministic local FFmpeg assembly."
+            f"Integrate the independent research, rights/claim verification, edit plan and deterministic automation proposal for: {topic}. "
+            f"Resolve disagreements using evidence and machine checks. Preserve {required_intent}. "
+            "Do not revive the retired shortform edit profile or generated-media default. "
+            "Produce one Single Writer, machine-checkable handoff for deterministic local assembly; "
+            "surface blocked rights/claims instead of guessing."
         ),
     )
 

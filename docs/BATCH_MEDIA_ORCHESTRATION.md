@@ -1,33 +1,63 @@
 # Bounded Batch Media Orchestration
 
-This standard adds job-level parallelism for independent media/clipping jobs without turning the AI Army into a swarm.
+**Machine source of truth:** `config/batch_media_orchestration_policy.json`  
+**Current policy:** v2
 
-## Decision
+独立した動画・切り抜きJobは、Rights・Resource・Write-scopeのAdmissionを通過したら**人工的に1本ずつ待たせない**。`NORMAL` ではReady Job数に応じて最大3並列、`DEGRADED` は最大1、`PAUSED` は0。4本目以降は次WaveへQueueする。
 
-The default remains one job. When independent work and resources justify it, the batch scheduler may run up to **three media jobs concurrently**. A fourth job waits for a later wave. Parallelism above three is blocked until a separate policy change is supported by shadow/soak evidence.
+## Fast path
 
-The pool is primarily deterministic. Python/FFmpeg/ffprobe, hashing, manifests, rights gates, leases and technical QA do not require an AI worker. Optional replaceable AI specialists may rank highlight candidates, review one hook/payoff decision, clean caption language, create metadata variants, or triage analytics. There is at most one judgmental verifier per clip and no peer debate.
+次をすべて満たす場合だけ、`min(ready independent jobs, 3)` をすぐ開始する。
 
-## Safety contract
+- JobごとのRights確認済み
+- Mutable write scopeが互いに独立
+- CPU / Memory / Disk / Provider slotが確保済み
+- 未解決の共有Mutable dependencyがない
+- Backpressure stateが`NORMAL`
 
-Each clip keeps its own rights gate. Every mutating job holds a job-scoped Single Writer lease. Manifest commits use compare-and-swap base hashes and atomic replacement. A stale writer is rejected instead of overwriting newer state. Failed jobs preserve verified checkpoints and resume the smallest failed unit; unrelated jobs continue.
+Resource不足、Provider pressure、Write contentionが出たら即座に並列度を下げる。**Rights / Claim / Machine QAを速度のために緩めない。**
 
-Admission is governed by CPU, memory, disk and provider-slot tokens plus the backpressure state. `NORMAL` permits at most 3 jobs, `DEGRADED` at most 1, and `PAUSED` admits none. Transient provider failures have bounded retry; deterministic media, rights, resource, stale-write and invalid-job failures do not loop.
+## What to parallelize
 
-## Promotion target
+Job単位の並列化が基本。PreproductionでもDependency-freeなら以下を重ねてよい。
 
-Three-way execution starts as a measured capability, not a new default. Compare identical fixtures at parallelism 1 and 3. Promotion requires at least 1.5x throughput, no more than 2 percentage points technical-QA regression, no more than 25% cost-per-clip increase, zero rights-gate bypasses, and zero stale-write incidents.
+- Source / Fact research
+- Rights / Claim verification
+- Edit / Caption planning
+- Deterministic automation planning
 
-## Runtime surface
+ただし同じMutable OutputにはSingle Writerを1つだけ置く。Dependencyがある工程はJoin後に進める。
+
+## What not to parallelize with agents
+
+Trim、Cut、Concat、Reframe execution、Caption burn、Audio normalization、Hashing、Manifest commit、ffprobe/decode QAは決定論的Toolを優先する。Mechanical stageにPeer debateやMajority voteを増やさない。
+
+Optional AIはHighlight candidate ranking、Hook/Payoff review、Caption language cleanup、Metadata variants、Analytics triage等の判断部分だけ。1 ClipあたりJudgmental verifierは最大1。
+
+## Reliability
+
+- Per-job lease
+- Lease token on commit
+- Compare-and-swap base hash
+- Atomic manifest promotion
+- Stale writer reject
+- Partial outputはCommitted扱いしない
+- Verified checkpointを保持
+- 失敗した最小単位だけ再開
+- 1 Job失敗で無関係JobをCancelしない
+- Transient providerのみ最大2 retry
+- Same root causeをEvidenceなしで繰り返さない
+
+## Measurement
+
+最大3は安全上限であり「常に3を使え」という意味ではない。Parallel 1 baselineとのLatency / QA / Cost比較を継続し、Rights bypassとStale writeは0件を維持する。3超への拡張は別Policy変更とShadow/Soak evidenceが必要。
+
+## Runtime
 
 - Policy: `config/batch_media_orchestration_policy.json`
-- Worker pool: `config/bulk_media_worker_pool.json`
-- Job schema: `schemas/batch_media_job.schema.json`
 - Scheduler: `scripts/batch_media_scheduler.py`
+- Command center: `scripts/media_batch_command_center.py`
+- Job schema: `schemas/batch_media_job.schema.json`
 - Tests: `tests/test_batch_media_scheduler.py`
 
-The scheduler is intentionally media-operation agnostic. Existing or future four-stage clipping handlers plug into it; this keeps clipping semantics separate from concurrency control and lets a single-job pipeline remain unchanged.
-
-## Rollback
-
-Set effective parallelism to 1 or move backpressure to `PAUSED`. Do not delete verified per-job checkpoints. A failed worker must not trigger a destructive batch reset. If lease or CAS integrity fails, stop new admission and preserve all committed outputs for diagnosis.
+RollbackはConcurrencyを1または0へ落とすだけにし、正常CheckpointやCommitted outputを破棄しない。
