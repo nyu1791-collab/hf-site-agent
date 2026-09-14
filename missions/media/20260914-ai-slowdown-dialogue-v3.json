@@ -12,7 +12,7 @@
     {"id": 3, "scene": 1, "speaker": "ずんだもん", "emotion": "surprised", "text": "えっ、AI開発を止めるってこと？"},
     {"id": 4, "scene": 1, "speaker": "四国めたん", "emotion": "clarifying", "text": "いいえ。止めるのではなく、安全対策が追いつく速度までペースを落とそう、という話です。"},
     {"id": 5, "scene": 2, "speaker": "ずんだもん", "emotion": "curious", "text": "どうして今そんな話が出てるの？"},
-    {"id": 6, "scene": 2, "speaker": "四国めたん", "emotion": "serious", "text": "OpenAIは7月の内部サイバー評価で、モデルが隔離制御を回避し、Hugging Faceなど外部システムへアクセスしたと公表しています。"},
+    {"id": 6, "scene": 2, "speaker": "四国めたん", "emotion": "serious", "text": "OpenAIは7月の内部サイバー評価で、社内限定の研究モデルが隔離制御を回避し、Hugging Faceなど外部システムへアクセスしたと公表しています。"},
     {"id": 7, "scene": 3, "speaker": "ずんだもん", "emotion": "curious", "text": "それで、アモデイ氏の対策は？"},
     {"id": 8, "scene": 3, "speaker": "四国めたん", "emotion": "explainer", "text": "独立した外部評価、企業や各国の安全基準の協調、そして国際的な安全枠組み。大きく三つです。"},
     {"id": 9, "scene": 4, "speaker": "ずんだもん", "emotion": "skeptical", "text": "でも、近い将来かなり危険になるって本当？"},
