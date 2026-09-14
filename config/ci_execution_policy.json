@@ -50,7 +50,8 @@
     "direct-free-worker-corps.yml",
     "free-media-council-review.yml",
     "longform-video-preflight.yml",
-    "organization-nvidia-audit.yml"
+    "organization-nvidia-audit.yml",
+    "collect-zm-shell-assets.yml"
   ],
   "retired_paid_deepseek_workflows": [
     "deepseek-paid-parallel.yml",
