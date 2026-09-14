@@ -88,6 +88,7 @@ on:
       - 'tests/test_media_parallel_framework_mission.py'
       - 'tests/test_second_pass_governance.py'
       - '.github/workflows/deepseek-*.yml'
+      - '.github/workflows/*-once.yml'
       - '.github/workflows/canonical-ai-army-consistency.yml'
       - '.github/workflows/verify-hierarchical-runtime.yml'
   workflow_dispatch:
