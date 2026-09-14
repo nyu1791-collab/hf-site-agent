@@ -9,6 +9,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config/media_character_reaction_cache_policy.json"
 GATE = ROOT / "config/media_command_read_gate.json"
+MANIFEST = ROOT / "config/permanent_standards_manifest.json"
 REUSABLE = ROOT / "config/media_reusable_asset_standard.json"
 BUILDER = ROOT / "scripts/prepare_character_reaction_pack.py"
 DOC = ROOT / "docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md"
@@ -29,6 +30,7 @@ def require(condition: bool, message: str) -> None:
 def main() -> int:
     policy = load(POLICY)
     gate = load(GATE)
+    manifest = load(MANIFEST)
     reusable = load(REUSABLE)
 
     require(policy.get("schema_version") == "media-character-reaction-cache-v1", "reaction-cache policy schema drift")
@@ -117,6 +119,18 @@ def main() -> int:
     require(session.get("character_reaction_cache_policy_must_be_re_read") is True, "new sessions may skip reaction-cache policy")
     require(session.get("reaction_subtitle_human_standard_must_be_re_read") is True, "new sessions may skip readable reaction/subtitle standard")
 
+    standards = manifest.get("required_standards") or []
+    indexed = {str(x.get("id")): x for x in standards if isinstance(x, dict)}
+    reaction_standard = indexed.get("media-character-reaction-cache") or {}
+    require(reaction_standard.get("machine_policy") == "config/media_character_reaction_cache_policy.json", "permanent manifest lost reaction-cache policy")
+    require(reaction_standard.get("human_doc") == "docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md", "permanent manifest lost reaction/subtitle doc")
+    require(reaction_standard.get("builder") == "scripts/prepare_character_reaction_pack.py", "permanent manifest lost reaction-pack builder")
+    require(reaction_standard.get("validator") == "scripts/validate_media_character_reaction_cache.py", "permanent manifest lost reaction-cache validator")
+    media_manifest = manifest.get("media_command_gate") or {}
+    require(media_manifest.get("character_reaction_cache_policy") == "config/media_character_reaction_cache_policy.json", "manifest media gate lost reaction-cache policy")
+    cross_tab = manifest.get("cross_tab_behavior") or {}
+    require(cross_tab.get("media_character_reaction_cache_survives_tab_change") is True, "reaction-cache standard no longer survives tab change")
+
     forbidden = set(gate.get("forbidden_shortcuts") or [])
     require("SEARCH_OR_DOWNLOAD_ZUNDAMON_METAN_REACTION_ASSETS_PER_VIDEO" in forbidden, "read gate permits per-video reaction search/download")
     require("USE_VERTICAL_BOUNCE_AS_ONLY_CHARACTER_MOTION" in forbidden, "read gate permits vertical-only motion")
@@ -129,7 +143,8 @@ def main() -> int:
         "no_per_scene_download": True,
         "vertical_only_motion_blocked": True,
         "voice_caption_separated": True,
-        "read_gate_restored": True
+        "read_gate_restored": True,
+        "permanent_manifest_indexed": True
     }, ensure_ascii=False, sort_keys=True))
     return 0
 
