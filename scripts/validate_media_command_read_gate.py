@@ -12,6 +12,7 @@ BATCH = ROOT / "config/batch_media_orchestration_policy.json"
 MEDIA = ROOT / "config/media_audio_motion_retention_policy.json"
 MANIFEST = ROOT / "config/permanent_standards_manifest.json"
 REUSABLE = ROOT / "config/media_reusable_asset_standard.json"
+PERFORMANCE = ROOT / "config/media_character_performance_compact_orchestration_policy.json"
 RESOLVER = ROOT / "scripts/media_asset_resolver.py"
 
 
@@ -47,8 +48,9 @@ def main() -> int:
     media = load(MEDIA)
     manifest = load(MANIFEST)
     reusable = load(REUSABLE)
+    performance = load(PERFORMANCE)
 
-    require(gate.get("schema_version") == "media-command-read-gate-v10", "media read gate must be v10")
+    require(gate.get("schema_version") == "media-command-read-gate-v11", "media read gate must be v11")
     require(gate.get("status") == "ENFORCED_STANDARD", "media read gate is not enforced")
 
     semantic = gate.get("semantic_triggering") or {}
@@ -78,6 +80,7 @@ def main() -> int:
         "config/agent_efficiency_policy.json",
         "config/media_audio_motion_retention_policy.json",
         "config/media_reusable_asset_standard.json",
+        "config/media_character_performance_compact_orchestration_policy.json",
         "config/free_audio_source_registry.json",
         "config/dova_curated_bgm_catalog.json",
         "docs/MEDIA_PIPELINE.md",
@@ -143,6 +146,9 @@ def main() -> int:
     require(parallel.get("rights_and_claim_gates_cannot_be_skipped_for_speed") is True, "speed may bypass rights/claim gates")
     require(parallel.get("deterministic_mechanical_work_prefers_tools_over_agent_debate") is True, "mechanical media work regressed to agent debate")
     require(parallel.get("duplicate_agents_for_majority_vote_by_default") is False, "duplicate majority-vote agents became default")
+    require(parallel.get("parallelism_requires_expected_wall_clock_gain_above_coordination_overhead") is True, "media parallelism ignores coordination overhead")
+    require(parallel.get("research_and_script_are_one_combined_judgment_stage_by_default") is True, "research and script were fragmented again")
+    require(parallel.get("default_judgmental_media_pair") == ["ChatGPT", "DeepSeek"], "default media judgmental pair must remain ChatGPT plus DeepSeek")
 
     retired = set((gate.get("retired_references") or {}).get("forbidden_paths") or [])
     require("config/shortform_edit_profile.json" in retired, "retired shortform profile is no longer blocked")
@@ -157,6 +163,7 @@ def main() -> int:
         "master_rulebook_must_be_re_read",
         "audio_motion_retention_policy_must_be_re_read",
         "reusable_asset_standard_must_be_re_read",
+        "character_performance_compact_orchestration_policy_must_be_re_read",
         "free_audio_source_registry_must_be_re_read",
         "dova_curated_bgm_catalog_must_be_re_read",
         "do_not_rely_on_prior_tab_summary_as_substitute",
@@ -191,20 +198,43 @@ def main() -> int:
     require(1 <= int(reusable_cache.get("max_parallel_materialization") or 0) <= 4, "reusable asset materialization parallelism must remain bounded at 1..4")
     require(RESOLVER.is_file(), "reusable media asset resolver is missing")
 
-    require(batch.get("schema_version") == "batch-media-orchestration-v3", "batch media policy must be v3")
+    require(performance.get("schema_version") == "media-character-performance-compact-orchestration-v1", "character performance compact orchestration schema drift")
+    require(performance.get("status") == "ENFORCED_MEDIA_STANDARD", "character performance compact orchestration policy is not enforced")
+    size_focus = performance.get("character_size_and_speaker_focus") or {}
+    require(size_focus.get("normalize_perceived_size_not_raw_source_pixel_height") is True, "character perceived-size normalization disabled")
+    require(size_focus.get("active_speaker_may_scale_up_relative_to_normalized_baseline") is True, "active speaker enlargement disabled")
+    require(size_focus.get("do_not_enlarge_so_much_that_caption_evidence_or_safe_zone_is_compromised") is True, "speaker scale may collide with content")
+    acting = performance.get("facial_expression_acting") or {}
+    require(acting.get("mouth_motion_alone_is_not_character_acting") is True, "mouth-only character acting regression")
+    require(acting.get("expression_should_follow_emotion_and_semantic_beat") is True, "facial expression no longer follows semantic beat")
+    pair = performance.get("compact_chatgpt_deepseek_media_pair") or {}
+    require(pair.get("enabled") is True, "compact ChatGPT+DeepSeek media pair disabled")
+    require(pair.get("default_judgmental_team") == ["ChatGPT", "DeepSeek"], "compact media pair drift")
+    require(pair.get("research_and_script_are_one_combined_judgment_stage") is True, "research and script were split into routine agent stages")
+    require(pair.get("mechanical_media_work_uses_deterministic_tools_not_more_agents") is True, "mechanical media work regressed to extra AI agents")
+
+    require(batch.get("schema_version") == "batch-media-orchestration-v4", "batch media policy must be v4")
     architecture = batch.get("architecture") or {}
     require(architecture.get("job_level_parallelism") is True, "job-level media parallelism disabled")
     require(int(architecture.get("default_parallel_jobs") or 0) == 3, "normal media fast path must target up to 3 independent jobs")
     require(int(architecture.get("max_parallel_jobs") or 0) == 3, "media parallelism safety ceiling drifted")
     require(architecture.get("stage_level_agent_swarm") is False, "mechanical stage swarm was enabled")
     require(architecture.get("single_writer_per_job") is True, "batch media single-writer rule lost")
+    require(architecture.get("coordination_overhead_counts_as_real_latency") is True, "coordination overhead is no longer treated as real latency")
 
     fast = batch.get("fast_path") or {}
     require(fast.get("enabled") is True, "media fast path is disabled")
     require(fast.get("start_independent_jobs_without_artificial_serial_wait") is True, "independent media jobs are artificially serialized")
     require(fast.get("rights_claim_and_machine_qa_gates_are_never_relaxed") is True, "fast path weakens quality/rights gates")
     require(fast.get("downshift_immediately_on_resource_provider_or_write_contention") is True, "fast path cannot downshift under pressure")
+    require(fast.get("do_not_parallelize_when_expected_coordination_overhead_exceeds_expected_wall_clock_saving") is True, "fast path ignores coordination cost")
     require((batch.get("promotion_and_scale") or {}).get("parallelism_above_3") == "BLOCK_UNTIL_SEPARATE_POLICY_CHANGE_WITH_SHADOW_AND_SOAK_EVIDENCE", "parallelism above 3 lost its block")
+
+    compact = batch.get("compact_research_and_script") or {}
+    require(compact.get("enabled") is True, "compact research-and-script stage disabled")
+    require(compact.get("default_judgmental_team") == ["ChatGPT", "DeepSeek"], "batch default judgmental team drift")
+    require(compact.get("research_and_script_are_one_stage") is True, "batch policy fragmented research and script")
+    require(compact.get("routine_script_polish_is_not_reason_for_extra_agent") is True, "routine script polish may spawn extra agents")
 
     prereview = batch.get("pre_delivery_rereview") or {}
     require(prereview.get("required_after_candidate_completion_before_user_handoff") is True, "pre-delivery rereview is not mandatory")
@@ -216,6 +246,9 @@ def main() -> int:
         "RIGHTS_CLAIMS_EVIDENCE_AND_QA_WERE_NOT_BYPASSED_FOR_SPEED",
         "IMPLEMENTED_DESIGNED_AUDIO_COMPLETE_AND_VIDEO_COMPLETE_STATES_ARE_NOT_CONFUSED",
         "APPLICABLE_MACHINE_VALIDATORS_OR_CI_RESULTS_ARE_REPORTED_TRUTHFULLY",
+        "RESEARCH_AND_SCRIPT_WERE_NOT_OVERFRAGMENTED_WITHOUT_MATERIAL_BENEFIT",
+        "ZUNDAMON_AND_METAN_PERCEIVED_SIZE_BALANCE_WAS_CHECKED",
+        "ACTIVE_SPEAKER_SCALE_AND_REPRESENTATIVE_FACIAL_EXPRESSIONS_WERE_VISUALLY_CHECKED",
     ):
         require(item in rereview_checks, f"pre-delivery rereview lost required check: {item}")
 
@@ -226,6 +259,8 @@ def main() -> int:
     require(reporting.get("never_report_audio_only_as_video_complete") is True, "final reporting may confuse audio and video completion")
 
     ai = batch.get("ai_boundary") or {}
+    require(ai.get("chatgpt_role") == "TOP_COMMANDER_FINAL_SOURCE_SCRIPT_AND_DELIVERY_ADJUDICATOR", "ChatGPT media authority drift")
+    require(ai.get("deepseek_role") == "WORKING_RESEARCH_AND_SCRIPT_PARTNER_UNDER_CHATGPT_FINAL_AUTHORITY", "DeepSeek media role drift")
     require(ai.get("multi_agent_debate_for_mechanical_media") is False, "mechanical media debate was enabled")
     require(ai.get("generic_paid_fallback") is False, "batch media generic paid fallback enabled")
     require(ai.get("paid_media_generation") is False, "batch media paid generation enabled")
@@ -242,6 +277,8 @@ def main() -> int:
         "max_parallel_repository_reads": max_reads,
         "shop_clipping_union": True,
         "reusable_asset_restore": True,
+        "character_performance_policy": performance.get("schema_version"),
+        "compact_media_pair": True,
         "batch_policy": batch.get("schema_version"),
         "normal_fast_path_parallel_jobs": architecture.get("default_parallel_jobs"),
         "max_parallel_jobs": architecture.get("max_parallel_jobs"),
