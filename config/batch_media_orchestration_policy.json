@@ -1,14 +1,14 @@
 {
-  "schema_version": "batch-media-orchestration-v3",
+  "schema_version": "batch-media-orchestration-v4",
   "effective_date_jst": "2026-09-14",
   "status": "PERMANENT_CONDITIONAL_STANDARD",
   "decision_owner": "chatgpt-top-commander",
   "research_basis": {
-    "previous_policy": "batch-media-orchestration-v2",
-    "retained_evidence": "BOUNDED_JOB_LEVEL_PARALLELISM_WITH_PER_JOB_RIGHTS_RESOURCE_LEASE_AND_QA_GATES",
-    "chatgpt_adjudication": "PROMOTE_SAFE_NORMAL_STATE_FAST_PATH_TO_UP_TO_THREE_INDEPENDENT_JOBS_WITHOUT_RELAXING_QUALITY_OR_RIGHTS"
+    "previous_policy": "batch-media-orchestration-v3",
+    "retained_evidence": "BOUNDED_JOB_LEVEL_PARALLELISM_WITH_PER_JOB_RIGHTS_RESOURCE_LEASE_QA_GATES_AND_STAGE_REUSE",
+    "chatgpt_adjudication": "KEEP_SAFE_JOB_LEVEL_PARALLELISM_BUT_COLLAPSE_ROUTINE_MEDIA_RESEARCH_AND_SCRIPT_AUTHORING_INTO_ONE_CHATGPT_PLUS_DEEPSEEK_JUDGMENT_STAGE_WHEN_EXTRA_HANDOFFS_WOULD_ADD_MORE_COORDINATION_COST_THAN WALL_CLOCK_GAIN"
   },
-  "primary_goal": "MINIMIZE_MEDIA_TURNAROUND_TIME_BY_RUNNING_ONLY_INDEPENDENT_ADMITTED_WORK_CONCURRENTLY_WHILE_PRESERVING_RIGHTS_QUALITY_RECOVERY_SINGLE_WRITER_SAFETY_AND_MANIFEST_KEYED_LAYER_REUSE",
+  "primary_goal": "MINIMIZE_MEDIA_TURNAROUND_TIME_WITHOUT_LOWERING_QUALITY_BY_PARALLELIZING_ONLY GENUINELY_INDEPENDENT_ADMITTED_WORK, CONSOLIDATING_RESEARCH_AND_SCRIPT_JUDGMENT, AND PRESERVING_RIGHTS_QUALITY_RECOVERY_SINGLE_WRITER_SAFETY_AND_MANIFEST_KEYED_LAYER_REUSE",
   "architecture": {
     "job_level_parallelism": true,
     "stage_level_agent_swarm": false,
@@ -20,7 +20,8 @@
     "direct_worker_to_worker_delegation": false,
     "max_delegation_depth": 2,
     "deterministic_media_stages_do_not_require_ai": true,
-    "shared_global_mutation_requires_short_single_writer_commit": true
+    "shared_global_mutation_requires_short_single_writer_commit": true,
+    "coordination_overhead_counts_as_real_latency": true
   },
   "fast_path": {
     "enabled": true,
@@ -38,7 +39,8 @@
     "dependency_order_must_be_preserved_within_each_job": true,
     "rights_claim_and_machine_qa_gates_are_never_relaxed": true,
     "downshift_immediately_on_resource_provider_or_write_contention": true,
-    "throughput_multiplier_is_not_guaranteed": true
+    "throughput_multiplier_is_not_guaranteed": true,
+    "do_not_parallelize_when_expected_coordination_overhead_exceeds_expected_wall_clock_saving": true
   },
   "admission": {
     "rights_verified_per_job_before_media_execution": true,
@@ -78,8 +80,18 @@
     "failure_of_one_job_must_not_cancel_unrelated_jobs": true
   },
   "ai_boundary": {
-    "deepseek_role": "SUPERVISORY_RESEARCH_REVIEW_FAILURE_ANALYSIS_ONLY",
+    "chatgpt_role": "TOP_COMMANDER_FINAL_SOURCE_SCRIPT_AND_DELIVERY_ADJUDICATOR",
+    "deepseek_role": "WORKING_RESEARCH_AND_SCRIPT_PARTNER_UNDER_CHATGPT_FINAL_AUTHORITY",
     "deepseek_is_bulk_worker": false,
+    "deepseek_media_default_work": [
+      "BROAD_EVIDENCE_COLLECTION",
+      "SOURCE_COMPARISON",
+      "CHRONOLOGY",
+      "CONTRADICTION_DISCOVERY",
+      "HOOK_AND_STRUCTURE_ALTERNATIVES",
+      "FIRST_PASS_SCRIPT_OR_SECTION_DRAFTING",
+      "BOUNDED_RED_TEAM_REVIEW"
+    ],
     "optional_ai_bulk_tasks": ["HIGHLIGHT_CANDIDATE_RANKING", "HOOK_OR_PAYOFF_REVIEW", "CAPTION_LANGUAGE_CLEANUP", "METADATA_VARIANTS", "ANALYTICS_TRIAGE"],
     "mechanical_tasks_use_deterministic_tools": ["TRIM", "CUT", "CONCAT", "REFRAME_EXECUTION", "CAPTION_BURN", "AUDIO_NORMALIZATION", "HASHING", "MANIFEST_COMMIT", "FFPROBE_QA", "DECODE_QA"],
     "max_judgmental_verifiers_per_clip": 1,
@@ -90,13 +102,28 @@
     "paid_media_generation": false,
     "auto_top_up": false
   },
+  "compact_research_and_script": {
+    "enabled": true,
+    "default_judgmental_team": ["ChatGPT", "DeepSeek"],
+    "research_and_script_are_one_stage": true,
+    "shared_outputs": ["EVIDENCE_LEDGER", "CHRONOLOGY_OR_FACT_TABLE_WHEN_NEEDED", "CANONICAL_SCRIPT_WITH_SOURCE_CLAIM_IDS", "UNRESOLVED_QUESTION_LIST"],
+    "default_handoff_pattern": "CHATGPT_FRAME_AND_REQUIREMENTS -> DEEPSEEK_BOUNDED_RESEARCH_COMPARE_DRAFT -> CHATGPT_VERIFY_EDIT_AND_SCRIPT_LOCK",
+    "default_deepseek_synthesis_passes": 1,
+    "extra_deepseek_pass_requires": ["MATERIAL_SOURCE_CONFLICT", "HIGH_STAKES_WORDING_RISK", "FAILED_SCRIPT_ACCEPTANCE", "MATERIALLY_NEW_EVIDENCE"],
+    "extra_specialist_agent_requires": ["MISSING_SPECIALIST_CAPABILITY", "INDEPENDENT_WORK", "MATERIAL_EXPECTED_INFORMATION_GAIN_OR_RISK_REDUCTION"],
+    "routine_script_polish_is_not_reason_for_extra_agent": true,
+    "avoid_more_than_two_judgmental_handoffs_before_script_lock_without_recorded_reason": true,
+    "rights_or_asset_discovery_may_overlap_when_independent": true,
+    "voice_generation_waits_for_script_lock_unless_reusing_unchanged_verified_chunks": true
+  },
   "parallel_preproduction": {
-    "allowed_independent_lanes": ["SOURCE_AND_FACT_RESEARCH", "RIGHTS_AND_CLAIM_VERIFICATION", "EDIT_AND_CAPTION_PLANNING", "DETERMINISTIC_AUTOMATION_PLANNING"],
+    "allowed_independent_lanes": ["CHATGPT_DEEPSEEK_RESEARCH_AND_SCRIPT_PAIR", "RIGHTS_AND_CLAIM_VERIFICATION_WHEN_INDEPENDENT", "DETERMINISTIC_ASSET_OR_AUTOMATION_PREPARATION"],
     "maximum_direct_parallel_lanes": 3,
     "final_integration_requires_single_writer": true,
     "same_output_parallel_writers": false,
     "duplicate_majority_vote_agents": false,
-    "use_independent_reviewer_only_when_risk_or_uncertainty_justifies_it": true
+    "use_independent_reviewer_only_when_risk_or_uncertainty_justifies_it": true,
+    "do_not_split_source_research_script_draft_rewrite_and_routine_review_into_separate_agents_by_default": true
   },
   "incremental_stage_reuse_and_preview": {
     "stage_graph": ["research_and_script", "voice_chunks", "measured_timing", "character_layer", "evidence_and_panel_layer", "caption_overlay", "audio_mix", "final_composite_and_mux"],
@@ -135,7 +162,7 @@
     "uniform_preview_of_unchanged_low_risk_stages_required": false,
     "preview_forms": ["LOW_RESOLUTION_SHORT_FIXTURE", "CONTACT_SHEET", "REPRESENTATIVE_RISK_FRAMES"],
     "preview_samples_risk_events_not_only_even_time_intervals": true,
-    "primary_preflight_failure_classes": ["MOUTH_FACE_COMPOSITE", "PANEL_BRIGHTNESS_OR_CONTRAST", "CAPTION_WRAP_OR_WIDTH", "SAFE_ZONE_COLLISION"],
+    "primary_preflight_failure_classes": ["MOUTH_FACE_COMPOSITE", "PANEL_BRIGHTNESS_OR_CONTRAST", "CAPTION_WRAP_OR_WIDTH", "SAFE_ZONE_COLLISION", "CHARACTER_PERCEIVED_SIZE_IMBALANCE", "ACTIVE_SPEAKER_SCALE_COLLISION", "EXPRESSION_STATE_FAILURE"],
     "preview_failure_blocks_expensive_full_render": true,
     "post_render_visual_sampling_is_secondary_confirmation_not_primary_known_defect_gate": true,
     "final_decode_qa_remains_required_after_incremental_composite": true,
@@ -160,7 +187,10 @@
       "VISUAL_RISK_PREVIEW_RAN_BEFORE_EXPENSIVE_FULL_RENDER_WHEN_APPLICABLE",
       "VISUAL_ONLY_FIX_DID_NOT_REGENERATE_UNCHANGED_AUDIO_OR_RESEARCH_WITHOUT_DEPENDENCY_REASON",
       "REUSED_ARTIFACTS_MATCH_CURRENT_INPUT_MANIFEST",
-      "FULL_RERENDER_HAS_RECORDED_DEPENDENCY_JUSTIFICATION_WHEN_USED"
+      "FULL_RERENDER_HAS_RECORDED_DEPENDENCY_JUSTIFICATION_WHEN_USED",
+      "RESEARCH_AND_SCRIPT_WERE_NOT_OVERFRAGMENTED_WITHOUT_MATERIAL_BENEFIT",
+      "ZUNDAMON_AND_METAN_PERCEIVED_SIZE_BALANCE_WAS_CHECKED",
+      "ACTIVE_SPEAKER_SCALE_AND_REPRESENTATIVE_FACIAL_EXPRESSIONS_WERE_VISUALLY_CHECKED"
     ],
     "problem_found_action": "FIX_SMALLEST_AFFECTED_UNIT_THEN_RERUN_RELEVANT_CHECKS_AND_WHOLE_ARTIFACT_CONSISTENCY_REVIEW",
     "healthy_verified_artifacts_must_not_be_regenerated_for_unrelated_fix": true
@@ -205,7 +235,11 @@
     "stale_write_incidents",
     "rights_gate_bypass_incidents",
     "duplicate_output_rate",
-    "ai_verifier_invocations_per_clip"
+    "ai_verifier_invocations_per_clip",
+    "judgmental_handoff_count_before_script_lock",
+    "deepseek_calls_used_for_research_and_script",
+    "coordination_time_fraction",
+    "duplicate_research_avoided"
   ],
   "forbidden_drift": [
     "UNBOUNDED_MEDIA_WORKER_SPAWN",
@@ -217,6 +251,8 @@
     "PARALLELISM_ABOVE_3_WITHOUT_NEW_EVIDENCE",
     "GLOBAL_MEDIA_LOCK_WHEN_JOB_SCOPED_LEASE_IS_SUFFICIENT",
     "ARTIFICIAL_SERIALIZATION_OF_INDEPENDENT_ADMITTED_JOBS",
+    "OVERFRAGMENT_ROUTINE_MEDIA_RESEARCH_AND_SCRIPT_INTO_SMALL_AGENT_HANDOFFS",
+    "ADD_SPECIALIST_AGENT_WITHOUT_MATERIAL_EXPECTED_INFORMATION_GAIN_OR_RISK_REDUCTION",
     "SKIP_PRE_DELIVERY_REREVIEW_FOR_SPEED",
     "REPORT_UNVERIFIED_COMPLETION_OR_CI_STATUS",
     "FULL_PIPELINE_RERUN_FOR_CAPTION_ONLY_OR_PALETTE_ONLY_CHANGE_WITHOUT_DEPENDENCY_REASON",
