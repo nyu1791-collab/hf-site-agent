@@ -1,0 +1,153 @@
+{
+  "schema_version": "media-character-reaction-cache-v1",
+  "effective_date_jst": "2026-09-14",
+  "status": "ENFORCED_STANDARD",
+  "purpose": "Keep Zundamon and Shikoku Metan reaction assets locally reusable, fast to render, and visually expressive without repeated search/download or vertical-only motion.",
+  "applies_when": [
+    "ZUNDAMON_VISIBLE_OR_SPEAKING",
+    "SHIKOKU_METAN_VISIBLE_OR_SPEAKING"
+  ],
+  "authority": {
+    "source_asset_registry": "config/media_reusable_asset_standard.json",
+    "source_asset_id": "zm_shell_20230806",
+    "source_materializer": "scripts/media_asset_resolver.py",
+    "reaction_pack_builder": "scripts/prepare_character_reaction_pack.py",
+    "human_readable_standard": "docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md",
+    "conversation_memory_is_not_source_of_truth": true
+  },
+  "cache_contract": {
+    "source_cache_root": ".media-cache/assets/characters/zm_shell_20230806",
+    "derived_pack_root": ".media-cache/derived/zm-reaction-pack-v1",
+    "pack_revision": "zm-reaction-pack-v1",
+    "source_shell_download_once_when_cache_missing": true,
+    "verified_source_cache_hit_forbids_redownload": true,
+    "reaction_pack_build_only_when_missing_or_source_sha_changes": true,
+    "verified_reaction_pack_hit_forbids_rebuild": true,
+    "no_search_during_render": true,
+    "no_network_during_reaction_pack_build": true,
+    "no_per_scene_download": true,
+    "no_per_line_download": true,
+    "load_inventory_once_per_render": true,
+    "preprocess_transparency_once": true,
+    "index_all_character_pngs_once": true,
+    "raw_third_party_assets_not_committed_to_repository": true,
+    "derived_third_party_assets_not_committed_to_repository": true,
+    "rights_recheck_before_publication_still_required": true,
+    "actions_cache_is_acceleration_not_rights_evidence": true
+  },
+  "minimum_inventory": {
+    "source_png_total_min": 160,
+    "zundamon_png_min": 95,
+    "metan_png_min": 65,
+    "required_categories": [
+      "full_body",
+      "mouth",
+      "eyes",
+      "brows",
+      "symbols",
+      "face_tone",
+      "right_arm",
+      "left_arm"
+    ],
+    "required_generated_symbols": [
+      "question",
+      "surprise",
+      "emphasis",
+      "anger",
+      "focus_flash"
+    ]
+  },
+  "reaction_inventory_intent": {
+    "zundamon": {
+      "eyes": ["normal", "happy", "skeptical", "surprised", "closed", "upward", "strain"],
+      "brows": ["normal", "raised", "worried", "angry"],
+      "mouth": ["closed", "small_open", "open", "wide_open", "smile", "pout"],
+      "poses": ["basic", "raise_hand", "point", "think", "hand_near_mouth", "waist", "distress"],
+      "shell_symbols": ["sweat", "tears"],
+      "face_tone": ["normal", "blush", "pale", "shadow"]
+    },
+    "metan": {
+      "eyes": ["normal", "camera", "surprised", "closed", "upward", "strain", "dizzy"],
+      "brows": ["cheerful", "worried", "slightly_angry", "angry"],
+      "mouth": ["closed", "small_open", "open", "wide_open", "smile", "grin"],
+      "poses": ["basic", "raise_hand", "point", "whisper", "microphone", "hand_near_mouth", "hold"],
+      "shell_symbols": ["sweat", "tears"],
+      "face_tone": ["normal", "blush", "pale", "shadow"]
+    }
+  },
+  "motion_quality_contract": {
+    "vertical_only_motion_is_insufficient": true,
+    "speech_start_bounce_may_remain_as_micro_accent": true,
+    "speech_start_bounce_must_not_be_the_only_visible_animation": true,
+    "semantic_beat_requires_nonvertical_or_state_change": true,
+    "allowed_nonvertical_or_state_changes": [
+      "x_translation",
+      "scale_push_or_pull",
+      "rotation_or_tilt",
+      "focus_depth_or_z_order_change",
+      "pose_swap",
+      "expression_swap",
+      "eye_direction_change",
+      "reaction_symbol_overlay",
+      "entry_or_exit_motion_at_major_boundary"
+    ],
+    "expression_or_pose_change_within_sentence_count": 2,
+    "speaker_mouth_animation_required": true,
+    "extended_visible_character_blink_required": true,
+    "listener_reaction_allowed": true,
+    "active_speaker_focus_required": true,
+    "serious_topic_reduces_comedic_motion": true,
+    "movement_must_not_cover_caption_or_evidence": true,
+    "do_not_force_constant_large_motion": true
+  },
+  "voice_caption_separation": {
+    "separate_voice_text_and_caption_text_fields": true,
+    "voice_text_may_use_katakana_pronunciation_for_foreign_terms": true,
+    "caption_text_prefers_official_latin_or_english_spelling": true,
+    "caption_text_must_not_copy_katakana_pronunciation_automatically": true,
+    "keep_japanese_grammar_around_english_terms": true,
+    "official_brand_or_product_spelling_has_priority": true,
+    "examples": [
+      {"voice_text": "エーアイ", "caption_text": "AI"},
+      {"voice_text": "オープンエーアイ", "caption_text": "OpenAI"},
+      {"voice_text": "アンスロピック", "caption_text": "Anthropic"},
+      {"voice_text": "ハギングフェイス", "caption_text": "Hugging Face"},
+      {"voice_text": "ロイター", "caption_text": "Reuters"},
+      {"voice_text": "サム・アルトマン", "caption_text": "Sam Altman"},
+      {"voice_text": "ジーピーユー", "caption_text": "GPU"},
+      {"voice_text": "エーピーアイ", "caption_text": "API"},
+      {"voice_text": "シーイーオー", "caption_text": "CEO"}
+    ],
+    "exception": "Use Japanese official notation or a deliberate user-requested notation when that is the publication standard for the term."
+  },
+  "render_performance_contract": {
+    "prefer_preprocessed_pack_over_raw_shell_scan": true,
+    "avoid_per_frame_directory_scan": true,
+    "avoid_per_frame_image_decode_when_reusable": true,
+    "cache_scaled_variants_within_same_output_resolution": true,
+    "reuse_expression_composites_within_same_render": true,
+    "parallel_preparation_max_workers": 4,
+    "single_writer_for_pack_build": true,
+    "atomic_pack_publish": true,
+    "checkpoint_after_pack_validation": true,
+    "quality_gates_must_not_be_disabled_for_speed": true
+  },
+  "failure_contract": {
+    "missing_verified_source_shell": "RESOLVE_REGISTERED_SOURCE_CACHE_FIRST_THEN_FETCH_KNOWN_URL_ONLY_IF_CACHE_MISS",
+    "missing_or_stale_reaction_pack": "REBUILD_ONCE_FROM_LOCAL_VERIFIED_SOURCE_SHELL",
+    "incomplete_reaction_inventory": "BLOCK_CHARACTER_RENDER_AND_REPORT_MISSING_CATEGORY",
+    "rights_state_unclear": "BLOCK_PUBLICATION_NOT_INTERNAL_RENDER_PREPARATION",
+    "same_root_cause_retry_without_new_evidence": false
+  },
+  "forbidden_shortcuts": [
+    "SEARCH_REACTION_ASSETS_PER_VIDEO",
+    "DOWNLOAD_REACTION_ASSETS_PER_SCENE",
+    "REDOWNLOAD_VERIFIED_SOURCE_SHELL",
+    "REBUILD_VERIFIED_REACTION_PACK_WITH_SAME_SOURCE_SHA",
+    "USE_VERTICAL_BOUNCE_AS_ONLY_CHARACTER_ANIMATION",
+    "LEAVE_CHARACTER_EXPRESSION_UNCHANGED_BEYOND_TWO_SENTENCES_WITHOUT_REASON",
+    "COPY_KATAKANA_TTS_READING_DIRECTLY_INTO_CAPTION_FOR_ENGLISH_BRAND_OR_TECH_TERM",
+    "COMMIT_RAW_OR_DERIVED_THIRD_PARTY_CHARACTER_ASSETS_TO_REPOSITORY",
+    "BYPASS_RIGHTS_OR_MACHINE_QA_FOR_SPEED"
+  ]
+}
