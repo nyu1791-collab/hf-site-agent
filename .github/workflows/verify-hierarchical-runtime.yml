@@ -79,6 +79,7 @@ jobs:
             tests.test_adaptive_retry_and_compact_nvidia \
             tests.test_subordinate_continuation_carrier \
             tests.test_replace_narration_audio \
+            tests.test_media_asset_resolver \
             -v
       - name: Validate JavaScript source syntax
         run: |
