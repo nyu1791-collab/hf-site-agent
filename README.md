@@ -14,7 +14,10 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 この4ファイルは全ルールの複製ではない。詳細は `config/permanent_standards_manifest.json` から、依頼の意味に応じたSemantic Gateを解決する。
 
 - 動画・音声・字幕・キャラクター・BGM・SFX・画像素材・切り抜き・TikTok Shopメディア: `config/media_command_read_gate.json`
+- 現在の動画品質・視聴維持・時短改善をタブ跨ぎで即復元する補助Checkpoint: `config/current_media_quality_handoff.json`
 - 収益化・案件・アフィリエイト・Creator Program・AI workflow service: `config/monetization_command_read_gate.json`
+
+`config/current_media_quality_handoff.json` は会話Memoryの代わりとなる現行サマリーだが、最終Authorityではない。内容が異なる場合は現行のMachine Policy・Validator・CIを優先する。メディア依頼ではBootstrap後にこのCheckpointと `config/media_command_read_gate.json` を読み、そこから現在の詳細Policyへ展開する。
 
 詳細が文書間で異なる場合は、最新の明示的ユーザー指示と安全境界を守ったうえで、現行Machine-readable Policy・Validator・CIを優先する。恒久ルールを変更する場合は会話だけで終わらせず、Machine Policy / Rulebook / Validator / CI / Read Gateの整合性を同じ変更で確認する。
 
@@ -22,6 +25,7 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 
 - ChatGPT / Work がTop Commanderかつ最終判断者。
 - 有料DeepSeekは `config/deepseek_paid_supervisor_policy.json` の範囲だけで使うExecutive Supervisor。全タスクの必須hopでも大量boilerplate coderでもない。
+- DeepSeekはWorking Managerとして、調査、Evidence Triage、台本/レポート草案、Task Packaging、下位作業の割当設計・査読、関連する低リスク事務作業まで担当できる。ただし明確に速く正確なDeterministic Toolを置き換えない。
 - Deterministic ToolまたはSingle Agentで十分ならそれを優先する。
 - Single Writerを維持し、同一mutable targetの並列変更にはTask Leaseを要求する。
 - 最大Delegation Depthは2、1ユーザー依頼あたり最大10 Tasks。無限Swarm・無限Reflection・無限Replanは禁止。
@@ -31,7 +35,7 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 
 ## メディア制作
 
-メディア作業では、計画・素材取得・音声生成・レンダリングより前に `config/media_command_read_gate.json` の現行版を読む。READMEへ詳細ルールを重複させない。
+メディア作業では、計画・素材取得・音声生成・レンダリングより前に `config/current_media_quality_handoff.json` と `config/media_command_read_gate.json` の現行版を読む。READMEへ詳細ルールを重複させない。
 
 現在の恒久標準の要点:
 
@@ -39,17 +43,33 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 - 音声はSemantic Beat単位でPause・Speed・Pitch・Intonation・Emotionを設計し、長時間の平坦読みを標準にしない。
 - キャラクターはIdle / Speaking / Reaction / Emphasis等の状態で控えめに動かし、長時間の完全静止立ち絵へ退行させない。
 - 1 Semantic Beatにつき主役となるAttention Heroは原則1つ。Caption / Evidence / Character / SFX / Zoomを理由なく競合させない。
+- 視聴維持のための構成は釣りではなく、Truthful Hook → Early Value / Evidence → Explanation / Contrast → Payoffを基本候補とし、Curiosity Gapを使う場合は動画内で回収する。
+- 字幕は意味のまとまり、実フォント表示幅、測定済み音声タイミング、強調を別軸で扱い、文字数だけで機械分割しない。
+- 口元やキャラGeometry変更時は本編前に顔全体Fixtureで確認し、口が動くだけでは合格としない。
+- 変更したHigh-risk Layerは低コストPreviewで先に検査し、失敗したまま高コストFull Renderへ進めない。
+- 修正は最小Stageと真の依存先だけを再生成し、字幕・説明Panel・口Anchorだけの変更で都合上Full Pipelineをやり直さない。
+- Cache再利用はPolicy版、素材Hash、Character Pack、口Anchor、字幕Rule、VOICEVOX設定、出力Geometry、Dependency Hash等を含む入力Manifest一致を必要とする。
 - 視覚素材は検索 → Original Source確認 → Rights確認 → 事前取得・Decode検証を基本とする。Generated Image / Generated Video Assetは現行Longform標準経路にしない。
 - 第三者Free BGMはDOVA-SYNDROME / OpenTracksを優先候補とし、`config/free_audio_source_registry.json` と `config/dova_curated_bgm_catalog.json` の現行条件を守る。
 - 長尺はScene / Chapter単位で `Scene -> Validate -> Checkpoint -> Join`。Monolithic Renderへ戻さない。
 - Timelineは文字数推測ではなく、生成済みWAVの実時間をffprobeで測定して決める。
 - Partial / Unverified SceneをConcatへ入れない。失敗時は最小失敗単位だけを再処理し、正常な成果物を保持する。
-- 完成判定は最終MP4のffprobe、Video/Audio stream、Media Contract、Decode integrity、字幕Coverage等のMachine QAを通す。
+- 完成判定は最終MP4のffprobe、Video/Audio stream、Media Contract、Decode integrity、字幕Coverage等のMachine QAに加えて、代表FrameのVisual QAも通す。Decode PASSだけを見た目PASSとみなさない。
+- 速さや視聴維持のために事実、権利、口元、字幕、安全領域、音量、Decode、Final Visual QAを弱めない。
 - Runway、Fal/fal.ai、Descript、VEED、HeyGen、Higgsfield等のPaid/Freemium/Trial media SaaSを標準制作経路にしない。Unknown cost routeはfail-closed。
 
 詳細は以下をSemantic Gateから現行版で復元する。
 
+- `config/current_media_quality_handoff.json`
 - `config/media_audio_motion_retention_policy.json`
+- `config/media_reusable_asset_standard.json`
+- `config/media_character_reaction_cache_policy.json`
+- `config/zundamon_metan_production_quality_policy.json`
+- `docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md`
+- `config/batch_media_orchestration_policy.json`
+- `config/cross_domain_measurement_registry.json`
+- `scripts/validate_zundamon_metan_production_quality.py`
+- `scripts/validate_video_retention_efficiency.py`
 - `config/free_audio_source_registry.json`
 - `config/dova_curated_bgm_catalog.json`
 - `config/longform_video_objectives.json`
