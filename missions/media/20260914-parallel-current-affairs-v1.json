@@ -1,0 +1,79 @@
+{
+  "schema": "parallel-current-affairs-video-mission-v1",
+  "date_jst": "2026-09-14",
+  "output_format": "vertical_short_news",
+  "voices": ["ずんだもん", "四国めたん"],
+  "generated_image_ai_allowed": false,
+  "generated_video_ai_allowed": false,
+  "public_publish": false,
+  "jobs": {
+    "anthropic_ipo": {
+      "title": "アンスロピック、ナスダック上場へ？",
+      "target_seconds": [55, 80],
+      "source_notes": [
+        "Reuters 2026-09-13: Business Insider reports Anthropic selected Nasdaq for a potential IPO; this is reported information, not an official final listing announcement.",
+        "Reuters 2026-09-13: FT reports Anthropic expects positive adjusted operating income for a second consecutive quarter; Reuters says it has not independently verified that FT report."
+      ],
+      "pronunciation_policy": {
+        "latin_terms_must_be_kana_in_voice_and_main_captions": true,
+        "mapping": {
+          "AI": "エーアイ",
+          "Anthropic": "アンスロピック",
+          "Nasdaq": "ナスダック",
+          "IPO": "アイピーオー",
+          "Reuters": "ロイター",
+          "Business Insider": "ビジネス・インサイダー",
+          "Financial Times": "フィナンシャル・タイムズ"
+        }
+      },
+      "dialogue": [
+        {"id":1,"speaker":"ずんだもん","emotion":"surprised","text":"今日のエーアイ速報。アンスロピックがナスダック上場を選んだと報じられました。"},
+        {"id":2,"speaker":"四国めたん","emotion":"serious","text":"ビジネス・インサイダーが関係者情報として報じ、ロイターが伝えています。まだ会社の最終的な上場発表ではありません。"},
+        {"id":3,"speaker":"ずんだもん","emotion":"question","text":"じゃあ、もうアイピーオー決定ってわけじゃないの？"},
+        {"id":4,"speaker":"四国めたん","emotion":"clarifying","text":"その通り。取引所の選択が報じられた段階で、時期や条件は今後変わる可能性があります。"},
+        {"id":5,"speaker":"ずんだもん","emotion":"curious","text":"でも、なんでそんなに注目されてるの？"},
+        {"id":6,"speaker":"四国めたん","emotion":"explainer","text":"フィナンシャル・タイムズは、アンスロピックが調整後営業利益で二四半期連続の黒字を見込むと投資家へ伝えたと報じています。"},
+        {"id":7,"speaker":"ずんだもん","emotion":"surprised","text":"巨額の計算コストがあるのに、利益も見え始めてるってこと？"},
+        {"id":8,"speaker":"四国めたん","emotion":"serious","text":"報道どおりなら重要な変化です。ただし、その利益情報はロイターが独自確認したものではありません。"},
+        {"id":9,"speaker":"ずんだもん","emotion":"skeptical","text":"安全のため開発を少し減速しようって話も出たばかりだよね。"},
+        {"id":10,"speaker":"四国めたん","emotion":"summary","text":"だからこそ注目です。成長と安全対策を両立しながら、巨大エーアイ企業が資本市場へ進めるのかが焦点です。"},
+        {"id":11,"speaker":"ずんだもん","emotion":"curious","text":"次に見るべきポイントは？"},
+        {"id":12,"speaker":"四国めたん","emotion":"explainer","text":"正式な目論見書、上場時期、財務数値、そして安全投資の中身。この四つです。"},
+        {"id":13,"speaker":"ずんだもん","emotion":"question","text":"巨大エーアイ企業の上場、あなたはどう見ますか？"}
+      ]
+    },
+    "nvidia_huggingface": {
+      "title": "エヌビディア、ハギングフェイスを約129億ドルで買収へ",
+      "target_seconds": [55, 80],
+      "source_notes": [
+        "NVIDIA SEC Form 8-K filed for 2026-09-02: definitive agreement to acquire Hugging Face; approximately $11.9B purchase price plus up to approximately $1.0B employee equity retention program.",
+        "SEC filing: expected close in first half of 2027 subject to customary closing conditions and required regulatory approvals.",
+        "SEC filing: NVIDIA committed to keep Hugging Face platform open and continue support for other silicon vendors."
+      ],
+      "pronunciation_policy": {
+        "latin_terms_must_be_kana_in_voice_and_main_captions": true,
+        "mapping": {
+          "AI": "エーアイ",
+          "NVIDIA": "エヌビディア",
+          "Hugging Face": "ハギングフェイス",
+          "SEC": "米証券取引委員会"
+        }
+      },
+      "dialogue": [
+        {"id":1,"speaker":"ずんだもん","emotion":"surprised","text":"エヌビディアが、ハギングフェイスを約百二十九億ドル規模で買収することになりました。"},
+        {"id":2,"speaker":"四国めたん","emotion":"serious","text":"米証券取引委員会への提出資料では、買収対価がおよそ百十九億ドル、さらに従業員向け株式報酬が最大およそ十億ドルです。"},
+        {"id":3,"speaker":"ずんだもん","emotion":"question","text":"ハギングフェイスって、そんなに重要なの？"},
+        {"id":4,"speaker":"四国めたん","emotion":"explainer","text":"公開モデルやデータセット、アプリを開発者が共有し、試し、配布する巨大なエーアイ開発プラットフォームです。"},
+        {"id":5,"speaker":"ずんだもん","emotion":"skeptical","text":"でもエヌビディアが買ったら、自社の半導体だけに囲い込まれない？"},
+        {"id":6,"speaker":"四国めたん","emotion":"clarifying","text":"提出資料では、プラットフォームを開いたままにし、他社の半導体も引き続き支援すると約束しています。"},
+        {"id":7,"speaker":"ずんだもん","emotion":"surprised","text":"それなら、開発者側にはかなり大きな話だね。"},
+        {"id":8,"speaker":"四国めたん","emotion":"explainer","text":"エヌビディアにとっても、半導体だけでなくモデルやデータが集まる開発者基盤との接点が一気に増えます。"},
+        {"id":9,"speaker":"ずんだもん","emotion":"question","text":"もう買収は完了したの？"},
+        {"id":10,"speaker":"四国めたん","emotion":"serious","text":"まだです。正式契約は結ばれましたが、規制当局の承認などを経て、二〇二七年前半の完了が見込まれています。"},
+        {"id":11,"speaker":"ずんだもん","emotion":"curious","text":"今後の注目点は？"},
+        {"id":12,"speaker":"四国めたん","emotion":"summary","text":"本当に開放性が維持されるか、他社半導体の支援が続くか、そして開発者体験がどう変わるかです。"},
+        {"id":13,"speaker":"ずんだもん","emotion":"question","text":"この買収、エーアイ業界を変えると思いますか？"}
+      ]
+    }
+  }
+}
