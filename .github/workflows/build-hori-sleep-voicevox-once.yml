@@ -1,0 +1,85 @@
+name: "Build Hori sleep explainer VOICEVOX once"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/workflows/build-hori-sleep-voicevox-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hori-sleep-voicevox-once
+  cancel-in-progress: false
+
+jobs:
+  voicevox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+      - name: Start VOICEVOX
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          docker run -d --name voicevox -p 50021:50021 voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          docker logs voicevox || true
+          exit 1
+      - name: Generate dialogue
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/hori_sleep_voicevox/wav
+          python - <<'PY'
+          import json, urllib.request, urllib.parse, pathlib, subprocess
+          root=pathlib.Path('.')
+          mission=json.loads((root/'missions/media/20260914-hori-daisuke-sleep-history.json').read_text(encoding='utf-8'))
+          speakers=json.loads(urllib.request.urlopen('http://127.0.0.1:50021/speakers').read().decode('utf-8'))
+          def style(name):
+              s=next(x for x in speakers if x.get('name')==name)
+              styles=s.get('styles') or []
+              normal=next((x for x in styles if x.get('name') in ('ノーマル','Normal','normal')),None)
+              return (normal or styles[0])['id']
+          ids={n:style(n) for n in ('ずんだもん','四国めたん')}
+          out=root/'artifacts/hori_sleep_voicevox'
+          timing=[]; cursor=0.0
+          for item in mission['dialogue']:
+              sid=ids[item['speaker']]
+              text=item['voice_text']
+              qs=urllib.parse.urlencode({'text':text,'speaker':sid})
+              req=urllib.request.Request('http://127.0.0.1:50021/audio_query?'+qs,data=b'',method='POST')
+              q=json.loads(urllib.request.urlopen(req).read().decode('utf-8'))
+              if item['speaker']=='ずんだもん':
+                  q['speedScale']=1.14; q['pitchScale']=0.02; q['intonationScale']=1.12
+              else:
+                  q['speedScale']=1.10; q['pitchScale']=-0.01; q['intonationScale']=1.08
+              body=json.dumps(q,ensure_ascii=False).encode('utf-8')
+              syn=urllib.request.Request(f'http://127.0.0.1:50021/synthesis?speaker={sid}',data=body,headers={'Content-Type':'application/json'},method='POST')
+              wav=urllib.request.urlopen(syn).read()
+              fn=f"{item['id']:03d}_{'zundamon' if item['speaker']=='ずんだもん' else 'metan'}.wav"
+              p=out/'wav'/fn; p.write_bytes(wav)
+              dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(p)],text=True).strip())
+              timing.append({**item,'style_id':sid,'file':'wav/'+fn,'start':round(cursor,3),'duration':round(dur,3),'end':round(cursor+dur,3)})
+              cursor += dur + 0.10
+          manifest={'schema':'voicevox-dialogue-timeline-v1','engine':'VOICEVOX local Docker','style_ids':ids,'total_duration':round(cursor,3),'dialogue':timing,'public_publish_performed':False}
+          (out/'timeline_manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({'style_ids':ids,'utterances':len(timing),'total_duration':manifest['total_duration']},ensure_ascii=False))
+          PY
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: hori-sleep-voicevox-${{ github.run_id }}
+          path: artifacts/hori_sleep_voicevox
+          retention-days: 3
