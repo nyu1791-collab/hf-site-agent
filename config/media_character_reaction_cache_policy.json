@@ -2,7 +2,7 @@
   "schema_version": "media-character-reaction-cache-v1",
   "effective_date_jst": "2026-09-14",
   "status": "ENFORCED_STANDARD",
-  "purpose": "Keep Zundamon and Shikoku Metan reaction assets locally reusable, fast to render, and visually expressive without repeated search/download or vertical-only motion.",
+  "purpose": "Keep Zundamon and Shikoku Metan reaction assets locally reusable, fast to render, visually expressive and geometrically correct without repeated search/download or vertical-only motion.",
   "applies_when": [
     "ZUNDAMON_VISIBLE_OR_SPEAKING",
     "SHIKOKU_METAN_VISIBLE_OR_SPEAKING"
@@ -75,6 +75,22 @@
       "face_tone": ["normal", "blush", "pale", "shadow"]
     }
   },
+  "mouth_alignment_contract": {
+    "asset_existence_is_not_alignment_proof": true,
+    "supported_geometry_models": ["SHARED_FULL_CANVAS_COORDINATES", "EXPLICIT_ANCHOR_METADATA"],
+    "cropped_layer_requires_explicit_anchor_metadata": true,
+    "anchor_profile_is_character_specific": true,
+    "anchor_profile_identity_includes": ["source_sha256", "pack_revision", "character", "output_geometry", "scale_profile"],
+    "exactly_one_active_mouth_layer_per_character": true,
+    "closed_small_open_and_open_fixture_required": true,
+    "fixture_must_cover_zundamon_and_metan": true,
+    "fixture_checks": ["inside_face_socket", "no_eye_or_nose_overlap", "no_face_outline_damage", "no_float_or_detach", "no_double_mouth", "alpha_edge_integrity"],
+    "fixture_required_after_source_pack_anchor_scale_or_geometry_change": true,
+    "verified_fixture_reused_when_identity_is_unchanged": true,
+    "per_frame_anchor_detection_forbidden": true,
+    "alpha_or_black_key_preprocessing_must_be_validated_against_face_line_art": true,
+    "visible_alignment_failure_blocks_full_character_render": true
+  },
   "motion_quality_contract": {
     "vertical_only_motion_is_insufficient": true,
     "speech_start_bounce_may_remain_as_micro_accent": true,
@@ -126,6 +142,9 @@
     "avoid_per_frame_image_decode_when_reusable": true,
     "cache_scaled_variants_within_same_output_resolution": true,
     "reuse_expression_composites_within_same_render": true,
+    "precompute_mouth_anchor_transforms_once_per_geometry_identity": true,
+    "cache_calibrated_mouth_variants_within_same_output_geometry": true,
+    "do_not_revalidate_unchanged_anchor_fixture_per_frame_or_per_line": true,
     "parallel_preparation_max_workers": 4,
     "single_writer_for_pack_build": true,
     "atomic_pack_publish": true,
@@ -136,6 +155,7 @@
     "missing_verified_source_shell": "RESOLVE_REGISTERED_SOURCE_CACHE_FIRST_THEN_FETCH_KNOWN_URL_ONLY_IF_CACHE_MISS",
     "missing_or_stale_reaction_pack": "REBUILD_ONCE_FROM_LOCAL_VERIFIED_SOURCE_SHELL",
     "incomplete_reaction_inventory": "BLOCK_CHARACTER_RENDER_AND_REPORT_MISSING_CATEGORY",
+    "mouth_alignment_fixture_failure": "BLOCK_FULL_CHARACTER_RENDER_AND_FIX_ANCHOR_OR_PREPROCESSING_WITHOUT_REGENERATING_UNCHANGED_AUDIO",
     "rights_state_unclear": "BLOCK_PUBLICATION_NOT_INTERNAL_RENDER_PREPARATION",
     "same_root_cause_retry_without_new_evidence": false
   },
@@ -148,6 +168,10 @@
     "LEAVE_CHARACTER_EXPRESSION_UNCHANGED_BEYOND_TWO_SENTENCES_WITHOUT_REASON",
     "COPY_KATAKANA_TTS_READING_DIRECTLY_INTO_CAPTION_FOR_ENGLISH_BRAND_OR_TECH_TERM",
     "COMMIT_RAW_OR_DERIVED_THIRD_PARTY_CHARACTER_ASSETS_TO_REPOSITORY",
-    "BYPASS_RIGHTS_OR_MACHINE_QA_FOR_SPEED"
+    "BYPASS_RIGHTS_OR_MACHINE_QA_FOR_SPEED",
+    "ASSUME_MOUTH_ASSET_EXISTENCE_MEANS_VISUAL_ALIGNMENT",
+    "COMPOSITE_CROPPED_MOUTH_WITHOUT_EXPLICIT_ANCHOR",
+    "STACK_MULTIPLE_MOUTH_LAYERS_ON_ONE_CHARACTER",
+    "DETECT_MOUTH_ANCHOR_AGAIN_FOR_EVERY_FRAME"
   ]
 }
