@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail closed on reaction-cache, non-vertical motion, and TTS/caption separation drift."""
+"""Fail closed on reaction-cache, mouth alignment, non-vertical motion, and TTS/caption separation drift."""
 from __future__ import annotations
 
 import json
@@ -77,6 +77,25 @@ def main() -> int:
     required_symbols = set(inventory.get("required_generated_symbols") or [])
     require({"question", "surprise", "emphasis", "anger", "focus_flash"}.issubset(required_symbols), "generated reaction symbol set regressed")
 
+    mouth = policy.get("mouth_alignment_contract") or {}
+    require(mouth.get("asset_existence_is_not_alignment_proof") is True, "mouth asset existence became alignment proof")
+    geometry = set(mouth.get("supported_geometry_models") or [])
+    require({"SHARED_FULL_CANVAS_COORDINATES", "EXPLICIT_ANCHOR_METADATA"}.issubset(geometry), "supported mouth geometry models regressed")
+    require(mouth.get("cropped_layer_requires_explicit_anchor_metadata") is True, "cropped mouth layer may omit anchor metadata")
+    require(mouth.get("anchor_profile_is_character_specific") is True, "mouth anchor profile is no longer character-specific")
+    identity = set(mouth.get("anchor_profile_identity_includes") or [])
+    require({"source_sha256", "pack_revision", "character", "output_geometry", "scale_profile"}.issubset(identity), "mouth anchor cache identity is incomplete")
+    require(mouth.get("exactly_one_active_mouth_layer_per_character") is True, "multiple mouth layers may be active on one character")
+    require(mouth.get("closed_small_open_and_open_fixture_required") is True, "three-state mouth fixture no longer required")
+    require(mouth.get("fixture_must_cover_zundamon_and_metan") is True, "mouth fixture no longer covers both characters")
+    fixture_checks = set(mouth.get("fixture_checks") or [])
+    for check in ("inside_face_socket", "no_eye_or_nose_overlap", "no_face_outline_damage", "no_float_or_detach", "no_double_mouth", "alpha_edge_integrity"):
+        require(check in fixture_checks, f"mouth fixture check missing: {check}")
+    require(mouth.get("fixture_required_after_source_pack_anchor_scale_or_geometry_change") is True, "changed mouth geometry no longer invalidates fixture")
+    require(mouth.get("verified_fixture_reused_when_identity_is_unchanged") is True, "unchanged mouth fixture cannot be reused")
+    require(mouth.get("per_frame_anchor_detection_forbidden") is True, "mouth anchor may be rediscovered per frame")
+    require(mouth.get("visible_alignment_failure_blocks_full_character_render") is True, "visible mouth failure does not block character render")
+
     motion = policy.get("motion_quality_contract") or {}
     require(motion.get("vertical_only_motion_is_insufficient") is True, "vertical-only motion became acceptable")
     require(motion.get("speech_start_bounce_may_remain_as_micro_accent") is True, "speech-start bounce compatibility lost")
@@ -105,12 +124,18 @@ def main() -> int:
         "avoid_per_frame_image_decode_when_reusable",
         "cache_scaled_variants_within_same_output_resolution",
         "reuse_expression_composites_within_same_render",
+        "precompute_mouth_anchor_transforms_once_per_geometry_identity",
+        "cache_calibrated_mouth_variants_within_same_output_geometry",
+        "do_not_revalidate_unchanged_anchor_fixture_per_frame_or_per_line",
         "single_writer_for_pack_build",
         "atomic_pack_publish",
         "quality_gates_must_not_be_disabled_for_speed",
     ):
         require(perf.get(key) is True, f"reaction render performance guarantee missing: {key}")
     require(1 <= int(perf.get("parallel_preparation_max_workers") or 0) <= 4, "reaction preparation parallelism must stay bounded 1..4")
+
+    failures = policy.get("failure_contract") or {}
+    require(failures.get("mouth_alignment_fixture_failure") == "BLOCK_FULL_CHARACTER_RENDER_AND_FIX_ANCHOR_OR_PREPROCESSING_WITHOUT_REGENERATING_UNCHANGED_AUDIO", "mouth fixture failure recovery drift")
 
     common = set(gate.get("common_media_read_set") or [])
     require("config/media_character_reaction_cache_policy.json" in common, "media read gate no longer restores reaction-cache policy")
@@ -140,6 +165,8 @@ def main() -> int:
         "status": "PASS",
         "policy": policy.get("schema_version"),
         "reaction_pack_root": cache.get("derived_pack_root"),
+        "mouth_alignment_fixture_required": True,
+        "mouth_anchor_reuse": True,
         "no_per_scene_download": True,
         "vertical_only_motion_blocked": True,
         "voice_caption_separated": True,
