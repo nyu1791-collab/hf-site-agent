@@ -39,7 +39,11 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 
 現在の恒久標準の要点:
 
+- 通常の情報収集と原稿作成は **ChatGPT + DeepSeek** を1つの判断工程として扱う。調査役、原稿役、書き直し役、通常査読役を理由なく細分化せず、追加Agentは独立並列化・専門能力・リスク低減に明確な価値がある場合だけ使う。
+- レンダリング、タイミング計測、エンコード、Hash、ffprobe、Decode QAなどの機械工程はDeterministic Toolを優先し、Agent数を増やさない。
 - 標準VOICEVOX castは **ずんだもん + 四国めたん**。Speaker / Style IDは実行時に利用可能状態を確認する。
+- ずんだもんと四国めたんは素材の生ピクセル高ではなく見た目の大きさを揃え、話者を自然に前へ・大きく見せる。拡大で字幕、説明図、安全領域を侵さない。
+- 口だけを動かしてキャラ演技完了としない。目、眉、顔つき、首傾き、ポーズ、必要な聞き手リアクションを意味と感情に合わせて使い、全要素を同時に動かす過剰演出は避ける。
 - 音声はSemantic Beat単位でPause・Speed・Pitch・Intonation・Emotionを設計し、長時間の平坦読みを標準にしない。
 - キャラクターはIdle / Speaking / Reaction / Emphasis等の状態で控えめに動かし、長時間の完全静止立ち絵へ退行させない。
 - 1 Semantic Beatにつき主役となるAttention Heroは原則1つ。Caption / Evidence / Character / SFX / Zoomを理由なく競合させない。
@@ -61,6 +65,7 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 詳細は以下をSemantic Gateから現行版で復元する。
 
 - `config/current_media_quality_handoff.json`
+- `config/media_character_performance_compact_orchestration_policy.json`
 - `config/media_audio_motion_retention_policy.json`
 - `config/media_reusable_asset_standard.json`
 - `config/media_character_reaction_cache_policy.json`
