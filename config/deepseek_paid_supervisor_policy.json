@@ -1,12 +1,12 @@
 {
-  "schema_version": "deepseek-paid-supervisor-v3",
-  "effective_date_jst": "2026-09-12",
+  "schema_version": "deepseek-paid-supervisor-v4",
+  "effective_date_jst": "2026-09-14",
   "status": "ACTIVE_SCOPED_EXCEPTION",
   "human_authorization": {
     "authorized": true,
     "persistent_for_allowed_scope": true,
-    "authorized_by_user_on": "2026-09-12",
-    "purpose": "Use paid DeepSeek heavily and routinely as a senior supervisor for research, architecture, peer review, decomposition, red-team analysis, incident diagnosis, media strategy, TikTok Shop strategy, and supervision of subordinate AI work.",
+    "authorized_by_user_on": "2026-09-14",
+    "purpose": "Use paid DeepSeek heavily and routinely as a working Executive Supervisor: broad research, evidence gathering and triage, architecture, peer review, decomposition, red-team analysis, incident diagnosis, media and commerce strategy, script/report drafting, task packaging, subordinate dispatch planning, subordinate review, and bounded low-risk clerical support that reduces coordination overhead.",
     "repeat_per_call_approval_required": false
   },
   "precedence": {
@@ -47,23 +47,37 @@
     "deepseek_reports_to": "chatgpt-work",
     "deepseek_is_lowest_worker": false,
     "deepseek_is_bulk_coding_worker": false,
-    "deepseek_primary_duties": ["RESEARCH_DIRECTOR", "SYSTEM_ARCHITECT", "PEER_REVIEW_CHAIR", "RED_TEAM_CHAIR", "INCIDENT_COMMANDER", "MEDIA_STRATEGY_SUPERVISOR", "TIKTOK_SHOP_STRATEGY_SUPERVISOR", "SUBORDINATE_WORK_REVIEWER"],
-    "execution_rule": "SUPERVISE_OR_USE_DETERMINISTIC_TOOL_FIRST; SELF_COMPLETE_ANALYSIS_WHEN_NO_VERIFIED_SUBORDINATE_OR_MACHINE_ORACLE_IS_BETTER",
+    "deepseek_primary_duties": ["RESEARCH_DIRECTOR", "EVIDENCE_TRIAGE_OPERATOR", "SYSTEM_ARCHITECT", "PEER_REVIEW_CHAIR", "RED_TEAM_CHAIR", "INCIDENT_COMMANDER", "MEDIA_STRATEGY_SUPERVISOR", "TIKTOK_SHOP_STRATEGY_SUPERVISOR", "SCRIPT_AND_REPORT_DRAFTER", "TASK_PACKAGER", "SUBORDINATE_DISPATCH_COORDINATOR", "SUBORDINATE_WORK_REVIEWER", "BOUNDED_CLERICAL_SUPPORT"],
+    "execution_rule": "ACT_AS_A_WORKING_MANAGER: SUPERVISE, DELEGATE, DRAFT, PACKAGE, REVIEW, AND SELF_COMPLETE_BOUNDED_LOW_RISK_SUPPORT_WHEN_THAT_REDUCES_HANDOFF_OVERHEAD; USE_DETERMINISTIC_TOOLS_FIRST_WHEN_THEY_ARE_CLEARLY FASTER_CHEAPER_AND_MORE_RELIABLE",
     "subordinate_max_depth": 2,
     "subordinate_execution_preference": ["DETERMINISTIC_TOOLS", "VERIFIED_FREE_OR_LOW_COST_SPECIALISTS", "VERIFIED_QWEN_OR_NVIDIA_OR_GROQ_OR_GOOGLE_SPECIALISTS", "OPENROUTER_FREE_WORKERS_WHEN_VERIFIED"],
     "subordinate_route_must_be_verified_before_use": true,
     "worker_to_worker_delegation": false
   },
+  "working_manager_mode": {
+    "enabled": true,
+    "may_do_low_risk_chores_inside_active_mission": true,
+    "batch_related_chores_with_parent_mission": true,
+    "may_collect_and_organize_evidence_from_commander_or_subordinate_search_lanes": true,
+    "may_extract_source_notes_and_build_comparison_tables": true,
+    "may_draft_scripts_reports_briefs_checklists_and_task_packets": true,
+    "may_prepare_subordinate_assignments_and_acceptance_criteria": true,
+    "may_reconcile_subordinate_outputs_before_chatgpt_review": true,
+    "may_create_followup_research_questions": true,
+    "standalone_paid_call_for_one_trivial_deterministic_chore_by_default": false,
+    "machine_oracle_still_wins_for_exact_deterministic_work": true,
+    "chatgpt_final_adjudication_required": true
+  },
   "supervisor_admission": {
     "routine_complex_missions_auto_admit": true,
     "user_reapproval_per_mission": false,
-    "use_by_default_when_any": ["BROAD_RESEARCH", "MULTI_SOURCE_COMPARISON", "HIGH_UNCERTAINTY", "ARCHITECTURE_OR_SYSTEM_DESIGN", "RED_TEAM_OR_COUNTERARGUMENT_REVIEW", "INCIDENT_OR_ROOT_CAUSE_ANALYSIS", "STRATEGIC_SYNTHESIS", "MEDIA_OR_COMMERCE_STRATEGY", "SUBORDINATE_TASK_DECOMPOSITION", "SUBORDINATE_RESULT_REVIEW"],
-    "skip_by_default_when_all_work_is": ["TRIVIAL_TRANSFORM", "DETERMINISTIC_VALIDATION", "MECHANICAL_FORMATTING", "LARGE_BOILERPLATE_CODE_GENERATION", "REPETITIVE_FILE_EDITING"],
-    "principle": "USE_DEEPSEEK_OFTEN_FOR_HIGH_INFORMATION_GAIN_SUPERVISORY_WORK; DO_NOT_WASTE_IT_ON_LOW_JUDGMENT_MECHANICAL_WORK"
+    "use_by_default_when_any": ["BROAD_RESEARCH", "MULTI_SOURCE_COMPARISON", "HIGH_UNCERTAINTY", "ARCHITECTURE_OR_SYSTEM_DESIGN", "RED_TEAM_OR_COUNTERARGUMENT_REVIEW", "INCIDENT_OR_ROOT_CAUSE_ANALYSIS", "STRATEGIC_SYNTHESIS", "MEDIA_OR_COMMERCE_STRATEGY", "SUBORDINATE_TASK_DECOMPOSITION", "SUBORDINATE_RESULT_REVIEW", "SCRIPT_OR_REPORT_DRAFTING_LINKED_TO_RESEARCH", "EVIDENCE_PACKAGING", "MULTI_STEP_WORK_WITH_RELATED_CLERICAL_SUPPORT"],
+    "skip_by_default_when_all_work_is": ["SINGLE_TRIVIAL_DETERMINISTIC_TRANSFORM", "PURE_MACHINE_VALIDATION", "LARGE_BOILERPLATE_CODE_GENERATION", "REPETITIVE_FILE_REWRITE_WITHOUT_JUDGMENT"],
+    "principle": "USE_DEEPSEEK_AS_A_HIGH-UTILIZATION_WORKING_MANAGER: IT MAY DO RESEARCH, DRAFTING, PACKAGING, TRIAGE AND RELATED CHORES, BUT DO NOT PAY IT TO REPLACE A FASTER RELIABLE MACHINE ORACLE"
   },
   "usage_policy": {
-    "spend_compute_on": ["broad_information_gathering", "source_comparison", "architecture alternatives", "failure mode discovery", "contradiction search", "design peer review", "competitive and platform research", "media workflow review", "TikTok Shop product and creative strategy review", "subordinate result synthesis", "postmortem and remediation planning"],
-    "avoid_spending_compute_on": ["large boilerplate code generation", "mechanical formatting", "simple deterministic transforms", "bulk file rewrites", "tasks with a reliable local tool oracle"],
+    "spend_compute_on": ["broad_information_gathering", "source_comparison", "evidence triage", "source-note extraction", "architecture alternatives", "failure mode discovery", "contradiction search", "design peer review", "competitive and platform research", "media workflow review", "TikTok Shop product and creative strategy review", "script and report drafting", "brief and checklist preparation", "comparison tables", "task-envelope and subordinate-assignment preparation", "subordinate result synthesis", "postmortem and remediation planning", "bounded clerical work attached to an admitted mission"],
+    "avoid_spending_compute_on": ["large boilerplate code generation", "pure mechanical formatting when a local tool is exact", "simple deterministic transforms with a machine oracle", "bulk file rewrites without judgment", "duplicate source processing already present in a verified artifact"],
     "coding": {
       "default_mode": "REVIEW_PLAN_AND_PATCH_GUIDANCE",
       "bulk_code_generation_by_default": false,
@@ -74,15 +88,15 @@
     }
   },
   "compute_allocation": {
-    "default_mode": "HIGH_VALUE_SUPERVISORY_CONSUMPTION",
-    "priority_order": ["RESEARCH_COVERAGE", "SOURCE_TRIANGULATION", "ALTERNATIVE_GENERATION", "CONTRADICTION_DISCOVERY", "ARCHITECTURE_REVIEW", "RED_TEAM_REVIEW", "SUBORDINATE_REVIEW", "SYNTHESIS"],
+    "default_mode": "WORKING_EXECUTIVE_SUPERVISOR",
+    "priority_order": ["RESEARCH_COVERAGE", "SOURCE_TRIANGULATION", "EVIDENCE_TRIAGE", "CONTRADICTION_DISCOVERY", "ALTERNATIVE_GENERATION", "SCRIPT_OR_REPORT_DRAFTING", "TASK_PACKAGING", "ARCHITECTURE_REVIEW", "RED_TEAM_REVIEW", "SUBORDINATE_REVIEW", "SYNTHESIS", "RELATED_CLERICAL_SUPPORT"],
     "prefer_multiple_independent_research_lanes_over_one_very_long_monologue": true,
-    "prefer_managerial_reasoning_over_bulk_implementation": true,
+    "prefer_managerial_reasoning_and_useful_work_products_over_idle_supervision": true,
     "successful_lane_reuse_before_new_call": true,
-    "stop_when_additional_calls_have_low_expected_information_gain": true
+    "stop_when_additional_calls_have_low_expected_information_gain_or_only_duplicate_work": true
   },
   "research_fanout": {
-    "pattern": "CHATGPT_TO_DEEPSEEK_SUPERVISOR_TO_BOUNDED_RESEARCH_LANES_TO_DEEPSEEK_SYNTHESIS_TO_CHATGPT_ADJUDICATION",
+    "pattern": "CHATGPT_TO_DEEPSEEK_WORKING_SUPERVISOR_TO_BOUNDED_RESEARCH_OR_DRAFTING_LANES_TO_DEEPSEEK_SYNTHESIS_TO_CHATGPT_ADJUDICATION",
     "default_max_distinct_research_lanes": 6,
     "default_max_parallel_deepseek_calls": 3,
     "default_max_deepseek_calls_per_mission": 8,
@@ -96,10 +110,10 @@
   },
   "reasoning_effort": {
     "routing_and_light_triage": "low",
-    "normal_research_and_peer_review": "high",
+    "normal_research_drafting_and_peer_review": "high",
     "architecture_incident_and_red_team": "max",
     "mapping_is_default_not_unmeasured_dogma": true,
-    "do_not_use_max_for_mechanical_tasks": true
+    "do_not_use_max_for_low_judgment_clerical_tasks": true
   },
   "context_and_cache": {
     "stable_shared_prefix_first": true,
@@ -145,7 +159,8 @@
     "identify_conflicting_evidence": true,
     "propose_remove_or_demote_not_only_add": true,
     "recommend_measurable_tests_and_metrics": true,
-    "chatgpt_checks_primary_sources_before_policy_adoption": true,
+    "drafts_must_preserve_source_claim_ids_or_evidence_references_when_claim_bearing": true,
+    "chatgpt_checks_primary_sources_before_policy_or_publication_adoption": true,
     "machine_oracle_over_model_vote_when_available": true,
     "blind_first_review_for_high_impact_anchor_risk": true
   },
@@ -161,5 +176,5 @@
     "irreversible_external_action": false,
     "human_approval_still_required_for_side_effects_outside_authorized_research_scope": true
   },
-  "success_metrics": ["task_success_rate", "accepted_recommendation_rate_after_chatgpt_review", "research_coverage", "contradiction_detection_rate", "false_claim_rate", "cost_per_accepted_decision", "p95_research_latency", "cache_hit_rate", "cache_miss_tokens", "duplicate_research_avoided", "replan_rate", "incident_root_cause_resolution_rate", "coordination_overhead_ratio"]
+  "success_metrics": ["task_success_rate", "accepted_recommendation_rate_after_chatgpt_review", "research_coverage", "contradiction_detection_rate", "false_claim_rate", "draft_acceptance_rate", "handoff_completeness", "subordinate_task_packet_quality", "clerical_rework_rate", "cost_per_accepted_decision", "p95_research_latency", "cache_hit_rate", "cache_miss_tokens", "duplicate_research_avoided", "replan_rate", "incident_root_cause_resolution_rate", "coordination_overhead_ratio"]
 }
