@@ -8,7 +8,7 @@
     "retained_evidence": "BOUNDED_JOB_LEVEL_PARALLELISM_WITH_PER_JOB_RIGHTS_RESOURCE_LEASE_AND_QA_GATES",
     "chatgpt_adjudication": "PROMOTE_SAFE_NORMAL_STATE_FAST_PATH_TO_UP_TO_THREE_INDEPENDENT_JOBS_WITHOUT_RELAXING_QUALITY_OR_RIGHTS"
   },
-  "primary_goal": "MINIMIZE_MEDIA_TURNAROUND_TIME_BY_RUNNING_ONLY_INDEPENDENT_ADMITTED_WORK_CONCURRENTLY_WHILE_PRESERVING_RIGHTS_QUALITY_RECOVERY_SINGLE_WRITER_SAFETY_AND_LAYER_LEVEL_REUSE",
+  "primary_goal": "MINIMIZE_MEDIA_TURNAROUND_TIME_BY_RUNNING_ONLY_INDEPENDENT_ADMITTED_WORK_CONCURRENTLY_WHILE_PRESERVING_RIGHTS_QUALITY_RECOVERY_SINGLE_WRITER_SAFETY_AND_MANIFEST_KEYED_LAYER_REUSE",
   "architecture": {
     "job_level_parallelism": true,
     "stage_level_agent_swarm": false,
@@ -102,6 +102,23 @@
     "stage_graph": ["research_and_script", "voice_chunks", "measured_timing", "character_layer", "evidence_and_panel_layer", "caption_overlay", "audio_mix", "final_composite_and_mux"],
     "content_hash_each_stage": true,
     "checkpoint_each_expensive_or_reusable_stage": true,
+    "artifact_manifest_required_for_reuse": true,
+    "artifact_manifest_fields": [
+      "policy_versions",
+      "input_asset_ids_and_hashes",
+      "character_pack_revision",
+      "mouth_anchor_profile",
+      "caption_rule_version",
+      "panel_profile",
+      "voice_id_and_parameters",
+      "voice_text_hash",
+      "encoder_and_filter_versions",
+      "output_geometry",
+      "stage_dependency_hashes"
+    ],
+    "whole_stage_hash_without_input_manifest_is_insufficient_for_reuse": true,
+    "hash_or_manifest_mismatch_forces_only_affected_artifact_and_true_dependents_to_rebuild": true,
+    "identical_manifest_and_input_hash_allows_verified_artifact_reuse": true,
     "invalidate_only_changed_stage_and_true_dependents": true,
     "caption_only_fix_invalidates": ["caption_overlay", "final_composite_and_mux"],
     "panel_palette_or_layout_fix_invalidates": ["evidence_and_panel_layer", "final_composite_and_mux"],
@@ -110,11 +127,17 @@
     "script_or_voice_change_regenerates_only_changed_utterance_chunks_when_possible": true,
     "audio_mix_change_does_not_invalidate_visual_source_layers": true,
     "full_pipeline_rerun_requires_dependency_reason": true,
+    "full_pipeline_rerun_requires_recorded_job_log_justification": true,
     "shared_character_inventory_decode_scale_and_anchor_profiles_reused_across_parallel_jobs_when_identity_matches": true,
+    "cross_campaign_scaled_visual_cache_requires_matching_color_transfer_scale_and_policy_manifest": true,
     "low_cost_visual_preview_before_expensive_full_render_when_visual_layers_changed": true,
+    "risk_triggered_preview_for_changed_or_high_risk_layers": true,
+    "uniform_preview_of_unchanged_low_risk_stages_required": false,
     "preview_forms": ["LOW_RESOLUTION_SHORT_FIXTURE", "CONTACT_SHEET", "REPRESENTATIVE_RISK_FRAMES"],
     "preview_samples_risk_events_not_only_even_time_intervals": true,
+    "primary_preflight_failure_classes": ["MOUTH_FACE_COMPOSITE", "PANEL_BRIGHTNESS_OR_CONTRAST", "CAPTION_WRAP_OR_WIDTH", "SAFE_ZONE_COLLISION"],
     "preview_failure_blocks_expensive_full_render": true,
+    "post_render_visual_sampling_is_secondary_confirmation_not_primary_known_defect_gate": true,
     "final_decode_qa_remains_required_after_incremental_composite": true,
     "final_visual_sample_review_remains_required_after_incremental_composite": true
   },
@@ -135,7 +158,9 @@
       "APPLICABLE_MACHINE_VALIDATORS_OR_CI_RESULTS_ARE_REPORTED_TRUTHFULLY",
       "NO_SIMPLER_SAFER_FASTER_EQUIVALENT_PATH_IS_OBVIOUS_AFTER_COMPLETION",
       "VISUAL_RISK_PREVIEW_RAN_BEFORE_EXPENSIVE_FULL_RENDER_WHEN_APPLICABLE",
-      "VISUAL_ONLY_FIX_DID_NOT_REGENERATE_UNCHANGED_AUDIO_OR_RESEARCH_WITHOUT_DEPENDENCY_REASON"
+      "VISUAL_ONLY_FIX_DID_NOT_REGENERATE_UNCHANGED_AUDIO_OR_RESEARCH_WITHOUT_DEPENDENCY_REASON",
+      "REUSED_ARTIFACTS_MATCH_CURRENT_INPUT_MANIFEST",
+      "FULL_RERENDER_HAS_RECORDED_DEPENDENCY_JUSTIFICATION_WHEN_USED"
     ],
     "problem_found_action": "FIX_SMALLEST_AFFECTED_UNIT_THEN_RERUN_RELEVANT_CHECKS_AND_WHOLE_ARTIFACT_CONSISTENCY_REVIEW",
     "healthy_verified_artifacts_must_not_be_regenerated_for_unrelated_fix": true
@@ -159,7 +184,29 @@
     "ceiling_is_not_a_target": true,
     "continuous_measurement_required": true
   },
-  "metrics": ["jobs_completed_per_hour", "effective_parallelism", "p95_per_clip_latency", "technical_qa_pass_rate", "cost_per_clip", "retry_rate_by_failure_class", "checkpoint_reuse_ratio", "peak_memory_mb_per_job", "provider_calls_per_clip", "stale_write_incidents", "rights_gate_bypass_incidents", "duplicate_output_rate", "ai_verifier_invocations_per_clip", "preview_blocked_full_render_count", "stage_reuse_ratio", "full_rerender_avoided_count"],
+  "metrics": [
+    "jobs_completed_per_hour",
+    "effective_parallelism",
+    "p95_per_clip_latency",
+    "technical_qa_pass_rate",
+    "cost_per_clip",
+    "retry_rate_by_failure_class",
+    "checkpoint_reuse_ratio",
+    "artifact_manifest_cache_hit_rate",
+    "stage_reuse_ratio",
+    "full_rerender_avoided_count",
+    "full_rerender_count",
+    "full_rerender_justification_rate",
+    "preview_blocked_full_render_count",
+    "preview_defect_catch_rate",
+    "post_render_defect_escape_rate",
+    "peak_memory_mb_per_job",
+    "provider_calls_per_clip",
+    "stale_write_incidents",
+    "rights_gate_bypass_incidents",
+    "duplicate_output_rate",
+    "ai_verifier_invocations_per_clip"
+  ],
   "forbidden_drift": [
     "UNBOUNDED_MEDIA_WORKER_SPAWN",
     "BULK_AI_DEBATE_FOR_MECHANICAL_STAGES",
@@ -173,6 +220,9 @@
     "SKIP_PRE_DELIVERY_REREVIEW_FOR_SPEED",
     "REPORT_UNVERIFIED_COMPLETION_OR_CI_STATUS",
     "FULL_PIPELINE_RERUN_FOR_CAPTION_ONLY_OR_PALETTE_ONLY_CHANGE_WITHOUT_DEPENDENCY_REASON",
-    "EXPENSIVE_FULL_RENDER_BEFORE_AVAILABLE_LOW_COST_VISUAL_PREVIEW"
+    "FULL_RERENDER_WITHOUT_RECORDED_DEPENDENCY_JUSTIFICATION",
+    "REUSE_ARTIFACT_WITHOUT_CURRENT_INPUT_MANIFEST_MATCH",
+    "EXPENSIVE_FULL_RENDER_BEFORE_AVAILABLE_LOW_COST_VISUAL_PREVIEW",
+    "UNIFORM_PREVIEW_OF_UNCHANGED_LOW_RISK_STAGES"
   ]
 }
