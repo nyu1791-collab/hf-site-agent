@@ -1,0 +1,177 @@
+{
+  "schema_version": "zundamon-metan-production-quality-v1",
+  "effective_date_jst": "2026-09-14",
+  "status": "ENFORCED_STANDARD",
+  "purpose": "Add durable preparation, editing-speed and retention-quality rules for Zundamon/Shikoku Metan production without weakening the existing character, caption, rights, audio or anti-boredom standards.",
+  "applies_when": ["ZUNDAMON_OR_SHIKOKU_METAN_VIDEO_CREATION"],
+  "extends": {
+    "creative_policy": "config/media_audio_motion_retention_policy.json",
+    "reaction_cache_policy": "config/media_character_reaction_cache_policy.json",
+    "reusable_asset_standard": "config/media_reusable_asset_standard.json",
+    "free_audio_registry": "config/free_audio_source_registry.json",
+    "curated_bgm_catalog": "config/dova_curated_bgm_catalog.json",
+    "read_gate": "config/media_command_read_gate.json"
+  },
+  "authoring_template": {
+    "preferred_editor": "YMM4",
+    "base_project_template_preferred": true,
+    "base_project_extension": ".ymmp",
+    "template_should_preconfigure": [
+      "character_tracks",
+      "voice_tracks",
+      "caption_tracks",
+      "evidence_visual_tracks",
+      "sfx_tracks",
+      "bgm_tracks",
+      "character_positions_and_safe_zones",
+      "speaker_focus_defaults",
+      "caption_style_presets",
+      "bgm_starting_level_and_ducking",
+      "output_resolution_and_frame_rate"
+    ],
+    "headless_fallback_uses_equivalent_machine_template": true,
+    "headless_fallback_must_not_claim_ymmp_when_no_ymmp_exists": true,
+    "caption_style_preset_saved_once_and_reused": true,
+    "repository_policy_is_authority_over_local_editor_favorite_or_preset": true
+  },
+  "character_source_preparation": {
+    "psd_or_layered_character_source_allowed_when_rights_verified": true,
+    "psd_is_not_required_when_registered_shell_already_satisfies_needed_states": true,
+    "registered_reaction_pack_preferred_before_new_character_asset_acquisition": true,
+    "no_per_video_psd_or_reaction_redownload": true,
+    "third_party_psd_or_derived_assets_follow_cache_and_rights_rules": true,
+    "raw_or_derived_third_party_character_assets_not_committed_to_repository": true
+  },
+  "audio_library_preparation": {
+    "reusable_sfx_and_bgm_library_preferred": true,
+    "ymm4_favorites_may_accelerate_manual_authoring": true,
+    "repository_registry_and_receipts_remain_source_of_truth": true,
+    "do_not_redownload_verified_cached_audio_without_reason": true,
+    "common_sfx_intents": ["decision", "reaction", "shock", "evidence", "number", "warning", "transition", "confirmation"],
+    "unknown_or_unverifiable_license": "BLOCK"
+  },
+  "script_first_pipeline": {
+    "structured_script_before_timeline_assembly": true,
+    "required_dialogue_fields": ["speaker", "voice_text", "caption_text", "emotion", "visual_beat", "sfx_beat"],
+    "claim_bearing_content_adds": ["source_claim_ids"],
+    "batch_import_to_ymm4_when_supported": true,
+    "deterministic_equivalent_import_allowed": true,
+    "ai_generated_dialogue_draft_allowed": true,
+    "ai_generated_factual_claims_still_require_claim_and_source_gates": true,
+    "voice_text_and_caption_text_must_remain_separate": true
+  },
+  "voicevox_pronunciation_dictionary": {
+    "reusable_dictionary_required_for_recurring_foreign_and_technical_terms": true,
+    "dictionary_entries_include": ["surface_term", "voice_reading", "caption_spelling", "revision"],
+    "voice_reading_may_be_katakana": true,
+    "caption_spelling_prefers_official_latin_or_english": true,
+    "dictionary_is_reused_between_videos": true,
+    "caption_text_must_not_be_rewritten_to_match_katakana_voice_reading": true,
+    "examples": [
+      {"surface_term":"AI","voice_reading":"エーアイ","caption_spelling":"AI"},
+      {"surface_term":"OpenAI","voice_reading":"オープンエーアイ","caption_spelling":"OpenAI"},
+      {"surface_term":"Anthropic","voice_reading":"アンスロピック","caption_spelling":"Anthropic"},
+      {"surface_term":"Hugging Face","voice_reading":"ハギングフェイス","caption_spelling":"Hugging Face"}
+    ]
+  },
+  "voice_prosody_starting_heuristics": {
+    "shortform_or_news_speed_scale_range": [1.10, 1.20],
+    "shortform_or_news_intonation_scale_range": [1.10, 1.20],
+    "hard_require_range": false,
+    "clarity_and_naturalness_override_speed_target": true,
+    "serious_complex_or_sensitive_content_may_use_slower_or_flatter_settings": true,
+    "actual_wav_duration_from_ffprobe_drives_timeline": true
+  },
+  "manual_editor_efficiency": {
+    "shortcut_assignment_recommended": true,
+    "recommended_shortcuts": ["ripple_delete", "duplicate", "timeline_navigation", "split_or_cut"],
+    "shortcuts_are_not_machine_qa_requirements": true
+  },
+  "audio_mix_and_sfx": {
+    "speech_ducking_required": true,
+    "bgm_ducking_nominal_db": -18,
+    "nominal_is_starting_point_not_mastering_law": true,
+    "intelligibility_over_energy": true,
+    "sfx_should_align_with_semantic_visual_beats": true,
+    "sfx_on_every_visual_change_required": false,
+    "sfx_on_every_cut_forbidden": true,
+    "selective_sfx_examples": ["evidence_reveal", "important_number", "strong_reaction", "warning", "confirmation", "major_transition"]
+  },
+  "camera_and_screen_effects": {
+    "zoom_and_pan_are_semantic_accents": true,
+    "typical_emphasis_zoom_range": [1.08, 1.20],
+    "normal_emphasis_zoom_ceiling": 1.20,
+    "constant_zoom_forbidden": true,
+    "shake_allowed_for_strong_reaction_when_topic_allows": true,
+    "temporary_color_or_darkening_filter_allowed_for_strong_shock_or_gravity": true,
+    "effects_should_be_brief_and_not_cover_captions_or_evidence": true,
+    "sensitive_or_serious_topic_reduces_comedic_shake_and_filters": true,
+    "do_not_stack_major_sfx_zoom_caption_pop_and_character_entry_without_reason": true
+  },
+  "visual_cadence": {
+    "shortform_target_seconds_between_meaningful_visual_state_change": [2.0, 3.0],
+    "target_is_heuristic_not_universal_hard_cut_rule": true,
+    "forced_new_downloaded_asset_every_interval": false,
+    "qualifying_state_changes": [
+      "expression_or_pose_change",
+      "reaction_symbol",
+      "evidence_photo_or_diagram",
+      "crop_pan_or_zoom",
+      "speaker_focus_or_lighting_change",
+      "caption_emphasis_change",
+      "pointer_highlight_or_mask",
+      "semantic_cut_or_transition"
+    ],
+    "semantic_relevance_over_change_for_change_sake": true,
+    "longform_or_sensitive_scene_may_hold_longer_with_reason": true,
+    "do_not_download_new_image_only_to_satisfy_cadence": true
+  },
+  "opening_hook": {
+    "shortform_and_news_explainer_default_hook_window_seconds": [1, 3],
+    "skip_generic_greeting_by_default": true,
+    "preferred_hook_forms": ["conclusion_first", "stakes_first", "strong_question", "evidence_tease", "surprising_contrast"],
+    "hook_must_match_actual_video_content": true,
+    "necessary_disclaimer_or_sensitive_context_may_override": true
+  },
+  "jet_cut_and_pause_policy": {
+    "remove_unintentional_dead_air": true,
+    "trim_redundant_turn_gaps": true,
+    "complete_removal_of_all_silence_forbidden": true,
+    "preserve_intentional_silence": true,
+    "preserve_question_response_beats_when_helpful": true,
+    "preserve_emphasis_breath_or_grave_pacing_when_helpful": true,
+    "audio_cut_must_not_damage_word_endings_or_natural_phrasing": true
+  },
+  "quality_and_speed_balance": {
+    "template_and_cache_before_rebuilding": true,
+    "batch_mechanical_steps_when_safe": true,
+    "quality_rights_claim_and_machine_qa_gates_never_disabled_for_speed": true,
+    "healthy_verified_stages_not_regenerated_for_unrelated_fix": true
+  },
+  "machine_qa_additions": [
+    "opening_hook_present_when_applicable",
+    "unintentional_dead_air_trimmed",
+    "intentional_silence_preserved_when_used",
+    "voice_pronunciation_dictionary_applied_when_needed",
+    "voice_and_caption_fields_separated",
+    "ymm4_or_equivalent_template_used",
+    "meaningful_visual_cadence_or_explicit_hold_reason",
+    "sfx_not_mechanically_on_every_cut",
+    "camera_effects_semantic_and_nonconstant",
+    "bgm_ducking_preserves_intelligibility",
+    "prosody_heuristics_not_forced_over_clarity"
+  ],
+  "forbidden_shortcuts": [
+    "REBUILD_STANDARD_TIMELINE_LAYOUT_FROM_SCRATCH_EVERY_VIDEO",
+    "REDOWNLOAD_PSD_REACTION_SFX_OR_BGM_WHEN_VERIFIED_CACHE_EXISTS",
+    "FORCE_PSD_ACQUISITION_WHEN_EXISTING_REGISTERED_REACTION_PACK_IS_SUFFICIENT",
+    "COPY_KATAKANA_VOICE_READING_INTO_ENGLISH_CAPTION_TERM",
+    "FORCE_SPEED_OR_INTONATION_RANGE_WHEN_CLARITY_SUFFERS",
+    "PLAY_SFX_ON_EVERY_CUT",
+    "FORCE_NEW_IMAGE_EVERY_TWO_OR_THREE_SECONDS",
+    "USE_CONSTANT_ZOOM_AS_RETENTION_HACK",
+    "DELETE_INTENTIONAL_SILENCE",
+    "START_SHORTFORM_WITH_GENERIC_GREETING_WITHOUT_REASON",
+    "BYPASS_RIGHTS_CLAIM_OR_MACHINE_QA_FOR_SPEED"
+  ]
+}
