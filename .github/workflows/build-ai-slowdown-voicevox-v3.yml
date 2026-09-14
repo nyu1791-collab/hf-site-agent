@@ -1,18 +1,17 @@
-name: "Build AI slowdown VOICEVOX dialogue v3"
+name: "Generate AI slowdown VOICEVOX dialogue and timing v3"
 
 on:
-  push:
-    branches: [ai-army/provider-v3]
-    paths:
-      - 'missions/media/20260914-ai-slowdown-dialogue-v3.json'
-      - '.github/workflows/build-ai-slowdown-voicevox-v3.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ai-slowdown-voicevox-v3-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  generate-voice-timing:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -113,13 +112,14 @@ jobs:
               'generated_image_ai_used':False,
               'generated_video_ai_used':False,
               'public_publish_performed':False,
+              'artifact_scope':'VOICE_AND_TIMING_ONLY_NOT_FINAL_VIDEO',
           }
           (out/'timeline_manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
           (out/'speakers_snapshot.json').write_text(json.dumps(speakers, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(json.dumps({'style_ids':ids,'utterances':len(timing),'total_duration':manifest['total_duration']}, ensure_ascii=False))
+          print(json.dumps({'style_ids':ids,'utterances':len(timing),'total_duration':manifest['total_duration'],'artifact_scope':manifest['artifact_scope']}, ensure_ascii=False))
           PY
 
-      - name: Upload dialogue artifact
+      - name: Upload dialogue and timing artifact
         uses: actions/upload-artifact@v4
         with:
           name: ai-slowdown-voicevox-dialogue-v3
