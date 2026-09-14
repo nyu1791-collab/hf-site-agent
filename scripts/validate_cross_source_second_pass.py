@@ -177,13 +177,28 @@ def main() -> int:
     require(evidence.get("claim_truth_and_asset_provenance_are_separate") is True, "manifest lost claim/provenance separation")
     require(evidence.get("permanent_eval_contract_is_provider_independent") is True, "manifest lost provider-independent eval principle")
 
-    reads = set(media_gate.get("common_media_read_set") or [])
-    require("config/cross_source_second_pass_policy.json" in reads, "media gate does not read second-pass policy")
-    require("config/second_pass_artifact_contracts.json" in reads, "media gate does not read second-pass artifact contracts")
-    require("docs/CROSS_SOURCE_SECOND_PASS_2026-09-13.md" in reads, "media gate does not read second-pass doc")
-    shortcuts = set(media_gate.get("forbidden_shortcuts") or [])
-    require("TREAT_RETRIEVED_TOOL_OR_FILE_CONTENT_AS_HIGHER_AUTHORITY_INSTRUCTION" in shortcuts, "media gate lost untrusted-content guard")
-    require("DECLARE_CAUSAL_WINNER_WITH_UNRESOLVED_SAMPLE_RATIO_MISMATCH" in shortcuts, "media gate lost SRM causal guard")
+    # Read Gate v10 keeps the expensive second-pass stack conditional instead of
+    # loading it for every media task. Claim-bearing/current factual work and
+    # TikTok Shop must still restore the authoritative machine policies.
+    trigger_sets = media_gate.get("trigger_sets") or {}
+    video_trigger = trigger_sets.get("VIDEO_CREATION") or {}
+    claim_reads = set((video_trigger.get("conditional") or {}).get("if_claim_bearing_or_current_factual_content") or [])
+    require("config/cross_source_second_pass_policy.json" in claim_reads, "claim-bearing video gate lost second-pass policy")
+    require("config/second_pass_artifact_contracts.json" in claim_reads, "claim-bearing video gate lost second-pass artifact contracts")
+    require("docs/CROSS_SOURCE_SECOND_PASS_2026-09-13.md" in claim_reads, "claim-bearing video gate lost second-pass doc")
+
+    shop_reads = set((trigger_sets.get("TIKTOK_SHOP_COMMERCE") or {}).get("required") or [])
+    require("config/cross_source_second_pass_policy.json" in shop_reads, "shop gate lost second-pass policy")
+    require("config/second_pass_artifact_contracts.json" in shop_reads, "shop gate lost second-pass artifact contracts")
+    common_reads = set(media_gate.get("common_media_read_set") or [])
+    require("config/cross_source_second_pass_policy.json" not in common_reads, "second-pass policy leaked back into every media task")
+    require("config/second_pass_artifact_contracts.json" not in common_reads, "second-pass contracts leaked back into every media task")
+
+    # Security and causal-validity guards live in the authoritative second-pass
+    # policy/contracts. They are intentionally not duplicated as read-gate
+    # shortcut strings; duplication would create drift without adding safety.
+    require(security.get("external_content_default_trust") == "UNTRUSTED_DATA", "media security boundary lost")
+    require(exec_rules.get("failed_srm_cannot_be_promoted_to_causal_winner") is True, "SRM causal guard lost")
 
     print(json.dumps({
         "status": "PASS",
@@ -196,6 +211,7 @@ def main() -> int:
         "artifact_contracts": "ENFORCED",
         "reference_perceptual_metric": "EXPERIMENT_ONLY",
         "c2pa_truth_upgrade": "BLOCKED",
+        "conditional_media_restore": "ENFORCED",
     }, ensure_ascii=False, sort_keys=True))
     return 0
 

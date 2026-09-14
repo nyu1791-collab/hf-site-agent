@@ -151,10 +151,22 @@ def main() -> int:
     require(evidence.get("do_not_synthesize_missing_platform_analytics") is True, "manifest lost synthetic analytics guard")
     require(evidence.get("optimization_claim_requires_baseline_and_guardrails") is True, "manifest lost baseline/guardrail requirement")
 
-    reads = set(media_gate.get("common_media_read_set") or [])
-    require("config/cross_source_knowhow_evidence_matrix.json" in reads, "media gate does not read evidence matrix")
-    require("config/cross_domain_measurement_registry.json" in reads, "media gate does not read measurement registry")
-    require("docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md" in reads, "media gate does not read adjudication doc")
+    # Read Gate v10 deliberately removed cross-source material from the common
+    # media set. Restore it only for claim-bearing/current-factual work and for
+    # commerce, where the evidence stack is mandatory.
+    trigger_sets = media_gate.get("trigger_sets") or {}
+    video_trigger = trigger_sets.get("VIDEO_CREATION") or {}
+    claim_reads = set((video_trigger.get("conditional") or {}).get("if_claim_bearing_or_current_factual_content") or [])
+    require("config/cross_source_knowhow_evidence_matrix.json" in claim_reads, "claim-bearing video gate lost evidence matrix")
+    require("config/cross_domain_measurement_registry.json" in claim_reads, "claim-bearing video gate lost measurement registry")
+    require("docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md" in claim_reads, "claim-bearing video gate lost adjudication doc")
+
+    shop_reads = set((trigger_sets.get("TIKTOK_SHOP_COMMERCE") or {}).get("required") or [])
+    require("config/cross_source_knowhow_evidence_matrix.json" in shop_reads, "shop gate lost evidence matrix")
+    require("config/cross_domain_measurement_registry.json" in shop_reads, "shop gate lost measurement registry")
+    common_reads = set(media_gate.get("common_media_read_set") or [])
+    require("config/cross_source_knowhow_evidence_matrix.json" not in common_reads, "heavy evidence matrix leaked back into every media task")
+    require("config/cross_domain_measurement_registry.json" not in common_reads, "measurement registry leaked back into every media task")
 
     print(json.dumps({
         "status": "PASS",
@@ -166,6 +178,7 @@ def main() -> int:
         "platform_numeric_cross_copy": "BLOCKED",
         "missing_analytics_synthesis": "BLOCKED",
         "upper_agent_as_ground_truth": "BLOCKED",
+        "conditional_media_restore": "ENFORCED",
     }, ensure_ascii=False, sort_keys=True))
     return 0
 
