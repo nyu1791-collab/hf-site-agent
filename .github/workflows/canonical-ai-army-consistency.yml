@@ -15,6 +15,7 @@ on:
       - 'config/permanent_standards_manifest.json'
       - 'config/media_command_read_gate.json'
       - 'config/media_audio_motion_retention_policy.json'
+      - 'config/media_reusable_asset_standard.json'
       - 'config/free_audio_source_registry.json'
       - 'config/dova_curated_bgm_catalog.json'
       - 'config/monetization_command_read_gate.json'
@@ -55,6 +56,7 @@ on:
       - 'scripts/batch_media_scheduler.py'
       - 'scripts/media_batch_command_center.py'
       - 'scripts/media_parallel_framework_mission.py'
+      - 'scripts/media_asset_resolver.py'
       - 'scripts/parallel_framework_batch.py'
       - 'scripts/framework_parallel_governor.py'
       - 'schemas/deepseek_supervisor_mission.schema.json'
@@ -86,9 +88,11 @@ on:
       - 'tests/test_media_batch_command_center.py'
       - 'tests/test_media_batch_command_center_ffmpeg.py'
       - 'tests/test_media_parallel_framework_mission.py'
+      - 'tests/test_media_asset_resolver.py'
       - 'tests/test_second_pass_governance.py'
       - '.github/workflows/deepseek-*.yml'
       - '.github/workflows/*-once.yml'
+      - '.github/workflows/collect-zm-shell-assets.yml'
       - '.github/workflows/canonical-ai-army-consistency.yml'
       - '.github/workflows/verify-hierarchical-runtime.yml'
   workflow_dispatch:
@@ -135,6 +139,7 @@ jobs:
             scripts/batch_media_scheduler.py \
             scripts/media_batch_command_center.py \
             scripts/media_parallel_framework_mission.py \
+            scripts/media_asset_resolver.py \
             scripts/parallel_framework_batch.py \
             scripts/framework_parallel_governor.py
 
@@ -150,6 +155,7 @@ jobs:
           python -m json.tool config/permanent_standards_manifest.json >/dev/null
           python -m json.tool config/media_command_read_gate.json >/dev/null
           python -m json.tool config/media_audio_motion_retention_policy.json >/dev/null
+          python -m json.tool config/media_reusable_asset_standard.json >/dev/null
           python -m json.tool config/free_audio_source_registry.json >/dev/null
           python -m json.tool config/dova_curated_bgm_catalog.json >/dev/null
           python -m json.tool config/monetization_command_read_gate.json >/dev/null
@@ -233,6 +239,7 @@ jobs:
             tests.test_media_batch_command_center \
             tests.test_media_batch_command_center_ffmpeg \
             tests.test_media_parallel_framework_mission \
+            tests.test_media_asset_resolver \
             tests.test_second_pass_governance -v
 
       - name: Prove no paid call occurs in consistency CI
