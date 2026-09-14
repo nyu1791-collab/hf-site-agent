@@ -1,5 +1,5 @@
 {
-  "schema_version": "ci-execution-policy-v3",
+  "schema_version": "ci-execution-policy-v2",
   "strategy": "ONE_CORE_GATE_PLUS_ONE_PATH_SCOPED_CONSISTENCY_GATE_PLUS_EXPLICIT_BOUNDED_CARRIERS",
   "long_lived_branch": "ai-army/provider-v3",
   "max_automatic_workflows_per_push": 2,
