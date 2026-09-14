@@ -76,7 +76,7 @@ class MediaParallelFrameworkMissionTests(unittest.TestCase):
         self.assertTrue(edit.metadata["standard_character_layout_preset_required"])
         self.assertEqual(automation.metadata["asset_resolver"], "scripts/media_asset_resolver.py")
         self.assertIn("verified cache hit first", automation.objective)
-        self.assertIn("instead of downloading motion assets", edit.objective)
+        self.assertIn("Do not search for character motion downloads", edit.objective)
 
     def test_shop_clipping_restores_both_knowhow_domains(self):
         items = build_media_parallel_items(
