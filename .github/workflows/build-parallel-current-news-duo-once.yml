@@ -1,0 +1,121 @@
+name: "Build parallel current-news duo voices once"
+
+on:
+  push:
+    branches: ["ai-army/provider-v3"]
+    paths:
+      - ".github/workflows/build-parallel-current-news-duo-once.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  voice:
+    strategy:
+      fail-fast: false
+      matrix:
+        topic: ["anthropic-ipo", "openai-government"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+      - name: Start local VOICEVOX engine
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          docker run -d --name voicevox -p 50021:50021 voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              curl -fsS http://127.0.0.1:50021/version
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs voicevox || true
+          exit 1
+      - name: Generate dialogue WAVs
+        env:
+          TOPIC: ${{ matrix.topic }}
+        run: |
+          set -euo pipefail
+          mkdir -p "artifacts/${TOPIC}/wav"
+          python - <<'PY'
+          import json, os, pathlib, subprocess, urllib.parse, urllib.request
+
+          topic=os.environ['TOPIC']
+          scripts={
+            'anthropic-ipo': [
+              {'id':1,'speaker':'ずんだもん','emotion':'curious','text':'きょうのエーアイニュース。アンスロピックが、ナスダック上場の準備を進めているとの報道です。'},
+              {'id':2,'speaker':'四国めたん','emotion':'serious','text':'ロイターは九月十三日、ビジネスインサイダーの報道として、アンスロピックが上場先にナスダックを選んだと伝えました。'},
+              {'id':3,'speaker':'ずんだもん','emotion':'surprised','text':'でも、もう上場が決まったってこと？'},
+              {'id':4,'speaker':'四国めたん','emotion':'clarifying','text':'いいえ。上場そのものや時期、条件が正式に確定したという意味ではありません。'},
+              {'id':5,'speaker':'ずんだもん','emotion':'curious','text':'会社の業績はどうなの？'},
+              {'id':6,'speaker':'四国めたん','emotion':'explainer','text':'ロイターが引用したフィナンシャルタイムズ報道では、投資家に二四半期連続の調整後営業黒字を見込むと説明したとされています。'},
+              {'id':7,'speaker':'ずんだもん','emotion':'surprised','text':'エーアイ企業って、巨額投資で赤字のイメージだったのだ。'},
+              {'id':8,'speaker':'四国めたん','emotion':'explainer','text':'大規模モデルは計算資源への投資が大きいので、成長だけでなく収益性も重要な注目点です。'},
+              {'id':9,'speaker':'ずんだもん','emotion':'curious','text':'上場すると何が変わるの？'},
+              {'id':10,'speaker':'四国めたん','emotion':'serious','text':'資金調達の選択肢が広がる一方、業績やリスク、安全への市場の目も厳しくなります。'},
+              {'id':11,'speaker':'ずんだもん','emotion':'relieved','text':'つまり今は、巨大エーアイ企業が公開市場へ近づくかもしれない段階なんだ。'},
+              {'id':12,'speaker':'四国めたん','emotion':'summary','text':'そう。正式な上場書類や会社発表が出るまでは、観測と確定情報を分けて見るのが大切です。'}
+            ],
+            'openai-government': [
+              {'id':1,'speaker':'ずんだもん','emotion':'curious','text':'もう一本。オープンエーアイが、アメリカ政府向けのエーアイ利用支援を広げます。'},
+              {'id':2,'speaker':'四国めたん','emotion':'serious','text':'九月十日、オープンエーアイとアメリカの一般調達局は、新しい複数年契約を発表しました。'},
+              {'id':3,'speaker':'ずんだもん','emotion':'curious','text':'どんな内容なの？'},
+              {'id':4,'speaker':'四国めたん','emotion':'explainer','text':'連邦、州、地方、部族政府に、通常は一人あたり月十五ドルのライセンス料をゼロにし、利用料を五十パーセント割り引くとしています。'},
+              {'id':5,'speaker':'ずんだもん','emotion':'surprised','text':'政府の現場でも、エーアイ利用が一気に広がりそうなのだ。'},
+              {'id':6,'speaker':'四国めたん','emotion':'explainer','text':'特にサイバー防衛担当には、追加の支援やアクセスを用意すると説明しています。'},
+              {'id':7,'speaker':'ずんだもん','emotion':'skeptical','text':'便利そうだけど、安全面は大丈夫？'},
+              {'id':8,'speaker':'四国めたん','emotion':'serious','text':'政府利用では、機密情報や権限管理が重要です。安さだけでなく、導入時のガバナンスが問われます。'},
+              {'id':9,'speaker':'ずんだもん','emotion':'curious','text':'オープンエーアイの公共部門ビジネスも大きくなりそう。'},
+              {'id':10,'speaker':'四国めたん','emotion':'clarifying','text':'その可能性はあります。ただし今回の発表は利用条件の拡大が中心で、導入成果まで確定したわけではありません。'},
+              {'id':11,'speaker':'ずんだもん','emotion':'summary','text':'次は、実際にどんな行政サービスで使われるかが注目なのだ。'},
+              {'id':12,'speaker':'四国めたん','emotion':'summary','text':'一次情報を追いながら、費用、効果、安全性を分けて見るのが大切です。'}
+            ]
+          }
+
+          items=scripts[topic]
+          speakers=json.loads(urllib.request.urlopen('http://127.0.0.1:50021/speakers').read().decode('utf-8'))
+          def choose_style(name):
+              sp=next(x for x in speakers if x.get('name')==name)
+              styles=sp.get('styles') or []
+              normal=next((x for x in styles if x.get('name') in ('ノーマル','Normal','normal')),None)
+              return (normal or styles[0])['id']
+          ids={name:choose_style(name) for name in ('ずんだもん','四国めたん')}
+          out=pathlib.Path('artifacts')/topic
+          cursor=0.0
+          timing=[]
+          for item in items:
+              sid=ids[item['speaker']]
+              params=urllib.parse.urlencode({'text':item['text'],'speaker':sid})
+              req=urllib.request.Request('http://127.0.0.1:50021/audio_query?'+params,data=b'',method='POST')
+              q=json.loads(urllib.request.urlopen(req).read().decode('utf-8'))
+              if item['speaker']=='ずんだもん':
+                  q['speedScale']=1.07; q['pitchScale']=0.02; q['intonationScale']=1.07
+              else:
+                  q['speedScale']=1.01; q['pitchScale']=-0.01; q['intonationScale']=1.03
+              body=json.dumps(q,ensure_ascii=False).encode('utf-8')
+              sreq=urllib.request.Request(f'http://127.0.0.1:50021/synthesis?speaker={sid}',data=body,headers={'Content-Type':'application/json'},method='POST')
+              wav=urllib.request.urlopen(sreq).read()
+              fname=f"{item['id']:03d}_{'zundamon' if item['speaker']=='ずんだもん' else 'metan'}.wav"
+              p=out/'wav'/fname; p.write_bytes(wav)
+              dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(p)],text=True).strip())
+              timing.append({**item,'style_id':sid,'file':f'wav/{fname}','start':round(cursor,3),'duration':round(dur,3),'end':round(cursor+dur,3)})
+              cursor+=dur+0.09
+          manifest={'schema':'parallel-current-news-voicevox-v1','topic':topic,'engine':'VOICEVOX local Docker','style_ids':ids,'total_duration':round(cursor,3),'dialogue':timing,'generated_image_ai_used':False,'generated_video_ai_used':False,'public_publish_performed':False}
+          (out/'timeline_manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({'topic':topic,'style_ids':ids,'utterances':len(timing),'total_duration':manifest['total_duration']},ensure_ascii=False))
+          PY
+      - name: Upload voice artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: parallel-current-news-${{ matrix.topic }}-voicevox
+          path: artifacts/${{ matrix.topic }}
+          retention-days: 3
