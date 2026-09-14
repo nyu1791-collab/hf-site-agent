@@ -1,6 +1,6 @@
 {
   "schema_version": "cross-domain-measurement-registry-v2",
-  "effective_date_jst": "2026-09-13",
+  "effective_date_jst": "2026-09-14",
   "status": "PERMANENT_STANDARD",
   "purpose": "Make AI Army, video quality/retention and TikTok Shop improvements measurable, platform-scoped, reproducible and reversible instead of intuition-driven.",
   "global_rules": {
@@ -78,6 +78,17 @@
       {"id":"VIDEO_FREEZE_FRAME_EVENT_COUNT","unit":"count","target":"CONTENT_AWARE_REVIEW"},
       {"id":"VIDEO_SCENE_COUNT","unit":"count","target":"NO_UNIVERSAL_SCENE_CADENCE"}
     ],
+    "production_efficiency_metrics": [
+      {"id":"VIDEO_PRODUCTION_WALL_CLOCK_MS_BY_STAGE","unit":"structured","fields":["research_and_script","voice_chunks","measured_timing","character_layer","evidence_and_panel_layer","caption_overlay","audio_mix","final_composite_and_mux"]},
+      {"id":"VIDEO_REVISION_COUNT_BY_STAGE","unit":"structured","fields":["research_and_script","voice_chunks","measured_timing","character_layer","evidence_and_panel_layer","caption_overlay","audio_mix","final_composite_and_mux"]},
+      {"id":"VIDEO_STAGE_REUSE_RATIO","unit":"ratio"},
+      {"id":"VIDEO_ARTIFACT_MANIFEST_CACHE_HIT_RATIO","unit":"ratio"},
+      {"id":"VIDEO_PREVIEW_QA_CATCH_COUNT","unit":"count"},
+      {"id":"VIDEO_POST_RENDER_DEFECT_ESCAPE_COUNT","unit":"count","target":"TREND_TO_ZERO"},
+      {"id":"VIDEO_FULL_RERENDER_COUNT","unit":"count","target":"NEAR_ZERO_FOR_CAPTION_PANEL_OR_MOUTH_ONLY_FIXES"},
+      {"id":"VIDEO_FULL_RERENDER_JUSTIFICATION_PRESENT","unit":"boolean","required_when":"VIDEO_FULL_RERENDER_COUNT_GT_ZERO"},
+      {"id":"VIDEO_INCREMENTAL_REPAIR_USED","unit":"boolean"}
+    ],
     "platform_analytics": {
       "YOUTUBE": [
         {"id":"YT_IMPRESSIONS","unit":"count"},
@@ -86,9 +97,13 @@
         {"id":"YT_AVERAGE_PERCENT_VIEWED","unit":"ratio"},
         {"id":"YT_INTRO_30S_RETAINED","unit":"ratio","meaning":"share still watching after first 30 seconds"},
         {"id":"YT_RETENTION_CURVE","unit":"time_series"},
+        {"id":"YT_RETENTION_AT_DECLARED_CHECKPOINTS","unit":"structured","availability":"WHEN_RETENTION_CURVE_IS_AVAILABLE","examples":["3s","10s","30s","60s","end"],"checkpoint_set_must_be_declared_before_comparison":true},
         {"id":"YT_TOP_MOMENTS","unit":"time_ranges"},
         {"id":"YT_DIPS","unit":"time_ranges"},
-        {"id":"YT_SPIKES","unit":"time_ranges"}
+        {"id":"YT_SPIKES","unit":"time_ranges"},
+        {"id":"YT_SHORTS_CHOSE_TO_VIEW_RATIO","unit":"ratio","availability":"WHEN_SHORTS_ANALYTICS_EXPOSES"},
+        {"id":"YT_SHORTS_SWIPED_AWAY_RATIO","unit":"ratio","availability":"WHEN_SHORTS_ANALYTICS_EXPOSES"},
+        {"id":"YT_SHORTS_ENGAGED_VIEWS","unit":"count","availability":"WHEN_SHORTS_ANALYTICS_EXPOSES"}
       ],
       "TIKTOK": [
         {"id":"TT_VIDEO_VIEWS","unit":"count"},
@@ -108,10 +123,21 @@
       "human_or_model_interpretation_must_be_labelled_hypothesis": true,
       "promote_edit_pattern_only_after_repeated_measured_win": true,
       "do_not_create_fake_retention_curve_when_unavailable": true,
-      "universal_cut_interval_seconds": null
+      "universal_cut_interval_seconds": null,
+      "quality_gate_pass_required_before_engagement_experiment_comparison": true,
+      "compare_same_format_and_similar_duration_when_possible": true,
+      "single_viral_outlier_must_not_be_the_baseline": true,
+      "one_primary_creative_variable_per_experiment_when_practical": true,
+      "primary_metric_and_guardrails_declared_before_result_review": true,
+      "average_view_duration_and_average_percentage_viewed_are_diagnostics_not_independent_optimization_targets": true,
+      "tiktok_advertising_heuristics_are_hypothesis_sources_not_cross_platform_law": true,
+      "comprehension_and_emotional_engagement_proxies_must_be_labelled_as_proxies": true,
+      "missing_platform_metric_is_recorded_as_unavailable_not_imputed": true
     },
     "packaging_contract": {
       "title_thumbnail_or_cover_promise_must_match_early_content": true,
+      "early_content_must_deliver_value_without_generic_greeting_delay": true,
+      "curiosity_gap_when_used_must_resolve_inside_the_video": true,
       "ctr_without_retention_guardrail_cannot_promote_variant": true,
       "platform_native_ab_testing_preferred_when_available": true
     }
