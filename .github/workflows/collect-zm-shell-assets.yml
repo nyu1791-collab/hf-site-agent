@@ -1,0 +1,54 @@
+name: "Collect Zundamon Metan lip-sync shell assets"
+
+on:
+  push:
+    branches: [ai-army/provider-v3]
+    paths:
+      - '.github/workflows/collect-zm-shell-assets.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Download searched character shell archive
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/zm_shell
+          URL='https://nightwork.sakura.ne.jp/ukagaka/shell/Shikokumetan_Zundamon_Shellkit/Shikokumetan_Zundamon_Shell(20230806).zip'
+          curl -fL --retry 1 --max-time 60 "$URL" -o /tmp/zm.zip
+          unzip -q /tmp/zm.zip -d artifacts/zm_shell
+          find artifacts/zm_shell -maxdepth 3 -type f | sort > artifacts/zm_shell/file_list.txt
+          python - <<'PY'
+          import json, pathlib, hashlib
+          root=pathlib.Path('artifacts/zm_shell')
+          rows=[]
+          for p in sorted(root.rglob('*')):
+              if p.is_file():
+                  rows.append({'path':str(p.relative_to(root)), 'bytes':p.stat().st_size, 'sha256':hashlib.sha256(p.read_bytes()).hexdigest()})
+          manifest={
+              'schema':'searched-character-shell-v1',
+              'source_page':'https://nightwork.sakura.ne.jp/ukagaka/shell/Shikokumetan_Zundamon_Shellkit/Shikokumetan_Zundamon_Shellkit.html',
+              'archive_url':'https://nightwork.sakura.ne.jp/ukagaka/shell/Shikokumetan_Zundamon_Shellkit/Shikokumetan_Zundamon_Shell(20230806).zip',
+              'underlying_art':'Sakamoto Ahiru Zundamon / Shikoku Metan standing pictures',
+              'generated_image_ai_used':False,
+              'public_publish_performed':False,
+              'note':'Use only for video rendering; do not redistribute raw source assets. Recheck official/author guidelines before publication.',
+              'files':rows,
+          }
+          (root/'source_manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+          PY
+      - name: Upload collected asset archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: zm-lipsync-shell-assets
+          path: artifacts/zm_shell
+          retention-days: 3
