@@ -1,5 +1,5 @@
 {
-  "schema_version": "ci-execution-policy-v2",
+  "schema_version": "ci-execution-policy-v3",
   "strategy": "ONE_CORE_GATE_PLUS_ONE_PATH_SCOPED_CONSISTENCY_GATE_PLUS_EXPLICIT_BOUNDED_CARRIERS",
   "long_lived_branch": "ai-army/provider-v3",
   "max_automatic_workflows_per_push": 2,
@@ -11,13 +11,9 @@
   "automatic_trigger_allowlist_is_exhaustive": true,
   "unregistered_push_pull_request_or_schedule_trigger": "FORBIDDEN",
   "max_bounded_internal_carriers": 1,
-  "bounded_internal_carrier_workflows": [
-    "subordinate-continuation.yml"
-  ],
+  "bounded_internal_carrier_workflows": ["subordinate-continuation.yml"],
   "max_bounded_paid_supervisor_workflows": 1,
-  "bounded_paid_supervisor_workflows": [
-    "deepseek-supervisor-research.yml"
-  ],
+  "bounded_paid_supervisor_workflows": ["deepseek-supervisor-research.yml"],
   "paid_supervisor_trigger_contract": {
     "push_path": "missions/deepseek-supervisor/*.json",
     "exactly_one_changed_mission_required": true,
@@ -54,6 +50,15 @@
     "collect-zm-shell-assets.yml",
     "build-ai-slowdown-voicevox-v3.yml"
   ],
+  "one_off_workflow_lifecycle": {
+    "one_time_carrier_is_not_long_lived_automation": true,
+    "completed_one_time_carrier_action": "DELETE_OR_EXPLICITLY_RECLASSIFY_AS_MANUAL_SPECIALIST",
+    "completed_one_time_carrier_may_keep_push_pull_request_or_schedule_trigger": false,
+    "manual_specialist_reclassification_requires_workflow_dispatch_only": true,
+    "manual_specialist_must_cancel_duplicate_dispatches": true,
+    "do_not_leave_completed_mission_carrier_as_automatic_workflow": true,
+    "historical_execution_evidence_belongs_in_git_history_or_artifact_not_active_automatic_trigger": true
+  },
   "retired_paid_deepseek_workflows": [
     "deepseek-paid-parallel.yml",
     "deepseek-paid-full-system-peer-review.yml",
