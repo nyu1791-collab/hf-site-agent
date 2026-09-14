@@ -1,9 +1,9 @@
 {
-  "schema_version": "current-media-quality-handoff-v1",
+  "schema_version": "current-media-quality-handoff-v2",
   "effective_date_jst": "2026-09-14",
   "status": "CURRENT_CROSS_TAB_CONTINUITY_SUMMARY",
   "authority": "INDEX_AND_CONTINUITY_SUMMARY_ONLY",
-  "purpose": "Make the latest Zundamon/Shikoku Metan video-quality, retention, efficiency and DeepSeek review decisions immediately recoverable after a chat-tab or session change without relying on conversation memory. Machine-readable policies, validators and CI remain authoritative over this summary.",
+  "purpose": "Make the latest Zundamon/Shikoku Metan video-quality, retention, efficiency, compact ChatGPT+DeepSeek orchestration and character-performance decisions immediately recoverable after a chat-tab or session change without relying on conversation memory. Machine-readable policies, validators and CI remain authoritative over this summary.",
   "canonical_repository": "nyu1791-collab/hf-site-agent",
   "canonical_branch": "ai-army/provider-v3",
   "pull_request": 40,
@@ -17,6 +17,7 @@
     ],
     "then_read": [
       "config/current_media_quality_handoff.json",
+      "config/media_character_performance_compact_orchestration_policy.json",
       "config/media_command_read_gate.json"
     ],
     "do_not_use_conversation_memory_as_source_of_truth": true,
@@ -24,6 +25,7 @@
   },
   "authoritative_media_files": [
     "config/media_command_read_gate.json",
+    "config/media_character_performance_compact_orchestration_policy.json",
     "config/media_audio_motion_retention_policy.json",
     "config/media_reusable_asset_standard.json",
     "config/media_character_reaction_cache_policy.json",
@@ -61,6 +63,25 @@
       "permission_for_generic_paid_fallback_or_auto_top_up"
     ]
   },
+  "latest_user_quality_checkpoint": {
+    "reference_output": "2026-09-14 Hori Daisuke sleep explainer",
+    "user_assessment": "very_good_overall",
+    "retain": [
+      "bright explainer panels and generally brighter visual treatment",
+      "semantic caption segmentation",
+      "truthful separation of subject claims from scientific consensus",
+      "pre-delivery rereview instead of immediate handoff",
+      "iOS/in-app compatible Fast Start MP4 delivery"
+    ],
+    "improve": [
+      "stronger facial-expression acting rather than mouth-only motion",
+      "normalize perceived size of Zundamon and Shikoku Metan",
+      "make the current speaker naturally larger while speaking",
+      "keep the listener visible and expressive when useful",
+      "reduce agent fragmentation because coordination overhead can erase parallelism gains",
+      "information collection and script writing are primarily a joint ChatGPT plus DeepSeek responsibility"
+    ]
+  },
   "adopted_media_decisions": [
     "QUALITY_GATES_CANNOT_BE_TRADED_FOR_SPEED_OR_ENGAGEMENT",
     "SHORTFORM_STORY_USES_TRUTHFUL_HOOK_THEN_EARLY_VALUE_OR_EVIDENCE_THEN_EXPLANATION_AND_PAYOFF_WHEN_THE_STORY_FITS",
@@ -74,7 +95,13 @@
     "CACHE_REUSE_REQUIRES_MATCHING_INPUT_MANIFEST_INCLUDING_POLICY_ASSET_CHARACTER_ANCHOR_CAPTION_VOICE_OUTPUT_AND_DEPENDENCY_IDENTITIES",
     "FULL_PIPELINE_RERENDER_REQUIRES_RECORDED_DEPENDENCY_JUSTIFICATION",
     "RETENTION_PATTERNS_ARE_PROMOTED_ONLY_AFTER_MEASURED_REPEATED_WINS_WITH_QUALITY_GUARDRAILS_HELD_CONSTANT",
-    "MISSING_PLATFORM_ANALYTICS_ARE_UNAVAILABLE_NOT_SYNTHESIZED"
+    "MISSING_PLATFORM_ANALYTICS_ARE_UNAVAILABLE_NOT_SYNTHESIZED",
+    "CHARACTER_ACTING_USES_EYES_EYEBROWS_FACE_POSE_AND_LISTENER_REACTION_NOT_MOUTH_ONLY_MOTION",
+    "ZUNDAMON_AND_METAN_BASELINE_PERCEIVED_SIZE_IS_NORMALIZED_BEFORE_SPEAKER_FOCUS",
+    "ACTIVE_SPEAKER_MAY_ENLARGE_WITH_EASE_AND_SAFE_ZONE_CHECK_WHILE_INACTIVE_SPEAKER_REMAINS_READABLE",
+    "MEDIA_RESEARCH_AND_SCRIPT_DEFAULT_TO_ONE_COMBINED_CHATGPT_PLUS_DEEPSEEK_JUDGMENT_STAGE",
+    "ROUTINE_MEDIA_WORK_MUST_NOT_BE_SPLIT_INTO_MANY_SMALL_AGENT_HANDOFFS_WHEN_COORDINATION_COST_EXCEEDS_EXPECTED_PARALLEL_GAIN",
+    "DETERMINISTIC_RENDERING_ENCODING_TIMING_AND_MACHINE_QA_DO_NOT_REQUIRE_EXTRA_AI_AGENTS"
   ],
   "explicitly_not_promoted_to_hard_law": [
     "FIXED_UNIVERSAL_CAPTION_CHARACTERS_PER_SECOND",
@@ -85,27 +112,55 @@
     "TIKTOK_ADVERTISING_HEURISTICS_AS_CROSS_PLATFORM_ORGANIC_LAW",
     "SINGLE_VIRAL_OUTLIER_AS_CANONICAL_BASELINE",
     "EXACT_STORY_TIMING_BLOCKS_AS_HARD_LAW",
-    "MORE_THAN_CURRENT_ADMITTED_PARALLEL_MEDIA_CEILING_WITHOUT_POLICY_CHANGE_AND_EVIDENCE"
+    "MORE_THAN_CURRENT_ADMITTED_PARALLEL_MEDIA_CEILING_WITHOUT_POLICY_CHANGE_AND_EVIDENCE",
+    "FIXED_EXPRESSION_CHANGE_EVERY_SENTENCE",
+    "FIXED_ACTIVE_SPEAKER_SCALE_FOR_ALL_SCENES"
   ],
+  "compact_media_orchestration": {
+    "default_judgmental_pair": ["ChatGPT", "DeepSeek"],
+    "combined_stage": "RESEARCH_AND_SCRIPT",
+    "chatgpt_owns": [
+      "final source verification",
+      "final framing and structure",
+      "claim qualification",
+      "script lock",
+      "final quality and delivery adjudication"
+    ],
+    "deepseek_owns": [
+      "broad evidence collection",
+      "source comparison and chronology",
+      "contradiction discovery",
+      "hook and structure alternatives",
+      "first-pass drafting",
+      "bounded red-team review"
+    ],
+    "default_deepseek_synthesis_passes": 1,
+    "additional_agent_fanout_requires_material_expected_information_gain_or_specialist_need": true,
+    "routine_script_polish_does_not_justify_extra_agents": true,
+    "mechanical_media_stages_use_deterministic_tools": true,
+    "avoid_more_than_two_judgmental_handoffs_before_script_lock_without_reason": true
+  },
   "production_speed_without_quality_loss": {
     "preferred_mechanisms": [
-      "reusable_editor_or_machine_templates",
-      "rights_verified_asset_cache",
-      "reaction_pack_cache",
-      "VOICEVOX_pronunciation_dictionary_reuse",
-      "measured_audio_timing_reuse",
-      "content_addressed_stage_outputs",
-      "input_manifest_keyed_cache_hits",
-      "independent_parallel_preproduction_lanes",
-      "risk_triggered_preview_QA",
-      "incremental_layer_or_stage_repair"
+      "consolidated ChatGPT plus DeepSeek research-and-script stage",
+      "reusable editor or machine templates",
+      "rights-verified asset cache",
+      "reaction-pack cache",
+      "VOICEVOX pronunciation dictionary reuse",
+      "measured audio timing reuse",
+      "content-addressed stage outputs",
+      "input-manifest-keyed cache hits",
+      "parallelize only genuinely independent preparation",
+      "risk-triggered preview QA",
+      "incremental layer or stage repair"
     ],
     "forbidden_shortcuts": [
-      "skip_fact_or_rights_gate_for_speed",
-      "skip_mouth_caption_safe_zone_decode_or_final_visual_QA",
-      "reuse_stale_anchor_caption_or_policy_artifact_without_manifest_match",
-      "rerender_everything_when_only_one_layer_changed",
-      "increase_parallelism_by_weakening_quality_or_single_writer_rules"
+      "skip fact or rights gate for speed",
+      "skip mouth caption safe-zone decode or final visual QA",
+      "reuse stale anchor caption or policy artifact without manifest match",
+      "rerender everything when only one layer changed",
+      "increase parallelism by weakening quality or single-writer rules",
+      "split routine research and script into many agent handoffs merely to appear parallel"
     ]
   },
   "measurement_and_learning": {
@@ -117,7 +172,12 @@
       "preview_QA_catch_count",
       "post_render_defect_escape_count",
       "full_rerender_count_and_justification",
-      "incremental_repair_used"
+      "incremental_repair_used",
+      "judgmental_handoff_count_before_script_lock",
+      "deepseek_calls_used_for_research_and_script",
+      "coordination_time_fraction",
+      "character_expression_revision_count",
+      "speaker_scale_collision_count"
     ],
     "youtube_when_available": [
       "average_view_duration",
@@ -138,7 +198,9 @@
     "rereview_against_current_effective_spec": true,
     "rereview_actual_change_set_and_final_artifacts": true,
     "decode_pass_alone_is_not_visual_quality_pass": true,
-    "representative_final_visual_samples_required": true
+    "representative_final_visual_samples_required": true,
+    "check_character_size_balance_and_active_speaker_scale": true,
+    "check_representative_facial_expression_states": true
   },
   "safety_and_side_effects": {
     "main_direct_push": false,
