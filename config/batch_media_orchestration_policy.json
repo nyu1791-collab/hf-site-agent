@@ -1,10 +1,10 @@
 {
-  "schema_version": "batch-media-orchestration-v2",
+  "schema_version": "batch-media-orchestration-v3",
   "effective_date_jst": "2026-09-14",
   "status": "PERMANENT_CONDITIONAL_STANDARD",
   "decision_owner": "chatgpt-top-commander",
   "research_basis": {
-    "previous_policy": "batch-media-orchestration-v1",
+    "previous_policy": "batch-media-orchestration-v2",
     "retained_evidence": "BOUNDED_JOB_LEVEL_PARALLELISM_WITH_PER_JOB_RIGHTS_RESOURCE_LEASE_AND_QA_GATES",
     "chatgpt_adjudication": "PROMOTE_SAFE_NORMAL_STATE_FAST_PATH_TO_UP_TO_THREE_INDEPENDENT_JOBS_WITHOUT_RELAXING_QUALITY_OR_RIGHTS"
   },
@@ -50,11 +50,7 @@
     ],
     "distinct_write_scope_required_for_concurrent_mutation": true,
     "resource_shortage_action": "QUEUE_OR_RESOURCE_EXHAUSTED_WITHOUT_PARTIAL_START",
-    "backpressure_states": [
-      "NORMAL",
-      "DEGRADED",
-      "PAUSED"
-    ],
+    "backpressure_states": ["NORMAL", "DEGRADED", "PAUSED"],
     "normal_parallelism_ceiling": 3,
     "degraded_parallelism_ceiling": 1,
     "paused_parallelism_ceiling": 0,
@@ -71,26 +67,9 @@
     "content_addressed_output_and_checkpoint_identity": true
   },
   "failure_policy": {
-    "classes": [
-      "TRANSIENT_PROVIDER",
-      "DETERMINISTIC_MEDIA",
-      "RIGHTS_BLOCK",
-      "RESOURCE_EXHAUSTED",
-      "STALE_WRITE",
-      "CANCELLED",
-      "INVALID_JOB"
-    ],
-    "retryable": [
-      "TRANSIENT_PROVIDER"
-    ],
-    "non_retryable": [
-      "DETERMINISTIC_MEDIA",
-      "RIGHTS_BLOCK",
-      "RESOURCE_EXHAUSTED",
-      "STALE_WRITE",
-      "CANCELLED",
-      "INVALID_JOB"
-    ],
+    "classes": ["TRANSIENT_PROVIDER", "DETERMINISTIC_MEDIA", "RIGHTS_BLOCK", "RESOURCE_EXHAUSTED", "STALE_WRITE", "CANCELLED", "INVALID_JOB"],
+    "retryable": ["TRANSIENT_PROVIDER"],
+    "non_retryable": ["DETERMINISTIC_MEDIA", "RIGHTS_BLOCK", "RESOURCE_EXHAUSTED", "STALE_WRITE", "CANCELLED", "INVALID_JOB"],
     "max_transient_retries_per_job": 2,
     "infinite_retry": false,
     "same_root_cause_retry_without_new_evidence": false,
@@ -101,25 +80,8 @@
   "ai_boundary": {
     "deepseek_role": "SUPERVISORY_RESEARCH_REVIEW_FAILURE_ANALYSIS_ONLY",
     "deepseek_is_bulk_worker": false,
-    "optional_ai_bulk_tasks": [
-      "HIGHLIGHT_CANDIDATE_RANKING",
-      "HOOK_OR_PAYOFF_REVIEW",
-      "CAPTION_LANGUAGE_CLEANUP",
-      "METADATA_VARIANTS",
-      "ANALYTICS_TRIAGE"
-    ],
-    "mechanical_tasks_use_deterministic_tools": [
-      "TRIM",
-      "CUT",
-      "CONCAT",
-      "REFRAME_EXECUTION",
-      "CAPTION_BURN",
-      "AUDIO_NORMALIZATION",
-      "HASHING",
-      "MANIFEST_COMMIT",
-      "FFPROBE_QA",
-      "DECODE_QA"
-    ],
+    "optional_ai_bulk_tasks": ["HIGHLIGHT_CANDIDATE_RANKING", "HOOK_OR_PAYOFF_REVIEW", "CAPTION_LANGUAGE_CLEANUP", "METADATA_VARIANTS", "ANALYTICS_TRIAGE"],
+    "mechanical_tasks_use_deterministic_tools": ["TRIM", "CUT", "CONCAT", "REFRAME_EXECUTION", "CAPTION_BURN", "AUDIO_NORMALIZATION", "HASHING", "MANIFEST_COMMIT", "FFPROBE_QA", "DECODE_QA"],
     "max_judgmental_verifiers_per_clip": 1,
     "multi_agent_debate_for_mechanical_media": false,
     "ai_disabled_mode_must_still_produce_technically_valid_clip": true,
@@ -129,17 +91,40 @@
     "auto_top_up": false
   },
   "parallel_preproduction": {
-    "allowed_independent_lanes": [
-      "SOURCE_AND_FACT_RESEARCH",
-      "RIGHTS_AND_CLAIM_VERIFICATION",
-      "EDIT_AND_CAPTION_PLANNING",
-      "DETERMINISTIC_AUTOMATION_PLANNING"
-    ],
+    "allowed_independent_lanes": ["SOURCE_AND_FACT_RESEARCH", "RIGHTS_AND_CLAIM_VERIFICATION", "EDIT_AND_CAPTION_PLANNING", "DETERMINISTIC_AUTOMATION_PLANNING"],
     "maximum_direct_parallel_lanes": 3,
     "final_integration_requires_single_writer": true,
     "same_output_parallel_writers": false,
     "duplicate_majority_vote_agents": false,
     "use_independent_reviewer_only_when_risk_or_uncertainty_justifies_it": true
+  },
+  "pre_delivery_rereview": {
+    "required_after_candidate_completion_before_user_handoff": true,
+    "review_against": ["ORIGINAL_USER_REQUEST", "CURRENT_EFFECTIVE_SPEC", "ACTUAL_CHANGE_SET", "FINAL_ARTIFACTS"],
+    "checklist": [
+      "ALL_USER_REQUIREMENTS_SATISFIED",
+      "NO_UNNECESSARY_FEATURE_OR_DUPLICATE_PROCESSING_REMAINS",
+      "NO_STALE_OR_RETIRED_REFERENCE_DRIVES_CURRENT_EXECUTION",
+      "REQUIRED_INTENT_POLICIES_AND_PLAYBOOKS_WERE_RESTORED",
+      "LONGFORM_ONLY_RULES_WERE_NOT_LOADED_OR_EXECUTED_FOR_SHORTFORM_WITHOUT_REASON",
+      "SAME_REPOSITORY_BLOB_OR_DETERMINISTIC_STAGE_WAS_NOT_REPEATED_WITHOUT_NEW_EVIDENCE",
+      "INDEPENDENT_WORK_WAS_NOT_ARTIFICIALLY_SERIALIZED",
+      "PARALLEL_WORK_HAS_NO_MUTABLE_WRITE_COLLISION",
+      "RIGHTS_CLAIMS_EVIDENCE_AND_QA_WERE_NOT_BYPASSED_FOR_SPEED",
+      "IMPLEMENTED_DESIGNED_AUDIO_COMPLETE_AND_VIDEO_COMPLETE_STATES_ARE_NOT_CONFUSED",
+      "APPLICABLE_MACHINE_VALIDATORS_OR_CI_RESULTS_ARE_REPORTED_TRUTHFULLY",
+      "NO_SIMPLER_SAFER_FASTER_EQUIVALENT_PATH_IS_OBVIOUS_AFTER_COMPLETION"
+    ],
+    "problem_found_action": "FIX_SMALLEST_AFFECTED_UNIT_THEN_RERUN_RELEVANT_CHECKS_AND_WHOLE_ARTIFACT_CONSISTENCY_REVIEW",
+    "healthy_verified_artifacts_must_not_be_regenerated_for_unrelated_fix": true
+  },
+  "truthful_final_reporting": {
+    "required_fields": ["WHAT_CHANGED", "WHAT_WAS_REMOVED", "WHAT_WAS_RETAINED", "WHAT_WAS_FASTER_OR_REUSED", "SAFETY_AND_RIGHTS_GATES_RETAINED", "WHAT_WAS_ACTUALLY_VERIFIED", "UNRESOLVED_OR_INCOMPLETE_ITEMS"],
+    "never_claim_ci_success_without_observed_success": true,
+    "never_claim_finished_video_without_playable_final_artifact": true,
+    "never_report_design_only_as_implemented": true,
+    "never_report_audio_only_as_video_complete": true,
+    "speculation_must_not_be_reported_as_verified_fact": true
   },
   "promotion_and_scale": {
     "parallel_3_is_admitted_normal_state_fast_path": true,
@@ -152,21 +137,7 @@
     "ceiling_is_not_a_target": true,
     "continuous_measurement_required": true
   },
-  "metrics": [
-    "jobs_completed_per_hour",
-    "effective_parallelism",
-    "p95_per_clip_latency",
-    "technical_qa_pass_rate",
-    "cost_per_clip",
-    "retry_rate_by_failure_class",
-    "checkpoint_reuse_ratio",
-    "peak_memory_mb_per_job",
-    "provider_calls_per_clip",
-    "stale_write_incidents",
-    "rights_gate_bypass_incidents",
-    "duplicate_output_rate",
-    "ai_verifier_invocations_per_clip"
-  ],
+  "metrics": ["jobs_completed_per_hour", "effective_parallelism", "p95_per_clip_latency", "technical_qa_pass_rate", "cost_per_clip", "retry_rate_by_failure_class", "checkpoint_reuse_ratio", "peak_memory_mb_per_job", "provider_calls_per_clip", "stale_write_incidents", "rights_gate_bypass_incidents", "duplicate_output_rate", "ai_verifier_invocations_per_clip"],
   "forbidden_drift": [
     "UNBOUNDED_MEDIA_WORKER_SPAWN",
     "BULK_AI_DEBATE_FOR_MECHANICAL_STAGES",
@@ -176,6 +147,8 @@
     "PAID_OR_FREEMIUM_VIDEO_SAAS",
     "PARALLELISM_ABOVE_3_WITHOUT_NEW_EVIDENCE",
     "GLOBAL_MEDIA_LOCK_WHEN_JOB_SCOPED_LEASE_IS_SUFFICIENT",
-    "ARTIFICIAL_SERIALIZATION_OF_INDEPENDENT_ADMITTED_JOBS"
+    "ARTIFICIAL_SERIALIZATION_OF_INDEPENDENT_ADMITTED_JOBS",
+    "SKIP_PRE_DELIVERY_REREVIEW_FOR_SPEED",
+    "REPORT_UNVERIFIED_COMPLETION_OR_CI_STATUS"
   ]
 }
