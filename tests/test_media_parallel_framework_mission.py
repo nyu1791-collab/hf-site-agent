@@ -4,6 +4,7 @@ import unittest
 
 from scripts.framework_adapter_layer import load_config
 from scripts.media_parallel_framework_mission import (
+    DEFAULT_REUSABLE_ASSET_STANDARD,
     RETIRED_SHORTFORM_PROFILE,
     build_media_parallel_items,
     build_media_parallel_tasks,
@@ -60,6 +61,22 @@ class MediaParallelFrameworkMissionTests(unittest.TestCase):
                 topic="OpenAI safety news",
                 shortform_profile=RETIRED_SHORTFORM_PROFILE,
             )
+
+    def test_reusable_asset_standard_is_always_loaded_before_new_search(self):
+        items = build_media_parallel_items(topic="ordinary explainer")
+        for item in items:
+            self.assertIn(
+                DEFAULT_REUSABLE_ASSET_STANDARD,
+                set((item.metadata or {}).get("read_set", [])),
+            )
+        research = next(item for item in items if item.item_id == "research")
+        edit = next(item for item in items if item.item_id == "edit_plan")
+        automation = next(item for item in items if item.item_id == "automation_patch")
+        self.assertIn("Check config/media_reusable_asset_standard.json first", research.objective)
+        self.assertTrue(edit.metadata["standard_character_layout_preset_required"])
+        self.assertEqual(automation.metadata["asset_resolver"], "scripts/media_asset_resolver.py")
+        self.assertIn("verified cache hit first", automation.objective)
+        self.assertIn("instead of downloading motion assets", edit.objective)
 
     def test_shop_clipping_restores_both_knowhow_domains(self):
         items = build_media_parallel_items(
