@@ -10,6 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "config/media_command_read_gate.json"
 BATCH = ROOT / "config/batch_media_orchestration_policy.json"
 MEDIA = ROOT / "config/media_audio_motion_retention_policy.json"
+MANIFEST = ROOT / "config/permanent_standards_manifest.json"
+REUSABLE = ROOT / "config/media_reusable_asset_standard.json"
+RESOLVER = ROOT / "scripts/media_asset_resolver.py"
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -42,6 +45,8 @@ def main() -> int:
     gate = load(GATE)
     batch = load(BATCH)
     media = load(MEDIA)
+    manifest = load(MANIFEST)
+    reusable = load(REUSABLE)
 
     require(gate.get("schema_version") == "media-command-read-gate-v10", "media read gate must be v10")
     require(gate.get("status") == "ENFORCED_STANDARD", "media read gate is not enforced")
@@ -72,6 +77,7 @@ def main() -> int:
         "config/multi_agent_operating_policy.json",
         "config/agent_efficiency_policy.json",
         "config/media_audio_motion_retention_policy.json",
+        "config/media_reusable_asset_standard.json",
         "config/free_audio_source_registry.json",
         "config/dova_curated_bgm_catalog.json",
         "docs/MEDIA_PIPELINE.md",
@@ -150,11 +156,40 @@ def main() -> int:
     for key in (
         "master_rulebook_must_be_re_read",
         "audio_motion_retention_policy_must_be_re_read",
+        "reusable_asset_standard_must_be_re_read",
         "free_audio_source_registry_must_be_re_read",
         "dova_curated_bgm_catalog_must_be_re_read",
         "do_not_rely_on_prior_tab_summary_as_substitute",
     ):
         require(session.get(key) is True, f"media session restore guarantee missing: {key}")
+
+    standards = manifest.get("required_standards") or []
+    by_standard = {str(item.get("id")): item for item in standards if isinstance(item, dict)}
+    reusable_manifest = by_standard.get("media-reusable-asset-standard") or {}
+    require(reusable_manifest.get("machine_policy") == "config/media_reusable_asset_standard.json", "permanent manifest lost reusable media asset standard")
+    require(reusable_manifest.get("runtime") == "scripts/media_asset_resolver.py", "permanent manifest lost reusable media asset resolver")
+    require(reusable_manifest.get("priority") == 1, "reusable media asset standard priority drift")
+    media_manifest = manifest.get("media_command_gate") or {}
+    require(media_manifest.get("reusable_asset_standard") == "config/media_reusable_asset_standard.json", "manifest media command gate lost reusable asset standard")
+    cross_tab = manifest.get("cross_tab_behavior") or {}
+    require(cross_tab.get("media_reusable_asset_standard_survives_tab_change") is True, "reusable media asset standard no longer survives tab change")
+
+    require(reusable.get("schema_version") == "media-reusable-asset-standard-v1", "reusable media asset standard schema drift")
+    require(reusable.get("status") == "ENFORCED_STANDARD", "reusable media asset standard is not enforced")
+    principles = reusable.get("principles") or {}
+    for key in (
+        "registered_asset_lookup_before_search",
+        "no_repeat_search_for_registered_assets",
+        "no_repeat_download_when_verified_cache_hit",
+        "cache_miss_only_download",
+        "rights_and_publish_recheck_not_bypassed_by_cache",
+        "motion_is_generated_from_preset_not_downloaded",
+        "layout_is_generated_from_preset_not_reinvented_per_video",
+    ):
+        require(principles.get(key) is True, f"reusable media asset principle missing: {key}")
+    reusable_cache = reusable.get("cache") or {}
+    require(1 <= int(reusable_cache.get("max_parallel_materialization") or 0) <= 4, "reusable asset materialization parallelism must remain bounded at 1..4")
+    require(RESOLVER.is_file(), "reusable media asset resolver is missing")
 
     require(batch.get("schema_version") == "batch-media-orchestration-v3", "batch media policy must be v3")
     architecture = batch.get("architecture") or {}
@@ -206,6 +241,7 @@ def main() -> int:
         "common_read_count": len(common),
         "max_parallel_repository_reads": max_reads,
         "shop_clipping_union": True,
+        "reusable_asset_restore": True,
         "batch_policy": batch.get("schema_version"),
         "normal_fast_path_parallel_jobs": architecture.get("default_parallel_jobs"),
         "max_parallel_jobs": architecture.get("max_parallel_jobs"),
