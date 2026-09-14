@@ -1,0 +1,104 @@
+name: "Build two current-news VOICEVOX tracks once"
+
+on:
+  push:
+    branches: ["ai-army/provider-v3"]
+    paths:
+      - ".github/workflows/build-two-news-voicevox-once.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  voice:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - id: openai-billion
+            mission: missions/media/20260914-openai-billion-scale-news.json
+            artifact: current-news-openai-billion-voice
+          - id: anthropic-misuse
+            mission: missions/media/20260914-anthropic-misuse-news.json
+            artifact: current-news-anthropic-misuse-voice
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+
+      - name: Start local VOICEVOX engine
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          docker run -d --name voicevox -p 50021:50021 voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              curl -fsS http://127.0.0.1:50021/version
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs voicevox || true
+          exit 1
+
+      - name: Generate two-speaker WAVs from actual mission text
+        env:
+          MISSION: ${{ matrix.mission }}
+          OUT_ID: ${{ matrix.id }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, urllib.request, urllib.parse, pathlib, subprocess, os
+          root = pathlib.Path('.')
+          mission = json.loads((root/os.environ['MISSION']).read_text(encoding='utf-8'))
+          speakers = json.loads(urllib.request.urlopen('http://127.0.0.1:50021/speakers').read().decode('utf-8'))
+          def choose_style(name):
+              sp = next(x for x in speakers if x.get('name') == name)
+              styles = sp.get('styles') or []
+              normal = next((x for x in styles if x.get('name') in ('ノーマル','Normal','normal')), None)
+              return (normal or styles[0])['id']
+          ids = {name: choose_style(name) for name in ('ずんだもん','四国めたん')}
+          out = root/'artifacts'/os.environ['OUT_ID']
+          (out/'wav').mkdir(parents=True, exist_ok=True)
+          timing=[]; cursor=0.0
+          for item in mission['dialogue']:
+              sid=ids[item['speaker']]
+              q=urllib.parse.urlencode({'text':item['text'],'speaker':sid})
+              req=urllib.request.Request('http://127.0.0.1:50021/audio_query?'+q,data=b'',method='POST')
+              query=json.loads(urllib.request.urlopen(req).read().decode('utf-8'))
+              if item['speaker']=='ずんだもん':
+                  query['speedScale']=1.07; query['pitchScale']=0.015; query['intonationScale']=1.08
+              else:
+                  query['speedScale']=1.01; query['pitchScale']=-0.01; query['intonationScale']=1.035
+              synth=urllib.request.Request(
+                  f'http://127.0.0.1:50021/synthesis?speaker={sid}',
+                  data=json.dumps(query,ensure_ascii=False).encode('utf-8'),
+                  headers={'Content-Type':'application/json'},method='POST')
+              wav=urllib.request.urlopen(synth).read()
+              stem='zundamon' if item['speaker']=='ずんだもん' else 'metan'
+              p=out/'wav'/f"{item['id']:03d}_{stem}.wav"
+              p.write_bytes(wav)
+              dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(p)],text=True).strip())
+              timing.append({**item,'style_id':sid,'file':f'wav/{p.name}','start':round(cursor,3),'duration':round(dur,3),'end':round(cursor+dur,3)})
+              cursor += dur + 0.08
+          manifest={'schema':'voicevox-dialogue-timeline-v2','engine':'VOICEVOX local Docker','style_ids':ids,'title':mission['title'],'total_duration':round(cursor,3),'dialogue':timing,'generated_image_ai_used':False,'generated_video_ai_used':False,'public_publish_performed':False}
+          (out/'timeline_manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+          (out/'mission_snapshot.json').write_text(json.dumps(mission,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({'title':mission['title'],'utterances':len(timing),'duration':manifest['total_duration'],'styles':ids},ensure_ascii=False))
+          PY
+
+      - name: Upload voice artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifacts/${{ matrix.id }}
+          retention-days: 3
