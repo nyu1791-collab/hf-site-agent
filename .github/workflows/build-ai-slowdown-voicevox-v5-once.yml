@@ -1,0 +1,92 @@
+name: "Build AI slowdown kana-safe VOICEVOX dialogue v5 once"
+
+on:
+  push:
+    branches: [ai-army/provider-v3]
+    paths:
+      - '.github/workflows/build-ai-slowdown-voicevox-v5-once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-slowdown-voicevox-v5-once-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+
+      - name: Start local VOICEVOX engine
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          docker run -d --name voicevox -p 50021:50021 voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              curl -fsS http://127.0.0.1:50021/version
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs voicevox || true
+          exit 1
+
+      - name: Generate kana-safe dialogue WAVs and timing manifest
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/voicevox_v5/wav
+          python - <<'PY'
+          import json, urllib.request, urllib.parse, pathlib, subprocess
+          root = pathlib.Path('.')
+          mission = json.loads((root/'missions/media/20260914-ai-slowdown-dialogue-v3.json').read_text(encoding='utf-8'))
+          speakers = json.loads(urllib.request.urlopen('http://127.0.0.1:50021/speakers').read().decode('utf-8'))
+          def choose_style(name):
+              sp = next(x for x in speakers if x.get('name') == name)
+              styles = sp.get('styles') or []
+              normal = next((x for x in styles if x.get('name') in ('ノーマル','Normal','normal')), None)
+              return (normal or styles[0])['id']
+          ids = {name: choose_style(name) for name in ('ずんだもん','四国めたん')}
+          out = root/'artifacts/voicevox_v5'
+          timing=[]; cursor=0.0
+          for item in mission['dialogue']:
+              speaker=item['speaker']; sid=ids[speaker]
+              params=urllib.parse.urlencode({'text':item['text'],'speaker':sid})
+              req=urllib.request.Request('http://127.0.0.1:50021/audio_query?'+params,data=b'',method='POST')
+              q=json.loads(urllib.request.urlopen(req).read().decode('utf-8'))
+              if speaker=='ずんだもん':
+                  q['speedScale']=1.04; q['pitchScale']=0.015; q['intonationScale']=1.08
+              else:
+                  q['speedScale']=0.99; q['pitchScale']=-0.005; q['intonationScale']=1.04
+              body=json.dumps(q,ensure_ascii=False).encode('utf-8')
+              synth=urllib.request.Request(f'http://127.0.0.1:50021/synthesis?speaker={sid}',data=body,headers={'Content-Type':'application/json'},method='POST')
+              wav=urllib.request.urlopen(synth).read()
+              fname=f"{item['id']:03d}_{'zundamon' if speaker=='ずんだもん' else 'metan'}.wav"
+              path=out/'wav'/fname; path.write_bytes(wav)
+              dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(path)],text=True).strip())
+              timing.append({**item,'style_id':sid,'file':f'wav/{fname}','start':round(cursor,3),'duration':round(dur,3),'end':round(cursor+dur,3)})
+              cursor += dur + 0.10
+          manifest={'schema':'voicevox-dialogue-timeline-v2','engine':'VOICEVOX local Docker','style_ids':ids,'total_duration':round(cursor,3),'dialogue':timing,'generated_image_ai_used':False,'generated_video_ai_used':False,'public_publish_performed':False,'artifact_scope':'VOICE_AND_TIMING_ONLY_NOT_FINAL_VIDEO','pronunciation_policy':mission.get('pronunciation_policy',{})}
+          (out/'timeline_manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+          (out/'speakers_snapshot.json').write_text(json.dumps(speakers,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({'style_ids':ids,'utterances':len(timing),'total_duration':manifest['total_duration']},ensure_ascii=False))
+          PY
+
+      - name: Upload kana-safe dialogue artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-slowdown-voicevox-dialogue-v5-kana
+          path: artifacts/voicevox_v5
+          retention-days: 3
