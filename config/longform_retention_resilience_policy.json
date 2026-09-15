@@ -1,0 +1,240 @@
+{
+  "schema_version": "longform-retention-resilience-v1",
+  "effective_date_jst": "2026-09-15",
+  "status": "ENFORCED_LONGFORM_DELTA",
+  "purpose": "Preserve substantive 8-12 minute long-form value while making long-running AI/media production observable, resumable, idempotent and resistant to silent stalls without duplicating the existing Scene -> Validate -> Checkpoint -> Join reliability backbone.",
+  "extends": [
+    "config/longform_video_objectives.json",
+    "config/longform_video_reliability_policy.json",
+    "config/media_user_visual_duration_preferences.json"
+  ],
+  "evidence_review": {
+    "chatgpt_primary_source_review_completed": true,
+    "deepseek_second_pass_run_id": 34956391997,
+    "deepseek_artifact_id": 10390299884,
+    "deepseek_artifact_digest": "sha256:33db07ec844275755fae52fcb0e99a259af8913f4bab301524bed006f961208a",
+    "deepseek_report_is_advisory_not_authority": true,
+    "chatgpt_final_adjudication_required_and_completed_for_this_policy": true,
+    "human_review_doc": "docs/LONGFORM_RETENTION_RESILIENCE_REVIEW_2026-09-15.md"
+  },
+  "editorial_runtime": {
+    "normal_news_and_topic_explainer_target_minutes": [8, 12],
+    "target_is_soft_envelope_not_padding_quota": true,
+    "shorter_is_allowed_when_substantive_material_is_insufficient": true,
+    "longer_requires_substantive_value_not_padding": true,
+    "durability_retry_or_timeout_thresholds_must_not_be_derived_from_video_duration": true,
+    "forbidden_padding": [
+      "irrelevant history added only for runtime",
+      "repeated framing or recap without new information",
+      "slow narration solely to hit runtime",
+      "low-information filler",
+      "unrelated tangents"
+    ]
+  },
+  "beat_value_gate": {
+    "required_before_script_lock": true,
+    "beat_or_segment_must_contribute_at_least_one": [
+      "mechanism or causal explanation",
+      "stakeholder impact",
+      "new verified evidence",
+      "important uncertainty",
+      "credible competing interpretation",
+      "necessary definition or directly relevant context",
+      "explicit next watchpoint or unresolved material question"
+    ],
+    "one_sentence_viewer_takeaway_per_major_segment": true,
+    "duplicate_explanation_without_new_value": "REMOVE_OR_MERGE",
+    "chapter_or_beat_count_is_not_fixed": true,
+    "attention_reset_is_editorial_not_motion_quota": true,
+    "valid_attention_resets": [
+      "new question",
+      "new evidence",
+      "changed stakeholder",
+      "uncertainty disclosure",
+      "credible competing interpretation",
+      "payoff or conclusion"
+    ]
+  },
+  "retention_measurement": {
+    "use_observed_platform_analytics_when_available": true,
+    "primary_metrics": [
+      "averageViewDuration",
+      "averageViewPercentage",
+      "retention_curve",
+      "top_moments",
+      "spikes",
+      "dips"
+    ],
+    "compare_similar_format_and_similar_duration_when_possible": true,
+    "map_dips_and_spikes_to_chapter_or_beat_when_possible": true,
+    "missing_analytics_are_unknown_not_zero": true,
+    "fixed_universal_retention_percentage_gate": false,
+    "fixed_universal_cut_interval": false,
+    "single_video_causal_claim_without_experiment": false,
+    "thumbnail_or_visual_change_should_use_controlled_comparison_when_available": true
+  },
+  "durability_backbone": {
+    "keep_scene_validate_checkpoint_join": true,
+    "keep_atomic_scene_promotion": true,
+    "keep_content_addressed_manifests_as_correctness_authority": true,
+    "keep_bounded_class_specific_retries": true,
+    "keep_ffprobe_and_decode_final_gate": true,
+    "do_not_add_per_shot_or_per_frame_checkpoints_without_measured_recovery_gap": true,
+    "do_not_replace_with_monolithic_render": true,
+    "do_not_add_new_database_lock_service_or_coordinator_by_default": true
+  },
+  "heartbeat_progress_observability": {
+    "required_for_long_running_execution": true,
+    "role": "OBSERVABILITY_ONLY_NOT_CORRECTNESS_SOURCE",
+    "recommended_format": "APPEND_ONLY_JSONL_OR_ATOMIC_PROGRESS_JSON",
+    "update_on_stage_transition": [
+      "PRECHECK",
+      "SCENE_EXECUTING",
+      "SCENE_VALIDATED",
+      "CHECKPOINTED",
+      "JOIN_PENDING",
+      "JOINED",
+      "FINAL_VALIDATED",
+      "BLOCKED_OR_FAILED"
+    ],
+    "minimum_fields": [
+      "run_id",
+      "thread_id",
+      "stage",
+      "scene_id_when_applicable",
+      "updated_at",
+      "attempt",
+      "failure_class_when_applicable",
+      "last_good_checkpoint_ref"
+    ],
+    "stall_threshold_seconds": "CALIBRATE_BY_STAGE_BEFORE_HARD_GATE",
+    "heartbeat_must_never_override_manifest_or_validator": true
+  },
+  "idempotency": {
+    "external_or_replayable_boundary_key_required": true,
+    "key_formula": "SHA256(thread_id|stage_name|ordered_input_content_hashes)",
+    "pass_provider_idempotency_token_when_supported": true,
+    "when_provider_has_no_idempotency_token": "CHECK_CONTENT_ADDRESSED_OUTPUT_OR_RECEIPT_BEFORE_REINVOKE",
+    "duplicate_side_effect_target": 0,
+    "replay_must_not_duplicate_verified_output": true
+  },
+  "single_writer_and_promotion": {
+    "exactly_one_writer_per_mutable_scene_target_and_thread_id": true,
+    "promotion_requires_matching_input_manifest": true,
+    "promotion_requires_prior_validation_success": true,
+    "concurrent_stale_writer_promotion": "REJECT",
+    "new_distributed_lock_service_required": false
+  },
+  "failure_classes": {
+    "TRANSIENT_NETWORK": {"retry": "BOUNDED_BACKOFF_WITH_JITTER", "terminal_action": "BLOCK_AND_PRESERVE_PROGRESS_AFTER_BUDGET"},
+    "RATE_LIMIT": {"retry": "HONOR_RETRY_AFTER_ELSE_BOUNDED_BACKOFF_WITH_JITTER", "terminal_action": "BLOCK_AND_PRESERVE_PROGRESS_AFTER_BUDGET"},
+    "PROVIDER_5XX": {"retry": "BOUNDED_BACKOFF_WITH_JITTER", "terminal_action": "BLOCK_AND_PRESERVE_PROGRESS_AFTER_BUDGET"},
+    "CONTENT_OR_MEDIA_CONTRACT_FAIL": {"retry": "NO_IDENTICAL_RETRY", "terminal_action": "REPAIR_SMALLEST_AFFECTED_INPUT_OR_BLOCK"},
+    "DETERMINISTIC_BUG": {"retry": "NO_IDENTICAL_RETRY", "terminal_action": "REPLAN_OR_PATCH_THEN_REVALIDATE"},
+    "RIGHTS_OR_FACT_GATE_FAIL": {"retry": "NO_BLIND_RETRY", "terminal_action": "BLOCK_OR_RESEARCH_NEW_EVIDENCE"},
+    "UNKNOWN_COST_OR_PAID_TRANSITION": {"retry": "NONE", "terminal_action": "FAIL_CLOSED"}
+  },
+  "circuit_breaker": {
+    "concept_adopted": true,
+    "hard_numeric_threshold_adopted": false,
+    "threshold_requires_fixture_calibration": true,
+    "trigger_shape": "REPEATED_CONSECUTIVE_SAME_CLASS_TERMINAL_FAILURES_WITHIN_A_BOUNDED_WINDOW",
+    "on_trigger": [
+      "stop starting new scenes",
+      "emit BLOCKED status in heartbeat",
+      "preserve completed verified scenes and manifests",
+      "do not invalidate healthy checkpoints",
+      "resume from first incomplete unit after cause changes or explicit recovery"
+    ],
+    "must_not_auto_switch_to_paid_fallback": true
+  },
+  "cross_session_resume": {
+    "conversation_memory_is_not_source_of_truth": true,
+    "derive_handoff_from_existing_manifests_at_read_time": true,
+    "do_not_store_handoff_as_second_correctness_authority": true,
+    "derived_handoff_fields": [
+      "run_id",
+      "thread_id",
+      "last_good_checkpoint",
+      "completed_scene_ids_and_hashes",
+      "open_failures_and_failure_class",
+      "next_intended_action"
+    ],
+    "resume_target": "FIRST_INCOMPLETE_OR_INVALID_UNIT",
+    "rerender_completed_valid_scene_count_target": 0
+  },
+  "partial_success_and_done_predicate": {
+    "completed_verified_scenes_survive_later_failure": true,
+    "join_must_not_run_with_partial_or_unverified_scene": true,
+    "timer_or_elapsed_time_is_not_completion_evidence": true,
+    "done_requires": [
+      "all required scenes promoted with matching manifests",
+      "join success",
+      "final ffprobe/media contract pass",
+      "final decode integrity pass",
+      "subtitle coverage pass",
+      "required final visual rereview pass"
+    ],
+    "premature_success_target": 0,
+    "infinite_loop_target": 0
+  },
+  "final_visual_rereview": {
+    "required": true,
+    "decode_pass_alone_is_not_visual_pass": true,
+    "must_check": [
+      "white caption body text",
+      "Zundamon bright green caption frame or outer accent",
+      "Shikoku Metan bright pink or magenta caption frame or outer accent",
+      "explainer and background diagrams have no unintended whole-frame vertical drift",
+      "character size and active-speaker emphasis remain within safe zones",
+      "no missing or corrupted representative frames",
+      "no obvious audio video or subtitle sync drift"
+    ],
+    "visual_preferences_are_not_claimed_as_proven_retention_causes": true
+  },
+  "anti_fragmentation": {
+    "default_research_and_script_pair": ["ChatGPT", "DeepSeek"],
+    "do_not_add_routine_research_writer_rewriter_reviewer_agents": true,
+    "deterministic_render_and_machine_qa_use_tools_not_extra_agents": true,
+    "additional_agent_requires_material_expected_information_gain_or_missing_specialist_capability": true
+  },
+  "experiments_before_hard_promotion": [
+    "value_gate_effect_on_padding_and_retention",
+    "chapter_or_beat_retention_mapping",
+    "heartbeat_stall_detection_latency_and_false_positive_rate",
+    "idempotency_duplicate_side_effect_test",
+    "cache_cleared_checkpoint_validity",
+    "circuit_breaker_calibration",
+    "cross_session_resume",
+    "single_writer_concurrency"
+  ],
+  "rejected_or_demoted": [
+    "fixed universal retention percentage thresholds",
+    "fixed cut intervals or mandatory visual changes every N seconds",
+    "per-shot or per-frame checkpointing without measured need",
+    "cache hit as checkpoint correctness evidence",
+    "unbounded retries or retry storms",
+    "generic paid fallback or auto top up",
+    "monolithic longform render",
+    "additional reviewer agents without material information gain",
+    "new lock service or database without demonstrated need",
+    "timer-based completion",
+    "claiming current caption colors or stationary diagrams are proven retention drivers"
+  ],
+  "source_registry": [
+    {"id":"YT_RETENTION","url":"https://support.google.com/youtube/answer/9314415","role":"PRIMARY_PLATFORM_GUIDANCE"},
+    {"id":"YT_PERFORMANCE_FAQ","url":"https://support.google.com/youtube/answer/141805","role":"PRIMARY_PLATFORM_GUIDANCE"},
+    {"id":"YT_TEST_COMPARE","url":"https://support.google.com/youtube/answer/141805?hl=en","role":"PRIMARY_PLATFORM_GUIDANCE"},
+    {"id":"YT_ANALYTICS_METRICS","url":"https://developers.google.com/youtube/analytics/metrics","role":"PRIMARY_PLATFORM_GUIDANCE"},
+    {"id":"LANGGRAPH_PERSISTENCE","url":"https://docs.langchain.com/oss/python/langgraph/persistence","role":"PRIMARY_TECHNICAL_DOC"},
+    {"id":"LANGGRAPH_FAULT_TOLERANCE","url":"https://docs.langchain.com/oss/python/langgraph/fault-tolerance","role":"PRIMARY_TECHNICAL_DOC"},
+    {"id":"LANGGRAPH_FUNCTIONAL_API","url":"https://docs.langchain.com/oss/python/langgraph/functional-api","role":"PRIMARY_TECHNICAL_DOC"},
+    {"id":"ANTHROPIC_LONG_RUNNING_HARNESS","url":"https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents","role":"OFFICIAL_ENGINEERING_RESEARCH"},
+    {"id":"ANTHROPIC_HARNESS_DESIGN_2026","url":"https://www.anthropic.com/engineering/harness-design-long-running-apps","role":"OFFICIAL_ENGINEERING_RESEARCH"},
+    {"id":"GITHUB_CACHE","url":"https://docs.github.com/en/actions/concepts/workflows-and-actions/dependency-caching","role":"PRIMARY_TECHNICAL_DOC"},
+    {"id":"GITHUB_RERUN","url":"https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs","role":"PRIMARY_TECHNICAL_DOC"},
+    {"id":"GITHUB_CONCURRENCY","url":"https://docs.github.com/en/actions/concepts/workflows-and-actions/concurrency","role":"PRIMARY_TECHNICAL_DOC"},
+    {"id":"FFMPEG_FORMATS","url":"https://ffmpeg.org/ffmpeg-formats.html","role":"PRIMARY_TECHNICAL_DOC"},
+    {"id":"FFPROBE","url":"https://ffmpeg.org/ffprobe.html","role":"PRIMARY_TECHNICAL_DOC"}
+  ]
+}
