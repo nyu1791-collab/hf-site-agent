@@ -1,7 +1,7 @@
 # AI Army Master Rulebook
 
 **Status:** Permanent compact operating index  
-**Effective:** 2026-09-13 JST  
+**Effective:** 2026-09-15 JST  
 **Authority:** This document is the concise human-readable entry point. Machine policies in `config/permanent_standards_manifest.json` and the files it references remain authoritative when details differ.
 
 ## 1. Restore before work
@@ -9,6 +9,24 @@
 On a new tab/session, do not rely on chat memory alone. Read `config/current_commander_handoff.json`, then `config/permanent_standards_manifest.json`, then this rulebook. The manifest decides which detailed policies must be read for the current task. Media and monetization command gates are semantic, not exact-keyword triggers, and mixed intents are additive.
 
 Do not copy every detailed rule into the startup handoff. The permanent manifest is the single expandable index; this rulebook is the compact operating summary. This prevents two startup lists from drifting apart.
+
+### Semantic know-how recall is mandatory
+
+Saved know-how is not considered restored merely because the file exists in the repository. Before planning or taking external action, classify the user's request by **meaning and surrounding task context**, resolve every applicable current read gate from the manifest, read the current repository versions, and then apply them. Do not require the user to remember policy names or repeat the same requirements after a tab change.
+
+Do not stop at the first matching category. Mixed intent uses the union of applicable read sets. Examples:
+
+- A request that means video creation activates current media creation know-how even if the user never says `VIDEO_CREATION`.
+- Existing or third-party media being shortened, highlighted, repurposed, reframed or redistributed activates authorized-clipping rights, originality, alignment, deduplication, reframe and QA know-how.
+- A product-selling, shopping, commerce or product-review video activates the TikTok Shop / commerce evidence, claim, freshness, persona, funnel and experimentation know-how. If the same request includes commission, affiliate, revenue, client work or broader monetization, also activate the monetization gate.
+- `動画で稼ぐ`, `商品動画を収益化`, `切り抜きで収益化` and equivalent meanings activate both media and monetization knowledge rather than choosing one.
+- Non-media revenue, sponsorship, affiliate, membership, creator-program, paid-research, lead-generation, licensing, productization or AI-workflow-service tasks activate the monetization gate.
+- AI Army architecture, provider/model routing, CI, DeepSeek supervision, failure recovery, efficiency or agent-topology tasks activate the corresponding manifest authorities even when no special keyword is used.
+- Current-event, product, numeric, platform-program, experiment, ROI or evidence-sensitive tasks activate current evidence, measurement, second-pass and artifact-contract standards as applicable.
+
+When ambiguity is cheap to resolve, prefer a slightly broader relevant read-set union over silently ignoring a potentially applicable know-how family. Do **not** compensate by reading the whole repository every time. Same-head / same-blob cache may satisfy repeat reads inside the active task; a head or blob change invalidates that shortcut.
+
+The durable recall contract is therefore: **save → classify by meaning → recover current repository authority → apply → validate**. A file that is merely saved but is not reachable from the semantic recall path is incomplete operating knowledge.
 
 ## 2. Command hierarchy and efficiency
 
