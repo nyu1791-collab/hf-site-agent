@@ -1,6 +1,6 @@
 {
   "schema_version": "monetization-command-read-gate-v3",
-  "effective_date_jst": "2026-09-13",
+  "effective_date_jst": "2026-09-15",
   "status": "ENFORCED_STANDARD",
   "purpose": "Force repository-backed monetization and platform-program know-how restoration before planning or executing creator-revenue, sponsorship, affiliate, membership, paid-research, AI-workflow client-service, lead-generation, licensing or productization tasks, including after chat-tab/session changes.",
   "source_of_truth": "repository",
@@ -8,7 +8,9 @@
     "exact_keyword_match_required": false,
     "classify_by_user_intent": true,
     "mixed_intents_are_additive": true,
-    "examples": ["収益化したい", "儲けたい", "案件を探して", "スポンサー案件", "ブランド案件", "アフィリエイト", "YouTubeで稼ぐ", "Instagramで稼ぐ", "TikTokで稼ぐ", "Xで収益化", "会員収益", "UGC案件", "SNS運用代行", "クライアント向け動画制作", "AI導入で稼ぐ", "AIエージェント案件", "有料ニュースレター", "調査レポートを売る", "リード獲得で稼ぐ", "案件運用を代行する", "テンプレートを売る", "Micro-SaaSにする"]
+    "generic_product_commerce_requires_target_platform_resolution": true,
+    "platform_specific_commerce_rules_are_not_universal": true,
+    "examples": ["収益化したい", "儲けたい", "案件を探して", "スポンサー案件", "ブランド案件", "アフィリエイト", "YouTubeで稼ぐ", "Instagramで稼ぐ", "TikTokで稼ぐ", "商品を紹介して売る", "ショッピング動画", "切り抜きで稼ぐ", "会員収益", "UGC案件", "SNS運用代行", "クライアント向け動画制作", "AI導入で稼ぐ", "AIエージェント案件", "有料ニュースレター", "調査レポートを売る", "リード獲得で稼ぐ", "案件運用を代行する", "テンプレートを売る", "Micro-SaaSにする"]
   },
   "execution_gate": {
     "must_complete_before": ["MONETIZATION_OPPORTUNITY_SELECTION", "REVENUE_FORECAST", "BRAND_OR_CLIENT_PITCH_PLANNING", "PLATFORM_PROGRAM_APPLICATION_PLANNING", "AFFILIATE_CONTENT_PLAN", "MEMBERSHIP_OR_SUBSCRIPTION_PLAN", "PAID_RESEARCH_OR_DIGITAL_PRODUCT_PLAN", "AI_WORKFLOW_CLIENT_SERVICE_PLAN", "LEAD_GENERATION_SERVICE_PLAN", "LICENSING_OR_PRODUCTIZATION_PLAN", "EXTERNAL_OUTREACH", "ACCOUNT_OR_PAYMENT_ACTION", "PUBLICATION_HANDOFF"],
@@ -35,10 +37,19 @@
   ],
   "conditional_read_sets": {
     "VIDEO_OR_SHORTFORM_CREATIVE": ["config/media_command_read_gate.json", "docs/MEDIA_PIPELINE.md", "config/longform_video_reliability_policy.json"],
-    "TIKTOK_SHOP_OR_PRODUCT_COMMERCE": ["config/tiktok_shop_influence_policy.json", "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md"],
-    "CLIPPING_OR_REPURPOSING": ["config/authorized_clipping_monetization_policy.json", "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md"],
+    "TIKTOK_SHOP_OR_PRODUCT_COMMERCE": ["config/tiktok_shop_influence_policy.json", "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md", "config/commerce_clipping_precision_overlay.json", "docs/COMMERCE_CLIPPING_PRECISION_REFRESH_2026-09-15.md", "config/platform_program_evidence.json"],
+    "CLIPPING_OR_REPURPOSING": ["config/authorized_clipping_monetization_policy.json", "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md", "config/commerce_clipping_precision_overlay.json", "docs/COMMERCE_CLIPPING_PRECISION_REFRESH_2026-09-15.md"],
     "FACTUAL_NEWS_OR_PRODUCT_CLAIMS": ["schemas/claim_evidence_ledger.schema.json", "scripts/second_pass_governance.py"],
     "AI_WORKFLOW_OR_AGENT_SERVICE": ["config/multi_agent_operating_policy.json", "config/deepseek_paid_supervisor_policy.json", "config/agent_efficiency_policy.json", "config/cross_source_second_pass_policy.json"]
+  },
+  "commerce_platform_resolution": {
+    "resolve_target_platform_before_platform_specific_commerce_advice": true,
+    "tiktok_shop_specific_rules_only_when_tiktok_shop_or_semantically_applicable": true,
+    "youtube_shopping_uses_current_platform_program_evidence": true,
+    "unknown_target_platform_blocks_platform_specific_publish_assumptions": true,
+    "cross_platform_claim_rights_disclosure_rules_still_apply_when_platform_unknown": true,
+    "shop_plus_clipping_uses_union_of_both_read_sets": true,
+    "paid_media_or_whitelisting_permission_is_separate_from_organic_posting_permission": true
   },
   "approval_rules": {
     "research_and_internal_ranking": "ALLOWED",
@@ -67,6 +78,10 @@
     "creator_marketplaces_are_preferred_over_spam_outreach",
     "brand_deal_creative_fee_usage_rights_paid_media_territory_exclusivity_and_renewal_are_separate_commercial_dimensions",
     "do_not_silently_grant_perpetual_global_exclusive_usage_rights",
+    "organic_posting_permission_and_paid_media_or_whitelisting_permission_are_separate_commercial_dimensions",
+    "generic_product_commerce_must_resolve_target_platform_before_applying_platform_specific_rules",
+    "shop_plus_clipping_must_restore_both_commerce_and_clipping_knowhow",
+    "commercial_relationship_disclosure_and_claim_evidence_are_separate_blocking_checks_when_applicable",
     "platform_payout_programs_are_secondary_and_volatile_not_guaranteed_income",
     "distribution_reach_is_not_revenue_without_a_defined_monetized_destination_and_attribution",
     "originality_and_substantive_value_are_monetization_constraints",
@@ -80,6 +95,9 @@
     "SKIP_REPOSITORY_READ_BECAUSE_PRIOR_CHAT_ALREADY_DISCUSSSED_MONETIZATION",
     "SKIP_MASTER_RULEBOOK_AND_CURRENT_MANIFEST_ON_NEW_TAB",
     "ASSUME_PROGRAM_AVAILABILITY_OR_ELIGIBILITY_FROM_STALE_MEMORY",
+    "TREAT_TIKTOK_SHOP_RULES_AS_UNIVERSAL_PRODUCT_COMMERCE_RULES",
+    "SHOP_CLIPPING_WITHOUT_BOTH_COMMERCE_AND_CLIPPING_READ_SETS",
+    "ASSUME_ORGANIC_POST_PERMISSION_EQUALS_PAID_MEDIA_PERMISSION",
     "TREAT_TEMPORARY_INCENTIVE_AS_BASELINE_ECONOMICS",
     "PROMISE_OR_GUARANTEE_INCOME",
     "PRESENT_MODELED_REVENUE_OR_ROI_AS_OBSERVED",
@@ -100,6 +118,7 @@
     "permanent_manifest_must_point_to_master_rulebook": true,
     "current_commander_handoff_must_restore_permanent_manifest": true,
     "monetization_task_must_re_read_current_repository_versions": true,
+    "commerce_or_clipping_task_must_re_read_precision_overlay": true,
     "do_not_rely_on_prior_tab_summary_as_substitute": true,
     "do_not_duplicate_entire_manifest_standard_list_into_commander_handoff": true
   }
