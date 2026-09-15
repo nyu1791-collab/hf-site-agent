@@ -5,11 +5,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+try:
+    from PIL import Image, ImageDraw
+except ImportError:  # Core CI intentionally does not install Pillow.
+    Image = None
+    ImageDraw = None
 
 from scripts.build_character_full_face_fixture import build_fixture
 
 
+@unittest.skipUnless(Image is not None and ImageDraw is not None, "Pillow not installed")
 class CharacterFullFaceFixtureTests(unittest.TestCase):
     def _png(self, path: Path, *, size=(120, 160), box=(30, 40, 90, 150), fill=(80, 180, 120, 255)) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -61,6 +66,8 @@ class CharacterFullFaceFixtureTests(unittest.TestCase):
             for character in ("Zundamon", "Metan"):
                 row = result["characters"][character]
                 self.assertEqual(row["mouth_variants_checked"], 3)
+                self.assertEqual(row["eye_variants_checked"], 2)
+                self.assertEqual(row["brow_variants_checked"], 2)
                 self.assertEqual(row["base_canvas"], [120, 160])
 
     def test_rejects_overlay_canvas_mismatch(self) -> None:
