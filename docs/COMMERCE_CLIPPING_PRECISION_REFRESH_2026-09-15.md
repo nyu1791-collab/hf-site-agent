@@ -32,6 +32,7 @@ Current primary/official sources were prioritized over creator folklore and AI r
 - TikTok Shop Japan Content Policy: https://seller-jp.tiktok.com/university/essay?knowledge_id=2707587427927825
 - TikTok Shop Japan AIGC guidance: https://seller-jp.tiktok.com/university/essay?knowledge_id=6860523157653265&lang=ja-JP
 - TikTok Shop Japan IP Policy: https://seller-jp.tiktok.com/university/essay?knowledge_id=2727520119195408&lang=en
+- TikTok Shop Japan Content Authorization Tool: https://seller-jp.tiktok.com/university/essay?knowledge_id=680638764795649&lang=ja-JP
 - Creator Performance Evaluation Policy: https://seller-jp.tiktok.com/university/essay?knowledge_id=2709643852121873
 - Affiliate seller/product qualification: https://seller-jp.tiktok.com/university/essay?knowledge_id=2575312534718209&lang=en
 - Shop Ads creator authorization / commission: https://seller-jp.tiktok.com/university/essay?knowledge_id=1192106471966480&lang=ja-JP
@@ -66,6 +67,8 @@ The existing clipping policy was fundamentally correct and is retained:
 5. **Transformation must be auditable.** Each publishable third-party clip should retain source hash/time range, context window, original value added, commentary/analysis summary, visual changes, rights record and target platform.
 
 6. **TikTok Creator Rewards is not inferred from a license.** Current originality/duration/program rules are rechecked separately. Sponsored, reused or licensed material is never assumed eligible merely because publication rights exist.
+
+7. **TikTok Shop repost authorization is scoped evidence, not a universal license.** The current Content Authorization Tool can record creator-to-creator permission to repost TikTok Shop content, including an authorization end date. When applicable, use this platform evidence rather than an informal assumption, record its scope/expiry, and do not extend it to paid-media use or other platforms unless that separate permission exists.
 
 ## Reconciled shopping / commerce findings
 
@@ -110,6 +113,7 @@ Neither permission chain substitutes for the other:
 
 - brand/seller permission does not clear third-party source-media rights
 - source-media permission does not validate product claims, discounts or disclosures
+- platform repost authorization applies only to its recorded scope/term and does not silently expand to another platform
 - organic posting permission does not automatically grant paid-media/whitelisting/ad-use permission
 
 ## Rejected shortcuts
@@ -123,6 +127,7 @@ The following were specifically rejected or demoted after reconciliation:
 - TikTok Shop rules automatically applied to YouTube Shopping
 - licensed clip automatically qualifies for TikTok Creator Rewards
 - crop/zoom/captions prove transformation
+- platform repost permission automatically extends to paid media or another platform
 - mass template clipping/shop videos as the default scaling model
 - automatically enabling broad paid-media reuse
 - choosing the permissive AIGC interpretation when current platform documents conflict
