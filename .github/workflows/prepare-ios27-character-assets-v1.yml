@@ -41,7 +41,9 @@ jobs:
           import json, pathlib, subprocess
           m = json.load(open('artifacts/ios27_character_fixture/asset_materialization.json', encoding='utf-8'))
           r = m['results'][0]
-          shell_root = r['extracted_path']
+          shell_root = subprocess.check_output([
+              'python', 'scripts/character_shell_root.py', r['extracted_path']
+          ], text=True).strip()
           receipt = r['receipt']
           out = '.media-cache/derived/zm-reaction-pack-v1'
           subprocess.run([
@@ -51,6 +53,7 @@ jobs:
               '--output', out,
           ], check=True)
           pathlib.Path('artifacts/ios27_character_fixture/reaction_pack_root.txt').write_text(out+'\n', encoding='utf-8')
+          pathlib.Path('artifacts/ios27_character_fixture/resolved_shell_root.txt').write_text(shell_root+'\n', encoding='utf-8')
           PY
 
       - name: Build geometry inventory and contact sheet
@@ -115,6 +118,7 @@ jobs:
           set -euo pipefail
           test -s artifacts/ios27_character_fixture/geometry_summary.json
           test -s artifacts/ios27_character_fixture/reaction_geometry_contact_sheet.png
+          test -s artifacts/ios27_character_fixture/resolved_shell_root.txt
           python - <<'PY'
           import json
           d=json.load(open('artifacts/ios27_character_fixture/geometry_summary.json',encoding='utf-8'))
