@@ -19,4 +19,4 @@ jobs:
       - name: Dispatch canonical longform build at current branch
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run build-ai-slowdown-longform-v1.yml --repo nyu1791-collab/hf-site-agent --ref ai-army/provider-v3
+        run: gh workflow run build-ai-slowdown-longform-v1.yml --repo nyu1791-collab/hf-site-agent --ref ai-army/provider-v3 -f checkpoint_run_id=34980788175
