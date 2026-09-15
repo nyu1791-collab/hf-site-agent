@@ -92,6 +92,14 @@
         "adopted_findings": ["ip_infringement_may_trigger_listing_or_content_enforcement", "proof_of_authenticity_or_rights_may_be_required"]
       },
       {
+        "id": "TIKTOK_SHOP_JP_CONTENT_AUTHORIZATION_CURRENT",
+        "tier": "T1",
+        "publisher": "TikTok Shop Japan Seller University",
+        "url": "https://seller-jp.tiktok.com/university/essay?knowledge_id=680638764795649&lang=ja-JP",
+        "applies_to": ["TIKTOK_SHOP_JAPAN", "CLIPPING", "REPOST_PERMISSION"],
+        "adopted_findings": ["platform_content_authorization_tool_can_record_creator_to_creator_repost_permission", "permission_must_come_from_original_content_account", "authorization_scope_and_end_date_must_be_respected", "platform_repost_permission_does_not_automatically_extend_to_paid_media_or_other_platforms"]
+      },
+      {
         "id": "TIKTOK_SHOP_JP_CREATOR_ENFORCEMENT_CURRENT",
         "tier": "T1",
         "publisher": "TikTok Shop Japan Seller University",
@@ -151,6 +159,14 @@
       "factual_or_sensitive_claim_requires_sufficient_pre_post_context": true,
       "uncertain_context": "BLOCK_OR_EXPAND_CONTEXT",
       "headline_hook_must_not_imply_claim_stronger_than_source": true
+    },
+    "platform_repost_authorization": {
+      "use_current_platform_authorization_tool_when_applicable": true,
+      "permission_source_must_be_original_content_account_or_rightsholder": true,
+      "record_scope_and_expiry_or_end_date": true,
+      "authorization_may_not_be_extended_beyond_recorded_scope": true,
+      "platform_repost_permission_does_not_imply_paid_media_permission": true,
+      "platform_repost_permission_does_not_imply_other_platform_permission": true
     },
     "highlight_scoring_penalties": ["CONTEXT_DEPENDENCE", "UNRESOLVED_SENSITIVE_CLAIM", "DUPLICATE_OR_TEMPLATE_SIMILARITY", "RIGHTS_UNCERTAINTY"],
     "platform_originality_refresh_before_monetization_activation": true,
@@ -219,6 +235,7 @@
     "CROP_ZOOM_CAPTIONS_ALONE_PROVE_TRANSFORMATION",
     "MASS_TEMPLATE_CLIPS_OR_SHOP_VIDEOS_AS_DEFAULT_SCALE_STRATEGY",
     "AUTO_ENABLE_MASS_PAID_MEDIA_AUTHORIZATION",
+    "PLATFORM_REPOST_PERMISSION_AUTOMATICALLY_EXTENDS_TO_PAID_MEDIA_OR_OTHER_PLATFORMS",
     "CHOOSE_PERMISSIVE_AIGC_RULE_WHEN_CURRENT_PLATFORM_SOURCES_CONFLICT"
   ],
   "post_integration_audit": {
