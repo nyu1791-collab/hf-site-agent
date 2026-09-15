@@ -75,7 +75,6 @@ class CharacterFullFaceFixtureTests(unittest.TestCase):
             root = Path(tmp)
             pack = self._pack(root)
             data = json.loads((pack / "inventory.json").read_text(encoding="utf-8"))
-            data["characters"]["Zundamon"]["mouth"][0:0] = []
             data["characters"]["Zundamon"]["categories"]["mouth"][0]["normalized_path"] = "../outside.png"
             (root / "outside.png").write_bytes(b"not-used")
             (pack / "inventory.json").write_text(json.dumps(data), encoding="utf-8")
