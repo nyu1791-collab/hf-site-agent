@@ -1,11 +1,7 @@
 name: Build AI slowdown longform v1
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - missions/media/20260915-ai-slowdown-longform-v1.render-trigger
+  workflow_dispatch:
 
 permissions:
   contents: read
