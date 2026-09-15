@@ -13,6 +13,7 @@ MEDIA = ROOT / "config/media_audio_motion_retention_policy.json"
 MANIFEST = ROOT / "config/permanent_standards_manifest.json"
 REUSABLE = ROOT / "config/media_reusable_asset_standard.json"
 PERFORMANCE = ROOT / "config/media_character_performance_compact_orchestration_policy.json"
+CLIPPING = ROOT / "config/authorized_clipping_monetization_policy.json"
 RESOLVER = ROOT / "scripts/media_asset_resolver.py"
 
 
@@ -49,9 +50,16 @@ def main() -> int:
     manifest = load(MANIFEST)
     reusable = load(REUSABLE)
     performance = load(PERFORMANCE)
+    clipping = load(CLIPPING)
 
     require(gate.get("schema_version") == "media-command-read-gate-v11", "media read gate must be v11")
     require(gate.get("status") == "ENFORCED_STANDARD", "media read gate is not enforced")
+
+    execution = gate.get("execution_gate") or {}
+    require(execution.get("must_resolve_required_read_set_before_planning") is True, "media planning may start before required read-set resolution")
+    require(execution.get("must_finish_required_read_set_before_external_side_effects") is True, "external media side effects may start before required repository reads finish")
+    require(execution.get("must_use_current_repository_versions") is True, "media execution may use stale repository policy")
+    require(execution.get("stale_summary_cannot_replace_repository_policy") is True, "stale tab summary may replace current repository policy")
 
     semantic = gate.get("semantic_triggering") or {}
     require(semantic.get("classify_by_meaning_not_literal_keywords") is True, "media intent classification regressed to keyword matching")
@@ -119,6 +127,18 @@ def main() -> int:
     ):
         require(path in clipping_required, f"clipping know-how missing from read gate: {path}")
 
+    clipping_decision = clipping.get("decision") or {}
+    require(clipping_decision.get("adopt_authorized_clipping_and_repurposing") is True, "authorized clipping lane is not adopted")
+    require(clipping_decision.get("adopt_generic_unlicensed_clipping") is False, "generic unlicensed clipping became allowed")
+    clipping_tooling = clipping.get("tooling") or {}
+    preferred_tools = {str(x).upper() for x in (clipping_tooling.get("preferred") or [])}
+    require({"PYTHON", "FFMPEG", "FFPROBE"}.issubset(preferred_tools), "deterministic clipping toolchain lost Python/FFmpeg/ffprobe")
+    prohibited_saas = {str(x).strip().lower() for x in (clipping_tooling.get("prohibited_freemium_media_saas") or [])}
+    required_prohibited_saas = {"runway", "fal", "fal.ai", "descript", "veed", "heygen", "higgsfield"}
+    require(required_prohibited_saas.issubset(prohibited_saas), "cross-tab clipping policy lost one or more prohibited freemium media SaaS entries")
+    require(not ({x.lower() for x in preferred_tools} & prohibited_saas), "a prohibited media SaaS also appears in the preferred clipping toolchain")
+    require("UNKNOWN_OR_POSITIVE_UNAPPROVED_MEDIA_SERVICE_COST" in set(clipping.get("kill_switches") or []), "unknown or unapproved media-service cost kill switch missing")
+
     shop_required = set(triggers["TIKTOK_SHOP_COMMERCE"].get("required") or [])
     for path in (
         "config/tiktok_shop_influence_policy.json",
@@ -160,6 +180,7 @@ def main() -> int:
 
     session = gate.get("new_session_behavior") or {}
     for key in (
+        "media_task_must_re_read_current_repository_versions",
         "master_rulebook_must_be_re_read",
         "audio_motion_retention_policy_must_be_re_read",
         "reusable_asset_standard_must_be_re_read",
@@ -172,13 +193,21 @@ def main() -> int:
 
     standards = manifest.get("required_standards") or []
     by_standard = {str(item.get("id")): item for item in standards if isinstance(item, dict)}
+    media_read_manifest = by_standard.get("media-command-read-gate") or {}
+    require(media_read_manifest.get("machine_policy") == "config/media_command_read_gate.json", "permanent manifest lost media command read gate")
+    require(media_read_manifest.get("priority") == 0, "media command read gate must remain startup priority 0")
     reusable_manifest = by_standard.get("media-reusable-asset-standard") or {}
     require(reusable_manifest.get("machine_policy") == "config/media_reusable_asset_standard.json", "permanent manifest lost reusable media asset standard")
     require(reusable_manifest.get("runtime") == "scripts/media_asset_resolver.py", "permanent manifest lost reusable media asset resolver")
     require(reusable_manifest.get("priority") == 1, "reusable media asset standard priority drift")
     media_manifest = manifest.get("media_command_gate") or {}
+    require(media_manifest.get("must_complete_before_media_planning_or_external_media_calls") is True, "manifest no longer blocks external media calls until the read gate finishes")
+    require(media_manifest.get("conversation_memory_is_not_a_substitute") is True, "manifest allows chat memory to replace repository restore")
+    require(media_manifest.get("re_read_current_repository_versions_after_tab_or_session_change") is True, "manifest no longer requires repository reread after tab/session change")
     require(media_manifest.get("reusable_asset_standard") == "config/media_reusable_asset_standard.json", "manifest media command gate lost reusable asset standard")
     cross_tab = manifest.get("cross_tab_behavior") or {}
+    require(cross_tab.get("media_command_read_gate_survives_tab_change") is True, "media command read gate no longer survives tab change")
+    require(cross_tab.get("media_task_re_reads_repository_know_how_before_media_work") is True, "media tasks no longer reread repository know-how before work")
     require(cross_tab.get("media_reusable_asset_standard_survives_tab_change") is True, "reusable media asset standard no longer survives tab change")
 
     require(reusable.get("schema_version") == "media-reusable-asset-standard-v1", "reusable media asset standard schema drift")
@@ -275,6 +304,8 @@ def main() -> int:
         "media_gate": gate.get("schema_version"),
         "common_read_count": len(common),
         "max_parallel_repository_reads": max_reads,
+        "cross_tab_external_side_effect_gate": True,
+        "prohibited_media_saas_guard": sorted(required_prohibited_saas),
         "shop_clipping_union": True,
         "reusable_asset_restore": True,
         "character_performance_policy": performance.get("schema_version"),
