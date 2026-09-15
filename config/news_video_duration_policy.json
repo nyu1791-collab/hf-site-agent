@@ -19,7 +19,8 @@
   ],
   "authority_links": [
     "config/media_user_visual_duration_preferences.json",
-    "config/longform_retention_resilience_policy.json",
-    "config/longform_video_objectives.json"
+    "config/longform_video_reliability_policy.json",
+    "config/longform_video_objectives.json",
+    "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md"
   ]
 }
