@@ -1,0 +1,218 @@
+{
+  "schema_version": "commerce-clipping-precision-overlay-v1",
+  "effective_date_jst": "2026-09-15",
+  "status": "ENFORCED_CROSS_DOMAIN_OVERLAY",
+  "decision_owner": "chatgpt-top-commander",
+  "purpose": "Apply current official-source deltas to authorized clipping and shopping/commerce work without duplicating or weakening the existing domain policies. This overlay is additive: every original rights, claim, platform, safety, evidence, approval and technical QA gate remains in force.",
+  "authority": {
+    "base_clipping_policy": "config/authorized_clipping_monetization_policy.json",
+    "base_shop_policy": "config/tiktok_shop_influence_policy.json",
+    "media_semantic_gate": "config/media_command_read_gate.json",
+    "monetization_semantic_gate": "config/monetization_command_read_gate.json",
+    "machine_policy_beats_conflicting_human_prose": true,
+    "current_official_platform_policy_beats_stale_platform_summary": true,
+    "platform_specific_rule_must_not_be_generalized_cross_platform": true
+  },
+  "research_snapshot": {
+    "retrieved_jst": "2026-09-15",
+    "source_priority": "CURRENT_OFFICIAL_PRIMARY_FIRST",
+    "sources": [
+      {
+        "id": "YT_REUSED_CONTENT_CURRENT",
+        "tier": "T1",
+        "publisher": "YouTube Help",
+        "url": "https://support.google.com/youtube/answer/1311392",
+        "applies_to": ["CLIPPING", "YOUTUBE_MONETIZATION"],
+        "adopted_findings": ["reused_content_is_channel_wide", "permission_does_not_guarantee_monetization", "meaningful_difference_and_original_value_required", "mass_produced_or_repetitive_template_risk_is_separate"]
+      },
+      {
+        "id": "YT_COMMERCIAL_RIGHTS_CURRENT",
+        "tier": "T1",
+        "publisher": "YouTube Help",
+        "url": "https://support.google.com/youtube/answer/2490020",
+        "applies_to": ["CLIPPING", "YOUTUBE_MONETIZATION"],
+        "adopted_findings": ["commercial_rights_required_for_all_audio_visual_elements"]
+      },
+      {
+        "id": "YT_PAID_PROMOTION_DISCLOSURE_CURRENT",
+        "tier": "T1",
+        "publisher": "YouTube Help",
+        "url": "https://support.google.com/youtube/answer/154235",
+        "applies_to": ["SHOPPING_COMMERCE", "SPONSORED_VIDEO"],
+        "adopted_findings": ["use_platform_paid_promotion_disclosure_when_required", "local_legal_disclosure_obligations_remain_separate"]
+      },
+      {
+        "id": "YT_SHOPPING_AFFILIATE_JP_CURRENT",
+        "tier": "T1",
+        "publisher": "YouTube Help",
+        "url": "https://support.google.com/youtube/answer/13376398?hl=ja",
+        "applies_to": ["YOUTUBE_SHOPPING_JAPAN"],
+        "adopted_findings": ["eligibility_and_current_offer_terms_must_be_reverified", "product_tags_and_description_links_are_platform_specific_tools"]
+      },
+      {
+        "id": "TIKTOK_CREATOR_REWARDS_CURRENT",
+        "tier": "T1",
+        "publisher": "TikTok Support",
+        "url": "https://support.tiktok.com/ja/business-and-creator/tiktok-creator-fund-us/who-is-eligible-us",
+        "applies_to": ["CLIPPING", "TIKTOK_MONETIZATION"],
+        "adopted_findings": ["reward_eligibility_requires_current_originality_rules", "licensed_or_repurposed_content_must_not_be_assumed_eligible", "current_duration_and_program_rules_are_publish_time_evidence"]
+      },
+      {
+        "id": "TIKTOK_SHOP_JP_CONTENT_CURRENT",
+        "tier": "T1",
+        "publisher": "TikTok Shop Japan Seller University",
+        "url": "https://seller-jp.tiktok.com/university/essay?knowledge_id=2707587427927825",
+        "applies_to": ["TIKTOK_SHOP_JAPAN"],
+        "adopted_findings": ["accurate_useful_verifiable_content", "restricted_product_approval", "ip_and_personal_rights", "misleading_price_and_claim_prohibition", "noninteractive_low_quality_risk", "japan_localization", "off_platform_redirect_restrictions"]
+      },
+      {
+        "id": "TIKTOK_SHOP_JP_AIGC_CURRENT",
+        "tier": "T1",
+        "publisher": "TikTok Shop Japan Seller University",
+        "url": "https://seller-jp.tiktok.com/university/essay?knowledge_id=6860523157653265&lang=ja-JP",
+        "applies_to": ["TIKTOK_SHOP_JAPAN", "AIGC"],
+        "adopted_findings": ["aigc_label_or_toggle_when_current_rule_requires", "product_visual_and_claim_fidelity", "no_fake_review_or_fake_expert", "avoid_mass_template_duplication", "natural_audio_visual_caption_quality"]
+      },
+      {
+        "id": "TIKTOK_SHOP_JP_IP_CURRENT",
+        "tier": "T1",
+        "publisher": "TikTok Shop Japan Seller University",
+        "url": "https://seller-jp.tiktok.com/university/essay?knowledge_id=2727520119195408&lang=en",
+        "applies_to": ["TIKTOK_SHOP_JAPAN", "CLIPPING"],
+        "adopted_findings": ["ip_infringement_may_trigger_listing_or_content_enforcement", "proof_of_authenticity_or_rights_may_be_required"]
+      },
+      {
+        "id": "TIKTOK_SHOP_JP_CREATOR_ENFORCEMENT_CURRENT",
+        "tier": "T1",
+        "publisher": "TikTok Shop Japan Seller University",
+        "url": "https://seller-jp.tiktok.com/university/essay?knowledge_id=2709643852121873",
+        "applies_to": ["TIKTOK_SHOP_JAPAN"],
+        "adopted_findings": ["creator_policy_violations_have_enforcement_and_appeal_consequences", "publish_policy_snapshot_must_be_current"]
+      },
+      {
+        "id": "TIKTOK_SHOP_JP_AFFILIATE_QUALIFICATION_CURRENT",
+        "tier": "T1",
+        "publisher": "TikTok Shop Japan Seller University",
+        "url": "https://seller-jp.tiktok.com/university/essay?knowledge_id=2575312534718209&lang=en",
+        "applies_to": ["TIKTOK_SHOP_JAPAN", "AFFILIATE"],
+        "adopted_findings": ["seller_and_product_affiliate_qualification_is_versioned_and_rechecked"]
+      },
+      {
+        "id": "TIKTOK_SHOP_JP_AD_AUTHORIZATION_CURRENT",
+        "tier": "T1",
+        "publisher": "TikTok Shop Japan Seller University",
+        "url": "https://seller-jp.tiktok.com/university/essay?knowledge_id=1192106471966480&lang=ja-JP",
+        "applies_to": ["TIKTOK_SHOP_JAPAN", "PAID_MEDIA_USAGE"],
+        "adopted_findings": ["creator_video_ad_authorization_is_a_separate_permission", "standard_and_shop_ads_commission_can_differ", "mass_authorization_has_broad_scope_and_must_not_be_enabled_automatically"]
+      },
+      {
+        "id": "JAPAN_CAA_STEALTH_MARKETING_CURRENT",
+        "tier": "T1",
+        "publisher": "Consumer Affairs Agency Japan",
+        "url": "https://www.caa.go.jp/policies/policy/representation/fair_labeling/faq/stealth_marketing/",
+        "applies_to": ["JAPAN_COMMERCE_DISCLOSURE"],
+        "adopted_findings": ["commercial_relationship_must_be_clear_when_applicable", "disclosure_cannot_be_hidden_in_reply_or_remote_location", "video_disclosure_should_remain_clear_for_viewers_who_join_mid_video", "overall_presentation_controls_clarity"]
+      }
+    ],
+    "community_or_secondary_advice_may_override_t1": false,
+    "ai_reviewer_vote_may_override_t1": false
+  },
+  "semantic_recall_precision": {
+    "classify_by_meaning_not_exact_keyword": true,
+    "generic_shopping_or_product_selling_request_requires_platform_resolution": true,
+    "tiktok_shop_rules_are_not_universal_shopping_rules": true,
+    "youtube_shopping_requires_youtube_program_and_monetization_evidence": true,
+    "unknown_target_platform_uses_cross_platform_claim_disclosure_rights_rules_but_blocks_platform_specific_publish_assumptions": true,
+    "shop_plus_clipping_requires_union_of_shop_and_clipping_rules": true,
+    "shop_plus_clipping_may_not_drop_either_rights_or_claim_gate": true
+  },
+  "clipping_precision": {
+    "permission_and_platform_monetization_are_separate": true,
+    "permission_does_not_satisfy_youtube_reused_content_gate": true,
+    "commercial_rights_to_all_material_audio_visual_elements_required_for_monetized_youtube_output": true,
+    "source_owner_permission_does_not_erase_embedded_music_guest_game_or_likeness_risk": true,
+    "channel_level_reused_and_mass_template_risk_must_be_considered": true,
+    "minimal_crop_zoom_caption_change_is_not_assumed_substantive_transformation": true,
+    "transformation_manifest_required": true,
+    "transformation_manifest_fields": ["source_sha256", "source_time_range", "selected_context_before_after", "original_value_added", "commentary_or_analysis_summary", "visual_changes_summary", "platform_target", "rights_record_id", "edit_policy_version"],
+    "context_integrity_gate": {
+      "required": true,
+      "do_not_reverse_or_materially_distort_original_meaning": true,
+      "factual_or_sensitive_claim_requires_sufficient_pre_post_context": true,
+      "uncertain_context": "BLOCK_OR_EXPAND_CONTEXT",
+      "headline_hook_must_not_imply_claim_stronger_than_source": true
+    },
+    "highlight_scoring_penalties": ["CONTEXT_DEPENDENCE", "UNRESOLVED_SENSITIVE_CLAIM", "DUPLICATE_OR_TEMPLATE_SIMILARITY", "RIGHTS_UNCERTAINTY"],
+    "platform_originality_refresh_before_monetization_activation": true,
+    "tiktok_creator_rewards_eligibility_never_inferred_from_license_alone": true,
+    "internal_test_or_preview_does_not_create_publish_or_monetization_permission": true
+  },
+  "shopping_commerce_precision": {
+    "claim_truth_and_commercial_disclosure_are_separate_blocking_gates": true,
+    "exact_product_listing_match_required": true,
+    "seller_and_product_affiliate_qualification_recheck_required": true,
+    "volatile_commercial_facts": ["price", "coupon", "discount", "stock", "shipping", "return_policy", "promotion", "commission_rate"],
+    "volatile_commercial_fact_requires_timestamp_and_publish_time_recheck": true,
+    "japan_commercial_disclosure": {
+      "applicable_relationship_must_be_disclosed_clearly": true,
+      "do_not_hide_disclosure_only_in_reply_or_distant_description": true,
+      "video_should_remain_clear_as_commercial_content_for_midstream_viewers_when_applicable": true,
+      "platform_paid_promotion_or_affiliate_label_used_when_current_platform_rule_requires": true,
+      "exact_legal_wording_not_hardcoded_globally": true,
+      "current_japan_law_and_platform_rule_recheck_before_publish": true
+    },
+    "tiktok_shop_japan": {
+      "current_content_policy_snapshot_required": true,
+      "product_must_be_accurate_useful_verifiable": true,
+      "restricted_product_requires_current_platform_approval": true,
+      "prohibited_or_unsupported_product": "BLOCK",
+      "product_visual_text_audio_claims_must_match_actual_listing_or_verified_source": true,
+      "off_platform_redirect_or_qr_phone_social_handle_is_not_assumed_allowed": true,
+      "noninteractive_or_static_low_information_content_is_quality_risk": true,
+      "japan_localization_requirements_must_be_rechecked": true,
+      "ip_personality_and_brand_permission_required": true,
+      "fictitious_or_nonexistent_listing": "BLOCK",
+      "mass_template_duplication": "BLOCK_OR_REWORK",
+      "ad_use_authorization": {
+        "organic_affiliate_permission_is_not_paid_media_permission": true,
+        "mass_ad_authorization_default": false,
+        "human_approval_required_before_enabling_mass_or_new_paid_media_usage": true,
+        "record_scope_term_commission_rate_and_revocation": true
+      },
+      "aigc_conflict_guard": {
+        "general_content_policy_and_dedicated_aigc_guidance_have_conflicting_language_in_current_snapshot": true,
+        "do_not_silently_choose_the_more_permissive_interpretation": true,
+        "if_aigc_is_used_retrieve_both_current_sources_at_publish_time": true,
+        "unresolved_current_conflict": "BLOCK_AIGC_PUBLISH_HANDOFF",
+        "if_current_rule_allows_aigc_require_current_label_toggle_and_product_fidelity": true
+      }
+    },
+    "youtube_shopping": {
+      "use_current_youtube_program_evidence_not_tiktok_shop_rules": true,
+      "eligibility_offer_and_commission_terms_are_versioned": true,
+      "paid_promotion_disclosure_and_japan_commercial_disclosure_are_separate_checks": true
+    }
+  },
+  "cross_domain_shop_clipping": {
+    "required_gate_union": ["SOURCE_RIGHTS", "EMBEDDED_RIGHTS", "TRANSFORMATION_ORIGINALITY", "CONTEXT_INTEGRITY", "PRODUCT_CLAIM_EVIDENCE", "COMMERCIAL_FACT_FRESHNESS", "COMMERCIAL_RELATIONSHIP_DISCLOSURE", "PLATFORM_POLICY_SNAPSHOT", "TECHNICAL_QA", "HUMAN_PUBLISH_APPROVAL"],
+    "seller_or_brand_permission_to_use_clip_does_not_waive_source_media_rights": true,
+    "source_media_permission_does_not_waive_product_claim_or_disclosure_rules": true,
+    "paid_media_reuse_terms_must_be_separate_from_organic_posting_terms": true
+  },
+  "rejected_or_demoted_patterns": [
+    "PERMISSION_EQUALS_PLATFORM_MONETIZATION_ELIGIBILITY",
+    "ONE_DISCLOSURE_AT_VIDEO_START_ALWAYS_SUFFICIENT_IN_JAPAN",
+    "DISCLOSURE_ONLY_IN_REPLY_OR_HIDDEN_DESCRIPTION",
+    "TIKTOK_THREE_SECOND_RULE_AS_UNIVERSAL_CROSS_PLATFORM_LAW",
+    "TIKTOK_SHOP_RULES_AUTOMATICALLY_APPLY_TO_YOUTUBE_SHOPPING",
+    "LICENSED_CLIP_AUTOMATICALLY_QUALIFIES_FOR_TIKTOK_CREATOR_REWARDS",
+    "CROP_ZOOM_CAPTIONS_ALONE_PROVE_TRANSFORMATION",
+    "MASS_TEMPLATE_CLIPS_OR_SHOP_VIDEOS_AS_DEFAULT_SCALE_STRATEGY",
+    "AUTO_ENABLE_MASS_PAID_MEDIA_AUTHORIZATION",
+    "CHOOSE_PERMISSIVE_AIGC_RULE_WHEN_CURRENT_PLATFORM_SOURCES_CONFLICT"
+  ],
+  "post_integration_audit": {
+    "required": true,
+    "checks": ["semantic_gate_reaches_overlay", "shop_and_clipping_union_survives", "base_domain_policies_remain_active", "official_source_refresh_is_recorded", "platform_specific_rules_not_cross_generalized", "rights_claim_disclosure_gates_remain_blocking", "validator_passes", "ci_result_checked_before_claiming_success"]
+  }
+}
