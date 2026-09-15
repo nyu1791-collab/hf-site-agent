@@ -2,9 +2,15 @@ name: Build AI slowdown longform v1
 
 on:
   workflow_dispatch:
+    inputs:
+      checkpoint_run_id:
+        description: Optional prior run containing verified narration checkpoint
+        required: false
+        default: ''
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ai-slowdown-longform-v1
@@ -29,10 +35,22 @@ jobs:
           python -m pip install pillow
           mkdir -p "$OUT" "$CACHE" "$REACTION" artifacts/longform-preflight
 
+      - name: Restore verified narration checkpoint
+        if: ${{ inputs.checkpoint_run_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ai-slowdown-longform-v1-${{ inputs.checkpoint_run_id }}
+          path: artifacts/ai-slowdown-longform-v1
+          github-token: ${{ github.token }}
+          repository: nyu1791-collab/hf-site-agent
+          run-id: ${{ inputs.checkpoint_run_id }}
+
       - name: Validate Python entrypoints
         run: |
           python -m py_compile scripts/synthesize_longform_voicevox.py
           python -m py_compile scripts/render_zundamon_metan_longform.py
+          python -m py_compile scripts/prepare_character_reaction_pack.py
+          python -m py_compile scripts/character_shell_root.py
           python scripts/media_asset_resolver.py --validate-only
 
       - name: Start local VOICEVOX
@@ -49,6 +67,7 @@ jobs:
       - name: Longform runtime preflight
         run: |
           python scripts/longform_video_preflight.py \
+            --mode runtime \
             --output-dir artifacts/longform-preflight \
             --voicevox-url http://127.0.0.1:50021
 
@@ -62,7 +81,30 @@ jobs:
           out.write_bytes(gzip.decompress(base64.b64decode(src.read_text().strip())))
           PY
 
-      - name: Synthesize and measure 67 VOICEVOX turns
+      - name: Validate restored narration checkpoint
+        if: ${{ inputs.checkpoint_run_id != '' }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          out=Path(os.environ['OUT'])
+          mission=json.loads((out/'mission.json').read_text(encoding='utf-8'))
+          timing=json.loads((out/'timing.json').read_text(encoding='utf-8'))
+          lines=[line for scene in mission['scenes'] for line in scene['dialogue']]
+          expected=len(lines)
+          assert timing.get('mission_id')==mission.get('mission_id'), (timing.get('mission_id'), mission.get('mission_id'))
+          assert int(timing.get('line_count',-1))==expected, (timing.get('line_count'),expected)
+          duration=float(timing.get('total_duration',0))
+          assert 480 <= duration <= 720, duration
+          assert float(timing.get('subtitle_narration_coverage_ratio',0))==1.0
+          expected_ids={str(line['id']) for line in lines}
+          wav_ids={p.stem for p in (out/'voice').glob('*.wav')}
+          assert wav_ids==expected_ids, {'missing':sorted(expected_ids-wav_ids),'extra':sorted(wav_ids-expected_ids)}
+          print({'checkpoint':'PASS','line_count':expected,'total_duration':duration,'subtitle_coverage':1.0})
+          PY
+
+      - name: Synthesize and measure VOICEVOX narration
+        if: ${{ inputs.checkpoint_run_id == '' }}
         run: |
           python scripts/synthesize_longform_voicevox.py \
             --mission-b64 missions/media/20260915-ai-slowdown-longform-v1.json.gz.b64 \
@@ -81,20 +123,51 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
+          from scripts.character_shell_root import resolve_character_shell_root
           m=json.loads(Path('artifacts/ai-slowdown-longform-v1/character-shell.json').read_text())
-          p=m['results'][0].get('extracted_path')
-          assert p and Path(p).is_dir(), p
-          Path('artifacts/ai-slowdown-longform-v1/character-source.txt').write_text(p)
+          extracted=m['results'][0].get('extracted_path')
+          assert extracted and Path(extracted).is_dir(), extracted
+          root=resolve_character_shell_root(Path(extracted))
+          Path('artifacts/ai-slowdown-longform-v1/character-source.txt').write_text(str(root),encoding='utf-8')
+          print({'character_shell_root':str(root)})
           PY
 
       - name: Prepare and validate reusable reaction pack
         run: |
           SRC=$(cat "$OUT/character-source.txt")
           python scripts/prepare_character_reaction_pack.py \
-            --source-root "$SRC" \
-            --pack-root "$REACTION" \
-            --inventory-out "$OUT/reaction_inventory.json" \
-            --contact-sheet "$OUT/reaction_contact_sheet.png"
+            --shell-root "$SRC" \
+            --source-receipt "$CACHE/characters/zm_shell_20230806/receipt.json" \
+            --output "$REACTION"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          pack=Path(os.environ['REACTION'])
+          inv=json.loads((pack/'inventory.json').read_text(encoding='utf-8'))
+          char_map={'Zundamon':'zundamon','Metan':'metan'}
+          category_map={'full_body':'full_body','eyes':'eye','brows':'eyebrow','mouth':'mouth'}
+          records=[]
+          for source_char,target_char in char_map.items():
+              char=inv['characters'][source_char]
+              for source_category,target_category in category_map.items():
+                  for row in char.get('categories',{}).get(source_category,[]):
+                      path=(pack/row['normalized_path']).resolve()
+                      assert path.is_file(), path
+                      records.append({
+                          'character':target_char,
+                          'category':target_category,
+                          'path':str(path),
+                          'sha256':row.get('sha256'),
+                          'width':row.get('width'),
+                          'height':row.get('height')
+                      })
+          for character in ('zundamon','metan'):
+              assert any(r['character']==character and r['category']=='full_body' for r in records), character
+              assert any(r['character']==character and r['category']=='mouth' for r in records), character
+          out=Path(os.environ['OUT'])/'reaction_inventory.json'
+          out.write_text(json.dumps({'schema':'longform-character-inventory-v1','records':records},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print({'reaction_inventory_records':len(records),'output':str(out)})
+          PY
           python scripts/validate_media_character_reaction_cache.py
 
       - name: Resolve rights-registered visuals before render
