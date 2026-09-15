@@ -271,6 +271,48 @@ jobs:
             tests.test_media_asset_resolver \
             tests.test_second_pass_governance -v
 
+      - name: Build bounded NASA clip demo with deterministic tools only
+        if: contains(github.event.head_commit.message, '[clip-demo]')
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/nasa-clip-demo
+          cd /tmp/nasa-clip-demo
+          SOURCE_URL='https://svs.gsfc.nasa.gov/vis/a010000/a012800/a012825/Sarah_Jones.webm'
+          SRT_URL='https://svs.gsfc.nasa.gov/vis/a010000/a012800/a012825/SarahJones.en_US.srt'
+          curl --fail --location --retry 2 --retry-all-errors --connect-timeout 15 --max-time 120 "$SOURCE_URL" -o source.webm
+          curl --fail --location --retry 2 --retry-all-errors --connect-timeout 15 --max-time 30 "$SRT_URL" -o source.srt
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 source.webm
+          START=$(python - <<'PY'
+          import re
+          text = open('source.srt', encoding='utf-8-sig').read()
+          m = re.search(r'(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->', text)
+          if not m:
+              print('0.0')
+          else:
+              h, mnt, s, ms = map(int, m.groups())
+              sec = h * 3600 + mnt * 60 + s + ms / 1000
+              print(f'{max(0.0, sec - 0.25):.3f}')
+          PY
+          )
+          FILTER="split=2[bg][fg];[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=24:12[blur];[fg]scale=1080:-2[front];[blur][front]overlay=(W-w)/2:(H-h)/2,drawbox=x=0:y=0:w=iw:h=170:color=black@0.58:t=fill,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='NASA SCIENTIST • SPACE WEATHER':fontcolor=white:fontsize=54:x=(w-text_w)/2:y=54,drawbox=x=0:y=h-132:w=iw:h=132:color=black@0.52:t=fill,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:text='Source\: NASA Goddard / Scientific Visualization Studio':fontcolor=white:fontsize=32:x=(w-text_w)/2:y=h-84"
+          ffmpeg -hide_banner -loglevel error -y -ss "$START" -i source.webm -t 18 \
+            -filter_complex "$FILTER" \
+            -af "loudnorm=I=-16:TP=-1.5:LRA=11" \
+            -r 30 -c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p -tag:v avc1 \
+            -c:a aac -b:a 160k -ar 48000 -movflags +faststart \
+            nasa_sarah_jones_vertical_clip.mp4
+          ffprobe -v error -show_entries stream=codec_name,pix_fmt,width,height -show_entries format=duration -of json nasa_sarah_jones_vertical_clip.mp4
+          ffmpeg -v error -i nasa_sarah_jones_vertical_clip.mp4 -f null -
+
+      - name: Upload bounded NASA clip demo artifact
+        if: contains(github.event.head_commit.message, '[clip-demo]')
+        uses: actions/upload-artifact@v4
+        with:
+          name: nasa-sarah-jones-clip-demo
+          path: /tmp/nasa-clip-demo/nasa_sarah_jones_vertical_clip.mp4
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Prove no paid call occurs in consistency CI
         run: |
           set -euo pipefail
