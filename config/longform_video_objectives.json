@@ -1,166 +1,20 @@
 {
-  "schema_version": "longform-video-objectives-v3",
-  "effective_date_jst": "2026-09-13",
+  "schema_version": "longform-video-objectives-v4",
+  "effective_date_jst": "2026-09-15",
   "status": "ENFORCED_STANDARD",
-  "primary_goal": "DELIVER_A_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK_MAXIMUM_RESUMABILITY_AND_CLEAR_INFORMATION",
-  "goal_priority": [
-    "FINISHED_ARTIFACT_EXISTS_AND_PLAYS",
-    "USER_CAN_UNDERSTAND_THE_CONTENT",
-    "PRESERVE_APPROVED_SCRIPT_AUDIO_AND_HEALTHY_SCENES",
-    "RECOVER_FROM_THE_SMALLEST_FAILED_UNIT",
-    "KEEP_AUDIO_SUBTITLE_VIDEO_TIMELINE_ALIGNED",
-    "MINIMIZE_REENCODE_NETWORK_AND_AI_WORK",
-    "KEEP_EXTERNAL_PAID_OR_FREEMIUM_VIDEO_AND_CAPTION_EDITING_SAAS_USAGE_AT_ZERO",
-    "KEEP_GENERATED_IMAGE_AND_VIDEO_ASSET_USAGE_AT_ZERO",
-    "PRODUCE_TRACEABLE_REPRODUCIBLE_EVIDENCE",
-    "ALLOW_NEW_CHAT_TABS_OR_AGENT_SESSIONS_TO_RESUME_FROM_REPOSITORY_STATE"
-  ],
-  "ai_division_objectives": {
-    "chatgpt_is_top_commander_and_final_integrator": true,
-    "deepseek_is_high_value_supervisor_not_bulk_coder": true,
-    "nvidia_may_independently_audit_ffmpeg_resource_and_codec_failures": true,
-    "qwen_or_deterministic_python_may_handle_targeted_implementation": true,
-    "same_task_duplicate_generation_by_many_agents_default": false,
-    "specialized_pipeline_stage_delegation_default": true
-  },
-  "content_objectives": {
-    "duration_is_content_driven": true,
-    "news_explainer_starting_range_minutes": [6, 10],
-    "range_is_not_hard_target": true,
-    "no_padding_by_repetition": true,
-    "news_context_before_event_why_it_matters_current_state_and_next_watchpoints_when_supported": true
-  },
-  "hard_completion_gate": {
-    "final_mp4_required": true,
-    "file_size_gt_zero": true,
-    "ffprobe_parse_required": true,
-    "required_video_streams": 1,
-    "required_audio_streams": 1,
-    "width": 1080,
-    "height": 1920,
-    "fps": 30,
-    "pixel_format": "yuv420p",
-    "video_codec": "h264",
-    "audio_codec": "aac",
-    "audio_sample_rate_hz": 48000,
-    "expected_duration_range_required": true,
-    "all_required_scenes_present": true,
-    "subtitle_full_narration_coverage_ratio": 1.0,
-    "decode_error_count_target": 0
-  },
-  "recovery_objectives": {
-    "healthy_prior_scene_regeneration_after_later_scene_failure": 0,
-    "healthy_audio_regeneration_when_only_visual_changes": 0,
-    "full_pipeline_restart_after_isolated_scene_failure": 0,
-    "successful_checkpoint_deletion_after_downstream_failure": 0,
-    "partial_file_accepted_as_checkpoint": false,
-    "cache_only_entry_accepted_as_durable_checkpoint": false,
-    "resume_from_last_compatible_checkpoint": true,
-    "atomic_scene_promotion_required": true,
-    "cross_run_resume_requires_verified_manifest": true
-  },
-  "asset_objectives": {
-    "generated_image_asset_count": 0,
-    "generated_video_asset_count": 0,
-    "visual_discovery_mode": "SEARCH_THEN_VERIFY_ORIGINAL_SOURCE_AND_RIGHTS",
-    "network_fetch_inside_ffmpeg_render": false,
-    "pre_download_and_decode_validate_assets": true,
-    "single_bad_asset_may_fail_whole_video": false,
-    "fallback_isolated_to_failed_asset_or_scene": true,
-    "rights_or_safety_failure_may_block": true,
-    "cache_by_content_hash_not_url_only": true,
-    "asset_provenance_ledger_required": true
-  },
-  "voice_objectives": {
-    "voice_engine": "VOICEVOX_LOCAL",
-    "standard_cast": ["ずんだもん", "四国めたん"],
-    "preserve_raw_voice_wav": true,
-    "record_speaker_uuid_style_id_and_engine_version": true,
-    "raw_voice_and_normalized_scene_audio_have_distinct_hashes": true,
-    "normalize_scene_audio_to_hz": 48000,
-    "visual_only_edit_raw_voice_regeneration_count": 0,
-    "prosody_and_emotion_are_semantic_beat_driven": true
-  },
-  "caption_objectives": {
-    "full_narration_coverage_ratio": 1.0,
-    "semantic_chunks": true,
-    "structural_hierarchy": ["TITLE", "CHAPTER", "SUBHEADING", "BODY"],
-    "keyword_emphasis": true,
-    "character_and_platform_safe_area": true,
-    "normalized_narration_caption_text_match_check": true
-  },
-  "timeline_objectives": {
-    "audio_duration_source": "FFPROBE_ACTUAL_GENERATED_WAV",
-    "duration_inference_from_text_length": false,
-    "subtitle_text_source": "NARRATION_MANIFEST",
-    "subtitle_provider_internal_state_dependency": false,
-    "subtitle_timestamps_monotonic": true,
-    "negative_subtitle_timestamp_count": 0,
-    "unintended_subtitle_overlap_count": 0,
-    "measure_scene_av_drift": true,
-    "measure_final_av_drift": true,
-    "drift_block_threshold": "CALIBRATE_WITH_FIXTURES_BEFORE_HARD_CODING"
-  },
-  "render_objectives": {
-    "render_unit": "SCENE_OR_CHAPTER",
-    "monolithic_longform_encode": false,
-    "normalize_before_concat": true,
-    "concat_copy_preferred_when_media_contract_matches": true,
-    "concat_manifest_relative_sanitized_paths_only": true,
-    "final_reencode_only_when_required": true,
-    "intermediate_fast_preset_preferred": true,
-    "scene_timeout_required": true,
-    "concat_single_writer": true,
-    "default_scene_encode_parallelism": 1,
-    "maximum_scene_encode_parallelism_without_benchmark_evidence": 2,
-    "proxy_preview_default": false,
-    "proxy_preview_allowed_for_high_complexity_scene": true
-  },
-  "process_hygiene_objectives": {
-    "unbounded_subprocess_count": 0,
-    "subprocess_without_timeout_count": 0,
-    "unclosed_file_handle_known_count": 0,
-    "all_spawned_children_are_waited_or_terminated": true
-  },
-  "retry_budget": {
-    "infinite_retry": false,
-    "same_method_extra_retries_max": 1,
-    "total_attempts_per_scene_max": 3,
-    "same_root_cause_requires_method_change": true,
-    "retry_after_paid_transition_or_unknown_cost": false
-  },
-  "cost_and_route_objectives": {
-    "paid_video_saas_execution_count": 0,
-    "video_saas_free_credit_execution_count": 0,
-    "paid_caption_or_video_editing_app_execution_count": 0,
-    "trial_or_temporary_free_caption_or_video_editing_execution_count": 0,
-    "auto_top_up_count": 0,
-    "paid_fallback_count": 0,
-    "paid_sibling_substitution_count": 0,
-    "unknown_cost_route_execution_count": 0,
-    "free_ai_model_requires_fresh_exact_route_evidence": true
-  },
-  "delivery_contract": {
-    "finished_video_must_be_delivered_before_long_explanation": true,
-    "do_not_claim_complete_before_machine_gate_passes": true,
-    "creative_final_judgement_belongs_to_user": true,
-    "heavy_ai_full_video_visual_review_is_not_required_for_handoff": true,
-    "machine_review_scope": ["artifact_exists", "nonzero_size", "ffprobe_readable", "video_stream", "audio_stream", "resolution", "duration_range", "decode_errors", "subtitle_coverage", "asset_rights_manifest"]
-  },
-  "observability_metrics": ["voice_cache_hit_rate", "visual_cache_hit_rate", "scene_cache_hit_rate", "reused_scene_ratio", "rerendered_scene_ratio", "wasted_encode_seconds", "checkpoint_restore_seconds", "total_render_wall_seconds", "p50_scene_render_seconds", "p95_scene_render_seconds", "peak_disk_bytes", "asset_fallback_count", "external_request_count", "retry_count_by_root_cause", "final_av_drift_ms", "final_decode_error_count", "subprocess_timeout_count", "proxy_preview_count"],
-  "continuity_objectives": {
-    "canonical_handoff_file": "config/current_commander_handoff.json",
-    "media_read_gate": "config/media_command_read_gate.json",
-    "new_session_restore_success_ratio": 1.0,
-    "conversation_memory_required_for_resume": false,
-    "repository_state_required_for_resume": true,
-    "blanket_media_production_hold_allowed_as_permanent_standard": false
-  },
-  "continuous_improvement": {
-    "collect_baseline_before_setting_arbitrary_speed_thresholds": true,
-    "regression_fixture_required": true,
-    "compare_new_pipeline_against_last_known_good": true,
-    "promote_new_threshold_only_with_measurement_evidence": true,
-    "remove_or_downgrade_rules_that_add_cost_without_measured_value": true
-  }
+  "primary_goal": "DELIVER_A_PLAYABLE_FINISHED_8_TO_12_MINUTE_DEFAULT_EXPLAINER_WITHOUT_FILLER_AND_WITH_MINIMUM_REWORK",
+  "goal_priority": ["FINISHED_ARTIFACT_EXISTS_AND_PLAYS","USER_CAN_UNDERSTAND_THE_CONTENT","NO_PADDING_OR_LOW_INFORMATION_FILLER","PRESERVE_APPROVED_SCRIPT_AUDIO_AND_HEALTHY_SCENES","RECOVER_FROM_SMALLEST_FAILED_UNIT","KEEP_AUDIO_SUBTITLE_VIDEO_ALIGNED","MINIMIZE_REENCODE_NETWORK_AI_AND_COORDINATION_WORK","PRODUCE_TRACEABLE_REPRODUCIBLE_EVIDENCE","RESUME_FROM_REPOSITORY_AND_VERIFIED_CHECKPOINT_STATE"],
+  "ai_division_objectives": {"chatgpt_is_top_commander_and_final_integrator":true,"chatgpt_plus_deepseek_is_default_compact_research_and_script_pair":true,"research_and_script_are_one_combined_judgment_stage":true,"routine_multi_agent_script_fanout":false,"deterministic_mechanical_pipeline_after_script_lock":true,"same_task_duplicate_generation_by_many_agents_default":false},
+  "content_objectives": {"duration_is_content_driven":true,"default_news_and_topic_explainer_range_minutes":[8,12],"range_is_guideline_not_padding_quota":true,"explicit_user_override_allowed":true,"no_padding_by_repetition_history_or_slow_reading":true,"runtime_earned_by":["verified_facts","mechanism","impact","material_chronology","uncertainty_or_competing_interpretation","next_watchpoints","necessary_context"],"information_density_audit_before_script_lock":true,"fixed_universal_cut_chapter_recap_or_expression_interval":null},
+  "hard_completion_gate": {"final_mp4_required":true,"file_size_gt_zero":true,"ffprobe_parse_required":true,"required_video_streams":1,"required_audio_streams":1,"width":1080,"height":1920,"fps":30,"pixel_format":"yuv420p","video_codec":"h264","audio_codec":"aac","audio_sample_rate_hz":48000,"expected_duration_range_or_justified_exception_required":true,"all_required_scenes_present":true,"subtitle_full_narration_coverage_ratio":1.0,"decode_error_count_target":0,"fast_start_required":true,"representative_visual_rereview_required":true},
+  "recovery_objectives": {"healthy_prior_scene_regeneration_after_later_scene_failure":0,"healthy_audio_regeneration_when_only_visual_changes":0,"full_pipeline_restart_after_isolated_scene_failure":0,"successful_checkpoint_deletion_after_downstream_failure":0,"partial_file_accepted_as_checkpoint":false,"cache_only_entry_accepted_as_durable_checkpoint":false,"resume_from_last_compatible_checkpoint":true,"atomic_scene_promotion_required":true,"cross_run_resume_requires_verified_manifest":true,"explicit_state_manifest_required":true,"duplicate_work_after_resume_target":0},
+  "timeline_objectives": {"audio_duration_source":"FFPROBE_ACTUAL_GENERATED_WAV","duration_inference_from_text_length":false,"subtitle_timestamps_monotonic":true,"negative_subtitle_timestamp_count":0,"unintended_subtitle_overlap_count":0,"measure_scene_av_drift":true,"measure_final_av_drift":true,"drift_block_threshold":"CALIBRATE_WITH_FIXTURES_BEFORE_HARD_CODING"},
+  "render_objectives": {"render_unit":"SCENE_OR_CHAPTER","monolithic_longform_encode":false,"normalize_before_concat":true,"concat_copy_preferred_when_media_contract_matches":true,"final_reencode_only_when_required":true,"scene_timeout_required":true,"concat_single_writer":true,"default_scene_encode_parallelism":1,"maximum_scene_encode_parallelism_without_benchmark_evidence":2,"proxy_preview_default":false,"selective_proxy_or_preview_when_resource_or_visual_risk_justifies":true},
+  "retry_and_hang_objectives": {"infinite_retry":false,"same_method_extra_retries_max":1,"same_root_cause_requires_method_change":true,"permanent_error_retry_attempts_target":0,"single_retry_owner_layer_required":true,"multi_layer_retry_storm_forbidden":true,"bounded_exponential_backoff_with_jitter_for_retryable_transients":true,"provider_call_timeout_required":true,"subprocess_timeout_required":true,"no_progress_detection_required":true,"provider_circuit_breaker_required":true},
+  "storage_and_checkpoint_objectives": {"cache_is_regenerable_accelerator_not_checkpoint":true,"verified_cross_run_output_uses_artifact_or_explicit_checkpoint_store":true,"content_addressed_input_manifest_required":true,"lease_ttl_and_heartbeat_for_parallel_mutating_work":true,"stale_writer_rejected":true},
+  "retention_objectives": {"use_real_platform_analytics_when_available":true,"youtube_metrics":["intro_retention","average_view_duration","average_percentage_viewed","retention_curve","top_moments","dips","spikes"],"compare_similar_length_and_format_when_possible":true,"map_retention_to_scene_chapter_and_semantic_beat":true,"ctr_alone_cannot_promote_variant":true,"missing_analytics_are_unavailable_not_invented":true,"retention_heuristic_requires_repeated_measured_win_before_canonical_promotion":true},
+  "delivery_contract": {"finished_video_before_long_explanation":true,"do_not_claim_complete_before_machine_gate_passes":true,"full_decode_required":true,"fast_start_moov_before_mdat_required":true,"rereview_against_original_user_request":true,"rereview_against_current_effective_policy":true,"creative_final_judgement_belongs_to_user":true},
+  "observability_metrics": ["stage_wall_clock_seconds","voice_cache_hit_rate","visual_cache_hit_rate","scene_cache_hit_rate","reused_scene_ratio","rerendered_scene_ratio","wasted_encode_seconds","checkpoint_restore_seconds","checkpoint_recovery_success_rate","duplicate_work_count","healthy_work_regeneration_count","provider_stall_seconds","retry_count_by_failure_class","circuit_breaker_open_count","lease_contention_count","total_render_wall_seconds","p50_scene_render_seconds","p95_scene_render_seconds","peak_disk_bytes","peak_ram_bytes","final_av_drift_ms","final_decode_error_count","final_decode_faststart_pass_rate","subtitle_coverage_ratio"],
+  "continuity_objectives": {"canonical_handoff_file":"config/current_commander_handoff.json","media_read_gate":"config/media_command_read_gate.json","user_visual_duration_preferences":"config/media_user_visual_duration_preferences.json","longform_reliability_policy":"config/longform_video_reliability_policy.json","new_session_restore_success_ratio":1.0,"conversation_memory_required_for_resume":false,"repository_state_required_for_resume":true},
+  "continuous_improvement": {"collect_baseline_before_arbitrary_numeric_thresholds":true,"regression_fixture_required":true,"compare_new_pipeline_against_last_known_good":true,"promote_retention_pattern_only_with_measured_repeated_evidence":true,"remove_or_downgrade_rules_that_add_cost_without_measured_value":true}
 }
