@@ -2,11 +2,6 @@ name: "Build iOS27 longform VOICEVOX timing v1"
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - missions/media/20260915-ios27-japan-trend-longform-v1.render-trigger
 
 permissions:
   contents: read
@@ -155,7 +150,6 @@ jobs:
                   method='POST',
               )
 
-              # Restrained, intelligible longform prosody. Punctuation remains primary.
               if speaker == 'ずんだもん':
                   query['speedScale'] = 1.04
                   query['pitchScale'] = 0.01
