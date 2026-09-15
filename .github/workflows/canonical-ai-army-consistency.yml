@@ -32,6 +32,7 @@ on:
       - 'config/longform_video_reliability_policy.json'
       - 'config/authorized_clipping_monetization_policy.json'
       - 'config/tiktok_shop_influence_policy.json'
+      - 'config/commerce_clipping_precision_overlay.json'
       - 'config/legacy_deepseek_compatibility.json'
       - 'config/ci_execution_policy.json'
       - 'config/model_registry.json'
@@ -40,6 +41,7 @@ on:
       - 'scripts/ai_army_routing_facade.py'
       - 'scripts/validate_permanent_ai_army_state.py'
       - 'scripts/validate_media_command_read_gate.py'
+      - 'scripts/validate_semantic_recall_and_commerce_precision.py'
       - 'scripts/validate_media_character_visual_standard.py'
       - 'scripts/validate_media_character_reaction_cache.py'
       - 'scripts/validate_zundamon_metan_production_quality.py'
@@ -85,6 +87,7 @@ on:
       - 'docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md'
       - 'docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md'
       - 'docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md'
+      - 'docs/COMMERCE_CLIPPING_PRECISION_REFRESH_2026-09-15.md'
       - 'docs/BATCH_MEDIA_ORCHESTRATION.md'
       - 'docs/MEDIA_BATCH_COMMAND_CENTER.md'
       - 'docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md'
@@ -130,6 +133,7 @@ jobs:
             scripts/ai_army_routing_facade.py \
             scripts/validate_permanent_ai_army_state.py \
             scripts/validate_media_command_read_gate.py \
+            scripts/validate_semantic_recall_and_commerce_precision.py \
             scripts/validate_media_character_visual_standard.py \
             scripts/validate_media_character_reaction_cache.py \
             scripts/validate_zundamon_metan_production_quality.py \
@@ -184,6 +188,7 @@ jobs:
           python -m json.tool config/longform_video_reliability_policy.json >/dev/null
           python -m json.tool config/authorized_clipping_monetization_policy.json >/dev/null
           python -m json.tool config/tiktok_shop_influence_policy.json >/dev/null
+          python -m json.tool config/commerce_clipping_precision_overlay.json >/dev/null
           python -m json.tool config/legacy_deepseek_compatibility.json >/dev/null
           python -m json.tool config/ci_execution_policy.json >/dev/null
           python -m json.tool config/batch_media_orchestration_policy.json >/dev/null
@@ -210,6 +215,11 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_media_command_read_gate.py
+
+      - name: Enforce semantic recall and commerce clipping precision
+        run: |
+          set -euo pipefail
+          python scripts/validate_semantic_recall_and_commerce_precision.py
 
       - name: Enforce character visuals and searched news backgrounds
         run: |
