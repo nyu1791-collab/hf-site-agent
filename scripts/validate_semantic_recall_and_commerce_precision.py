@@ -87,9 +87,19 @@ def main() -> int:
     require(set(expansions.get("SHOP_CLIPPING") or []) == {"TIKTOK_SHOP_COMMERCE", "CLIPPING_REPURPOSING"}, "SHOP_CLIPPING expansion drift")
     require({"TIKTOK_SHOP_COMMERCE", "CLIPPING_REPURPOSING", "VIDEO_CREATION"}.issubset(set(expansions.get("SHOP_CLIPPING_VIDEO") or [])), "SHOP_CLIPPING_VIDEO expansion incomplete")
 
-    # Overlay source/evidence quality.
+    # Overlay source/evidence quality and durability.
     require(overlay.get("schema_version") == "commerce-clipping-precision-overlay-v1", "precision overlay schema drift")
     require(overlay.get("status") == "ENFORCED_CROSS_DOMAIN_OVERLAY", "precision overlay is not enforced")
+    durability = overlay.get("durability") or {}
+    require(durability.get("saved_file_alone_is_not_sufficient_recall") is True, "precision knowledge may be treated as complete when merely saved")
+    require(durability.get("must_be_reachable_from_media_semantic_gate") is True, "precision overlay durability lost media reachability")
+    require(durability.get("must_be_reachable_from_monetization_semantic_gate") is True, "precision overlay durability lost monetization reachability")
+    require(durability.get("shop_clipping_mixed_intent_must_resolve_union") is True, "precision durability lost shop+clipping union")
+    require(durability.get("base_domain_policies_remain_active") is True, "precision overlay may replace base policy")
+    require(durability.get("must_be_validated_after_policy_integration") is True, "post-integration validation requirement lost")
+    require(durability.get("must_check_ci_result_before_claiming_success") is True, "success may be claimed before CI result")
+    require(durability.get("head_or_blob_change_invalidates_same_task_read_cache") is True, "stale same-task recall cache may survive content change")
+
     snapshot = overlay.get("research_snapshot") or {}
     require(snapshot.get("source_priority") == "CURRENT_OFFICIAL_PRIMARY_FIRST", "precision overlay no longer prioritizes current official primary sources")
     require(snapshot.get("community_or_secondary_advice_may_override_t1") is False, "secondary advice may override primary evidence")
@@ -104,6 +114,7 @@ def main() -> int:
         "TIKTOK_SHOP_JP_CONTENT_CURRENT",
         "TIKTOK_SHOP_JP_AIGC_CURRENT",
         "TIKTOK_SHOP_JP_IP_CURRENT",
+        "TIKTOK_SHOP_JP_CONTENT_AUTHORIZATION_CURRENT",
         "TIKTOK_SHOP_JP_CREATOR_ENFORCEMENT_CURRENT",
         "TIKTOK_SHOP_JP_AFFILIATE_QUALIFICATION_CURRENT",
         "TIKTOK_SHOP_JP_AD_AUTHORIZATION_CURRENT",
@@ -129,6 +140,13 @@ def main() -> int:
     require(context.get("do_not_reverse_or_materially_distort_original_meaning") is True, "clip may materially distort source meaning")
     require(context.get("factual_or_sensitive_claim_requires_sufficient_pre_post_context") is True, "sensitive/factual clip context requirement lost")
     require(context.get("uncertain_context") == "BLOCK_OR_EXPAND_CONTEXT", "uncertain clipping context no longer blocks/expands")
+    repost = cprecision.get("platform_repost_authorization") or {}
+    require(repost.get("use_current_platform_authorization_tool_when_applicable") is True, "current platform repost authorization tool is not preferred when applicable")
+    require(repost.get("permission_source_must_be_original_content_account_or_rightsholder") is True, "repost permission source may be unverified")
+    require(repost.get("record_scope_and_expiry_or_end_date") is True, "repost authorization scope/expiry not recorded")
+    require(repost.get("authorization_may_not_be_extended_beyond_recorded_scope") is True, "repost authorization may exceed recorded scope")
+    require(repost.get("platform_repost_permission_does_not_imply_paid_media_permission") is True, "repost permission became paid-media permission")
+    require(repost.get("platform_repost_permission_does_not_imply_other_platform_permission") is True, "repost permission became cross-platform permission")
 
     base_decision = clipping.get("decision") or {}
     require(base_decision.get("adopt_authorized_clipping_and_repurposing") is True, "authorized clipping base lane lost")
@@ -193,6 +211,7 @@ def main() -> int:
         "shop_clipping_union": "ENFORCED",
         "platform_resolution": "ENFORCED",
         "context_integrity": "ENFORCED",
+        "scoped_repost_authorization": "ENFORCED",
         "japan_commercial_disclosure": "ENFORCED",
         "paid_media_permission_separation": "ENFORCED",
         "aigc_conflict_guard": "FAIL_CLOSED"
