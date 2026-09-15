@@ -1,0 +1,139 @@
+name: "Prepare iOS27 character reaction fixture v1"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - missions/media/20260915-ios27-character-assets-v1.trigger
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios27-character-assets-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare-character-fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install Pillow
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pillow
+
+      - name: Resolve registered character shell
+        run: |
+          set -euo pipefail
+          python scripts/media_asset_resolver.py \
+            --group standard_character_shell \
+            --cache-root .media-cache/assets \
+            --allow-network \
+            --manifest-out artifacts/ios27_character_fixture/asset_materialization.json
+
+      - name: Build deterministic reaction pack
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib, subprocess
+          m = json.load(open('artifacts/ios27_character_fixture/asset_materialization.json', encoding='utf-8'))
+          r = m['results'][0]
+          shell_root = r['extracted_path']
+          receipt = r['receipt']
+          out = '.media-cache/derived/zm-reaction-pack-v1'
+          subprocess.run([
+              'python','scripts/prepare_character_reaction_pack.py',
+              '--shell-root', shell_root,
+              '--source-receipt', receipt,
+              '--output', out,
+          ], check=True)
+          pathlib.Path('artifacts/ios27_character_fixture/reaction_pack_root.txt').write_text(out+'\n', encoding='utf-8')
+          PY
+
+      - name: Build geometry inventory and contact sheet
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib
+          from PIL import Image, ImageDraw, ImageFont
+
+          root = pathlib.Path('.media-cache/derived/zm-reaction-pack-v1')
+          inv = json.load(open(root/'inventory.json', encoding='utf-8'))
+          out = pathlib.Path('artifacts/ios27_character_fixture')
+          out.mkdir(parents=True, exist_ok=True)
+
+          summary = {'schema':'ios27-character-geometry-fixture-v1','characters':{},'generated_symbols':inv.get('generated_symbols',[])}
+          chosen=[]
+          wanted=('full_body','mouth','eyes','brows','symbols','left_arm','right_arm')
+          for char, data in inv['characters'].items():
+              cats=data.get('categories',{})
+              char_summary={}
+              for cat in wanted:
+                  rows=cats.get(cat,[])
+                  char_summary[cat]={
+                      'count':len(rows),
+                      'samples':[{
+                          'path':x['normalized_path'],
+                          'width':x['width'],
+                          'height':x['height'],
+                          'sha256':x['sha256'],
+                      } for x in rows[:4]]
+                  }
+                  for x in rows[:2]:
+                      chosen.append((char,cat,x))
+              summary['characters'][char]=char_summary
+
+          (out/'geometry_summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          (out/'inventory.json').write_text(json.dumps(inv,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+          thumb_w,thumb_h=260,300
+          cols=4
+          rows=max(1,(len(chosen)+cols-1)//cols)
+          sheet=Image.new('RGB',(cols*thumb_w,rows*thumb_h),(235,240,246))
+          draw=ImageDraw.Draw(sheet)
+          for i,(char,cat,rec) in enumerate(chosen):
+              p=root/rec['normalized_path']
+              with Image.open(p) as im:
+                  rgba=im.convert('RGBA')
+                  rgba.thumbnail((220,220),Image.Resampling.LANCZOS)
+                  x=(i%cols)*thumb_w+(thumb_w-rgba.width)//2
+                  y=(i//cols)*thumb_h+10
+                  sheet.paste(rgba,(x,y),rgba)
+              tx=(i%cols)*thumb_w+8
+              ty=(i//cols)*thumb_h+238
+              draw.text((tx,ty),f'{char} / {cat}',fill=(20,30,40))
+              draw.text((tx,ty+22),f"{rec['width']}x{rec['height']}",fill=(50,60,70))
+          sheet.save(out/'reaction_geometry_contact_sheet.png')
+          print(json.dumps(summary, ensure_ascii=False))
+          PY
+
+      - name: Fixture validation
+        run: |
+          set -euo pipefail
+          test -s artifacts/ios27_character_fixture/geometry_summary.json
+          test -s artifacts/ios27_character_fixture/reaction_geometry_contact_sheet.png
+          python - <<'PY'
+          import json
+          d=json.load(open('artifacts/ios27_character_fixture/geometry_summary.json',encoding='utf-8'))
+          for char in ('Zundamon','Metan'):
+              assert d['characters'][char]['full_body']['count'] >= 1
+              assert d['characters'][char]['mouth']['count'] >= 3
+              assert d['characters'][char]['eyes']['count'] >= 2
+              assert d['characters'][char]['brows']['count'] >= 2
+          print('CHARACTER_FIXTURE_PASS')
+          PY
+
+      - name: Upload character fixture
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios27-character-fixture-v1
+          path: artifacts/ios27_character_fixture
+          retention-days: 3
