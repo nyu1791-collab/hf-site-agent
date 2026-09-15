@@ -1,0 +1,323 @@
+name: "Build iOS27 longform final v1"
+
+on:
+  workflow_dispatch:
+    inputs:
+      character_fixture_run_id:
+        description: "Approved successful run id of Prepare iOS27 character reaction fixture v1"
+        required: true
+        type: string
+      voice_checkpoint_run_id:
+        description: "Successful VOICEVOX checkpoint run id; keep default while artifact exists"
+        required: true
+        default: "34963651287"
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ios27-longform-final-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      OUT: artifacts/ios27_longform_final
+      CACHE: .media-cache/assets
+      REACTION: .media-cache/derived/zm-reaction-pack-v1
+      APPROVED_FIXTURE: artifacts/approved_character_fixture
+      VOICE: artifacts/ios27_longform_voice
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install deterministic media toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
+          python -m pip install --disable-pip-version-check --no-input pillow
+          mkdir -p "$OUT" "$CACHE" "$REACTION" "$APPROVED_FIXTURE" "$VOICE"
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
+      - name: Compile render entrypoints
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            scripts/character_shell_root.py \
+            scripts/prepare_character_reaction_pack.py \
+            scripts/build_character_full_face_fixture.py \
+            scripts/render_ios27_zundamon_metan_longform.py
+
+      - name: Download approved character fixture artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ios27-character-fixture-v1
+          path: artifacts/approved_character_fixture
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.character_fixture_run_id }}
+
+      - name: Validate approved character fixture contract
+        run: |
+          set -euo pipefail
+          test -s "$APPROVED_FIXTURE/asset_materialization.json"
+          test -s "$APPROVED_FIXTURE/full_face_fixture.json"
+          test -s "$APPROVED_FIXTURE/full_face_mouth_contact_sheet.png"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('artifacts/approved_character_fixture')
+          material=json.loads((root/'asset_materialization.json').read_text(encoding='utf-8'))
+          fixture=json.loads((root/'full_face_fixture.json').read_text(encoding='utf-8'))
+          assert material['asset_count'] == 1
+          row=material['results'][0]
+          assert row['asset_id'] == 'zm_shell_20230806'
+          assert len(str(row['sha256'])) == 64
+          assert fixture['gate'] == 'PASS'
+          for char in ('Zundamon','Metan'):
+              c=fixture['characters'][char]
+              assert c['mouth_variants_checked'] >= 3
+              assert c['eye_variants_checked'] >= 2
+              assert c['brow_variants_checked'] >= 2
+          print('APPROVED_CHARACTER_FIXTURE=PASS', row['sha256'], fixture['contact_sheet_sha256'])
+          PY
+
+      - name: Download measured VOICEVOX checkpoint artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ios27-longform-voice-v1
+          path: artifacts/ios27_longform_voice
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.voice_checkpoint_run_id }}
+
+      - name: Revalidate measured VOICEVOX checkpoint
+        run: |
+          set -euo pipefail
+          test -s "$VOICE/timeline_manifest.json"
+          count=$(find "$VOICE/wav" -type f -name '*.wav' | wc -l)
+          test "$count" -eq 57
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('artifacts/ios27_longform_voice/timeline_manifest.json')
+          d=json.loads(p.read_text(encoding='utf-8'))
+          assert d['schema'] == 'ios27-longform-voicevox-timeline-v1'
+          assert d['mission_id'] == '20260915-ios27-japan-trend-longform-v1'
+          assert d['utterance_count'] == 57
+          assert d['duration_gate'] == 'PASS_8_TO_12_MIN'
+          assert 480 <= float(d['total_duration']) <= 720
+          assert abs(float(d['total_duration']) - 610.98) <= 0.05, d['total_duration']
+          assert d['style_ids']['ずんだもん'] == 3
+          assert d['style_ids']['四国めたん'] == 2
+          assert len(d['scene_summaries']) == 10
+          print('VOICE_CHECKPOINT_REVALIDATED=PASS', d['total_duration'])
+          PY
+
+      - name: Re-materialize exact registered character source
+        run: |
+          set -euo pipefail
+          python scripts/media_asset_resolver.py \
+            --group standard_character_shell \
+            --cache-root "$CACHE" \
+            --allow-network \
+            --manifest-out "$OUT/current_asset_materialization.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          approved=json.loads(Path('artifacts/approved_character_fixture/asset_materialization.json').read_text(encoding='utf-8'))['results'][0]
+          current=json.loads(Path('artifacts/ios27_longform_final/current_asset_materialization.json').read_text(encoding='utf-8'))['results'][0]
+          assert current['asset_id'] == approved['asset_id'] == 'zm_shell_20230806'
+          assert current['sha256'] == approved['sha256'], (current['sha256'], approved['sha256'])
+          print('CHARACTER_SOURCE_SHA_MATCH=PASS', current['sha256'])
+          PY
+
+      - name: Build deterministic reaction pack from exact source
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib, subprocess
+          m=json.loads(pathlib.Path('artifacts/ios27_longform_final/current_asset_materialization.json').read_text(encoding='utf-8'))
+          row=m['results'][0]
+          shell_root=subprocess.check_output([
+              'python','scripts/character_shell_root.py',row['extracted_path']
+          ],text=True).strip()
+          subprocess.run([
+              'python','scripts/prepare_character_reaction_pack.py',
+              '--shell-root',shell_root,
+              '--source-receipt',row['receipt'],
+              '--output','.media-cache/derived/zm-reaction-pack-v1',
+          ],check=True)
+          pathlib.Path('artifacts/ios27_longform_final/resolved_shell_root.txt').write_text(shell_root+'\n',encoding='utf-8')
+          PY
+
+      - name: Rebuild and hash-match full-face geometry fixture
+        run: |
+          set -euo pipefail
+          python scripts/build_character_full_face_fixture.py \
+            --pack-root "$REACTION" \
+            --output-dir "$OUT/current_character_fixture"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          approved=json.loads(Path('artifacts/approved_character_fixture/full_face_fixture.json').read_text(encoding='utf-8'))
+          current=json.loads(Path('artifacts/ios27_longform_final/current_character_fixture/full_face_fixture.json').read_text(encoding='utf-8'))
+          assert current['gate'] == approved['gate'] == 'PASS'
+          assert current['contact_sheet_sha256'] == approved['contact_sheet_sha256'], (
+              current['contact_sheet_sha256'], approved['contact_sheet_sha256']
+          )
+          print('FULL_FACE_FIXTURE_HASH_MATCH=PASS', current['contact_sheet_sha256'])
+          PY
+
+      - name: Render representative visual preview
+        run: |
+          set -euo pipefail
+          rm -rf "$OUT/preview"
+          python scripts/render_ios27_zundamon_metan_longform.py \
+            --mission missions/media/20260915-ios27-japan-trend-longform-v1.json \
+            --timing "$VOICE/timeline_manifest.json" \
+            --reaction-pack "$REACTION" \
+            --voice-root "$VOICE" \
+            --output-dir "$OUT/preview" \
+            --preview-only
+          test -s "$OUT/preview/representative_contact_sheet.jpg"
+          test -s "$OUT/preview/character_selection.json"
+
+      - name: Render scene checkpoints and final MP4
+        run: |
+          set -euo pipefail
+          rm -rf "$OUT/final"
+          python scripts/render_ios27_zundamon_metan_longform.py \
+            --mission missions/media/20260915-ios27-japan-trend-longform-v1.json \
+            --timing "$VOICE/timeline_manifest.json" \
+            --reaction-pack "$REACTION" \
+            --voice-root "$VOICE" \
+            --output-dir "$OUT/final" \
+            --output-name ios27-japan-trend-longform-v1.mp4
+
+      - name: Mechanical final media gate
+        run: |
+          set -euo pipefail
+          FINAL="$OUT/final/ios27-japan-trend-longform-v1.mp4"
+          test -s "$FINAL"
+          ffprobe -v error -show_streams -show_format -of json "$FINAL" > "$OUT/final/ffprobe.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('artifacts/ios27_longform_final/final')
+          probe=json.loads((root/'ffprobe.json').read_text(encoding='utf-8'))
+          render=json.loads((root/'render_manifest.json').read_text(encoding='utf-8'))
+          streams=probe['streams']
+          v=next(x for x in streams if x['codec_type']=='video')
+          a=next(x for x in streams if x['codec_type']=='audio')
+          dur=float(probe['format']['duration'])
+          assert 480 <= dur <= 720, dur
+          assert int(v['width']) == 1080 and int(v['height']) == 1920
+          assert v['codec_name'] == 'h264'
+          assert v.get('pix_fmt') == 'yuv420p'
+          assert a['codec_name'] == 'aac'
+          assert int(a['sample_rate']) == 48000
+          assert render['utterance_count'] == 57
+          assert render['scene_count'] == 10
+          assert render['mouth_state_switching'] is True
+          assert render['blink_state_switching'] is True
+          assert render['active_speaker_emphasis'] is True
+          assert render['network_visual_fetches'] == 0
+          assert render['public_publish_performed'] is False
+          print('MECHANICAL_FINAL_GATE=PASS', dur)
+          PY
+          ffmpeg -v error -threads 4 -i "$FINAL" -f null - 2> "$OUT/final/decode-errors.log"
+          test ! -s "$OUT/final/decode-errors.log"
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('artifacts/ios27_longform_final/final/ios27-japan-trend-longform-v1.mp4')
+          head=p.read_bytes()[:16_000_000]
+          moov=head.find(b'moov'); mdat=head.find(b'mdat')
+          assert moov > 0 and mdat > 0 and moov < mdat, (moov,mdat)
+          print('FASTSTART=PASS', moov, mdat)
+          PY
+
+      - name: Extract final visual QA samples
+        run: |
+          set -euo pipefail
+          FINAL="$OUT/final/ios27-japan-trend-longform-v1.mp4"
+          DUR=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$FINAL")
+          python - "$DUR" <<'PY'
+          import subprocess,sys
+          from pathlib import Path
+          dur=float(sys.argv[1]); out=Path('artifacts/ios27_longform_final/final/visual_samples'); out.mkdir(parents=True,exist_ok=True)
+          fractions=(.04,.14,.24,.34,.44,.54,.64,.74,.84,.94)
+          for i,f in enumerate(fractions,1):
+              subprocess.run([
+                  'ffmpeg','-y','-hide_banner','-loglevel','error','-ss',str(dur*f),
+                  '-i','artifacts/ios27_longform_final/final/ios27-japan-trend-longform-v1.mp4',
+                  '-frames:v','1',str(out/f'sample-{i:02d}.jpg')
+              ],check=True)
+          PY
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          files=sorted(Path('artifacts/ios27_longform_final/final/visual_samples').glob('*.jpg'))
+          assert len(files) == 10
+          sheet=Image.new('RGB',(270*5,480*2),(236,241,245))
+          for i,p in enumerate(files):
+              im=Image.open(p).convert('RGB'); im.thumbnail((270,480),Image.Resampling.LANCZOS)
+              sheet.paste(im,((i%5)*270,(i//5)*480))
+          sheet.save('artifacts/ios27_longform_final/final/final_visual_contact_sheet.jpg',quality=90)
+          PY
+
+      - name: Record machine completion state
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('artifacts/ios27_longform_final/final')
+          video=root/'ios27-japan-trend-longform-v1.mp4'
+          probe=json.loads((root/'ffprobe.json').read_text(encoding='utf-8'))
+          voice=json.loads(Path('artifacts/ios27_longform_voice/timeline_manifest.json').read_text(encoding='utf-8'))
+          approved=json.loads(Path('artifacts/approved_character_fixture/full_face_fixture.json').read_text(encoding='utf-8'))
+          state={
+              'schema':'ios27-longform-completion-v1',
+              'mission_id':'20260915-ios27-japan-trend-longform-v1',
+              'status':'MACHINE_GATES_PASS_VISUAL_REREVIEW_PENDING',
+              'file':video.name,
+              'sha256':hashlib.sha256(video.read_bytes()).hexdigest(),
+              'bytes':video.stat().st_size,
+              'duration_seconds':float(probe['format']['duration']),
+              'voice_checkpoint_run_id':'${{ inputs.voice_checkpoint_run_id }}',
+              'approved_character_fixture_run_id':'${{ inputs.character_fixture_run_id }}',
+              'voice_total_duration_seconds':voice['total_duration'],
+              'character_fixture_sha256':approved['contact_sheet_sha256'],
+              'decode_error_count':0,
+              'fast_start':True,
+              'final_visual_contact_sheet_created':True,
+              'final_visual_rereview_completed':False,
+              'public_publish':False,
+              'youtube_upload':False,
+          }
+          (root/'completion.json').write_text(json.dumps(state,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps(state,ensure_ascii=False))
+          PY
+
+      - name: Upload final build and QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios27-longform-final-v1-${{ github.run_id }}
+          path: |
+            artifacts/ios27_longform_final/final
+            artifacts/ios27_longform_final/preview/representative_contact_sheet.jpg
+            artifacts/ios27_longform_final/preview/character_selection.json
+            artifacts/ios27_longform_final/current_character_fixture/full_face_fixture.json
+            artifacts/ios27_longform_final/current_character_fixture/full_face_mouth_contact_sheet.png
+          if-no-files-found: warn
+          retention-days: 7
