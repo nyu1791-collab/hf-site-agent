@@ -1,5 +1,5 @@
 mission_id=20260915-ai-slowdown-longform-v1
-revision=v4-reaction-pack-resume
-requested_at_jst=2026-09-15T23:26:30+09:00
+revision=v5-wikimedia-bounded-backoff
+requested_at_jst=2026-09-15T23:34:00+09:00
 checkpoint_run_id=34980788175
 public_publish=false
