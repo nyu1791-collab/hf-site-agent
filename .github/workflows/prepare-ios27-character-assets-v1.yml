@@ -56,12 +56,12 @@ jobs:
           pathlib.Path('artifacts/ios27_character_fixture/resolved_shell_root.txt').write_text(shell_root+'\n', encoding='utf-8')
           PY
 
-      - name: Build geometry inventory and contact sheet
+      - name: Build geometry inventory and parts contact sheet
         run: |
           set -euo pipefail
           python - <<'PY'
           import json, pathlib
-          from PIL import Image, ImageDraw, ImageFont
+          from PIL import Image, ImageDraw
 
           root = pathlib.Path('.media-cache/derived/zm-reaction-pack-v1')
           inv = json.load(open(root/'inventory.json', encoding='utf-8'))
@@ -113,20 +113,32 @@ jobs:
           print(json.dumps(summary, ensure_ascii=False))
           PY
 
+      - name: Build full-face mouth geometry fixture
+        run: |
+          set -euo pipefail
+          python scripts/build_character_full_face_fixture.py \
+            --pack-root .media-cache/derived/zm-reaction-pack-v1 \
+            --output-dir artifacts/ios27_character_fixture
+
       - name: Fixture validation
         run: |
           set -euo pipefail
           test -s artifacts/ios27_character_fixture/geometry_summary.json
           test -s artifacts/ios27_character_fixture/reaction_geometry_contact_sheet.png
+          test -s artifacts/ios27_character_fixture/full_face_fixture.json
+          test -s artifacts/ios27_character_fixture/full_face_mouth_contact_sheet.png
           test -s artifacts/ios27_character_fixture/resolved_shell_root.txt
           python - <<'PY'
           import json
           d=json.load(open('artifacts/ios27_character_fixture/geometry_summary.json',encoding='utf-8'))
+          f=json.load(open('artifacts/ios27_character_fixture/full_face_fixture.json',encoding='utf-8'))
+          assert f['gate'] == 'PASS'
           for char in ('Zundamon','Metan'):
               assert d['characters'][char]['full_body']['count'] >= 1
               assert d['characters'][char]['mouth']['count'] >= 3
               assert d['characters'][char]['eyes']['count'] >= 2
               assert d['characters'][char]['brows']['count'] >= 2
+              assert f['characters'][char]['mouth_variants_checked'] >= 3
           print('CHARACTER_FIXTURE_PASS')
           PY
 
