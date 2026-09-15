@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import random
 import shutil
 import time
 import urllib.error
@@ -20,11 +21,14 @@ import urllib.request
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_STANDARD = ROOT / "config/media_reusable_asset_standard.json"
+TRANSIENT_HTTP_STATUS = {429, 500, 502, 503, 504}
+MAX_RETRY_AFTER_SECONDS = 60.0
 
 
 def load_standard(path: Path = DEFAULT_STANDARD) -> dict[str, Any]:
@@ -179,11 +183,31 @@ def _verified_cache_hit(
     }
 
 
+def _retry_after_seconds(headers: Any, attempt: int) -> float:
+    """Return a bounded retry delay, preferring an HTTP Retry-After value."""
+    value = str(headers.get("Retry-After") or "").strip() if headers is not None else ""
+    if value:
+        try:
+            seconds = float(value)
+        except ValueError:
+            try:
+                when = parsedate_to_datetime(value)
+                if when.tzinfo is None:
+                    when = when.replace(tzinfo=timezone.utc)
+                seconds = (when - datetime.now(timezone.utc)).total_seconds()
+            except (TypeError, ValueError, OverflowError):
+                seconds = -1.0
+        if seconds >= 0:
+            return min(MAX_RETRY_AFTER_SECONDS, seconds)
+    base = min(8.0, 1.5 * (2 ** max(0, attempt - 1)))
+    return base + random.uniform(0.0, 0.5)
+
+
 def _download_known_url(
     url: str,
     destination: Path,
     *,
-    attempts: int = 2,
+    attempts: int = 3,
     timeout_seconds: int = 45,
     max_bytes: int = 200 * 1024 * 1024,
 ) -> None:
@@ -196,7 +220,10 @@ def _download_known_url(
         try:
             request = urllib.request.Request(
                 url,
-                headers={"User-Agent": "hf-site-agent-media-asset-resolver/1.0"},
+                headers={
+                    "User-Agent": "hf-site-agent-media-asset-resolver/1.1",
+                    "Accept": "image/*,application/zip,application/octet-stream;q=0.9,*/*;q=0.5",
+                },
             )
             with urllib.request.urlopen(request, timeout=timeout_seconds) as response, tmp.open("wb") as out:
                 total = 0
@@ -210,11 +237,37 @@ def _download_known_url(
                     out.write(chunk)
             tmp.replace(destination)
             return
-        except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        except urllib.error.HTTPError as exc:
             last_error = exc
             tmp.unlink(missing_ok=True)
-            if attempt < attempts:
-                time.sleep(0.5 * attempt)
+            if exc.code not in TRANSIENT_HTTP_STATUS or attempt >= attempts:
+                break
+            delay = _retry_after_seconds(exc.headers, attempt)
+            print(
+                json.dumps(
+                    {
+                        "event": "asset_download_retry",
+                        "attempt": attempt,
+                        "http_status": exc.code,
+                        "delay_seconds": round(delay, 3),
+                        "url": url,
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            time.sleep(delay)
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            last_error = exc
+            tmp.unlink(missing_ok=True)
+            if attempt >= attempts:
+                break
+            delay = _retry_after_seconds(None, attempt)
+            time.sleep(delay)
+        except ValueError as exc:
+            last_error = exc
+            tmp.unlink(missing_ok=True)
+            break
     raise RuntimeError(f"bounded download failed: {url}: {last_error}")
 
 
