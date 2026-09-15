@@ -1,146 +1,183 @@
 # Commerce + Clipping Precision Refresh — 2026-09-15
 
-**Status:** Current official-source reconciliation  
+**Status:** Current official-source reconciliation / second review complete  
 **Decision owner:** ChatGPT Top Commander  
 **Machine overlay:** `config/commerce_clipping_precision_overlay.json`
 
-## Why this refresh exists
+## Purpose
 
-This refresh strengthens two areas without replacing their existing canonical playbooks:
+This refresh strengthens authorized clipping / repurposing and shopping / commerce media without replacing their existing canonical policies. The base authorities remain `config/authorized_clipping_monetization_policy.json`, `docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md`, `config/tiktok_shop_influence_policy.json`, and `docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md`.
 
-- authorized clipping / repurposing
-- shopping / commerce video, especially TikTok Shop Japan and YouTube Shopping
+The overlay is additive. Existing rights, originality, claim, platform, disclosure, approval and technical-QA gates remain active. Saved know-how is incomplete unless a semantically matching request actually reaches the current policy through the media / monetization read gates.
 
-It also strengthens semantic recall: when the user means clipping, shopping, affiliate commerce, sponsored product content, or a combination of them, the applicable current repository rules must be restored by meaning rather than waiting for an exact policy name.
+## Research method
 
-The existing domain policies stay active. This document records the 2026-09-15 evidence reconciliation and the machine overlay records the adopted deltas.
+Current official / primary sources were prioritized over creator folklore, community tips and AI reviewer opinion. Platform-specific observations are not generalized into cross-platform laws.
 
-## Sources reviewed
+The second review specifically checked permission vs monetization eligibility, context integrity and transformation, product/listing match, claim integrity across all surfaces, low-engagement and unoriginal Shop content, product authenticity, paid-media rights vs organic-posting rights, Japan commercial disclosure, YouTube Shopping auto-tag accuracy, and whether numeric platform advice belongs in policy or only in experimentation.
 
-Current primary/official sources were prioritized over creator folklore and AI reviewer opinion.
+## Official sources reviewed
 
 ### YouTube
 
-- YouTube channel monetization policies / reused content: https://support.google.com/youtube/answer/1311392
-- Monetizable content and commercial-use rights: https://support.google.com/youtube/answer/2490020
-- Paid promotion disclosure: https://support.google.com/youtube/answer/154235
-- YouTube Shopping affiliate program: https://support.google.com/youtube/answer/13376398?hl=ja
+- Channel monetization / reused and inauthentic content: https://support.google.com/youtube/answer/1311392
+- Commercial-use rights: https://support.google.com/youtube/answer/2490020
+- Paid-promotion disclosure: https://support.google.com/youtube/answer/154235
+- YouTube Shopping Affiliate Program: https://support.google.com/youtube/answer/13376398?hl=ja
+- Shopping product auto-tagging: https://support.google.com/youtube/answer/17046000?hl=ja
+- Shopping Affiliate tips / experiment evidence: https://support.google.com/youtube/answer/15814303?hl=ja
 
 ### TikTok / TikTok Shop Japan
 
-- Creator Rewards / original content: https://support.tiktok.com/ja/business-and-creator/tiktok-creator-fund-us/who-is-eligible-us
-- TikTok Shop Japan Content Policy: https://seller-jp.tiktok.com/university/essay?knowledge_id=2707587427927825
-- TikTok Shop Japan AIGC guidance: https://seller-jp.tiktok.com/university/essay?knowledge_id=6860523157653265&lang=ja-JP
-- TikTok Shop Japan IP Policy: https://seller-jp.tiktok.com/university/essay?knowledge_id=2727520119195408&lang=en
-- TikTok Shop Japan Content Authorization Tool: https://seller-jp.tiktok.com/university/essay?knowledge_id=680638764795649&lang=ja-JP
-- Creator Performance Evaluation Policy: https://seller-jp.tiktok.com/university/essay?knowledge_id=2709643852121873
+- Creator Rewards / originality: https://support.tiktok.com/
+- TikTok Shop Content Policy: https://seller-jp.tiktok.com/university/essay?knowledge_id=2707587427927825
+- Irrelevant Promotional Content: https://seller-jp.tiktok.com/university/essay?knowledge_id=2715915867866881
+- Misleading Content: https://seller-jp.tiktok.com/university/essay?knowledge_id=2498606331332368
+- Low-Engagement Content: https://seller-jp.tiktok.com/university/essay?knowledge_id=600891219576592&lang=en
+- Unoriginal / Pre-recorded Content: https://seller-jp.tiktok.com/university/essay?knowledge_id=2714558917691153&lang=en
+- AIGC guidance: https://seller-jp.tiktok.com/university/essay?knowledge_id=6860523157653265&lang=ja-JP
+- IP policy: https://seller-jp.tiktok.com/university/essay?knowledge_id=2727520119195408&lang=en
+- Counterfeit / Knockoff policy: https://seller-jp.tiktok.com/university/essay?knowledge_id=2727550621255440
+- Content Authorization Tool: https://seller-jp.tiktok.com/university/essay?knowledge_id=680638764795649&lang=ja-JP
+- Creator Performance Evaluation: https://seller-jp.tiktok.com/university/essay?knowledge_id=2709643852121873
 - Affiliate seller/product qualification: https://seller-jp.tiktok.com/university/essay?knowledge_id=2575312534718209&lang=en
 - Shop Ads creator authorization / commission: https://seller-jp.tiktok.com/university/essay?knowledge_id=1192106471966480&lang=ja-JP
+- Video Quality Content Guidelines: https://seller-jp.tiktok.com/university/essay?knowledge_id=5514075966703376
 
-### Japan disclosure / consumer protection
+### Japan disclosure
 
 - Consumer Affairs Agency — stealth marketing Q&A: https://www.caa.go.jp/policies/policy/representation/fair_labeling/faq/stealth_marketing/
 
-## Reconciled clipping findings
+## Clipping findings retained
 
-### Retained
+- Generic unlicensed mass clipping is not the canonical business lane.
+- Source rights and platform monetization eligibility are separate gates.
+- Attribution alone is not permission.
+- Source-owner permission does not automatically clear embedded music, guests, game footage, logos, likeness or other third-party rights.
+- Captions / crop / zoom alone do not prove substantive transformation.
+- ASR / alignment, multi-signal candidate scoring, dedupe, semantic boundaries, reframe, captions and machine QA remain the deterministic clipping pipeline.
+- Successful stages are checkpoints; later failure does not restart healthy earlier stages.
+- Third-party publication remains human-approved unless separately authorized.
 
-The existing clipping policy was fundamentally correct and is retained:
+## Clipping precision strengthened
 
-- generic unlicensed mass clipping is not the canonical business lane
-- source rights and platform monetization eligibility are separate gates
-- captions/crop/zoom alone do not prove substantive transformation
-- ASR/alignment, candidate scoring, dedupe, semantic boundaries, reframe, captions and machine QA remain the clipping pipeline
-- successful stages are checkpoints and later failures do not restart healthy earlier stages
-- third-party publication remains human-approved unless separately authorized
+### Permission is not monetization approval
 
-### Strengthened
+YouTube reused-content review is separate from copyright permission and is evaluated at channel level. A licensed clip therefore still needs clearly recognizable original value and must not collapse into repetitive / interchangeable output.
 
-1. **Permission is not YouTube monetization approval.** YouTube explicitly treats reused-content monetization separately from copyright permission. Even a licensed clip can still fail reused-content review if the channel does not show meaningful original value.
+### Context integrity is blocking
 
-2. **Channel-level template risk matters.** A single transformed clip can look acceptable while the overall channel still looks mass-produced or interchangeable. Therefore output diversity and channel-level similarity are part of the risk review.
+A highlight must not reverse, materially distort or overstate the source. Factual or sensitive claims require enough pre/post context. If context is uncertain, expand the clip or block it rather than optimizing an inaccurate hook.
 
-3. **Commercial rights must cover all material elements.** The source owner's permission does not automatically clear embedded music, guests, game footage, logos, likeness or other third-party elements.
+### Transformation is auditable
 
-4. **Context integrity is a blocking quality gate.** A highlight must not reverse, materially distort, or overstate the original meaning. Sensitive/factual claims need enough pre/post context; uncertain clips are expanded or blocked rather than optimized into a misleading hook.
+Each publishable third-party clip retains source hash, source time range, selected pre/post context, original value added, commentary / analysis summary, visual changes, target platform, rights record, and edit-policy version.
 
-5. **Transformation must be auditable.** Each publishable third-party clip should retain source hash/time range, context window, original value added, commentary/analysis summary, visual changes, rights record and target platform.
+### Shop authorization is scoped, not universal
 
-6. **TikTok Creator Rewards is not inferred from a license.** Current originality/duration/program rules are rechecked separately. Sponsored, reused or licensed material is never assumed eligible merely because publication rights exist.
+A TikTok Shop content-authorization record is useful permission evidence when applicable, but its scope and end date are recorded. It does not silently become paid-media permission, another-platform permission, Creator Rewards eligibility, or proof of substantive originality.
 
-7. **TikTok Shop repost authorization is scoped evidence, not a universal license.** The current Content Authorization Tool can record creator-to-creator permission to repost TikTok Shop content, including an authorization end date. When applicable, use this platform evidence rather than an informal assumption, record its scope/expiry, and do not extend it to paid-media use or other platforms unless that separate permission exists.
+## Shopping / commerce findings retained
 
-## Reconciled shopping / commerce findings
+- Product-page ingest before final script.
+- Claim-to-evidence mapping.
+- Publish-time refresh for volatile facts.
+- One primary persona and purchase motive.
+- Review dedupe / clustering.
+- No fake reviews, fake scarcity or unsupported claims.
+- Returns / refunds / complaints remain sales guardrails.
+- Current platform-policy snapshot before publication.
+- Platform-specific rules are not universal commerce law.
 
-### Retained
+## Shopping precision strengthened
 
-The current TikTok Shop policy already had strong foundations and they remain:
+### Claim-surface integrity
 
-- product-page ingest before final script
-- claim-to-evidence mapping
-- fresh price/coupon/stock/shipping facts
-- one primary persona and purchase motive
-- review deduplication and clustering
-- no fake reviews, fake scarcity or unverified claims
-- GMV funnel measurement with returns/refunds/complaints as guardrails
-- publish-time current platform policy snapshot
+Evidence control now covers every material claim-bearing surface: `cover + title + script + caption + voice/audio + metadata + CTA + visual demonstration`.
 
-### Strengthened
+No surface may state or imply a claim stronger than the current listing or verified evidence. A hook or cover cannot exaggerate merely because the detailed script later becomes more careful.
 
-1. **Generic shopping is not automatically TikTok Shop.** First resolve the target platform by meaning/context. TikTok-specific hook, UI, Shop and AIGC rules must not be silently applied as universal commerce law. YouTube Shopping uses current YouTube program evidence instead.
+### TikTok Shop product focus and exact listing match
 
-2. **Japan commercial disclosure becomes a blocking gate when applicable.** Consumer Affairs Agency guidance emphasizes whether the commercial nature is clear from the overall presentation. A disclosure hidden only in a reply or remote description is not considered a safe default. Because viewers can enter a video midstream, commercial nature should remain clear throughout the video when the relationship requires disclosure. Platform paid-promotion/affiliate labels are used when current platform rules require them.
+Shopping content must clearly show, introduce and explain the linked product. Showing one product while linking another, hiding the product in the background, or allowing unrelated entertainment to dominate the product pitch is blocked or reworked.
 
-3. **TikTok Shop exact listing/product match is mandatory.** Visuals, spoken claims and captions must match the actual listing or another verified source. Fictitious listings and unsupported/restricted products are blocked.
+### Low-engagement / templated output
 
-4. **Japan localization is current platform evidence, not a universal rule.** TikTok Shop Japan content must comply with current Japan-market localization requirements. These must be rechecked rather than copied to other platforms.
+Current TikTok Shop guidance identifies many near-identical videos, similar templates across multiple accounts, product/hands-only presentation with no meaningful personal presence, and excessive AI voiceover with little substantive information or commentary as quality risks.
 
-5. **Low-information static Shop videos are a quality risk.** TikTok Shop's current content policy treats non-interactive/static low-information content as low quality. Product-only+BGM or templated narration is therefore not the default.
+The durable rule is **not** “AI voice is always banned.” AI voice, an avatar or a template alone does not constitute substantive original value. The content still needs real product evidence, useful commentary / demonstration and creative variation, subject to the current AIGC policy.
 
-6. **AIGC has a live policy contradiction.** The June 2026 general TikTok Shop Content Policy contains broad language prohibiting AIGC, while the July 2026 dedicated Japan AIGC guidance describes conditions under which AIGC can be used, including labeling, fidelity and anti-template requirements. The system must not silently choose the more permissive interpretation. If AIGC is used, both current sources are re-fetched at publish time; an unresolved conflict blocks publish handoff.
+### Authorized Shop clip is not automatically original
 
-7. **Paid-media reuse is a separate permission.** TikTok Shop's Shop Ads authorization can broaden seller use of creator videos and may use different commission rates. The AI Army must not auto-enable mass ad authorization. Scope, term, rate and revocation are recorded, and new/broad paid-media use remains human-approved.
+Rights permission and originality are separate. An authorized / licensed Shop clip still needs original commerce commentary or creative value, correct product focus and exact listing match. Detection-evasion edits never count as originality.
 
-8. **Affiliate qualification is versioned.** Seller/product qualification and commission availability are rechecked near execution. A previous qualifying state is not permanent evidence.
+### Product authenticity
 
-## Shop + clipping intersection
+The current Japan counterfeit / knockoff policy is explicit. Product admission therefore includes authenticity screening for brand-sensitive categories.
 
-A product-selling clip made from existing or third-party source media must satisfy both families at the same time:
+- counterfeit / knockoff: `BLOCK`
+- suspected counterfeit or authenticity that cannot be verified: `BLOCK_UNTIL_RESOLVED`
 
-`source rights + embedded rights + transformation/originality + context integrity + product claim evidence + commercial fact freshness + disclosure + platform policy + technical QA + human publish approval`
+### YouTube Shopping auto-tags are proposals, not proof
 
-Neither permission chain substitutes for the other:
+YouTube states that automatic product tagging can occasionally be wrong and should be manually reviewed. Therefore auto-tag is a candidate / workflow acceleration only; manual product-match verification is required before publish, and incorrect tags must be removed or corrected.
 
-- brand/seller permission does not clear third-party source-media rights
-- source-media permission does not validate product claims, discounts or disclosures
-- platform repost authorization applies only to its recorded scope/term and does not silently expand to another platform
-- organic posting permission does not automatically grant paid-media/whitelisting/ad-use permission
+### Numeric platform guidance stays experimental
 
-## Rejected shortcuts
+YouTube reports a product-click uplift in one Shopping experiment for tags plus description links. TikTok Shop education also reports “30 seconds+” and “5+ shopping videos/week” observations. These are retained only as platform-specific experiment evidence / test hypotheses. They are not guaranteed uplifts, universal generation rules, cross-platform laws, or replacements for account-level analytics.
 
-The following were specifically rejected or demoted after reconciliation:
+Real account analytics and valid experiments outrank generic platform education heuristics.
+
+## Japan disclosure
+
+When the commercial relationship is one that requires disclosure, clarity is judged from the overall presentation. Do not rely on a hidden reply, a distant / buried description, or a single intro disclosure as an automatic safe harbor. For video, viewers may join after the opening, so the presentation should remain sufficiently clear as commercial content when applicable. Current platform labels and legal requirements are rechecked at publish time.
+
+Claim truth and disclosure remain separate blocking gates: a true claim can still have a disclosure problem, and a clear disclosure does not make a false claim acceptable.
+
+## AIGC conflict handling
+
+The existing fail-closed rule remains. If current TikTok Shop general content policy and dedicated AIGC guidance conflict, fetch both current sources at publish time, do not silently choose the more permissive interpretation, and block AIGC publish handoff while a material conflict remains unresolved.
+
+## Shop + clipping union
+
+A product-selling clip made from existing or third-party media must pass the union:
+
+`source rights + embedded rights + transformation/originality + context integrity + product claim evidence + claim-surface integrity + product authenticity + Shop originality/product focus + commercial-fact freshness + commercial disclosure + platform-policy snapshot + technical QA + human publish approval`
+
+No permission chain substitutes for another.
+
+## Explicitly rejected / demoted shortcuts
 
 - permission = monetization eligibility
-- one disclosure at the very start is always enough in Japan
-- disclosure only in a reply or buried description
-- TikTok first-3-seconds guidance as universal cross-platform law
+- authorization = originality
+- crop / zoom / captions = substantive transformation
+- auto product tag = verified product match
+- AI voice alone = substantive original value
+- counterfeit / knockoff promotion
+- claim in cover/title/audio stronger than its evidence
+- disclosure only in reply or buried description
+- one intro disclosure is always sufficient
+- TikTok first-3-seconds guidance as universal platform law
+- TikTok “30 seconds+” or “5 posts/week” as universal mandatory rule
 - TikTok Shop rules automatically applied to YouTube Shopping
 - licensed clip automatically qualifies for TikTok Creator Rewards
-- crop/zoom/captions prove transformation
-- platform repost permission automatically extends to paid media or another platform
-- mass template clipping/shop videos as the default scaling model
+- mass-template clipping / Shop output as the default scaling model
 - automatically enabling broad paid-media reuse
-- choosing the permissive AIGC interpretation when current platform documents conflict
+- choosing the permissive AIGC rule when current official sources conflict
 
-## Recall contract
+## Semantic recall contract
 
-This knowledge is not complete merely because the files exist. For every new task:
+For every new task:
 
-1. classify the user's meaning and surrounding context
-2. resolve all applicable current read sets
-3. read current repository versions
-4. union overlapping domains such as Shop + Clipping + Monetization
-5. apply current official platform/legal evidence where volatile
-6. validate before side effects
+1. classify the user's meaning and surrounding context;
+2. resolve every applicable current read set;
+3. read current repository versions;
+4. union overlapping domains such as Shop + Clipping + Monetization;
+5. apply current official platform/legal evidence where volatile;
+6. validate before side effects.
 
-Same-head/same-blob read caching is allowed within an active task. A changed branch HEAD or changed blob invalidates that shortcut.
+Saved files are not operational knowledge unless the relevant semantic gate can actually reach them. Same-head / same-blob caching is allowed inside the active task; a changed HEAD or blob invalidates that shortcut.
+
+## Post-save audit
+
+After integration, re-check that media and monetization gates reach the overlay, Shop + clipping resolves both domains, base policies remain active, the official source snapshot is preserved, rights / claim / disclosure / authenticity gates remain blocking, numeric platform heuristics remain hypotheses rather than hard laws, the validator passes, and GitHub CI is checked before completion is reported.
