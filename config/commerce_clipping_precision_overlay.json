@@ -13,6 +13,16 @@
     "current_official_platform_policy_beats_stale_platform_summary": true,
     "platform_specific_rule_must_not_be_generalized_cross_platform": true
   },
+  "durability": {
+    "saved_file_alone_is_not_sufficient_recall": true,
+    "must_be_reachable_from_media_semantic_gate": true,
+    "must_be_reachable_from_monetization_semantic_gate": true,
+    "shop_clipping_mixed_intent_must_resolve_union": true,
+    "base_domain_policies_remain_active": true,
+    "must_be_validated_after_policy_integration": true,
+    "must_check_ci_result_before_claiming_success": true,
+    "head_or_blob_change_invalidates_same_task_read_cache": true
+  },
   "research_snapshot": {
     "retrieved_jst": "2026-09-15",
     "source_priority": "CURRENT_OFFICIAL_PRIMARY_FIRST",
