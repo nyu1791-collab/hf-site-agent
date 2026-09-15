@@ -15,9 +15,10 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 
 - 動画・音声・字幕・キャラクター・BGM・SFX・画像素材・切り抜き・TikTok Shopメディア: `config/media_command_read_gate.json`
 - 現在の動画品質・視聴維持・時短改善をタブ跨ぎで即復元する補助Checkpoint: `config/current_media_quality_handoff.json`
+- 2026-09-15以降の明示的な字幕配色・説明図静止・8〜12分目安のユーザー指定: `config/media_user_visual_duration_preferences.json`
 - 収益化・案件・アフィリエイト・Creator Program・AI workflow service: `config/monetization_command_read_gate.json`
 
-`config/current_media_quality_handoff.json` は会話Memoryの代わりとなる現行サマリーだが、最終Authorityではない。内容が異なる場合は現行のMachine Policy・Validator・CIを優先する。メディア依頼ではBootstrap後にこのCheckpointと `config/media_command_read_gate.json` を読み、そこから現在の詳細Policyへ展開する。
+`config/current_media_quality_handoff.json` は会話Memoryの代わりとなる現行サマリーだが、最終Authorityではない。内容が異なる場合は現行のMachine Policy・Validator・CIを優先する。メディア依頼ではBootstrap後にこのCheckpoint、`config/media_user_visual_duration_preferences.json`、`config/media_command_read_gate.json` を読み、そこから現在の詳細Policyへ展開する。
 
 詳細が文書間で異なる場合は、最新の明示的ユーザー指示と安全境界を守ったうえで、現行Machine-readable Policy・Validator・CIを優先する。恒久ルールを変更する場合は会話だけで終わらせず、Machine Policy / Rulebook / Validator / CI / Read Gateの整合性を同じ変更で確認する。
 
@@ -35,7 +36,7 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 
 ## メディア制作
 
-メディア作業では、計画・素材取得・音声生成・レンダリングより前に `config/current_media_quality_handoff.json` と `config/media_command_read_gate.json` の現行版を読む。READMEへ詳細ルールを重複させない。
+メディア作業では、計画・素材取得・音声生成・レンダリングより前に `config/current_media_quality_handoff.json`、`config/media_user_visual_duration_preferences.json`、`config/media_command_read_gate.json` の現行版を読む。READMEへ詳細ルールを重複させない。
 
 現在の恒久標準の要点:
 
@@ -49,6 +50,9 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 - 1 Semantic Beatにつき主役となるAttention Heroは原則1つ。Caption / Evidence / Character / SFX / Zoomを理由なく競合させない。
 - 視聴維持のための構成は釣りではなく、Truthful Hook → Early Value / Evidence → Explanation / Contrast → Payoffを基本候補とし、Curiosity Gapを使う場合は動画内で回収する。
 - 字幕は意味のまとまり、実フォント表示幅、測定済み音声タイミング、強調を別軸で扱い、文字数だけで機械分割しない。
+- 字幕本文は白を基調とし、字幕の見える枠・外周アクセントは話者色を使う。ずんだもんは明るい緑、四国めたんは明るいピンク/マゼンタ。大きな黒ベタ字幕箱を標準にせず、必要な可読性分離は細い暗色内縁などで確保する。
+- 説明図・背景図の全体を意味なく上下に漂わせない。原則静止させ、必要なPointer/Highlight/Revealなど局所的で意味のある動きだけを使う。
+- 今後の通常News/Topic Explainerは **8〜12分を目安** とする。ただし尺合わせのための無関係な歴史、背景説明、反復、遅い読み、低情報量Fillerは禁止。追加尺は一次情報、仕組み、影響、重要な時系列、相反する見方、不確実性、今後の論点など、その話題を本当に理解するための情報で稼ぐ。
 - 口元やキャラGeometry変更時は本編前に顔全体Fixtureで確認し、口が動くだけでは合格としない。
 - 変更したHigh-risk Layerは低コストPreviewで先に検査し、失敗したまま高コストFull Renderへ進めない。
 - 修正は最小Stageと真の依存先だけを再生成し、字幕・説明Panel・口Anchorだけの変更で都合上Full Pipelineをやり直さない。
@@ -65,6 +69,7 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 詳細は以下をSemantic Gateから現行版で復元する。
 
 - `config/current_media_quality_handoff.json`
+- `config/media_user_visual_duration_preferences.json`
 - `config/media_character_performance_compact_orchestration_policy.json`
 - `config/media_audio_motion_retention_policy.json`
 - `config/media_reusable_asset_standard.json`
