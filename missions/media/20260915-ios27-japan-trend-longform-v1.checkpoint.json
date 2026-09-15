@@ -1,0 +1,76 @@
+{
+  "schema": "media-mission-checkpoint-v1",
+  "mission_id": "20260915-ios27-japan-trend-longform-v1",
+  "recorded_jst_date": "2026-09-15",
+  "status": "IN_PROGRESS_BLOCKED_ON_CHARACTER_FIXTURE_RERUN",
+  "canonical_branch": "ai-army/provider-v3",
+  "pr_number": 40,
+  "pr_must_remain": {
+    "open": true,
+    "draft": true,
+    "unmerged": true
+  },
+  "voice_checkpoint": {
+    "workflow_run_id": 34963651287,
+    "workflow_name": "Build iOS27 longform VOICEVOX timing v1",
+    "conclusion": "success",
+    "artifact_id": 10394214690,
+    "artifact_name": "ios27-longform-voice-v1",
+    "artifact_sha256": "1ca3dd8d486cce3ea4455471421dff1901089913512bdde82e9b7ebba032c90c",
+    "utterance_count": 57,
+    "total_duration_seconds": 610.98,
+    "duration_gate": "PASS_8_TO_12_MIN",
+    "reuse_without_regeneration": true,
+    "scene_durations_seconds": {
+      "S01": 42.768,
+      "S02": 44.859,
+      "S03": 63.619,
+      "S04": 61.432,
+      "S05": 54.168,
+      "S06": 65.688,
+      "S07": 71.576,
+      "S08": 70.157,
+      "S09": 58.232,
+      "S10": 78.481
+    }
+  },
+  "character_fixture": {
+    "previous_workflow_run_id": 34963810964,
+    "previous_conclusion": "failure",
+    "previous_artifacts": 0,
+    "confirmed_failure": "prepare_character_reaction_pack.py received the extraction directory, but Zundamon and Metan were below one or more wrapper directories",
+    "registered_asset_id": "zm_shell_20230806",
+    "observed_source_sha256_from_failed_run": "e54467c53bb95398b29e427dbc2cfd740fd494186c803a338f19ec0c0ccee658",
+    "fix": {
+      "resolver_path": "scripts/character_shell_root.py",
+      "resolver_commit": "754a800575da6d8a9dc2fdb3b1dfbd6a322bff4d",
+      "regression_test_path": "tests/test_character_shell_root.py",
+      "regression_test_commit": "a822983515d0a43ec6c940a1c6706a10ccf073cd",
+      "workflow_path": ".github/workflows/prepare-ios27-character-assets-v1.yml",
+      "workflow_fix_commit": "0dc8280e8d2f4584ffd2b07fe721eb79f2f90345",
+      "resolution_policy": "accept exactly one local directory that directly contains both Zundamon and Metan; fail closed on zero or multiple candidates; do not traverse symlinked directories; bound directory scan",
+      "local_regression_tests": {
+        "passed": 5,
+        "failed": 0
+      }
+    },
+    "next_required_verification": "rerun workflow_dispatch-only character fixture and verify reaction_geometry_contact_sheet plus mouth/eyes/brows/full_body counts before final render"
+  },
+  "workflow_trigger_policy": {
+    "build_ios27_longform_voice_v1": "workflow_dispatch_only",
+    "prepare_ios27_character_assets_v1": "workflow_dispatch_only",
+    "temporary_push_trigger_must_not_be_reintroduced": true
+  },
+  "final_render": {
+    "completed": false,
+    "final_mp4_verified": false,
+    "final_visual_qa_completed": false,
+    "mouth_full_face_fixture_verified": false,
+    "publish_performed": false,
+    "youtube_upload_performed": false
+  },
+  "publication_guard": {
+    "character_asset_rights_must_be_rechecked_before_publication": true,
+    "do_not_claim_completion_until_final_mp4_and_visual_qa_pass": true
+  }
+}
