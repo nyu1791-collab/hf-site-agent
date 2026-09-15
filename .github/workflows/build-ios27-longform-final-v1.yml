@@ -23,6 +23,7 @@ concurrency:
 
 jobs:
   render:
+    if: github.ref == 'refs/heads/ai-army/provider-v3'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -43,7 +44,7 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
           python -m pip install --disable-pip-version-check --no-input pillow
-          mkdir -p "$OUT" "$CACHE" "$REACTION" "$APPROVED_FIXTURE" "$VOICE"
+          mkdir -p "$OUT" "$CACHE" "$REACTION" "$APPROVED_FIXTURE" "$VOICE" "$OUT/run_provenance"
           ffmpeg -version | head -n 1
           ffprobe -version | head -n 1
 
@@ -55,6 +56,34 @@ jobs:
             scripts/prepare_character_reaction_pack.py \
             scripts/build_character_full_face_fixture.py \
             scripts/render_ios27_zundamon_metan_longform.py
+
+      - name: Validate checkpoint run provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FIXTURE_RUN_ID: ${{ inputs.character_fixture_run_id }}
+          VOICE_RUN_ID: ${{ inputs.voice_checkpoint_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$FIXTURE_RUN_ID" =~ ^[0-9]+$ ]] || { echo "invalid character fixture run id" >&2; exit 1; }
+          [[ "$VOICE_RUN_ID" =~ ^[0-9]+$ ]] || { echo "invalid voice checkpoint run id" >&2; exit 1; }
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${FIXTURE_RUN_ID}" > "$OUT/run_provenance/character_fixture_run.json"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${VOICE_RUN_ID}" > "$OUT/run_provenance/voice_checkpoint_run.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('artifacts/ios27_longform_final/run_provenance')
+          fixture=json.loads((root/'character_fixture_run.json').read_text(encoding='utf-8'))
+          voice=json.loads((root/'voice_checkpoint_run.json').read_text(encoding='utf-8'))
+          assert fixture['path'] == '.github/workflows/prepare-ios27-character-assets-v1.yml', fixture['path']
+          assert fixture['head_branch'] == 'ai-army/provider-v3', fixture['head_branch']
+          assert fixture['event'] == 'workflow_dispatch', fixture['event']
+          assert fixture['status'] == 'completed' and fixture['conclusion'] == 'success'
+          assert voice['path'] == '.github/workflows/build-ios27-longform-voice-v1.yml', voice['path']
+          assert voice['head_branch'] == 'ai-army/provider-v3', voice['head_branch']
+          assert voice['event'] in ('workflow_dispatch','push'), voice['event']
+          assert voice['status'] == 'completed' and voice['conclusion'] == 'success'
+          print('CHECKPOINT_RUN_PROVENANCE=PASS', fixture['id'], voice['id'])
+          PY
 
       - name: Download approved character fixture artifact
         uses: actions/download-artifact@v4
@@ -285,6 +314,8 @@ jobs:
           probe=json.loads((root/'ffprobe.json').read_text(encoding='utf-8'))
           voice=json.loads(Path('artifacts/ios27_longform_voice/timeline_manifest.json').read_text(encoding='utf-8'))
           approved=json.loads(Path('artifacts/approved_character_fixture/full_face_fixture.json').read_text(encoding='utf-8'))
+          fixture_run=json.loads(Path('artifacts/ios27_longform_final/run_provenance/character_fixture_run.json').read_text(encoding='utf-8'))
+          voice_run=json.loads(Path('artifacts/ios27_longform_final/run_provenance/voice_checkpoint_run.json').read_text(encoding='utf-8'))
           state={
               'schema':'ios27-longform-completion-v1',
               'mission_id':'20260915-ios27-japan-trend-longform-v1',
@@ -293,8 +324,10 @@ jobs:
               'sha256':hashlib.sha256(video.read_bytes()).hexdigest(),
               'bytes':video.stat().st_size,
               'duration_seconds':float(probe['format']['duration']),
-              'voice_checkpoint_run_id':'${{ inputs.voice_checkpoint_run_id }}',
-              'approved_character_fixture_run_id':'${{ inputs.character_fixture_run_id }}',
+              'voice_checkpoint_run_id':voice_run['id'],
+              'voice_checkpoint_head_sha':voice_run['head_sha'],
+              'approved_character_fixture_run_id':fixture_run['id'],
+              'approved_character_fixture_head_sha':fixture_run['head_sha'],
               'voice_total_duration_seconds':voice['total_duration'],
               'character_fixture_sha256':approved['contact_sheet_sha256'],
               'decode_error_count':0,
@@ -319,5 +352,6 @@ jobs:
             artifacts/ios27_longform_final/preview/character_selection.json
             artifacts/ios27_longform_final/current_character_fixture/full_face_fixture.json
             artifacts/ios27_longform_final/current_character_fixture/full_face_mouth_contact_sheet.png
+            artifacts/ios27_longform_final/run_provenance
           if-no-files-found: warn
           retention-days: 7
