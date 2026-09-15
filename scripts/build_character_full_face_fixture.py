@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Build full-character mouth/eye geometry fixtures from a reaction-pack inventory.
 
-This is a render QA gate, not a character animator.  It proves that the chosen
-full-body raster and face overlays share a compatible canvas and that mouth
-variants can be composited onto the actual character image before a long render
-is allowed to proceed.
+This is a render QA gate, not a character animator. It proves that the chosen
+full-body raster and face overlays share a compatible canvas and that mouth,
+eye, and brow variants can be composited onto the actual character image before
+a long render is allowed to proceed.
 """
 from __future__ import annotations
 
@@ -111,8 +111,7 @@ def build_fixture(pack_root: Path, output_dir: Path) -> dict[str, Any]:
             raise ValueError(f"full-body base is transparent: {character}")
 
         states: list[dict[str, Any]] = []
-        base_preview = _trim_for_preview(base)
-        rendered.append((character, "BASE", base_preview))
+        rendered.append((character, "BASE", _trim_for_preview(base)))
         states.append({
             "state": "BASE",
             "source": full_rows[0]["normalized_path"],
@@ -125,8 +124,7 @@ def build_fixture(pack_root: Path, output_dir: Path) -> dict[str, Any]:
             with Image.open(overlay_path) as src:
                 overlay = src.convert("RGBA")
             comp = _alpha_composite_exact(base, overlay, label=f"{character}/mouth/{index}")
-            preview = _trim_for_preview(comp)
-            rendered.append((character, f"MOUTH_{index}", preview))
+            rendered.append((character, f"MOUTH_{index}", _trim_for_preview(comp)))
             states.append({
                 "state": f"MOUTH_{index}",
                 "source": row["normalized_path"],
@@ -135,47 +133,49 @@ def build_fixture(pack_root: Path, output_dir: Path) -> dict[str, Any]:
                 "sha256": _sha256(overlay_path),
             })
 
-        # One eye and one brow composite are included to catch the same geometry
-        # class of error before blink/expression animation is attempted.
-        for category, row, state_name in (
-            ("eyes", eye_rows[0], "EYES_1"),
-            ("brows", brow_rows[0], "BROWS_1"),
+        for category, rows, prefix in (
+            ("eyes", eye_rows[:2], "EYES"),
+            ("brows", brow_rows[:2], "BROWS"),
         ):
-            overlay_path = _record_path(pack_root, row)
-            with Image.open(overlay_path) as src:
-                overlay = src.convert("RGBA")
-            comp = _alpha_composite_exact(base, overlay, label=f"{character}/{category}/1")
-            rendered.append((character, state_name, _trim_for_preview(comp)))
-            states.append({
-                "state": state_name,
-                "source": row["normalized_path"],
-                "canvas": [overlay.width, overlay.height],
-                "overlay_bbox": list(overlay.getbbox()) if overlay.getbbox() else None,
-                "sha256": _sha256(overlay_path),
-            })
+            for index, row in enumerate(rows, start=1):
+                overlay_path = _record_path(pack_root, row)
+                with Image.open(overlay_path) as src:
+                    overlay = src.convert("RGBA")
+                comp = _alpha_composite_exact(base, overlay, label=f"{character}/{category}/{index}")
+                state_name = f"{prefix}_{index}"
+                rendered.append((character, state_name, _trim_for_preview(comp)))
+                states.append({
+                    "state": state_name,
+                    "source": row["normalized_path"],
+                    "canvas": [overlay.width, overlay.height],
+                    "overlay_bbox": list(overlay.getbbox()) if overlay.getbbox() else None,
+                    "sha256": _sha256(overlay_path),
+                })
 
         summary["characters"][character] = {
             "base_canvas": [base.width, base.height],
             "mouth_variants_checked": 3,
+            "eye_variants_checked": 2,
+            "brow_variants_checked": 2,
             "eye_variants_available": len(eye_rows),
             "brow_variants_available": len(brow_rows),
             "states": states,
         }
 
-    cell_w, cell_h = 360, 430
-    cols = 6
+    cell_w, cell_h = 330, 410
+    cols = 8
     rows = 2
     sheet = Image.new("RGB", (cell_w * cols, cell_h * rows), (239, 244, 248))
     draw = ImageDraw.Draw(sheet)
     for index, (character, state, image) in enumerate(rendered[: cols * rows]):
         image = image.copy()
-        image.thumbnail((310, 350), Image.Resampling.LANCZOS)
+        image.thumbnail((285, 330), Image.Resampling.LANCZOS)
         x0 = (index % cols) * cell_w
         y0 = (index // cols) * cell_h
         x = x0 + (cell_w - image.width) // 2
-        y = y0 + 10 + (350 - image.height)
+        y = y0 + 10 + (330 - image.height)
         sheet.paste(image, (x, y), image)
-        draw.text((x0 + 12, y0 + 372), f"{character} / {state}", fill=(22, 34, 48))
+        draw.text((x0 + 10, y0 + 350), f"{character} / {state}", fill=(22, 34, 48))
 
     sheet_path = output_dir / "full_face_mouth_contact_sheet.png"
     sheet.save(sheet_path, format="PNG", optimize=True)
