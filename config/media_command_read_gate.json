@@ -1,6 +1,6 @@
 {
   "schema_version": "media-command-read-gate-v11",
-  "effective_date_jst": "2026-09-14",
+  "effective_date_jst": "2026-09-15",
   "status": "ENFORCED_STANDARD",
   "decision_owner": "chatgpt-top-commander",
   "purpose": "RESTORE_ONLY_CURRENT_INTENT_RELEVANT_MEDIA_KNOW_HOW_THEN_PARALLELIZE_ONLY_WHEN_EXPECTED_WALL_CLOCK_GAIN_EXCEEDS_COORDINATION_OVERHEAD_WITH_SINGLE_WRITER_INTEGRATION",
@@ -9,6 +9,8 @@
     "classify_by_meaning_not_literal_keywords": true,
     "mixed_intents_are_additive": true,
     "compound_shop_clipping_must_expand_to_both_shop_and_clipping": true,
+    "generic_shopping_or_product_selling_requires_platform_resolution": true,
+    "platform_specific_rules_are_not_universal_cross_platform_law": true,
     "supported_intents": ["VIDEO_CREATION", "CLIPPING_REPURPOSING", "TIKTOK_SHOP_COMMERCE"]
   },
   "execution_gate": {
@@ -32,7 +34,8 @@
     "do_not_open_same_blob_twice_in_one_gate_run": true,
     "longform_sources_only_when_longform_intent": true,
     "claim_governance_only_when_claim_bearing_or_commerce_or_current_factual": true,
-    "shop_clipping_must_union_shop_and_clipping_knowhow": true
+    "shop_clipping_must_union_shop_and_clipping_knowhow": true,
+    "commerce_clipping_precision_overlay_required_for_relevant_intents": true
   },
   "common_media_read_set": [
     "config/current_commander_handoff.json",
@@ -76,6 +79,8 @@
       "required": [
         "config/authorized_clipping_monetization_policy.json",
         "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
+        "config/commerce_clipping_precision_overlay.json",
+        "docs/COMMERCE_CLIPPING_PRECISION_REFRESH_2026-09-15.md",
         "config/batch_media_orchestration_policy.json",
         "docs/BATCH_MEDIA_ORCHESTRATION.md",
         "docs/MEDIA_BATCH_COMMAND_CENTER.md",
@@ -94,6 +99,8 @@
       "required": [
         "config/tiktok_shop_influence_policy.json",
         "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
+        "config/commerce_clipping_precision_overlay.json",
+        "docs/COMMERCE_CLIPPING_PRECISION_REFRESH_2026-09-15.md",
         "config/cross_source_knowhow_evidence_matrix.json",
         "config/cross_domain_measurement_registry.json",
         "config/cross_source_second_pass_policy.json",
@@ -171,14 +178,25 @@
     ],
     "clipping_repurposing": [
       "source rights and platform monetization eligibility are separate gates",
+      "permission does not guarantee YouTube reused-content monetization eligibility",
+      "commercial rights to all material audio and visual elements must be resolved for monetized YouTube output",
+      "context integrity is blocking: do not reverse, materially distort or overstate source meaning",
+      "publishable third-party clips retain a transformation manifest describing source range, context and original value added",
+      "channel-level mass-template and reused-content risk is reviewed rather than judging each clip in isolation",
       "ASR/alignment, candidate scoring, duplicate suppression, sentence boundaries, reframe, captions and machine QA form the clipping pipeline",
       "known TTS timing may bypass unnecessary ASR",
       "mechanical trim/cut/concat/reframe/caption burn/ffprobe work is deterministic rather than multi-agent debate"
     ],
     "tiktok_shop_commerce": [
+      "generic shopping intent first resolves the target platform; TikTok-specific rules are not universal commerce law",
       "ingest and verify product-page evidence before final script claims",
       "map every material product claim to evidence",
-      "reverify volatile price, coupon, stock and shipping claims near publish time",
+      "reverify volatile price, coupon, stock, shipping, return and commission claims near publish time",
+      "commercial relationship disclosure and claim truth are separate blocking checks",
+      "Japan commercial disclosure must be clear in the overall presentation when applicable and must not be hidden only in a reply or remote description",
+      "TikTok Shop exact product/listing match, current affiliate qualification and current platform policy snapshot are required",
+      "TikTok Shop paid-media/ad-use authorization is separate from organic posting and is never mass-enabled automatically",
+      "if current TikTok Shop AIGC sources conflict, retrieve both at publish time and block AIGC publish handoff until resolved",
       "persona and purchase motive are hypotheses to test, not invented facts",
       "hooks and creative variants are experiments with measurable outcomes"
     ]
@@ -186,6 +204,12 @@
   "forbidden_shortcuts": [
     "SKIP_REQUIRED_INTENT_PLAYBOOK",
     "SHOP_CLIP_WITHOUT_BOTH_SHOP_AND_CLIPPING_KNOWHOW",
+    "SHOP_OR_CLIP_WITHOUT_COMMERCE_CLIPPING_PRECISION_OVERLAY",
+    "TREAT_TIKTOK_SHOP_RULE_AS_UNIVERSAL_SHOPPING_RULE",
+    "ASSUME_PERMISSION_EQUALS_PLATFORM_MONETIZATION_ELIGIBILITY",
+    "CLIP_WITHOUT_CONTEXT_INTEGRITY_CHECK",
+    "DISCLOSURE_ONLY_IN_REPLY_OR_HIDDEN_DESCRIPTION_AS_DEFAULT",
+    "AUTO_ENABLE_MASS_PAID_MEDIA_AUTHORIZATION",
     "LOAD_LONGFORM_STACK_FOR_EVERY_SHORTFORM_TASK",
     "REOPEN_IDENTICAL_BLOB_REPEATEDLY_IN_ONE_GATE_RUN",
     "RESEARCH_REGISTERED_REUSABLE_ASSET_AGAIN_BEFORE_CHECKING_CACHE",
@@ -230,6 +254,7 @@
     "zundamon_metan_production_quality_human_standard_must_be_re_read": true,
     "free_audio_source_registry_must_be_re_read": true,
     "dova_curated_bgm_catalog_must_be_re_read": true,
+    "commerce_clipping_precision_overlay_must_be_re_read_for_relevant_intent": true,
     "do_not_rely_on_prior_tab_summary_as_substitute": true,
     "exact_same_head_and_blob_cache_may_satisfy_repeat_read_within_active_task": true
   }
