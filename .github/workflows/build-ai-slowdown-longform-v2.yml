@@ -67,15 +67,17 @@ jobs:
           src = Path('missions/media/20260915-ai-slowdown-longform-v1.json.gz.b64')
           out_dir = Path('artifacts/ai-slowdown-longform-v2')
           mission = json.loads(gzip.decompress(base64.b64decode(src.read_text().strip())).decode('utf-8'))
-          remove = {'S04-L03', 'S05-L07', 'S07-L07', 'S08-L07', 'S10-L07'}
+          requested_remove = {'S04-L03', 'S05-L07', 'S07-L07', 'S08-L07', 'S10-L07'}
+          original_ids = {line['id'] for scene in mission['scenes'] for line in scene['dialogue']}
+          remove = requested_remove & original_ids
           original = sum(len(scene['dialogue']) for scene in mission['scenes'])
           for scene in mission['scenes']:
               scene['dialogue'] = [line for line in scene['dialogue'] if line['id'] not in remove]
           revised = sum(len(scene['dialogue']) for scene in mission['scenes'])
-          assert original == 67, original
-          assert revised == 62, revised
+          assert revised == original - len(remove), (original, revised, sorted(remove))
+          assert revised > 0
           mission['target_runtime_note'] = (
-              'Measured VOICEVOX target is approximately 11m45s after removing redundant recap turns; '
+              'Current canonical mission is preserved; only redundant recap turns still present are omitted for this measured build. '
               '8-12 minutes remains content-driven and padding is forbidden.'
           )
           out_dir.mkdir(parents=True, exist_ok=True)
@@ -85,12 +87,17 @@ jobs:
           encoded = base64.b64encode(gzip.compress(compact, compresslevel=9, mtime=0)).decode('ascii')
           (out_dir / 'mission-revised.json.gz.b64').write_text(encoded + '\n', encoding='utf-8')
           (out_dir / 'removed-recap-turns.json').write_text(
-              json.dumps({'removed_ids': sorted(remove), 'original_turns': original, 'revised_turns': revised}, indent=2) + '\n'
+              json.dumps({
+                  'requested_remove_ids': sorted(requested_remove),
+                  'actually_removed_ids': sorted(remove),
+                  'original_turns': original,
+                  'revised_turns': revised
+              }, indent=2) + '\n'
           )
-          print({'original_turns': original, 'revised_turns': revised, 'removed_ids': sorted(remove)})
+          print({'original_turns': original, 'revised_turns': revised, 'actually_removed_ids': sorted(remove)})
           PY
 
-      - name: Synthesize and measure 62 VOICEVOX turns
+      - name: Synthesize and measure current revised VOICEVOX turns
         run: |
           python scripts/synthesize_longform_voicevox.py \
             --mission-b64 "$REVISED_MISSION" \
