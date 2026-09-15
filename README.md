@@ -18,6 +18,20 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 - 2026-09-15以降の明示的な字幕配色・説明図静止・8〜12分目安のユーザー指定: `config/media_user_visual_duration_preferences.json`
 - 収益化・案件・アフィリエイト・Creator Program・AI workflow service: `config/monetization_command_read_gate.json`
 
+### Semantic know-how recall
+
+Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしない。Bootstrap完了後、**各ユーザー依頼を文字列一致ではなく意味で分類し、該当するGate / Policy / Playbookの現行版を実際に読み直してから計画する。** 一つの依頼に複数の意味がある場合は最初の1分類で止めず、必要なRead Setを和集合で復元する。
+
+- `動画制作`、`コンテンツを作る`、`これを動画にする`のような包括表現は、周辺文脈から VIDEO_CREATION / LONGFORM / CLIPPING_REPURPOSING / TIKTOK_SHOP_COMMERCE を意味分類する。ユーザーがPolicy名や「切り抜き」「Shop」という完全一致語を言わなくても、実質的にその作業なら該当Know-howを復元する。
+- 他人または既存素材を短く再編集する、ハイライト化する、再利用する、縦動画へ展開する意味ならAuthorized ClippingのRights / Originality / ASR / Alignment / Dedup / Reframe / QAを読む。
+- 商品を紹介して売る、購入へつなげる、Shop動画、商品訴求、レビューや価格を扱う意味ならTikTok Shop / CommerceのEvidence / Claim / Freshness / Persona / Funnel / Experiment know-howを読む。収益・コミッション・案件・Affiliateまで含む場合は `config/monetization_command_read_gate.json` も加算する。
+- `動画で稼ぐ`、`商品動画を収益化`、`切り抜きで収益化`のような複合意図ではMedia GateとMonetization Gateの両方を読む。片方だけで済ませない。
+- 動画以外でも、収益化・案件・Affiliate・Membership・Creator Program・AI workflow service・Lead generation・Licensing・Productizationの意味ならMonetization Gateを復元する。
+- AI Army / Agent / Provider / Model / Routing / CI / Failure recovery / Efficiency / DeepSeek運用の意味ならPermanent ManifestからOrg Chart、Multi-agent Policy、DeepSeek Supervisor Policy、CI Control Plane、Efficiency / Recovery系の現行Authorityを復元する。
+- ニュース、商品Claim、Platform Program、数値、実験、ROI、Evidenceの正確性が重要な依頼ではCross-source Evidence、Measurement、Second-pass、Artifact Contract、Platform Evidenceを必要に応じて復元する。
+
+ユーザーに「前に保存したファイル名」や同じ仕様をもう一度言わせることを前提にしない。低コストで判断できる曖昧さなら関連Read Setを少し広めに復元するが、毎回Repository全体を無差別に読むこともしない。**Semantic Recallは `保存 → 意味判定 → 現行Repository再読 → 適用` までを1セットとする。** 同一HEAD・同一Blobを同一タスク内ですでに読んでいる場合だけ、安全なRead Cache再利用を許容する。
+
 `config/current_media_quality_handoff.json` は会話Memoryの代わりとなる現行サマリーだが、最終Authorityではない。内容が異なる場合は現行のMachine Policy・Validator・CIを優先する。メディア依頼ではBootstrap後にこのCheckpoint、`config/media_user_visual_duration_preferences.json`、`config/media_command_read_gate.json` を読み、そこから現在の詳細Policyへ展開する。
 
 詳細が文書間で異なる場合は、最新の明示的ユーザー指示と安全境界を守ったうえで、現行Machine-readable Policy・Validator・CIを優先する。恒久ルールを変更する場合は会話だけで終わらせず、Machine Policy / Rulebook / Validator / CI / Read Gateの整合性を同じ変更で確認する。
