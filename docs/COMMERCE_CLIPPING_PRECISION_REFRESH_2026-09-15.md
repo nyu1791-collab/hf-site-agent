@@ -181,3 +181,7 @@ Saved files are not operational knowledge unless the relevant semantic gate can 
 ## Post-save audit
 
 After integration, re-check that media and monetization gates reach the overlay, Shop + clipping resolves both domains, base policies remain active, the official source snapshot is preserved, rights / claim / disclosure / authenticity gates remain blocking, numeric platform heuristics remain hypotheses rather than hard laws, the validator passes, and GitHub CI is checked before completion is reported.
+
+### Integration verification trace
+
+The first integrated policy commit passed the dedicated semantic-recall / commerce-clipping validator, including all 21 required primary-source records and the strengthened Shop + clipping union. The full consistency workflow then correctly blocked on an unrelated unregistered `push` trigger in a one-off longform build carrier. That carrier was retained but changed to manual-only execution rather than weakening or bypassing the CI control-plane rule. Final completion may only be reported after the resulting HEAD is checked again by both the canonical consistency and hierarchical runtime gates.
