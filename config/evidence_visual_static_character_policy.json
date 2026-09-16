@@ -20,6 +20,12 @@
     "user_explicit_future_override_allowed": true,
     "rights_factual_safety_and_cost_gates_cannot_be_overridden_silently": true
   },
+  "ci_enforcement": {
+    "workflow": ".github/workflows/canonical-ai-army-consistency.yml",
+    "validator": "scripts/validate_evidence_visual_static_character_standard.py",
+    "workflow_must_run_when_policy_changes": true,
+    "validator_failure_blocks_consistency_gate": true
+  },
   "evidence_visual_acquisition": {
     "default_mode": "SEARCH_PRIMARY_OR_OFFICIAL_EVIDENCE_VISUAL_FIRST",
     "generated_background_image_default": false,
