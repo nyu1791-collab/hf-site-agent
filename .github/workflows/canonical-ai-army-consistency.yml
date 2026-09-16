@@ -14,6 +14,8 @@ on:
       - 'config/current_commander_handoff.json'
       - 'config/permanent_standards_manifest.json'
       - 'config/media_command_read_gate.json'
+      - 'config/evidence_visual_static_character_policy.json'
+      - 'config/media_source_policy.json'
       - 'config/media_audio_motion_retention_policy.json'
       - 'config/media_reusable_asset_standard.json'
       - 'config/media_character_reaction_cache_policy.json'
@@ -43,6 +45,7 @@ on:
       - 'scripts/validate_media_command_read_gate.py'
       - 'scripts/validate_semantic_recall_and_commerce_precision.py'
       - 'scripts/validate_media_character_visual_standard.py'
+      - 'scripts/validate_evidence_visual_static_character_standard.py'
       - 'scripts/validate_media_character_reaction_cache.py'
       - 'scripts/validate_zundamon_metan_production_quality.py'
       - 'scripts/validate_video_retention_efficiency.py'
@@ -77,6 +80,7 @@ on:
       - 'docs/AI_ARMY_MASTER_RULEBOOK.md'
       - 'docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md'
       - 'docs/MEDIA_COMMAND_READ_GATE.md'
+      - 'docs/EVIDENCE_VISUAL_AND_STATIC_CHARACTER_STANDARD.md'
       - 'docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md'
       - 'docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md'
       - 'docs/CREATOR_MONETIZATION_AND_AGENT_REVENUE_PLAYBOOK.md'
@@ -135,6 +139,7 @@ jobs:
             scripts/validate_media_command_read_gate.py \
             scripts/validate_semantic_recall_and_commerce_precision.py \
             scripts/validate_media_character_visual_standard.py \
+            scripts/validate_evidence_visual_static_character_standard.py \
             scripts/validate_media_character_reaction_cache.py \
             scripts/validate_zundamon_metan_production_quality.py \
             scripts/validate_video_retention_efficiency.py \
@@ -170,6 +175,8 @@ jobs:
           python -m json.tool config/current_commander_handoff.json >/dev/null
           python -m json.tool config/permanent_standards_manifest.json >/dev/null
           python -m json.tool config/media_command_read_gate.json >/dev/null
+          python -m json.tool config/evidence_visual_static_character_policy.json >/dev/null
+          python -m json.tool config/media_source_policy.json >/dev/null
           python -m json.tool config/media_audio_motion_retention_policy.json >/dev/null
           python -m json.tool config/media_reusable_asset_standard.json >/dev/null
           python -m json.tool config/media_character_reaction_cache_policy.json >/dev/null
@@ -225,6 +232,11 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_media_character_visual_standard.py
+
+      - name: Enforce evidence visuals and static turn-focus characters
+        run: |
+          set -euo pipefail
+          python scripts/validate_evidence_visual_static_character_standard.py
 
       - name: Enforce reusable character reactions and caption spelling
         run: |
