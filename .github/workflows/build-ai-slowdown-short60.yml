@@ -128,36 +128,32 @@ jobs:
           )
           PY
 
-      - name: Resolve registered evidence visuals sequentially
+      - name: Resolve one registered evidence visual only
         run: |
           python - <<'PY'
-          import json,time
+          import json
           from pathlib import Path
           from scripts import media_asset_resolver as mar
           standard=mar.load_standard(Path('config/media_reusable_asset_standard.json'))
           mar.validate_standard(standard)
           mapping={str(a['asset_id']):a for a in standard['assets']}
-          ids=['openai_hq_1515_third_street','cyberport_network_operations_centre']
-          results=[]; cache=Path('.media-cache/assets')
-          for i,aid in enumerate(ids):
-              asset=dict(mapping[aid])
-              url=str(asset['download_url'])
-              if 'commons.wikimedia.org/wiki/Special:Redirect/file/' in url:
-                  sep='&' if '?' in url else '?'
-                  asset['download_url']=f'{url}{sep}width=1280'
-              result=mar.materialize_asset(standard,asset,cache,allow_network=True)
-              result['acquisition_variant']='REGISTERED_WIKIMEDIA_FILE_STANDARD_THUMBNAIL_1280'
-              result['registered_source_page']=asset['source_page']
-              results.append(result)
-              if i+1 < len(ids): time.sleep(3)
+          aid='openai_hq_1515_third_street'
+          asset=dict(mapping[aid])
+          url=str(asset['download_url'])
+          if 'commons.wikimedia.org/wiki/Special:Redirect/file/' in url:
+              sep='&' if '?' in url else '?'
+              asset['download_url']=f'{url}{sep}width=1280'
+          result=mar.materialize_asset(standard,asset,Path('.media-cache/assets'),allow_network=True)
+          result['acquisition_variant']='REGISTERED_WIKIMEDIA_FILE_STANDARD_THUMBNAIL_1280'
+          result['registered_source_page']=asset['source_page']
           Path('artifacts/ai-slowdown-short60/visual_assets.json').write_text(json.dumps({
               'schema':'media-asset-materialization-manifest-v1',
-              'cache_root':str(cache),
-              'asset_count':len(results),
+              'cache_root':'.media-cache/assets',
+              'asset_count':1,
               'search_performed':False,
               'parallel_downloads':False,
               'wikimedia_thumbnail_width':1280,
-              'results':results,
+              'results':[result],
           },ensure_ascii=False,indent=2)+'\n')
           PY
 
