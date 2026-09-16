@@ -5,6 +5,13 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 W,H,FPS=1080,1920,30
+ACTIVE_SCALE=1.08
+INACTIVE_OPACITY=0.55
+CAPTION_BOX=(70,1170,1010,1460)
+HEADING_BOX=(90,1094,990,1150)
+CHARACTER_BOTTOM=1900
+INACTIVE_CHARACTER_H=390
+ACTIVE_CHARACTER_H=int(round(INACTIVE_CHARACTER_H*ACTIVE_SCALE))
 
 def run(cmd):
     subprocess.run(cmd, check=True)
@@ -23,11 +30,11 @@ def font(size, bold=True):
         if Path(p).exists(): return ImageFont.truetype(p,size)
     return ImageFont.load_default()
 
-F_TITLE=None; F_BODY=None; F_CAP=None; F_SMALL=None
+F_TITLE=None; F_BODY=None; F_CAP=None; F_SMALL=None; F_HEADING=None
 
 def fonts():
-    global F_TITLE,F_BODY,F_CAP,F_SMALL
-    F_TITLE=font(58); F_BODY=font(38); F_CAP=font(54); F_SMALL=font(24,False)
+    global F_TITLE,F_BODY,F_CAP,F_SMALL,F_HEADING
+    F_TITLE=font(58); F_BODY=font(38); F_CAP=font(54); F_SMALL=font(24,False); F_HEADING=font(31)
 
 def rounded_panel(im, box, fill, radius=34, outline=None, width=2):
     d=ImageDraw.Draw(im)
@@ -59,6 +66,25 @@ def draw_centered(draw, text, y, fnt, fill, maxw, stroke_fill=None, stroke_width
         yy+=hh+line_gap
     return yy
 
+def fit_caption(draw, text, maxw, maxh, start_size=54, min_size=30):
+    for size in range(start_size,min_size-1,-2):
+        fnt=font(size)
+        lines=wrap(draw,text,fnt,maxw)
+        heights=[]
+        for ln in lines:
+            b=draw.textbbox((0,0),ln,font=fnt,stroke_width=0)
+            heights.append(max(1,b[3]-b[1]))
+        total=sum(heights)+max(0,len(lines)-1)*10
+        if total <= maxh:
+            return fnt,lines,total
+    fnt=font(min_size)
+    lines=wrap(draw,text,fnt,maxw)
+    heights=[max(1,draw.textbbox((0,0),ln,font=fnt)[3]-draw.textbbox((0,0),ln,font=fnt)[1]) for ln in lines]
+    total=sum(heights)+max(0,len(lines)-1)*8
+    if total > maxh:
+        raise RuntimeError(f"caption does not fit reserved safe zone without truncation: {text[:80]}")
+    return fnt,lines,total
+
 def load_inventory(path):
     data=json.loads(Path(path).read_text(encoding="utf-8"))
     recs=data["records"]
@@ -72,42 +98,28 @@ def load_inventory(path):
 
 def open_rgba(path): return Image.open(path).convert("RGBA")
 
-def composite_state(groups, char, variant=0, mouth_open=False):
-    cats=groups[char]
-    full=cats.get("full_body",[])
-    if not full: raise RuntimeError(f"missing full_body for {char}")
-    base=open_rgba(full[variant % len(full)]["path"])
-    for cat,shift in (("eye",variant),("eyebrow",variant)):
-        arr=cats.get(cat,[])
-        if arr:
-            ov=open_rgba(arr[shift % len(arr)]["path"])
-            if ov.size==base.size: base.alpha_composite(ov)
-    mouths=cats.get("mouth",[])
-    if mouths and mouth_open:
-        ov=open_rgba(mouths[(1+variant) % len(mouths)]["path"])
-        if ov.size==base.size: base.alpha_composite(ov)
-    bbox=base.getbbox()
-    if not bbox: raise RuntimeError(f"empty character composite {char}")
-    return base.crop(bbox)
-
 def prep_character_states(groups):
     states={}
     for char in ("zundamon","metan"):
-        for variant in range(4):
-            for mouth in (False,True):
-                states[(char,variant,mouth)] = composite_state(groups,char,variant,mouth)
+        full=groups[char].get("full_body",[])
+        if not full: raise RuntimeError(f"missing full_body for {char}")
+        base=open_rgba(full[0]["path"])
+        bbox=base.getbbox()
+        if not bbox: raise RuntimeError(f"empty character composite {char}")
+        states[char]=base.crop(bbox)
     return states
 
-def paste_fit(bg, fg, center_x, bottom_y, target_h, angle=0, opacity=255):
+def paste_fit(bg, fg, center_x, bottom_y, target_h, opacity=255):
     fg=fg.copy()
     scale=target_h/fg.height
     nw=max(1,int(fg.width*scale)); nh=max(1,int(fg.height*scale))
     fg=fg.resize((nw,nh),Image.Resampling.LANCZOS)
-    if angle: fg=fg.rotate(angle,resample=Image.Resampling.BICUBIC,expand=True)
     if opacity<255:
         a=fg.getchannel("A").point(lambda x: int(x*opacity/255))
         fg.putalpha(a)
     x=int(center_x-fg.width/2); y=int(bottom_y-fg.height)
+    if y < CAPTION_BOX[3]+12:
+        raise RuntimeError(f"character overlaps reserved caption safe zone: top={y}, caption_bottom={CAPTION_BOX[3]}")
     bg.alpha_composite(fg,(x,y))
 
 def load_assets(manifest_path, standard_path):
@@ -151,63 +163,72 @@ def scene_photo(scene_id, assets):
     attr=meta.get("attribution_text") or meta.get("creator_or_source") or aid
     return im,attr
 
-def variant_for(emotion):
-    e=str(emotion).lower()
-    if any(x in e for x in ("surprise","concern","serious")): return 2
-    if any(x in e for x in ("question","skeptical")): return 1
-    if any(x in e for x in ("confident","friendly","relief")): return 3
-    return 0
+def current_topic_heading(line, scene):
+    return str(
+        line.get("topic_heading")
+        or line.get("section_heading")
+        or scene.get("topic_heading")
+        or scene.get("title")
+        or ""
+    ).strip()
 
-def compose_line(line, scene, states, assets, mouth_open, out_path):
+def compose_line(line, scene, states, assets, out_path):
     im=Image.new("RGBA",(W,H),(241,247,251,255))
     d=ImageDraw.Draw(im)
     d.rectangle((0,0,W,190),fill=(22,34,54,255))
     d.rectangle((0,190,W,215),fill=(196,224,239,255))
     chapter=f'{scene["scene_id"]}  {scene["title"]}'
     d.text((54,58),chapter,font=F_BODY,fill="white")
-    rounded_panel(im,(60,245,1020,1135),(255,255,255,255),radius=34,outline=(205,220,232,255),width=3)
+    rounded_panel(im,(60,245,1020,1085),(255,255,255,255),radius=34,outline=(205,220,232,255),width=3)
     photo,attr=scene_photo(scene["scene_id"],assets)
     if photo:
         ph=photo.convert("RGBA")
         mask=Image.new("L",ph.size,0); md=ImageDraw.Draw(mask); md.rounded_rectangle((0,0,ph.width,ph.height),radius=26,fill=255)
         ph.putalpha(mask)
-        im.alpha_composite(ph,(100,300))
-        d.rounded_rectangle((100,870,980,1090),radius=24,fill=(250,253,255,236))
-        draw_centered(d,line.get("visual_beat",""),900,F_BODY,(25,38,55,255),820)
-        d.text((112,1060),f"Photo: {attr}"[:100],font=F_SMALL,fill=(75,88,100,255))
+        im.alpha_composite(ph,(100,285))
+        d.rounded_rectangle((100,865,980,1045),radius=24,fill=(250,253,255,236))
+        draw_centered(d,line.get("visual_beat",""),892,F_BODY,(25,38,55,255),820)
+        d.text((112,1052),f"Photo: {attr}"[:100],font=F_SMALL,fill=(75,88,100,255))
     else:
         d.rounded_rectangle((110,330,970,990),radius=30,fill=(232,244,250,255))
         draw_centered(d,line.get("visual_beat",""),470,F_TITLE,(27,54,74,255),760)
+
     speaker=line["speaker"]
     accent=(77,224,132,255) if speaker=="ずんだもん" else (255,91,185,255)
-    cap=str(line["caption_text"])
+    heading=current_topic_heading(line,scene)
+    d.rounded_rectangle(HEADING_BOX,radius=20,fill=(22,34,54,245),outline=accent,width=4)
+    hlines=wrap(d,heading,F_HEADING,HEADING_BOX[2]-HEADING_BOX[0]-40)
+    htext=" / ".join(hlines[:2])
+    hb=d.textbbox((0,0),htext,font=F_HEADING)
+    d.text(((W-(hb[2]-hb[0]))//2,1107),htext,font=F_HEADING,fill=(255,255,255,255))
+
+    d.rounded_rectangle(CAPTION_BOX,radius=28,fill=(24,32,44,242),outline=accent,width=7)
     pill="ずんだもん" if speaker=="ずんだもん" else "四国めたん"
     pb=d.textbbox((0,0),pill,font=F_SMALL); pw=pb[2]-pb[0]
-    d.rounded_rectangle((70,1195,100+pw,1242),radius=20,fill=accent)
-    d.text((84,1204),pill,font=F_SMALL,fill=(15,20,25,255))
-    lines=wrap(d,cap,F_CAP,920)
-    yy=1268
-    for ln in lines[:3]:
-        b=d.textbbox((0,0),ln,font=F_CAP,stroke_width=7); ww=b[2]-b[0]
+    d.rounded_rectangle((92,1190,122+pw,1238),radius=18,fill=accent)
+    d.text((106,1199),pill,font=F_SMALL,fill=(15,20,25,255))
+
+    cap=str(line["caption_text"])
+    maxw=CAPTION_BOX[2]-CAPTION_BOX[0]-70
+    maxh=CAPTION_BOX[3]-1250-28
+    cap_font,lines,total_h=fit_caption(d,cap,maxw,maxh)
+    yy=1252 + max(0,(maxh-total_h)//2)
+    for ln in lines:
+        b=d.textbbox((0,0),ln,font=cap_font,stroke_width=2)
+        ww=b[2]-b[0]; hh=max(1,b[3]-b[1])
         x=(W-ww)//2
-        d.text((x+3,yy+4),ln,font=F_CAP,fill=(255,255,255,255),stroke_width=9,stroke_fill=(15,24,34,210))
-        d.text((x,yy),ln,font=F_CAP,fill=(255,255,255,255),stroke_width=5,stroke_fill=accent)
-        yy += (b[3]-b[1])+16
-    v=variant_for(line.get("emotion",""))
-    active_h=515; inactive_h=485
+        d.text((x,yy),ln,font=cap_font,fill=(255,255,255,255),stroke_width=2,stroke_fill=(10,14,20,255))
+        yy += hh+10
+
     z_active=speaker=="ずんだもん"; m_active=speaker=="四国めたん"
-    z=states[("zundamon",v,mouth_open and z_active)]
-    m=states[("metan",v,mouth_open and m_active)]
-    paste_fit(im,z,285,1900,int(active_h if z_active else inactive_h),angle=(-1 if z_active else 1),opacity=(255 if z_active else 228))
-    paste_fit(im,m,795,1900,int(active_h if m_active else inactive_h),angle=(1 if m_active else -1),opacity=(255 if m_active else 228))
-    d=ImageDraw.Draw(im)
-    cx=285 if z_active else 795
-    d.ellipse((cx-100,1760,cx+100,1910),outline=accent,width=8)
+    paste_fit(im,states["zundamon"],285,CHARACTER_BOTTOM,ACTIVE_CHARACTER_H if z_active else INACTIVE_CHARACTER_H,opacity=255 if z_active else int(255*INACTIVE_OPACITY))
+    paste_fit(im,states["metan"],795,CHARACTER_BOTTOM,ACTIVE_CHARACTER_H if m_active else INACTIVE_CHARACTER_H,opacity=255 if m_active else int(255*INACTIVE_OPACITY))
+
     claims=line.get("source_claim_ids") or []
     if claims:
         text=" / ".join(claims[:3])
-        d.rounded_rectangle((780,1148,1010,1188),radius=16,fill=(230,237,243,255))
-        d.text((798,1157),text,font=F_SMALL,fill=(50,63,76,255))
+        d.rounded_rectangle((760,1028,1000,1068),radius=16,fill=(230,237,243,245))
+        d.text((778,1037),text,font=F_SMALL,fill=(50,63,76,255))
     out_path.parent.mkdir(parents=True,exist_ok=True)
     im.convert("RGB").save(out_path,quality=92)
 
@@ -252,18 +273,11 @@ def render(mission,timing,groups,assets,voice_root,outdir,preview_only=False):
         records=[]; ffentries=[]
         for li,line in enumerate(scene["dialogue"],1):
             rec=by_id[line["id"]]; records.append(rec)
-            closed=scene_dir/f'{line["id"]}_closed.jpg'; opened=scene_dir/f'{line["id"]}_open.jpg'
-            compose_line(line,scene,states,assets,False,closed)
-            compose_line(line,scene,states,assets,True,opened)
-            if li==1: representative.append(closed)
-            total=float(rec["duration"])+float(rec.get("pause_after",0)); voice_d=float(rec["duration"])
-            step=0.22; t=0.0; open_state=False
-            while t < voice_d-1e-6:
-                dur=min(step,voice_d-t)
-                ffentries.append((opened if open_state else closed,dur))
-                open_state=not open_state; t+=dur
-            pause=max(0.0,total-voice_d)
-            if pause: ffentries.append((closed,pause))
+            still=scene_dir/f'{line["id"]}_static.jpg'
+            compose_line(line,scene,states,assets,still)
+            if li==1: representative.append(still)
+            total=float(rec["duration"])+float(rec.get("pause_after",0))
+            ffentries.append((still,total))
         if preview_only: continue
         wav=scene_dir/"scene_audio.wav"; scene_dur=make_scene_audio(records,voice_root,wav)
         concat=scene_dir/"frames.ffconcat"; write_ffconcat(ffentries,concat)
