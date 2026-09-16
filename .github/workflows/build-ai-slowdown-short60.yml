@@ -26,5 +26,70 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Placeholder
-        run: echo 'WRONG PATH - do not run'
+
+      - name: Install deterministic media toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
+          python -m pip install --upgrade pip
+          python -m pip install pillow requests
+          mkdir -p "$OUT" "$CACHE"
+          python -m py_compile scripts/render_wosado_tiktok_preview.py
+
+      - name: Validate current media policy
+        run: |
+          python scripts/validate_evidence_visual_static_character_standard.py
+          python scripts/media_asset_resolver.py --validate-only
+          python - <<'PY'
+          import json
+          p=json.load(open('config/evidence_visual_static_character_policy.json',encoding='utf-8'))
+          assert p['character_rendering']['default_mode']=='STATIC_TURN_FOCUS'
+          assert p['character_rendering']['mouth_animation'] is False
+          assert p['character_rendering']['blink_animation'] is False
+          assert p['caption_rendering']['full_caption_coverage_required'] is True
+          print('policy gate pass')
+          PY
+
+      - name: Start local VOICEVOX
+        run: |
+          docker pull voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          docker run -d --rm --name voicevox -p 50021:50021 voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          docker logs voicevox || true
+          exit 1
+
+      - name: Resolve registered Zundamon asset
+        run: |
+          python scripts/media_asset_resolver.py \
+            --asset-id zm_shell_20230806 \
+            --cache-root "$CACHE" \
+            --allow-network \
+            --max-workers 1 \
+            --manifest-out "$OUT/character-shell.json"
+          RAW=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('artifacts/wosado-tiktok-zundamon/character-shell.json').read_text())
+          p=m['results'][0].get('extracted_path')
+          assert p and Path(p).is_dir(), p
+          print(p)
+          PY
+          )
+          python scripts/character_shell_root.py "$RAW" > "$OUT/character-source-resolved.txt"
+
+      - name: Render WOSADO TikTok preview
+        run: |
+          ROOT=$(cat "$OUT/character-source-resolved.txt")
+          python scripts/render_wosado_tiktok_preview.py --out "$OUT" --character-root "$ROOT"
+
+      - name: Upload completed internal-review artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wosado-tiktok-zundamon-${{ github.run_id }}
+          path: artifacts/wosado-tiktok-zundamon
+          if-no-files-found: warn
+          retention-days: 7
