@@ -3,7 +3,7 @@
   "effective_date_jst": "2026-09-16",
   "status": "MANDATORY_MEDIA_STANDARD",
   "decision_owner": "chatgpt-top-commander",
-  "purpose": "Reduce media production latency and visual awkwardness by using searched evidence-bearing visuals instead of generated background images, and by keeping Zundamon/Shikoku Metan visually static except for deterministic speaker-focus state switching.",
+  "purpose": "Reduce media production latency and visual awkwardness by using searched evidence-bearing visuals instead of generated background images, keeping Zundamon/Shikoku Metan visually static except for deterministic speaker-focus switching, and enforcing complete readable captions with semantic topic headings.",
   "applies_to": [
     "VIDEO_CREATION",
     "SHORTS",
@@ -13,7 +13,7 @@
     "ZUNDAMON_OR_SHIKOKU_METAN_VIDEO_CREATION"
   ],
   "authority": {
-    "precedence": "OVERRIDES_CONFLICTING_OLDER_CHARACTER_MOTION_EXPRESSION_LIPSYNC_BLINK_AND_SPEECH_START_BOUNCE_DEFAULTS",
+    "precedence": "OVERRIDES_CONFLICTING_OLDER_CHARACTER_MOTION_EXPRESSION_LIPSYNC_BLINK_SPEECH_START_BOUNCE_CAPTION_TRUNCATION_AND_VOICE_SPEED_DEFAULTS",
     "older_policies_remain_for_non_conflicting_rules": true,
     "conflicting_old_character_motion_rules_must_not_be_executed": true,
     "machine_policy_over_conflicting_human_prose": true,
@@ -58,6 +58,43 @@
     "generated_illustration_allowed_only_when_user_explicitly_requests_it_or_no_factual_evidence_role_exists": true,
     "generated_illustration_must_be_labeled_non_evidentiary_when_claim_bearing_context_exists": true
   },
+  "voice_delivery": {
+    "voicevox_speed_scale": 1.2,
+    "speed_scale_is_default_for_zundamon_and_metan": true,
+    "actual_generated_wav_must_be_remeasured_after_speed_change": true,
+    "timeline_and_caption_cues_follow_measured_audio": true,
+    "do_not_time_stretch_finished_audio_as_substitute_for_voice_generation": true,
+    "clarity_failure_requires_script_or_voice_adjustment_not_caption_omission": true
+  },
+  "caption_rendering": {
+    "full_caption_coverage_required": true,
+    "every_spoken_turn_must_have_visible_caption_text": true,
+    "caption_text_must_not_be_truncated_by_fixed_line_count": true,
+    "fit_strategy": [
+      "semantic_wrap",
+      "rendered_width_wrap",
+      "reduce_font_size_within_readable_bounds",
+      "increase_caption_panel_height_within_reserved_caption_zone"
+    ],
+    "caption_panel_reserved_safe_zone_required": true,
+    "caption_panel_must_not_overlap_characters": true,
+    "caption_panel_must_not_overlap_evidence_or_source_attribution": true,
+    "speaker_colored_border_required": true,
+    "zundamon_border_color_role": "BRIGHT_GREEN",
+    "metan_border_color_role": "BRIGHT_PINK_MAGENTA",
+    "caption_body_color_role": "WHITE_OR_NEAR_WHITE",
+    "topic_heading_required": true,
+    "topic_heading_granularity": "SEMANTIC_CONTENT_BLOCK_NOT_EVERY_UTTERANCE",
+    "topic_heading_changes_only_when_subject_or_argument_block_changes": true,
+    "topic_heading_source_priority": [
+      "explicit_topic_heading",
+      "explicit_section_heading",
+      "scene_title"
+    ],
+    "per_utterance_heading_forbidden_by_default": true,
+    "heading_and_caption_must_be_visually_distinct": true,
+    "heading_must_summarize_current_content_block": true
+  },
   "character_rendering": {
     "default_mode": "STATIC_TURN_FOCUS",
     "character_idle_animation": false,
@@ -91,6 +128,8 @@
     },
     "safe_zone": {
       "active_scale_must_not_cover_caption_or_evidence": true,
+      "inactive_listener_must_not_cover_caption_or_evidence": true,
+      "caption_zone_has_priority_over_character_scale": true,
       "both_characters_may_be_reduced_or_hidden_when_evidence_visual_is_primary": true
     }
   },
@@ -107,6 +146,11 @@
     "representative_active_speaker_scale_checked": true,
     "representative_inactive_opacity_checked": true,
     "no_unrequested_character_motion_checked": true,
+    "full_caption_coverage_checked": true,
+    "speaker_caption_border_color_checked": true,
+    "caption_character_non_overlap_checked": true,
+    "semantic_topic_heading_granularity_checked": true,
+    "voice_speed_scale_and_measured_timing_checked": true,
     "evidence_visual_source_receipt_checked": true,
     "evidence_visual_semantic_match_checked": true,
     "public_rights_state_checked_before_publish": true,
@@ -123,8 +167,15 @@
     "SPEECH_START_VERTICAL_BOUNCE",
     "CONTINUOUS_CHARACTER_ZOOM",
     "ACTIVE_SPEAKER_NOT_VISUALLY_EMPHASIZED",
+    "ACTIVE_SPEAKER_NOT_FULLY_OPAQUE",
     "INACTIVE_LISTENER_NOT_REDUCED_TO_HALF_TRANSPARENT_RANGE",
     "FOCUS_SWITCH_NOT_ALIGNED_TO_VOICE_TURN",
+    "SPOKEN_TEXT_MISSING_FROM_CAPTIONS",
+    "CAPTION_TRUNCATED_BY_FIXED_LINE_LIMIT",
+    "CAPTION_BORDER_DOES_NOT_MATCH_ACTIVE_SPEAKER",
+    "CAPTION_OVERLAPS_CHARACTER",
+    "TOPIC_HEADING_CHANGES_ON_EVERY_UTTERANCE_WITHOUT_CONTENT_CHANGE",
+    "VOICE_SPEED_DEFAULT_NOT_1_20_FOR_ZUNDAMON_METAN",
     "OLD_CHARACTER_MOTION_RULE_EXECUTED_DESPITE_THIS_POLICY_PRECEDENCE"
   ]
 }
