@@ -4,6 +4,7 @@ import argparse, base64, gzip, json, subprocess, urllib.parse, urllib.request
 from pathlib import Path
 
 SPEAKERS={"ずんだもん":3,"四国めたん":2}
+DEFAULT_SPEED_SCALE=1.20
 
 def decode_mission(path:Path):
     return json.loads(gzip.decompress(base64.b64decode(path.read_text(encoding="utf-8").strip())).decode("utf-8"))
@@ -25,7 +26,10 @@ def main():
     ap.add_argument("--engine",default="http://127.0.0.1:50021")
     ap.add_argument("--min-seconds",type=float,default=480)
     ap.add_argument("--max-seconds",type=float,default=720)
+    ap.add_argument("--speed-scale",type=float,default=DEFAULT_SPEED_SCALE)
     args=ap.parse_args()
+    if not (0.5 <= args.speed_scale <= 2.0):
+        raise SystemExit(f"invalid VOICEVOX speed scale: {args.speed_scale}")
     mission=decode_mission(args.mission_b64)
     args.output_dir.mkdir(parents=True,exist_ok=True)
     pronunciations={x["surface_term"]:x["voice_reading"] for x in mission.get("pronunciation_dictionary",[])}
@@ -37,7 +41,7 @@ def main():
             sp=SPEAKERS[speaker]
             qs=urllib.parse.urlencode({"text":text,"speaker":sp})
             query=json.loads(post_json(f"{args.engine}/audio_query?{qs}").decode("utf-8"))
-            query["speedScale"]=1.0
+            query["speedScale"]=args.speed_scale
             query["intonationScale"]=1.0
             wav=post_json(f"{args.engine}/synthesis?speaker={sp}",query)
             raw=args.output_dir/f"{lid}.raw.wav"; final=args.output_dir/f"{lid}.wav"
@@ -47,12 +51,12 @@ def main():
             d=duration(final)
             is_last=idx==len(scene["dialogue"])-1
             pause=0.34 if is_last else 0.12
-            records.append({"id":lid,"scene_id":scene["scene_id"],"speaker":speaker,"wav_file":final.name,"duration":d,"pause_after":pause,"start":t,"end":t+d})
+            records.append({"id":lid,"scene_id":scene["scene_id"],"speaker":speaker,"wav_file":final.name,"duration":d,"pause_after":pause,"start":t,"end":t+d,"speed_scale":args.speed_scale})
             t += d+pause
-    timing={"schema":"measured-longform-timing-v1","mission_id":mission["mission_id"],"records":records,"total_duration":t,"line_count":len(records),"audio_source":"FFPROBE_ACTUAL_GENERATED_WAV","subtitle_narration_coverage_ratio":1.0}
+    timing={"schema":"measured-longform-timing-v1","mission_id":mission["mission_id"],"records":records,"total_duration":t,"line_count":len(records),"audio_source":"FFPROBE_ACTUAL_GENERATED_WAV","subtitle_narration_coverage_ratio":1.0,"voicevox_speed_scale":args.speed_scale}
     args.timing_out.parent.mkdir(parents=True,exist_ok=True)
     args.timing_out.write_text(json.dumps(timing,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
-    print(json.dumps({"line_count":len(records),"total_duration":t},ensure_ascii=False))
+    print(json.dumps({"line_count":len(records),"total_duration":t,"speed_scale":args.speed_scale},ensure_ascii=False))
     if not (args.min_seconds <= t <= args.max_seconds):
         raise SystemExit(f"measured narration duration {t:.2f}s is outside requested {args.min_seconds:.0f}-{args.max_seconds:.0f}s; revise information density/script instead of padding")
     return 0
