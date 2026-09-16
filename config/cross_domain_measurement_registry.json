@@ -1,0 +1,181 @@
+{
+  "schema_version": "cross-domain-measurement-registry-v2",
+  "effective_date_jst": "2026-09-14",
+  "status": "PERMANENT_STANDARD",
+  "purpose": "Make AI Army, video quality/retention and TikTok Shop improvements measurable, platform-scoped, reproducible and reversible instead of intuition-driven.",
+  "global_rules": {
+    "missing_metric_is_unknown_not_zero": true,
+    "never_synthesize_missing_platform_analytics": true,
+    "platform_specific_metrics_and_thresholds_stay_platform_scoped": true,
+    "baseline_required_before_claiming_improvement": true,
+    "promotion_requires_primary_metric_improvement_without_guardrail_regression": true,
+    "small_sample_or_new_account_results_are_directional_only": true,
+    "record_exact_effective_config_and_source_version": true,
+    "rollback_when_guardrail_regresses_or_effect_disappears_on_replication": true,
+    "hard_quality_invariants_may_block_even_when_business_metric_improves": true
+  },
+  "experiment_lifecycle": ["PROPOSED", "SHADOW", "EXPERIMENT", "CANONICAL", "DEMOTED", "REJECTED"],
+  "ai_army": {
+    "artifact": "artifacts/evaluation/ai_army_eval.json",
+    "required_dimensions": ["QUALITY", "LATENCY", "COST", "COORDINATION", "RELIABILITY", "RECOVERY", "TOOL_USE"],
+    "metrics": [
+      {"id":"AI_TASK_SUCCESS_RATE","unit":"ratio","aggregation":["mean","count"],"canonical":true},
+      {"id":"AI_ACCEPTANCE_CRITERIA_PASS_RATE","unit":"ratio","aggregation":["mean","count"],"canonical":true},
+      {"id":"AI_VERIFIER_PASS_RATE","unit":"ratio","aggregation":["mean","count"],"canonical":true},
+      {"id":"AI_LATENCY_MS","unit":"milliseconds","aggregation":["p50","p95","max"],"canonical":true},
+      {"id":"AI_TOKEN_USAGE","unit":"tokens","aggregation":["sum","mean","p95"],"canonical":true},
+      {"id":"AI_EXTERNAL_REQUEST_COUNT","unit":"count","aggregation":["sum","mean"],"canonical":true},
+      {"id":"AI_TOOL_CALL_COUNT","unit":"count","aggregation":["sum","mean"],"canonical":true},
+      {"id":"AI_TOOL_SELECTION_ACCURACY","unit":"ratio","definition":"correct tool selection / labeled tool-selection opportunities","availability":"WHEN_DETERMINISTIC_OR_LABELED_ORACLE_EXISTS","canonical":true},
+      {"id":"AI_TOOL_INPUT_ACCURACY","unit":"ratio","definition":"tool calls with acceptable arguments / labeled tool-call opportunities","availability":"WHEN_DETERMINISTIC_OR_LABELED_ORACLE_EXISTS","canonical":true},
+      {"id":"AI_TOOL_CALL_SUCCESS_RATE","unit":"ratio","definition":"successful tool calls / attempted tool calls","canonical":true},
+      {"id":"AI_UNNECESSARY_TOOL_CALL_RATE","unit":"ratio","definition":"unnecessary tool calls / all tool calls under labeled fixture","availability":"WHEN_LABELED_ORACLE_EXISTS","canonical":true},
+      {"id":"AI_ERROR_RATE","unit":"ratio","aggregation":["mean","count"],"canonical":true},
+      {"id":"AI_429_RATE","unit":"ratio","aggregation":["mean","count"],"canonical":true},
+      {"id":"AI_RETRY_COUNT","unit":"count","aggregation":["sum","mean"],"canonical":true},
+      {"id":"AI_REPLAN_COUNT","unit":"count","aggregation":["sum","mean"],"canonical":true},
+      {"id":"AI_HANDOFF_COUNT","unit":"count","aggregation":["sum","mean"],"canonical":true},
+      {"id":"AI_COORDINATION_OVERHEAD_RATIO","unit":"ratio","definition":"coordination_time_or_tokens / total_time_or_tokens using one declared basis per experiment","canonical":true},
+      {"id":"AI_COST_USD_ESTIMATE","unit":"usd_estimate","aggregation":["sum","mean"],"authoritative_billing":false,"canonical":true},
+      {"id":"AI_CHECKPOINT_RECOVERY_SUCCESS_RATE","unit":"ratio","aggregation":["mean","count"],"canonical":true},
+      {"id":"AI_EFFECTIVE_TOPOLOGY","unit":"enum","allowed":["SINGLE_AGENT","MANAGER_SPECIALISTS","BOUNDED_PARALLEL","SEQUENTIAL_PIPELINE","DETERMINISTIC_TOOL"],"canonical":true},
+      {"id":"AI_EFFECTIVE_MODEL_PROVIDER","unit":"structured","canonical":true},
+      {"id":"AI_CONTEXT_INPUT_TOKENS_BY_ROLE","unit":"tokens","aggregation":["sum","mean","p95"],"canonical":true},
+      {"id":"AI_CONTEXT_COMPACTION_COUNT","unit":"count","aggregation":["sum"],"canonical":true}
+    ],
+    "fixture_dataset_contract": {
+      "golden_and_real_failure_cases_required_for_architecture_or_routing_promotion": true,
+      "fixture_fields": ["fixture_id", "task_class", "input_ref_or_hash", "acceptance_criteria", "expected_output_or_oracle_ref", "allowed_tools", "forbidden_actions", "source", "created_at", "last_verified_at"],
+      "same_fixture_set_for_baseline_and_variant": true,
+      "production_failure_may_be_promoted_to_regression_fixture_after_redaction": true,
+      "fixture_change_requires_version_bump": true,
+      "do_not_tune_and_report_on_same_untracked_fixture_mutation": true
+    },
+    "comparison_contract": {
+      "single_agent_or_deterministic_baseline_required_when_applicable": true,
+      "same_fixture_set": true,
+      "same_acceptance_criteria": true,
+      "same_paid_policy": true,
+      "report_absolute_and_relative_delta": true,
+      "minimum_sample_size": "CALIBRATE_BY_FIXTURE_VARIANCE; DO_NOT_HARDCODE_UNIVERSAL_N",
+      "adaptive_routing_status": "EXPERIMENT_UNTIL_LOCAL_ABLATION_PROVES_TOTAL_SYSTEM_VALUE"
+    },
+    "reproducibility_fields": ["git_sha", "mission_fixture_id", "fixture_set_version", "effective_config_hash", "topology", "agent_roles", "provider_model_bindings", "tool_allowlists", "budgets", "timeouts", "parallelism", "randomness_controls_when_available", "started_at", "ended_at"]
+  },
+  "video": {
+    "technical_artifact": "artifacts/evaluation/video_technical_qa.json",
+    "analytics_artifact": "artifacts/evaluation/video_retention_feedback.json",
+    "technical_metrics": [
+      {"id":"VIDEO_DECODE_ERROR_COUNT","unit":"count","block_target":0},
+      {"id":"VIDEO_CAPTION_COVERAGE_RATIO","unit":"ratio","block_target":1.0},
+      {"id":"VIDEO_AUDIO_DURATION_DRIFT_MS","unit":"milliseconds","threshold":"FIXTURE_CALIBRATED"},
+      {"id":"VIDEO_INTEGRATED_LOUDNESS_LUFS","unit":"LUFS","measurement_standard":"ITU-R BS.1770 compatible","target":"PLATFORM_OR_FIXTURE_CALIBRATED_NOT_UNIVERSAL"},
+      {"id":"VIDEO_TRUE_PEAK_DBTP","unit":"dBTP","measurement_standard":"ITU-R BS.1770 compatible","target":"PLATFORM_OR_FIXTURE_CALIBRATED_NOT_UNIVERSAL"},
+      {"id":"VIDEO_AUDIO_CLIPPING_EVENT_COUNT","unit":"count","target":"MINIMIZE_AND_REVIEW_ANY_NONZERO"},
+      {"id":"VIDEO_SILENCE_RATIO","unit":"ratio","target":"CONTENT_AWARE_NO_UNIVERSAL_THRESHOLD"},
+      {"id":"VIDEO_SAFE_ZONE_COLLISION_COUNT","unit":"count","target":0,"safe_zone":"VERSIONED_BY_PLATFORM_AND_UI_SNAPSHOT"},
+      {"id":"VIDEO_BLACK_FRAME_EVENT_COUNT","unit":"count","target":"0_UNLESS_INTENTIONAL"},
+      {"id":"VIDEO_FREEZE_FRAME_EVENT_COUNT","unit":"count","target":"CONTENT_AWARE_REVIEW"},
+      {"id":"VIDEO_SCENE_COUNT","unit":"count","target":"NO_UNIVERSAL_SCENE_CADENCE"}
+    ],
+    "production_efficiency_metrics": [
+      {"id":"VIDEO_PRODUCTION_WALL_CLOCK_MS_BY_STAGE","unit":"structured","fields":["research_and_script","voice_chunks","measured_timing","character_layer","evidence_and_panel_layer","caption_overlay","audio_mix","final_composite_and_mux"]},
+      {"id":"VIDEO_REVISION_COUNT_BY_STAGE","unit":"structured","fields":["research_and_script","voice_chunks","measured_timing","character_layer","evidence_and_panel_layer","caption_overlay","audio_mix","final_composite_and_mux"]},
+      {"id":"VIDEO_STAGE_REUSE_RATIO","unit":"ratio"},
+      {"id":"VIDEO_ARTIFACT_MANIFEST_CACHE_HIT_RATIO","unit":"ratio"},
+      {"id":"VIDEO_PREVIEW_QA_CATCH_COUNT","unit":"count"},
+      {"id":"VIDEO_POST_RENDER_DEFECT_ESCAPE_COUNT","unit":"count","target":"TREND_TO_ZERO"},
+      {"id":"VIDEO_FULL_RERENDER_COUNT","unit":"count","target":"NEAR_ZERO_FOR_CAPTION_PANEL_OR_MOUTH_ONLY_FIXES"},
+      {"id":"VIDEO_FULL_RERENDER_JUSTIFICATION_PRESENT","unit":"boolean","required_when":"VIDEO_FULL_RERENDER_COUNT_GT_ZERO"},
+      {"id":"VIDEO_INCREMENTAL_REPAIR_USED","unit":"boolean"}
+    ],
+    "platform_analytics": {
+      "YOUTUBE": [
+        {"id":"YT_IMPRESSIONS","unit":"count"},
+        {"id":"YT_IMPRESSIONS_CTR","unit":"ratio","interpret_with":["YT_AVERAGE_VIEW_DURATION","YT_RETENTION_CURVE"],"never_optimize_alone":true},
+        {"id":"YT_AVERAGE_VIEW_DURATION","unit":"seconds"},
+        {"id":"YT_AVERAGE_PERCENT_VIEWED","unit":"ratio"},
+        {"id":"YT_INTRO_30S_RETAINED","unit":"ratio","meaning":"share still watching after first 30 seconds"},
+        {"id":"YT_RETENTION_CURVE","unit":"time_series"},
+        {"id":"YT_RETENTION_AT_DECLARED_CHECKPOINTS","unit":"structured","availability":"WHEN_RETENTION_CURVE_IS_AVAILABLE","examples":["3s","10s","30s","60s","end"],"checkpoint_set_must_be_declared_before_comparison":true},
+        {"id":"YT_TOP_MOMENTS","unit":"time_ranges"},
+        {"id":"YT_DIPS","unit":"time_ranges"},
+        {"id":"YT_SPIKES","unit":"time_ranges"},
+        {"id":"YT_SHORTS_CHOSE_TO_VIEW_RATIO","unit":"ratio","availability":"WHEN_SHORTS_ANALYTICS_EXPOSES"},
+        {"id":"YT_SHORTS_SWIPED_AWAY_RATIO","unit":"ratio","availability":"WHEN_SHORTS_ANALYTICS_EXPOSES"},
+        {"id":"YT_SHORTS_ENGAGED_VIEWS","unit":"count","availability":"WHEN_SHORTS_ANALYTICS_EXPOSES"}
+      ],
+      "TIKTOK": [
+        {"id":"TT_VIDEO_VIEWS","unit":"count"},
+        {"id":"TT_AVERAGE_WATCH_TIME","unit":"seconds","availability":"WHEN_PLATFORM_EXPOSES"},
+        {"id":"TT_COMPLETION_RATE","unit":"ratio","availability":"WHEN_PLATFORM_EXPOSES"},
+        {"id":"TT_3S_HOLD","unit":"ratio","availability":"WHEN_PLATFORM_EXPOSES"}
+      ],
+      "META_REELS": [
+        {"id":"META_REELS_REACH_OR_IMPRESSIONS","unit":"count","availability":"WHEN_PLATFORM_EXPOSES"},
+        {"id":"META_REELS_WATCH_OR_RETENTION_METRIC","unit":"platform_native","availability":"WHEN_PLATFORM_EXPOSES"}
+      ]
+    },
+    "retention_feedback_contract": {
+      "map_analytics_to_scene_ids": true,
+      "record_scene_features": ["hook_type", "claim_ids", "visual_source_type", "shot_type", "caption_density", "transition_type", "audio_event", "story_module"],
+      "record_detected_dips_spikes_top_moments": true,
+      "human_or_model_interpretation_must_be_labelled_hypothesis": true,
+      "promote_edit_pattern_only_after_repeated_measured_win": true,
+      "do_not_create_fake_retention_curve_when_unavailable": true,
+      "universal_cut_interval_seconds": null,
+      "quality_gate_pass_required_before_engagement_experiment_comparison": true,
+      "compare_same_format_and_similar_duration_when_possible": true,
+      "single_viral_outlier_must_not_be_the_baseline": true,
+      "one_primary_creative_variable_per_experiment_when_practical": true,
+      "primary_metric_and_guardrails_declared_before_result_review": true,
+      "average_view_duration_and_average_percentage_viewed_are_diagnostics_not_independent_optimization_targets": true,
+      "tiktok_advertising_heuristics_are_hypothesis_sources_not_cross_platform_law": true,
+      "comprehension_and_emotional_engagement_proxies_must_be_labelled_as_proxies": true,
+      "missing_platform_metric_is_recorded_as_unavailable_not_imputed": true
+    },
+    "packaging_contract": {
+      "title_thumbnail_or_cover_promise_must_match_early_content": true,
+      "early_content_must_deliver_value_without_generic_greeting_delay": true,
+      "curiosity_gap_when_used_must_resolve_inside_the_video": true,
+      "ctr_without_retention_guardrail_cannot_promote_variant": true,
+      "platform_native_ab_testing_preferred_when_available": true
+    }
+  },
+  "tiktok_shop": {
+    "artifact": "artifacts/evaluation/tiktok_shop_creative_funnel.json",
+    "market_default": "JAPAN",
+    "gmv_identity": "GMV = IMPRESSIONS * PRODUCT_CTR * CVR * AOV",
+    "metrics": [
+      {"id":"SHOP_IMPRESSIONS","unit":"count","funnel_stage":"DISCOVERY"},
+      {"id":"SHOP_VIDEO_COMPLETION_RATE","unit":"ratio","funnel_stage":"DISCOVERY","availability":"WHEN_PLATFORM_EXPOSES"},
+      {"id":"SHOP_PRODUCT_CTR","unit":"ratio","funnel_stage":"INTEREST"},
+      {"id":"SHOP_ADD_TO_CART_RATE","unit":"ratio","funnel_stage":"CONSIDERATION","availability":"WHEN_PLATFORM_EXPOSES"},
+      {"id":"SHOP_CVR","unit":"ratio","funnel_stage":"PURCHASE"},
+      {"id":"SHOP_AOV","unit":"currency","funnel_stage":"PURCHASE"},
+      {"id":"SHOP_GMV","unit":"currency","funnel_stage":"OUTCOME"},
+      {"id":"SHOP_RETURN_RATE","unit":"ratio","funnel_stage":"GUARDRAIL"},
+      {"id":"SHOP_REFUND_RATE","unit":"ratio","funnel_stage":"GUARDRAIL"},
+      {"id":"SHOP_COMPLAINT_RATE","unit":"ratio","funnel_stage":"GUARDRAIL"},
+      {"id":"SHOP_POLICY_VIOLATION_RATE","unit":"ratio","funnel_stage":"GUARDRAIL"},
+      {"id":"SHOP_CLAIM_EVIDENCE_COVERAGE","unit":"ratio","block_target":1.0},
+      {"id":"SHOP_VOLATILE_OFFER_RECHECK_RATIO","unit":"ratio","block_target":1.0},
+      {"id":"SHOP_PRODUCT_DEMO_COVERAGE","unit":"structured","fields":["product_visible","real_use_or_function_demo","multi_angle_or_detail","audio_visual_sync","product_anchor_matches"]}
+    ],
+    "experiment_contract": {
+      "declare_target_funnel_stage_before_test": true,
+      "one_primary_creative_variable_when_practical": true,
+      "sales_or_gmv_alone_cannot_override_returns_refunds_claim_or_policy_guardrails": true,
+      "japan_over_30_seconds_guidance_status":"EXPERIMENT_BENCHMARK_NOT_MANDATE",
+      "japan_five_plus_posts_per_week_guidance_status":"EXPERIMENT_BENCHMARK_NOT_MANDATE",
+      "first_three_seconds_status":"TIKTOK_PRIORITY_HEURISTIC_AND_CHECKPOINT_NOT_CROSS_PLATFORM_LAW",
+      "static_pdp_splice":"DISCOURAGED_OR_BLOCK_WHEN_CURRENT_PLATFORM_RULE_REQUIRES",
+      "dynamic_real_world_multi_angle_demo":"PREFERRED_WHEN_PRODUCT_AND_RIGHTS_ALLOW"
+    }
+  },
+  "promotion_and_rollback": {
+    "promotion_record_fields": ["candidate_id", "baseline_id", "variant_id", "metric_deltas", "guardrail_deltas", "sample_context", "platform", "market", "content_category", "decision", "decision_reason", "evidence_refs", "effective_at"],
+    "canonical_promotion_requires": ["REPRODUCIBLE_MEASURED_WIN", "NO_HARD_GUARDRAIL_REGRESSION", "NO_RIGHTS_OR_POLICY_CONFLICT", "APPLICABILITY_SCOPE_RECORDED"],
+    "rollback_triggers": ["REPLICATED_NON_BENEFIT", "QUALITY_GUARDRAIL_REGRESSION", "POLICY_CHANGE", "RIGHTS_RISK", "COST_OR_LATENCY_REGRESSION_EXCEEDS_DECLARED_TRADEOFF", "SOURCE_SUPERSEDED"]
+  }
+}

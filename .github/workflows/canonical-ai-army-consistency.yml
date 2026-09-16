@@ -1,0 +1,301 @@
+name: "Canonical AI Army consistency"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - 'README.md'
+      - 'config/ai_army_org_chart.json'
+      - 'config/multi_agent_operating_policy.json'
+      - 'config/deepseek_paid_supervisor_policy.json'
+      - 'config/agent_efficiency_policy.json'
+      - 'config/framework_adapter_layer.json'
+      - 'config/current_commander_handoff.json'
+      - 'config/permanent_standards_manifest.json'
+      - 'config/media_command_read_gate.json'
+      - 'config/evidence_visual_static_character_policy.json'
+      - 'config/media_source_policy.json'
+      - 'config/media_audio_motion_retention_policy.json'
+      - 'config/media_reusable_asset_standard.json'
+      - 'config/media_character_reaction_cache_policy.json'
+      - 'config/zundamon_metan_production_quality_policy.json'
+      - 'config/free_audio_source_registry.json'
+      - 'config/dova_curated_bgm_catalog.json'
+      - 'config/monetization_command_read_gate.json'
+      - 'config/creator_monetization_policy.json'
+      - 'config/monetization_opportunity_backlog.json'
+      - 'config/platform_program_evidence.json'
+      - 'config/cross_source_knowhow_evidence_matrix.json'
+      - 'config/cross_domain_measurement_registry.json'
+      - 'config/cross_source_second_pass_policy.json'
+      - 'config/second_pass_artifact_contracts.json'
+      - 'config/longform_video_objectives.json'
+      - 'config/longform_video_reliability_policy.json'
+      - 'config/authorized_clipping_monetization_policy.json'
+      - 'config/tiktok_shop_influence_policy.json'
+      - 'config/commerce_clipping_precision_overlay.json'
+      - 'config/legacy_deepseek_compatibility.json'
+      - 'config/ci_execution_policy.json'
+      - 'config/model_registry.json'
+      - 'config/batch_media_orchestration_policy.json'
+      - 'config/bulk_media_worker_pool.json'
+      - 'scripts/ai_army_routing_facade.py'
+      - 'scripts/validate_permanent_ai_army_state.py'
+      - 'scripts/validate_media_command_read_gate.py'
+      - 'scripts/validate_semantic_recall_and_commerce_precision.py'
+      - 'scripts/validate_media_character_visual_standard.py'
+      - 'scripts/validate_evidence_visual_static_character_standard.py'
+      - 'scripts/validate_media_character_reaction_cache.py'
+      - 'scripts/validate_zundamon_metan_production_quality.py'
+      - 'scripts/validate_video_retention_efficiency.py'
+      - 'scripts/prepare_character_reaction_pack.py'
+      - 'scripts/validate_commander_handoff_continuity.py'
+      - 'scripts/validate_creator_monetization_state.py'
+      - 'scripts/validate_cross_source_knowhow.py'
+      - 'scripts/validate_cross_source_second_pass.py'
+      - 'scripts/second_pass_governance.py'
+      - 'scripts/ci_control_plane_guard.py'
+      - 'scripts/agent_architecture_admission.py'
+      - 'scripts/agent_efficiency_eval.py'
+      - 'scripts/check_tiktok_shop_influence_policy.py'
+      - 'scripts/tiktok_shop_claim_gate.py'
+      - 'scripts/commander_routing.py'
+      - 'scripts/deepseek_supervisor_research.py'
+      - 'scripts/deepseek_supervisor_research_resilient.py'
+      - 'scripts/deepseek_json_guard.py'
+      - 'scripts/batch_media_scheduler.py'
+      - 'scripts/media_batch_command_center.py'
+      - 'scripts/media_parallel_framework_mission.py'
+      - 'scripts/media_asset_resolver.py'
+      - 'scripts/parallel_framework_batch.py'
+      - 'scripts/framework_parallel_governor.py'
+      - 'schemas/deepseek_supervisor_mission.schema.json'
+      - 'schemas/batch_media_job.schema.json'
+      - 'schemas/media_batch_command.schema.json'
+      - 'schemas/untrusted_content_envelope.schema.json'
+      - 'schemas/claim_evidence_ledger.schema.json'
+      - 'schemas/creative_experiment.schema.json'
+      - 'schemas/tiktok_shop_claim_manifest.schema.json'
+      - 'docs/AI_ARMY_MASTER_RULEBOOK.md'
+      - 'docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md'
+      - 'docs/MEDIA_COMMAND_READ_GATE.md'
+      - 'docs/EVIDENCE_VISUAL_AND_STATIC_CHARACTER_STANDARD.md'
+      - 'docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md'
+      - 'docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md'
+      - 'docs/CREATOR_MONETIZATION_AND_AGENT_REVENUE_PLAYBOOK.md'
+      - 'docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md'
+      - 'docs/CROSS_SOURCE_SECOND_PASS_2026-09-13.md'
+      - 'docs/MEDIA_PIPELINE.md'
+      - 'docs/LONGFORM_VIDEO_OBJECTIVES.md'
+      - 'docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md'
+      - 'docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md'
+      - 'docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md'
+      - 'docs/COMMERCE_CLIPPING_PRECISION_REFRESH_2026-09-15.md'
+      - 'docs/BATCH_MEDIA_ORCHESTRATION.md'
+      - 'docs/MEDIA_BATCH_COMMAND_CENTER.md'
+      - 'docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md'
+      - 'tests/test_ai_army_routing_facade.py'
+      - 'tests/test_agent_efficiency_policy_regression.py'
+      - 'tests/test_tiktok_shop_claim_gate.py'
+      - 'tests/test_deepseek_json_guard.py'
+      - 'tests/test_batch_media_scheduler.py'
+      - 'tests/test_media_batch_command_center.py'
+      - 'tests/test_media_batch_command_center_ffmpeg.py'
+      - 'tests/test_media_parallel_framework_mission.py'
+      - 'tests/test_media_asset_resolver.py'
+      - 'tests/test_second_pass_governance.py'
+      - '.github/workflows/deepseek-*.yml'
+      - '.github/workflows/*-once.yml'
+      - '.github/workflows/collect-zm-shell-assets.yml'
+      - '.github/workflows/canonical-ai-army-consistency.yml'
+      - '.github/workflows/verify-hierarchical-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: canonical-ai-army-consistency-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Compile canonical routing and validation code
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            scripts/ai_army_routing_facade.py \
+            scripts/validate_permanent_ai_army_state.py \
+            scripts/validate_media_command_read_gate.py \
+            scripts/validate_semantic_recall_and_commerce_precision.py \
+            scripts/validate_media_character_visual_standard.py \
+            scripts/validate_evidence_visual_static_character_standard.py \
+            scripts/validate_media_character_reaction_cache.py \
+            scripts/validate_zundamon_metan_production_quality.py \
+            scripts/validate_video_retention_efficiency.py \
+            scripts/prepare_character_reaction_pack.py \
+            scripts/validate_commander_handoff_continuity.py \
+            scripts/validate_creator_monetization_state.py \
+            scripts/validate_cross_source_knowhow.py \
+            scripts/validate_cross_source_second_pass.py \
+            scripts/second_pass_governance.py \
+            scripts/ci_control_plane_guard.py \
+            scripts/agent_architecture_admission.py \
+            scripts/agent_efficiency_eval.py \
+            scripts/check_tiktok_shop_influence_policy.py \
+            scripts/tiktok_shop_claim_gate.py \
+            scripts/deepseek_supervisor_research.py \
+            scripts/deepseek_supervisor_research_resilient.py \
+            scripts/deepseek_json_guard.py \
+            scripts/batch_media_scheduler.py \
+            scripts/media_batch_command_center.py \
+            scripts/media_parallel_framework_mission.py \
+            scripts/media_asset_resolver.py \
+            scripts/parallel_framework_batch.py \
+            scripts/framework_parallel_governor.py
+
+      - name: Validate canonical JSON policy stack
+        run: |
+          set -euo pipefail
+          python -m json.tool config/ai_army_org_chart.json >/dev/null
+          python -m json.tool config/multi_agent_operating_policy.json >/dev/null
+          python -m json.tool config/deepseek_paid_supervisor_policy.json >/dev/null
+          python -m json.tool config/agent_efficiency_policy.json >/dev/null
+          python -m json.tool config/framework_adapter_layer.json >/dev/null
+          python -m json.tool config/current_commander_handoff.json >/dev/null
+          python -m json.tool config/permanent_standards_manifest.json >/dev/null
+          python -m json.tool config/media_command_read_gate.json >/dev/null
+          python -m json.tool config/evidence_visual_static_character_policy.json >/dev/null
+          python -m json.tool config/media_source_policy.json >/dev/null
+          python -m json.tool config/media_audio_motion_retention_policy.json >/dev/null
+          python -m json.tool config/media_reusable_asset_standard.json >/dev/null
+          python -m json.tool config/media_character_reaction_cache_policy.json >/dev/null
+          python -m json.tool config/zundamon_metan_production_quality_policy.json >/dev/null
+          python -m json.tool config/free_audio_source_registry.json >/dev/null
+          python -m json.tool config/dova_curated_bgm_catalog.json >/dev/null
+          python -m json.tool config/monetization_command_read_gate.json >/dev/null
+          python -m json.tool config/creator_monetization_policy.json >/dev/null
+          python -m json.tool config/monetization_opportunity_backlog.json >/dev/null
+          python -m json.tool config/platform_program_evidence.json >/dev/null
+          python -m json.tool config/cross_source_knowhow_evidence_matrix.json >/dev/null
+          python -m json.tool config/cross_domain_measurement_registry.json >/dev/null
+          python -m json.tool config/cross_source_second_pass_policy.json >/dev/null
+          python -m json.tool config/second_pass_artifact_contracts.json >/dev/null
+          python -m json.tool config/longform_video_objectives.json >/dev/null
+          python -m json.tool config/longform_video_reliability_policy.json >/dev/null
+          python -m json.tool config/authorized_clipping_monetization_policy.json >/dev/null
+          python -m json.tool config/tiktok_shop_influence_policy.json >/dev/null
+          python -m json.tool config/commerce_clipping_precision_overlay.json >/dev/null
+          python -m json.tool config/legacy_deepseek_compatibility.json >/dev/null
+          python -m json.tool config/ci_execution_policy.json >/dev/null
+          python -m json.tool config/batch_media_orchestration_policy.json >/dev/null
+          python -m json.tool config/bulk_media_worker_pool.json >/dev/null
+          python -m json.tool schemas/batch_media_job.schema.json >/dev/null
+          python -m json.tool schemas/media_batch_command.schema.json >/dev/null
+          python -m json.tool schemas/untrusted_content_envelope.schema.json >/dev/null
+          python -m json.tool schemas/claim_evidence_ledger.schema.json >/dev/null
+          python -m json.tool schemas/creative_experiment.schema.json >/dev/null
+          python -m json.tool schemas/tiktok_shop_claim_manifest.schema.json >/dev/null
+          python -m json.tool examples/media_batch_3way.template.json >/dev/null
+
+      - name: Run permanent organization consistency validator
+        run: |
+          set -euo pipefail
+          python scripts/validate_permanent_ai_army_state.py
+
+      - name: Enforce commander handoff continuity
+        run: |
+          set -euo pipefail
+          python scripts/validate_commander_handoff_continuity.py
+
+      - name: Enforce media command read gate
+        run: |
+          set -euo pipefail
+          python scripts/validate_media_command_read_gate.py
+
+      - name: Enforce semantic recall and commerce clipping precision
+        run: |
+          set -euo pipefail
+          python scripts/validate_semantic_recall_and_commerce_precision.py
+
+      - name: Enforce character visuals and searched news backgrounds
+        run: |
+          set -euo pipefail
+          python scripts/validate_media_character_visual_standard.py
+
+      - name: Enforce evidence visuals and static turn-focus characters
+        run: |
+          set -euo pipefail
+          python scripts/validate_evidence_visual_static_character_standard.py
+
+      - name: Enforce reusable character reactions and caption spelling
+        run: |
+          set -euo pipefail
+          python scripts/validate_media_character_reaction_cache.py
+
+      - name: Enforce Zundamon Metan production quality and speed rules
+        run: |
+          set -euo pipefail
+          python scripts/validate_zundamon_metan_production_quality.py
+
+      - name: Enforce viewer retention and quality-preserving efficiency
+        run: |
+          set -euo pipefail
+          python scripts/validate_video_retention_efficiency.py
+
+      - name: Enforce TikTok Shop policy continuity
+        run: |
+          set -euo pipefail
+          python scripts/check_tiktok_shop_influence_policy.py
+
+      - name: Enforce creator monetization continuity and program evidence
+        run: |
+          set -euo pipefail
+          python scripts/validate_creator_monetization_state.py
+
+      - name: Enforce cross-source evidence and measurement governance
+        run: |
+          set -euo pipefail
+          python scripts/validate_cross_source_knowhow.py
+
+      - name: Enforce second-pass security provenance and experiment governance
+        run: |
+          set -euo pipefail
+          python scripts/validate_cross_source_second_pass.py
+
+      - name: Enforce bounded CI control plane
+        run: |
+          set -euo pipefail
+          python scripts/ci_control_plane_guard.py
+
+      - name: Run canonical and batch regression tests
+        run: |
+          set -euo pipefail
+          python -m unittest \
+            tests.test_ai_army_routing_facade \
+            tests.test_agent_efficiency_policy_regression \
+            tests.test_tiktok_shop_claim_gate \
+            tests.test_deepseek_json_guard \
+            tests.test_batch_media_scheduler \
+            tests.test_media_batch_command_center \
+            tests.test_media_batch_command_center_ffmpeg \
+            tests.test_media_parallel_framework_mission \
+            tests.test_media_asset_resolver \
+            tests.test_second_pass_governance -v
+
+      - name: Prove no paid call occurs in consistency CI
+        run: |
+          set -euo pipefail
+          test -z "${DEEPSEEK_API_KEY:-}"
+          ! grep -q 'secrets.DEEPSEEK_API_KEY' .github/workflows/canonical-ai-army-consistency.yml
+          echo 'PAID_CALLS=0'

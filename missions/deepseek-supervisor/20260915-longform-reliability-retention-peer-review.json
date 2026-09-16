@@ -1,0 +1,43 @@
+{
+  "mission_id": "20260915-longform-reliability-retention-peer-review",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Peer-review and synthesize current long-form Japanese news/topic video know-how for the 8-12 minute default. Focus on two outcomes together: higher viewer retention/comprehension without filler, and a production/AI workflow that survives provider errors, process hangs, runner interruption and partial failures without losing healthy work. Compare the supplied official-source evidence with the current repository longform policies. Identify stale or contradictory rules to remove, not only additions. Preserve the compact ChatGPT+DeepSeek research/script pair and deterministic mechanical production. Return ADOPT NOW / TEST / REJECT, measurable acceptance criteria, and a compact recovery architecture. ChatGPT performs final source verification and policy adjudication.",
+  "shared_evidence": [
+    {"source":"YouTube Help — Measure key moments for audience retention","tier":"PRIMARY","retrieved_at":"2026-09-15","summary":"YouTube exposes intro retention, top moments, spikes and dips and recommends using them to understand where viewers stay, rewatch or leave. Retention comparisons should account for similar-length videos; compelling later moments can be considered for earlier placement when story logic permits."},
+    {"source":"YouTube Help — impressions/CTR and recommendation guidance","tier":"PRIMARY","retrieved_at":"2026-09-15","summary":"Packaging and early content should fulfill the title/thumbnail promise. CTR should not be optimized without watch/retention guardrails; misleading clickbait is not a durable strategy."},
+    {"source":"LangGraph official docs — durable execution and persistence","tier":"PRIMARY","retrieved_at":"2026-09-15","summary":"Durable execution depends on persistence/checkpointing and replay-safe workflow design. Side effects and non-deterministic operations should be isolated so interrupted workflows can resume without duplicating work."},
+    {"source":"Temporal official docs — durable execution","tier":"PRIMARY","retrieved_at":"2026-09-15","summary":"Durable workflow systems persist execution state and resume after process or infrastructure failures. Activity retries, idempotency and explicit workflow state are key concepts; this is architecture evidence, not a mandate to adopt Temporal itself."},
+    {"source":"AWS Builders Library — Timeouts, retries, and backoff with jitter","tier":"PRIMARY","retrieved_at":"2026-09-15","summary":"Retries can amplify overload. Use timeouts, bounded retries, exponential backoff and jitter; make retried operations idempotent. Avoid retrying at multiple layers because multiplicative retry storms can result."},
+    {"source":"Google Cloud retry guidance — exponential backoff","tier":"PRIMARY","retrieved_at":"2026-09-15","summary":"Transient failures should use bounded exponential backoff and only retry retryable conditions. Permanent errors require correction rather than repeated calls."},
+    {"source":"GitHub Actions official docs — concurrency, dependency caching, artifacts, job timeout","tier":"PRIMARY","retrieved_at":"2026-09-15","summary":"Concurrency can prevent duplicate overlapping runs; caches are for reusable dependencies/accelerators while artifacts preserve outputs between jobs/runs. Jobs should have bounded timeouts. Workflow design should distinguish replaceable cache from durable evidence/output."},
+    {"source":"FFmpeg official documentation — streamcopy, concat demuxer, segment muxer, ffprobe","tier":"PRIMARY","retrieved_at":"2026-09-15","summary":"Compatible scene outputs can be joined without unnecessary re-encoding using stream copy/concat. ffprobe provides machine-readable validation. Segmenting and scene-first production isolate failures but require media-contract compatibility."},
+    {"source":"Adobe Premiere Pro official docs — Productions/proxy workflow","tier":"PRIMARY","retrieved_at":"2026-09-15","summary":"Long-form editing benefits from project/media organization and proxy workflows that reduce resource pressure while preserving high-quality source media for final output. This supports proxy/preflight as a selective accelerator, not a mandatory proxy for every scene."},
+    {"source":"Current repository longform-video-reliability-v4","tier":"PRIMARY","retrieved_at":"2026-09-15","summary":"Already requires scene-first rendering, content-addressed checkpoints, atomic scene promotion, ffprobe media contracts, bounded retries, process timeouts, preserved healthy outputs and cache/artifact role separation. It still has a stale 6-10 minute duration heuristic and older AI-division wording that should be checked against the user's 8-12 minute and compact ChatGPT+DeepSeek instructions."},
+    {"source":"Current media_audio_motion_retention_policy v5","tier":"PRIMARY","retrieved_at":"2026-09-15","summary":"A contradiction remains: older editing-profile fields require expression changes every 1-2 sentences and a hard fail after more than two sentences, while newer character-performance policy explicitly forbids fixed-interval expression changes. Newer semantic-beat policy should win and stale fixed-interval rules should be removed."},
+    {"source":"User explicit preference 2026-09-15","tier":"PRIMARY","retrieved_at":"2026-09-15","summary":"Future normal news/topic explainers target 8-12 minutes without padding via irrelevant history, repetition, slow narration or low-information filler. Runtime should be earned with relevant facts, mechanism, impact, material chronology, uncertainty and next watchpoints."}
+  ],
+  "lanes": [
+    {"id":"longform_editorial_retention","objective":"Review 8-12 minute long-form editorial structure using YouTube retention evidence. Define how to earn runtime with information density, chapter promises, evidence cadence, open-loop resolution, recap discipline and ending payoff without fixed cut intervals or filler. Separate official platform evidence from hypotheses."},
+    {"id":"durable_agent_execution","objective":"Design a compact failure-resilient AI workflow using checkpoint/resume, idempotency, leases, state manifests, bounded timeouts, no-progress detection, circuit breakers, provider health backpressure and last-known-good outputs. Apply LangGraph/Temporal/AWS/GitHub concepts without cargo-cult framework adoption."},
+    {"id":"render_and_media_resilience","objective":"Audit FFmpeg/VOICEVOX/GitHub Actions long-form reliability. Recommend scene/chapter atomic commits, artifact vs cache roles, selective proxies, concat/streamcopy, resource governor, watchdogs, disk/RAM checks, Fast Start delivery and smallest-stage recovery. Flag failure modes that can silently produce corrupt or incomplete outputs."},
+    {"id":"policy_conflict_and_pruning","objective":"Compare current repository longform and media rules with supplied user preferences. Identify stale duration ranges, fixed-interval expression rules, redundant docs, contradictory AI-role wording, and anything that should be deleted/demoted rather than appended. Preserve useful rules."},
+    {"id":"measurement_and_qa","objective":"Define measurable long-form production and retention metrics: chapter/scene completion, retry/root-cause counts, checkpoint recovery success, healthy-work regeneration, wasted encode seconds, provider stall time, final decode/Fast Start, caption coverage, retention dips/spikes/top moments when analytics exist. Missing analytics remain unavailable, never invented."},
+    {"id":"final_redteam","objective":"Red-team the complete proposal. Reject fixed universal cadence, retry-everything, monolithic render, multi-layer retry storms, excessive agent fanout, cache-as-checkpoint, and any quality/reliability shortcut. Produce a concise adoption packet with MUST KEEP / ADOPT / TEST / REMOVE and acceptance criteria."}
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 8,
+  "max_output_tokens_per_lane": 6144,
+  "max_output_tokens_synthesis": 10000,
+  "max_estimated_cost_usd": 0.50,
+  "known_estimated_daily_spend_before_mission_usd": 0.01796335,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}

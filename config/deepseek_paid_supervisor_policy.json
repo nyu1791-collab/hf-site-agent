@@ -1,0 +1,180 @@
+{
+  "schema_version": "deepseek-paid-supervisor-v4",
+  "effective_date_jst": "2026-09-14",
+  "status": "ACTIVE_SCOPED_EXCEPTION",
+  "human_authorization": {
+    "authorized": true,
+    "persistent_for_allowed_scope": true,
+    "authorized_by_user_on": "2026-09-14",
+    "purpose": "Use paid DeepSeek heavily and routinely as a working Executive Supervisor: broad research, evidence gathering and triage, architecture, peer review, decomposition, red-team analysis, incident diagnosis, media and commerce strategy, script/report drafting, task packaging, subordinate dispatch planning, subordinate review, and bounded low-risk clerical support that reduces coordination overhead.",
+    "repeat_per_call_approval_required": false
+  },
+  "precedence": {
+    "scope": "DEEPSEEK_PAID_SUPERVISORY_PATH_ONLY",
+    "overrides_global_free_only_for_this_scope": true,
+    "does_not_override": ["NO_AUTO_TOP_UP", "NO_SECRET_DISCLOSURE_OR_MUTATION", "NO_MAIN_DIRECT_PUSH", "NO_PR_MERGE", "NO_PRODUCTION_DEPLOY", "NO_PUBLIC_PUBLISH", "NO_DURABLE_OBJECT_CHANGE", "NO_THIRD_PARTY_FREEMIUM_MEDIA_SAAS"],
+    "other_paid_providers_remain_disallowed_without_explicit_user_authorization": true
+  },
+  "provider": {
+    "id": "deepseek",
+    "base_url": "https://api.deepseek.com",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "canonical_request_model": "deepseek-v4-flash",
+    "official_model_version": "DeepSeek-V4-Flash-0731",
+    "legacy_or_response_aliases_are_not_configuration_ids": ["deepseek-flash"],
+    "context_length_tokens": 1000000,
+    "json_output": true,
+    "tool_calls": true,
+    "context_cache_enabled_by_provider": true,
+    "model_id_must_be_reverified_against_official_docs_before_future_migration": true
+  },
+  "routing_integration": {
+    "canonical_policy_router": "scripts/ai_army_routing_facade.py",
+    "canonical_paid_execution_workflow": ".github/workflows/deepseek-supervisor-research.yml",
+    "canonical_mission_schema": "schemas/deepseek_supervisor_mission.schema.json",
+    "legacy_commander_router_is_compatibility_only": true,
+    "historical_deepseek_configs_authorize_execution": false,
+    "historical_paid_deepseek_workflows_may_remain_active": false,
+    "mandatory_paid_hop_for_every_task": false,
+    "direct_specialist_bypass_for_narrow_verified_execution": true,
+    "direct_specialist_bypass_may_authorize_paid_fallback": false,
+    "chatgpt_final_authority_on_all_routes": true
+  },
+  "hierarchy": {
+    "top_commander": "chatgpt-work",
+    "deepseek_rank": "EXECUTIVE_SUPERVISOR",
+    "deepseek_depth": 1,
+    "deepseek_reports_to": "chatgpt-work",
+    "deepseek_is_lowest_worker": false,
+    "deepseek_is_bulk_coding_worker": false,
+    "deepseek_primary_duties": ["RESEARCH_DIRECTOR", "EVIDENCE_TRIAGE_OPERATOR", "SYSTEM_ARCHITECT", "PEER_REVIEW_CHAIR", "RED_TEAM_CHAIR", "INCIDENT_COMMANDER", "MEDIA_STRATEGY_SUPERVISOR", "TIKTOK_SHOP_STRATEGY_SUPERVISOR", "SCRIPT_AND_REPORT_DRAFTER", "TASK_PACKAGER", "SUBORDINATE_DISPATCH_COORDINATOR", "SUBORDINATE_WORK_REVIEWER", "BOUNDED_CLERICAL_SUPPORT"],
+    "execution_rule": "ACT_AS_A_WORKING_MANAGER: SUPERVISE, DELEGATE, DRAFT, PACKAGE, REVIEW, AND SELF_COMPLETE_BOUNDED_LOW_RISK_SUPPORT_WHEN_THAT_REDUCES_HANDOFF_OVERHEAD; USE_DETERMINISTIC_TOOLS_FIRST_WHEN_THEY_ARE_CLEARLY FASTER_CHEAPER_AND_MORE_RELIABLE",
+    "subordinate_max_depth": 2,
+    "subordinate_execution_preference": ["DETERMINISTIC_TOOLS", "VERIFIED_FREE_OR_LOW_COST_SPECIALISTS", "VERIFIED_QWEN_OR_NVIDIA_OR_GROQ_OR_GOOGLE_SPECIALISTS", "OPENROUTER_FREE_WORKERS_WHEN_VERIFIED"],
+    "subordinate_route_must_be_verified_before_use": true,
+    "worker_to_worker_delegation": false
+  },
+  "working_manager_mode": {
+    "enabled": true,
+    "may_do_low_risk_chores_inside_active_mission": true,
+    "batch_related_chores_with_parent_mission": true,
+    "may_collect_and_organize_evidence_from_commander_or_subordinate_search_lanes": true,
+    "may_extract_source_notes_and_build_comparison_tables": true,
+    "may_draft_scripts_reports_briefs_checklists_and_task_packets": true,
+    "may_prepare_subordinate_assignments_and_acceptance_criteria": true,
+    "may_reconcile_subordinate_outputs_before_chatgpt_review": true,
+    "may_create_followup_research_questions": true,
+    "standalone_paid_call_for_one_trivial_deterministic_chore_by_default": false,
+    "machine_oracle_still_wins_for_exact_deterministic_work": true,
+    "chatgpt_final_adjudication_required": true
+  },
+  "supervisor_admission": {
+    "routine_complex_missions_auto_admit": true,
+    "user_reapproval_per_mission": false,
+    "use_by_default_when_any": ["BROAD_RESEARCH", "MULTI_SOURCE_COMPARISON", "HIGH_UNCERTAINTY", "ARCHITECTURE_OR_SYSTEM_DESIGN", "RED_TEAM_OR_COUNTERARGUMENT_REVIEW", "INCIDENT_OR_ROOT_CAUSE_ANALYSIS", "STRATEGIC_SYNTHESIS", "MEDIA_OR_COMMERCE_STRATEGY", "SUBORDINATE_TASK_DECOMPOSITION", "SUBORDINATE_RESULT_REVIEW", "SCRIPT_OR_REPORT_DRAFTING_LINKED_TO_RESEARCH", "EVIDENCE_PACKAGING", "MULTI_STEP_WORK_WITH_RELATED_CLERICAL_SUPPORT"],
+    "skip_by_default_when_all_work_is": ["SINGLE_TRIVIAL_DETERMINISTIC_TRANSFORM", "PURE_MACHINE_VALIDATION", "LARGE_BOILERPLATE_CODE_GENERATION", "REPETITIVE_FILE_REWRITE_WITHOUT_JUDGMENT"],
+    "principle": "USE_DEEPSEEK_AS_A_HIGH-UTILIZATION_WORKING_MANAGER: IT MAY DO RESEARCH, DRAFTING, PACKAGING, TRIAGE AND RELATED CHORES, BUT DO NOT PAY IT TO REPLACE A FASTER RELIABLE MACHINE ORACLE"
+  },
+  "usage_policy": {
+    "spend_compute_on": ["broad_information_gathering", "source_comparison", "evidence triage", "source-note extraction", "architecture alternatives", "failure mode discovery", "contradiction search", "design peer review", "competitive and platform research", "media workflow review", "TikTok Shop product and creative strategy review", "script and report drafting", "brief and checklist preparation", "comparison tables", "task-envelope and subordinate-assignment preparation", "subordinate result synthesis", "postmortem and remediation planning", "bounded clerical work attached to an admitted mission"],
+    "avoid_spending_compute_on": ["large boilerplate code generation", "pure mechanical formatting when a local tool is exact", "simple deterministic transforms with a machine oracle", "bulk file rewrites without judgment", "duplicate source processing already present in a verified artifact"],
+    "coding": {
+      "default_mode": "REVIEW_PLAN_AND_PATCH_GUIDANCE",
+      "bulk_code_generation_by_default": false,
+      "direct_repository_write": false,
+      "may_review_large_patches": true,
+      "may_generate_small_targeted_patch": true,
+      "prefer_delegate_large_implementation_to_specialist": true
+    }
+  },
+  "compute_allocation": {
+    "default_mode": "WORKING_EXECUTIVE_SUPERVISOR",
+    "priority_order": ["RESEARCH_COVERAGE", "SOURCE_TRIANGULATION", "EVIDENCE_TRIAGE", "CONTRADICTION_DISCOVERY", "ALTERNATIVE_GENERATION", "SCRIPT_OR_REPORT_DRAFTING", "TASK_PACKAGING", "ARCHITECTURE_REVIEW", "RED_TEAM_REVIEW", "SUBORDINATE_REVIEW", "SYNTHESIS", "RELATED_CLERICAL_SUPPORT"],
+    "prefer_multiple_independent_research_lanes_over_one_very_long_monologue": true,
+    "prefer_managerial_reasoning_and_useful_work_products_over_idle_supervision": true,
+    "successful_lane_reuse_before_new_call": true,
+    "stop_when_additional_calls_have_low_expected_information_gain_or_only_duplicate_work": true
+  },
+  "research_fanout": {
+    "pattern": "CHATGPT_TO_DEEPSEEK_WORKING_SUPERVISOR_TO_BOUNDED_RESEARCH_OR_DRAFTING_LANES_TO_DEEPSEEK_SYNTHESIS_TO_CHATGPT_ADJUDICATION",
+    "default_max_distinct_research_lanes": 6,
+    "default_max_parallel_deepseek_calls": 3,
+    "default_max_deepseek_calls_per_mission": 8,
+    "expansion_ceiling": {"max_distinct_research_lanes": 8, "max_parallel_deepseek_calls": 4, "max_deepseek_calls_per_mission": 12},
+    "expansion_requires": ["EXPLICIT_MISSION_REASON", "INDEPENDENT_PARALLEL_RESEARCH_DIRECTIONS", "BUDGET_PREFLIGHT_PASS", "NO_DUPLICATE_LANE", "EXPECTED_INFORMATION_GAIN"],
+    "successful_lane_is_never_repeated_without_new_evidence": true,
+    "failed_lane_retry_limit": 1,
+    "same_root_cause_retry": false,
+    "final_deepseek_synthesis_call": true,
+    "chatgpt_final_adjudication_required": true
+  },
+  "reasoning_effort": {
+    "routing_and_light_triage": "low",
+    "normal_research_drafting_and_peer_review": "high",
+    "architecture_incident_and_red_team": "max",
+    "mapping_is_default_not_unmeasured_dogma": true,
+    "do_not_use_max_for_low_judgment_clerical_tasks": true
+  },
+  "context_and_cache": {
+    "stable_shared_prefix_first": true,
+    "prefix_hash_required": true,
+    "prefix_boundary_marker_required": true,
+    "put_canonical_policy_and_evidence_before_lane_specific_prompt": true,
+    "lane_specific_instruction_after_shared_prefix": true,
+    "reuse_identical_prefixes_to_maximize_provider_context_cache_hits": true,
+    "send_artifact_refs_instead_of_repeating_large_raw_outputs": true,
+    "artifact_reference_fields": ["uri", "sha256", "bytes", "media_type", "produced_at"],
+    "distilled_lane_result_only": true,
+    "no_hidden_scratchpad_required_in_handoff": true,
+    "cache_is_accelerator_not_checkpoint_or_evidence": true
+  },
+  "failure_and_termination": {
+    "required_failure_classes": ["CONSTRAINT_VIOLATION", "REPETITION", "CONTEXT_LOSS", "DERAILMENT", "IGNORED_INPUT", "REASONING_ACTION_MISMATCH", "PREMATURE_TERMINATION", "WEAK_VERIFICATION", "PROVIDER_OR_TOOL_FAILURE", "STALE_STATE_OR_WRITE_CONFLICT"],
+    "repetition_detection_uses_normalized_action_and_argument_hash": true,
+    "repeated_identical_action_without_new_evidence": "REPLAN_OR_CIRCUIT_BREAK",
+    "completion_requires_acceptance_criteria_and_verification_artifacts": true,
+    "termination_reason_required": true,
+    "preserve_successful_lane_outputs_on_partial_failure": true
+  },
+  "budget": {
+    "guard_pricing_basis": "CURRENT_OFFICIAL_PEAK_RATE",
+    "max_estimated_cost_usd_per_mission": 0.50,
+    "max_estimated_cost_usd_per_day": 3.00,
+    "max_output_tokens_per_research_lane": 8192,
+    "max_output_tokens_for_supervisor_synthesis": 12288,
+    "stop_before_estimated_budget_exceeded": true,
+    "auto_top_up": false,
+    "nonurgent_batch_prefers_off_peak": true,
+    "urgent_user_request_runs_immediately": true,
+    "usage_based_estimate_is_not_authoritative_billing_statement": true,
+    "pricing_per_million_usd": {
+      "off_peak": {"prompt_cache_hit": 0.007, "prompt_cache_miss": 0.22, "output": 0.66},
+      "peak": {"prompt_cache_hit": 0.014, "prompt_cache_miss": 0.44, "output": 1.32}
+    }
+  },
+  "quality_contract": {
+    "deepseek_advice_is_not_ground_truth": true,
+    "source_tiers": ["PRIMARY", "PEER_REVIEWED_OR_OFFICIAL_RESEARCH", "REPUTABLE_SECONDARY", "HEURISTIC"],
+    "separate_facts_from_inference": true,
+    "identify_conflicting_evidence": true,
+    "propose_remove_or_demote_not_only_add": true,
+    "recommend_measurable_tests_and_metrics": true,
+    "drafts_must_preserve_source_claim_ids_or_evidence_references_when_claim_bearing": true,
+    "chatgpt_checks_primary_sources_before_policy_or_publication_adoption": true,
+    "machine_oracle_over_model_vote_when_available": true,
+    "blind_first_review_for_high_impact_anchor_risk": true
+  },
+  "safety": {
+    "production_enabled": false,
+    "generic_paid_fallback": false,
+    "paid_media_generation": false,
+    "repository_write_by_deepseek": false,
+    "deploy": false,
+    "publish": false,
+    "merge": false,
+    "secret_mutation_or_disclosure": false,
+    "irreversible_external_action": false,
+    "human_approval_still_required_for_side_effects_outside_authorized_research_scope": true
+  },
+  "success_metrics": ["task_success_rate", "accepted_recommendation_rate_after_chatgpt_review", "research_coverage", "contradiction_detection_rate", "false_claim_rate", "draft_acceptance_rate", "handoff_completeness", "subordinate_task_packet_quality", "clerical_rework_rate", "cost_per_accepted_decision", "p95_research_latency", "cache_hit_rate", "cache_miss_tokens", "duplicate_research_avoided", "replan_rate", "incident_root_cause_resolution_rate", "coordination_overhead_ratio"]
+}

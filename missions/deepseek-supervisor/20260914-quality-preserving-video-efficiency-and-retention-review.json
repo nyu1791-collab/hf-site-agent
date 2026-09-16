@@ -1,0 +1,109 @@
+{
+  "mission_id": "20260914-quality-preserving-video-efficiency-and-retention-review",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Act as a hard-working Executive Supervisor and perform a second-pass design review of the Japanese vertical Zundamon/Shikoku Metan AI-news production system. Find ways to materially reduce production and revision time without lowering visible, factual, audio or editorial quality; at the same time improve viewer choice-to-view, early retention, comprehension, curiosity, pacing, emotional engagement and finish quality. Compare every recommendation against the latest postmortem fixes for mouth compositing, brighter explainer panels, semantic caption segmentation, low-cost preview QA and stage-level checkpoint reuse. Do not merely add rules: identify conflicts, redundancy, over-animation risks, false-efficiency shortcuts, and rules that should be removed or demoted. Produce a prioritized, measurable production architecture and editorial structure that ChatGPT can independently adjudicate before any policy adoption. No video generation or public posting is part of this mission.",
+  "shared_evidence": [
+    {
+      "source": "User visual review of the 2026-09-14 two-video render",
+      "tier": "PRIMARY_USER_FEEDBACK",
+      "summary": "The overall result was liked, but both Zundamon and Shikoku Metan mouth composites looked wrong; explainer/background cards felt too dark and should be brighter; captions should break at natural semantic phrase boundaries. User explicitly asked to keep the good parts, improve the canonical standards rather than immediately remake the videos, and identify efficiency improvements for future work."
+    },
+    {
+      "source": "config/zundamon_metan_production_quality_policy.json at branch head before this mission",
+      "tier": "CANONICAL_MACHINE_POLICY",
+      "summary": "The current policy now requires per-character mouth-anchor calibration, exactly one active mouth state, closed/small-open/open fixtures, semantic caption segmentation before character-count fallback, indivisible Latin/technical tokens, brighter lifted-midtones explainer panels, low-cost risk-based visual preview before expensive full render, post-render visual sampling, and smallest-affected-stage incremental repair. Decode PASS alone is explicitly not a visual-quality PASS."
+    },
+    {
+      "source": "config/batch_media_orchestration_policy.json at branch head before this mission",
+      "tier": "CANONICAL_MACHINE_POLICY",
+      "summary": "The current batch policy keeps up to three independent jobs in parallel, Single Writer per job, bounded retries, rights/claim/QA gates, and stage graph checkpoints: research/script, voice chunks, measured timing, character layer, evidence/panel layer, caption overlay, audio mix, final composite/mux. Caption-only, panel-only and mouth-only fixes invalidate only the true dependent stages rather than the full pipeline."
+    },
+    {
+      "source": "YouTube Help — Search & discovery tips for Shorts",
+      "tier": "PRIMARY_PLATFORM_GUIDANCE",
+      "summary": "YouTube says Shorts ranking considers whether viewers choose to watch versus ignore, average view duration, average percentage viewed, and satisfaction signals. It recommends focusing on what the audience likes rather than a single favored format."
+    },
+    {
+      "source": "YouTube Help — Understand content performance for recommendation system",
+      "tier": "PRIMARY_PLATFORM_GUIDANCE",
+      "summary": "YouTube says the initial seconds are where viewers decide whether to stay; the intro should immediately deliver on the title/thumbnail promise and provide value. It recommends sustaining interest with storytelling, anticipation and curiosity, and using Analytics retention at key moments to learn what works."
+    },
+    {
+      "source": "YouTube Help — Audience retention / key moments",
+      "tier": "PRIMARY_PLATFORM_GUIDANCE",
+      "summary": "YouTube retention reports distinguish top moments, spikes and dips. It recommends moving compelling late moments earlier when appropriate, and investigating dips/spikes rather than assuming every change is good. Retention should be compared with similar-length videos."
+    },
+    {
+      "source": "YouTube Help — Shorts analytics",
+      "tier": "PRIMARY_PLATFORM_GUIDANCE",
+      "summary": "Shorts analytics exposes chose-to-view versus swiped-away, watch time and audience retention. YouTube recommends comparing similar formats and learning from both strong and weak videos instead of copying a viral outlier."
+    },
+    {
+      "source": "YouTube Help — Shorts upload schedule tips",
+      "tier": "PRIMARY_PLATFORM_GUIDANCE",
+      "summary": "YouTube explicitly recommends reviewing time-to-produce and monetary cost versus returns, and using a sustainable production schedule rather than maximizing cadence at the expense of quality."
+    },
+    {
+      "source": "TikTok For Business — Creative Codes / creative best practices",
+      "tier": "PRIMARY_PLATFORM_GUIDANCE_WITH_ADVERTISING_CONTEXT",
+      "summary": "TikTok recommends a hook-body-close structure, strong value communication early, and attention stimulation through purposeful movement, text, sound and transitions. It also stresses vertical high-resolution production and UI-safe zones. These are advertising-derived heuristics and must not be treated as universal organic-content laws."
+    },
+    {
+      "source": "TikTok Ads Manager — Best practices for video insights",
+      "tier": "PRIMARY_PLATFORM_GUIDANCE_WITH_ADVERTISING_CONTEXT",
+      "summary": "TikTok recommends iterating different hooks, reusing successful elements, examining engagement peaks and benchmarks, and using video insights to accelerate future production rather than rebuilding everything."
+    },
+    {
+      "source": "TikTok commercial-content quality standard",
+      "tier": "PRIMARY_PLATFORM_GUIDANCE_WITH_COMMERCIAL_CONTEXT",
+      "summary": "TikTok treats image clarity/stability/aesthetics, clear synced audio and logically consistent visual/audio/text as foundational quality. It also says creative production should capture attention early with thoughtful editing rather than sacrificing baseline quality."
+    },
+    {
+      "source": "Observed production behavior from the two-video mission",
+      "tier": "INTERNAL_OBSERVATION",
+      "summary": "Two independent videos and VOICEVOX lanes successfully ran in parallel and reusable character/background assets reduced repeated work. However, an English caption-wrap issue caused an expensive full rerender, and post-render visual QA did not initially catch the mouth-compositing defect or overly dark explainer treatment. The new incremental and preview rules are intended to prevent that class of waste."
+    }
+  ],
+  "lanes": [
+    {
+      "id": "retention_structure",
+      "objective": "Design the strongest evidence-compatible 60-90 second Japanese AI-news structure for Zundamon/Metan dialogue. Separate platform-supported principles from heuristics. Specify hook, promise, evidence reveal, tension/contrast, clarification, payoff and close; identify where curiosity gaps help versus where they become clickbait. Recommend what should happen in the first 1-3, 3-10, 10-30, 30-60 and final seconds without forcing rigid cuts. Include anti-patterns."
+    },
+    {
+      "id": "visual_quality_and_attention",
+      "objective": "Review the current brighter-panel, character-motion, evidence-card and semantic visual-cadence rules. Determine how to keep the frame visually bright, clear and lively without over-animation, visual fatigue or reduced credibility. Recommend a small reusable visual grammar for speaker focus, evidence reveal, diagrams, reaction symbols, camera motion and color contrast that can be templated and cached. Explicitly audit the mouth-compositing lesson and specify cheap preflight fixtures that catch face-layer failures."
+    },
+    {
+      "id": "caption_comprehension_and_pacing",
+      "objective": "Review semantic caption segmentation, official Latin spelling, line density and reading speed. Propose a Japanese-first caption strategy that maximizes comprehension and rhythm without adding manual editing burden. Distinguish semantic chunking, rendered-width fit, timing and emphasis. Identify deterministic checks that can replace repeated human cleanup and list cases that still require human/visual review."
+    },
+    {
+      "id": "quality_preserving_efficiency",
+      "objective": "Audit the entire production pipeline for time savings that do not reduce quality: stage hashing, checkpoint reuse, partial invalidation, shared decoded/scaled assets, VOICEVOX chunk reuse, preview-first QA, parallel preparation, deterministic rendering, ffprobe timing, decode QA and final visual sampling. Estimate which changes save the most time in first-pass versus revision-heavy jobs. Flag optimizations that look fast but raise defect or factual-risk rates."
+    },
+    {
+      "id": "measurement_and_learning_loop",
+      "objective": "Design a bounded post-publication learning loop using actual platform metrics rather than creative folklore. For Shorts/TikTok-style vertical news, define what to record per video (for example chose-to-view/swipe, early retention, average percentage viewed, dips/spikes, comments, completion, production time, revision count) and how to compare only similar formats/lengths. Propose a small experiment cadence for hooks, pacing and visual treatments while preventing simultaneous-variable confusion or overfitting to one viral video."
+    },
+    {
+      "id": "red_team_and_production_packager",
+      "objective": "Act as skeptical reviewer and working manager. Reconcile the other lanes with the latest canonical fixes. Remove redundant or contradictory recommendations, protect factual accuracy and serious-topic tone, and produce a prioritized adoption packet: MUST KEEP, ADOPT NOW, TEST BEFORE PROMOTION, REJECT, plus measurable acceptance criteria. Include a concise reusable production blueprint and checklist that improves both viewer appeal and turnaround time. Do not recommend mandatory animation or fixed scene changes every N seconds merely to increase stimulation."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 8,
+  "max_output_tokens_per_lane": 6144,
+  "max_output_tokens_synthesis": 10000,
+  "max_estimated_cost_usd": 0.50,
+  "known_estimated_daily_spend_before_mission_usd": 0.05,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}

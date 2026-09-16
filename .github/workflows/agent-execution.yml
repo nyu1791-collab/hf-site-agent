@@ -1,10 +1,14 @@
-name: Run one commander-approved specialist agent safely
+name: Run one commander-approved OpenRouter worker safely
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
         description: Type COMMANDER_APPROVE only after reviewing the handoff packet
+        required: true
+        type: string
+      probe_confirm:
+        description: Type PROBE_FREE_WORKERS to permit the bounded current-catalog probe
         required: true
         type: string
       task_id:
@@ -17,12 +21,25 @@ on:
         type: choice
         options:
           - research
+          - data
+          - media
+          - long-context
+          - fact-check
+          - planning
           - product
           - content
           - video
           - code
           - qa
           - metrics
+      parent_agent_id:
+        description: Direct provider commander that owns this specialist task
+        required: true
+        type: choice
+        options:
+          - google-general-commander
+          - nvidia-engineering-commander
+          - groq-rapid-commander
       instruction:
         description: Commander-approved task instruction (no secrets; maximum 5000 characters)
         required: true
@@ -37,12 +54,6 @@ on:
         required: false
         default: ""
         type: string
-      model:
-        description: "Free model ID; use qwen/qwen3-32b:free or deepseek/deepseek-chat-v3-0324:free"
-        required: true
-        default: qwen/qwen3-32b:free
-        type: string
-
 permissions:
   contents: read
 
@@ -60,11 +71,12 @@ jobs:
         env:
           REF_NAME: ${{ github.ref_name }}
           CONFIRM: ${{ inputs.confirm }}
+          PROBE_CONFIRM: ${{ inputs.probe_confirm }}
           TASK_ID: ${{ inputs.task_id }}
           TASK_INSTRUCTION: ${{ inputs.instruction }}
           TASK_CONTEXT: ${{ inputs.context }}
           TASK_ACCEPTANCE: ${{ inputs.acceptance }}
-          AI_MODEL: ${{ inputs.model }}
+          PARENT_AGENT_ID: ${{ inputs.parent_agent_id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -75,6 +87,11 @@ jobs:
           fi
           if [[ "$CONFIRM" != "COMMANDER_APPROVE" ]]; then
             echo "Type COMMANDER_APPROVE only after the commander reviews the packet." >&2
+            exit 1
+          fi
+          PROBE_CONFIRM="$(printf '%s' "$PROBE_CONFIRM" | tr -d '[:space:]')"
+          if [[ "$PROBE_CONFIRM" != "PROBE_FREE_WORKERS" ]]; then
+            echo "Type PROBE_FREE_WORKERS to permit the bounded current-catalog probe." >&2
             exit 1
           fi
           if [[ -z "$TASK_ID" || ${#TASK_ID} -gt 100 || "$TASK_ID" =~ [[:space:]] ]]; then
@@ -89,15 +106,7 @@ jobs:
             echo "Task context or acceptance tests exceed the allowed size." >&2
             exit 1
           fi
-          if [[ -z "$AI_MODEL" || ${#AI_MODEL} -gt 160 || ! "$AI_MODEL" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
-            echo "Model ID must be non-empty and contain only provider-safe characters." >&2
-            exit 1
-          fi
-          if [[ "$AI_MODEL" != "openrouter/free" && "$AI_MODEL" != *":free" ]]; then
-            echo "Only OpenRouter free models are accepted; no paid fallback is allowed." >&2
-            exit 1
-          fi
-          echo "Commander approval validated; specialist remains draft-only."
+          echo "Commander approval and bounded free-worker probe consent validated; specialist remains draft-only."
 
       - name: Check out reviewed specialist script
         uses: actions/checkout@v6
@@ -109,21 +118,26 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install bounded OpenAI-compatible client
+      - name: Discover and verify one current Worker per role
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.AI_API_KEY }}
+          FREE_WORKER_PROBE_OUTPUT: artifacts/free_worker_probe.json
+          PROBE_CONFIRM: ${{ inputs.probe_confirm }}
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --disable-pip-version-check --no-input --no-cache-dir "openai>=1.0,<2"
+          python scripts/probe_free_workers.py --network --confirm "$PROBE_CONFIRM"
 
       - name: Run one specialist draft
         env:
-          AI_API_KEY: ${{ secrets.AI_API_KEY }}
-          AI_MODEL: ${{ inputs.model }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.AI_API_KEY }}
           TASK_ID: ${{ inputs.task_id }}
           TASK_ROLE: ${{ inputs.role }}
           TASK_INSTRUCTION: ${{ inputs.instruction }}
           TASK_CONTEXT: ${{ inputs.context }}
           TASK_ACCEPTANCE: ${{ inputs.acceptance }}
+          PARENT_AGENT_ID: ${{ inputs.parent_agent_id }}
+          WORKER_PROBE_PATH: artifacts/free_worker_probe.json
           AGENT_PACKET_PATH: artifacts/agent_task_packet.json
         shell: bash
         run: |

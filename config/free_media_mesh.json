@@ -1,0 +1,171 @@
+{
+  "schema_version": "free-media-mesh-v1",
+  "organization_name": "AI Army Free Media Mesh",
+  "mission": "Route media analysis, image generation, video generation and deterministic post-processing through verified zero-cost paths before any paid provider is considered.",
+  "policy": {
+    "free_first": true,
+    "free_only_default": true,
+    "generic_paid_fallback": false,
+    "auto_top_up": false,
+    "unverified_route_is_ready": false,
+    "exact_model_verification_required": true,
+    "free_status_verification_required": true,
+    "quota_safe_required": true,
+    "credential_or_runtime_evidence_required": true,
+    "fresh_provenance_bound_evidence_required": true,
+    "paid_routes_require_explicit_human_approval": true,
+    "generation_does_not_publish": true,
+    "external_model_repository_write": false
+  },
+  "evidence_contract": {
+    "schema_version": "media-route-evidence-v1",
+    "ttl_seconds": 3600,
+    "max_future_skew_seconds": 120,
+    "require_route_binding": true,
+    "require_provider_binding": true,
+    "require_model_family_binding_when_configured": true,
+    "require_trusted_source": true,
+    "trusted_sources": [
+      "HOSTED_FREE_ROUTE_PROBE_V1",
+      "FREE_GPU_RUNTIME_PROBE_V1",
+      "LOCAL_TOOL_PROBE_V1"
+    ],
+    "cryptographic_authentication_provided": false,
+    "trusted_internal_producer_required": true
+  },
+  "roles": {
+    "GOOGLE_MEDIA_ANALYST": {
+      "provider": "google",
+      "mission": "Understand source and generated video; detect scenes, highlights and weak sections; propose titles, subtitle drafts, hooks, chapter boundaries and edit decisions. It is not the default image/video generator.",
+      "capabilities": [
+        "video_understanding",
+        "scene_analysis",
+        "highlight_extraction",
+        "title_ideation",
+        "subtitle_drafting",
+        "edit_decisions",
+        "multimodal_quality_review"
+      ],
+      "generation_allowed": false,
+      "route_order": ["GOOGLE_GEMINI_FREE_MULTIMODAL"]
+    },
+    "IMAGE_GENERATION_LEAD": {
+      "mission": "Choose the first verified zero-cost image route and preserve provenance for generated assets.",
+      "route_order": [
+        "CLOUDFLARE_FLUX_FREE",
+        "SILICONFLOW_KOLORS_FREE",
+        "QWEN_IMAGE_FREE_GPU",
+        "DEEPSEEK_JANUS_FREE_GPU"
+      ]
+    },
+    "VIDEO_GENERATION_LEAD": {
+      "mission": "Choose the first verified zero-cost text-to-video or image-to-video route without silently switching to a paid model.",
+      "route_order": [
+        "NVIDIA_COSMOS_FREE",
+        "WAN_VIDEO_FREE_GPU"
+      ]
+    },
+    "MEDIA_POST_PROCESSOR": {
+      "mission": "Perform deterministic trimming, concat, resize, crop, subtitle burn-in, audio normalization and thumbnail extraction before semantic paid editors are considered.",
+      "route_order": ["FFMPEG_DETERMINISTIC"]
+    },
+    "MEDIA_QUALITY_REVIEWER": {
+      "mission": "Send finished or candidate media back to the analysis lane for quality, pacing, scene continuity, subtitle and title review before publication packaging.",
+      "route_order": ["GOOGLE_GEMINI_FREE_MULTIMODAL"]
+    }
+  },
+  "routes": {
+    "GOOGLE_GEMINI_FREE_MULTIMODAL": {
+      "provider": "google",
+      "kind": "analysis",
+      "capabilities": ["image_understanding", "video_understanding", "audio_understanding", "scene_analysis", "highlight_extraction", "title_ideation", "subtitle_drafting"],
+      "cost_class": "FREE_QUOTA_ONLY",
+      "evidence_source": "HOSTED_FREE_ROUTE_PROBE_V1",
+      "requires": ["available", "free_verified", "quota_safe", "credential_present"],
+      "forbidden": ["image_generation", "video_generation", "paid_fallback"]
+    },
+    "CLOUDFLARE_FLUX_FREE": {
+      "provider": "cloudflare",
+      "kind": "image",
+      "model_family": "FLUX",
+      "capabilities": ["text_to_image", "image_generation", "image_editing_when_supported"],
+      "cost_class": "FREE_QUOTA_ONLY",
+      "evidence_source": "HOSTED_FREE_ROUTE_PROBE_V1",
+      "requires": ["available", "exact_model_verified", "free_verified", "quota_safe", "credential_present"],
+      "quota_exhausted_behavior": "STOP_AND_TRY_NEXT_FREE_ROUTE"
+    },
+    "SILICONFLOW_KOLORS_FREE": {
+      "provider": "siliconflow",
+      "kind": "image",
+      "model_family": "Kwai-Kolors/Kolors",
+      "capabilities": ["text_to_image", "image_generation"],
+      "cost_class": "ZERO_COST_ROUTE_ONLY",
+      "evidence_source": "HOSTED_FREE_ROUTE_PROBE_V1",
+      "requires": ["available", "exact_model_verified", "free_verified", "quota_safe", "credential_present"],
+      "quota_exhausted_behavior": "STOP_AND_TRY_NEXT_FREE_ROUTE"
+    },
+    "QWEN_IMAGE_FREE_GPU": {
+      "provider": "qwen",
+      "kind": "image",
+      "model_family": "Qwen-Image",
+      "capabilities": ["text_to_image", "image_generation", "image_editing", "text_rendering"],
+      "execution_surface": "COLAB_KAGGLE_HF_OR_OTHER_APPROVED_FREE_GPU",
+      "cost_class": "FREE_RUNTIME_ONLY",
+      "evidence_source": "FREE_GPU_RUNTIME_PROBE_V1",
+      "requires": ["available", "exact_model_verified", "free_verified", "quota_safe", "runtime_present"]
+    },
+    "DEEPSEEK_JANUS_FREE_GPU": {
+      "provider": "deepseek",
+      "kind": "image",
+      "model_family": "Janus-Pro",
+      "capabilities": ["image_understanding", "text_to_image", "image_generation"],
+      "execution_surface": "COLAB_KAGGLE_HF_OR_OTHER_APPROVED_FREE_GPU",
+      "cost_class": "FREE_RUNTIME_ONLY",
+      "evidence_source": "FREE_GPU_RUNTIME_PROBE_V1",
+      "requires": ["available", "exact_model_verified", "free_verified", "quota_safe", "runtime_present"]
+    },
+    "NVIDIA_COSMOS_FREE": {
+      "provider": "nvidia",
+      "kind": "video",
+      "model_family": "Cosmos",
+      "capabilities": ["text_to_video", "image_to_video"],
+      "cost_class": "FREE_DEVELOPMENT_ENDPOINT_ONLY",
+      "evidence_source": "HOSTED_FREE_ROUTE_PROBE_V1",
+      "requires": ["available", "exact_model_verified", "free_verified", "quota_safe", "credential_present"],
+      "paid_endpoint_substitution": false
+    },
+    "WAN_VIDEO_FREE_GPU": {
+      "provider": "wan",
+      "kind": "video",
+      "model_family": "Wan2.2",
+      "capabilities": ["text_to_video", "image_to_video"],
+      "execution_surface": "COLAB_KAGGLE_HF_OR_OTHER_APPROVED_FREE_GPU",
+      "cost_class": "FREE_RUNTIME_ONLY",
+      "evidence_source": "FREE_GPU_RUNTIME_PROBE_V1",
+      "requires": ["available", "exact_model_verified", "free_verified", "quota_safe", "runtime_present"]
+    },
+    "FFMPEG_DETERMINISTIC": {
+      "provider": "local_tooling",
+      "kind": "post_process",
+      "capabilities": ["trim", "concat", "crop", "resize", "burn_captions", "audio_normalize", "thumbnail_frame", "format_convert"],
+      "cost_class": "FREE",
+      "evidence_source": "LOCAL_TOOL_PROBE_V1",
+      "requires": ["available"],
+      "paid": false
+    }
+  },
+  "paid_reserve": {
+    "enabled_by_default": false,
+    "routes": ["FAL_CONNECTOR_APPROVED", "RUNWAY_CONNECTOR_APPROVED", "GOOGLE_PAID_IMAGE_OR_VIDEO_GENERATION"],
+    "activation_requires": ["explicit_human_cost_approval", "bounded_budget", "free_routes_exhausted_or_unsuitable"],
+    "automatic_activation": false
+  },
+  "default_pipeline": [
+    "GOOGLE_MEDIA_ANALYST",
+    "IMAGE_GENERATION_LEAD_OR_VIDEO_GENERATION_LEAD",
+    "MEDIA_POST_PROCESSOR",
+    "MEDIA_QUALITY_REVIEWER",
+    "RIGHTS_SAFETY_AGENT",
+    "PUBLISHING_AGENT"
+  ]
+}

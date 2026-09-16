@@ -1,0 +1,91 @@
+{
+  "mission_id": "cross-source-knowhow-audit-20260913",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Act as the paid Executive Supervisor under ChatGPT. Independently audit and improve the repository's permanent know-how for (1) multi-agent/organizational AI speed, efficiency, routing, context management and reliability, (2) video editing, viewer retention, quality, captions, pacing, shot/scene selection, audio and machine QA, and (3) TikTok Shop shoppable-video visibility, trust and conversion. Compare existing canonical repository standards against current official sources, peer-reviewed/technical research, Hugging Face papers/docs, GitHub OSS/implementation patterns, and mature real-world engineering guidance. Do not merely restate existing standards. Identify missing, contradictory, stale, overly rigid, duplicated or unverifiable rules. Propose only deltas with measurable value, evidence tier, implementation location, acceptance metrics, rollback criteria, and whether each delta should ADOPT, EXPERIMENT, DEMOTE, or REJECT. Preserve repository source-of-truth, central ChatGPT authority, bounded autonomy, Single Writer, max delegation depth 2, no generic paid fallback, no auto top-up, no secrets, no deploy/publish/merge, and no paid/freemium media-generation SaaS. ChatGPT will independently verify primary evidence before adoption.",
+  "shared_evidence": [
+    {
+      "source": "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T12:35:00+09:00",
+      "summary": "Current canonical synthesis already incorporates OpenAI, Anthropic, LangGraph, AutoGen, Google A2A, NVIDIA, academic MAS literature, FFmpeg/VOICEVOX, and video OSS. New work must focus on validated deltas rather than duplication."
+    },
+    {
+      "source": "docs/MULTI_AGENT_OPERATING_STANDARD.md + config/multi_agent_operating_policy.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T12:35:00+09:00",
+      "summary": "Current AI Army standard uses central management, single-agent baseline, bounded parallelism, context quarantine, typed contracts, explicit termination, independent verification, checkpoint/recovery and system-level efficiency evaluation."
+    },
+    {
+      "source": "docs/MEDIA_PIPELINE.md + docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md + config/longform_video_reliability_policy.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T12:35:00+09:00",
+      "summary": "Current video standard uses free deterministic FFmpeg/ffprobe/VOICEVOX, scene-first atomic rendering, audio-first timeline, caption coverage, provenance, checkpoint/reuse, previous-good preservation and machine QA."
+    },
+    {
+      "source": "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md + config/authorized_clipping_monetization_policy.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T12:35:00+09:00",
+      "summary": "Current clipping standard separates rights and monetization eligibility and already includes ASR/VAD alignment, multi-signal highlight scoring, duplicate suppression, semantic boundary refinement, subject-aware reframe and machine QA."
+    },
+    {
+      "source": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md + config/tiktok_shop_influence_policy.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T12:35:00+09:00",
+      "summary": "Current TikTok Shop standard already includes first-three-seconds priority, one persona/one purchase motive, evidence-mapped claims, demonstration, review clustering, objections, attention-UI captions, cover alignment, volatile-offer recheck and anti-fabrication rules."
+    },
+    {
+      "source": "config/media_command_read_gate.json + docs/MEDIA_COMMAND_READ_GATE.md",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T12:35:00+09:00",
+      "summary": "Media commands now require repository-backed re-reading of canonical know-how before planning or execution, including cross-tab/session use and additive mixed-intent read sets."
+    },
+    {
+      "source": "user instruction 2026-09-13",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T12:35:00+09:00",
+      "summary": "User requested extensive cross-source research beyond GitHub/Hugging Face, use of paid DeepSeek and upper-tier agents, direct comparison against canonical standards, and adoption of non-redundant improvements after consistency checks."
+    }
+  ],
+  "lanes": [
+    {
+      "id": "org-ai-efficiency",
+      "objective": "Audit current multi-agent efficiency rules against recent official engineering guidance and research. Focus on adaptive agent/model routing, topology selection, confidence/uncertainty gates, context compression/memory, parallelism, tool loading, trace/eval design, admission/halting, cost-latency-quality frontiers and failure amplification. Return only evidence-backed deltas or confirmations, with measurable tests."
+    },
+    {
+      "id": "video-retention-editing",
+      "objective": "Audit video editing and viewer-retention know-how. Compare official YouTube/TikTok/Meta guidance, peer-reviewed multimedia/cognitive/narrative research, and mature OSS. Examine hook/title/thumbnail promise matching, early payoff placement, retention dips/spikes, pacing, scene changes, captions as attention UI, audio intelligibility/loudness, visual safe zones, shot/subject selection, silence/dead-air handling, semantic cuts, and A/B/analytics feedback loops. Avoid fake universal timing rules; distinguish evidence from heuristic."
+    },
+    {
+      "id": "tiktok-shop-commerce",
+      "objective": "Audit TikTok Shop strategy using current Japan/global official Seller University/TikTok For Business guidance plus credible commerce/review/narrative research. Focus on visibility, first-second/first-three-second communication, product-card linkage, demonstration, proof, review clusters, objections, offer freshness, creator authenticity, AIGC/compliance, content originality, posting/experiment design, and conversion metrics. Identify any current rule that is too rigid or missing."
+    },
+    {
+      "id": "hf-github-oss",
+      "objective": "Search Hugging Face papers/docs and mature GitHub OSS for practical improvements that remain compatible with free/local execution. Consider smolagents managed-agent patterns, routing papers, WhisperX/forced alignment, pyannote/VAD/diarization, PySceneDetect or equivalent scene/shot detection, subject-aware reframing/tracking, deterministic audio/video QA, caching/checkpoint patterns, and reproducible benchmarking. Separate production-ready patterns from experimental papers."
+    },
+    {
+      "id": "contradiction-redteam",
+      "objective": "Red-team both current standards and proposed additions. Find conflicts between official platform guidance, academic results, OSS practice, and repository constraints. Detect cargo-cult rules, unsupported fixed thresholds, metric gaming, coordination overhead, over-editing that harms comprehension/trust, misleading commerce optimization, and privacy/rights risks. Recommend DEMOTE/REJECT as aggressively as ADOPT when warranted."
+    },
+    {
+      "id": "integration-pruning",
+      "objective": "Produce a minimal coherent adoption map for the repository. Deduplicate overlapping rules and place each accepted delta into the correct canonical doc/policy/read gate/evaluation schema. Prefer small testable additions, explicit source/evidence inventory, feature flags or EXPERIMENT status for uncertain techniques, and rollback criteria. Include exact acceptance metrics for AI Army, video retention/quality, and TikTok Shop lanes."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 8,
+  "max_output_tokens_per_lane": 6144,
+  "max_output_tokens_synthesis": 8192,
+  "max_estimated_cost_usd": 0.45,
+  "known_estimated_daily_spend_before_mission_usd": 0.25,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}

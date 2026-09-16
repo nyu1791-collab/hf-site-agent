@@ -1,0 +1,141 @@
+{
+  "schema_version": "peer-review-adjudication-v1",
+  "effective_date_jst": "2026-09-12",
+  "status": "ADOPTED",
+  "decision_owner": "chatgpt-top-commander",
+  "deepseek_runs": {
+    "initial_run_id": 34683429461,
+    "initial_usable_lanes": 3,
+    "recovery_run_id": 34683998011,
+    "recovery_usable_lanes": 5,
+    "total_review_domains_covered": 8,
+    "conservative_peak_equivalent_successful_usage_usd": 0.05785508,
+    "billing_note": "Usage multiplied by official peak token prices is a conservative cost-equivalent, not an authoritative provider billing statement."
+  },
+  "review_domains": [
+    "ORGANIZATION_ARCHITECTURE",
+    "RELIABILITY_AND_RECOVERY",
+    "CONTEXT_STATE_AND_OBSERVABILITY",
+    "ROUTING_AND_EFFICIENCY",
+    "CLIPPING_AND_HIGHLIGHTS",
+    "VIDEO_EDITING_RELIABILITY",
+    "TIKTOK_SHOP_COMMERCE",
+    "RED_TEAM_POLICY_PRUNING"
+  ],
+  "primary_evidence": [
+    "https://openai.github.io/openai-agents-python/multi_agent/",
+    "https://openai.github.io/openai-agents-python/guardrails/",
+    "https://www.anthropic.com/engineering",
+    "https://arxiv.org/abs/2503.13657",
+    "https://arxiv.org/abs/2512.08296",
+    "https://ffmpeg.org/ffmpeg-formats.html",
+    "https://ffmpeg.org/ffmpeg-filters.html",
+    "https://ffmpeg.org/ffprobe.html",
+    "https://github.com/m-bain/whisperX",
+    "https://seller-jp.tiktok.com/university/essay?knowledge_id=1086540470748945&lang=ja-JP",
+    "https://seller-jp.tiktok.com/university/essay?knowledge_id=7981558599599888",
+    "https://seller-jp.tiktok.com/university/essay?identity=1&knowledge_id=2707587427927825&role=1",
+    "https://api-docs.deepseek.com/quick_start/pricing/"
+  ],
+  "adopted": {
+    "organization": [
+      "CHATGPT_REMAINS_TOP_COMMANDER_AND_FINAL_ADJUDICATOR",
+      "PAID_DEEPSEEK_IS_EXECUTIVE_SUPERVISOR_NOT_BOTTOM_WORKER",
+      "SINGLE_AGENT_OR_DETERMINISTIC_TOOL_IS_DEFAULT",
+      "MULTI_AGENT_REQUIRES_MEASURABLE_SPECIALIZATION_PARALLELISM_VERIFICATION_OR_CONTEXT_ISOLATION_VALUE",
+      "PARALLELISM_IS_DYNAMIC_BELOW_HARD_SAFETY_CEILINGS",
+      "MACHINE_ORACLE_BEATS_AGENT_VOTE",
+      "FAILURE_CLASS_AND_TERMINATION_REASON_ARE_OBSERVABLE",
+      "STABLE_CONTEXT_PREFIX_AND_ARTIFACT_REFERENCES_REDUCE_DUPLICATE_CONTEXT"
+    ],
+    "deepseek": [
+      "CANONICAL_REQUEST_MODEL_IS_DEEPSEEK_V4_FLASH",
+      "DEFAULT_RESEARCH_FANOUT_IS_6_LANES_3_PARALLEL_8_CALLS",
+      "EXPANSION_TO_8_LANES_4_PARALLEL_12_CALLS_REQUIRES_EXPLICIT_MISSION_REASON_AND_BUDGET_PASS",
+      "SPEND_DEEPSEEK_COMPUTE_ON_RESEARCH_REVIEW_ARCHITECTURE_RED_TEAM_INCIDENT_AND_SYNTHESIS",
+      "DO_NOT_SPEND_DEEPSEEK_BY_DEFAULT_ON_BOILERPLATE_OR_DETERMINISTIC_TRANSFORMS",
+      "CACHE_PREFIX_HASH_AND_BOUNDARY_ARE_RECORDED",
+      "CHATGPT_PRIMARY_SOURCE_CHECK_REQUIRED_BEFORE_POLICY_ADOPTION"
+    ],
+    "video_and_clipping": [
+      "FOUR_COMMITTED_CLIPPING_STAGES_REPLACE_LONG_AGENT_HANDOFF_CHAIN",
+      "ASR_ALIGNMENT_SIDECAR_IS_CONTENT_ADDRESSED_AND_REUSED",
+      "WORD_LEVEL_ALIGNMENT_AND_VAD_ARE_USED_FOR_UNKNOWN_OR_THIRD_PARTY_SPEECH",
+      "KNOWN_TTS_WITH_VERIFIED_NARRATION_MANIFEST_DOES_NOT_REQUIRE_ASR_EVERY_SCENE",
+      "HIGHLIGHT_SCORE_CONTRIBUTIONS_AND_WEIGHTS_VERSION_ARE_RECORDED",
+      "BOUNDARIES_AVOID_MID_WORD_AND_UNINTENTIONAL_MID_SENTENCE_CUTS",
+      "NEAR_DUPLICATES_USE_AUDIO_FRAME_AND_TRANSCRIPT_SIGNALS",
+      "REFRAME_USES_TEMPORAL_SMOOTHING_TO_AVOID_CROP_JITTER",
+      "FINAL_LONGFORM_VIDEO_REQUIRES_FULL_DECODE_UNLESS_DECLARED_TIME_BUDGET_FORCES_RECORDED_SAMPLING",
+      "SAFE_MEDIA_CONTRACT_MISMATCH_NORMALIZES_ONLY_OFFENDING_SCENE",
+      "SCENE_IDEMPOTENCY_KEY_DISK_RAM_PREFLIGHT_AND_DYNAMIC_PROCESS_LIMITS_ARE_ADOPTED",
+      "MONOLITHIC_LONGFORM_RENDER_REMAINS_PROHIBITED"
+    ],
+    "tiktok_shop": [
+      "FIRST_THREE_SECONDS_PRODUCT_CLARITY_SUBTITLES_AND_NATURAL_CTA_REMAIN_CORE",
+      "EXACTLY_ONE_PRIMARY_PERSONA_AND_PURCHASE_MOTIVE_PER_VIDEO",
+      "EVERY_VOLATILE_COMMERCIAL_FACT_HAS_TIMESTAMP_AND_TTL_OR_EXPIRY_AND_IS_REVERIFIED_AT_PUBLISH",
+      "CLAIM_TO_EVIDENCE_GATE_IS_BLOCKING",
+      "PRODUCT_SELECTION_INCLUDES_RETURN_REFUND_COMPLAINT_AND_FULFILLMENT_RISK",
+      "A_B_TESTS_ARE_PRE_REGISTERED_AND_PREFER_ONE_PRIMARY_VARIABLE",
+      "WINNERS_REQUIRE_RETURN_COMPLAINT_POLICY_GUARDRAILS_NOT_REVENUE_ALONE",
+      "PUBLISH_TIME_POLICY_SNAPSHOT_HASH_AND_AIGC_DISCLOSURE_CHECK_ARE_REQUIRED",
+      "REVIEW_COUNTS_FOLLOWERS_AND_RATINGS_ARE_DISCOVERY_SIGNALS_NOT_GROUND_TRUTH"
+    ]
+  },
+  "rejected_or_deferred": [
+    {
+      "proposal": "Hardcode numeric multi-agent admission thresholds such as 40 percent parallelizable work or 0.75 baseline score",
+      "decision": "DEFER",
+      "reason": "Useful as candidate metrics but thresholds were heuristic; calibrate on fixed regression missions first."
+    },
+    {
+      "proposal": "Remove or weaken the monolithic long-form render prohibition",
+      "decision": "REJECT",
+      "reason": "Conflicts with explicit permanent user reliability standard and increases blast radius."
+    },
+    {
+      "proposal": "Run ASR on every scene",
+      "decision": "REJECT",
+      "reason": "Known VOICEVOX narration already has authoritative audio duration and narration manifest; mandatory ASR would add cost and failure surface."
+    },
+    {
+      "proposal": "Make loudnorm two-pass mandatory for every file",
+      "decision": "REJECT",
+      "reason": "Keep measure-first normalization; avoid unnecessary processing when audio already meets calibrated target."
+    },
+    {
+      "proposal": "Replace hard delegation ceilings with fully unconstrained dynamic fanout",
+      "decision": "REJECT",
+      "reason": "Dynamic concurrency is adopted only below hard safety ceilings to preserve bounded autonomy."
+    },
+    {
+      "proposal": "Use multi-agent debate or majority vote for mechanical validation",
+      "decision": "REJECT",
+      "reason": "Machine oracles such as schema validators, ffprobe, hashes and tests are cheaper and more reliable."
+    },
+    {
+      "proposal": "Treat TikTok hook style, safe zones or subtitle timing as fixed universal creative truths",
+      "decision": "REJECT",
+      "reason": "Platform UI and audience behavior change; use current-layout checks and A/B tests."
+    }
+  ],
+  "files_updated": [
+    "config/deepseek_paid_supervisor_policy.json",
+    "config/multi_agent_operating_policy.json",
+    "config/ai_army_org_chart.json",
+    "config/longform_video_reliability_policy.json",
+    "config/authorized_clipping_monetization_policy.json",
+    "config/tiktok_shop_influence_policy.json"
+  ],
+  "safety_invariants": [
+    "NO_MAIN_DIRECT_PUSH",
+    "NO_PR_MERGE",
+    "NO_PRODUCTION_DEPLOY",
+    "NO_PUBLIC_PUBLISH",
+    "NO_SECRET_MUTATION_OR_DISCLOSURE",
+    "NO_AUTO_TOP_UP",
+    "NO_GENERIC_PAID_FALLBACK",
+    "NO_PAID_OR_FREEMIUM_MEDIA_SAAS"
+  ]
+}

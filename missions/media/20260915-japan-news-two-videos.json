@@ -1,0 +1,55 @@
+{
+  "mission_id": "20260915-japan-news-two-videos",
+  "purpose": "Two current Japanese news shorts using the compact ChatGPT+DeepSeek research/script flow and deterministic production.",
+  "freshness_jst": "2026-09-15T18:30:00+09:00",
+  "production_rules": {
+    "baseline_character_visual_size_matched": true,
+    "active_speaker_smooth_scale_emphasis": true,
+    "facial_expression_changes_by_meaning": true,
+    "mouth_overlay_disabled_until_face_fixture_passes": true,
+    "bright_explainer_panels": true,
+    "caption_breaks_follow_semantics_before_character_count": true,
+    "full_decode_and_faststart_required": true,
+    "final_visual_rereview_required": true
+  },
+  "videos": [
+    {
+      "key": "tax",
+      "title": "食品の消費税8%→1%へ？ 今日決まったこと",
+      "source_note": "Reuters 2026-09-15; Jiji/Nippon.com 2026-09-11. Cabinet-approved outline, not enacted law.",
+      "dialogue": [
+        {"id":1,"speaker":"ずんだもん","voice_text":"食品の消費税が、8パーセントから1パーセントへ？ 今日、日本で大きな方針が決まったのだ。","caption_text":"食品の消費税が\n8% → 1%へ？","emotion":"surprise","visual_beat":"8%から1%へ大きく変わる数字カード"},
+        {"id":2,"speaker":"四国めたん","voice_text":"正確には、政府が税率を下げる方針の概要を閣議決定した段階よ。法律が成立して、今すぐ1パーセントになるわけではないわ。","caption_text":"政府が方針の概要を閣議決定\nまだ法律成立前","emotion":"explain","visual_beat":"閣議決定→法案→国会の3段階"},
+        {"id":3,"speaker":"ずんだもん","voice_text":"いつからの予定なのだ？","caption_text":"いつから？","emotion":"question","visual_beat":"カレンダーを表示"},
+        {"id":4,"speaker":"四国めたん","voice_text":"予定は2027年4月から2年間。食品の税率を8パーセントから1パーセントへ下げる案よ。","caption_text":"2027年4月から2年間\n食品 8% → 1%","emotion":"explain","visual_beat":"2027年4月を強調したタイムライン"},
+        {"id":5,"speaker":"ずんだもん","voice_text":"でも1パーセントは残るのだ。実質ゼロって話も聞いたのだ。","caption_text":"1%は残る？\n実質0%って何？","emotion":"question","visual_beat":"1%の疑問マーク"},
+        {"id":6,"speaker":"四国めたん","voice_text":"その1パーセント相当を給付で補う仕組みも盛り込まれているの。だから家計負担を実質的にゼロへ近づける設計ね。","caption_text":"残る1%相当を給付\n実質負担をゼロへ","emotion":"confident","visual_beat":"1%→給付→実質負担0の図"},
+        {"id":7,"speaker":"ずんだもん","voice_text":"それなら良いことばかりなのだ？","caption_text":"良いことばかり？","emotion":"question","visual_beat":"明るいカードから注意カードへ"},
+        {"id":8,"speaker":"四国めたん","voice_text":"最大の論点は財源よ。税収の減少は、およそ5兆円と見込まれているけれど、今回の概要では具体的な穴埋め方法がまだ示されていないの。","caption_text":"最大の論点は財源\n税収減 約5兆円","emotion":"serious","visual_beat":"5兆円の大きな数字と未確定の財源欄"},
+        {"id":9,"speaker":"ずんだもん","voice_text":"5兆円！ 国債を増やして埋めるのだ？","caption_text":"約5兆円\n国債で埋める？","emotion":"surprise","visual_beat":"5兆円カードと国債アイコン"},
+        {"id":10,"speaker":"四国めたん","voice_text":"財務大臣は、赤字国債には頼らず、補助金や税制を含む歳出と歳入の見直しで賄う考えを示しているわ。ただ、具体策はこれからよ。","caption_text":"政府：赤字国債には頼らない\n具体策はこれから","emotion":"explain","visual_beat":"政府方針と未確定を左右に分ける"},
+        {"id":11,"speaker":"ずんだもん","voice_text":"つまり、8から1は決定済みの完成形じゃなくて、これから国会で法律にする段階なのだ。","caption_text":"8% → 1%は\nこれから法制化へ","emotion":"realize","visual_beat":"法案提出予定の矢印"},
+        {"id":12,"speaker":"四国めたん","voice_text":"そう。実現すれば、1989年に消費税が始まって以来、初めての税率引き下げになる見通しよ。家計への効果と財源、この二つが次の焦点ね。","caption_text":"実現すれば初の税率引き下げ\n焦点は家計効果と財源","emotion":"conclude","visual_beat":"家計効果と財源の2本柱で締め"}
+      ]
+    },
+    {
+      "key": "hamaoka",
+      "title": "浜岡原発 地震データ問題で再稼働申請を撤回",
+      "source_note": "Reuters and AP 2026-09-14. Third-party committee found cherry-picked seismic-wave data for Hamaoka 3/4; do not generalize beyond verified findings.",
+      "dialogue": [
+        {"id":1,"speaker":"ずんだもん","voice_text":"原発の地震データを、都合のいいように選んでいた？ 浜岡原発で大きな問題が発覚したのだ。","caption_text":"浜岡原発\n地震データを恣意的に選択？","emotion":"surprise","visual_beat":"地震波と浜岡3号4号の図"},
+        {"id":2,"speaker":"四国めたん","voice_text":"中部電力の第三者委員会は、3号機と4号機の再稼働審査に関わる地震波データを選別し、社内の基準に収まるようにしていたと認定したわ。","caption_text":"第三者委員会が認定\n3・4号機の地震波データを選別","emotion":"serious","visual_beat":"複数の地震波から一部だけ選ぶ説明図"},
+        {"id":3,"speaker":"ずんだもん","voice_text":"全部の安全データが偽物だったってことなのだ？","caption_text":"安全データ全部が偽物？","emotion":"question","visual_beat":"大きなバツと確認範囲カード"},
+        {"id":4,"speaker":"四国めたん","voice_text":"そこまで広げて言うのは正確じゃないわ。今回確認されたのは、再稼働審査に使う地震波データの選び方に不正があったという問題よ。","caption_text":"確認された範囲を正確に\n地震波データの選定問題","emotion":"correct","visual_beat":"確認済み／言い過ぎを分けるカード"},
+        {"id":5,"speaker":"ずんだもん","voice_text":"しかも社内では、前から気づいていた人もいたのだ？","caption_text":"社内から警告も？","emotion":"question","visual_beat":"内部報告の封筒アイコン"},
+        {"id":6,"speaker":"四国めたん","voice_text":"第三者委員会によると、不正を指摘する内部報告が2回あったのに、適切な対応が取られなかったとされているわ。","caption_text":"内部報告は2回\n適切な対応が取られず","emotion":"serious","visual_beat":"内部報告×2→対応不足"},
+        {"id":7,"speaker":"ずんだもん","voice_text":"どうして止まらなかったのだ？","caption_text":"なぜ止まらなかった？","emotion":"question","visual_beat":"圧力を示す矢印"},
+        {"id":8,"speaker":"四国めたん","voice_text":"報告書は、経営側が早い再稼働を求めて現場へ圧力をかけていたことも指摘しているの。中部電力は、2012年以降の不適切なデータ提出について謝罪したわ。","caption_text":"早期再稼働への圧力も指摘\n不適切提出は2012年以降","emotion":"serious","visual_beat":"2012→2026のタイムライン"},
+        {"id":9,"speaker":"ずんだもん","voice_text":"会社のトップはどうなるのだ？","caption_text":"経営トップは？","emotion":"question","visual_beat":"社長・会長カード"},
+        {"id":10,"speaker":"四国めたん","voice_text":"社長と会長は9月30日付で辞任する予定。そして中部電力は、3号機と4号機の現在の再稼働申請を撤回すると発表したわ。","caption_text":"社長・会長が辞任へ\n3・4号機の申請を撤回","emotion":"explain","visual_beat":"辞任と申請撤回を2列表示"},
+        {"id":11,"speaker":"ずんだもん","voice_text":"じゃあ、浜岡原発の再稼働は完全になくなったのだ？","caption_text":"再稼働は完全になくなる？","emotion":"question","visual_beat":"撤回→再申請？の矢印"},
+        {"id":12,"speaker":"四国めたん","voice_text":"完全に断念したわけではないの。組織と業務を立て直したあと、改めて申請する考えを示しているわ。規制当局の審査はすでに停止していて、まず信頼を取り戻せるかが焦点よ。","caption_text":"将来の再申請は否定せず\nまず信頼回復が焦点","emotion":"conclude","visual_beat":"組織改革→再申請→審査の順で締め"}
+      ]
+    }
+  ]
+}

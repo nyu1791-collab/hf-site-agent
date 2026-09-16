@@ -1,0 +1,130 @@
+{
+  "schema_version": "evidence-visual-static-character-v1",
+  "effective_date_jst": "2026-09-16",
+  "status": "MANDATORY_MEDIA_STANDARD",
+  "decision_owner": "chatgpt-top-commander",
+  "purpose": "Reduce media production latency and visual awkwardness by using searched evidence-bearing visuals instead of generated background images, and by keeping Zundamon/Shikoku Metan visually static except for deterministic speaker-focus state switching.",
+  "applies_to": [
+    "VIDEO_CREATION",
+    "SHORTS",
+    "LONGFORM",
+    "NEWS_EXPLAINER",
+    "CLAIM_BEARING_EXPLAINER",
+    "ZUNDAMON_OR_SHIKOKU_METAN_VIDEO_CREATION"
+  ],
+  "authority": {
+    "precedence": "OVERRIDES_CONFLICTING_OLDER_CHARACTER_MOTION_EXPRESSION_LIPSYNC_BLINK_AND_SPEECH_START_BOUNCE_DEFAULTS",
+    "older_policies_remain_for_non_conflicting_rules": true,
+    "conflicting_old_character_motion_rules_must_not_be_executed": true,
+    "machine_policy_over_conflicting_human_prose": true,
+    "user_explicit_future_override_allowed": true,
+    "rights_factual_safety_and_cost_gates_cannot_be_overridden_silently": true
+  },
+  "ci_enforcement": {
+    "workflow": ".github/workflows/canonical-ai-army-consistency.yml",
+    "validator": "scripts/validate_evidence_visual_static_character_standard.py",
+    "workflow_must_run_when_policy_changes": true,
+    "validator_failure_blocks_consistency_gate": true
+  },
+  "evidence_visual_acquisition": {
+    "default_mode": "SEARCH_PRIMARY_OR_OFFICIAL_EVIDENCE_VISUAL_FIRST",
+    "generated_background_image_default": false,
+    "generated_evidence_image_default": false,
+    "generated_visual_must_not_be_used_as_factual_evidence": true,
+    "do_not_call_image_generation_for_normal_news_or_factual_backgrounds": true,
+    "search_before_creating_visual": true,
+    "preferred_source_order": [
+      "OFFICIAL_PRIMARY_SOURCE",
+      "OFFICIAL_PRESS_KIT_NEWSROOM_SUPPORT_OR_PRODUCT_PAGE",
+      "RIGHTS_CLEARED_PRIMARY_DOCUMENT_SCREENSHOT_OR_EXCERPT",
+      "RIGHTS_CLEARED_REAL_PHOTO_OR_MEDIA",
+      "WIKIMEDIA_COMMONS_OR_EQUIVALENT_VERIFIED_LICENSE_SOURCE",
+      "TRUSTED_SECONDARY_SOURCE_FOR_DISCOVERY_ONLY"
+    ],
+    "source_visual_must_support_current_claim_or_narration": true,
+    "source_page_required": true,
+    "asset_locator_required": true,
+    "source_title_or_description_required": true,
+    "claim_or_scene_mapping_required": true,
+    "reuse_terms_or_license_state_required": true,
+    "unknown_rights_block_public_use": true,
+    "search_result_thumbnail_is_discovery_not_license": true,
+    "news_agency_or_all_rights_reserved_image_not_publicly_reused_without_permission": true,
+    "public_output_requires_rights_cleared_or_otherwise_permissible_use": true,
+    "internal_review_may_reference_source_visual_with_provenance_but_does_not_create_publication_rights": true,
+    "cache_verified_assets_with_source_receipt": true,
+    "reuse_cached_verified_asset_when_semantically_fit": true,
+    "do_not_redownload_identical_verified_asset_without_reason": true,
+    "generated_illustration_allowed_only_when_user_explicitly_requests_it_or_no_factual_evidence_role_exists": true,
+    "generated_illustration_must_be_labeled_non_evidentiary_when_claim_bearing_context_exists": true
+  },
+  "character_rendering": {
+    "default_mode": "STATIC_TURN_FOCUS",
+    "character_idle_animation": false,
+    "mouth_animation": false,
+    "automatic_lipsync": false,
+    "blink_animation": false,
+    "head_tilt_animation": false,
+    "pose_animation": false,
+    "body_bob_or_vertical_bounce": false,
+    "reaction_symbol_animation": false,
+    "entry_exit_animation_per_line": false,
+    "continuous_zoom_or_pan_on_character": false,
+    "expression_swap_during_normal_dialogue": false,
+    "active_speaker": {
+      "scale": 1.08,
+      "opacity_percent": 100,
+      "z_order": "FRONTMOST_CHARACTER"
+    },
+    "inactive_listener": {
+      "scale": 1.0,
+      "opacity_percent": 55,
+      "allowed_opacity_percent_range": [50, 60],
+      "z_order": "BEHIND_ACTIVE_SPEAKER"
+    },
+    "focus_switch": {
+      "required": true,
+      "switch_on_voice_turn": true,
+      "must_follow_audio_turn_timing": true,
+      "animated_interpolation": false,
+      "snap_state_change_at_turn_boundary": true
+    },
+    "safe_zone": {
+      "active_scale_must_not_cover_caption_or_evidence": true,
+      "both_characters_may_be_reduced_or_hidden_when_evidence_visual_is_primary": true
+    }
+  },
+  "production_efficiency": {
+    "do_not_build_or_regenerate_character_reaction_pack_for_normal_static_turn_focus": true,
+    "do_not_run_full_face_mouth_fixture_for_unchanged_static_portraits": true,
+    "do_not_generate_background_images_when_searchable_evidence_visual_exists": true,
+    "preserve_existing_voice_and_timing_when_only_visual_assets_or_focus_state_change": true,
+    "repair_smallest_affected_layer": true,
+    "source_search_rights_check_and_asset_materialization_may_overlap_when_independent": true,
+    "quality_rights_and_claim_gates_cannot_be_skipped_for_speed": true
+  },
+  "minimum_qa": {
+    "representative_active_speaker_scale_checked": true,
+    "representative_inactive_opacity_checked": true,
+    "no_unrequested_character_motion_checked": true,
+    "evidence_visual_source_receipt_checked": true,
+    "evidence_visual_semantic_match_checked": true,
+    "public_rights_state_checked_before_publish": true,
+    "caption_and_evidence_safe_zone_checked": true,
+    "decode_pass_alone_is_not_visual_quality_pass": true
+  },
+  "hard_fail_conditions": [
+    "GENERATED_BACKGROUND_USED_BY_DEFAULT_FOR_NEWS_OR_FACTUAL_EXPLAINER",
+    "GENERATED_IMAGE_PRESENTED_AS_FACTUAL_EVIDENCE",
+    "EVIDENCE_VISUAL_WITHOUT_SOURCE_PAGE_OR_ASSET_LOCATOR",
+    "PUBLIC_USE_WITH_UNKNOWN_OR_BLOCKED_IMAGE_RIGHTS",
+    "NORMAL_DIALOGUE_CHARACTER_LIPSYNC_OR_MOUTH_ANIMATION",
+    "NORMAL_DIALOGUE_CHARACTER_BLINK_HEAD_POSE_BOB_OR_REACTION_ANIMATION",
+    "SPEECH_START_VERTICAL_BOUNCE",
+    "CONTINUOUS_CHARACTER_ZOOM",
+    "ACTIVE_SPEAKER_NOT_VISUALLY_EMPHASIZED",
+    "INACTIVE_LISTENER_NOT_REDUCED_TO_HALF_TRANSPARENT_RANGE",
+    "FOCUS_SWITCH_NOT_ALIGNED_TO_VOICE_TURN",
+    "OLD_CHARACTER_MOTION_RULE_EXECUTED_DESPITE_THIS_POLICY_PRECEDENCE"
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "schema_version": "deepseek-paid-autonomy-v2",
+  "provider": "deepseek",
+  "status": "DEPRECATED_COMPATIBILITY_POINTER",
+  "canonical_policy": "config/deepseek_paid_supervisor_policy.json",
+  "authorized_by_user": true,
+  "persistent_authorization": true,
+  "per_run_confirmation_required": false,
+  "organizational_rank": "EXECUTIVE_SUPERVISOR",
+  "reports_to": "chatgpt-work",
+  "default_role": "RESEARCH_AND_STRATEGY_SUPERVISOR",
+  "not_default_bulk_coding_worker": true,
+  "preferred_work": [
+    "research_direction",
+    "source_comparison",
+    "architecture_review",
+    "failure_analysis",
+    "red_team_review",
+    "task_decomposition",
+    "subordinate_result_review",
+    "media_strategy",
+    "tiktok_shop_strategy",
+    "incident_remediation"
+  ],
+  "delegate_when_possible": [
+    "large_boilerplate_code_generation",
+    "repetitive_code_edits",
+    "mechanical_transforms",
+    "deterministic_validation"
+  ],
+  "forbidden_actions": [
+    "production_deploy",
+    "publish",
+    "repository_write_by_model",
+    "secret_readback_or_mutation",
+    "auto_top_up",
+    "generic_paid_fallback",
+    "pr_merge",
+    "main_direct_push",
+    "durable_object_change",
+    "paid_media_generation"
+  ],
+  "budget_source": "config/deepseek_paid_supervisor_policy.json",
+  "policy": {
+    "use_heavily_when_materially_helpful_for_supervisory_work": true,
+    "prefer_bounded_parallel_research_lanes": true,
+    "successful_lane_is_not_needlessly_rerun": true,
+    "record_model_usage": true,
+    "record_estimated_cost": true,
+    "fail_closed_on_model_mismatch": true,
+    "fail_closed_on_missing_secret": true,
+    "chatgpt_final_adjudication_required": true,
+    "production_authority_remains_human_gated": true
+  }
+}

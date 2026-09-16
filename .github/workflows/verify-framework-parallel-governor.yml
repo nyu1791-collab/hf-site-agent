@@ -1,0 +1,55 @@
+name: Verify framework parallel governor
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: framework-parallel-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Compile framework runtime
+        run: |
+          python -m py_compile \
+            scripts/framework_adapter_layer.py \
+            scripts/framework_consolidation_policy.py \
+            scripts/framework_parallel_governor.py \
+            scripts/parallel_framework_batch.py \
+            scripts/media_parallel_framework_mission.py
+      - name: Run parallel governor tests
+        run: |
+          python -m unittest \
+            tests.test_framework_parallel_governor \
+            tests.test_parallel_framework_batch \
+            tests.test_media_parallel_framework_mission -v
+      - name: Verify authority boundaries
+        run: |
+          python - <<'PY'
+          from scripts.framework_adapter_layer import load_config
+          cfg = load_config()
+          p = cfg['policy']
+          assert p['free_only_default'] is True
+          assert p['generic_paid_fallback'] is False
+          assert p['auto_top_up'] is False
+          assert p['external_framework_repository_write'] is False
+          assert p['external_framework_secret_mutation'] is False
+          assert p['external_framework_deploy'] is False
+          assert p['external_framework_publish'] is False
+          assert p['external_framework_payment'] is False
+          assert int(cfg['parallel_batch']['max_frameworks_per_batch']) <= 2
+          print('FRAMEWORK_PARALLEL_BOUNDARIES=PASS')
+          PY

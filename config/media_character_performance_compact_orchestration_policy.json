@@ -1,0 +1,177 @@
+{
+  "schema_version": "media-character-performance-compact-orchestration-v1",
+  "effective_date_jst": "2026-09-14",
+  "status": "ENFORCED_MEDIA_STANDARD",
+  "decision_owner": "chatgpt-top-commander",
+  "purpose": "Preserve the quality wins from the Hori Daisuke sleep explainer while improving character acting and reducing coordination overhead. Keep research and script authoring consolidated between ChatGPT and DeepSeek by default, and use deterministic tooling for mechanical media work.",
+  "applies_when": [
+    "ZUNDAMON_OR_SHIKOKU_METAN_VIDEO_CREATION",
+    "SHORTFORM_OR_VERTICAL_EXPLAINER",
+    "CLAIM_BEARING_EXPLAINER_WHEN_CHARACTERS_ARE_VISIBLE"
+  ],
+  "user_feedback_checkpoint": {
+    "reference": "2026-09-14 Hori Daisuke sleep explainer review",
+    "retain": [
+      "overall visual direction",
+      "bright explainer treatment",
+      "semantic caption segmentation",
+      "truthful separation of subject claims from scientific consensus",
+      "pre-delivery rereview",
+      "compatible MP4 fast-start delivery"
+    ],
+    "improve_next": [
+      "stronger facial expression acting",
+      "normalize perceived character size between Zundamon and Shikoku Metan",
+      "enlarge the active speaker naturally while speaking",
+      "avoid excessive agent-stage fragmentation",
+      "keep information gathering and script writing primarily between ChatGPT and DeepSeek"
+    ]
+  },
+  "character_size_and_speaker_focus": {
+    "normalize_perceived_size_not_raw_source_pixel_height": true,
+    "baseline_goal": "Zundamon and Shikoku Metan should appear intentionally balanced in perceived visual weight, head size, torso presence and eye-line unless the scene calls for asymmetry.",
+    "baseline_size_difference_should_not_look_accidental": true,
+    "active_speaker_may_scale_up_relative_to_normalized_baseline": true,
+    "active_speaker_scale_starting_range": [1.06, 1.12],
+    "inactive_speaker_scale_starting_range": [0.98, 1.00],
+    "scale_ranges_are_heuristics_not_hard_law": true,
+    "active_speaker_should_move_to_visual_front_when_overlap_is_possible": true,
+    "scale_transition_should_be_eased_not_instant_pop": true,
+    "typical_scale_transition_ms_starting_range": [160, 280],
+    "anchor_strategy": "Prefer feet, lower torso or stable body anchor so speaker enlargement does not look like vertical teleportation.",
+    "listener_must_remain_visible_when_context_or_reaction_matters": true,
+    "do_not_enlarge_so_much_that_caption_evidence_or_safe_zone_is_compromised": true,
+    "speaker_focus_scale_is_not_permission_for_constant_zoom": true
+  },
+  "facial_expression_acting": {
+    "mouth_motion_alone_is_not_character_acting": true,
+    "expression_channels": [
+      "eyes",
+      "eyebrows",
+      "mouth_or_base_face_state",
+      "head_tilt",
+      "arm_or_pose",
+      "reaction_symbol_when_semantically_useful"
+    ],
+    "expression_should_follow_emotion_and_semantic_beat": true,
+    "speaker_and_listener_may_have_different_expression_states": true,
+    "listener_reaction_is_encouraged_when_it improves_comprehension_or_dialogue_energy": true,
+    "expression_change_every_sentence_is_not_required": true,
+    "fixed_interval_expression_change_forbidden": true,
+    "priority_order_for_human_like_liveliness": [
+      "appropriate_face_expression",
+      "speaker_focus_scale_and_depth",
+      "pose_or_head_tilt",
+      "small speech-start micro-accent",
+      "reaction_symbol_when justified"
+    ],
+    "avoid_overanimation": [
+      "do_not_move_every_channel_at_once",
+      "do_not_stack large scale change plus shake plus symbol plus zoom without a strong semantic reason",
+      "serious health or science explanation should favor readable restrained acting over comedy noise"
+    ],
+    "face_consistency": {
+      "mouth_geometry_rules_from_zundamon_metan_production_quality_policy_remain_authoritative": true,
+      "eyes_eyebrows_and_mouth_must_not_conflict_semantically_when using layered states": true,
+      "full_face_preview_required when face-layer geometry or mapping changes": true
+    }
+  },
+  "compact_chatgpt_deepseek_media_pair": {
+    "enabled": true,
+    "default_judgmental_team": ["ChatGPT", "DeepSeek"],
+    "research_and_script_are_one_combined_judgment_stage": true,
+    "do_not_create_separate_research_writer_rewriter_and_reviewer_agents_by_default": true,
+    "chatgpt_responsibilities": [
+      "final source verification",
+      "final editorial framing and structure",
+      "claim wording and risk-sensitive qualification",
+      "final script integration",
+      "final visual and delivery adjudication"
+    ],
+    "deepseek_responsibilities": [
+      "broad evidence collection",
+      "chronology and source comparison",
+      "contradiction discovery",
+      "hook and structure alternatives",
+      "first-pass script or section drafting",
+      "red-team review of the joint draft"
+    ],
+    "shared_artifacts": [
+      "one evidence ledger",
+      "one chronology or fact table when needed",
+      "one canonical script draft with source_claim_ids",
+      "one compact unresolved-question list"
+    ],
+    "default_handoff_pattern": "ChatGPT frames the question and evidence requirements -> DeepSeek gathers/organizes/drafts in one bounded mission -> ChatGPT verifies, edits and locks the script.",
+    "default_deepseek_synthesis_passes": 1,
+    "additional_deepseek_pass_allowed_when": [
+      "material source conflict remains",
+      "high-stakes medical legal financial or safety wording needs red-team review",
+      "the first draft fails acceptance criteria",
+      "new evidence materially changes the story"
+    ],
+    "extra_specialist_agent_fanout_allowed_only_when": [
+      "a narrow specialist capability is actually missing from ChatGPT plus DeepSeek",
+      "parallel work is independent and expected information gain is material",
+      "quality or safety risk justifies the additional handoff"
+    ],
+    "extra_specialist_agent_fanout_for_routine_script_polish": false,
+    "mechanical_media_work_uses_deterministic_tools_not_more_agents": true,
+    "avoid_more_than_two_judgmental_handoffs_before_script_lock_without_recorded_reason": true
+  },
+  "compact_preproduction_flow": {
+    "stages": [
+      "CHATGPT_PLUS_DEEPSEEK_RESEARCH_AND_SCRIPT",
+      "SOURCE_AND_CLAIM_LOCK",
+      "VISUAL_AND_AUDIO_PLAN",
+      "DETERMINISTIC_PRODUCTION",
+      "LOW_COST_VISUAL_PREFLIGHT",
+      "FINAL_RENDER_AND_REREVIEW"
+    ],
+    "research_and_script_stage_may_overlap_source_collection_and_outline_drafting": true,
+    "image_or_visual_discovery_may_start_after stable outline exists when it does not force script rework": true,
+    "rights_verification_may_run alongside visual discovery": true,
+    "voice_generation_should_wait_for script_lock unless only unchanged verified chunks are being reused": true,
+    "do_not_split_small decisions into separate agent missions merely for parallelism": true,
+    "parallelism_is_used only when wall_clock_saved exceeds coordination overhead": true
+  },
+  "quality_preserving_efficiency": {
+    "reuse_existing_manifest_keyed_assets_and_stage_outputs": true,
+    "retain_incremental_repair_rules": true,
+    "retain_low_cost_preview_before expensive full render": true,
+    "retain_full_decode_and final_visual_sample_review": true,
+    "retain_fast_start_compatible_mp4_delivery_for_ios_and_in_app_playback": true,
+    "quality_gates_cannot_be_removed to make the pipeline look faster": true,
+    "coordination_overhead_is_a_first_class_metric": true,
+    "new_metric_fields": [
+      "judgmental_handoff_count_before_script_lock",
+      "deepseek_calls_used_for_research_and_script",
+      "duplicate_research_avoided",
+      "coordination_time_fraction",
+      "character_expression_revision_count",
+      "speaker_scale_collision_count"
+    ]
+  },
+  "pre_delivery_visual_checks": {
+    "both_characters_perceived_size_balance_checked": true,
+    "active_speaker_enlargement_checked_in_representative_turns": true,
+    "listener_visibility_and_reaction_checked": true,
+    "at_least_one_representative_expression_state_per_major_emotion_checked": true,
+    "face_layer_integrity_checked": true,
+    "caption_and_evidence_safe_zone_checked_after speaker enlargement": true,
+    "decode_pass_alone_is_not_visual_quality_pass": true
+  },
+  "forbidden_drift": [
+    "MOUTH_ONLY_CHARACTER_ACTING",
+    "ACCIDENTAL_ZUNDAMON_METAN_SIZE_MISMATCH",
+    "ACTIVE_SPEAKER_SCALE_WITHOUT_SAFE_ZONE_CHECK",
+    "CONSTANT_SPEAKER_ZOOM",
+    "FIXED_INTERVAL_EXPRESSION_CHANGE",
+    "OVERANIMATE_ALL_FACE_AND_BODY_CHANNELS_AT_ONCE",
+    "SPLIT_RESEARCH_AND_SCRIPT_INTO_MANY_ROUTINE_AGENT_HANDOFFS",
+    "SEPARATE_AGENT_FOR_EVERY_SMALL_SCRIPT_SUBTASK",
+    "DUPLICATE_SOURCE_PROCESSING_ALREADY_DONE_BY_CHATGPT_OR_DEEPSEEK",
+    "USE_EXTRA_AI_FOR_DETERMINISTIC_RENDER_OR_QA_WORK",
+    "TRADE_QUALITY_GATES_FOR_LOWER_COORDINATION_TIME"
+  ]
+}

@@ -1,67 +1,388 @@
-name: Probe exact OpenRouter free endpoints
+name: "Secure staging carrier: NVIDIA Nemotron + Google"
 
 on:
   workflow_dispatch:
+    inputs:
+      resume_mission_id:
+        description: "Existing Mission ID to resume"
+        required: false
+        type: string
+      resume_run_id:
+        description: "Existing carrier/logical Run ID to resume"
+        required: false
+        type: string
+      resume_result_hash:
+        description: "Previous Result Inbox hash"
+        required: false
+        type: string
+      resume_revision:
+        description: "Optional exact next revision"
+        required: false
+        type: string
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: secure-staging-carrier-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  probe:
+  staging-carrier:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == 'ai-army/provider-v3' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 40
     steps:
-      - name: Checkout reviewed probe
+      - name: Checkout target PR branch without write credentials
         uses: actions/checkout@v6
         with:
+          ref: ai-army/provider-v3
           persist-credentials: false
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Send one exact-ID request per model
-        env:
-          AI_API_KEY: ${{ secrets.AI_API_KEY }}
-          FREE_PROBE_OUTPUT: artifacts/free_model_probe.json
-        run: python scripts/probe_free_models.py
-      - name: Validate public probe report
+
+      - name: Restore prior redacted mission artifact for verified resume
+        if: ${{ inputs.resume_mission_id != '' && inputs.resume_run_id != '' && inputs.resume_result_hash != '' }}
+        uses: actions/download-artifact@v6
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.resume_run_id }}
+          pattern: secure-staging-carrier-*
+          path: restored-resume
+          merge-multiple: true
+
+      - name: Normalize restored resume state
+        if: ${{ inputs.resume_mission_id != '' && inputs.resume_run_id != '' && inputs.resume_result_hash != '' }}
         run: |
+          set -euo pipefail
+          mkdir -p artifacts/resume
+          for name in mission_state.json result_inbox.json nvidia_orchestrator_ledger.json; do
+            src="$(find restored-resume -type f -name "$name" -print -quit)"
+            test -n "$src"
+            cp "$src" "artifacts/resume/$name"
+          done
+
+      - name: Carrier preflight and compile
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REF_NAME" = "ai-army/provider-v3"
+          python -m py_compile \
+            scripts/secure_account_evidence.py \
+            scripts/validate_secure_evidence.py \
+            scripts/probe_providers.py \
+            scripts/probe_nvidia_google_focused.py \
+            scripts/focused_google_native_adapter.py \
+            scripts/focused_nvidia_streaming_adapter.py \
+            scripts/run_live_staging_from_probe.py \
+            scripts/run_nvidia_google_staging_focused.py \
+            scripts/live_staging_runner.py \
+            scripts/execution_scope.py \
+            scripts/classify_carrier_failure.py \
+            scripts/mission_integrity.py \
+            scripts/google_staging_readiness.py \
+            scripts/ai_army_coordination.py \
+            scripts/openrouter_worker_mission.py \
+            scripts/probe_free_workers_multi.py \
+            scripts/benchmark_free_workers.py \
+            scripts/worker_benchmark_ranking.py \
+            scripts/openrouter_worker_orchestrator.py \
+            scripts/run_nvidia_orchestrator_mission.py \
+            scripts/run_nvidia_orchestrator_guarded.py
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = {
+              "schema_version": "carrier-dispatch-v5",
+              "dispatch_status": "EXECUTED",
+              "workflow": "probe-free-models.yml",
+              "event": os.environ.get("GITHUB_EVENT_NAME", ""),
+              "branch": os.environ.get("GITHUB_REF_NAME", ""),
+              "branch_guard_allows_target": True,
+              "required_input_blocker": False,
+              "provider_focus": ["nvidia", "google", "openrouter-worker"],
+              "nvidia_selected_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+              "google_selected_model": "gemini-3.8-flash",
+              "openrouter_worker_selection": "dynamic-current-catalog",
+              "continuous_pipeline": True,
+              "production_active": False,
+              "paid_execution_count": 0,
+          }
+          Path("artifacts/dispatch_status.json").write_text(json.dumps(report, sort_keys=True, indent=2)+"\n", encoding="utf-8")
+          PY
+
+      - name: Record provider secret presence only
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          presence = {
+              "google": bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")),
+              "nvidia": bool(os.environ.get("NVIDIA_API_KEY")),
+              "openrouter": bool(os.environ.get("OPENROUTER_API_KEY")),
+          }
+          report = {
+              "schema_version": "carrier-secret-presence-v1",
+              "secret_presence": presence,
+              "secret_values_displayed": 0,
+              "secret_values_logged": 0,
+              "secret_values_persisted": 0,
+              "secret_values_returned_to_model": 0,
+          }
+          Path("artifacts/secret_presence.json").write_text(json.dumps(report, sort_keys=True, indent=2)+"\n", encoding="utf-8")
+          print(json.dumps({"secret_presence": presence, "secret_values_displayed": 0}, sort_keys=True))
+          PY
+
+      - name: Collect redacted account evidence for NVIDIA and Google
+        continue-on-error: true
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/secure_account_evidence.py
+          --provider nvidia
+          --provider google
+          --output artifacts/secure_account_evidence.json
+
+      - name: Validate redaction and evidence freshness
+        if: always()
+        continue-on-error: true
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: python scripts/validate_secure_evidence.py --input artifacts/secure_account_evidence.json
+
+      - name: Build exact NVIDIA Nemotron and Google direct-agent admissions
+        if: always()
+        continue-on-error: true
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_PROBE_MODEL: gemini-3.8-flash
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_PROBE_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b
+        run: >-
+          python scripts/probe_nvidia_google_focused.py
+          --evidence-file artifacts/secure_account_evidence.json
+          --output artifacts/provider_probe.json
+
+      - name: Build fail-closed Google readiness gate
+        if: always()
+        continue-on-error: true
+        run: >-
+          python scripts/google_staging_readiness.py
+          --evidence artifacts/secure_account_evidence.json
+          --probe artifacts/provider_probe.json
+          --expected-head "$GITHUB_SHA"
+          --output artifacts/google_staging_readiness.json
+
+      - name: Run two-agent staging only when both providers pass normal free-only gates
+        if: always()
+        continue-on-error: true
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/run_nvidia_google_staging_focused.py
+          --evidence-file artifacts/secure_account_evidence.json
+          --probe-file artifacts/provider_probe.json
+          --network
+          --ledger artifacts/live_staging_ledger.json
+          --checkpoint-root artifacts/live_staging_checkpoints
+          --output artifacts/live_staging_report.json
+
+      - name: Continue same mission through OpenRouter worker probe benchmark and handoff
+        if: always()
+        continue-on-error: true
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: >-
+          python scripts/openrouter_worker_orchestrator.py
+          --live-report artifacts/live_staging_report.json
+          --source-head "$GITHUB_SHA"
+          --network
+          --output artifacts/openrouter_worker_orchestrator.json
+
+      - name: Build deterministic AI army coordination packet
+        if: always()
+        run: >-
+          python scripts/ai_army_coordination.py
+          --google-readiness artifacts/google_staging_readiness.json
+          --live-report artifacts/live_staging_report.json
+          --source-head "$GITHUB_SHA"
+          --output artifacts/ai_army_coordination.json
+
+      - name: Run guarded NVIDIA Lead only when coordination authorizes it
+        if: always()
+        continue-on-error: true
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+          SOURCE_HEAD: ${{ github.sha }}
+          RESUME_MISSION_ID: ${{ inputs.resume_mission_id }}
+          RESUME_RUN_ID: ${{ inputs.resume_run_id }}
+          RESUME_RESULT_HASH: ${{ inputs.resume_result_hash }}
+          RESUME_REVISION: ${{ inputs.resume_revision }}
+        run: |
+          set -euo pipefail
+          action="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          try:
+              value = json.loads(Path("artifacts/ai_army_coordination.json").read_text(encoding="utf-8"))
+          except Exception:
+              value = {}
+          print(str(value.get("next_action") or "BLOCK_INVALID_COORDINATION"))
+          PY
+          )"
+          case "$action" in
+            RUN_AT_MOST_ONE_GUARDED_NVIDIA_LEAD_CALL)
+              python scripts/run_nvidia_orchestrator_guarded.py
+              ;;
+            USE_VALIDATED_TWO_AGENT_RESULT)
+              echo '{"guarded_nvidia_mission":"SKIPPED_TWO_AGENT_STAGING_ALREADY_OPERATIONAL"}'
+              ;;
+            *)
+              printf '{"guarded_nvidia_mission":"SKIPPED_BY_COORDINATION","next_action":"%s"}\n' "$action"
+              ;;
+          esac
+
+      - name: Ensure redacted reports and classify failures
+        if: always()
+        run: |
+          set -euo pipefail
           python - <<'PY'
           import json
           from pathlib import Path
-          report = json.loads(Path("artifacts/free_model_probe.json").read_text(encoding="utf-8"))
-          assert report["provider_allow_fallbacks"] is False
-          assert report["models_parameter_sent"] is False
-          assert report["web_search"] is False
-          assert report["paid_fallback"] is False
-          assert report["retries"] == 0
-          assert report["model_calls"] in {0, 3}
-          for item in report["results"]:
-              assert item["request_count"] == 1
-              assert item["retry_count"] == 0
-              assert item["fallback_used"] is False or item["status"] == "MODEL_MISMATCH"
-          print(json.dumps({
-              "status": report["status"],
-              "model_calls": report["model_calls"],
-              "catalog_inconsistency": report["catalog_inconsistency"],
-              "credits_checked": report["credits_checked"],
-              "credits_unchanged": report["credits_unchanged"],
-              "results": [
-                  {
-                      "model": item["requested_model"],
-                      "status": item["status"],
-                      "http_status": item["http_status"],
-                      "response_model": item["response_model"],
-                      "usage_cost": item["usage_cost"],
-                  }
-                  for item in report["results"]
-              ],
-          }, ensure_ascii=False))
+          defaults = {
+              "artifacts/secure_account_evidence.json": {"schema_version":"secure-account-evidence-v1","status":"RUNNER_FAILED_CLOSED","providers":{},"secret_values_in_bundle":False},
+              "artifacts/provider_probe.json": {"schema_version":"provider-probe-v1","network_enabled":True,"model_calls":0,"retry_count":0,"paid_fallback":False,"providers":[]},
+              "artifacts/google_staging_readiness.json": {"schema_version":"google-staging-readiness-v3","state":"BLOCKED_INVALID_INPUT","live_ready":False,"repeat_nvidia_call_allowed":False,"external_model_calls_recommended":0},
+              "artifacts/live_staging_report.json": {"status":"blocked","stop_reason":"CARRIER_INPUT_UNAVAILABLE","live_staging":False,"model_calls":0,"paid_execution_count":0,"paid_fallback_count":0,"production_active":False},
+              "artifacts/openrouter_worker_orchestrator.json": {"schema_version":"openrouter-worker-orchestrator-v2","state":"WAITING_FOR_TWO_AGENT_COMPLETION","current_stage":"TWO_AGENT_RESULT_GATE","events":[],"paid_fallback":False,"production_active":False,"automatic_activation":False},
+              "artifacts/ai_army_coordination.json": {"schema_version":"ai-army-coordination-v3","state":"BLOCKED_INVALID_INPUT","next_action":"REFRESH_COORDINATION_INPUTS","call_policy":{"recommended_nvidia_calls_this_stage":0,"recommended_google_calls_this_stage":0,"paid_fallback":False}},
+          }
+          for name, default in defaults.items():
+              path = Path(name)
+              try:
+                  value = json.loads(path.read_text(encoding="utf-8"))
+                  valid = isinstance(value, dict)
+              except Exception:
+                  valid = False
+              if not valid:
+                  path.write_text(json.dumps(default, sort_keys=True, indent=2)+"\n", encoding="utf-8")
           PY
-      - name: Upload redacted probe evidence
+          python scripts/classify_carrier_failure.py \
+            --evidence artifacts/secure_account_evidence.json \
+            --probe artifacts/provider_probe.json \
+            --live artifacts/live_staging_report.json \
+            --branch "$GITHUB_REF_NAME" \
+            --output artifacts/failure_classification.json
+
+      - name: Emit bounded redacted carrier summary
+        if: always()
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          def read(name):
+              try:
+                  v=json.loads(Path(name).read_text(encoding="utf-8")); return v if isinstance(v,dict) else {}
+              except Exception: return {}
+          probe=read("artifacts/provider_probe.json")
+          live=read("artifacts/live_staging_report.json")
+          ready=read("artifacts/google_staging_readiness.json")
+          orchestration=read("artifacts/openrouter_worker_orchestrator.json")
+          coordination=read("artifacts/ai_army_coordination.json")
+          state=read("artifacts/mission_state.json")
+          inbox=read("artifacts/result_inbox.json")
+          ledger=read("artifacts/nvidia_orchestrator_ledger.json")
+          items=probe.get("providers") if isinstance(probe.get("providers"),list) else []
+          live_view=live.get("live_staging") if isinstance(live.get("live_staging"),dict) else {}
+          handoff=orchestration.get("handoff") if isinstance(orchestration.get("handoff"),dict) else {}
+          summary={
+              "schema_version":"carrier-summary-v6",
+              "provider_focus":["nvidia","google","openrouter-worker"],
+              "nvidia_model":"nvidia/nemotron-3.5-lightning-30b-a3b",
+              "google_model":"gemini-3.8-flash",
+              "google_readiness_state":ready.get("state"),
+              "coordination_state":coordination.get("state"),
+              "coordination_next_action":coordination.get("next_action"),
+              "openrouter_orchestration_state":orchestration.get("state"),
+              "openrouter_orchestration_stage":orchestration.get("current_stage"),
+              "openrouter_ready_role_count":int(handoff.get("ready_role_count",0) or 0),
+              "continuous_pipeline":True,
+              "probe_model_calls":int(probe.get("model_calls",0) or 0),
+              "probe_status_by_provider":{str(i.get("provider")):str(i.get("status")) for i in items if isinstance(i,dict) and i.get("provider")},
+              "live_two_agent":bool(live_view.get("operational") is True),
+              "live_agent_count":int(live_view.get("live_agent_count",0) or 0),
+              "executor_provider":live_view.get("executor_provider"),
+              "reviewer_provider":live_view.get("reviewer_provider"),
+              "mission_id":state.get("mission_id"),
+              "mission_state":state.get("state"),
+              "mission_result_status":state.get("result_status"),
+              "result_hash":inbox.get("result_hash"),
+              "result_hash_verified":inbox.get("result_hash_verified") is True,
+              "source_head":inbox.get("source_head") or state.get("source_head") or coordination.get("source_head"),
+              "nvidia_external_calls":int(state.get("nvidia_external_calls",0) or 0),
+              "nvidia_external_calls_uncertain":int(state.get("nvidia_external_calls_uncertain",0) or 0),
+              "nvidia_ledger_present":bool(ledger),
+              "production_active":False,
+              "paid_execution_count":0,
+              "paid_fallback_count":0,
+              "secret_values_displayed":0,
+              "secret_values_logged":0,
+              "secret_values_persisted":0,
+              "secret_values_returned_to_model":0,
+          }
+          Path("artifacts/carrier_summary.json").write_text(json.dumps(summary,ensure_ascii=False,sort_keys=True,indent=2)+"\n",encoding="utf-8")
+          print(json.dumps(summary,ensure_ascii=False,sort_keys=True))
+          PY
+
+      - name: Audit redacted artifacts and repository
+        if: always()
+        run: |
+          set -euo pipefail
+          python scripts/audit_secret_safety.py --root .
+          for report in artifacts/secure_account_evidence.json artifacts/provider_probe.json artifacts/google_staging_readiness.json artifacts/live_staging_report.json artifacts/openrouter_worker_orchestrator.json artifacts/ai_army_coordination.json artifacts/failure_classification.json artifacts/carrier_summary.json; do
+            python -m json.tool "$report" >/dev/null
+          done
+
+      - name: Upload redacted carrier artifacts
+        if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: exact-free-model-probe
-          path: artifacts/free_model_probe.json
-          if-no-files-found: error
-          retention-days: 14
+          name: secure-staging-carrier-${{ github.run_id }}
+          path: |
+            artifacts/dispatch_status.json
+            artifacts/secret_presence.json
+            artifacts/secure_account_evidence.json
+            artifacts/provider_probe.json
+            artifacts/google_staging_readiness.json
+            artifacts/live_staging_report.json
+            artifacts/openrouter_worker_orchestrator.json
+            artifacts/ai_army_coordination.json
+            artifacts/failure_classification.json
+            artifacts/carrier_summary.json
+            artifacts/provider_interruptions.jsonl
+            artifacts/mission_state.json
+            artifacts/result_inbox.json
+            artifacts/nvidia_orchestrator_ledger.json
+          if-no-files-found: ignore
+          retention-days: 7

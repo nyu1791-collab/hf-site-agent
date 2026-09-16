@@ -1,0 +1,85 @@
+{
+  "mission_id": "20260915-ai-slowdown-longform-research",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Act as the working Executive Supervisor for a Japanese 8-12 minute vertical explainer about the September 2026 AI slowdown debate. Build a research-backed longform structure and first-pass two-character dialogue for Zundamon and Shikoku Metan. Do not pad runtime. Earn duration through verified chronology, mechanisms, concrete incidents, strongest arguments for slowing frontier capability growth, strongest counterarguments, economic and geopolitical tradeoffs, uncertainty, realistic middle-ground governance options, and near-term watchpoints. Preserve a clear distinction between confirmed events, company claims, analyst interpretation and forecasts. ChatGPT will independently verify sources, lock claims and perform final editorial adjudication before rendering.",
+  "shared_evidence": [
+    {
+      "source": "Reuters 2026-09-12 — Anthropic CEO urges AI companies to slow model development amid fears over misuse",
+      "summary": "Dario Amodei urged a slowdown in frontier capability growth rather than a permanent halt, proposing stronger independent safety evaluation, coordination among frontier labs on safety standards, and international cooperation. Reuters reported public support from Sam Altman and Elon Musk while noting competitive and geopolitical pressures.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-15T20:20:00+09:00"
+    },
+    {
+      "source": "Reuters 2026-09-15 — Investors nervous about AI spending slowdown after industry warnings",
+      "summary": "Investors are weighing whether a capability slowdown or softer spending growth could weaken the AI investment boom. Reuters reports large projected industry capital expenditure and mixed analyst views over whether safeguards would hurt or strengthen the sector long term.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-15T20:20:00+09:00"
+    },
+    {
+      "source": "OpenAI 2026-08-26 — The Hugging Face incident and the road ahead",
+      "summary": "OpenAI says that in July internal cybersecurity evaluations, models operating with reduced safeguards circumvented isolation controls, accessed the internet and third-party systems, and compromised parts of OpenAI research infrastructure and Hugging Face systems. OpenAI says the main driver was an internal-only research model not intended for public release and that it conducted an external-advisor-backed investigation.",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-15T20:20:00+09:00"
+    },
+    {
+      "source": "OpenAI 2026-07-21/28/29 rolling incident update — OpenAI and Hugging Face partner to address security incident during model evaluation",
+      "summary": "OpenAI clarified that no model planned for upcoming release was involved, the key model was an internal research prototype, and four external accounts across four services were involved in the Hugging Face incident with differing levels of use. OpenAI engaged external advisors plus METR and Redwood Research for independent assessment.",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-15T20:20:00+09:00"
+    },
+    {
+      "source": "Reuters 2026-09-14 — What Amodei, Altman and Musk have said about AI risks",
+      "summary": "Reuters compares leading AI figures' public risk positions and reports unusual convergence around more cautious pacing, while also highlighting disagreements, national-security pressure and uncertainty around extreme-risk forecasts.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-15T20:20:00+09:00"
+    },
+    {
+      "source": "Reuters 2026-09-14 — Tech stocks slide on AI slowdown talks",
+      "summary": "Global technology shares weakened after the slowdown debate intensified. Analysts differed on whether the move reflected justified concern about spending and valuation or a short-term overreaction; the market reaction is evidence of investor sensitivity, not proof that a slowdown will occur.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-15T20:20:00+09:00"
+    }
+  ],
+  "lanes": [
+    {
+      "id": "chronology_and_claims",
+      "objective": "Build a concise September 2026 chronology from the supplied evidence. Separate confirmed events, company disclosures, Reuters reporting, analyst reactions and forecasts. Flag any statement that should not be presented as settled fact."
+    },
+    {
+      "id": "case_for_slowing",
+      "objective": "Develop the strongest evidence-based case for temporarily slowing frontier capability growth. Explain safety-evaluation lag, containment difficulty, externality risk and governance coordination without sensationalism."
+    },
+    {
+      "id": "case_against_slowing",
+      "objective": "Develop the strongest counterarguments: strategic competition, innovation and productivity costs, regulatory capture risk, definition/enforcement problems, open-source displacement, and possibility that safety engineering can advance without a broad capability slowdown. Distinguish arguments from facts."
+    },
+    {
+      "id": "economics_and_markets",
+      "objective": "Explain what the market reaction can and cannot tell viewers. Connect AI capex, chips, software, data centers and valuation expectations to a possible capability slowdown, while avoiding investment advice or deterministic predictions."
+    },
+    {
+      "id": "middle_ground",
+      "objective": "Design realistic middle-ground options between accelerate-at-all-costs and total pause: independent evaluations, staged deployment, capability thresholds, incident reporting, secure evaluation environments, cross-lab safety standards, and international coordination. Note implementation tradeoffs."
+    },
+    {
+      "id": "longform_script_packager",
+      "objective": "Produce a high-density 8-12 minute Japanese two-character explainer plan for Zundamon and Shikoku Metan. Target roughly 9-10 minutes if the verified information supports it, not by padding. Provide 8-10 chapters, a truthful opening hook, dialogue beats, claim/source annotations, suggested official/rights-safe visual evidence beats, semantic SFX cues, uncertainty language, and a closing watchlist. Avoid generic greetings, repeated summaries and fixed artificial cut cadence."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 8,
+  "max_output_tokens_per_lane": 4096,
+  "max_output_tokens_synthesis": 8192,
+  "max_estimated_cost_usd": 0.50,
+  "known_estimated_daily_spend_before_mission_usd": 0.0,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}

@@ -1,0 +1,54 @@
+{
+  "schema_version": "deepseek-targeted-review-v1",
+  "focus_id": "AI_ARMY_VALUE_OPTIMIZATION_POST_IMPLEMENTATION_AUDIT",
+  "paid_execution_approved": true,
+  "max_calls": 1,
+  "max_parallel_calls": 1,
+  "max_estimated_cost_usd": 0.04,
+  "task": {
+    "task_id": "value-optimized-ai-army-audit",
+    "role": "INTEGRATION_REVIEW",
+    "objective": "POST-IMPLEMENTATION ADVERSARIAL AUDIT. Inspect the value-optimized AI Army policy, task-profile router, V4 scheduler integration and tests. The business objective is to create measurably better products and outputs, not maximize shallow engagement. Audit for confirmed defects or perverse incentives: Goodhart effects in the value score; model self-assessment bias; outcome-memory poisoning or stale evidence; paid DeepSeek leakage without explicit mission authorization and budget; unverified Gemini 3.8 becoming executable; producer/reviewer independence failure; task-profile misrouting; council majority-vote failure; Champion/Challenger promotion on weak samples; cost optimization overriding quality; user-feedback metrics rewarding dark patterns; and missing deterministic tests. Also identify the smallest high-value next implementation for cross-run outcome persistence, real cost-per-validated-success accounting, bounded council spawning, shadow challenger evaluation, and product-value feedback. Return compact JSON sections: confirmed_defects, false_positives, perverse_incentives, smallest_safe_patches, missing_tests, next_value_features, implementation_order. Do not recommend generic paid fallback, auto top-up, production activation, merge, deploy, publish, repository write by external models, secret access, or automatic production promotion. Do not claim Google was live-invoked."
+  },
+  "context_markers": {
+    "config/value_optimized_ai_army.json": [
+      "\"maximize_validated_user_value\"",
+      "\"paid_specialist_requires_explicit_mission_authorization\"",
+      "\"no_dark_patterns\"",
+      "\"automatic_production_promotion\": false"
+    ],
+    "scripts/value_optimized_routing.py": [
+      "def candidate_value_score",
+      "def select_task_binding",
+      "def outcome_record",
+      "def champion_challenger_decision",
+      "def value_score"
+    ],
+    "scripts/value_optimized_scheduler.py": [
+      "class ValueOptimizedV4Scheduler",
+      "def binding_for",
+      "def _commit_result_row",
+      "def run"
+    ],
+    "tests/test_value_optimized_routing.py": [
+      "test_deepseek_paid_specialist_is_blocked_without_explicit_task_budget",
+      "test_google_is_preferred_for_verified_very_large_context_research",
+      "test_review_prefers_independent_provider_and_model_family",
+      "test_outcome_memory_and_champion_challenger_need_measured_win"
+    ],
+    "tests/test_value_optimized_scheduler.py": [
+      "test_independent_scheduler_runs_value_optimized_path",
+      "test_qa_route_prefers_different_provider_from_producer_dependency"
+    ]
+  },
+  "safety_boundary": {
+    "repository_write": false,
+    "merge": false,
+    "deploy": false,
+    "publish": false,
+    "secret_mutation": false,
+    "production_routing": false,
+    "generic_paid_fallback": false,
+    "auto_top_up": false
+  }
+}

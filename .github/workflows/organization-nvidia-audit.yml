@@ -1,0 +1,171 @@
+name: NVIDIA independent-agent organization audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: nvidia-organization-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact triggering source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Compile and test organization review surface
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python -m py_compile \
+            scripts/run_nvidia_independent_org_audit.py \
+            scripts/run_nvidia_worker_expansion_self_heal.py \
+            scripts/run_nvidia_worker_expansion_compact.py \
+            scripts/independent_agent_runtime.py \
+            scripts/independent_agent_scheduler.py \
+            scripts/low_latency_agent_fabric.py \
+            scripts/replaceable_agent_scheduler_v2.py \
+            scripts/global_agent_role_optimizer.py \
+            scripts/reconcile_agent_organization.py
+          python -m unittest \
+            tests.test_nvidia_independent_org_audit \
+            tests.test_independent_agent_scheduler \
+            tests.test_replaceable_agent_scheduler_v2 \
+            tests.test_low_latency_agent_fabric -v
+
+      - name: Collect redacted NVIDIA route evidence
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/secure_account_evidence.py
+          --provider nvidia
+          --output artifacts/secure_account_evidence.json
+
+      - name: Build exact NVIDIA direct-agent admission
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/probe_nvidia_google_focused.py
+          --evidence-file artifacts/secure_account_evidence.json
+          --output artifacts/provider_probe.json
+
+      - name: Probe current OpenRouter exact-free worker pool
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from scripts.probe_free_workers_multi import run_multi_probe
+          report = run_multi_probe(api_key=os.environ.get("OPENROUTER_API_KEY") or "", explicit_approval=True)
+          Path("artifacts/openrouter_expansion_probe.json").write_text(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps({"status": report.get("status"), "model_calls": report.get("model_calls", 0), "verified_free_model_count": report.get("verified_free_model_count", 0)}, sort_keys=True))
+          PY
+
+      - name: Benchmark current verified workers
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from scripts.benchmark_free_workers import run_benchmarks
+          probe = json.loads(Path("artifacts/openrouter_expansion_probe.json").read_text(encoding="utf-8"))
+          report = run_benchmarks(api_key=os.environ.get("OPENROUTER_API_KEY") or "", probe_report=probe)
+          Path("artifacts/openrouter_expansion_benchmark.json").write_text(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps({"status": report.get("status"), "model_calls": report.get("model_calls", 0), "ready_role_count": report.get("ready_role_count", 0)}, sort_keys=True))
+          PY
+
+      - name: Run history-aware specialist corps
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: >-
+          python scripts/failure_aware_specialist_retry.py
+          --probe artifacts/openrouter_expansion_probe.json
+          --benchmark artifacts/openrouter_expansion_benchmark.json
+          --output artifacts/worker_council.json
+
+      - name: Build shared blackboard before NVIDIA review
+        env:
+          SOURCE_HEAD: ${{ github.sha }}
+        run: >-
+          python scripts/organization_coordination.py
+          --council artifacts/worker_council.json
+          --source-head "${SOURCE_HEAD}"
+          --mission-id organization-review-${{ github.run_id }}
+          --output artifacts/organization_blackboard.json
+
+      - name: Run scope-guarded NVIDIA independent-agent architecture review
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+          SOURCE_HEAD: ${{ github.sha }}
+        run: python scripts/run_nvidia_independent_org_audit.py
+
+      - name: Validate review artifacts
+        run: |
+          set -euo pipefail
+          python scripts/audit_secret_safety.py --root .
+          for file in \
+            artifacts/worker_council.json \
+            artifacts/organization_blackboard.json \
+            artifacts/mission_state.json \
+            artifacts/result_inbox.json \
+            artifacts/commander_self_heal.json; do
+            python -m json.tool "$file" >/dev/null
+          done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path("artifacts/result_inbox.json").read_text(encoding="utf-8"))
+          heal = json.loads(Path("artifacts/commander_self_heal.json").read_text(encoding="utf-8"))
+          assert result.get("production_active") is False
+          assert int(result.get("secret_values_persisted", 0) or 0) == 0
+          assert heal.get("unbounded_retry") is False
+          assert heal.get("repository_write") is False
+          assert heal.get("paid_fallback") is False
+          print(json.dumps({
+              "result_status": result.get("result_status"),
+              "result_complete": result.get("result_complete"),
+              "path_validation": result.get("path_validation"),
+              "continuation_count": heal.get("continuation_count", 0),
+          }, sort_keys=True))
+          PY
+
+      - name: Upload NVIDIA organization review evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: nvidia-organization-audit-${{ github.run_id }}
+          path: |
+            artifacts/secure_account_evidence.json
+            artifacts/provider_probe.json
+            artifacts/openrouter_expansion_probe.json
+            artifacts/openrouter_expansion_benchmark.json
+            artifacts/worker_council.json
+            artifacts/organization_blackboard.json
+            artifacts/mission_state.json
+            artifacts/result_inbox.json
+            artifacts/commander_self_heal.json
+            artifacts/staging_parallel_scheduler_probe.json
+            artifacts/organization_feedback.json
+            artifacts/worker_organization_memory_next.json
+          if-no-files-found: warn
+          retention-days: 7

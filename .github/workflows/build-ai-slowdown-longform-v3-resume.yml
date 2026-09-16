@@ -1,0 +1,288 @@
+name: Resume AI slowdown longform v3
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ai-slowdown-longform-v3-resume
+  cancel-in-progress: true
+
+jobs:
+  resume:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      OUT: artifacts/ai-slowdown-longform-v3
+      CHECKPOINT: artifacts/ai-slowdown-longform-v2
+      CACHE: .media-cache/assets
+      REACTION: .media-cache/derived/zm-reaction-pack-v1
+      REVISED_MISSION: artifacts/ai-slowdown-longform-v2/mission-revised.json.gz.b64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install deterministic render toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
+          python -m pip install --upgrade pip
+          python -m pip install pillow
+          mkdir -p "$OUT" "$CACHE" "$REACTION"
+
+      - name: Restore successful voice checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: ai-slowdown-longform-v2-34982814053
+          path: artifacts/ai-slowdown-longform-v2
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 34982814053
+
+      - name: Verify restored voice checkpoint
+        run: |
+          test -s "$REVISED_MISSION"
+          test -s "$CHECKPOINT/timing.json"
+          test -d "$CHECKPOINT/voice"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          t=json.loads(Path('artifacts/ai-slowdown-longform-v2/timing.json').read_text())
+          dur=float(t['total_duration']); records=t['records']
+          assert 480 <= dur <= 720, dur
+          assert len(records)==61, len(records)
+          assert float(t['subtitle_narration_coverage_ratio'])==1.0
+          root=Path('artifacts/ai-slowdown-longform-v2/voice')
+          missing=[r['wav_file'] for r in records if not (root/r['wav_file']).is_file()]
+          assert not missing, missing[:5]
+          print({'checkpoint':'PASS','duration_seconds':dur,'line_count':len(records),'coverage':1.0})
+          PY
+
+      - name: Validate current media entrypoints and policy
+        run: |
+          python -m py_compile scripts/character_shell_root.py
+          python -m py_compile scripts/prepare_character_reaction_pack.py
+          python -m py_compile scripts/render_zundamon_metan_longform.py
+          python -m py_compile scripts/media_asset_resolver.py
+          python scripts/media_asset_resolver.py --validate-only
+          python scripts/validate_media_character_reaction_cache.py
+
+      - name: Resolve character shell and reaction pack
+        run: |
+          python scripts/media_asset_resolver.py \
+            --asset-id zm_shell_20230806 \
+            --cache-root "$CACHE" \
+            --allow-network \
+            --max-workers 1 \
+            --manifest-out "$OUT/character-shell.json"
+          RAW=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('artifacts/ai-slowdown-longform-v3/character-shell.json').read_text())
+          p=m['results'][0].get('extracted_path')
+          assert p and Path(p).is_dir(), p
+          print(p)
+          PY
+          )
+          python scripts/character_shell_root.py "$RAW" > "$OUT/character-source-resolved.txt"
+          SRC=$(cat "$OUT/character-source-resolved.txt")
+          python scripts/prepare_character_reaction_pack.py \
+            --shell-root "$SRC" \
+            --source-receipt "$CACHE/characters/zm_shell_20230806/receipt.json" \
+            --output "$REACTION"
+          python scripts/validate_media_character_reaction_cache.py
+
+      - name: Export current reaction pack for longform renderer
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('.media-cache/derived/zm-reaction-pack-v1').resolve()
+          inv=json.loads((root/'inventory.json').read_text())
+          category_map={'full_body':'full_body','mouth':'mouth','eyes':'eye','brows':'eyebrow'}
+          char_map={'Zundamon':'zundamon','Metan':'metan'}
+          records=[]; counts={}
+          for source_char,target_char in char_map.items():
+              cats=inv['characters'][source_char]['categories']
+              for source_cat,target_cat in category_map.items():
+                  rows=cats.get(source_cat,[]); counts[f'{target_char}.{target_cat}']=len(rows)
+                  for row in rows:
+                      p=(root/row['normalized_path']).resolve(); assert p.is_file(), p
+                      records.append({'character':target_char,'category':target_cat,'path':str(p),'sha256':row.get('sha256'),'width':row.get('width'),'height':row.get('height')})
+          for char in ('zundamon','metan'):
+              for cat in ('full_body','mouth','eye','eyebrow'):
+                  assert counts.get(f'{char}.{cat}',0)>=1, counts
+          out={'schema':'legacy-renderer-reaction-inventory-compat-v1','source_schema':inv.get('schema'),'records':records,'counts':counts}
+          Path('artifacts/ai-slowdown-longform-v3/reaction_inventory.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+          print({'compat_inventory':'PASS','records':len(records),'counts':counts})
+          PY
+
+      - name: Resolve rights-registered Wikimedia visuals sequentially at standard thumbnail width
+        run: |
+          python - <<'PY'
+          import json, time
+          from pathlib import Path
+          from scripts import media_asset_resolver as mar
+
+          standard=mar.load_standard(Path('config/media_reusable_asset_standard.json'))
+          mar.validate_standard(standard)
+          mapping={str(a['asset_id']):a for a in standard['assets']}
+          ids=[
+              'dario_amodei_tc_disrupt_2023',
+              'sam_altman_ted_2025',
+              'openai_hq_1515_third_street',
+              'datacenter_server_racks_22370909788',
+              'csiro_server_racks_2042',
+              'cyberport_network_operations_centre',
+          ]
+          results=[]; cache=Path('.media-cache/assets')
+          for index,aid in enumerate(ids):
+              asset=dict(mapping[aid])
+              original_url=str(asset['download_url'])
+              if 'commons.wikimedia.org/wiki/Special:Redirect/file/' in original_url:
+                  sep='&' if '?' in original_url else '?'
+                  asset['download_url']=f'{original_url}{sep}width=1280'
+              result=mar.materialize_asset(standard,asset,cache,allow_network=True)
+              result['acquisition_variant']='REGISTERED_WIKIMEDIA_FILE_STANDARD_THUMBNAIL_1280'
+              result['registered_source_page']=asset['source_page']
+              results.append(result)
+              print({'asset_id':aid,'status':result['status'],'sequential_index':index+1})
+              if index+1 < len(ids):
+                  time.sleep(3.0)
+          manifest={
+              'schema':'media-asset-materialization-manifest-v1',
+              'cache_root':str(cache),
+              'asset_count':len(results),
+              'search_performed':False,
+              'parallel_downloads':False,
+              'wikimedia_thumbnail_width':1280,
+              'results':results,
+          }
+          Path('artifacts/ai-slowdown-longform-v3/visual_assets.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+          assert len(results)==len(ids)
+          PY
+
+      - name: Risk-triggered visual preview gate
+        run: |
+          rm -rf "$OUT/preview"
+          python scripts/render_zundamon_metan_longform.py \
+            --mission-b64 "$REVISED_MISSION" \
+            --timing "$CHECKPOINT/timing.json" \
+            --reaction-inventory "$OUT/reaction_inventory.json" \
+            --asset-manifest "$OUT/visual_assets.json" \
+            --voice-root "$CHECKPOINT/voice" \
+            --output-dir "$OUT/preview" \
+            --preview-only
+          python - <<'PY'
+          from PIL import Image,ImageStat
+          from pathlib import Path
+          p=Path('artifacts/ai-slowdown-longform-v3/preview/representative_contact_sheet.jpg')
+          im=Image.open(p).convert('RGB')
+          assert im.size==(1350,960), im.size
+          stat=ImageStat.Stat(im)
+          assert sum(stat.var)/3 > 400, stat.var
+          print({'preview_size':im.size,'mean':stat.mean,'variance':stat.var})
+          PY
+
+      - name: Render scene checkpoints and final MP4
+        run: |
+          rm -rf "$OUT/final"
+          python scripts/render_zundamon_metan_longform.py \
+            --mission-b64 "$REVISED_MISSION" \
+            --timing "$CHECKPOINT/timing.json" \
+            --reaction-inventory "$OUT/reaction_inventory.json" \
+            --asset-manifest "$OUT/visual_assets.json" \
+            --voice-root "$CHECKPOINT/voice" \
+            --output-dir "$OUT/final"
+
+      - name: Mechanical final gate
+        run: |
+          FINAL="$OUT/final/ai-slowdown-longform-v1.mp4"
+          test -s "$FINAL"
+          ffprobe -v error -show_streams -show_format -of json "$FINAL" > "$OUT/final/ffprobe.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('artifacts/ai-slowdown-longform-v3/final/ffprobe.json').read_text())
+          streams=d['streams']; v=next(x for x in streams if x['codec_type']=='video'); a=next(x for x in streams if x['codec_type']=='audio')
+          dur=float(d['format']['duration'])
+          assert 480 <= dur <= 720, dur
+          assert int(v['width'])==1080 and int(v['height'])==1920, (v['width'],v['height'])
+          assert v['codec_name']=='h264', v['codec_name']
+          assert v.get('pix_fmt')=='yuv420p', v.get('pix_fmt')
+          assert a['codec_name']=='aac', a['codec_name']
+          assert int(a['sample_rate'])==48000, a['sample_rate']
+          t=json.loads(Path('artifacts/ai-slowdown-longform-v2/timing.json').read_text())
+          assert float(t['subtitle_narration_coverage_ratio'])==1.0
+          print({'duration':dur,'video':v['codec_name'],'audio':a['codec_name'],'sample_rate':a['sample_rate']})
+          PY
+          ffmpeg -v error -i "$FINAL" -f null - 2> "$OUT/final/decode-errors.log"
+          test ! -s "$OUT/final/decode-errors.log"
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('artifacts/ai-slowdown-longform-v3/final/ai-slowdown-longform-v1.mp4')
+          b=p.read_bytes()[:8_000_000]
+          moov=b.find(b'moov'); mdat=b.find(b'mdat')
+          assert moov>0 and mdat>0 and moov<mdat, (moov,mdat)
+          print({'faststart':True,'moov':moov,'mdat':mdat})
+          PY
+
+      - name: Extract representative frames from final video
+        run: |
+          FINAL="$OUT/final/ai-slowdown-longform-v1.mp4"
+          DUR=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$FINAL")
+          python - "$DUR" <<'PY'
+          import subprocess,sys
+          from pathlib import Path
+          dur=float(sys.argv[1]); out=Path('artifacts/ai-slowdown-longform-v3/final/visual-samples'); out.mkdir(parents=True,exist_ok=True)
+          for i,f in enumerate((.05,.25,.50,.75,.95),1):
+              subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',str(dur*f),'-i','artifacts/ai-slowdown-longform-v3/final/ai-slowdown-longform-v1.mp4','-frames:v','1',str(out/f'sample-{i}.jpg')],check=True)
+          PY
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          files=sorted(Path('artifacts/ai-slowdown-longform-v3/final/visual-samples').glob('*.jpg'))
+          assert len(files)==5, len(files)
+          sheet=Image.new('RGB',(270*5,480),(235,240,244))
+          for i,p in enumerate(files):
+              im=Image.open(p).convert('RGB'); im.thumbnail((270,480)); sheet.paste(im,(i*270,0))
+          sheet.save('artifacts/ai-slowdown-longform-v3/final/final-contact-sheet.jpg',quality=90)
+          PY
+
+      - name: Record completion manifest
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('artifacts/ai-slowdown-longform-v3/final')
+          mp4=root/'ai-slowdown-longform-v1.mp4'
+          probe=json.loads((root/'ffprobe.json').read_text())
+          result={
+              'schema':'longform-finished-artifact-v1',
+              'mission_id':'20260915-ai-slowdown-longform-v1',
+              'build_variant':'v3_serialized_registered_visuals',
+              'status':'MACHINE_GATES_PASS_VISUAL_REREVIEW_PENDING',
+              'sha256':hashlib.sha256(mp4.read_bytes()).hexdigest(),
+              'bytes':mp4.stat().st_size,
+              'duration_seconds':float(probe['format']['duration']),
+              'decode_error_count':0,
+              'fast_start':True,
+              'subtitle_narration_coverage_ratio':1.0,
+              'voice_checkpoint_run_id':34982814053,
+              'wikimedia_parallel_downloads':False,
+              'public_publish':False,
+          }
+          (root/'completion.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+          PY
+
+      - name: Upload build evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-slowdown-longform-v3-${{ github.run_id }}
+          path: artifacts/ai-slowdown-longform-v3
+          if-no-files-found: warn
+          retention-days: 7

@@ -1,0 +1,57 @@
+name: Verify media agent army
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: media-agent-army-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Compile media runtimes
+        run: |
+          python -m py_compile \
+            scripts/media_agent_runtime.py \
+            scripts/media_free_commander.py \
+            scripts/media_command_bridge.py \
+            scripts/run_nvidia_media_org_audit.py
+      - name: Validate media configs
+        run: |
+          python -m json.tool config/media_agent_organization.json >/dev/null
+          python -m json.tool config/free_media_mesh.json >/dev/null
+      - name: Run media regression tests
+        run: |
+          python -m unittest \
+            tests.test_media_agent_runtime \
+            tests.test_media_free_commander \
+            tests.test_media_command_bridge \
+            tests.test_nvidia_media_org_audit -v
+      - name: Verify free-first boundaries
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          cfg = json.loads(Path('config/free_media_mesh.json').read_text(encoding='utf-8'))
+          p = cfg['policy']
+          assert p['free_first'] is True
+          assert p['free_only_default'] is True
+          assert p['generic_paid_fallback'] is False
+          assert p['auto_top_up'] is False
+          assert p['paid_routes_require_explicit_human_approval'] is True
+          assert p['external_model_repository_write'] is False
+          print('MEDIA_FREE_FIRST_BOUNDARIES=PASS')
+          PY

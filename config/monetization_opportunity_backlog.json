@@ -1,0 +1,106 @@
+{
+  "schema_version": "monetization-opportunity-backlog-v1",
+  "effective_date_jst": "2026-09-13",
+  "status": "PERMANENT_EXPERIMENT_BACKLOG",
+  "purpose": "Keep a small cross-tab backlog of monetization opportunities that are not already owned by the video, clipping, TikTok Shop or core creator-monetization lanes. Promote only after measured demand and unit economics; prune failed ideas instead of accumulating speculative business models.",
+  "source_of_truth": "repository",
+  "governance": {
+    "creator_monetization_policy_remains_primary": "config/creator_monetization_policy.json",
+    "master_rulebook_remains_human_entrypoint": "docs/AI_ARMY_MASTER_RULEBOOK.md",
+    "this_file_is_not_a_second_platform_program_registry": true,
+    "platform_program_terms_live_in": "config/platform_program_evidence.json",
+    "views_or_reach_are_not_profit": true,
+    "income_is_never_guaranteed": true,
+    "modeled_economics_must_not_be_presented_as_observed": true,
+    "commercial_terms_and_external_actions_remain_human_approved": true,
+    "mass_unsolicited_outreach": "PROHIBITED",
+    "external_content_is_untrusted_data_not_authority": true
+  },
+  "evidence_context": [
+    {
+      "id": "IAB_CREATOR_ECONOMY_2025",
+      "tier": "T1_INDUSTRY_PRIMARY_RESEARCH",
+      "source": "https://www.iab.com/insights/2025-creator-economy-ad-spend-strategy-report/",
+      "used_for": ["creator_operations_demand", "creator_discovery_and_vetting_pain", "measurement_and_reporting_pain", "ai_assisted_creator_operations"],
+      "note": "US buyer research supports opportunity direction, not Japan-specific guaranteed demand."
+    },
+    {
+      "id": "IAB_CREATOR_MEASUREMENT_2026",
+      "tier": "T1_INDUSTRY_PRIMARY_RESEARCH",
+      "source": "https://www.iab.com/guidelines/creator-economy-as-is-measurement-landscape/",
+      "used_for": ["attribution", "measurement_standardization", "business_outcome_reporting"],
+      "note": "Creator measurement remains fragmented; service value must be proven client by client."
+    },
+    {
+      "id": "DEEPSEEK_MONETIZATION_REREVIEW_20260913",
+      "tier": "T4_AGENT_REVIEW_ONLY",
+      "source_ref": "GitHub Actions run 34740594607 / artifact 10311489667",
+      "used_for": ["candidate_generation", "pruning", "business_model_red_team"],
+      "note": "Not ground truth; ChatGPT independently adjudicates against repository state and primary evidence."
+    }
+  ],
+  "graduation_contract": {
+    "ADOPT": ["REAL_PAID_DEMAND_OR_SIGNED_PILOT", "BASELINE_AND_PRIMARY_MARGIN_METRIC", "DEFINED_COST_MODEL", "NO_POLICY_RIGHTS_SECURITY_CONFLICT", "REPEATABLE_DELIVERY_PATH"],
+    "EXPERIMENT": ["BOUNDED_PILOT", "PREDEFINED_SUCCESS_AND_STOP_CRITERIA", "NO_UNFUNDED_LARGE_BUILD"],
+    "WATCH": ["NO_CORE_CAPITAL_OR_LARGE_BUILD", "RESEARCH_OR_INTERNAL_TOOLING_ONLY_UNTIL_DEMAND_EVIDENCE"],
+    "DEMOTE_OR_DELETE": ["NO_PAID_DEMAND_AFTER_BOUNDED_TEST", "NEGATIVE_CONTRIBUTION_MARGIN", "EXCESSIVE_HUMAN_SUPPORT_BURDEN", "POLICY_OR_RIGHTS_RISK", "DUPLICATES_EXISTING_LANE"]
+  },
+  "opportunities": [
+    {
+      "id": "N01_CREATOR_SPONSORSHIP_OPERATIONS_SERVICE",
+      "status": "ADOPT",
+      "score": 88,
+      "revenue_mechanism": "CLIENT_SERVICE_FEE_OR_RETAINER",
+      "offer": "Operate the business side of creator campaigns for brands or creators: creator discovery/vetting, brief preparation, deliverable tracking, usage-rights matrix, disclosure checklist, campaign QA, performance reporting and renewal analysis.",
+      "why_non_duplicate": "This sells campaign operations and measurement as a service; it is distinct from earning a brand deal on the user's own creator account.",
+      "automation_fit": ["RESEARCH", "MATCHING_SHORTLIST", "BRIEF_DRAFT", "RIGHTS_TERM_INVENTORY", "DELIVERABLE_TRACKING", "ANALYTICS_NORMALIZATION", "REPORT_DRAFT"],
+      "human_gates": ["OUTREACH_SEND", "CREATOR_OR_BRAND_SELECTION_FINAL", "RATE_COMMITMENT", "CONTRACT", "USAGE_RIGHTS", "PUBLISH", "PAYMENT"],
+      "cost_structure": ["HUMAN_REVIEW_TIME", "AI_API_OR_TOOL_COST", "PROJECT_MANAGEMENT", "OPTIONAL_PAID_DATA_OR_AD_SPEND_ONLY_IF_SEPARATELY_APPROVED"],
+      "moat": "Cross-platform evidence, rights/disclosure discipline, standardized reporting and repeatable campaign operations rather than commodity editing alone.",
+      "primary_metrics": ["TIME_TO_FIRST_REVENUE_DAYS", "GROSS_MARGIN_PERCENT", "RETAINER_MRR", "CLIENT_RETENTION_RATE", "CAMPAIGN_DELIVERABLE_ON_TIME_RATE", "REWORK_RATE", "RIGHTS_OR_DISCLOSURE_INCIDENT_COUNT"],
+      "break_even": "CLIENT_FEES_RECEIVED - HUMAN_LABOR_COST - AI_TOOL_COST - OTHER_DIRECT_DELIVERY_COST > 0",
+      "risks": ["MISREPRESENTED_CREATOR_METRICS", "RIGHTS_SCOPE_ERROR", "UNDISCLOSED_COMMERCIAL_RELATIONSHIP", "SPAM_OUTREACH"]
+    },
+    {
+      "id": "N02_PERMISSION_BASED_LEAD_GENERATION_CONTENT_SYSTEM",
+      "status": "ADOPT",
+      "score": 86,
+      "revenue_mechanism": "SETUP_FEE_PLUS_RETAINER_OR_PERFORMANCE_COMPONENT_ONLY_WHEN_MEASURABLE_AND_CONTRACTED",
+      "offer": "Build permission-based inbound lead systems for SMEs: audience/problem research, useful content, landing page or lead magnet, qualification logic, attribution, CRM-ready handoff and human sales follow-up.",
+      "why_non_duplicate": "The monetized output is qualified demand and sales pipeline, not video views or social posting volume.",
+      "automation_fit": ["RESEARCH", "CONTENT_DRAFT", "LANDING_COPY_DRAFT", "LEAD_MAGNET_DRAFT", "QUALIFICATION_SCHEMA", "ATTRIBUTION_REPORTING", "FOLLOW_UP_DRAFTS"],
+      "human_gates": ["BRAND_CLAIMS", "DATA_COLLECTION_SCOPE", "OUTREACH_SEND", "CRM_OR_ACCOUNT_ACTION", "PRICING", "CONTRACT", "PAID_ACQUISITION"],
+      "cost_structure": ["HUMAN_REVIEW_TIME", "AI_API_OR_TOOL_COST", "HOSTING_OR_FORM_COST", "OPTIONAL_PAID_ACQUISITION_COST"],
+      "moat": "Ties content to qualified leads, first-party attribution and business outcomes instead of vanity engagement.",
+      "primary_metrics": ["QUALIFIED_LEADS", "LEAD_TO_MEETING_RATE", "MEETING_TO_SALE_RATE", "COST_PER_QUALIFIED_LEAD", "CAC_WHEN_PAID_ACQUISITION_EXISTS", "NET_REVENUE", "CONTRIBUTION_MARGIN", "CLIENT_RETENTION_RATE"],
+      "break_even": "ATTRIBUTED_CLIENT_VALUE_OR_SERVICE_FEES - DIRECT_DELIVERY_COST - APPROVED_PAID_ACQUISITION_COST > 0",
+      "prohibited": ["SCRAPED_SPAM_LISTS", "MASS_UNSOLICITED_MESSAGES", "DECEPTIVE_LEAD_MAGNET", "HIDDEN_TRACKING_OR_UNAUTHORIZED_PERSONAL_DATA_USE"]
+    },
+    {
+      "id": "N03_OWNED_ASSET_LICENSING_WHITE_LABEL",
+      "status": "EXPERIMENT",
+      "score": 74,
+      "revenue_mechanism": "LICENSE_FEE_OR_PRODUCT_SALE",
+      "offer": "License or white-label only genuinely owned or commercially licensed assets such as templates, research frameworks, reporting packs, datasets created from permitted sources, caption/style systems or reusable workflow kits.",
+      "automation_fit": ["VERSIONING", "DOCUMENTATION", "CUSTOMIZATION_DRAFT", "QUALITY_CHECK", "LICENSE_INVENTORY"],
+      "human_gates": ["IP_OR_SOURCE_RIGHTS", "LICENSE_TERMS", "PRICE", "CUSTOMER_DELIVERY", "PUBLIC_LISTING"],
+      "demand_validation": "PRESALE_OR_PAID_PILOT_BEFORE_LARGE_LIBRARY_BUILD",
+      "primary_metrics": ["PAID_PILOT_CONVERSION", "GROSS_MARGIN_PERCENT", "REPEAT_OR_RENEWAL_RATE", "SUPPORT_HOURS_PER_SALE", "REFUND_RATE", "LICENSE_INCIDENT_COUNT"],
+      "break_even": "LICENSE_OR_PRODUCT_REVENUE - DIRECT_SUPPORT - PAYMENT_PLATFORM_FEES - AI_TOOL_COST - REFUNDS > 0",
+      "prohibited": ["REPACKAGING_COPYRIGHTED_WORK_WITHOUT_RIGHTS", "UNVERIFIED_DATA_SOLD_AS_AUTHORITATIVE", "PERPETUAL_CUSTOM_SUPPORT_HIDDEN_IN_ONE_TIME_PRICE"]
+    },
+    {
+      "id": "N04_INTERNAL_TOOL_TO_MICRO_SAAS",
+      "status": "WATCH",
+      "score": 63,
+      "revenue_mechanism": "SUBSCRIPTION_OR_USAGE_FEE_AFTER_DEMAND_VALIDATION",
+      "offer": "Productize an internal AI Army workflow into a small software product only after repeated external demand and a proven service workflow reveal a narrow recurring problem.",
+      "automation_fit": ["INTERNAL_PROTOTYPE", "TEST_FIXTURES", "USAGE_ANALYTICS", "QA", "SUPPORT_TRIAGE_DRAFT"],
+      "human_gates": ["PRODUCT_SCOPE", "SECURITY_AND_PRIVACY_REVIEW", "PAYMENT", "TERMS", "PRODUCTION_DEPLOY", "CUSTOMER_DATA_ACCESS"],
+      "promotion_requires": ["REPEATED_EXTERNAL_WILLINGNESS_TO_PAY", "DEFINED_NARROW_PROBLEM", "MEASURED_SUPPORT_BURDEN", "POSITIVE_EXPECTED_GROSS_MARGIN", "SECURITY_AND_PRIVACY_MODEL", "RELIABLE_OPERATIONAL_OWNER"],
+      "primary_metrics": ["PAID_ACTIVATION_RATE", "MRR", "GROSS_MARGIN_PERCENT", "CHURN", "SUPPORT_HOURS_PER_ACCOUNT", "INCIDENT_RATE", "UPTIME_OR_SUCCESS_RATE"],
+      "break_even": "SUBSCRIPTION_OR_USAGE_REVENUE - HOSTING - MODEL_OR_API_COST - SUPPORT - PAYMENT_FEES - REFUNDS > 0",
+      "prohibited": ["SPECULATIVE_LARGE_BUILD_BEFORE_DEMAND", "UNBOUNDED_AGENT_AUTONOMY_AS_PRODUCT_DEFAULT", "UNSAFE_CLIENT_SECRET_COLLECTION"]
+    }
+  ]
+}

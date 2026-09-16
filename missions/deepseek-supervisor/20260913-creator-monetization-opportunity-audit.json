@@ -1,0 +1,79 @@
+{
+  "mission_id": "creator-monetization-opportunity-audit-20260913",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Act as paid Executive Supervisor under ChatGPT. Re-audit and expand monetization opportunities that can be executed by or supported by the AI Army, with emphasis on YouTube, Instagram, TikTok, X, Facebook and adjacent creator-commerce/service channels in Japan. Do not repeat the existing TikTok Shop/video editing/clipping playbooks unless a new monetization route changes them. Find current, legitimate, platform-compliant ways to earn from original content, brand deals, creator marketplaces, affiliate commerce, memberships/subscriptions, premium content, platform rewards, UGC/creative-service work, social-media operating services, licensing and other scalable creator businesses. Distinguish platform-native payout from off-platform client/service revenue. For every candidate include current official evidence, Japan availability where known, entry requirements, expected operational burden, AI-agent automation potential, human-approval points, platform/policy risk, rights/disclosure obligations, measurable unit economics, moat/competition, time-to-first-revenue, and disposition ADOPT/EXPERIMENT/HOLD/REJECT. Aggressively reject spam, engagement manipulation, fake followers/reviews, copied content, mass low-value reposting, monetization-policy arbitrage, misleading affiliate claims and automation that violates platform rules. Identify the best new durable repository additions and the smallest coherent integration. ChatGPT independently verifies primary evidence before any policy adoption.",
+  "shared_evidence": [
+    {
+      "source": "config/permanent_standards_manifest.json + config/current_commander_handoff.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T13:55:00+09:00",
+      "summary": "Repository is the durable source of truth across tabs. Any adopted monetization standard must be connected to the permanent manifest and startup/read-gate behavior without weakening no-merge/no-deploy/no-publish/no-secret constraints."
+    },
+    {
+      "source": "config/cross_source_knowhow_evidence_matrix.json + config/cross_domain_measurement_registry.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T13:55:00+09:00",
+      "summary": "Existing evidence governance scores external know-how and requires measurable baselines/guardrails. New revenue opportunities must be platform-scoped and measurable, not generic success folklore."
+    },
+    {
+      "source": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md + config/tiktok_shop_influence_policy.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T13:55:00+09:00",
+      "summary": "TikTok Shop commerce, claims/evidence, GMV funnel and anti-fabrication rules already exist. Focus on additional monetization lanes beyond merely restating this playbook."
+    },
+    {
+      "source": "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md + config/authorized_clipping_monetization_policy.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T13:55:00+09:00",
+      "summary": "Authorized clipping and rights/monetization separation already exist. New proposals must preserve rights provenance and human publication approval where required."
+    },
+    {
+      "source": "current official platform evidence verified by ChatGPT 2026-09-13",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T13:55:00+09:00",
+      "summary": "YouTube currently exposes YPP, Shopping affiliate in Japan and Creator Partnerships; Instagram Japan supports Creator Marketplace, subscriptions, gifts and 2026 affiliate-tag expansion; TikTok exposes Creator Rewards, Series, TikTok One and Shop creator affiliate; X replaced Creator Revenue Sharing with Original Content Rewards in September 2026 and still offers Subscriptions; Facebook Content Monetization and Creator Fast Track exist with current eligibility/availability constraints. Treat each current program as versioned evidence, not permanent availability."
+    }
+  ],
+  "lanes": [
+    {
+      "id": "platform-native-monetization",
+      "objective": "Audit current official monetization programs on YouTube, Instagram, TikTok, X and Facebook, especially Japan. Separate ads/rewards, fan funding, subscriptions, gifts, premium content and shopping/affiliate. Identify current eligibility, policy volatility, payout lag and which routes are realistically worth prioritizing for a new or growing account."
+    },
+    {
+      "id": "brand-deals-marketplaces",
+      "objective": "Audit brand-deal and creator-marketplace opportunities including YouTube Creator Partnerships, Instagram Creator Marketplace/partnership ads, TikTok One project types and comparable legitimate programs. Focus on how an AI Army can improve discovery, qualification, pitch preparation, deliverable tracking, rate-card evidence and campaign reporting without autonomously accepting contracts, posting or misrepresenting metrics."
+    },
+    {
+      "id": "affiliate-commerce-beyond-shop",
+      "objective": "Audit affiliate and commerce paths beyond the existing TikTok Shop lane, especially YouTube Shopping affiliate and Instagram affiliate product tags, plus other platform-native or credible Japan-compatible options. Score by margin, attribution/payout lag, returns/refunds, product-policy risk, need for inventory, and suitability for evidence-based product content."
+    },
+    {
+      "id": "ai-agent-service-businesses",
+      "objective": "Find legitimate service businesses that the AI Army could productize for clients: short-form creative packages, UGC ad creative, social-media operating support, research/script/caption/localization packages, analytics/retention diagnosis, creator-brand matching support, catalog-to-content transformation and similar. Focus on recurring B2B revenue, low startup capital, repeatability, clear human approval boundaries, and avoidance of spam/outreach abuse."
+    },
+    {
+      "id": "owned-audience-recurring-revenue",
+      "objective": "Audit recurring or owned-audience monetization such as YouTube memberships, Instagram subscriptions, X subscriptions, TikTok Series and credible membership/digital-product platforms. Compare platform dependency, fees, audience ownership, churn, content burden and whether agents can maintain member value without creating low-quality automated filler."
+    },
+    {
+      "id": "portfolio-prioritization-redteam",
+      "objective": "Rank the best opportunities by time-to-first-revenue, expected gross margin, required audience size, platform dependency, policy volatility, upfront cost, human workload, AI automation leverage and defensibility. Red-team false income claims and fragile opportunities. Produce a minimal adoption map: what should become permanent know-how now, what should remain experiment/watchlist, and what should be rejected."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 8,
+  "max_output_tokens_per_lane": 6144,
+  "max_output_tokens_synthesis": 8192,
+  "max_estimated_cost_usd": 0.35,
+  "known_estimated_daily_spend_before_mission_usd": 0.15,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}

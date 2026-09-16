@@ -1,0 +1,79 @@
+{
+  "mission_id": "cross-source-second-pass-redteam-20260913",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Perform a second-pass adversarial audit under ChatGPT after the first cross-source know-how review. Do NOT repeat generic multi-agent, retention, or TikTok Shop advice already captured. Search specifically for overlooked high-value deltas across current official OpenAI, Anthropic, Google, Microsoft, NVIDIA, YouTube, TikTok, Meta, Hugging Face, GitHub/mature OSS, standards bodies, peer-reviewed research, and real operational practice. Compare every proposed delta against the current repository canonical policies and the cross-source evidence/measurement registries. Focus on gaps that can cause false confidence, unsafe tool use, quality regression, misleading commerce optimization, or wasted supervisory compute. Propose ADOPT / EXPERIMENT / DEMOTE / REJECT only with evidence tier, exact repository integration point, measurable acceptance criteria, rollback rule, duplication check, and explicit platform/applicability scope. Preserve ChatGPT final authority, bounded autonomy, Single Writer, max delegation depth 2, no generic paid fallback, no auto top-up, no secrets, no merge/deploy/publish, and no paid/freemium media-generation SaaS.",
+  "shared_evidence": [
+    {
+      "source": "config/cross_source_knowhow_evidence_matrix.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T13:40:00+09:00",
+      "summary": "First-pass scored evidence registry already covers agent evaluation/routing, YouTube retention/CTR, TikTok creative/shop funnel, Meta safe zones, ITU loudness, WhisperX, MasRouter, mature OSS, Google/Microsoft/Hugging Face patterns, and rejects universal cut cadence/cross-platform heuristic copying. Second pass must find non-duplicative gaps."
+    },
+    {
+      "source": "config/cross_domain_measurement_registry.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T13:40:00+09:00",
+      "summary": "Current measurement registry requires baselines, platform-scoped metrics, AI latency/tokens/errors/coordination, video technical QA and retention feedback, and TikTok Shop GMV/return/refund/policy guardrails. New metrics need clear incremental value."
+    },
+    {
+      "source": "config/current_commander_handoff.json + config/permanent_standards_manifest.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T13:40:00+09:00",
+      "summary": "Repository is source of truth; DeepSeek is persistently preauthorized only for high-value supervisory analysis and is not a mandatory paid hop. Canonical branch is ai-army/provider-v3, PR #40 remains unmerged, and ChatGPT is final adjudicator."
+    },
+    {
+      "source": "config/media_command_read_gate.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T13:40:00+09:00",
+      "summary": "Media commands already reread permanent evidence and measurement rules before planning/execution. Second pass should propose read-gate additions only if truly necessary."
+    },
+    {
+      "source": "first DeepSeek cross-source audit run 34735988305 / artifact 10310798056",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-13T13:40:00+09:00",
+      "summary": "First paid audit provided useful lane outputs but synthesis required boundary recovery; second pass should avoid treating prior AI synthesis as ground truth and prioritize primary-source-verifiable deltas."
+    }
+  ],
+  "lanes": [
+    {
+      "id": "untrusted-content-tool-security",
+      "objective": "Find overlooked agent-security know-how for web/search/repository/tool-using agents: indirect prompt injection, untrusted retrieved text, tool-result instruction smuggling, data exfiltration, poisoned memory/context, unsafe URL/file content, privilege separation, allowlists, least authority, confirmation gates, taint/provenance marking, and eval fixtures. Compare OpenAI/Anthropic/Google/Microsoft/NVIDIA/OWASP or equivalent primary guidance. Return only deltas not already enforced by current repo safety policies."
+    },
+    {
+      "id": "vendor-independent-evaluation",
+      "objective": "Audit evaluation architecture for vendor lock-in and lifecycle risk. Check current OpenAI/Google/Microsoft/NVIDIA evaluation guidance, product deprecations, trace/trajectory grading, dataset/version pinning, regression fixtures, evaluator agreement, judge calibration, and provider-independent artifact formats. Identify what should be canonical versus adapter-specific."
+    },
+    {
+      "id": "perceptual-video-caption-quality",
+      "objective": "Look beyond codec/decode QA. Review official accessibility/video guidance and mature tooling for subtitle readability, line length/reading speed, contrast/background occlusion, speech intelligibility, loudness range, clipping, black/freeze frames, motion/crop errors, face/subject occlusion, visual-text overlap, scene continuity, cognitive load and over-editing. Avoid importing broadcast-only values as social-platform laws. Propose machine-checkable metrics where possible and human-review checkpoints where not."
+    },
+    {
+      "id": "claims-provenance-freshness",
+      "objective": "Audit claim-level evidence handling for news, product, commerce and video scripts. Explore claim IDs, source timestamps, freshness TTL, source-to-script-to-caption traceability, contradiction detection, numeric/date/entity verification, source independence, stale-claim invalidation and publication recheck. Find minimal additions that improve factual reliability without duplicating existing rights/provenance manifests."
+    },
+    {
+      "id": "commerce-experiment-causal-discipline",
+      "objective": "Audit TikTok Shop/video optimization experiment methodology: attribution windows, small-sample overfitting, novelty effects, sequential testing, pre-registration, primary metric/guardrails, return/refund lag, creator/product/account confounding, holdouts, multi-armed-bandit vs fixed A/B use, and when not to generalize from platform benchmarks. Use official platform measurement guidance and credible experimentation research."
+    },
+    {
+      "id": "supervisor-value-information-gain",
+      "objective": "Audit when paid/high-tier supervisor calls create net value. Propose measurable admission/termination metrics such as expected information gain, accepted-decision yield, cost per accepted delta, duplicate-research avoidance, contradiction discovery, and stop rules. Look for evidence-backed ways to avoid both underusing and overusing DeepSeek/NVIDIA/other upper agents. Keep implementation simple and compatible with existing budget controls."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 8,
+  "max_output_tokens_per_lane": 6144,
+  "max_output_tokens_synthesis": 8192,
+  "max_estimated_cost_usd": 0.40,
+  "known_estimated_daily_spend_before_mission_usd": 0.75,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}
