@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/provider-catalog-snapshot.schema.json",
+  "title": "Provider Catalog Snapshot",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "provider_id",
+    "discovered_at",
+    "snapshot_sha256",
+    "invalid_model_entries",
+    "duplicate_model_entries",
+    "models"
+  ],
+  "properties": {
+    "schema_version": {"const": "provider-catalog-snapshot-v1"},
+    "provider_id": {"enum": ["google", "nvidia", "groq", "openrouter"]},
+    "discovered_at": {"type": "string", "minLength": 1},
+    "snapshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "invalid_model_entries": {"type": "integer", "minimum": 0},
+    "duplicate_model_entries": {"type": "integer", "minimum": 0},
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "display_name",
+          "lifecycle",
+          "capabilities",
+          "context_length",
+          "pricing_class",
+          "quota_class"
+        ],
+        "properties": {
+          "model_id": {"type": "string", "minLength": 1, "maxLength": 200},
+          "display_name": {"type": ["string", "null"]},
+          "lifecycle": {"enum": ["STABLE", "GA", "PREVIEW", "EXPERIMENTAL", "LEGACY", "DEPRECATED", "REMOVED", "UNKNOWN"]},
+          "capabilities": {"type": "array", "items": {"type": "string"}},
+          "context_length": {"type": ["integer", "null"], "minimum": 0},
+          "pricing_class": {"enum": ["FREE_CATALOG_ONLY", "PAID", "UNKNOWN"]},
+          "quota_class": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

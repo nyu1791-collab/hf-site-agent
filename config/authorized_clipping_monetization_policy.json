@@ -1,0 +1,173 @@
+{
+  "schema_version": "authorized-clipping-monetization-policy-v2",
+  "effective_date_jst": "2026-09-12",
+  "status": "PERMANENT_CONDITIONAL_STANDARD",
+  "decision": {
+    "adopt_authorized_clipping_and_repurposing": true,
+    "adopt_generic_unlicensed_clipping": false,
+    "canonical_lane": "AUTHORIZED_CREATOR_REPURPOSING_AND_OFFICIAL_CLIPPING",
+    "decision_owner": "chatgpt-top-commander",
+    "deepseek_consulted": true,
+    "historical_deepseek_run_id": 34682071530,
+    "latest_full_system_peer_review_runs": [34683429461, 34683998011],
+    "latest_peer_review_chatgpt_adjudicated": true
+  },
+  "core_principle": "Platform monetization eligibility and copyright/commercial-use permission are independent gates. Passing either one never implies the other.",
+  "business_priority": [
+    "DIRECT_CLIENT_SERVICE_FEE",
+    "RETAINER_PLUS_PERFORMANCE_BONUS",
+    "AUTHORIZED_REVENUE_SHARE",
+    "AFFILIATE_OR_SHOPPING_COMMISSION",
+    "PLATFORM_AD_REVENUE"
+  ],
+  "source_admission_gate": {
+    "require_one": ["SOURCE_CREATOR_OR_CLIENT_OWNS_ALL_REQUIRED_RIGHTS", "EXPLICIT_WRITTEN_COMMERCIAL_USE_LICENSE"],
+    "written_license_required_fields": ["rightsholder_or_authorized_signatory", "source_asset_or_channel_scope", "allowed_platforms", "commercial_monetization_permission", "derivative_edit_permission", "territory", "term", "revocation_or_takedown_terms"],
+    "credit_or_attribution_is_permission": false,
+    "fair_use_may_be_assumed_as_scalable_business_permission": false,
+    "third_party_music_game_footage_guest_likeness_and_other_embedded_rights_must_be_checked_separately": true,
+    "missing_or_expired_rights_record": "BLOCK_PUBLISH"
+  },
+  "platform_originality_gate": {
+    "youtube": {
+      "substantive_transformation_required": true,
+      "captions_crop_zoom_only_are_sufficient_by_default": false,
+      "preferred_value_add": ["ORIGINAL_COMMENTARY", "EXPLANATION_OR_ANALYSIS", "NEW_NARRATIVE_OR_STORY_STRUCTURE", "CONTEXT_CARD_OR_EDITORIAL_FRAMING", "ORIGINAL_GRAPHICS_OR_VISUAL_EXPLANATION"],
+      "channel_wide_reused_content_risk": true,
+      "mass_produced_or_repetitive_pattern": "BLOCK_OR_ESCALATE"
+    },
+    "tiktok": {
+      "creator_rewards_originality_must_be_verified_separately": true,
+      "third_party_license_does_not_guarantee_creator_rewards_eligibility": true,
+      "creator_rewards_target_duration_rule_must_be_refreshed_at_publish_time": true,
+      "duet_stitch_or_sponsored_content_must_not_be_assumed_creator_rewards_eligible": true,
+      "no_artificial_engagement": true
+    }
+  },
+  "pipeline": {
+    "committed_stages": [
+      "STAGE_1_INGEST_AND_RIGHTS_GATE",
+      "STAGE_2_FEATURE_ASR_AND_ALIGNMENT",
+      "STAGE_3_SCORE_DEDUP_BOUNDARY_CUT_REFRAME_AND_CAPTION_DRAFT",
+      "STAGE_4_QA_HUMAN_APPROVAL_AND_EXPORT"
+    ],
+    "stage_details": {
+      "STAGE_1_INGEST_AND_RIGHTS_GATE": ["RIGHTS_MANIFEST_INGEST", "AUTHORIZED_SOURCE_INGEST", "SOURCE_HASH", "EMBEDDED_RIGHTS_CHECK"],
+      "STAGE_2_FEATURE_ASR_AND_ALIGNMENT": ["AUDIO_VIDEO_CHAT_FEATURE_EXTRACTION", "LOCAL_ASR_WHEN_REQUIRED", "VAD", "WORD_LEVEL_ALIGNMENT", "OPTIONAL_DIARIZATION"],
+      "STAGE_3_SCORE_DEDUP_BOUNDARY_CUT_REFRAME_AND_CAPTION_DRAFT": ["MULTI_SIGNAL_HIGHLIGHT_SCORING", "CANDIDATE_DEDUP", "DIVERSITY_SELECTION", "BOUNDARY_REFINEMENT", "ROUGH_CUT", "VERTICAL_REFRAME", "CAPTION_DRAFT", "TRANSFORMATION_LAYER_DRAFT"],
+      "STAGE_4_QA_HUMAN_APPROVAL_AND_EXPORT": ["RIGHTS_AND_ORIGINALITY_QA", "TECHNICAL_MACHINE_QA", "HUMAN_APPROVAL", "EXPORT_PACKAGE", "PUBLISHING_HANDOFF", "ANALYTICS_JOIN_KEY"]
+    },
+    "checkpoint_after_each_committed_stage": true,
+    "healthy_stage_output_is_reused": true,
+    "later_failure_must_not_restart_prior_healthy_stage": true
+  },
+  "asr_alignment": {
+    "preferred_local_tools": ["FASTER_WHISPER", "WHISPERX"],
+    "content_addressed_sidecar_required": true,
+    "sidecar_key_fields": ["source_sha256", "model_id", "model_version", "vad_params", "language"],
+    "word_level_alignment_required_for_unknown_or_third_party_speech": true,
+    "diarization_when_multiple_speakers_materially_affect_boundary_or_caption": true,
+    "do_not_rerun_asr_for_reframe_caption_style_or_visual_only_changes": true,
+    "known_tts_with_verified_narration_manifest_may_skip_asr": true
+  },
+  "highlight_scoring": {
+    "combine_signals": true,
+    "signals": [
+      "CHAT_DENSITY_Z_SCORE",
+      "CHAT_EMOTION_OR_REACTION_KEYWORDS",
+      "SPEECH_CHAT_SEMANTIC_OVERLAP",
+      "AUDIO_ENERGY_OR_LAUGHTER",
+      "TRANSCRIPT_SEMANTIC_NOVELTY_OR_PAYOFF",
+      "MOTION_OR_SCENE_CHANGE",
+      "CREATOR_SPECIFIC_KEYWORDS_OR_EVENTS"
+    ],
+    "each_candidate_records_signal_contributions": true,
+    "weights_version_required": true,
+    "smooth_and_peak_detect": true,
+    "candidate_diversity_required": true,
+    "near_duplicate_candidate_suppression": true,
+    "near_duplicate_checks": ["AUDIO_FINGERPRINT", "FRAME_OR_PERCEPTUAL_HASH", "TRANSCRIPT_SEMANTIC_SIMILARITY"],
+    "llm_ranker_is_advisory": true,
+    "llm_ranker_may_not_override_rights_originality_or_machine_qa": true,
+    "chat_emotion_and_semantic_scores_are_heuristics_not_truth": true
+  },
+  "boundary_refinement": {
+    "duration_limits_are_platform_config_not_hardcoded_global_constants": true,
+    "prefer_sentence_or_semantic_unit_boundary": true,
+    "snap_to_nearby_vad_boundary_when_safe": true,
+    "reject_mid_word_cut": true,
+    "reject_unintentional_mid_sentence_cut": true,
+    "padding_is_versioned_and_ab_testable": true
+  },
+  "vertical_reframe": {
+    "face_or_subject_aware_when_available": true,
+    "speech_or_active_speaker_signal_may_inform_crop": true,
+    "temporal_smoothing_required_for_dynamic_crop": true,
+    "deadband_or_hysteresis_preferred_to_reduce_crop_jitter": true,
+    "cropdetect_may_assist_black_border_detection": true,
+    "product_or_primary_subject_must_not_be_obscured_by_caption": true
+  },
+  "caption_policy": {
+    "timing_prefers_word_level_alignment_when_asr_path_is_used": true,
+    "minimum_display_duration_is_fixture_calibrated_not_universal": true,
+    "negative_timestamp_allowed": false,
+    "unintended_overlap_allowed": false,
+    "caption_text_does_not_upgrade_claim_or_rights_evidence": true
+  },
+  "technical_machine_qa": {
+    "ffprobe_parse_required": true,
+    "video_stream_required": true,
+    "audio_stream_required_when_source_or_output_contract_requires_audio": true,
+    "duration_contract_required": true,
+    "decode_error_check_required": true,
+    "subtitle_timing_validation_required": true,
+    "partial_or_unverified_output_may_not_enter_export_manifest": true,
+    "machine_oracle_over_agent_vote": true
+  },
+  "tooling": {
+    "preferred": ["PYTHON", "FFMPEG", "FFPROBE", "FASTER_WHISPER_OR_WHISPERX", "PYSCENEDETECT_OPTIONAL", "OPENCV", "AUTO_EDITOR_OPTIONAL"],
+    "network_fetch_inside_render": false,
+    "reuse_existing_longform_checkpoint_and_media_contract_rules": true,
+    "prohibited_freemium_media_saas": ["runway", "fal", "fal.ai", "descript", "veed", "heygen", "higgsfield"]
+  },
+  "automation_boundary": {
+    "may_be_fully_automated": ["INGEST_AFTER_RIGHTS_GATE", "ASR", "ALIGNMENT", "HIGHLIGHT_CANDIDATE_SCORING", "ROUGH_CUT", "REFRAME_DRAFT", "CAPTION_DRAFT", "TITLE_DESCRIPTION_HASHTAG_DRAFT", "DUPLICATE_CHECK", "TECHNICAL_QA", "ANALYTICS_COLLECTION"],
+    "human_approval_required": ["FIRST_USE_OF_EACH_RIGHTS_LICENSE", "FINAL_THIRD_PARTY_CLIP_SELECTION", "FINAL_TRANSFORMATION_OR_COMMENTARY", "SENSITIVE_OR_CONTROVERSIAL_CONTEXT", "MONETIZATION_ACTIVATION", "PUBLICATION_UNTIL_EXPLICIT_AUTOPUBLISH_POLICY_IS_APPROVED", "COPYRIGHT_CLAIM_OR_DISPUTE_ACTION"]
+  },
+  "agent_policy": {
+    "multi_agent_debate_for_highlight_scoring_default": false,
+    "parallel_agents_for_deterministic_reframe_caption_or_qa_steps_default": false,
+    "deterministic_tools_preferred_when_they_supply_a_machine_oracle": true,
+    "deepseek_supervisor_role": "RESEARCH_REVIEW_WEIGHTING_STRATEGY_AND_FAILURE_ANALYSIS_NOT_RIGHTS_AUTHORITY",
+    "chatgpt_final_adjudication": true
+  },
+  "kill_switches": [
+    "MISSING_EXPIRED_OR_REVOKED_LICENSE",
+    "UNRESOLVED_COPYRIGHT_OR_CONTENT_ID_CLAIM",
+    "PLATFORM_STRIKE_OR_REUSED_CONTENT_WARNING",
+    "REPEATED_NEAR_DUPLICATE_OUTPUT",
+    "INSUFFICIENT_TRANSFORMATION",
+    "UNVERIFIED_THIRD_PARTY_MUSIC_OR_EMBEDDED_RIGHTS",
+    "ENGAGEMENT_MANIPULATION_SIGNAL",
+    "PLATFORM_POLICY_CHANGE_INVALIDATES_ASSUMPTION",
+    "UNKNOWN_OR_POSITIVE_UNAPPROVED_MEDIA_SERVICE_COST"
+  ],
+  "analytics_feedback": {
+    "track": ["THREE_SECOND_HOLD", "AVERAGE_VIEW_DURATION", "COMPLETION_RATE", "REWATCH_RATE", "SHARE_SAVE_COMMENT_RATE", "SUBSCRIBER_OR_FOLLOW_CONVERSION", "COPYRIGHT_CLAIM_RATE", "TAKEDOWN_RATE", "CLIENT_APPROVAL_RATE", "EDIT_REVISION_RATE", "REVENUE_PER_CLIP", "AFFILIATE_CONVERSION", "REVENUE_PER_SOURCE_HOUR", "COMPUTE_COST_PER_APPROVED_CLIP"],
+    "analytics_join_key_includes": ["source_sha256", "source_time_range", "weights_version", "edit_policy_version"],
+    "feedback_may_update_highlight_weights": true,
+    "feedback_may_never_relax_rights_claim_or_safety_gates": true
+  },
+  "rejected_patterns": [
+    "UNLICENSED_MASS_REPOSTING",
+    "ATTRIBUTION_ONLY_PERMISSION",
+    "CAPTIONS_ONLY_AS_TRANSFORMATION",
+    "CROP_OR_ZOOM_ONLY_AS_TRANSFORMATION",
+    "NEAR_IDENTICAL_MASS_CLIP_TEMPLATES",
+    "AUTOMATED_FAKE_VIEWS_FOLLOWS_COMMENTS_OR_ENGAGEMENT",
+    "MULTI_AGENT_DEBATE_WHEN_MACHINE_QA_IS_AVAILABLE",
+    "FULLY_AUTONOMOUS_THIRD_PARTY_PUBLISHING_WITHOUT_APPROVED_POLICY",
+    "ASSUMING_PLATFORM_MONETIZATION_EQUALS_COPYRIGHT_PERMISSION",
+    "ASSUMING_COPYRIGHT_PERMISSION_EQUALS_PLATFORM_MONETIZATION_ELIGIBILITY"
+  ]
+}

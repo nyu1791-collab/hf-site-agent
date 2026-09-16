@@ -1,0 +1,429 @@
+name: "AI Army subordinate continuation: DeepSeek + workers + NVIDIA"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/subordinate-continuation-trigger.txt
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ai-army-subordinate-continuation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deepseek-seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact triggering source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Verify this continuation explicitly authorizes bounded DeepSeek
+        run: |
+          set -euo pipefail
+          grep -Fxq 'allow_deepseek_paid_trial=true' .github/subordinate-continuation-trigger.txt
+          grep -Fxq 'max_paid_deepseek_usd_per_execution=0.10' .github/subordinate-continuation-trigger.txt
+          grep -Fxq 'no_repo_write_by_external_ai=true' .github/subordinate-continuation-trigger.txt
+
+      - name: Compile and test DeepSeek V4.1 paid boundary
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python -m py_compile scripts/deepseek_paid_parallel.py scripts/deepseek_v41_paid_parallel.py
+          python -m json.tool config/deepseek_v41_paid_parallel.json >/dev/null
+          python -m unittest tests.test_deepseek_v41_policy_alignment -v
+
+      - name: Run at most two paid DeepSeek V4.1 specialists in parallel
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -u
+          python scripts/deepseek_v41_paid_parallel.py \
+            --network \
+            --config config/deepseek_v41_paid_parallel.json \
+            --approval-file .github/subordinate-continuation-trigger.txt \
+            --output artifacts/deepseek_paid_parallel.json || true
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('artifacts/deepseek_paid_parallel.json').read_text(encoding='utf-8'))
+          allowed = {
+              'PARALLEL_READY', 'PARALLEL_PARTIAL', 'PARALLEL_FAILED',
+              'PREFLIGHT_FAILED', 'EXACT_MODEL_NOT_LISTED', 'SECRET_MISSING',
+          }
+          assert report.get('status') in allowed, report.get('status')
+          assert report.get('requested_model') == 'deepseek-flash'
+          assert report.get('explicit_paid_approval') is True
+          assert int(report.get('paid_calls', 0) or 0) <= 2
+          assert int(report.get('max_parallel_calls', 0) or 0) <= 2
+          assert float(report.get('max_estimated_cost_usd', 0) or 0) <= 0.10
+          assert float(report.get('cost_exposure_usd', 0) or 0) <= 0.10
+          assert report.get('production_enabled') is False
+          assert report.get('generic_paid_fallback') is False
+          assert report.get('auto_top_up') is False
+          assert report.get('repository_write') is False
+          assert report.get('deploy') is False
+          assert report.get('publish') is False
+          print(json.dumps({
+              'status': report.get('status'),
+              'paid_calls': report.get('paid_calls', 0),
+              'successful_calls': report.get('successful_calls', 0),
+              'cost_exposure_usd': report.get('cost_exposure_usd', 0),
+          }, sort_keys=True))
+          PY
+
+      - name: Upload redacted DeepSeek seed
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: subordinate-deepseek-seed-${{ github.run_id }}
+          path: artifacts/deepseek_paid_parallel.json
+          if-no-files-found: error
+          retention-days: 7
+
+  free-council:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact triggering source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Compile lower-AI continuation runtime and deterministic tests
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python -m py_compile \
+            scripts/probe_free_workers_multi.py \
+            scripts/benchmark_free_workers.py \
+            scripts/parallel_worker_council.py \
+            scripts/failure_aware_specialist_council.py \
+            scripts/failure_aware_specialist_retry.py \
+            scripts/specialist_lane_router.py \
+            scripts/organization_coordination.py \
+            scripts/subordinate_continuation_carrier.py
+          python -m json.tool config/subordinate_continuation_policy.json >/dev/null
+          python -m json.tool config/current_commander_handoff.json >/dev/null
+          python -m unittest \
+            tests.test_subordinate_continuation_carrier \
+            tests.test_failure_aware_specialist_council -v
+
+      - name: Probe current exact-free OpenRouter workers in parallel
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from scripts.probe_free_workers_multi import run_multi_probe
+          report = run_multi_probe(
+              api_key=os.environ.get('OPENROUTER_API_KEY') or '',
+              explicit_approval=True,
+          )
+          Path('artifacts/openrouter_expansion_probe.json').write_text(
+              json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          assert report.get('paid_fallback') is False
+          print(json.dumps({
+              'status': report.get('status'),
+              'model_calls': report.get('model_calls', 0),
+              'verified_free_model_count': report.get('verified_free_model_count', 0),
+          }, sort_keys=True))
+          PY
+
+      - name: Benchmark only verified free workers
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from scripts.benchmark_free_workers import run_benchmarks
+          probe = json.loads(Path('artifacts/openrouter_expansion_probe.json').read_text(encoding='utf-8'))
+          report = run_benchmarks(
+              api_key=os.environ.get('OPENROUTER_API_KEY') or '',
+              probe_report=probe,
+          )
+          Path('artifacts/openrouter_expansion_benchmark.json').write_text(
+              json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          assert report.get('paid_fallback') is False
+          print(json.dumps({
+              'status': report.get('status'),
+              'model_calls': report.get('model_calls', 0),
+              'ready_role_count': report.get('ready_role_count', 0),
+          }, sort_keys=True))
+          PY
+
+      - name: Run initial capability-matched specialist council
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python scripts/failure_aware_specialist_retry.py \
+            --probe artifacts/openrouter_expansion_probe.json \
+            --benchmark artifacts/openrouter_expansion_benchmark.json \
+            --output artifacts/worker_council_initial.json
+          python -m json.tool artifacts/worker_council_initial.json >/dev/null
+
+      - name: Upload lower-AI discovery and initial council
+        uses: actions/upload-artifact@v6
+        with:
+          name: subordinate-free-council-${{ github.run_id }}
+          path: |
+            artifacts/openrouter_expansion_probe.json
+            artifacts/openrouter_expansion_benchmark.json
+            artifacts/worker_council_initial.json
+          if-no-files-found: error
+          retention-days: 7
+
+  integrate-and-review:
+    needs:
+      - deepseek-seed
+      - free-council
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact triggering source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Restore parallel subordinate results
+        run: mkdir -p artifacts
+
+      - name: Download DeepSeek seed
+        uses: actions/download-artifact@v6
+        with:
+          name: subordinate-deepseek-seed-${{ github.run_id }}
+          path: artifacts
+
+      - name: Download exact-free council evidence
+        uses: actions/download-artifact@v6
+        with:
+          name: subordinate-free-council-${{ github.run_id }}
+          path: artifacts
+
+      - name: Compile continuation and NVIDIA final-review runtime
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            scripts/subordinate_continuation_carrier.py \
+            scripts/organization_coordination.py \
+            scripts/run_nvidia_worker_expansion.py \
+            scripts/run_nvidia_worker_expansion_compact.py \
+            scripts/run_nvidia_worker_expansion_self_heal.py \
+            scripts/run_nvidia_orchestrator_guarded.py \
+            scripts/run_nvidia_orchestrator_mission.py \
+            scripts/focused_nvidia_streaming_adapter.py \
+            scripts/secure_account_evidence.py \
+            scripts/probe_nvidia_google_focused.py
+          python -m unittest tests.test_subordinate_continuation_carrier -v
+
+      - name: Continue unresolved lanes internally without user round-trips
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          SOURCE_HEAD: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          cp artifacts/worker_council_initial.json artifacts/worker_council_current.json
+          PREVIOUS_STATE=""
+          for BATCH in 1 2 3; do
+            EXTRA=()
+            if [ -n "$PREVIOUS_STATE" ]; then
+              EXTRA=(--previous-state "$PREVIOUS_STATE")
+            fi
+            python scripts/subordinate_continuation_carrier.py \
+              --handoff config/current_commander_handoff.json \
+              --policy config/subordinate_continuation_policy.json \
+              --probe artifacts/openrouter_expansion_probe.json \
+              --benchmark artifacts/openrouter_expansion_benchmark.json \
+              --deepseek-seed artifacts/deepseek_paid_parallel.json \
+              --initial-council artifacts/worker_council_current.json \
+              --source-head "$SOURCE_HEAD" \
+              --output artifacts/subordinate_continuation_state.json \
+              --council-output artifacts/worker_council_next.json \
+              "${EXTRA[@]}"
+            python -m json.tool artifacts/subordinate_continuation_state.json >/dev/null
+            python -m json.tool artifacts/worker_council_next.json >/dev/null
+            cp artifacts/subordinate_continuation_state.json "artifacts/subordinate_continuation_state_batch${BATCH}.json"
+            mv artifacts/worker_council_next.json artifacts/worker_council_current.json
+            read -r STATUS REASON <<EOF
+          $(python - <<'PY'
+          import json
+          from pathlib import Path
+          state = json.loads(Path('artifacts/subordinate_continuation_state.json').read_text(encoding='utf-8'))
+          print(state.get('status', ''), state.get('stop_reason', ''))
+          PY
+          )
+          EOF
+            if [ "$STATUS" = "CONTINUATION_COMPLETE" ]; then
+              break
+            fi
+            if [ "$REASON" != "ROUND_LIMIT_REACHED" ]; then
+              break
+            fi
+            PREVIOUS_STATE="artifacts/subordinate_continuation_state.json"
+          done
+          cp artifacts/worker_council_current.json artifacts/worker_council.json
+
+      - name: Rebuild shared blackboard from the complete preserved mission state
+        env:
+          SOURCE_HEAD: ${{ github.sha }}
+        run: >-
+          python scripts/organization_coordination.py
+          --council artifacts/worker_council.json
+          --source-head "${SOURCE_HEAD}"
+          --mission-id subordinate-continuation-${{ github.run_id }}
+          --output artifacts/organization_blackboard.json
+
+      - name: Collect fresh redacted NVIDIA free-route evidence
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/secure_account_evidence.py
+          --provider nvidia
+          --output artifacts/secure_account_evidence.json
+
+      - name: Build exact NVIDIA direct-agent admission
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python scripts/probe_nvidia_google_focused.py
+          --evidence-file artifacts/secure_account_evidence.json
+          --output artifacts/provider_probe.json
+
+      - name: Run bounded independent NVIDIA final review and one repair-only continuation if needed
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+          SOURCE_HEAD: ${{ github.sha }}
+        run: python scripts/run_nvidia_worker_expansion_self_heal.py
+
+      - name: Validate final safety and continuation invariants
+        if: always()
+        run: |
+          set -euo pipefail
+          python scripts/audit_secret_safety.py --root .
+          python - <<'PY'
+          import glob, json
+          from pathlib import Path
+
+          def read(path):
+              try:
+                  value = json.loads(Path(path).read_text(encoding='utf-8'))
+              except Exception:
+                  return {}
+              return value if isinstance(value, dict) else {}
+
+          deepseek = read('artifacts/deepseek_paid_parallel.json')
+          continuation = read('artifacts/subordinate_continuation_state.json')
+          council = read('artifacts/worker_council.json')
+          nvidia = read('artifacts/commander_self_heal.json')
+          mission = read('artifacts/mission_state.json')
+          inbox = read('artifacts/result_inbox.json')
+          batch_states = [read(path) for path in sorted(glob.glob('artifacts/subordinate_continuation_state_batch*.json'))]
+          lower_calls = sum(int(row.get('lower_ai_provider_calls', 0) or 0) for row in batch_states)
+
+          assert float(deepseek.get('max_estimated_cost_usd', 0) or 0) <= 0.10
+          assert float(deepseek.get('cost_exposure_usd', 0) or 0) <= 0.10
+          assert int(deepseek.get('paid_calls', 0) or 0) <= 2
+          assert deepseek.get('production_enabled') is False
+          assert deepseek.get('generic_paid_fallback') is False
+          assert deepseek.get('repository_write') is False
+          hard = continuation.get('hard_boundaries') or {}
+          for key in ('repository_write', 'merge', 'deploy', 'publish', 'secret_readback', 'secret_mutation', 'auto_top_up', 'generic_paid_fallback', 'production_active'):
+              assert hard.get(key) is False, key
+          assert continuation.get('duplicate_replay_on_uncertain_usage') is False
+          assert int(continuation.get('deepseek_repeat_paid_calls', 0) or 0) == 0
+          assert nvidia.get('unbounded_retry') is False
+          assert nvidia.get('repository_write') is False
+          assert nvidia.get('paid_fallback') is False
+          assert int(nvidia.get('continuation_count', 0) or 0) <= 1
+          assert mission.get('production_active') is False
+          assert int(mission.get('paid_fallback_count', 0) or 0) == 0
+
+          summary = {
+              'schema_version': 'subordinate-ai-continuation-summary-v1',
+              'source_head': '${{ github.sha }}',
+              'deepseek_status': deepseek.get('status'),
+              'deepseek_paid_calls': int(deepseek.get('paid_calls', 0) or 0),
+              'deepseek_successful_calls': int(deepseek.get('successful_calls', 0) or 0),
+              'deepseek_cost_exposure_usd': deepseek.get('cost_exposure_usd', 0),
+              'lower_ai_status': continuation.get('status'),
+              'lower_ai_batches': len(batch_states),
+              'lower_ai_provider_calls': lower_calls,
+              'completed_lanes': continuation.get('completed_lanes', []),
+              'remaining_lanes': continuation.get('remaining_lanes', []),
+              'preserved_success_count': continuation.get('preserved_success_count', 0),
+              'council_successful_lane_count': int(council.get('successful_lane_count', 0) or 0),
+              'nvidia_result_status': nvidia.get('final_result_status'),
+              'nvidia_continuations': int(nvidia.get('continuation_count', 0) or 0),
+              'nvidia_result_hash_verified': inbox.get('result_hash_verified') is True,
+              'user_delivery_required_between_rounds': False,
+              'repository_write_by_external_ai': False,
+              'production_active': False,
+              'generic_paid_fallback': False,
+          }
+          Path('artifacts/subordinate_ai_summary.json').write_text(
+              json.dumps(summary, ensure_ascii=False, sort_keys=True, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
+          PY
+
+      - name: Upload durable lower-AI continuation evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: subordinate-ai-continuation-${{ github.run_id }}
+          path: |
+            artifacts/deepseek_paid_parallel.json
+            artifacts/openrouter_expansion_probe.json
+            artifacts/openrouter_expansion_benchmark.json
+            artifacts/worker_council_initial.json
+            artifacts/worker_council.json
+            artifacts/subordinate_continuation_state.json
+            artifacts/subordinate_continuation_state_batch*.json
+            artifacts/organization_blackboard.json
+            artifacts/secure_account_evidence.json
+            artifacts/provider_probe.json
+            artifacts/mission_state.json
+            artifacts/result_inbox.json
+            artifacts/nvidia_orchestrator_ledger.json
+            artifacts/commander_self_heal.json
+            artifacts/subordinate_ai_summary.json
+          if-no-files-found: warn
+          retention-days: 14

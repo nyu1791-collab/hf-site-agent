@@ -1,0 +1,262 @@
+{
+  "schema_version": "media-reusable-asset-standard-v1",
+  "effective_date_jst": "2026-09-14",
+  "status": "ENFORCED_STANDARD",
+  "purpose": "Eliminate repeated search, repeated download and repeated layout tuning for recurring media assets while preserving rights, provenance and publish-time rechecks.",
+  "principles": {
+    "registered_asset_lookup_before_search": true,
+    "no_repeat_search_for_registered_assets": true,
+    "no_repeat_download_when_verified_cache_hit": true,
+    "cache_miss_only_download": true,
+    "search_reserved_for_unregistered_or_semantically_new_assets": true,
+    "content_hash_receipt_required": true,
+    "decode_or_archive_validation_required": true,
+    "raw_third_party_assets_not_committed_to_repository": true,
+    "rights_and_publish_recheck_not_bypassed_by_cache": true,
+    "motion_is_generated_from_preset_not_downloaded": true,
+    "layout_is_generated_from_preset_not_reinvented_per_video": true
+  },
+  "cache": {
+    "default_root": ".media-cache/assets",
+    "receipt_filename": "receipt.json",
+    "max_parallel_materialization": 4,
+    "reuse_order": [
+      "VERIFIED_LOCAL_CACHE",
+      "GITHUB_ACTIONS_CACHE",
+      "KNOWN_DIRECT_SOURCE_WITH_REGISTRY_METADATA",
+      "USER_DIRECTED_MANUAL_ACQUISITION_FOR_BOT_RESTRICTED_SOURCE",
+      "SEARCH_DISCOVERY_ONLY_WHEN_ASSET_IS_NOT_REGISTERED_OR_NOT_SEMANTICALLY_FIT"
+    ],
+    "cache_identity_fields": ["asset_id", "registry_revision"],
+    "cache_hit_requires_sha256_match": true,
+    "cache_miss_may_fetch_known_url_without_search": true,
+    "github_actions_cache_may_be_evicted": true,
+    "eviction_behavior": "RE_FETCH_KNOWN_REGISTERED_URL_WITHOUT_SEARCH_AND_REBUILD_RECEIPT",
+    "never_treat_cache_presence_as_publication_rights_evidence": true
+  },
+  "character_layout_presets": {
+    "coordinate_system": "NORMALIZED_CANVAS",
+    "default_series_cast": ["ずんだもん", "四国めたん"],
+    "landscape_16_9": {
+      "resolution": [1920, 1080],
+      "dialogue_two_shot": {
+        "ずんだもん": {"anchor_x": 0.23, "bottom_y": 0.95, "base_height_ratio": 0.58},
+        "四国めたん": {"anchor_x": 0.77, "bottom_y": 0.95, "base_height_ratio": 0.58}
+      },
+      "single_speaker": {"anchor_x": 0.50, "bottom_y": 0.96, "base_height_ratio": 0.66},
+      "evidence_focus_character": {"base_height_ratio": 0.44, "preferred_side_x": [0.16, 0.84]},
+      "caption_safe_zone": {"center_x": 0.50, "baseline_y": 0.84, "max_width_ratio": 0.88}
+    },
+    "portrait_9_16": {
+      "resolution": [1080, 1920],
+      "dialogue_two_shot": {
+        "ずんだもん": {"anchor_x": 0.30, "bottom_y": 0.92, "base_height_ratio": 0.38},
+        "四国めたん": {"anchor_x": 0.70, "bottom_y": 0.92, "base_height_ratio": 0.38}
+      },
+      "single_speaker": {"anchor_x": 0.50, "bottom_y": 0.93, "base_height_ratio": 0.48},
+      "evidence_focus_character": {"base_height_ratio": 0.31, "preferred_side_x": [0.20, 0.80]},
+      "caption_safe_zone": {"center_x": 0.50, "baseline_y": 0.79, "max_width_ratio": 0.86}
+    },
+    "focus_scaling": {
+      "active_speaker_scale_multiplier": 1.05,
+      "inactive_listener_scale_multiplier": 1.00,
+      "active_brightness_percent": 100,
+      "inactive_brightness_percent": 80,
+      "active_z_order": "FRONTMOST_CHARACTER"
+    },
+    "override_rule": "Use preset by default; change only when captions, evidence, crop or platform safe zones would collide."
+  },
+  "motion_presets": {
+    "speech_start_bounce": {
+      "trigger": "START_OF_EACH_SPEAKING_TURN",
+      "duration_ms": 240,
+      "keyframe_ms": [0, 120, 240],
+      "scale_sequence": [1.0, 1.05, 1.0],
+      "y_offset_canvas_ratio": [0.0, -0.012, 0.0],
+      "easing": "EASE_OUT_THEN_IN"
+    },
+    "idle_bob": {
+      "enabled": true,
+      "y_amplitude_canvas_ratio": 0.004,
+      "period_ms_range": [1800, 2400],
+      "phase_offset_between_characters": true
+    },
+    "blink": {
+      "enabled": true,
+      "interval_ms_range": [2800, 5200],
+      "closed_duration_ms_range": [90, 140],
+      "deterministic_scene_seed": true
+    },
+    "speaker_focus_transition": {"duration_ms": 120, "switch_on_audio_turn_boundary": true},
+    "expression_and_pose": {"sentence_interval_range": [1, 2], "emotion_mapping_required": true},
+    "entry_exit": {
+      "duration_ms": 260,
+      "use_for": ["FIRST_APPEARANCE", "SCENE_RESET", "MAJOR_SECTION_CHANGE", "EVIDENCE_HANDOFF"],
+      "forbid_every_line_entry_exit": true
+    }
+  },
+  "asset_groups": {
+    "standard_character_shell": ["zm_shell_20230806"],
+    "reusable_ai_infrastructure_visuals": [
+      "openai_hq_1515_third_street",
+      "datacenter_server_racks_22370909788",
+      "csiro_server_racks_2042",
+      "cyberport_network_operations_centre"
+    ],
+    "reusable_ai_people_visuals": ["sam_altman_ted_2025", "sam_altman_2022", "dario_amodei_tc_disrupt_2023"]
+  },
+  "assets": [
+    {
+      "asset_id": "zm_shell_20230806",
+      "registry_revision": "20230806",
+      "kind": "character_shell_zip",
+      "category": "characters",
+      "filename": "zundamon_metan_shell_20230806.zip",
+      "acquisition_mode": "DIRECT_KNOWN_URL",
+      "download_url": "https://nightwork.sakura.ne.jp/ukagaka/shell/Shikokumetan_Zundamon_Shellkit/Shikokumetan_Zundamon_Shell(20230806).zip",
+      "source_page": "https://nightwork.sakura.ne.jp/ukagaka/shell/Shikokumetan_Zundamon_Shellkit/Shikokumetan_Zundamon_Shellkit.html",
+      "creator_or_source": "Shellkit using Sakamoto Ahiru Zundamon / Shikoku Metan standing pictures",
+      "rights_state": "INTERNAL_RENDER_CACHE_ALLOWED_PUBLICATION_RECHECK_REQUIRED",
+      "commercial_use_allowed": null,
+      "attribution_required": null,
+      "publication_requires_reverification": true,
+      "extract_zip": true,
+      "validation": "ZIP_TEST"
+    },
+    {
+      "asset_id": "openai_hq_1515_third_street",
+      "registry_revision": "ccby4-20260914",
+      "kind": "real_photo",
+      "category": "visuals",
+      "filename": "openai_hq.jpg",
+      "acquisition_mode": "DIRECT_KNOWN_URL",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/1515_Third_Street.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:1515_Third_Street.jpg",
+      "creator_or_source": "Coolcaesar",
+      "rights_state": "CC-BY-4.0",
+      "commercial_use_allowed": true,
+      "attribution_required": true,
+      "attribution_text": "Coolcaesar / Wikimedia Commons / CC BY 4.0",
+      "publication_requires_reverification": true,
+      "validation": "JPEG_MAGIC"
+    },
+    {
+      "asset_id": "datacenter_server_racks_22370909788",
+      "registry_revision": "ccby2-20260914",
+      "kind": "real_photo",
+      "category": "visuals",
+      "filename": "datacenter_server_racks.jpg",
+      "acquisition_mode": "DIRECT_KNOWN_URL",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Datacenter_Server_Racks_(22370909788).jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Datacenter_Server_Racks_(22370909788).jpg",
+      "creator_or_source": "Carl Lender",
+      "rights_state": "CC-BY-2.0",
+      "commercial_use_allowed": true,
+      "attribution_required": true,
+      "attribution_text": "Carl Lender / Wikimedia Commons / CC BY 2.0",
+      "publication_requires_reverification": true,
+      "validation": "JPEG_MAGIC"
+    },
+    {
+      "asset_id": "csiro_server_racks_2042",
+      "registry_revision": "ccby3-20260914",
+      "kind": "real_photo",
+      "category": "visuals",
+      "filename": "csiro_server_racks.jpg",
+      "acquisition_mode": "DIRECT_KNOWN_URL",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/CSIRO_ScienceImage_2042_A_row_of_computer_servers_in_a_server_rack.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:CSIRO_ScienceImage_2042_A_row_of_computer_servers_in_a_server_rack.jpg",
+      "creator_or_source": "CSIRO",
+      "rights_state": "CC-BY-3.0",
+      "commercial_use_allowed": true,
+      "attribution_required": true,
+      "attribution_text": "CSIRO / Wikimedia Commons / CC BY 3.0",
+      "publication_requires_reverification": true,
+      "validation": "JPEG_MAGIC"
+    },
+    {
+      "asset_id": "cyberport_network_operations_centre",
+      "registry_revision": "ccby3-20260914",
+      "kind": "real_photo",
+      "category": "visuals",
+      "filename": "network_operations_centre.jpg",
+      "acquisition_mode": "DIRECT_KNOWN_URL",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Cyberport_Network_Operations_Centre.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Cyberport_Network_Operations_Centre.jpg",
+      "creator_or_source": "Sunnyhtho",
+      "rights_state": "CC-BY-3.0",
+      "commercial_use_allowed": true,
+      "attribution_required": true,
+      "attribution_text": "Sunnyhtho / Wikimedia Commons / CC BY 3.0",
+      "publication_requires_reverification": true,
+      "validation": "JPEG_MAGIC"
+    },
+    {
+      "asset_id": "sam_altman_ted_2025",
+      "registry_revision": "ccby2-20260914",
+      "kind": "real_photo",
+      "category": "visuals",
+      "filename": "sam_altman_ted.jpg",
+      "acquisition_mode": "DIRECT_KNOWN_URL",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sam_Altman_speaking_at_TED.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Sam_Altman_speaking_at_TED.jpg",
+      "creator_or_source": "Steve Jurvetson",
+      "rights_state": "CC-BY-2.0",
+      "commercial_use_allowed": true,
+      "attribution_required": true,
+      "attribution_text": "Steve Jurvetson / Wikimedia Commons / CC BY 2.0",
+      "publication_requires_reverification": true,
+      "validation": "JPEG_MAGIC"
+    },
+    {
+      "asset_id": "sam_altman_2022",
+      "registry_revision": "ccby2-20260914",
+      "kind": "real_photo",
+      "category": "visuals",
+      "filename": "sam_altman_2022.jpg",
+      "acquisition_mode": "DIRECT_KNOWN_URL",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sam_Altman_November_2022.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Sam_Altman_November_2022.jpg",
+      "creator_or_source": "Village Global",
+      "rights_state": "CC-BY-2.0",
+      "commercial_use_allowed": true,
+      "attribution_required": true,
+      "attribution_text": "Village Global / Wikimedia Commons / CC BY 2.0",
+      "publication_requires_reverification": true,
+      "validation": "JPEG_MAGIC"
+    },
+    {
+      "asset_id": "dario_amodei_tc_disrupt_2023",
+      "registry_revision": "ccby2-20260914",
+      "kind": "real_photo",
+      "category": "visuals",
+      "filename": "dario_amodei.jpg",
+      "acquisition_mode": "DIRECT_KNOWN_URL",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Dario_Amodei_at_TechCrunch_Disrupt_2023_03.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Dario_Amodei_at_TechCrunch_Disrupt_2023_03.jpg",
+      "creator_or_source": "TechCrunch",
+      "rights_state": "CC-BY-2.0",
+      "commercial_use_allowed": true,
+      "attribution_required": true,
+      "attribution_text": "TechCrunch / Wikimedia Commons / CC BY 2.0",
+      "publication_requires_reverification": true,
+      "validation": "JPEG_MAGIC"
+    }
+  ],
+  "audio_reuse": {
+    "source_registry": "config/free_audio_source_registry.json",
+    "curated_bgm_catalog": "config/dova_curated_bgm_catalog.json",
+    "prefer_already_downloaded_license_locked_asset": true,
+    "bot_restricted_sources_must_not_be_scraped": true,
+    "dova_programmatic_bulk_download_forbidden": true,
+    "manual_or_user_directed_acquisition_may_seed_cache_once": true,
+    "once_seeded_reuse_cached_copy_when_original_license_allows": true,
+    "raw_audio_redistribution_forbidden": true
+  },
+  "fallback": {
+    "registered_asset_cache_miss": "FETCH_KNOWN_URL_WITHOUT_SEARCH_IF_ACQUISITION_MODE_ALLOWS",
+    "registered_asset_rights_now_unclear": "BLOCK_PUBLICATION_AND_REVERIFY_RIGHTS",
+    "unregistered_asset_needed": "SEARCH_DISCOVER_VERIFY_THEN_OPTIONALLY_REGISTER_IF_REUSABLE",
+    "semantic_mismatch": "DO_NOT_FORCE_CACHED_ASSET; SEARCH_FOR_BETTER_FIT"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mission-scheduler-report-v1",
+  "type": "object",
+  "required": ["schema_version", "mission_id", "status", "task_statuses", "tasks", "parallelism", "counts", "ledger", "checkpoint", "safety"],
+  "properties": {
+    "schema_version": {"const": "mission-scheduler-report-v1"},
+    "mission_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["completed", "completed_with_warnings", "failed", "blocked", "cancelled"]},
+    "task_statuses": {"type": "object", "additionalProperties": {"enum": ["queued", "running", "cancelling", "completed", "completed_with_warnings", "failed", "blocked", "cancelled"]}},
+    "tasks": {"type": "object"},
+    "parallelism": {"type": "object"},
+    "counts": {"type": "object"},
+    "ledger": {"type": "object"},
+    "checkpoint": {"type": "object"},
+    "safety": {
+      "type": "object",
+      "required": ["paid_execution_count", "paid_fallback_count", "live_probe_count", "production_routing_changed", "single_writer"],
+      "properties": {
+        "paid_execution_count": {"const": 0},
+        "paid_fallback_count": {"const": 0},
+        "live_probe_count": {"const": 0},
+        "production_routing_changed": {"const": false},
+        "single_writer": {"const": true}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

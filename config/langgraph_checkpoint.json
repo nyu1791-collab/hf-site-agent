@@ -1,0 +1,38 @@
+{
+  "schema_version": "langgraph-checkpoint-backend-v1",
+  "default_backend": "sqlite",
+  "strict_msgpack": true,
+  "sqlite": {
+    "enabled": true,
+    "default_path": ".state/langgraph/checkpoints.sqlite3",
+    "persistent_on_same_filesystem": true,
+    "cross_runner_durable": false,
+    "best_for": [
+      "LOCAL_DEVELOPMENT",
+      "SINGLE_RUNNER_WORKFLOW",
+      "LIGHTWEIGHT_PERSISTENCE"
+    ]
+  },
+  "postgres": {
+    "enabled": true,
+    "dsn_env": "AI_ARMY_LANGGRAPH_POSTGRES_DSN",
+    "setup_on_first_use_env": "AI_ARMY_LANGGRAPH_POSTGRES_SETUP",
+    "cross_runner_durable": true,
+    "best_for": [
+      "MULTI_RUNNER_WORKFLOW",
+      "LONG_RUNNING_MISSION",
+      "RECOVERY_ACROSS_PROCESS_RESTARTS"
+    ],
+    "secret_value_logging": false
+  },
+  "safety": {
+    "backend_allowlist": ["sqlite", "postgres"],
+    "network_backend_requires_explicit_backend_selection": true,
+    "postgres_requires_dsn": true,
+    "postgres_dsn_must_not_be_returned": true,
+    "automatic_paid_database_provisioning": false,
+    "auto_top_up": false,
+    "repository_write_authority_changed": false,
+    "framework_authority_changed": false
+  }
+}

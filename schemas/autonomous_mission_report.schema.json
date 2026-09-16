@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "autonomous-mission-report-v1",
+  "type": "object",
+  "required": [
+    "schema_version", "mission_id", "status", "task_statuses", "tasks",
+    "runtime", "budget", "generations", "counts", "parallelism", "safety", "offload"
+  ],
+  "properties": {
+    "schema_version": {"const": "autonomous-mission-report-v1"},
+    "mission_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["completed", "completed_with_warnings", "failed", "blocked", "cancelled"]},
+    "task_statuses": {"type": "object", "additionalProperties": {"type": "string"}},
+    "tasks": {"type": "object"},
+    "runtime": {
+      "type": "object",
+      "required": [
+        "task_loop", "mission_loop", "replan_loop", "recovery_loop",
+        "next_task_auto_dispatch", "user_continue_required", "loop_iterations",
+        "revision_count", "replan_count", "human_escalation_count",
+        "max_iterations", "max_revisions", "max_replans", "max_requests",
+        "max_tokens", "max_elapsed_seconds", "stop_reason",
+        "execution_generation", "checkpoint_resume", "process_restart_resume",
+        "provider_interruption_resume", "completed_task_reexecution_prevented",
+        "task_lease", "heartbeat", "raw_result_compaction", "single_writer",
+        "repository_write"
+      ],
+      "properties": {
+        "task_loop": {"const": true},
+        "mission_loop": {"const": true},
+        "replan_loop": {"type": "boolean"},
+        "recovery_loop": {"const": true},
+        "next_task_auto_dispatch": {"const": true},
+        "user_continue_required": {"const": false},
+        "loop_iterations": {"type": "integer", "minimum": 0},
+        "revision_count": {"type": "integer", "minimum": 0},
+        "replan_count": {"type": "integer", "minimum": 0},
+        "human_escalation_count": {"type": "integer", "minimum": 0},
+        "max_iterations": {"type": "integer", "minimum": 1},
+        "max_revisions": {"type": "integer", "minimum": 0},
+        "max_replans": {"type": "integer", "minimum": 0},
+        "max_requests": {"type": "integer", "minimum": 1},
+        "max_tokens": {"type": "integer", "minimum": 1},
+        "max_elapsed_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "stop_reason": {"type": "string", "minLength": 1},
+        "execution_generation": {"type": "integer", "minimum": 1},
+        "checkpoint_resume": {"const": true},
+        "process_restart_resume": {"type": "boolean"},
+        "provider_interruption_resume": {"const": true},
+        "completed_task_reexecution_prevented": {"const": true},
+        "task_lease": {"const": true},
+        "heartbeat": {"const": true},
+        "raw_result_compaction": {"const": true},
+        "single_writer": {"const": true},
+        "repository_write": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "budget": {"type": "object"},
+    "generations": {"type": "array"},
+    "counts": {"type": "object"},
+    "parallelism": {"type": "object"},
+    "safety": {
+      "type": "object",
+      "required": [
+        "paid_execution_count", "paid_fallback_count", "live_probe_count",
+        "production_routing_changed", "single_writer", "repository_write",
+        "deploy", "publish", "credential_values_emitted"
+      ],
+      "properties": {
+        "paid_execution_count": {"const": 0},
+        "paid_fallback_count": {"const": 0},
+        "live_probe_count": {"const": 0},
+        "production_routing_changed": {"const": false},
+        "single_writer": {"const": true},
+        "repository_write": {"const": false},
+        "deploy": {"const": false},
+        "publish": {"const": false},
+        "credential_values_emitted": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "offload": {"type": "object"}
+  },
+  "additionalProperties": false
+}

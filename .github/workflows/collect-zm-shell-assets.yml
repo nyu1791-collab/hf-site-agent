@@ -1,0 +1,50 @@
+name: "Collect Zundamon Metan reusable shell assets"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collect-zm-shell-assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Restore reusable media cache
+        uses: actions/cache@v4
+        with:
+          path: .media-cache/assets
+          key: media-assets-${{ runner.os }}-v1-zm-shell-20230806
+          restore-keys: |
+            media-assets-${{ runner.os }}-v1-
+
+      - name: Resolve registered character assets cache-first
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/zm_shell
+          python scripts/media_asset_resolver.py \
+            --group standard_character_shell \
+            --cache-root .media-cache/assets \
+            --allow-network \
+            --manifest-out artifacts/zm_shell/materialization.json
+          test -f .media-cache/assets/characters/zm_shell_20230806/receipt.json
+          test -d .media-cache/assets/characters/zm_shell_20230806/extracted
+          cp .media-cache/assets/characters/zm_shell_20230806/receipt.json artifacts/zm_shell/source_receipt.json
+          cp -a .media-cache/assets/characters/zm_shell_20230806/extracted artifacts/zm_shell/assets
+
+      - name: Upload render-use artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zm-lipsync-shell-assets
+          path: artifacts/zm_shell
+          retention-days: 3

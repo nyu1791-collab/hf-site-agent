@@ -1,0 +1,65 @@
+name: Verify free media capability pool
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: free-media-capability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Validate FREE media policy JSON
+        run: |
+          python -m json.tool config/free_media_capability_pool.json >/dev/null
+          python -m json.tool config/free_voice_routes.json >/dev/null
+          python -m json.tool config/shortform_edit_profile.json >/dev/null
+      - name: Compile FREE media modules
+        run: |
+          python -m py_compile \
+            scripts/free_media_capability_router.py \
+            scripts/free_voice_router.py \
+            scripts/external_voice_handoff.py \
+            scripts/replace_narration_audio.py \
+            scripts/media_parallel_framework_mission.py \
+            scripts/ai_army_toolkit.py
+      - name: Run FREE media regression tests
+        run: |
+          python -m unittest \
+            tests.test_free_media_capability_router \
+            tests.test_external_voice_handoff \
+            tests.test_replace_narration_audio \
+            tests.test_media_parallel_framework_mission \
+            tests.test_ai_army_toolkit -v
+      - name: Verify FREE-ONLY boundaries
+        run: |
+          python - <<'PY'
+          from scripts.free_media_capability_router import load_config as load_media
+          from scripts.free_voice_router import load_config as load_voice
+          p = load_media()['policy']
+          assert p['free_only'] is True
+          assert p['generic_paid_fallback'] is False
+          assert p['auto_top_up'] is False
+          assert p['unverified_free_route_can_execute'] is False
+          assert p['license_unknown_can_publish'] is False
+          assert 'fal' in p['paid_media_tools_disabled']
+          assert 'descript_ai' in p['paid_media_tools_disabled']
+          v = load_voice()['policy']
+          assert v['free_only'] is True
+          assert v['auto_top_up'] is False
+          assert v['generic_paid_fallback'] is False
+          print('FREE_MEDIA_BOUNDARIES=PASS')
+          PY

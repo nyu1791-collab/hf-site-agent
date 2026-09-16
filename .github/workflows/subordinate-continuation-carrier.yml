@@ -1,0 +1,25 @@
+name: "AI Army subordinate continuation carrier (legacy manual only)"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legacy-subordinate-continuation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  legacy-carrier-retired:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Explain migration without provider calls
+        run: |
+          echo "Legacy carrier is manual-only and makes no provider calls."
+          echo "Use .github/workflows/subordinate-continuation.yml for the bounded DeepSeek + worker + NVIDIA continuation path."
+          echo "PAID_CALLS=0"
+          echo "REPOSITORY_WRITE=false"
+          echo "DEPLOY=false"
+          echo "PUBLISH=false"

@@ -1,7 +1,17 @@
 import copy
 import unittest
 
-from scripts.model_registry import GENERIC_FREE_IDS, load_registry, resolve_role_model, role_candidates, validate_registry, watch_catalog
+from scripts.model_registry import (
+    GENERIC_FREE_IDS,
+    MODEL_RECORD_FIELDS,
+    load_registry,
+    lifecycle_guard,
+    normalized_model_records,
+    resolve_role_model,
+    role_candidates,
+    validate_registry,
+    watch_catalog,
+)
 
 
 def free_entry(model_id):
@@ -36,6 +46,60 @@ class ModelRegistryTests(unittest.TestCase):
             self.assertEqual(result["reason"], "role_inactive_requires_commander_approval")
             self.assertFalse(result["paid_fallback"])
 
+    def test_provider_commander_and_worker_roles_start_unresolved_and_inactive(self):
+        expected = {
+            "ROLE_GOOGLE_GENERAL_COMMANDER": "google",
+            "ROLE_NVIDIA_ENGINEERING_COMMANDER": "nvidia",
+            "ROLE_GROQ_RAPID_EXECUTION_COMMANDER": "groq",
+            "ROLE_OPENROUTER_WORKER": "openrouter",
+        }
+        for role_name, provider_id in expected.items():
+            role = self.registry["roles"][role_name]
+            self.assertEqual(role["provider_id"], provider_id)
+            self.assertEqual(role["primary_model"], None)
+            self.assertEqual(role["candidate_models"], [])
+            self.assertFalse(role["active"])
+            self.assertEqual(role_candidates(self.registry, role_name), [])
+        self.assertTrue(self.registry["roles"]["ROLE_OPENROUTER_WORKER"]["worker_only"])
+        self.assertFalse(self.registry["roles"]["ROLE_OPENROUTER_WORKER"]["generic_router_allowed"])
+
+    def test_provider_role_rejects_catalog_metadata_from_another_provider(self):
+        registry = copy.deepcopy(self.registry)
+        role = registry["roles"]["ROLE_GOOGLE_GENERAL_COMMANDER"]
+        role["active"] = True
+        role["approved"] = True
+        role["candidate_models"] = ["z-ai/glm-5.3-flash:free"]
+        result = resolve_role_model(
+            registry,
+            [free_entry("z-ai/glm-5.3-flash:free")],
+            "ROLE_GOOGLE_GENERAL_COMMANDER",
+        )
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["reason"], "no_current_zero_priced_role_candidate")
+
+    def test_expected_phase6_candidates_are_unverified_and_not_routable(self):
+        candidates = self.registry["expected_candidates"]
+        self.assertEqual({item["model_id"] for item in candidates}, {
+            "gemini-3.8-flash",
+            "qwen/qwen3.8-27b",
+            "deepseek-ai/deepseek-v4-flash-0731",
+            "nvidia/nemotron-3.5-lightning-30b-a3b",
+            "z-ai/glm-5.3-flash:free",
+        })
+        for item in candidates:
+            self.assertEqual(item["status"], "EXPECTED_UNVERIFIED")
+            self.assertEqual(item["lifecycle"], "UNKNOWN")
+            self.assertFalse(item["free_verified"])
+            self.assertEqual(item["probe_status"], "NOT_RUN")
+            self.assertNotIn(item["model_id"], sum((role_candidates(self.registry, role) for role in self.registry["roles"]), []))
+
+    def test_expected_candidate_cannot_be_promoted_by_registry_validation(self):
+        registry = copy.deepcopy(self.registry)
+        candidate = registry["expected_candidates"][0]
+        registry["roles"]["ROLE_GOOGLE_GENERAL_COMMANDER"]["candidate_models"] = [candidate["model_id"]]
+        with self.assertRaises(ValueError):
+            validate_registry(registry)
+
     def _active_registry(self):
         registry = copy.deepcopy(self.registry)
         for role_name, model_id in (
@@ -43,8 +107,11 @@ class ModelRegistryTests(unittest.TestCase):
             ("ROLE_ENGINEERING_COMMANDER", "deepseek/deepseek-v4-flash:free"),
         ):
             registry["roles"][role_name]["active"] = True
+            registry["roles"][role_name]["approved"] = True
+            registry["roles"][role_name]["candidate_models"] = [model_id]
             registry["models"][model_id]["free_available"] = True
             registry["models"][model_id]["status"] = "FREE_ACTIVE"
+            registry["models"][model_id]["lifecycle"] = "GA"
         return registry
 
     def test_active_role_can_resolve_only_same_role_zero_price_candidate(self):
@@ -91,6 +158,76 @@ class ModelRegistryTests(unittest.TestCase):
         self.assertFalse(report["paid_operations"])
         self.assertFalse(report["active_roles_changed"])
         self.assertTrue(any(item["model_id"] == "z-ai/glm-5.3-flash" for item in report["models"]))
+
+    def test_normalized_model_projection_exposes_v2_evaluation_contract_without_mutation(self):
+        before = copy.deepcopy(self.registry)
+        records = normalized_model_records(self.registry)
+        self.assertEqual(set(MODEL_RECORD_FIELDS), set(records["deepseek/deepseek-v4-pro"]))
+        self.assertEqual(records["deepseek/deepseek-v4-pro"]["provider_id"], "openrouter")
+        self.assertEqual(records["deepseek/deepseek-v4-pro"]["coding"], True)
+        self.assertEqual(records["deepseek/deepseek-v4-pro"]["free_verified"], False)
+        self.assertEqual(self.registry, before)
+
+    def test_model_lifecycle_contract_and_discovery_targets_are_present(self):
+        lifecycle_values = {"STABLE", "GA", "PREVIEW", "EXPERIMENTAL", "LEGACY", "DEPRECATED", "REMOVED", "UNKNOWN"}
+        for model_id, model in self.registry["models"].items():
+            self.assertEqual(model["model_id"], model_id)
+            self.assertIn(model["lifecycle"], lifecycle_values)
+            self.assertIn("role_candidates", model)
+            self.assertIn("capabilities", model)
+            self.assertIn("discovered_at", model)
+            self.assertIn("last_verified_at", model)
+            self.assertIn("benchmark_status", model)
+            self.assertIn("cost_class", model)
+            self.assertIn("quota_status", model)
+        targets = self.registry["model_discovery"]["provider_targets"]
+        self.assertEqual(targets["google"][0]["label"], "Gemini 3.8 Flash")
+        self.assertEqual(targets["nvidia"][0]["label"], "Nemotron 3.5 Lightning 30B A3B")
+        self.assertIn("qwen/qwen3.8-27b", [item["label"] for item in targets["groq"]])
+        self.assertIsNone(targets["openrouter"][0]["model_id"])
+
+    def test_legacy_compatibility_references_are_not_primary_models(self):
+        for role_name in ("ROLE_GENERAL_COMMANDER", "ROLE_ENGINEERING_COMMANDER", "ROLE_RESERVE_COMMANDER"):
+            role = self.registry["roles"][role_name]
+            self.assertIsNone(role["primary_model"])
+            self.assertEqual(role["fallback_models"], [])
+            self.assertEqual(role["candidate_models"], [])
+            self.assertTrue(role["compatibility_model_ids"])
+            self.assertEqual(role["legacy_status"], "LEGACY_DISABLED")
+        for item in self.registry["legacy"]:
+            self.assertEqual(item["lifecycle"], "DEPRECATED")
+
+    def test_deprecated_removed_legacy_and_unknown_lifecycle_are_fail_closed(self):
+        legacy_id = self.registry["legacy"][0]["id"]
+        self.assertFalse(lifecycle_guard(self.registry, legacy_id, for_primary=True)["allowed"])
+        registry = copy.deepcopy(self._active_registry())
+        role = registry["roles"]["ROLE_GENERAL_COMMANDER"]
+        model_id = role["candidate_models"][0]
+        for lifecycle in ("LEGACY", "DEPRECATED", "REMOVED", "UNKNOWN", "EXPERIMENTAL"):
+            registry["models"][model_id]["lifecycle"] = lifecycle
+            result = resolve_role_model(
+                registry,
+                [free_entry(model_id)],
+                "ROLE_GENERAL_COMMANDER",
+            )
+            self.assertEqual(result["status"], "blocked")
+            self.assertEqual(result["reason"], "no_current_zero_priced_role_candidate")
+
+    def test_discovery_watch_never_activates_a_new_model(self):
+        before = copy.deepcopy(self.registry)
+        report = watch_catalog(self.registry, [free_entry("unseen/new-model:free")])
+        self.assertEqual(report["model_calls"], 0)
+        self.assertFalse(report["active_roles_changed"])
+        self.assertEqual(self.registry["roles"], before["roles"])
+
+    def test_catalog_drift_recommends_degraded_without_mutating_registry(self):
+        registry = copy.deepcopy(self._active_registry())
+        model_id = registry["roles"]["ROLE_GENERAL_COMMANDER"]["candidate_models"][0]
+        report = watch_catalog(registry, [])
+        item = next(entry for entry in report["models"] if entry["model_id"] == model_id)
+        self.assertEqual(item["recommended_lifecycle"], "DEGRADED")
+        self.assertFalse(item["routing_allowed"])
+        self.assertEqual(registry["models"][model_id]["lifecycle"], "GA")
 
 
 if __name__ == "__main__":

@@ -1,37 +1,72 @@
-# Role-based model registry
+# Role-based Model Registry — Technical Reference
 
-\`config/model_registry.json\` centralizes model metadata and role mapping. Code selects a role first, then an exact primary or same-role free fallback; model IDs are not scattered through prompts or workflows.
+**Status:** implementation reference, not live Provider/readiness authority.
 
-## Current commander slots
+`config/model_registry.json` はRoleとModelの候補・互換情報を分離するMachine-readable台帳です。ただし、この文書やRegistryに過去から残る候補名・期待ID・互換IDだけでは、現在のModel availability、free status、quota、cost、Provider readiness、routing authorityを証明しません。
 
-| Role | Commander ID | Exact primary slot | Current status |
-|---|---|---|---|
-| \`ROLE_GENERAL_COMMANDER\` | \`glm-general-commander\` | \`z-ai/glm-5.3-flash:free\` | \`FREE_CATALOG_ONLY\`; inactive until the one-shot API probe passes |
-| \`ROLE_ENGINEERING_COMMANDER\` | \`deepseek-engineering-commander\` | \`deepseek/deepseek-v4-flash:free\` | \`FREE_CATALOG_ONLY\`; inactive until the one-shot API probe passes |
-| \`ROLE_RESERVE_COMMANDER\` | \`minimax-reserve-commander\` | \`minimax/minimax-m3:free\` | \`FREE_CATALOG_ONLY\`; never started automatically |
+現在の実行権限とRoutingは `config/current_commander_handoff.json`、`config/permanent_standards_manifest.json`、`docs/AI_ARMY_MASTER_RULEBOOK.md`、関連Machine Policy、`scripts/ai_army_routing_facade.py` を優先します。外部Provider利用前はcurrent catalog/account evidenceを再取得し、古い文書の数値やModel名を現在値として流用しません。
 
-The live catalog currently shows the ordinary paid records for GLM, DeepSeek V4 Flash, and MiniMax M3 while the exact \`:free\` IDs are not listed. The registry records this as an API/catalog inconsistency instead of silently substituting the paid IDs. Direct endpoint verification is performed by \`scripts/probe_free_models.py\`: exactly one request per requested ID, no \`models\` array, no retries, \`provider.allow_fallbacks=false\`, minimal output, usage cost, and redacted credits before/after comparison.
+## Lifecycle と Discovery
 
-Free candidates are resolved only when the endpoint probe reports \`FREE_ACTIVE\`, the exact response model matches, \`usage.cost=0\`, credits are unchanged, and the role's required tool/structured-output features pass. Until then, ordinary runs stay blocked and make zero model calls.
+評価Recordは、実装が対応する範囲でModel identity、Provider、Role candidate、Capability、Lifecycle、発見時刻、最終検証時刻、Probe、Benchmark、Cost、Quota等を保持します。未検証値は推測せず `null` / `UNKNOWN` / `NOT_RUN` 等として保持します。
 
-## Free quota protection
+標準的な昇格順は次です。
 
-- \`FREE_ONLY_MODE=true\`, paid model/fallback/web-search/auto-top-up are false.
-- Daily local ledger: 1000 requests; hard stop at 900, preserving 100 emergency requests.
-- Zones: GREEN 0–799, YELLOW 800–849, ORANGE 850–899, RED 900+.
-- One shared limiter is capped at 15 requests/minute (below the 20 RPM provider limit).
-- Mission reservations are checked before fan-out; each request is counted before sending.
-- A free 429 opens the circuit and returns \`queued_free_quota\`; it is never retried.
-- At a new UTC date, one probe is required before reopening.
-- \`openrouter/free\` is not a commander candidate.
+`DISCOVERED → CAPABILITY_CHECKED → COST_CHECKED → PROBED → BENCHMARKED → CANDIDATE → EXPLICIT_APPROVAL → ACTIVE`
 
-## Safety rules
+重要な境界:
 
-- \`allow_paid_models\` and \`allow_paid_fallback\` are false.
-- Cross-role fallback is disabled; only same-role free reserve candidates may be considered.
-- Legacy IDs (old Qwen, old DeepSeek, GPT-4o, Gemini 1.5 Flash, and similar) stay in the \`legacy\` quarantine list and cannot be selected.
-- \`scripts/preflight_openrouter_models.py\` performs a read-only check and emits a blocked packet when a role is inactive, a model is stale, a paid candidate is requested, or no same-role free candidate is available.
-- \`scripts/model_registry.py\` provides a read-only watcher. It does not change active roles or secrets.
-- \`scripts/probe_free_models.py\` never logs the API key, credit balances, or provider response bodies.
+- DiscoveryだけでActiveにしない。
+- 名前が似ているModelへ自動置換しない。
+- Exact Model IDを現在のProvider Catalogまたは公式Account evidenceで確認する。
+- Free/zero-cost、Quota、Capability、Route bindingを別々に検証する。
+- Probe成功はProduction activationを意味しない。
+- Historical `enabled` / candidate / compatibility値は現在の実行権限にならない。
+- Unknown cost/quota/paid transitionはfail-closed。
 
-Model activation, provider changes, paid use, or production swaps remain decisions of \`chatgpt-work\` and require a separate reviewed change. Monitoring uses only the public [OpenRouter model catalog](https://openrouter.ai/api/v1/models).
+## Expected / Compatibility records
+
+過去のPhaseや移行作業で、ユーザー指定または期待候補を `EXPECTED_UNVERIFIED`、旧Modelをcompatibility/legacy情報として残す場合があります。これは検証時の照合や回帰テストのための情報であり、存在証明・Free証明・Role割当・Fallback許可・ACTIVE登録ではありません。
+
+古い固定RoleやModel IDを、現在の `primary_model`、fallback、candidate、routing authorityへ復活させてはいけません。Legacy情報が必要な理由は「以前の経路を再発させないことを検査する」ためです。
+
+## Free route の選定原則
+
+Free routeを使う場合も固定IDを盲信せず、利用時点のCatalog/evidenceから厳格に判定します。実装に応じて少なくとも以下を確認します。
+
+1. Exact Model IDとProvider endpoint/route。
+2. 現在のFree/zero-cost evidence。
+3. 現在のQuota / account eligibility evidence。
+4. 必要CapabilityとContext。
+5. Provider fallback / paid transitionが無効であること。
+6. Retry・Request・Token・Concurrencyがboundedであること。
+7. Probe応答Modelが要求IDと一致すること。
+8. Usage/cost evidenceがPolicy条件を満たすこと。
+
+`:free`等のラベルだけで重大判断や最終Reviewを許可しません。モデル名・Catalog掲載・古い成功Artifactだけでも現在の実行許可にはなりません。
+
+## Evaluation record projection
+
+既存Schema/実装との互換性のため、`scripts/model_registry.py` 等がMachine-readable Registryを評価用Recordへ射影することがあります。射影はRegistryのAuthorityを拡大せず、Lifecycle、Role candidate、Capability、Probe、Benchmark、Cost、Quota等を構造化して比較するためのものです。
+
+射影処理が不明値を補完・推測したり、historical recordを現在のProvider evidenceへ昇格させたりしてはいけません。
+
+## Provider / Quota の可変値
+
+Provider classification、RPM/TPM/RPD/TPD、daily cap、Hard Stop、credits、rate-limit header、free-tier条件、Model ID等は時間とAccountで変わり得ます。この文書へ固定値を恒久ルールとして複製しません。
+
+実行時は以下を優先します。
+
+- current Machine-readable Registry / Policy
+- current official Provider Catalog / pricing / quota evidence
+- current account-specific evidence when required
+- current exact-route Probe result
+- current safety/cost gate
+
+過去に使用したOpenRouter等の数値制限は回帰FixtureやLegacy configに残る場合がありますが、別Providerへ流用せず、現在値として扱いません。
+
+## Activation boundary
+
+Provider/Role/ModelのActive化は、少なくともcurrent evidence、必要Capability、Cost/Quota safety、bounded Probe、Routing contract、Human Approval Gate等の現行Policy条件を満たした場合だけ候補になります。
+
+Registry、Probe、Benchmark、文書のいずれか1つだけでProduction activation、Paid fallback、Deploy、Publish、Secrets操作を許可することはありません。ChatGPT / Workが最終Authorityを保持します。

@@ -1,0 +1,36 @@
+{
+  "mission_id": "monetization-rulebook-rereview-20260913",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Act as paid Executive Supervisor under ChatGPT. Re-read and adversarially audit the repository's permanent standards and propose a concise, durable monetization rulebook that survives chat-tab changes. The user wants strong monetization opportunities, especially YouTube, Instagram/Meta, TikTok and X, but also opportunities beyond video editing, clipping and TikTok Shop. Compare current canonical rules against current official platform monetization guidance, reputable creator-economy research, mature OSS/agent automation patterns and practical business models. Find missing high-value opportunities, stale or redundant rules, unsafe/low-margin ideas, and places where automation can improve profit without violating platform rules. Do not equate views with profit. For every candidate revenue lane, specify revenue mechanism, prerequisites, cost structure, automation fit, moat, platform/policy risk, measurable funnel metrics, break-even logic, and ADOPT/EXPERIMENT/REJECT. Include non-platform businesses such as AI-assisted content operations for clients, UGC/creative production, affiliate content, sponsorship operations, lead-generation/content systems, digital products/templates/data/reports, licensing, research/newsletter products, and software/micro-SaaS only when evidence supports them. Prioritize realistic paths for a small operator using an AI Army. Also red-team prompt injection/data poisoning from external web/tool content and propose minimal canonical controls if missing. Remove or demote duplicated rules instead of only adding. ChatGPT independently verifies primary evidence and retains final authority.",
+  "shared_evidence": [
+    {"source":"config/permanent_standards_manifest.json","tier":"PRIMARY","retrieved_at":"2026-09-13T13:51:00+09:00","summary":"Permanent standards manifest is current source of truth; new monetization policy should be concise, cross-tab durable, and must not duplicate domain playbooks."},
+    {"source":"config/cross_source_knowhow_evidence_matrix.json + config/cross_domain_measurement_registry.json","tier":"PRIMARY","retrieved_at":"2026-09-13T13:51:00+09:00","summary":"Existing evidence/measurement governance scores sources, blocks unsupported cross-platform numeric generalization, requires baselines and guardrails, and treats missing analytics as unknown."},
+    {"source":"config/media_command_read_gate.json","tier":"PRIMARY","retrieved_at":"2026-09-13T13:51:00+09:00","summary":"Video, clipping and TikTok Shop tasks already re-read media know-how before execution. A broader monetization lane must complement rather than duplicate this gate."},
+    {"source":"config/deepseek_paid_supervisor_policy.json","tier":"PRIMARY","retrieved_at":"2026-09-13T13:51:00+09:00","summary":"Paid DeepSeek is preauthorized for high-value research/strategy/review only, bounded, no repository write, no publish/deploy/merge/secrets, ChatGPT final adjudication."},
+    {"source":"user instructions in current tab 2026-09-13","tier":"PRIMARY","retrieved_at":"2026-09-13T13:51:00+09:00","summary":"User asked for another full rereview of canonical standards, concise but detailed rulebook maintenance, deletion of unnecessary items, durable cross-tab behavior, and broader monetization research focused on YouTube, Instagram, TikTok, X and agent-driven businesses beyond editing/clipping/TikTok Shop."}
+  ],
+  "lanes": [
+    {"id":"canonical-pruning","objective":"Re-read canonical AI Army/media/commerce standards and identify duplication, stale constraints, missing cross-tab rules, and anything that should be deleted, demoted or consolidated. Keep one source of truth per concept."},
+    {"id":"platform-revenue","objective":"Research current official monetization mechanisms and eligibility/risk patterns for YouTube, Instagram/Meta, TikTok and X. Cover ads/revenue share, memberships/subscriptions, gifts/tips where applicable, sponsorship/brand work, affiliate/commerce and platform-native creator programs. Distinguish current availability by market/account and avoid stale numeric thresholds unless verified."},
+    {"id":"nonvideo-businesses","objective":"Evaluate monetization beyond video editing/clipping/TikTok Shop for a small AI-assisted operator: content operations for clients, UGC/creative services, affiliate content, sponsorship operations, lead generation, newsletters/research, digital products/templates/data, licensing, micro-SaaS/tooling and other realistic services. Score margin, time-to-revenue, automation fit, recurring revenue, defensibility and policy risk."},
+    {"id":"growth-profit-funnel","objective":"Design a cross-platform profit measurement model from reach to owned audience to lead/sale/revenue and contribution margin. Prevent vanity-metric optimization. Include CAC when paid acquisition exists, conversion, RPM/ARPU where applicable, refund/return/chargeback, creator labor/AI/API cost, platform fees, and break-even/payback logic."},
+    {"id":"agent-safety-security","objective":"Audit whether the AI Army sufficiently treats web pages, social content, tool outputs, comments and retrieved files as untrusted data. Propose minimal prompt-injection/data-poisoning/source-provenance controls, action separation, approval boundaries and evidence labels compatible with existing bounded autonomy."},
+    {"id":"integration-adjudication","objective":"Return a minimal adoption map: one concise monetization rulebook/policy, exact permanent-manifest and commander-handoff hooks, measurement additions only where missing, and validator/CI checks. Rank proposed revenue lanes into ADOPT_NOW, EXPERIMENT, WATCH, REJECT with reasons and acceptance metrics. Avoid creating long duplicated playbooks."}
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 8,
+  "max_output_tokens_per_lane": 6144,
+  "max_output_tokens_synthesis": 8192,
+  "max_estimated_cost_usd": 0.45,
+  "known_estimated_daily_spend_before_mission_usd": 0.40,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}

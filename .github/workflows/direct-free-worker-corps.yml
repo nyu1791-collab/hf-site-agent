@@ -1,0 +1,108 @@
+name: "AI army direct free worker corps"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: direct-free-worker-corps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  direct-free-corps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Compile and test direct-free and organization surfaces
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            scripts/direct_free_worker_corps_v2.py \
+            scripts/reconcile_agent_organization.py \
+            scripts/low_latency_scheduler_probe.py \
+            scripts/independent_agent_scheduler_probe.py
+          python -m json.tool config/direct_free_worker_corps.json >/dev/null
+          python -m json.tool config/replaceable_agent_organization.json >/dev/null
+          python -m unittest \
+            tests.test_direct_free_worker_corps_v2 \
+            tests.test_replaceable_agent_organization \
+            tests.test_replaceable_agent_scheduler_v2 \
+            tests.test_independent_agent_scheduler \
+            tests.test_reconcile_agent_organization -v
+
+      - name: Run bounded free-provider benchmark
+        env:
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
+        run: >-
+          python scripts/direct_free_worker_corps_v2.py
+          --network
+          --confirm DIRECT_FREE_WORKER_TRIAL
+          --output artifacts/direct_free_worker_corps.json
+
+      - name: Reconcile verified candidates into replaceable roles
+        run: >-
+          python scripts/reconcile_agent_organization.py
+          --direct-free-report artifacts/direct_free_worker_corps.json
+          --output artifacts/replaceable_agent_organization.json
+
+      - name: Run deterministic coordination probes
+        run: |
+          set -euo pipefail
+          python scripts/low_latency_scheduler_probe.py --output artifacts/low_latency_scheduler_probe.json
+          python scripts/independent_agent_scheduler_probe.py \
+            --organization artifacts/replaceable_agent_organization.json \
+            --output artifacts/independent_agent_scheduler_probe.json
+
+      - name: Validate bounded free-only result
+        run: |
+          set -euo pipefail
+          python scripts/audit_secret_safety.py --root .
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report=json.loads(Path('artifacts/direct_free_worker_corps.json').read_text(encoding='utf-8'))
+          org=json.loads(Path('artifacts/replaceable_agent_organization.json').read_text(encoding='utf-8'))
+          latency=json.loads(Path('artifacts/low_latency_scheduler_probe.json').read_text(encoding='utf-8'))
+          agents=json.loads(Path('artifacts/independent_agent_scheduler_probe.json').read_text(encoding='utf-8'))
+          assert report.get('schema_version') == 'direct-free-worker-corps-report-v2'
+          assert report.get('paid_fallback') is False
+          assert report.get('provider_automatic_fallback') is False
+          assert report.get('production_routing_changed') is False
+          assert int(report.get('model_calls', 0)) <= 15
+          assert org.get('generic_paid_fallback') is False
+          assert org.get('external_model_repository_write') is False
+          assert latency.get('generic_paid_fallback') is False
+          assert latency.get('external_model_repository_write') is False
+          assert agents.get('generic_paid_fallback') is False
+          assert agents.get('external_model_repository_write') is False
+          print('DIRECT_FREE_WORKER_CORPS=PASS')
+          PY
+
+      - name: Upload free-worker evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: direct-free-worker-corps-${{ github.run_id }}
+          path: |
+            artifacts/direct_free_worker_corps.json
+            artifacts/replaceable_agent_organization.json
+            artifacts/low_latency_scheduler_probe.json
+            artifacts/independent_agent_scheduler_probe.json
+          if-no-files-found: warn
+          retention-days: 7

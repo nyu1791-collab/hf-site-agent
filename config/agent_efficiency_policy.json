@@ -1,0 +1,165 @@
+{
+  "schema_version": "agent-efficiency-policy-v1",
+  "effective_date_jst": "2026-09-12",
+  "status": "SHADOW_MEASURE_THEN_PROMOTE",
+  "decision_owner": "chatgpt-work",
+  "research_basis": {
+    "google_research_agent_scaling_2026": {
+      "parallelizable_tasks_favor_centralized_multi_agent": true,
+      "sequential_tasks_can_degrade_under_multi_agent": true,
+      "tool_density_increases_coordination_tax": true,
+      "centralized_architecture_contains_error_better_than_independent_fanout": true
+    },
+    "anthropic_multi_agent_research_2025": {
+      "parallel_research_can_cut_wall_clock_time_materially": true,
+      "multi_agent_research_uses_substantially_more_tokens": true,
+      "clear_subtask_boundaries_reduce_duplicate_work": true,
+      "checkpoint_resume_and_tracing_are_required_for_long_running_reliability": true
+    },
+    "mast_neurips_2025": {
+      "multi_agent_failures_require_system_level_taxonomy": true,
+      "system_design_inter_agent_alignment_and_verification_are_distinct_failure_domains": true
+    },
+    "huggingface_smolagents": {
+      "hierarchical_manager_with_specialized_memories_and_tools_is_supported": true,
+      "max_steps_and_final_answer_checks_are_useful_bounded_controls": true
+    },
+    "deepseek_paid_peer_review": {
+      "run_id": 34683998011,
+      "usable_lanes": 5,
+      "known_usable_conservative_peak_cost_usd": 0.03375804,
+      "recommendation": "MEASURE_ARCHITECTURE_AND_FAILURE_MODES_INSTEAD_OF_ADDING_ALWAYS_ON_AGENTS"
+    }
+  },
+  "admission": {
+    "mode": "SHADOW_UNTIL_CALIBRATED",
+    "single_agent_default": true,
+    "centralized_multi_agent_candidate_when": [
+      "DEPENDENCY_SHAPE_PARALLEL_OR_MIXED",
+      "AT_LEAST_TWO_INDEPENDENT_WORKSTREAMS",
+      "WORKSTREAMS_HAVE_DISJOINT_OR_READ_ONLY_SCOPE",
+      "PARALLELISM_EXPECTED_TO_REDUCE_WALL_CLOCK_OR_INCREASE_COVERAGE",
+      "COORDINATION_COST_IS_JUSTIFIED_BY_TASK_VALUE"
+    ],
+    "single_agent_required_when": [
+      "STRICT_SEQUENTIAL_DEPENDENCY",
+      "TRIVIAL_OR_DETERMINISTIC_TASK",
+      "SAME_MUTABLE_TARGET_WITH_NO_SAFE_PARTITION",
+      "COORDINATION_COST_EXCEEDS_EXPECTED_BENEFIT"
+    ],
+    "deepseek_supervisor_candidate_when": [
+      "BROAD_RESEARCH",
+      "ARCHITECTURE",
+      "RED_TEAM",
+      "INCIDENT_ANALYSIS",
+      "PEER_REVIEW",
+      "STRATEGY",
+      "MEDIA_OR_COMMERCE_RESEARCH_WITH_MULTIPLE_INDEPENDENT_QUESTIONS"
+    ],
+    "peer_mesh_default": false,
+    "majority_vote_is_not_ground_truth": true,
+    "machine_oracle_wins_when_available": true,
+    "shared_mutable_output_requires_single_writer": true
+  },
+  "deepseek_supervisor_efficiency": {
+    "stable_shared_prefix_first": true,
+    "measure_prompt_prefix_hash": true,
+    "measure_cache_hit_rate": true,
+    "successful_lane_not_rerun_without_new_evidence": true,
+    "same_root_cause_retry": false,
+    "failed_lane_retry_requires_method_change": true,
+    "delegate_mechanical_work_downward": true,
+    "track_cost_per_accepted_decision": true,
+    "track_accepted_recommendation_rate": true,
+    "track_duplicate_research_avoided": true,
+    "nonurgent_work_may_prefer_off_peak_pricing_when_execution_timing_allows": true
+  },
+  "failure_telemetry": {
+    "classes": [
+      "CONSTRAINT_VIOLATION",
+      "REPETITION",
+      "CONTEXT_LOSS",
+      "DERAILMENT",
+      "IGNORED_INPUT",
+      "REASONING_ACTION_MISMATCH",
+      "PREMATURE_TERMINATION",
+      "WEAK_VERIFICATION",
+      "PROVIDER_OR_TOOL_FAILURE",
+      "STALE_STATE_OR_WRITE_CONFLICT"
+    ],
+    "failed_blocked_or_warning_report_should_include_failure_class": true,
+    "termination_reason_required_on_non_success": true,
+    "same_action_without_new_evidence_should_trigger_replan": true,
+    "stale_result_quarantined_not_promoted": true
+  },
+  "observability": {
+    "required_span_fields": [
+      "mission_id",
+      "task_id",
+      "agent_id",
+      "architecture",
+      "provider",
+      "model",
+      "prompt_prefix_hash",
+      "cache_hit",
+      "input_tokens",
+      "output_tokens",
+      "requests",
+      "latency_ms",
+      "estimated_cost_usd",
+      "retry_count",
+      "termination_reason",
+      "exit_status"
+    ],
+    "secret_values_in_trace": false,
+    "large_payloads_are_artifact_refs": true
+  },
+  "experiment": {
+    "control": "SINGLE_AGENT_OR_SINGLE_CONTROLLER",
+    "treatment": "CENTRALIZED_MANAGER_WITH_SPECIALISTS",
+    "same_mission_fixture_required": true,
+    "promote_architecture_only_after_measured_evidence": true,
+    "no_universal_fixed_improvement_threshold_before_calibration": true,
+    "primary_metrics": [
+      "task_success_rate",
+      "acceptance_criteria_pass_rate",
+      "escaped_defect_rate",
+      "p50_latency_ms",
+      "p95_latency_ms",
+      "token_usage",
+      "external_request_count",
+      "estimated_cost_usd",
+      "retry_count",
+      "coordination_overhead_ratio"
+    ],
+    "supervisor_metrics": [
+      "accepted_recommendation_rate",
+      "cost_per_accepted_decision",
+      "cache_hit_rate",
+      "duplicate_research_avoided",
+      "replan_rate"
+    ],
+    "guardrail_metrics": [
+      "silent_success_count",
+      "stale_write_accept_count",
+      "duplicate_mutation_lease_count",
+      "unbounded_loop_count",
+      "unauthorized_paid_route_count"
+    ]
+  },
+  "hard_slos": {
+    "silent_success_count": 0,
+    "stale_write_accept_count": 0,
+    "duplicate_mutation_lease_count": 0,
+    "unbounded_loop_count": 0,
+    "unauthorized_paid_route_count": 0,
+    "healthy_artifact_destroyed_by_downstream_failure_count": 0
+  },
+  "promotion_rule": {
+    "require_primary_outcome_improvement": true,
+    "require_guardrail_metrics_non_worse": true,
+    "require_no_new_unbounded_paid_or_side_effect_route": true,
+    "if_results_are_inconclusive": "KEEP_SIMPLER_ARCHITECTURE",
+    "chatgpt_final_adjudication_required": true
+  }
+}
