@@ -1,11 +1,7 @@
 name: Resume AI slowdown longform v3
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - missions/media/20260915-ai-slowdown-longform-v3.resume-trigger
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,7 +9,7 @@ permissions:
 
 concurrency:
   group: ai-slowdown-longform-v3-resume
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   resume:
@@ -27,6 +23,8 @@ jobs:
       REVISED_MISSION: artifacts/ai-slowdown-longform-v2/mission-revised.json.gz.b64
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install deterministic render toolchain
         run: |
