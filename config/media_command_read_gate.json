@@ -1,5 +1,5 @@
 {
-  "schema_version": "media-command-read-gate-v12",
+  "schema_version": "media-command-read-gate-v11",
   "effective_date_jst": "2026-09-16",
   "status": "ENFORCED_STANDARD",
   "decision_owner": "chatgpt-top-commander",
