@@ -67,7 +67,7 @@ jobs:
           import json
           from pathlib import Path
           t=json.loads(Path('artifacts/ai-slowdown-short60/timing.json').read_text())
-          assert t['line_count']==9, t['line_count']
+          assert t['line_count']==7, t['line_count']
           assert float(t['subtitle_narration_coverage_ratio'])==1.0
           print({'duration_seconds':t['total_duration'],'line_count':t['line_count'],'coverage':1.0})
           PY
