@@ -1,18 +1,18 @@
-name: Build WOSADO TikTok Zundamon preview
+name: Build AI slowdown 60s demo
 
 on:
   push:
     branches:
       - ai-army/provider-v3
     paths:
-      - missions/media/20260916-wosado-tiktok-zundamon.render-trigger
+      - missions/media/20260916-ai-slowdown-short60.render-trigger
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: wosado-tiktok-zundamon-preview
+  group: ai-slowdown-short60
   cancel-in-progress: true
 
 jobs:
@@ -20,8 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      OUT: artifacts/wosado-tiktok-zundamon
+      OUT: artifacts/ai-slowdown-short60
       CACHE: .media-cache/assets
+      MISSION: missions/media/20260916-ai-slowdown-short60-v1.json.gz.b64
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,23 +33,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
           python -m pip install --upgrade pip
-          python -m pip install pillow requests
+          python -m pip install pillow
           mkdir -p "$OUT" "$CACHE"
-          python -m py_compile scripts/render_wosado_tiktok_preview.py
 
-      - name: Validate current media policy
+      - name: Validate current media contract
         run: |
+          python -m py_compile scripts/synthesize_longform_voicevox.py
+          python -m py_compile scripts/render_zundamon_metan_longform.py
+          python -m py_compile scripts/character_shell_root.py
           python scripts/validate_evidence_visual_static_character_standard.py
           python scripts/media_asset_resolver.py --validate-only
-          python - <<'PY'
-          import json
-          p=json.load(open('config/evidence_visual_static_character_policy.json',encoding='utf-8'))
-          assert p['character_rendering']['default_mode']=='STATIC_TURN_FOCUS'
-          assert p['character_rendering']['mouth_animation'] is False
-          assert p['character_rendering']['blink_animation'] is False
-          assert p['caption_rendering']['full_caption_coverage_required'] is True
-          print('policy gate pass')
-          PY
 
       - name: Start local VOICEVOX
         run: |
@@ -61,7 +55,24 @@ jobs:
           docker logs voicevox || true
           exit 1
 
-      - name: Resolve registered Zundamon asset
+      - name: Synthesize 1.20x VOICEVOX and measure duration
+        run: |
+          python scripts/synthesize_longform_voicevox.py \
+            --mission-b64 "$MISSION" \
+            --output-dir "$OUT/voice" \
+            --timing-out "$OUT/timing.json" \
+            --min-seconds 50 \
+            --max-seconds 70
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          t=json.loads(Path('artifacts/ai-slowdown-short60/timing.json').read_text())
+          assert t['line_count']==7, t['line_count']
+          assert float(t['subtitle_narration_coverage_ratio'])==1.0
+          print({'duration_seconds':t['total_duration'],'line_count':t['line_count'],'coverage':1.0})
+          PY
+
+      - name: Resolve character shell once
         run: |
           python scripts/media_asset_resolver.py \
             --asset-id zm_shell_20230806 \
@@ -72,7 +83,7 @@ jobs:
           RAW=$(python - <<'PY'
           import json
           from pathlib import Path
-          m=json.loads(Path('artifacts/wosado-tiktok-zundamon/character-shell.json').read_text())
+          m=json.loads(Path('artifacts/ai-slowdown-short60/character-shell.json').read_text())
           p=m['results'][0].get('extracted_path')
           assert p and Path(p).is_dir(), p
           print(p)
@@ -80,16 +91,167 @@ jobs:
           )
           python scripts/character_shell_root.py "$RAW" > "$OUT/character-source-resolved.txt"
 
-      - name: Render WOSADO TikTok preview
+      - name: Build static portrait inventory only
         run: |
-          ROOT=$(cat "$OUT/character-source-resolved.txt")
-          python scripts/render_wosado_tiktok_preview.py --out "$OUT" --character-root "$ROOT"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
 
-      - name: Upload completed internal-review artifact
+          root=Path('artifacts/ai-slowdown-short60/character-source-resolved.txt').read_text().strip()
+          root=Path(root)
+          out_root=Path('artifacts/ai-slowdown-short60/static-portraits')
+          out_root.mkdir(parents=True,exist_ok=True)
+          records=[]
+          for source_char,target_char in [('Zundamon','zundamon'),('Metan','metan')]:
+              candidates=sorted((root/source_char).rglob('All.png'), key=lambda p:(len(p.parts),p.as_posix()))
+              assert candidates, source_char
+              src=candidates[0]
+              with Image.open(src) as im:
+                  rgba=im.convert('RGBA')
+                  alpha=rgba.getchannel('A')
+                  if alpha.getextrema()==(255,255):
+                      corner=rgba.getpixel((0,0))
+                      if max(corner[:3])<=8:
+                          px=rgba.load()
+                          for y in range(rgba.height):
+                              for x in range(rgba.width):
+                                  r,g,b,a=px[x,y]
+                                  if r<=8 and g<=8 and b<=8:
+                                      px[x,y]=(r,g,b,0)
+                  dst=out_root/f'{target_char}.png'
+                  rgba.save(dst)
+              records.append({'character':target_char,'category':'full_body','path':str(dst.resolve())})
+              print({'character':target_char,'source':src.as_posix(),'output':str(dst)})
+          Path('artifacts/ai-slowdown-short60/static_inventory.json').write_text(
+              json.dumps({'schema':'static-character-inventory-v1','records':records},ensure_ascii=False,indent=2)+'\n'
+          )
+          PY
+
+      - name: Resolve one registered evidence visual only
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from scripts import media_asset_resolver as mar
+          standard=mar.load_standard(Path('config/media_reusable_asset_standard.json'))
+          mar.validate_standard(standard)
+          mapping={str(a['asset_id']):a for a in standard['assets']}
+          aid='openai_hq_1515_third_street'
+          asset=dict(mapping[aid])
+          url=str(asset['download_url'])
+          if 'commons.wikimedia.org/wiki/Special:Redirect/file/' in url:
+              sep='&' if '?' in url else '?'
+              asset['download_url']=f'{url}{sep}width=1280'
+          result=mar.materialize_asset(standard,asset,Path('.media-cache/assets'),allow_network=True)
+          result['acquisition_variant']='REGISTERED_WIKIMEDIA_FILE_STANDARD_THUMBNAIL_1280'
+          result['registered_source_page']=asset['source_page']
+          Path('artifacts/ai-slowdown-short60/visual_assets.json').write_text(json.dumps({
+              'schema':'media-asset-materialization-manifest-v1',
+              'cache_root':'.media-cache/assets',
+              'asset_count':1,
+              'search_performed':False,
+              'parallel_downloads':False,
+              'wikimedia_thumbnail_width':1280,
+              'results':[result],
+          },ensure_ascii=False,indent=2)+'\n')
+          PY
+
+      - name: Preview new caption and speaker-focus rules
+        run: |
+          python scripts/render_zundamon_metan_longform.py \
+            --mission-b64 "$MISSION" \
+            --timing "$OUT/timing.json" \
+            --reaction-inventory "$OUT/static_inventory.json" \
+            --asset-manifest "$OUT/visual_assets.json" \
+            --voice-root "$OUT/voice" \
+            --output-dir "$OUT/preview" \
+            --preview-only
+          test -s "$OUT/preview/representative_contact_sheet.jpg"
+
+      - name: Render 60-second demo
+        run: |
+          python scripts/render_zundamon_metan_longform.py \
+            --mission-b64 "$MISSION" \
+            --timing "$OUT/timing.json" \
+            --reaction-inventory "$OUT/static_inventory.json" \
+            --asset-manifest "$OUT/visual_assets.json" \
+            --voice-root "$OUT/voice" \
+            --output-dir "$OUT/final"
+          cp "$OUT/final/ai-slowdown-longform-v1.mp4" "$OUT/final/ai-slowdown-short60-v1.mp4"
+
+      - name: Mechanical final gate
+        run: |
+          FINAL="$OUT/final/ai-slowdown-short60-v1.mp4"
+          ffprobe -v error -show_streams -show_format -of json "$FINAL" > "$OUT/final/ffprobe.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('artifacts/ai-slowdown-short60/final/ffprobe.json').read_text())
+          v=next(x for x in d['streams'] if x['codec_type']=='video')
+          a=next(x for x in d['streams'] if x['codec_type']=='audio')
+          dur=float(d['format']['duration'])
+          assert 50 <= dur <= 70, dur
+          assert (int(v['width']),int(v['height']))==(1080,1920)
+          assert v['codec_name']=='h264' and v.get('pix_fmt')=='yuv420p'
+          assert a['codec_name']=='aac' and int(a['sample_rate'])==48000
+          t=json.loads(Path('artifacts/ai-slowdown-short60/timing.json').read_text())
+          assert float(t['subtitle_narration_coverage_ratio'])==1.0
+          print({'duration':dur,'video':'h264/yuv420p','audio':'aac/48k','coverage':1.0})
+          PY
+          ffmpeg -v error -i "$FINAL" -f null - 2> "$OUT/final/decode-errors.log"
+          test ! -s "$OUT/final/decode-errors.log"
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('artifacts/ai-slowdown-short60/final/ai-slowdown-short60-v1.mp4')
+          b=p.read_bytes()[:8_000_000]
+          moov=b.find(b'moov'); mdat=b.find(b'mdat')
+          assert moov>0 and mdat>0 and moov<mdat, (moov,mdat)
+          print({'faststart':True})
+          PY
+
+      - name: Extract visual QA samples and completion manifest
+        run: |
+          FINAL="$OUT/final/ai-slowdown-short60-v1.mp4"
+          DUR=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$FINAL")
+          python - "$DUR" <<'PY'
+          import hashlib,json,subprocess,sys
+          from pathlib import Path
+          from PIL import Image
+          dur=float(sys.argv[1]); root=Path('artifacts/ai-slowdown-short60/final')
+          samples=root/'visual-samples'; samples.mkdir(parents=True,exist_ok=True)
+          for i,f in enumerate((.05,.25,.50,.75,.95),1):
+              subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',str(dur*f),'-i',str(root/'ai-slowdown-short60-v1.mp4'),'-frames:v','1',str(samples/f'sample-{i}.jpg')],check=True)
+          files=sorted(samples.glob('*.jpg'))
+          sheet=Image.new('RGB',(270*5,480),(235,240,244))
+          for i,p in enumerate(files):
+              im=Image.open(p).convert('RGB'); im.thumbnail((270,480)); sheet.paste(im,(i*270,0))
+          sheet.save(root/'final-contact-sheet.jpg',quality=90)
+          mp4=root/'ai-slowdown-short60-v1.mp4'
+          completion={
+              'schema':'short-demo-finished-artifact-v1',
+              'mission_id':'20260916-ai-slowdown-short60-v1',
+              'status':'MACHINE_GATES_PASS_VISUAL_REREVIEW_PENDING',
+              'duration_seconds':dur,
+              'voice_speed_scale':1.20,
+              'subtitle_narration_coverage_ratio':1.0,
+              'topic_heading_mode':'SEMANTIC_CONTENT_BLOCK',
+              'mouth_animation':False,
+              'active_speaker_scale':1.08,
+              'active_speaker_opacity_percent':100,
+              'inactive_listener_opacity_percent':55,
+              'sha256':hashlib.sha256(mp4.read_bytes()).hexdigest(),
+              'bytes':mp4.stat().st_size,
+              'public_publish':False,
+          }
+          (root/'completion.json').write_text(json.dumps(completion,ensure_ascii=False,indent=2)+'\n')
+          PY
+
+      - name: Upload demo artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: wosado-tiktok-zundamon-${{ github.run_id }}
-          path: artifacts/wosado-tiktok-zundamon
+          name: ai-slowdown-short60-${{ github.run_id }}
+          path: artifacts/ai-slowdown-short60
           if-no-files-found: warn
           retention-days: 7
