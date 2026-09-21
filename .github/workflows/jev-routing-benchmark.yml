@@ -2,6 +2,11 @@ name: "Jev routing benchmark"
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - 'missions/jev-cardinality/**'
 
 permissions:
   contents: read
@@ -23,7 +28,7 @@ jobs:
 
       - name: Compile Jev benchmark
         run: |
-          python -m py_compile scripts/jev_decision_engine.py scripts/jev_route_ab_benchmark.py
+          python -m py_compile scripts/jev_decision_engine.py scripts/jev_route_ab_benchmark.py scripts/jev_cardinality_benchmark.py
 
       - name: Run 9-vs-3-vs-1 Jev routing benchmark
         if: ${{ hashFiles('missions/jev-benchmark/active.json') != '' }}
@@ -31,6 +36,22 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           python -m scripts.jev_route_ab_benchmark --output artifacts/jev_route_ab_benchmark.json
+
+      - name: Run Jev candidate-cardinality and profile benchmark
+        if: ${{ hashFiles('missions/jev-cardinality/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python -m scripts.jev_cardinality_benchmark --output artifacts/jev_cardinality_benchmark.json
+
+      - name: Upload cardinality benchmark evidence
+        if: ${{ always() && hashFiles('missions/jev-cardinality/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-cardinality-${{ github.run_id }}
+          path: artifacts/jev_cardinality_benchmark.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload benchmark evidence
         if: ${{ always() && hashFiles('missions/jev-benchmark/active.json') != '' }}
