@@ -8,10 +8,13 @@ from scripts.jev_decision_engine import decide, decide_many, quota_pressure_from
 from scripts.openrouter_free_efficiency_router import load_policy as load_free_policy
 from scripts.openrouter_free_efficiency_router import ordered_candidates, plan_task
 from scripts.openrouter_worker_health import (
+    domain_evidence,
     load_recent_evidence,
     merge_proven_into_candidates,
     profile_suffix,
 )
+
+LATENCY_CHALLENGER_TIMEOUT_SECONDS = 3.5
 
 
 def _candidate_profiles(
@@ -19,6 +22,8 @@ def _candidate_profiles(
     candidates: Sequence[str],
     lane: str,
     evidence: Mapping[str, Mapping[str, Any]] | None = None,
+    *,
+    domain: str | None = None,
 ) -> dict[str, str]:
     by_id = {str(x.get("id") or ""): x for x in entries if isinstance(x, Mapping)}
     profiles: dict[str, str] = {}
@@ -32,7 +37,7 @@ def _candidate_profiles(
             f"prevalidated_lane={lane}; deterministic_rank={rank}; "
             f"context={context or 'unknown'}; modalities={modalities}; "
             f"tools={'yes' if ('tools' in params or 'tool_choice' in params) else 'no'}; "
-            f"{profile_suffix(model, evidence)}"
+            f"{profile_suffix(model, evidence, domain=domain)}"
         )
     return profiles
 
@@ -51,10 +56,12 @@ def _health_ranked_candidates(
         if isinstance(entry, Mapping)
     }
     raw = ordered_candidates(policy, entries, task)[:24]
+    domain = str(task.get("domain") or task.get("task_class") or "").strip() or None
     return merge_proven_into_candidates(
         raw,
         catalog_model_ids=catalog_ids,
         evidence=evidence,
+        domain=domain,
         max_candidates=max_candidates,
     )
 
@@ -114,14 +121,16 @@ def _healthy_latency_challenger(
     candidates: Sequence[str],
     evidence: Mapping[str, Mapping[str, Any]],
     *,
+    domain: str | None = None,
     latency_threshold_ms: float = 3000.0,
 ) -> str | None:
     if not selected:
         return None
     primary = str(selected[0])
     primary_ev = evidence.get(primary) if isinstance(evidence, Mapping) else None
+    primary_scoped = domain_evidence(primary_ev, domain)
     try:
-        primary_latency = float((primary_ev or {}).get("avg_latency_ms") or 0.0)
+        primary_latency = float(primary_scoped.get("avg_latency_ms") or 0.0)
     except (TypeError, ValueError):
         primary_latency = 0.0
     if primary_latency <= latency_threshold_ms:
@@ -131,13 +140,14 @@ def _healthy_latency_challenger(
         if not model or model in selected:
             continue
         raw = evidence.get(model) if isinstance(evidence, Mapping) else None
-        if isinstance(raw, Mapping):
-            if int(raw.get("rate_limits", 0) or 0) > 0:
+        scoped = domain_evidence(raw, domain)
+        if isinstance(scoped, Mapping):
+            if int(scoped.get("rate_limits", 0) or 0) > 0:
                 continue
-            if int(raw.get("quality_failures", 0) or 0) > 0:
+            if int(scoped.get("quality_failures", 0) or 0) > 0:
                 continue
             try:
-                latency = float(raw.get("avg_latency_ms") or 0.0)
+                latency = float(scoped.get("avg_latency_ms") or 0.0)
             except (TypeError, ValueError):
                 latency = 0.0
             if latency > 0 and latency >= primary_latency:
@@ -203,7 +213,8 @@ def coordinate(
     remaining = int(baseline.get("remaining_quota_before_plan", 0))
     lane = str(baseline.get("lane") or "GENERAL_REASONING")
     summary = str(task.get("objective") or task.get("task_summary") or task.get("description") or task)
-    profiles = _candidate_profiles(entries, candidates, lane, evidence)
+    domain = str(task.get("domain") or task.get("task_class") or lane).strip() or None
+    profiles = _candidate_profiles(entries, candidates, lane, evidence, domain=domain)
     jev = decide(
         task_summary=summary,
         candidate_models=candidates,
@@ -259,7 +270,7 @@ def coordinate(
         }
     latency_challenger = None
     if len(selected) == 1 and not _is_high_risk(task) and remaining >= 2:
-        latency_challenger = _healthy_latency_challenger(selected, candidates, evidence)
+        latency_challenger = _healthy_latency_challenger(selected, candidates, evidence, domain=domain)
         if latency_challenger:
             selected.append(latency_challenger)
     final = {
@@ -278,6 +289,7 @@ def coordinate(
         ],
         "jev_confidence": decision.get("confidence"),
         "fanout_decision_owner": "chatgpt-top-commander-with-jev-fast-decision-plane",
+        "latency_challenger_timeout_seconds": LATENCY_CHALLENGER_TIMEOUT_SECONDS if latency_challenger else None,
     }
     return {
         "schema_version": "jev-routing-coordinator-v3",
@@ -322,11 +334,12 @@ def coordinate_many(
             continue
         lane = str(base.get("lane") or "GENERAL_REASONING")
         remaining = int(base.get("remaining_quota_before_plan", 0))
+        domain = str(task.get("domain") or task.get("task_class") or lane).strip() or None
         records.append({
             "id": task_id,
             "task_summary": str(task.get("objective") or task.get("task_summary") or task.get("description") or task),
             "candidate_models": candidates,
-            "candidate_profiles": _candidate_profiles(entries, candidates, lane, evidence),
+            "candidate_profiles": _candidate_profiles(entries, candidates, lane, evidence, domain=domain),
             "quota_pressure": quota_pressure_from_remaining(remaining).value,
         })
 
@@ -358,7 +371,8 @@ def coordinate_many(
             continue
         latency_challenger = None
         if len(selected) == 1 and not _is_high_risk(task):
-            latency_challenger = _healthy_latency_challenger(selected, candidates, evidence)
+            domain = str(task.get("domain") or task.get("task_class") or base.get("lane") or "").strip() or None
+            latency_challenger = _healthy_latency_challenger(selected, candidates, evidence, domain=domain)
             if latency_challenger:
                 selected.append(latency_challenger)
         parallel = (bool(decision.get("parallel")) or latency_challenger is not None) and len(selected) > 1
@@ -372,6 +386,7 @@ def coordinate_many(
             "lane": decision.get("lane") or base.get("lane"),
             "independent_verification": bool(decision.get("independent_verification")),
             "jev_confidence": decision.get("confidence"),
+            "latency_challenger_timeout_seconds": LATENCY_CHALLENGER_TIMEOUT_SECONDS if latency_challenger else None,
             "fanout_reason": [
                 "JEV_BATCH_TYPED_DECISION",
                 *(["RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED"] if latency_challenger else []),
