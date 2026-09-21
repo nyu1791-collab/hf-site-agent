@@ -1,122 +1,32 @@
 {
-  "schema_version": "openrouter-worker-recent-evidence-v2",
-  "source": "jev-five-domain-trial-35614685096",
-  "observed_at_utc": "2026-09-21T14:52:28Z",
-  "purpose": "Short-lived live evidence for worker routing. Never override exact-free eligibility or hard safety rules.",
+  "schema_version": "openrouter-worker-recent-evidence-v3",
+  "source": "jev-five-domain-cycle2-35667266917",
+  "observed_at_utc": "2026-09-21T23:24:33Z",
+  "purpose": "Short-lived live evidence for worker routing. Never overrides exact-free eligibility or hard safety rules.",
   "models": {
-    "nex-agi/nex-n2.5-mini:free": {
-      "successes": 4,
+    "nvidia/nemotron-3.5-lightning:free": {
+      "successes": 5,
       "quality_failures": 0,
       "rate_limits": 0,
-      "avg_latency_ms": 983.254,
+      "avg_latency_ms": 4150.281,
       "domains": [
+        "DATA_EXTRACTION",
         "CODING_DEBUG",
         "PLANNING_ORCHESTRATION",
         "QUALITY_REVIEW",
         "EVIDENCE_SYNTHESIS"
       ],
-      "valid_until_utc": "2026-09-21T20:52:28Z"
+      "valid_until_utc": "2026-09-22T01:24:33Z"
     },
-    "nex-agi/nex-n2.5-pro:free": {
-      "successes": 1,
+    "qwen/qwen3.8-27b:free": {
+      "successes": 0,
       "quality_failures": 0,
-      "rate_limits": 0,
-      "avg_latency_ms": 1471.164,
+      "rate_limits": 1,
+      "avg_latency_ms": 221.274,
       "domains": [
         "PLANNING_ORCHESTRATION"
       ],
-      "valid_until_utc": "2026-09-21T20:52:28Z"
-    },
-    "qwen/qwen3.8-27b:free": {
-      "successes": 1,
-      "quality_failures": 0,
-      "rate_limits": 1,
-      "avg_latency_ms": 2718.167,
-      "domains": [
-        "PLANNING_ORCHESTRATION",
-        "DATA_EXTRACTION"
-      ],
-      "valid_until_utc": "2026-09-21T15:22:28Z"
-    },
-    "poolside/laguna-s-2.1:free": {
-      "successes": 1,
-      "quality_failures": 0,
-      "rate_limits": 0,
-      "avg_latency_ms": 18845.862,
-      "domains": [
-        "CODING_DEBUG"
-      ],
-      "valid_until_utc": "2026-09-21T20:52:28Z"
-    },
-    "nvidia/nemotron-3.5-lightning:free": {
-      "successes": 1,
-      "quality_failures": 0,
-      "rate_limits": 0,
-      "avg_latency_ms": 99638.883,
-      "domains": [
-        "DATA_EXTRACTION"
-      ],
-      "valid_until_utc": "2026-09-21T16:52:28Z"
-    },
-    "nvidia/nemotron-3-super-120b-a12b:free": {
-      "successes": 0,
-      "quality_failures": 1,
-      "rate_limits": 0,
-      "avg_latency_ms": 382.022,
-      "domains": [
-        "DATA_EXTRACTION"
-      ],
-      "valid_until_utc": "2026-09-21T20:52:28Z"
-    },
-    "nvidia/nemotron-3-ultra-550b-a55b:free": {
-      "successes": 0,
-      "quality_failures": 1,
-      "rate_limits": 0,
-      "avg_latency_ms": 375.852,
-      "domains": [
-        "QUALITY_REVIEW"
-      ],
-      "valid_until_utc": "2026-09-21T20:52:28Z"
-    },
-    "dots-studio/dots-3-note-preview:free": {
-      "successes": 0,
-      "quality_failures": 1,
-      "rate_limits": 0,
-      "avg_latency_ms": 4763.102,
-      "domains": [
-        "EVIDENCE_SYNTHESIS"
-      ],
-      "valid_until_utc": "2026-09-21T20:52:28Z"
-    },
-    "z-ai/glm-5.2:free": {
-      "successes": 0,
-      "quality_failures": 0,
-      "rate_limits": 1,
-      "avg_latency_ms": 250.591,
-      "domains": [
-        "QUALITY_REVIEW"
-      ],
-      "valid_until_utc": "2026-09-21T15:22:28Z"
-    },
-    "google/gemma-4-26b-a4b-it:free": {
-      "successes": 0,
-      "quality_failures": 0,
-      "rate_limits": 1,
-      "avg_latency_ms": 167.729,
-      "domains": [
-        "EVIDENCE_SYNTHESIS"
-      ],
-      "valid_until_utc": "2026-09-21T15:22:28Z"
-    },
-    "google/gemma-4-31b-it:free": {
-      "successes": 0,
-      "quality_failures": 0,
-      "rate_limits": 1,
-      "avg_latency_ms": 192.861,
-      "domains": [
-        "CODING_DEBUG"
-      ],
-      "valid_until_utc": "2026-09-21T15:22:28Z"
+      "valid_until_utc": "2026-09-22T00:24:33Z"
     }
   }
 }
