@@ -7,12 +7,18 @@ from typing import Any, Mapping, Sequence
 from scripts.jev_decision_engine import decide, decide_many, quota_pressure_from_remaining
 from scripts.openrouter_free_efficiency_router import load_policy as load_free_policy
 from scripts.openrouter_free_efficiency_router import ordered_candidates, plan_task
+from scripts.openrouter_worker_health import (
+    load_recent_evidence,
+    merge_proven_into_candidates,
+    profile_suffix,
+)
 
 
 def _candidate_profiles(
     entries: Sequence[Mapping[str, Any]],
     candidates: Sequence[str],
     lane: str,
+    evidence: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, str]:
     by_id = {str(x.get("id") or ""): x for x in entries if isinstance(x, Mapping)}
     profiles: dict[str, str] = {}
@@ -25,9 +31,82 @@ def _candidate_profiles(
         profiles[model] = (
             f"prevalidated_lane={lane}; deterministic_rank={rank}; "
             f"context={context or 'unknown'}; modalities={modalities}; "
-            f"tools={'yes' if ('tools' in params or 'tool_choice' in params) else 'no'}"
+            f"tools={'yes' if ('tools' in params or 'tool_choice' in params) else 'no'}; "
+            f"{profile_suffix(model, evidence)}"
         )
     return profiles
+
+
+def _health_ranked_candidates(
+    policy: Mapping[str, Any],
+    entries: Sequence[Mapping[str, Any]],
+    task: Mapping[str, Any],
+    evidence: Mapping[str, Mapping[str, Any]],
+    *,
+    max_candidates: int = 12,
+) -> list[str]:
+    catalog_ids = {
+        str(entry.get("id") or "")
+        for entry in entries
+        if isinstance(entry, Mapping)
+    }
+    raw = ordered_candidates(policy, entries, task)[:24]
+    return merge_proven_into_candidates(
+        raw,
+        catalog_model_ids=catalog_ids,
+        evidence=evidence,
+        max_candidates=max_candidates,
+    )
+
+
+def _is_high_risk(task: Mapping[str, Any]) -> bool:
+    return bool(
+        task.get("high_impact")
+        or task.get("requires_human_approval")
+        or task.get("production_side_effect")
+        or task.get("secret_access")
+    )
+
+
+def _bounded_low_confidence_hedge(
+    task: Mapping[str, Any],
+    baseline: Mapping[str, Any],
+    candidates: Sequence[str],
+    decision: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    if _is_high_risk(task):
+        return None
+    chosen: list[str] = []
+    for model in [*(candidates[:1]), *list(decision.get("workers") or [])]:
+        model = str(model)
+        if model and model in candidates and model not in chosen:
+            chosen.append(model)
+        if len(chosen) >= 2:
+            break
+    if not chosen:
+        return None
+    serial = bool(
+        task.get("shared_mutable_state")
+        or task.get("strictly_sequential")
+        or task.get("single_writer_only")
+    )
+    mode = "SINGLE" if len(chosen) == 1 else ("SEQUENTIAL" if serial else "PARALLEL")
+    return {
+        **dict(baseline),
+        "selected_models": chosen,
+        "primary_model": chosen[0],
+        "active_model_count": len(chosen),
+        "parallel_model_calls": len(chosen) if mode == "PARALLEL" else 1,
+        "execution_mode": mode,
+        "independent_verification": len(chosen) > 1,
+        "jev_confidence": decision.get("confidence"),
+        "jev_action": decision.get("action"),
+        "fanout_reason": [
+            "JEV_LOW_CONFIDENCE_BOUNDED_HEDGE",
+            "FAST_PROVEN_OR_DETERMINISTIC_PRIMARY_PLUS_JEV_CANDIDATE",
+            *list(baseline.get("fanout_reason") or []),
+        ],
+    }
 
 
 def _baseline(
@@ -63,7 +142,7 @@ def coordinate(
     )
     if baseline.get("status") != "READY":
         return {
-            "schema_version": "jev-routing-coordinator-v2",
+            "schema_version": "jev-routing-coordinator-v3",
             "status": baseline.get("status"),
             "route_source": "DETERMINISTIC_BASELINE",
             "baseline": baseline,
@@ -73,7 +152,7 @@ def coordinate(
 
     if not use_jev or bool(task.get("deterministic")):
         return {
-            "schema_version": "jev-routing-coordinator-v2",
+            "schema_version": "jev-routing-coordinator-v3",
             "status": "READY",
             "route_source": "DETERMINISTIC_BASELINE",
             "baseline": baseline,
@@ -82,11 +161,12 @@ def coordinate(
         }
 
     free_policy = load_free_policy()
-    candidates = ordered_candidates(free_policy, entries, task)[:12]
+    evidence = load_recent_evidence()
+    candidates = _health_ranked_candidates(free_policy, entries, task, evidence, max_candidates=12)
     remaining = int(baseline.get("remaining_quota_before_plan", 0))
     lane = str(baseline.get("lane") or "GENERAL_REASONING")
     summary = str(task.get("objective") or task.get("task_summary") or task.get("description") or task)
-    profiles = _candidate_profiles(entries, candidates, lane)
+    profiles = _candidate_profiles(entries, candidates, lane, evidence)
     jev = decide(
         task_summary=summary,
         candidate_models=candidates,
@@ -96,7 +176,7 @@ def coordinate(
     )
     if jev.get("status") != "JEV_DECISION_OK":
         return {
-            "schema_version": "jev-routing-coordinator-v2",
+            "schema_version": "jev-routing-coordinator-v3",
             "status": "READY",
             "route_source": "DETERMINISTIC_FALLBACK_AFTER_JEV_UNAVAILABLE",
             "baseline": baseline,
@@ -106,8 +186,18 @@ def coordinate(
 
     decision = jev.get("decision") or {}
     if decision.get("action") != "EXECUTE" or decision.get("low_confidence") is True:
+        hedge = _bounded_low_confidence_hedge(task, baseline, candidates, decision)
+        if hedge is not None:
+            return {
+                "schema_version": "jev-routing-coordinator-v3",
+                "status": "READY",
+                "route_source": "JEV_LOW_CONFIDENCE_BOUNDED_HEDGE",
+                "baseline": baseline,
+                "jev": jev,
+                "final_plan": hedge,
+            }
         return {
-            "schema_version": "jev-routing-coordinator-v2",
+            "schema_version": "jev-routing-coordinator-v3",
             "status": "READY",
             "route_source": "CHATGPT_ADJUDICATION_AFTER_JEV",
             "baseline": baseline,
@@ -123,7 +213,7 @@ def coordinate(
     selected = list(decision.get("workers") or [])
     if not selected or any(model not in candidates for model in selected):
         return {
-            "schema_version": "jev-routing-coordinator-v2",
+            "schema_version": "jev-routing-coordinator-v3",
             "status": "READY",
             "route_source": "DETERMINISTIC_FALLBACK_AFTER_JEV_CONTRACT_FAILURE",
             "baseline": baseline,
@@ -144,7 +234,7 @@ def coordinate(
         "fanout_decision_owner": "chatgpt-top-commander-with-jev-fast-decision-plane",
     }
     return {
-        "schema_version": "jev-routing-coordinator-v2",
+        "schema_version": "jev-routing-coordinator-v3",
         "status": "READY",
         "route_source": "JEV_FAST_DECISION_PLANE",
         "baseline": baseline,
@@ -165,7 +255,9 @@ def coordinate_many(
     """Batch independent routing tasks through Jev with deterministic per-task fallback."""
     baselines: dict[str, dict[str, Any]] = {}
     records: list[dict[str, Any]] = []
+    task_candidates: dict[str, list[str]] = {}
     free_policy = load_free_policy()
+    evidence = load_recent_evidence()
 
     for index, task in enumerate(tasks, 1):
         task_id = str(task.get("task_id") or task.get("id") or f"task_{index:04d}")
@@ -178,7 +270,8 @@ def coordinate_many(
         baselines[task_id] = base
         if base.get("status") != "READY" or bool(task.get("deterministic")) or not use_jev:
             continue
-        candidates = ordered_candidates(free_policy, entries, task)[:12]
+        candidates = _health_ranked_candidates(free_policy, entries, task, evidence, max_candidates=12)
+        task_candidates[task_id] = candidates
         if not candidates:
             continue
         lane = str(base.get("lane") or "GENERAL_REASONING")
@@ -187,7 +280,7 @@ def coordinate_many(
             "id": task_id,
             "task_summary": str(task.get("objective") or task.get("task_summary") or task.get("description") or task),
             "candidate_models": candidates,
-            "candidate_profiles": _candidate_profiles(entries, candidates, lane),
+            "candidate_profiles": _candidate_profiles(entries, candidates, lane, evidence),
             "quota_pressure": quota_pressure_from_remaining(remaining).value,
         })
 
@@ -205,10 +298,15 @@ def coordinate_many(
         task_id = str(task.get("task_id") or task.get("id") or f"task_{index:04d}")
         base = baselines[task_id]
         decision = decisions.get(task_id) if isinstance(decisions, Mapping) else None
-        if not isinstance(decision, Mapping) or decision.get("action") != "EXECUTE" or decision.get("low_confidence"):
+        candidates = task_candidates.get(task_id, [])
+        if not isinstance(decision, Mapping):
             raw_plans[task_id] = dict(base)
             continue
-        selected = list(decision.get("workers") or [])
+        if decision.get("action") != "EXECUTE" or decision.get("low_confidence"):
+            hedge = _bounded_low_confidence_hedge(task, base, candidates, decision)
+            raw_plans[task_id] = hedge if hedge is not None else dict(base)
+            continue
+        selected = [str(model) for model in list(decision.get("workers") or []) if str(model) in candidates]
         if not selected:
             raw_plans[task_id] = dict(base)
             continue
@@ -261,7 +359,7 @@ def coordinate_many(
         plans[task_id] = plan
 
     return {
-        "schema_version": "jev-routing-coordinator-batch-v1",
+        "schema_version": "jev-routing-coordinator-batch-v2",
         "status": "READY",
         "task_count": len(tasks),
         "jev": jev,
