@@ -1,5 +1,5 @@
 {
-  "schema_version": "top-commander-handoff-v10",
+  "schema_version": "top-commander-handoff-v11",
   "effective_date_jst": "2026-09-21",
   "mission_id": "ai-army-canonical-supervisor-routing-20260912",
   "objective": "Preserve and improve the AI Army with ChatGPT as Top Commander, paid DeepSeek as a bounded working Executive Supervisor for research, evidence triage, drafting, review and coordination, direct specialist bypass for narrow verified execution, deterministic-tool bypass for mechanical work, repository-backed permanent policy continuity across chat tabs, and drift-free task-specific media restoration through the permanent manifest and semantic read gates.",
@@ -56,7 +56,10 @@
     "tiktok_shop_influence_playbook": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
     "research_synthesis": "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md",
     "openrouter_free_efficiency_policy": "config/openrouter_free_efficiency_policy.json",
-    "openrouter_free_efficiency_router": "scripts/openrouter_free_efficiency_router.py"
+    "openrouter_free_efficiency_router": "scripts/openrouter_free_efficiency_router.py",
+    "jev_decision_policy": "config/jev_decision_engine_policy.json",
+    "jev_decision_runtime": "scripts/jev_decision_engine.py",
+    "jev_routing_coordinator": "scripts/jev_routing_coordinator.py"
   },
   "peer_review_status": {
     "completed": true,
@@ -140,7 +143,7 @@
     "failed_lane_retry_requires_method_change": true,
     "only_active_paid_deepseek_execution_workflow": ".github/workflows/deepseek-supervisor-research.yml",
     "historical_deepseek_configs_authorize_execution": false,
-    "other_paid_providers_remain_disallowed_without_explicit_user_authorization": true,
+    "other_paid_providers_remain_disallowed_without_explicit_user_authorization": "TRUE_EXCEPT_SEPARATELY_AUTHORIZED_JEV_FAST_DECISION_PLANE",
     "auto_top_up": false,
     "generic_paid_fallback": false,
     "repository_write_by_deepseek": false,
@@ -163,7 +166,8 @@
     "legacy_paid_deepseek_workflows_active": false,
     "auto_top_up": false,
     "generic_paid_fallback": false,
-    "other_paid_providers_authorized": false
+    "other_paid_providers_authorized": false,
+    "jev_paid_decision_exception_policy": "config/jev_decision_engine_policy.json"
   },
   "multi_agent_fixed_rules": {
     "root_controller": "chatgpt-work",
@@ -201,7 +205,10 @@
     "openrouter_free_fanout_decided_by_expected_total_system_value": true,
     "openrouter_free_fixed_single_model_default": false,
     "openrouter_free_parallel_when_quality_or_latency_gain_exceeds_coordination_and_quota_cost": true,
-    "openrouter_free_fanout_reason_required": true
+    "openrouter_free_fanout_reason_required": true,
+    "jev_fast_decision_plane_default_for_nontrivial_routing": true,
+    "jev_can_choose_only_prevalidated_candidate_pool": true,
+    "jev_low_confidence_returns_to_chatgpt": true
   },
   "legacy_cleanup_fixed_rules": {
     "legacy_registry": "config/legacy_deepseek_compatibility.json",
@@ -374,5 +381,32 @@
   "pr_merge": false,
   "deploy": false,
   "publish": false,
-  "secret_mutation": false
+  "secret_mutation": false,
+  "jev_fast_decision_fixed_rules": {
+    "persistently_authorized": true,
+    "repeat_per_call_approval_required": false,
+    "role": "FAST_DECISION_PLANE",
+    "reports_to": "chatgpt-work",
+    "canonical_model_alias": "~typesafe/jev-latest",
+    "last_known_good_pin": "typesafe/jev-1.13",
+    "auto_follow_latest": true,
+    "price_ceiling_prompt_usd_per_million": 0.05,
+    "price_ceiling_completion_usd_per_million": 0,
+    "default_for_nontrivial_route_choice": true,
+    "deterministic_obvious_routes_may_bypass": true,
+    "preferred_tasks": [
+      "TASK_CLASSIFICATION",
+      "SPECIALIST_ASSIGNMENT",
+      "DYNAMIC_1_TO_3_FANOUT",
+      "PARALLEL_VS_SEQUENTIAL",
+      "VERIFICATION_NEED",
+      "STOP_RETRY_ESCALATE_TRIAGE"
+    ],
+    "long_form_generation": false,
+    "bulk_code_generation": false,
+    "final_authority": false,
+    "may_expand_permissions": false,
+    "may_authorize_other_paid_workers": false,
+    "auto_top_up": false
+  }
 }
