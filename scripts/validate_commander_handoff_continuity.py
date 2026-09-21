@@ -28,7 +28,7 @@ def main() -> int:
     media_creative = load_json("config/media_audio_motion_retention_policy.json")
     longform = load_json("config/longform_video_reliability_policy.json")
 
-    require(handoff.get("schema_version") == "top-commander-handoff-v11", "commander handoff schema is not current v11")
+    require(handoff.get("schema_version") == "top-commander-handoff-v12", "commander handoff schema is not current v12")
     continuity = handoff.get("continuity") or {}
     require(continuity.get("repository_is_source_of_truth") is True, "handoff lost repository source-of-truth rule")
     require(continuity.get("conversation_memory_is_not_source_of_truth") is True, "handoff made chat memory authoritative")
@@ -107,7 +107,7 @@ def main() -> int:
 
     print(json.dumps({
         "status": "PASS",
-        "handoff_schema": "v11",
+        "handoff_schema": "v12",
         "compact_bootstrap": True,
         "semantic_task_gates": True,
         "voicevox_cast": ["ずんだもん", "四国めたん"],
