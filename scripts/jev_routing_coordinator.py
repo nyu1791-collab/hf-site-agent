@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
-from scripts.jev_decision_engine import decide, decide_many, quota_pressure_from_remaining
+from scripts.jev_decision_engine import decide_fast, decide_many_fast, quota_pressure_from_remaining
 from scripts.openrouter_free_efficiency_router import load_policy as load_free_policy
 from scripts.openrouter_free_efficiency_router import ordered_candidates, plan_task
 from scripts.openrouter_worker_health import (
@@ -215,14 +215,23 @@ def coordinate(
     summary = str(task.get("objective") or task.get("task_summary") or task.get("description") or task)
     domain = str(task.get("domain") or task.get("task_class") or lane).strip() or None
     profiles = _candidate_profiles(entries, candidates, lane, evidence, domain=domain)
-    jev = decide(
+    allow_third = (
+        int(task.get("independent_workstreams", 1) or 1) >= 3
+        and float(task.get("parallelizable_fraction", 0.0) or 0.0) >= 0.65
+        and not bool(task.get("shared_mutable_state") or task.get("strictly_sequential") or task.get("single_writer_only"))
+    )
+    jev = decide_fast(
         task_summary=summary,
         candidate_models=candidates,
         remaining_free_quota=remaining,
         candidate_profiles=profiles,
+        lane=lane,
+        allow_third=allow_third,
+        shared_mutable_state=bool(task.get("shared_mutable_state") or task.get("strictly_sequential") or task.get("single_writer_only")),
+        high_risk=_is_high_risk(task),
         api_key=api_key,
     )
-    if jev.get("status") != "JEV_DECISION_OK":
+    if jev.get("status") != "JEV_FAST_DECISION_OK":
         return {
             "schema_version": "jev-routing-coordinator-v3",
             "status": "READY",
@@ -341,10 +350,18 @@ def coordinate_many(
             "candidate_models": candidates,
             "candidate_profiles": _candidate_profiles(entries, candidates, lane, evidence, domain=domain),
             "quota_pressure": quota_pressure_from_remaining(remaining).value,
+            "lane": lane,
+            "allow_third": (
+                int(task.get("independent_workstreams", 1) or 1) >= 3
+                and float(task.get("parallelizable_fraction", 0.0) or 0.0) >= 0.65
+                and not bool(task.get("shared_mutable_state") or task.get("strictly_sequential") or task.get("single_writer_only"))
+            ),
+            "shared_mutable_state": bool(task.get("shared_mutable_state") or task.get("strictly_sequential") or task.get("single_writer_only")),
+            "high_risk": _is_high_risk(task),
         })
 
-    jev = decide_many(records=records, api_key=api_key) if records else {
-        "status": "JEV_MANY_OK",
+    jev = decide_many_fast(records=records, api_key=api_key) if records else {
+        "status": "JEV_FAST_MANY_OK",
         "record_count": 0,
         "batch_count": 0,
         "decisions": {},
