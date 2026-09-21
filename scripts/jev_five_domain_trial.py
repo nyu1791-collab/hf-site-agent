@@ -104,7 +104,13 @@ def _parse_object(text: str) -> dict[str, Any] | None:
     return None
 
 
-def _worker_call(model: str, prompt: str, expected: Mapping[str, Any], api_key: str) -> dict[str, Any]:
+def _worker_call(
+    model: str,
+    prompt: str,
+    expected: Mapping[str, Any],
+    api_key: str,
+    timeout_seconds: float | None = None,
+) -> dict[str, Any]:
     if not model.endswith(":free") or model == "openrouter/free":
         return {"status": "BLOCKED_NOT_EXACT_FREE", "model": model, "quality_pass": False, "latency_ms": 0.0}
 
@@ -129,7 +135,7 @@ def _worker_call(model: str, prompt: str, expected: Mapping[str, Any], api_key: 
     )
     started = time.perf_counter()
     try:
-        with urllib.request.urlopen(request, timeout=WORKER_TIMEOUT_SECONDS) as response:
+        with urllib.request.urlopen(request, timeout=float(timeout_seconds or WORKER_TIMEOUT_SECONDS)) as response:
             raw = response.read(512_000).decode("utf-8", errors="replace")
             payload = json.loads(raw)
             http_status = int(response.status)
