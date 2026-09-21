@@ -1,5 +1,5 @@
 {
-  "schema_version": "multi-agent-operating-policy-v7",
+  "schema_version": "multi-agent-operating-policy-v8",
   "effective_date_jst": "2026-09-21",
   "status": "PERMANENT_STANDARD",
   "architecture": {
@@ -141,7 +141,14 @@
     "jev_fast_decision_policy": "config/jev_decision_engine_policy.json",
     "jev_fast_decision_coordinator": "scripts/jev_routing_coordinator.py",
     "jev_default_for_nontrivial_model_and_fanout_choice": true,
-    "deterministic_clear_routes_may_bypass_jev": true
+    "deterministic_clear_routes_may_bypass_jev": true,
+    "jev_typed_decisions_only": true,
+    "jev_free_text_output": false,
+    "jev_python_normalizes_final_routing_json": true,
+    "jev_batch_first_for_independent_tasks": true,
+    "jev_max_records_per_request": 20,
+    "jev_max_parallel_batches": 5,
+    "jev_quota_pressure_is_precomputed_enum": true
   },
   "parallelism": {
     "parallelize_only_independent_tasks": true,
@@ -166,7 +173,9 @@
       3
     ],
     "openrouter_free_parallelism_requires_expected_total_system_value_gain": true,
-    "openrouter_free_fanout_reason_required": true
+    "openrouter_free_fanout_reason_required": true,
+    "jev_decision_batches_may_parallelize_when_records_independent": true,
+    "jev_batch_parallelism_ceiling": 5
   },
   "review_and_reflection": {
     "reviewer_should_receive_acceptance_criteria_and_evidence": true,
@@ -311,7 +320,11 @@
     "record_admission_and_backpressure_decisions": true,
     "record_failure_class_and_termination_reason": true,
     "trace_ids_propagate_across_agent_boundaries": true,
-    "sensitive_payloads_redacted": true
+    "sensitive_payloads_redacted": true,
+    "record_jev_batch_size": true,
+    "record_jev_batch_count": true,
+    "record_jev_batch_latency": true,
+    "record_jev_heavy_model_calls_avoided": true
   },
   "evaluation": {
     "evaluate_system_not_only_individual_model": true,
@@ -340,7 +353,12 @@
       "error_amplification_rate",
       "deepseek_supervisor_acceptance_rate",
       "deepseek_cost_per_accepted_decision",
-      "deepseek_duplicate_research_avoided"
+      "deepseek_duplicate_research_avoided",
+      "jev_batch_size",
+      "jev_routing_p50_latency",
+      "jev_routing_p95_latency",
+      "jev_heavy_model_calls_avoided",
+      "jev_unnecessary_fanout_avoided"
     ],
     "adopt_multi_agent_change_only_if_total_system_value_improves": true
   },
