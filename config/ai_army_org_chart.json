@@ -1,5 +1,5 @@
 {
-  "schema_version": "ai-army-org-chart-v4",
+  "schema_version": "ai-army-org-chart-v5",
   "effective_date_jst": "2026-09-21",
   "status": "CANONICAL",
   "design_goal": "Maximize verified task success and speed per unit cost using a fast Jev decision plane, deterministic bypasses, a heavy DeepSeek supervisory lane only when justified, and bounded specialist execution.",
@@ -38,7 +38,15 @@
       ],
       "final_decision_authority": false,
       "repository_write": false,
-      "permission_expansion": false
+      "permission_expansion": false,
+      "contract": "CHOICE_NOUL_SCORE_ONLY",
+      "free_text_generation": false,
+      "python_normalizes_final_route": true,
+      "batch_first": true,
+      "max_records_per_request": 20,
+      "max_parallel_batches": 5,
+      "quota_math_location": "PYTHON_ONLY",
+      "cost_priority": "SECONDARY_TO_ROUTING_SPEED_AND_SYSTEM_EFFICIENCY_WITH_EMERGENCY_CEILING_ONLY"
     },
     "depth_1": {
       "role": "EXECUTIVE_SUPERVISOR",
@@ -305,6 +313,16 @@
       "OPEN_ENDED_RESEARCH",
       "FINAL_FACTUAL_ADJUDICATION"
     ],
-    "principle": "USE_JEV_TO_AVOID_WAKING_HEAVY_MODELS_OR_EXTRA_WORKERS_WHEN_THEIR_EXPECTED_VALUE_IS_LOW"
+    "principle": "USE_JEV_TO_AVOID_WAKING_HEAVY_MODELS_OR_EXTRA_WORKERS_WHEN_THEIR_EXPECTED_VALUE_IS_LOW",
+    "batch_path": [
+      "COLLECT_INDEPENDENT_ROUTING_RECORDS",
+      "PREVALIDATE_CANDIDATE_POOLS_AND_QUOTA_ENUMS",
+      "PACK_UP_TO_20_RECORDS_PER_JEV_REQUEST",
+      "RUN_UP_TO_5_JEV_BATCHES_IN_PARALLEL",
+      "PYTHON_NORMALIZE_TYPED_ANSWERS",
+      "START_SELECTED_WORKERS_IMMEDIATELY",
+      "FALL_BACK_FAILED_RECORDS_WITHOUT_CANCELLING_HEALTHY_BATCHES"
+    ],
+    "target_100_jobs": "FIVE_20_RECORD_JEV_BATCHES_IN_PARALLEL_WHEN_INDEPENDENT"
   }
 }
