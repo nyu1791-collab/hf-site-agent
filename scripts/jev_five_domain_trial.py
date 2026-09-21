@@ -15,9 +15,19 @@ from typing import Any, Mapping, Sequence
 try:
     from scripts.jev_decision_engine import decide
     from scripts.openrouter_free_efficiency_router import fetch_catalog, load_policy, ordered_candidates
+    from scripts.openrouter_worker_health import (
+        load_recent_evidence,
+        merge_proven_into_candidates,
+        profile_suffix,
+    )
 except ModuleNotFoundError:
     from jev_decision_engine import decide
     from openrouter_free_efficiency_router import fetch_catalog, load_policy, ordered_candidates
+    from openrouter_worker_health import (
+        load_recent_evidence,
+        merge_proven_into_candidates,
+        profile_suffix,
+    )
 
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 MAX_TOTAL_FREE_WORKER_CALLS = 12
@@ -179,13 +189,16 @@ def _health_entry(health: dict[str, Any], model: str) -> dict[str, Any]:
     return health[model]
 
 
-def _health_penalty(entry: Mapping[str, Any], current_round: int) -> tuple[int, int, int, float]:
+def _health_penalty(entry: Mapping[str, Any], current_round: int) -> tuple[int, int, int, int, float]:
     cooldown = 1 if int(entry.get("cooldown_until_round", 0)) >= current_round else 0
     rate_limits = int(entry.get("rate_limits", 0))
     failures = int(entry.get("quality_failures", 0)) + int(entry.get("transport_failures", 0))
+    successes = int(entry.get("successes", 0))
     latencies = entry.get("latencies_ms") if isinstance(entry.get("latencies_ms"), list) else []
     avg_latency = statistics.mean(latencies) if latencies else 0.0
-    return cooldown, rate_limits, failures, avg_latency
+    severe_slow = 1 if avg_latency >= 30_000 else 0
+    score = avg_latency - successes * 10_000.0 if latencies else (5_000.0 - successes * 10_000.0)
+    return cooldown, rate_limits, failures, severe_slow, score
 
 
 def _rank_candidates(base: Sequence[str], health: dict[str, Any], current_round: int) -> list[str]:
@@ -200,7 +213,13 @@ def _rank_candidates(base: Sequence[str], health: dict[str, Any], current_round:
     return active + cooled
 
 
-def _profiles(catalog: Sequence[Mapping[str, Any]], candidates: Sequence[str], health: dict[str, Any], current_round: int) -> dict[str, str]:
+def _profiles(
+    catalog: Sequence[Mapping[str, Any]],
+    candidates: Sequence[str],
+    health: dict[str, Any],
+    current_round: int,
+    recent_evidence: Mapping[str, Mapping[str, Any]],
+) -> dict[str, str]:
     by_id = {str(row.get("id") or ""): row for row in catalog if isinstance(row, Mapping)}
     out: dict[str, str] = {}
     for rank, model in enumerate(candidates, 1):
@@ -212,7 +231,8 @@ def _profiles(catalog: Sequence[Mapping[str, Any]], candidates: Sequence[str], h
             f"exact-free candidate; current_rank={rank}; context={row.get('context_length', 'unknown')}; "
             f"successes={entry['successes']}; quality_failures={entry['quality_failures']}; "
             f"rate_limits={entry['rate_limits']}; transport_failures={entry['transport_failures']}; "
-            f"avg_latency_ms={avg_latency}; cooldown={'yes' if entry['cooldown_until_round'] >= current_round else 'no'}"
+            f"avg_latency_ms={avg_latency}; cooldown={'yes' if entry['cooldown_until_round'] >= current_round else 'no'}; "
+            f"{profile_suffix(model, recent_evidence)}"
         )
     return out
 
@@ -240,8 +260,12 @@ def _update_health(health: dict[str, Any], result: Mapping[str, Any], current_ro
         notes.append(f"{model}:SUCCESS_EVIDENCE_ADDED")
     else:
         entry["quality_failures"] += 1
-        notes.append(f"{model}:QUALITY_PENALTY_ADDED")
-    if latency >= 10_000:
+        entry["cooldown_until_round"] = max(int(entry["cooldown_until_round"]), current_round + 2)
+        notes.append(f"{model}:QUALITY_COOLDOWN_FOR_NEXT_TWO_ROUNDS")
+    if latency >= 30_000:
+        entry["cooldown_until_round"] = max(int(entry["cooldown_until_round"]), current_round + 3)
+        notes.append(f"{model}:SEVERE_LATENCY_COOLDOWN_FOR_NEXT_THREE_ROUNDS")
+    elif latency >= 10_000:
         notes.append(f"{model}:HIGH_LATENCY_RECORDED")
     return notes
 
@@ -250,7 +274,20 @@ def run_trial(api_key: str) -> dict[str, Any]:
     started = time.perf_counter()
     catalog = fetch_catalog()
     policy = load_policy()
+    recent_evidence = load_recent_evidence()
     health: dict[str, Any] = {}
+    for model, raw in recent_evidence.items():
+        if not isinstance(raw, Mapping):
+            continue
+        latency = float(raw.get("avg_latency_ms") or 0.0)
+        health[model] = {
+            "successes": int(raw.get("successes", 0) or 0),
+            "quality_failures": int(raw.get("quality_failures", 0) or 0),
+            "rate_limits": int(raw.get("rate_limits", 0) or 0),
+            "transport_failures": 0,
+            "latencies_ms": [latency] if latency > 0 else [],
+            "cooldown_until_round": 5 if latency >= 30_000 else (2 if int(raw.get("rate_limits", 0) or 0) > 0 or int(raw.get("quality_failures", 0) or 0) > 0 else 0),
+        }
     rounds: list[dict[str, Any]] = []
     free_worker_calls = 0
     total_jev_cost = 0.0
@@ -259,7 +296,14 @@ def run_trial(api_key: str) -> dict[str, Any]:
     for trial in TRIALS:
         round_number = int(trial["round"])
         round_started = time.perf_counter()
-        base = ordered_candidates(policy, catalog, trial)[:8]
+        raw_base = ordered_candidates(policy, catalog, trial)[:24]
+        catalog_ids = {str(row.get("id") or "") for row in catalog if isinstance(row, Mapping)}
+        base = merge_proven_into_candidates(
+            raw_base,
+            catalog_model_ids=catalog_ids,
+            evidence=recent_evidence,
+            max_candidates=12,
+        )
         ranked = _rank_candidates(base, health, round_number)
         active = [m for m in ranked if _health_entry(health, m)["cooldown_until_round"] < round_number]
         candidates = (active or ranked)[:6]
@@ -277,7 +321,7 @@ def run_trial(api_key: str) -> dict[str, Any]:
             task_summary=str(trial["objective"]),
             candidate_models=candidates,
             remaining_free_quota=max(0, MAX_TOTAL_FREE_WORKER_CALLS - free_worker_calls),
-            candidate_profiles=_profiles(catalog, candidates, health, round_number),
+            candidate_profiles=_profiles(catalog, candidates, health, round_number, recent_evidence),
             api_key=api_key,
             catalog_entries=catalog,
         )
@@ -292,14 +336,18 @@ def run_trial(api_key: str) -> dict[str, Any]:
         route_source = "JEV"
         selected = list(decision.get("workers") or [])
         selected = [m for m in selected if m in candidates][:MAX_WORKERS_PER_ROUND]
-        if (
-            jev.get("status") != "JEV_DECISION_OK"
-            or decision.get("action") != "EXECUTE"
-            or decision.get("low_confidence")
-            or not selected
-        ):
+        if jev.get("status") != "JEV_DECISION_OK" or not selected:
             route_source = "DETERMINISTIC_FALLBACK"
             selected = candidates[:1]
+        elif decision.get("action") != "EXECUTE" or decision.get("low_confidence"):
+            route_source = "JEV_LOW_CONFIDENCE_HEDGE"
+            hedge: list[str] = []
+            for model in [*(candidates[:1]), *selected]:
+                if model in candidates and model not in hedge:
+                    hedge.append(model)
+                if len(hedge) >= MAX_WORKERS_PER_ROUND:
+                    break
+            selected = hedge or candidates[:1]
 
         available_calls = max(0, MAX_TOTAL_FREE_WORKER_CALLS - free_worker_calls)
         selected = selected[:available_calls]
@@ -341,6 +389,8 @@ def run_trial(api_key: str) -> dict[str, Any]:
 
         if route_source == "DETERMINISTIC_FALLBACK":
             improvements.append("JEV_ROUTE_FALLBACK_RETAINED_WORKFLOW_PROGRESS")
+        elif route_source == "JEV_LOW_CONFIDENCE_HEDGE":
+            improvements.append("LOW_CONFIDENCE_ROUTED_TO_BOUNDED_TWO_WORKER_HEDGE")
         if task_pass:
             improvements.append("QUALITY_ORACLE_PASSED")
         else:
@@ -400,6 +450,7 @@ def run_trial(api_key: str) -> dict[str, Any]:
             "worker_429_count": rate_limits,
             "worker_latency_p50_ms": round(statistics.median(latencies), 3) if latencies else None,
             "jev_total_cost": total_jev_cost,
+            "recent_evidence_models_loaded": len(recent_evidence),
             "total_wall_ms": round((time.perf_counter() - started) * 1000.0, 3),
         },
         "safety": {
