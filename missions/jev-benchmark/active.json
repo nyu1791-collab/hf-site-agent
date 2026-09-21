@@ -1,10 +1,22 @@
 {
   "schema_version": "jev-route-ab-benchmark-mission-v2",
   "created_at_jst": "2026-09-22",
-  "purpose": "50-iteration comparison of legacy 9-question, fast 3-question, and portfolio 1-question Jev routing.",
+  "purpose": "50-iteration Jev routing comparison plus candidate-cardinality and compact-profile optimization.",
   "iterations_per_mode": 50,
   "records_per_request": 5,
   "worker_calls": 0,
   "paid_scope": "JEV_ONLY",
-  "production_side_effects": false
+  "production_side_effects": false,
+  "cardinality_variants": [
+    4,
+    6,
+    8,
+    12
+  ],
+  "profile_char_variants": [
+    120,
+    240,
+    360
+  ],
+  "cardinality_iterations_per_variant": 20
 }
