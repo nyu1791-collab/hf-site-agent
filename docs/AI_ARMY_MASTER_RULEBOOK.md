@@ -1,7 +1,7 @@
 # AI Army Master Rulebook
 
 **Status:** Permanent compact operating index  
-**Effective:** 2026-09-15 JST  
+**Effective:** 2026-09-21 JST  
 **Authority:** This document is the concise human-readable entry point. Machine policies in `config/permanent_standards_manifest.json` and the files it references remain authoritative when details differ.
 
 ## 1. Restore before work
@@ -32,7 +32,7 @@ The durable recall contract is therefore: **save → classify by meaning → rec
 
 ChatGPT is Top Commander and final adjudicator. Paid DeepSeek is an Executive Supervisor for high-information-gain research, architecture, red-team, incident analysis, decomposition, media/commerce strategy and subordinate review. It is not a mandatory hop for trivial work and is not the default boilerplate coder.
 
-Use deterministic tools or one capable agent first. Add specialists only when decomposition, independent verification or parallel research can improve total system value. Keep central management, Single Writer, bounded delegation, typed contracts, explicit termination, checkpoint/recovery and isolated failures. Worker-to-worker unbounded delegation and unbounded swarm behavior are prohibited.
+Use deterministic tools or one capable agent first. Add specialists only when decomposition, independent verification or parallel research can improve total system value. Keep central management, Single Writer, bounded delegation, typed contracts, explicit termination, checkpoint/recovery and isolated failures. Worker-to-worker unbounded delegation and unbounded swarm behavior are prohibited.\n\nFor OpenRouter free workers, all currently verified zero-priced exact `:free` models may be attached as standby capacity, but the number actually used is a per-task command decision rather than a fixed single-model or fixed-parallel rule. The Top Commander chooses 1–3 models by expected total system value: role fit, quality gain, wall-clock reduction, independent-work fraction, coordination/synthesis overhead, quota/RPM headroom, provider health and verification risk. Use one model when one model is sufficient; use multiple models when independent or complementary work materially improves time or quality. Routine all-model fanout, majority-vote swarms, `openrouter/free`, paid sibling substitution, paid fallback and auto top-up remain prohibited.
 
 Multi-agent or routing changes require a comparable single-agent/deterministic baseline, the same fixtures and acceptance criteria, and measurement of success, verifier pass rate, P50/P95 latency, tokens, requests, tool use, errors, retries, handoffs, coordination overhead, cost estimate and recovery. A model vote is never stronger than a machine oracle or current primary evidence.
 
