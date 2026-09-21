@@ -304,9 +304,10 @@ def run_pipeline(
             if jev_result.get("status") == "JEV_DECISION_OK":
                 decision = jev_result.get("decision") if isinstance(jev_result.get("decision"), Mapping) else {}
                 handoff["fast_lane_recommendation"] = {
-                    "selected_models": list(decision.get("selected_models") or []),
+                    "selected_models": list(decision.get("workers") or []),
                     "fanout": decision.get("fanout"),
                     "execution_mode": decision.get("execution_mode"),
+                    "parallel": decision.get("parallel"),
                     "independent_verification": decision.get("independent_verification"),
                     "confidence": decision.get("confidence"),
                     "automatic_activation": False,
