@@ -239,6 +239,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         self.assertEqual(result["final_plan"]["active_model_count"], 2)
         self.assertEqual(result["final_plan"]["execution_mode"], "PARALLEL")
         self.assertIn("RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED", result["final_plan"]["fanout_reason"])
+        self.assertEqual(result["final_plan"]["latency_challenger_timeout_seconds"], 3.5)
 
 
 if __name__ == "__main__":
