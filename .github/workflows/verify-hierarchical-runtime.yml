@@ -82,20 +82,20 @@ jobs:
             tests.test_replace_narration_audio \
             tests.test_media_asset_resolver \
             -v
-      - name: Run adaptive five-domain Jev trial
+      - name: Run parallel batch five-domain Jev trial
         if: ${{ hashFiles('missions/jev-trial/active.json') != '' }}
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           set -euo pipefail
-          python scripts/jev_five_domain_trial.py --output artifacts/jev_five_domain_trial.json
+          python scripts/jev_five_domain_parallel_trial.py --output artifacts/jev_five_domain_parallel_trial.json
 
       - name: Upload Jev five-domain evidence
         if: ${{ always() && hashFiles('missions/jev-trial/active.json') != '' }}
         uses: actions/upload-artifact@v6
         with:
           name: jev-five-domain-trial-${{ github.run_id }}
-          path: artifacts/jev_five_domain_trial.json
+          path: artifacts/jev_five_domain_parallel_trial.json
           if-no-files-found: warn
           retention-days: 7
 
