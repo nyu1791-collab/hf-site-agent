@@ -1,15 +1,15 @@
 {
-  "schema_version": "jev-decision-engine-policy-v1",
+  "schema_version": "jev-decision-engine-policy-v2",
   "effective_date_jst": "2026-09-21",
   "status": "ACTIVE_SCOPED_PAID_EXCEPTION",
-  "role": "LOW_COST_SYSTEM_ONE_DECISION_ENGINE",
+  "role": "FAST_SYSTEM_ONE_DECISION_PLANE",
   "reports_to": "chatgpt-top-commander",
   "user_authorization": {
     "authorized": true,
     "authorized_at_jst": "2026-09-21",
     "persistent_across_chat_tabs": true,
     "repeat_per_call_approval_required": false,
-    "scope": "JEV_ROUTING_CLASSIFICATION_FANOUT_AND_LIGHTWEIGHT_RESULT_TRIAGE_ONLY"
+    "scope": "JEV_ROUTING_CLASSIFICATION_FANOUT_PARALLELISM_VERIFICATION_AND_LIGHTWEIGHT_RESULT_TRIAGE"
   },
   "provider": {
     "transport": "openrouter",
@@ -29,14 +29,18 @@
   "cost_guard": {
     "current_observed_prompt_usd_per_million": 0.042,
     "current_observed_completion_usd_per_million": 0,
-    "request_max_price_prompt_usd_per_million": 0.05,
-    "request_max_price_completion_usd_per_million": 0,
-    "max_prompt_chars": 24000,
-    "max_calls_per_task_including_pinned_fallback": 2,
-    "routine_calls_per_task": 1,
+    "cost_is_not_primary_optimization_target_for_jev": true,
+    "soft_price_observation_prompt_usd_per_million": 0.1,
+    "hard_emergency_price_ceiling_prompt_usd_per_million": 1,
+    "hard_emergency_price_ceiling_completion_usd_per_million": 1,
+    "max_prompt_chars_per_record": 12000,
+    "max_records_per_decisions_request": 20,
+    "max_parallel_decision_batches": 5,
+    "max_calls_per_batch_including_pinned_fallback": 2,
     "auto_top_up": false,
     "other_paid_model_fallback": false,
-    "price_ceiling_breach_action": "BLOCK_JEV_AND_USE_DETERMINISTIC_OR_CHATGPT_ROUTING"
+    "emergency_price_breach_action": "BYPASS_JEV_TO_DETERMINISTIC_OR_CHATGPT_ROUTING",
+    "rationale": "JEV_IS_CHEAP_AND_ROUTING_LATENCY_VALUE_DOMINATES_SMALL_COST_VARIATION; ONLY_CATASTROPHIC_PRICE_DRIFT_BLOCKS"
   },
   "intended_uses": [
     "TASK_CLASSIFICATION",
@@ -61,20 +65,40 @@
   ],
   "decision_contract": {
     "typed_output_required": true,
+    "free_text_output_allowed": false,
+    "allowed_question_types": [
+      "choice",
+      "noul",
+      "score"
+    ],
+    "routing_question_types": [
+      "choice",
+      "noul"
+    ],
+    "python_normalizes_final_json": true,
+    "python_computes_fanout_from_selected_workers": true,
+    "python_computes_execution_mode_from_typed_flags": true,
+    "python_performs_all_counting_arithmetic_and_quota_math": true,
     "confidence_required": true,
     "low_confidence_threshold": 0.65,
+    "second_worker_probability_threshold": 0.55,
+    "third_worker_probability_threshold": 0.65,
+    "parallel_probability_threshold": 0.55,
+    "independent_verification_probability_threshold": 0.6,
     "low_confidence_action": "RETURN_TO_CHATGPT_OR_DETERMINISTIC_ROUTER",
     "final_authority": "chatgpt-top-commander",
     "model_may_not_expand_candidate_set": true,
     "model_may_not_expand_permissions": true,
-    "model_may_not_authorize_paid_workers": true
+    "model_may_not_authorize_paid_workers": true,
+    "no_markdown_or_json_text_parsing": true,
+    "transport_and_schema_failures_fail_closed": true
   },
   "automatic_upgrade_guard": {
     "use_latest_alias_by_default": true,
     "accept_new_latest_only_if": [
-      "REQUEST_PRICE_WITHIN_MAX_PRICE_GUARD",
+      "HARD_EMERGENCY_PRICE_CEILING_NOT_BREACHED",
       "STRUCTURED_DECISION_SCHEMA_PASSES",
-      "MODEL_RESPONSE_IDENTIFIES_JEV_FAMILY",
+      "MODEL_RESPONSE_IDENTIFIES_JEV_FAMILY_OR_LATEST_ALIAS_IS_VERIFIED",
       "NO_PERMISSION_OR_CANDIDATE_EXPANSION",
       "CONFIDENCE_FIELD_VALID"
     ],
@@ -90,6 +114,34 @@
     "record_usage_cost_when_returned": true,
     "record_confidence": true,
     "record_fallback_reason": true,
-    "secret_values_logged": false
+    "secret_values_logged": false,
+    "record_batch_size": true,
+    "record_batch_parallelism": true,
+    "record_heavy_model_calls_avoided": true,
+    "record_unnecessary_fanout_avoided": true
+  },
+  "batch_execution": {
+    "enabled": true,
+    "batch_first": true,
+    "max_records_per_request": 20,
+    "chunk_requests_may_run_in_parallel": true,
+    "max_parallel_batches": 5,
+    "record_ids_stable_and_unique": true,
+    "questions_prefixed_by_record_id": true,
+    "one_failed_batch_does_not_cancel_healthy_batches": true,
+    "failed_records_fall_back_to_deterministic_or_chatgpt_routing": true,
+    "target_100_jobs": "5_DECISION_BATCHES_IN_PARALLEL_WHEN_INDEPENDENT"
+  },
+  "state_compaction": {
+    "send_minimum_task_relevant_state": true,
+    "numeric_quota_not_sent_to_jev": true,
+    "quota_pressure_enum": [
+      "AMPLE",
+      "LIMITED",
+      "CRITICAL"
+    ],
+    "candidate_counting_done_in_python": true,
+    "full_conversation_not_sent": true,
+    "free_text_worker_output_not_sent_when_typed_summary_exists": true
   }
 }
