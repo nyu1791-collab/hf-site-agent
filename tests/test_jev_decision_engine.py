@@ -8,11 +8,13 @@ from scripts.jev_decision_engine import (
     build_batch_decisions_request,
     build_decisions_request,
     build_fast_route_batch_request,
+    build_portfolio_route_batch_request,
     decide_many,
     decide_many_fast,
     load_policy,
     parse_batch_decisions_response,
     parse_fast_route_response,
+    parse_portfolio_route_response,
     price_guard_allows,
     quota_pressure_from_remaining,
 )
@@ -379,6 +381,78 @@ class JevDecisionEngineTests(unittest.TestCase):
         self.assertNotIn("PARALLEL_PAIR", criteria)
         self.assertNotIn("PARALLEL_TRIPLE", criteria)
         self.assertIn("SEQUENTIAL_PAIR", criteria)
+
+    def test_portfolio_route_uses_one_question_per_record(self):
+        policy = load_policy()
+        records = [
+            {
+                "id": f"portfolio_{i:02d}",
+                "task_summary": "Choose a safe route.",
+                "candidate_models": ["a:free", "b:free", "c:free"],
+                "quota_pressure": "AMPLE",
+                "lane": "GENERAL_REASONING",
+                "allow_third": False,
+            }
+            for i in range(20)
+        ]
+        body, prepared = build_portfolio_route_batch_request(
+            model="~typesafe/jev-latest",
+            records=records,
+            policy=policy,
+        )
+        self.assertEqual(len(prepared), 20)
+        self.assertEqual(len(body["questions"]), 20)
+        self.assertTrue(all(q["type"] == "choice" for q in body["questions"].values()))
+
+    def test_portfolio_route_choice_maps_to_python_plan(self):
+        policy = load_policy()
+        _, prepared = build_portfolio_route_batch_request(
+            model="~typesafe/jev-latest",
+            records=[{
+                "id": "portfolio_pair",
+                "task_summary": "Use a small parallel hedge.",
+                "candidate_models": ["a:free", "b:free", "c:free"],
+                "quota_pressure": "AMPLE",
+                "lane": "GENERAL_REASONING",
+                "allow_third": False,
+            }],
+            policy=policy,
+        )
+        payload = {"answers": {
+            "portfolio_pair__route_portfolio": choice(
+                "parallel_pair_01",
+                0.93,
+                {"parallel_pair_01": 0.93, "single_primary": 0.05, "escalate": 0.02},
+            )
+        }}
+        out = parse_portfolio_route_response(
+            payload,
+            prepared_records=prepared,
+            policy=policy,
+        )["portfolio_pair"]
+        self.assertEqual(out["workers"], ["a:free", "b:free"])
+        self.assertEqual(out["fanout"], 2)
+        self.assertTrue(out["parallel"])
+        self.assertEqual(out["execution_mode"], "PARALLEL")
+
+    def test_portfolio_shared_state_never_generates_parallel_option(self):
+        policy = load_policy()
+        body, _ = build_portfolio_route_batch_request(
+            model="~typesafe/jev-latest",
+            records=[{
+                "id": "shared_writer",
+                "task_summary": "Edit one shared file.",
+                "candidate_models": ["a:free", "b:free", "c:free"],
+                "quota_pressure": "AMPLE",
+                "lane": "CODING_ENGINEERING",
+                "allow_third": True,
+                "shared_mutable_state": True,
+            }],
+            policy=policy,
+        )
+        criteria = body["questions"]["shared_writer__route_portfolio"]["criteria"]
+        self.assertFalse(any(key.startswith("parallel_") for key in criteria))
+        self.assertIn("sequential_pair_01", criteria)
 
 
 if __name__ == "__main__":
