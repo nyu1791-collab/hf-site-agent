@@ -1,5 +1,5 @@
 {
-  "schema_version": "permanent-standards-manifest-v12",
+  "schema_version": "permanent-standards-manifest-v13",
   "effective_date_jst": "2026-09-21",
   "purpose": "Keep the AI Army, evidence governance, media quality, creator monetization and bounded paid supervision recoverable across new chat tabs while using one expandable manifest plus a compact master rulebook instead of duplicating every detailed rule in startup handoffs.",
   "canonical_branch": "ai-army/provider-v3",
@@ -241,8 +241,14 @@
     "creator_monetization_policy": "config/creator_monetization_policy.json",
     "platform_program_evidence": "config/platform_program_evidence.json",
     "openrouter_free_efficiency_policy": "config/openrouter_free_efficiency_policy.json",
-    "openrouter_free_default_active_models_per_task": 1,
-    "openrouter_free_all_current_exact_free_models_attach_as_standby": true
+    "openrouter_free_all_current_exact_free_models_attach_as_standby": true,
+    "openrouter_free_dynamic_active_models_per_task_range": [
+      1,
+      3
+    ],
+    "openrouter_free_fanout_strategy": "DYNAMIC_OPTIMAL_FANOUT",
+    "openrouter_free_fanout_decision_owner": "chatgpt-top-commander",
+    "openrouter_free_parallelism_requires_expected_total_system_value_gain": true
   },
   "media_command_gate": {
     "policy": "config/media_command_read_gate.json",
