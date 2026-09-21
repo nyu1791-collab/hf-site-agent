@@ -1,5 +1,5 @@
 {
-  "schema_version": "jev-decision-engine-policy-v4",
+  "schema_version": "jev-decision-engine-policy-v5",
   "effective_date_jst": "2026-09-22",
   "status": "ACTIVE_SCOPED_PAID_EXCEPTION",
   "role": "FAST_SYSTEM_ONE_DECISION_PLANE",
@@ -181,6 +181,23 @@
     "route_shape_is_typed_choice": true,
     "lane_is_precomputed_when_task_class_is_known": true,
     "third_worker_question_only_when_code_prequalifies_three_independent_workstreams": true,
-    "free_text_route_generation": false
+    "free_text_route_generation": false,
+    "selected_default_route_surface": "FAST_THREE_QUESTION",
+    "portfolio_one_choice_status": "EXPERIMENTAL_ECONOMY_NOT_SPEED_DEFAULT",
+    "fast_candidate_profile_chars": 360,
+    "question_criteria_reuse_state_profiles": true,
+    "latest_ab_evidence": {
+      "run_id": 35669377196,
+      "iterations_per_mode": 10,
+      "records_per_request": 5,
+      "legacy_p50_ms": 257.258,
+      "fast_three_question_p50_ms": 228.649,
+      "portfolio_one_choice_p50_ms": 237.747,
+      "fast_vs_legacy_p50_improvement_percent": 11.12,
+      "portfolio_vs_legacy_p50_improvement_percent": 7.58,
+      "fast_input_token_reduction_percent": 34.06,
+      "portfolio_input_token_reduction_percent": 61.02,
+      "all_modes_success_rate": 1
+    }
   }
 }
