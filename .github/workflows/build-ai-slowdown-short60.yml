@@ -1,11 +1,6 @@
 name: Build AI slowdown 60s demo
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - missions/media/20260916-ai-slowdown-short60.render-trigger
   workflow_dispatch:
 
 permissions:
