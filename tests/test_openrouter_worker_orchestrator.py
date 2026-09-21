@@ -267,7 +267,7 @@ class OpenRouterWorkerOrchestratorTests(unittest.TestCase):
             },
         }
         jev = {
-            "status": "JEV_DECISION_OK",
+            "status": "JEV_FAST_DECISION_OK",
             "decision": {
                 "workers": ["vendor/code:free"],
                 "parallel": False,
