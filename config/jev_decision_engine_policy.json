@@ -1,6 +1,6 @@
 {
-  "schema_version": "jev-decision-engine-policy-v3",
-  "effective_date_jst": "2026-09-21",
+  "schema_version": "jev-decision-engine-policy-v4",
+  "effective_date_jst": "2026-09-22",
   "status": "ACTIVE_SCOPED_PAID_EXCEPTION",
   "role": "FAST_SYSTEM_ONE_DECISION_PLANE",
   "reports_to": "chatgpt-top-commander",
@@ -99,7 +99,18 @@
     "model_may_not_expand_permissions": true,
     "model_may_not_authorize_paid_workers": true,
     "no_markdown_or_json_text_parsing": true,
-    "transport_and_schema_failures_fail_closed": true
+    "transport_and_schema_failures_fail_closed": true,
+    "fast_route_contract": {
+      "primary_worker": "CHOICE",
+      "route_shape": "CHOICE_SINGLE_PARALLEL_PAIR_SEQUENTIAL_PAIR_OPTIONAL_PARALLEL_TRIPLE_ESCALATE",
+      "secondary_worker": "CHOICE",
+      "tertiary_worker": "CHOICE_ONLY_WHEN_PREQUALIFIED",
+      "python_derives_fanout": true,
+      "python_derives_parallel_flag": true,
+      "python_derives_execution_mode": true,
+      "routine_question_count": 3,
+      "max_question_count": 4
+    }
   },
   "automatic_upgrade_guard": {
     "use_latest_alias_by_default": true,
@@ -126,7 +137,9 @@
     "record_batch_size": true,
     "record_batch_parallelism": true,
     "record_heavy_model_calls_avoided": true,
-    "record_unnecessary_fanout_avoided": true
+    "record_unnecessary_fanout_avoided": true,
+    "record_question_count": true,
+    "record_route_shape": true
   },
   "batch_execution": {
     "enabled": true,
@@ -151,5 +164,23 @@
     "candidate_counting_done_in_python": true,
     "full_conversation_not_sent": true,
     "free_text_worker_output_not_sent_when_typed_summary_exists": true
+  },
+  "official_manual_alignment": {
+    "structure_over_monolithic_prompt": true,
+    "defer_rules_and_arithmetic_to_code": true,
+    "narrow_typed_questions": true,
+    "primitives": [
+      "noul",
+      "choice",
+      "score"
+    ],
+    "batch_records_per_request": 20,
+    "probabilities_and_confidence_are_machine_consumed": true,
+    "routine_route_question_budget": 3,
+    "third_worker_route_question_budget": 4,
+    "route_shape_is_typed_choice": true,
+    "lane_is_precomputed_when_task_class_is_known": true,
+    "third_worker_question_only_when_code_prequalifies_three_independent_workstreams": true,
+    "free_text_route_generation": false
   }
 }
