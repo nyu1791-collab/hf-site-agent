@@ -17,6 +17,8 @@ The target fast path is:
 
 `ChatGPT → deterministic eligibility filter → Jev typed decision → only the selected specialist(s) → machine/Jev light triage → ChatGPT final adjudication`.
 
+Jev never generates the final routing JSON as text. The Decisions API returns Choice/Noul/Score values; Python validates those values, resolves duplicate worker choices, computes fanout/execution mode, and emits the final schema. Arithmetic such as remaining quota is precomputed in Python and sent only as `AMPLE / LIMITED / CRITICAL`. Independent jobs are batch-first: up to 20 records in one Decisions request and up to 5 batches concurrently, allowing 100 independent routing records to be decided in five parallel calls.
+
 ### Executive Supervisor — paid DeepSeek
 Paid DeepSeek is persistently pre-authorized only for the supervisory scope in `config/deepseek_paid_supervisor_policy.json`. It is intentionally **not** the default bottom Worker and **not** a boilerplate code factory.
 
