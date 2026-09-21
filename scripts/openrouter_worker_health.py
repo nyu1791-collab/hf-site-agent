@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Short-lived empirical health ranking for exact-free OpenRouter workers.
 
-This layer never makes a paid model eligible and never overrides task capability
-filters. It only reorders already-eligible exact-free candidates using recent
-live evidence. Evidence expires automatically.
+Evidence may contain global metrics plus optional domain_stats. Domain-specific
+metrics win when present; otherwise global metrics are used. Evidence expires
+automatically and can only reorder already-eligible exact-free candidates.
 """
 from __future__ import annotations
 
@@ -29,11 +29,7 @@ def _parse_utc(value: Any) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def load_recent_evidence(
-    *,
-    now: datetime | None = None,
-    path: Path = EVIDENCE_PATH,
-) -> dict[str, dict[str, Any]]:
+def load_recent_evidence(*, now: datetime | None = None, path: Path = EVIDENCE_PATH) -> dict[str, dict[str, Any]]:
     current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     if not path.is_file():
         return {}
@@ -55,19 +51,32 @@ def load_recent_evidence(
     return active
 
 
-def evidence_penalty(raw: Mapping[str, Any]) -> tuple[int, int, int, int, float]:
-    has_evidence = bool(raw)
-    rate_limits = max(0, int(raw.get("rate_limits", 0) or 0))
-    quality_failures = max(0, int(raw.get("quality_failures", 0) or 0))
-    successes = max(0, int(raw.get("successes", 0) or 0))
+def domain_evidence(raw: Mapping[str, Any] | None, domain: str | None = None) -> Mapping[str, Any]:
+    if not isinstance(raw, Mapping):
+        return {}
+    name = str(domain or "").strip()
+    stats = raw.get("domain_stats")
+    if name and isinstance(stats, Mapping):
+        scoped = stats.get(name)
+        if isinstance(scoped, Mapping):
+            merged = dict(raw)
+            merged.update(dict(scoped))
+            return merged
+    return raw
+
+
+def evidence_penalty(raw: Mapping[str, Any], *, domain: str | None = None) -> tuple[int, int, int, int, float]:
+    scoped = domain_evidence(raw, domain)
+    has_evidence = bool(scoped)
+    rate_limits = max(0, int(scoped.get("rate_limits", 0) or 0))
+    quality_failures = max(0, int(scoped.get("quality_failures", 0) or 0))
+    successes = max(0, int(scoped.get("successes", 0) or 0))
     try:
-        latency = max(0.0, float(raw.get("avg_latency_ms") or 0.0))
+        latency = max(0.0, float(scoped.get("avg_latency_ms") or 0.0))
     except (TypeError, ValueError):
         latency = 0.0
     severe_slow = 1 if latency >= 30_000 else 0
     slow = 1 if latency >= 10_000 else 0
-    # Unknown models keep a modest exploration penalty. A recent fast success
-    # gets a strong bonus; a slow success still loses to healthy unknown models.
     latency_score = (latency - successes * 10_000.0) if has_evidence else 5_000.0
     return (rate_limits, quality_failures, severe_slow, slow, latency_score)
 
@@ -76,12 +85,13 @@ def rank_candidates(
     candidates: Sequence[str],
     *,
     evidence: Mapping[str, Mapping[str, Any]] | None = None,
+    domain: str | None = None,
 ) -> list[str]:
     empirical = evidence or {}
     ranked: list[tuple[tuple[int, int, int, int, float], int, str]] = []
     for index, model in enumerate(candidates):
         raw = empirical.get(str(model)) if isinstance(empirical, Mapping) else None
-        penalty = evidence_penalty(raw if isinstance(raw, Mapping) else {})
+        penalty = evidence_penalty(raw if isinstance(raw, Mapping) else {}, domain=domain)
         ranked.append((penalty, index, str(model)))
     ranked.sort(key=lambda item: (item[0], item[1]))
     return [model for _penalty, _index, model in ranked]
@@ -90,31 +100,40 @@ def rank_candidates(
 def proven_models(
     *,
     evidence: Mapping[str, Mapping[str, Any]] | None = None,
+    domain: str | None = None,
 ) -> list[str]:
     empirical = evidence or {}
     good = []
     for model, raw in empirical.items():
         if not isinstance(raw, Mapping):
             continue
-        if int(raw.get("successes", 0) or 0) <= 0:
+        scoped = domain_evidence(raw, domain)
+        if int(scoped.get("successes", 0) or 0) <= 0:
             continue
-        if int(raw.get("rate_limits", 0) or 0) > 0:
+        if int(scoped.get("rate_limits", 0) or 0) > 0:
             continue
-        if int(raw.get("quality_failures", 0) or 0) > 0:
+        if int(scoped.get("quality_failures", 0) or 0) > 0:
             continue
         good.append(str(model))
-    return rank_candidates(good, evidence=empirical)
+    return rank_candidates(good, evidence=empirical, domain=domain)
 
 
-def profile_suffix(model: str, evidence: Mapping[str, Mapping[str, Any]] | None = None) -> str:
+def profile_suffix(
+    model: str,
+    evidence: Mapping[str, Mapping[str, Any]] | None = None,
+    *,
+    domain: str | None = None,
+) -> str:
     raw = (evidence or {}).get(model) if isinstance(evidence, Mapping) else None
     if not isinstance(raw, Mapping):
         return "recent_evidence=none"
+    scoped = domain_evidence(raw, domain)
     return (
-        f"recent_successes={int(raw.get('successes', 0) or 0)}; "
-        f"recent_quality_failures={int(raw.get('quality_failures', 0) or 0)}; "
-        f"recent_rate_limits={int(raw.get('rate_limits', 0) or 0)}; "
-        f"recent_avg_latency_ms={float(raw.get('avg_latency_ms') or 0.0):.1f}"
+        f"recent_domain={domain or 'global'}; "
+        f"recent_successes={int(scoped.get('successes', 0) or 0)}; "
+        f"recent_quality_failures={int(scoped.get('quality_failures', 0) or 0)}; "
+        f"recent_rate_limits={int(scoped.get('rate_limits', 0) or 0)}; "
+        f"recent_avg_latency_ms={float(scoped.get('avg_latency_ms') or 0.0):.1f}"
     )
 
 
@@ -123,20 +142,22 @@ def merge_proven_into_candidates(
     *,
     catalog_model_ids: set[str],
     evidence: Mapping[str, Mapping[str, Any]] | None = None,
+    domain: str | None = None,
     max_candidates: int = 12,
 ) -> list[str]:
     empirical = evidence or {}
     base = [str(x) for x in base_candidates if str(x) in catalog_model_ids]
-    proven = [x for x in proven_models(evidence=empirical) if x in catalog_model_ids]
+    proven = [x for x in proven_models(evidence=empirical, domain=domain) if x in catalog_model_ids]
     merged: list[str] = []
     for model in [*base[:4], *proven, *base[4:]]:
         if model not in merged:
             merged.append(model)
-    return rank_candidates(merged, evidence=empirical)[:max_candidates]
+    return rank_candidates(merged, evidence=empirical, domain=domain)[:max_candidates]
 
 
 __all__ = [
     "EVIDENCE_PATH",
+    "domain_evidence",
     "evidence_penalty",
     "load_recent_evidence",
     "merge_proven_into_candidates",
