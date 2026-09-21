@@ -1,21 +1,66 @@
 {
-  "schema_version": "ai-army-org-chart-v3",
-  "effective_date_jst": "2026-09-14",
+  "schema_version": "ai-army-org-chart-v4",
+  "effective_date_jst": "2026-09-21",
   "status": "CANONICAL",
-  "design_goal": "Maximize verified task success, speed, recovery and useful research per unit cost while minimizing coordination overhead and error propagation.",
+  "design_goal": "Maximize verified task success and speed per unit cost using a fast Jev decision plane, deterministic bypasses, a heavy DeepSeek supervisory lane only when justified, and bounded specialist execution.",
   "policy_entrypoint": "scripts/ai_army_routing_facade.py",
   "hierarchy": {
     "depth_0": {
       "role": "TOP_COMMANDER",
       "agent": "chatgpt-work",
-      "responsibilities": ["MISSION_OWNERSHIP", "FINAL_ADJUDICATION", "POLICY_INTERPRETATION", "CROSS_DOMAIN_INTEGRATION", "USER_DELIVERY"],
+      "responsibilities": [
+        "MISSION_OWNERSHIP",
+        "FINAL_ADJUDICATION",
+        "POLICY_INTERPRETATION",
+        "CROSS_DOMAIN_INTEGRATION",
+        "USER_DELIVERY"
+      ],
       "final_decision_authority": true
+    },
+    "decision_plane": {
+      "role": "FAST_DECISION_PLANE",
+      "agent": "jev-latest",
+      "policy": "config/jev_decision_engine_policy.json",
+      "runtime": "scripts/jev_decision_engine.py",
+      "coordinator": "scripts/jev_routing_coordinator.py",
+      "responsibilities": [
+        "TASK_CLASSIFICATION",
+        "SPECIALIST_ASSIGNMENT",
+        "DYNAMIC_1_TO_3_FANOUT",
+        "PARALLEL_VS_SEQUENTIAL",
+        "VERIFICATION_NEED",
+        "STOP_RETRY_ESCALATE_TRIAGE"
+      ],
+      "default_for": "NONTRIVIAL_ROUTE_CHOICE_WHERE_MULTIPLE_ELIGIBLE_EXECUTION_PATHS_EXIST",
+      "bypass_when": [
+        "DETERMINISTIC_MACHINE_ORACLE_IS_SUFFICIENT",
+        "ROUTE_IS_ALREADY_UNAMBIGUOUS_AND_NO_SELECTION_VALUE_EXISTS"
+      ],
+      "final_decision_authority": false,
+      "repository_write": false,
+      "permission_expansion": false
     },
     "depth_1": {
       "role": "EXECUTIVE_SUPERVISOR",
       "agent": "paid-deepseek",
       "policy": "config/deepseek_paid_supervisor_policy.json",
-      "responsibilities": ["BROAD_RESEARCH", "SOURCE_COMPARISON", "EVIDENCE_TRIAGE", "SYSTEM_ARCHITECTURE", "PEER_REVIEW", "RED_TEAM", "INCIDENT_DIAGNOSIS", "TASK_DECOMPOSITION", "SCRIPT_AND_REPORT_DRAFTING", "TASK_PACKAGING", "SUBORDINATE_REVIEW", "BOUNDED_CLERICAL_SUPPORT", "MEDIA_STRATEGY", "TIKTOK_SHOP_STRATEGY", "EXECUTIVE_SYNTHESIS"],
+      "responsibilities": [
+        "BROAD_RESEARCH",
+        "SOURCE_COMPARISON",
+        "EVIDENCE_TRIAGE",
+        "SYSTEM_ARCHITECTURE",
+        "PEER_REVIEW",
+        "RED_TEAM",
+        "INCIDENT_DIAGNOSIS",
+        "TASK_DECOMPOSITION",
+        "SCRIPT_AND_REPORT_DRAFTING",
+        "TASK_PACKAGING",
+        "SUBORDINATE_REVIEW",
+        "MEDIA_STRATEGY",
+        "TIKTOK_SHOP_STRATEGY",
+        "EXECUTIVE_SYNTHESIS"
+      ],
+      "activation": "ONLY_WHEN_HIGH_INFORMATION_GAIN_SUPERVISION_IS_JUSTIFIED",
       "default_bulk_coding": false,
       "repository_write": false,
       "final_user_answer": false,
@@ -23,33 +68,103 @@
     },
     "depth_2": {
       "role": "SPECIALIST_OR_WORKER",
-      "agents": ["verified-qwen", "verified-nvidia", "verified-groq", "verified-google", "verified-openrouter-free", "github-coding-adapter-when-justified"],
-      "activation": "ONLY_WHEN_ROUTE_IS_FRESHLY_VERIFIED_AND_SPECIALIZATION_OR_PARALLELISM_HAS_MEASURABLE_VALUE",
-      "responsibilities": ["BOUNDED_SPECIALIST_EXECUTION", "TARGETED_IMPLEMENTATION", "TARGETED_REVIEW", "INDEPENDENT_PARALLEL_RESEARCH_WHEN_JUSTIFIED"],
+      "agents": [
+        "verified-qwen",
+        "verified-nvidia",
+        "verified-groq",
+        "verified-google",
+        "verified-openrouter-free",
+        "github-coding-adapter-when-justified"
+      ],
+      "activation": "ONLY_WHEN_CURRENTLY_ELIGIBLE_AND_SELECTED_BY_COMMANDER_OR_JEV_BOUNDED_DECISION_PLANE",
+      "responsibilities": [
+        "BOUNDED_SPECIALIST_EXECUTION",
+        "TARGETED_IMPLEMENTATION",
+        "TARGETED_REVIEW",
+        "INDEPENDENT_PARALLEL_RESEARCH_WHEN_JUSTIFIED"
+      ],
       "worker_to_worker_delegation": false
     }
   },
   "direct_specialist_bypass": {
     "allowed": true,
     "purpose": "Avoid an unnecessary paid supervisor hop for narrow bounded execution when ChatGPT already has a clear task contract and current specialist readiness evidence.",
-    "eligible_examples": ["TARGETED_CODING", "TARGETED_TESTING", "BOUNDED_EXTRACTION", "MECHANICAL_IMPLEMENTATION_WITH_CLEAR_ACCEPTANCE_CRITERIA"],
-    "requires": ["CHATGPT_MISSION_OWNERSHIP", "CURRENT_PROVIDER_READINESS", "BOUNDED_SCOPE", "NO_GENERIC_PAID_FALLBACK", "SINGLE_WRITER_FOR_MUTATION"],
-    "not_allowed_for": ["BROAD_RESEARCH", "ARCHITECTURE_CHOICE", "RED_TEAM", "INCIDENT_ROOT_CAUSE", "MULTI_SOURCE_STRATEGIC_SYNTHESIS"],
+    "eligible_examples": [
+      "TARGETED_CODING",
+      "TARGETED_TESTING",
+      "BOUNDED_EXTRACTION",
+      "MECHANICAL_IMPLEMENTATION_WITH_CLEAR_ACCEPTANCE_CRITERIA"
+    ],
+    "requires": [
+      "CHATGPT_MISSION_OWNERSHIP",
+      "CURRENT_PROVIDER_READINESS",
+      "BOUNDED_SCOPE",
+      "NO_GENERIC_PAID_FALLBACK",
+      "SINGLE_WRITER_FOR_MUTATION"
+    ],
+    "not_allowed_for": [
+      "BROAD_RESEARCH",
+      "ARCHITECTURE_CHOICE",
+      "RED_TEAM",
+      "INCIDENT_ROOT_CAUSE",
+      "MULTI_SOURCE_STRATEGIC_SYNTHESIS"
+    ],
     "may_override_chatgpt_final_authority": false,
     "may_authorize_paid_fallback": false,
     "may_expand_its_own_scope": false
   },
   "deterministic_bypass": {
     "rule": "DO_NOT_CREATE_AN_AGENT_HOP_WHEN_A_MACHINE_ORACLE_OR_DETERMINISTIC_TOOL_CAN_DO_THE_WORK_RELIABLY",
-    "preferred_tools": ["PYTHON", "FFMPEG", "FFPROBE", "SCHEMA_VALIDATOR", "HASHING", "STATIC_CHECKS", "TEST_RUNNER", "QUOTA_LEDGER", "CHECKPOINT_STORE"],
-    "examples": ["MEDIA_STREAM_VALIDATION", "JSON_SCHEMA_VALIDATION", "HASH_COMPARISON", "CACHE_KEY_COMPUTATION", "SORTING", "QUOTA_ARITHMETIC", "FILE_EXISTENCE_AND_SIZE_CHECKS"]
+    "preferred_tools": [
+      "PYTHON",
+      "FFMPEG",
+      "FFPROBE",
+      "SCHEMA_VALIDATOR",
+      "HASHING",
+      "STATIC_CHECKS",
+      "TEST_RUNNER",
+      "QUOTA_LEDGER",
+      "CHECKPOINT_STORE"
+    ],
+    "examples": [
+      "MEDIA_STREAM_VALIDATION",
+      "JSON_SCHEMA_VALIDATION",
+      "HASH_COMPARISON",
+      "CACHE_KEY_COMPUTATION",
+      "SORTING",
+      "QUOTA_ARITHMETIC",
+      "FILE_EXISTENCE_AND_SIZE_CHECKS"
+    ]
   },
   "admission": {
     "default": "SINGLE_AGENT_OR_DETERMINISTIC_TOOL",
     "routing_facade": "scripts/ai_army_routing_facade.py",
-    "use_deepseek_supervisor_when": ["BROAD_RESEARCH", "HIGH_UNCERTAINTY", "MULTIPLE_EVIDENCE_SOURCES", "ARCHITECTURE_CHOICE", "FAILURE_DIAGNOSIS", "RED_TEAM", "STRATEGIC_SYNTHESIS", "SCRIPT_OR_REPORT_DRAFTING_LINKED_TO_RESEARCH", "EVIDENCE_PACKAGING", "MULTI_STEP_WORK_WITH_RELATED_CLERICAL_SUPPORT", "MEDIA_RESEARCH_AND_SCRIPT_COMBINED_STAGE"],
-    "add_depth_2_worker_when": ["INDEPENDENT_PARALLEL_WORK", "DISTINCT_SPECIALIST_DOMAIN", "TARGETED_IMPLEMENTATION_BENEFITS_FROM_SPECIALIST", "INDEPENDENT_VERIFICATION_MATERIALLY_REDUCES_HIGH_IMPACT_RISK"],
-    "avoid_multi_agent_when": ["SEQUENTIAL_REASONING", "TOOL_HEAVY_SHARED_STATE_WITHOUT_INDEPENDENT_BRANCHES", "TRIVIAL_TRANSFORM", "COORDINATION_OVERHEAD_EXCEEDS_EXPECTED_GAIN", "ROUTINE_MEDIA_RESEARCH_AND_SCRIPT_ALREADY_COVERED_BY_CHATGPT_PLUS_DEEPSEEK"],
+    "use_deepseek_supervisor_when": [
+      "BROAD_RESEARCH",
+      "HIGH_UNCERTAINTY",
+      "MULTIPLE_EVIDENCE_SOURCES",
+      "ARCHITECTURE_CHOICE",
+      "FAILURE_DIAGNOSIS",
+      "RED_TEAM",
+      "STRATEGIC_SYNTHESIS",
+      "SCRIPT_OR_REPORT_DRAFTING_LINKED_TO_RESEARCH",
+      "EVIDENCE_PACKAGING",
+      "MULTI_STEP_WORK_WITH_RELATED_CLERICAL_SUPPORT",
+      "MEDIA_RESEARCH_AND_SCRIPT_COMBINED_STAGE"
+    ],
+    "add_depth_2_worker_when": [
+      "INDEPENDENT_PARALLEL_WORK",
+      "DISTINCT_SPECIALIST_DOMAIN",
+      "TARGETED_IMPLEMENTATION_BENEFITS_FROM_SPECIALIST",
+      "INDEPENDENT_VERIFICATION_MATERIALLY_REDUCES_HIGH_IMPACT_RISK"
+    ],
+    "avoid_multi_agent_when": [
+      "SEQUENTIAL_REASONING",
+      "TOOL_HEAVY_SHARED_STATE_WITHOUT_INDEPENDENT_BRANCHES",
+      "TRIVIAL_TRANSFORM",
+      "COORDINATION_OVERHEAD_EXCEEDS_EXPECTED_GAIN",
+      "ROUTINE_MEDIA_RESEARCH_AND_SCRIPT_ALREADY_COVERED_BY_CHATGPT_PLUS_DEEPSEEK"
+    ],
     "production_routing_change_requires_measured_evidence": true,
     "shadow_policy": "config/agent_efficiency_policy.json",
     "shadow_advisor": "scripts/agent_architecture_admission.py",
@@ -78,7 +193,18 @@
     "machine_oracle_over_majority_vote": true
   },
   "failure_observability": {
-    "required_failure_classes": ["CONSTRAINT_VIOLATION", "REPETITION", "CONTEXT_LOSS", "DERAILMENT", "IGNORED_INPUT", "REASONING_ACTION_MISMATCH", "PREMATURE_TERMINATION", "WEAK_VERIFICATION", "PROVIDER_OR_TOOL_FAILURE", "STALE_STATE_OR_WRITE_CONFLICT"],
+    "required_failure_classes": [
+      "CONSTRAINT_VIOLATION",
+      "REPETITION",
+      "CONTEXT_LOSS",
+      "DERAILMENT",
+      "IGNORED_INPUT",
+      "REASONING_ACTION_MISMATCH",
+      "PREMATURE_TERMINATION",
+      "WEAK_VERIFICATION",
+      "PROVIDER_OR_TOOL_FAILURE",
+      "STALE_STATE_OR_WRITE_CONFLICT"
+    ],
     "termination_reason_required": true,
     "trace_mission_task_agent_tool_checkpoint_guardrail": true,
     "event_schema": "schemas/agent_failure_event.schema.json",
@@ -96,7 +222,7 @@
     "expanded_hard_parallel_calls": 4,
     "expanded_hard_call_cap": 12,
     "mission_cost_cap_usd": 0.5,
-    "daily_estimated_cost_cap_usd": 3.0,
+    "daily_estimated_cost_cap_usd": 3,
     "chatgpt_final_adjudication_required": true,
     "automatic_execution_on_unrelated_pushes": false,
     "active_paid_deepseek_workflow_count": 1
@@ -104,9 +230,36 @@
   "measurement": {
     "shadow_before_multi_agent_promotion": true,
     "compare_same_fixture_against_single_controller": true,
-    "primary_metrics": ["TASK_SUCCESS_RATE", "ACCEPTANCE_CRITERIA_PASS_RATE", "ESCAPED_DEFECT_RATE", "P50_LATENCY", "P95_LATENCY", "TOKEN_USAGE", "REQUEST_COUNT", "ESTIMATED_COST", "RETRY_COUNT", "COORDINATION_OVERHEAD_RATIO"],
-    "deepseek_supervisor_metrics": ["ACCEPTED_RECOMMENDATION_RATE", "COST_PER_ACCEPTED_DECISION", "CACHE_HIT_RATE", "DUPLICATE_RESEARCH_AVOIDED", "DRAFT_ACCEPTANCE_RATE", "HANDOFF_COMPLETENESS", "COORDINATION_OVERHEAD_RATIO", "REPLAN_RATE"],
-    "hard_zero_metrics": ["SILENT_SUCCESS", "STALE_WRITE_ACCEPT", "DUPLICATE_MUTATION_LEASE", "UNBOUNDED_LOOP", "UNAUTHORIZED_PAID_ROUTE", "HEALTHY_ARTIFACT_DESTROYED_BY_DOWNSTREAM_FAILURE"]
+    "primary_metrics": [
+      "TASK_SUCCESS_RATE",
+      "ACCEPTANCE_CRITERIA_PASS_RATE",
+      "ESCAPED_DEFECT_RATE",
+      "P50_LATENCY",
+      "P95_LATENCY",
+      "TOKEN_USAGE",
+      "REQUEST_COUNT",
+      "ESTIMATED_COST",
+      "RETRY_COUNT",
+      "COORDINATION_OVERHEAD_RATIO"
+    ],
+    "deepseek_supervisor_metrics": [
+      "ACCEPTED_RECOMMENDATION_RATE",
+      "COST_PER_ACCEPTED_DECISION",
+      "CACHE_HIT_RATE",
+      "DUPLICATE_RESEARCH_AVOIDED",
+      "DRAFT_ACCEPTANCE_RATE",
+      "HANDOFF_COMPLETENESS",
+      "COORDINATION_OVERHEAD_RATIO",
+      "REPLAN_RATE"
+    ],
+    "hard_zero_metrics": [
+      "SILENT_SUCCESS",
+      "STALE_WRITE_ACCEPT",
+      "DUPLICATE_MUTATION_LEASE",
+      "UNBOUNDED_LOOP",
+      "UNAUTHORIZED_PAID_ROUTE",
+      "HEALTHY_ARTIFACT_DESTROYED_BY_DOWNSTREAM_FAILURE"
+    ]
   },
   "forbidden_org_patterns": [
     "PEER_SWARM_WITHOUT_OWNER",
@@ -121,5 +274,37 @@
     "UNBOUNDED_RESEARCH_FANOUT",
     "MODEL_BRAND_HARDCODED_AS_ROLE_WITHOUT_CAPABILITY_CHECK"
   ],
-  "success_metrics": ["TASK_SUCCESS_RATE", "ACCEPTANCE_CRITERIA_PASS_RATE", "P95_LATENCY", "COST_PER_ACCEPTED_DECISION", "COORDINATION_OVERHEAD_RATIO", "ERROR_AMPLIFICATION_RATE", "CHECKPOINT_RECOVERY_SUCCESS_RATE", "RETRY_AND_REPLAN_RATE", "DUPLICATE_RESEARCH_AVOIDED", "DRAFT_ACCEPTANCE_RATE"]
+  "success_metrics": [
+    "TASK_SUCCESS_RATE",
+    "ACCEPTANCE_CRITERIA_PASS_RATE",
+    "P95_LATENCY",
+    "COST_PER_ACCEPTED_DECISION",
+    "COORDINATION_OVERHEAD_RATIO",
+    "ERROR_AMPLIFICATION_RATE",
+    "CHECKPOINT_RECOVERY_SUCCESS_RATE",
+    "RETRY_AND_REPLAN_RATE",
+    "DUPLICATE_RESEARCH_AVOIDED",
+    "DRAFT_ACCEPTANCE_RATE",
+    "JEV_ROUTING_LATENCY",
+    "JEV_COST_PER_ACCEPTED_ROUTE",
+    "HEAVY_MODEL_CALLS_AVOIDED",
+    "UNNECESSARY_FANOUT_AVOIDED"
+  ],
+  "fast_decision_flow": {
+    "default_nontrivial_path": [
+      "CHATGPT_MISSION_ENVELOPE",
+      "DETERMINISTIC_ELIGIBILITY_FILTER",
+      "JEV_TYPED_DECISION",
+      "SELECTED_1_TO_3_SPECIALISTS",
+      "MACHINE_OR_JEV_LIGHT_TRIAGE",
+      "CHATGPT_FINAL_ADJUDICATION"
+    ],
+    "jev_not_used_for": [
+      "LONG_FORM_WRITING",
+      "BULK_CODE_GENERATION",
+      "OPEN_ENDED_RESEARCH",
+      "FINAL_FACTUAL_ADJUDICATION"
+    ],
+    "principle": "USE_JEV_TO_AVOID_WAKING_HEAVY_MODELS_OR_EXTRA_WORKERS_WHEN_THEIR_EXPECTED_VALUE_IS_LOW"
+  }
 }
