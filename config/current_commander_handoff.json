@@ -1,6 +1,6 @@
 {
-  "schema_version": "top-commander-handoff-v8",
-  "effective_date_jst": "2026-09-14",
+  "schema_version": "top-commander-handoff-v9",
+  "effective_date_jst": "2026-09-21",
   "mission_id": "ai-army-canonical-supervisor-routing-20260912",
   "objective": "Preserve and improve the AI Army with ChatGPT as Top Commander, paid DeepSeek as a bounded working Executive Supervisor for research, evidence triage, drafting, review and coordination, direct specialist bypass for narrow verified execution, deterministic-tool bypass for mechanical work, repository-backed permanent policy continuity across chat tabs, and drift-free task-specific media restoration through the permanent manifest and semantic read gates.",
   "continuity": {
@@ -54,7 +54,9 @@
     "authorized_clipping_and_monetization_playbook": "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
     "tiktok_shop_influence_policy": "config/tiktok_shop_influence_policy.json",
     "tiktok_shop_influence_playbook": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
-    "research_synthesis": "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md"
+    "research_synthesis": "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md",
+    "openrouter_free_efficiency_policy": "config/openrouter_free_efficiency_policy.json",
+    "openrouter_free_efficiency_router": "scripts/openrouter_free_efficiency_router.py"
   },
   "peer_review_status": {
     "completed": true,
@@ -90,11 +92,45 @@
     "deepseek_is_not_default_bottom_worker": true,
     "deepseek_is_not_default_bulk_coder": true,
     "deepseek_is_not_mandatory_paid_hop_for_trivial_execution": true,
-    "preferred_roles": ["RESEARCH_DIRECTOR", "EVIDENCE_TRIAGE_OPERATOR", "SYSTEM_ARCHITECT", "PEER_REVIEW_CHAIR", "RED_TEAM_CHAIR", "INCIDENT_COMMANDER", "MEDIA_STRATEGY_SUPERVISOR", "TIKTOK_SHOP_STRATEGY_SUPERVISOR", "SCRIPT_AND_REPORT_DRAFTER", "TASK_PACKAGER", "SUBORDINATE_WORK_REVIEWER", "BOUNDED_CLERICAL_SUPPORT"],
-    "heavy_use_preferred_for": ["broad_research", "source_comparison", "evidence_triage", "alternative_generation", "failure_mode_discovery", "contradiction_search", "architecture_review", "media_and_commerce_strategy", "script_and_report_drafting_linked_to_research", "evidence_packaging", "task_packaging", "subordinate_task_decomposition", "subordinate_result_synthesis", "postmortem_and_remediation", "bounded_related_clerical_support"],
+    "preferred_roles": [
+      "RESEARCH_DIRECTOR",
+      "EVIDENCE_TRIAGE_OPERATOR",
+      "SYSTEM_ARCHITECT",
+      "PEER_REVIEW_CHAIR",
+      "RED_TEAM_CHAIR",
+      "INCIDENT_COMMANDER",
+      "MEDIA_STRATEGY_SUPERVISOR",
+      "TIKTOK_SHOP_STRATEGY_SUPERVISOR",
+      "SCRIPT_AND_REPORT_DRAFTER",
+      "TASK_PACKAGER",
+      "SUBORDINATE_WORK_REVIEWER",
+      "BOUNDED_CLERICAL_SUPPORT"
+    ],
+    "heavy_use_preferred_for": [
+      "broad_research",
+      "source_comparison",
+      "evidence_triage",
+      "alternative_generation",
+      "failure_mode_discovery",
+      "contradiction_search",
+      "architecture_review",
+      "media_and_commerce_strategy",
+      "script_and_report_drafting_linked_to_research",
+      "evidence_packaging",
+      "task_packaging",
+      "subordinate_task_decomposition",
+      "subordinate_result_synthesis",
+      "postmortem_and_remediation",
+      "bounded_related_clerical_support"
+    ],
     "media_research_and_script_pair_with_chatgpt": true,
     "avoid_fragmenting_routine_media_research_and_script": true,
-    "delegate_downward_when_possible": ["large_boilerplate_code_generation", "repetitive_code_edits", "mechanical_transforms", "deterministic_validation"],
+    "delegate_downward_when_possible": [
+      "large_boilerplate_code_generation",
+      "repetitive_code_edits",
+      "mechanical_transforms",
+      "deterministic_validation"
+    ],
     "default_research_lanes": 6,
     "default_parallel_calls": 3,
     "default_calls_per_mission": 8,
@@ -152,7 +188,14 @@
     "failure_class_and_termination_reason_required": true,
     "hard_numeric_multi_agent_thresholds_wait_for_fixture_calibration": true,
     "multi_agent_promotion_is_shadow_measured_first": true,
-    "free_routes_are_default_except_explicit_deepseek_supervisor_exception": true
+    "free_routes_are_default_except_explicit_deepseek_supervisor_exception": true,
+    "openrouter_free_all_current_exact_free_models_attach_as_standby": true,
+    "openrouter_free_default_active_models_per_task": 1,
+    "openrouter_free_routine_all_model_parallel_fanout": false,
+    "openrouter_free_second_model_only_on_failure_capability_gap_or_material_verification_need": true,
+    "openrouter_free_unknown_account_daily_hard_stop": 45,
+    "openrouter_free_verified_10_credit_daily_hard_stop": 900,
+    "openrouter_free_paid_fallback": false
   },
   "legacy_cleanup_fixed_rules": {
     "legacy_registry": "config/legacy_deepseek_compatibility.json",
@@ -168,7 +211,15 @@
     "media_policy_source": "config/media_command_read_gate.json",
     "voice": "VOICEVOX_ZUNDAMON_AND_SHIKOKU_METAN_LOCAL",
     "render": "PYTHON_FFMPEG_FFPROBE",
-    "prohibited_freemium_video_saas": ["descript", "fal", "fal.ai", "runway", "veed", "heygen", "higgsfield"],
+    "prohibited_freemium_video_saas": [
+      "descript",
+      "fal",
+      "fal.ai",
+      "runway",
+      "veed",
+      "heygen",
+      "higgsfield"
+    ],
     "external_video_service_requires_verified_completely_free_route": true,
     "unknown_cost_route": "BLOCK",
     "scene_first": true,
@@ -203,7 +254,14 @@
   },
   "tiktok_shop_fixed_rules": {
     "lane": "EVIDENCE_BASED_TIKTOK_SHOP_COMMERCE",
-    "core_funnel": ["CURIOSITY_OR_RELEVANCE", "UNDERSTANDING", "EVIDENCE_AND_TRUST", "DESIRE_AND_USE_IMAGINATION", "OBJECTION_REDUCTION", "TRANSPARENT_ACTION"],
+    "core_funnel": [
+      "CURIOSITY_OR_RELEVANCE",
+      "UNDERSTANDING",
+      "EVIDENCE_AND_TRUST",
+      "DESIRE_AND_USE_IMAGINATION",
+      "OBJECTION_REDUCTION",
+      "TRANSPARENT_ACTION"
+    ],
     "first_3_seconds_are_priority": true,
     "product_must_be_clear_and_central": true,
     "exactly_one_primary_persona_per_video": true,
@@ -235,8 +293,30 @@
     "publish_policy_snapshot_hash_required": true,
     "review_count_followers_and_rating_are_discovery_signals_not_quality_truth": true
   },
-  "lanes": ["CANONICAL_AI_ARMY_ROUTING", "DEEPSEEK_EXECUTIVE_SUPERVISION", "CI_CONTROL_PLANE", "LONGFORM_VIDEO_RELIABILITY", "AUTHORIZED_CLIPPING_MONETIZATION", "EVIDENCE_BASED_TIKTOK_SHOP_COMMERCE", "MULTI_AGENT_ORCHESTRATION", "FAILURE_RECOVERY", "EVALUATION_AND_REGRESSION", "CONTEXT_AND_HANDOFF"],
-  "priority_order": ["CONTEXT_AND_HANDOFF", "CANONICAL_AI_ARMY_ROUTING", "DEEPSEEK_EXECUTIVE_SUPERVISION", "CI_CONTROL_PLANE", "FAILURE_RECOVERY", "EVIDENCE_BASED_TIKTOK_SHOP_COMMERCE", "AUTHORIZED_CLIPPING_MONETIZATION", "LONGFORM_VIDEO_RELIABILITY", "MULTI_AGENT_ORCHESTRATION", "EVALUATION_AND_REGRESSION"],
+  "lanes": [
+    "CANONICAL_AI_ARMY_ROUTING",
+    "DEEPSEEK_EXECUTIVE_SUPERVISION",
+    "CI_CONTROL_PLANE",
+    "LONGFORM_VIDEO_RELIABILITY",
+    "AUTHORIZED_CLIPPING_MONETIZATION",
+    "EVIDENCE_BASED_TIKTOK_SHOP_COMMERCE",
+    "MULTI_AGENT_ORCHESTRATION",
+    "FAILURE_RECOVERY",
+    "EVALUATION_AND_REGRESSION",
+    "CONTEXT_AND_HANDOFF"
+  ],
+  "priority_order": [
+    "CONTEXT_AND_HANDOFF",
+    "CANONICAL_AI_ARMY_ROUTING",
+    "DEEPSEEK_EXECUTIVE_SUPERVISION",
+    "CI_CONTROL_PLANE",
+    "FAILURE_RECOVERY",
+    "EVIDENCE_BASED_TIKTOK_SHOP_COMMERCE",
+    "AUTHORIZED_CLIPPING_MONETIZATION",
+    "LONGFORM_VIDEO_RELIABILITY",
+    "MULTI_AGENT_ORCHESTRATION",
+    "EVALUATION_AND_REGRESSION"
+  ],
   "specific_checks": [
     "new sessions restore current commander handoff, permanent manifest and master rulebook before task-specific planning",
     "task-specific media and monetization rules are restored from semantic read gates rather than copied wholesale into this handoff",
