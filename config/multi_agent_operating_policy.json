@@ -1,5 +1,5 @@
 {
-  "schema_version": "multi-agent-operating-policy-v5",
+  "schema_version": "multi-agent-operating-policy-v6",
   "effective_date_jst": "2026-09-21",
   "status": "PERMANENT_STANDARD",
   "architecture": {
@@ -15,8 +15,9 @@
     "parallel_subordinate_workers_per_parent_safety_ceiling": 1,
     "effective_parallelism_is_dynamic_below_ceiling": true,
     "agent_count_is_not_a_success_metric": true,
-    "openrouter_free_worker_default_count": 1,
-    "openrouter_free_all_model_parallel_fanout": false
+    "openrouter_free_worker_default_count": null,
+    "openrouter_free_all_model_parallel_fanout": false,
+    "openrouter_free_model_count_policy": "DYNAMIC_1_TO_3_BY_EXPECTED_TOTAL_SYSTEM_VALUE"
   },
   "multi_agent_admission_gate": {
     "single_agent_baseline_required_before_architecture_promotion": true,
@@ -135,7 +136,8 @@
     "broad_research_architecture_red_team_incident_and_strategic_synthesis_prefer_deepseek_supervisor": true,
     "openrouter_free_efficiency_policy": "config/openrouter_free_efficiency_policy.json",
     "openrouter_free_exact_catalog_models_attach_as_standby": true,
-    "openrouter_free_default_execution": "SINGLE_BEST_FIT_MODEL"
+    "openrouter_free_default_execution": "DYNAMIC_OPTIMAL_FANOUT",
+    "openrouter_free_fixed_single_model_default": false
   },
   "parallelism": {
     "parallelize_only_independent_tasks": true,
@@ -153,8 +155,14 @@
       "on_budget_pressure": "REDUCE_FANOUT_BEFORE_QUALITY_GATES",
       "on_provider_recovery": "INCREASE_GRADUALLY_WITHIN_SAFETY_CEILING"
     },
-    "openrouter_free_default_parallel_models_per_task": 1,
-    "openrouter_free_second_model_requires_recorded_escalation_reason": true
+    "openrouter_free_default_parallel_models_per_task": null,
+    "openrouter_free_second_model_requires_recorded_escalation_reason": true,
+    "openrouter_free_dynamic_parallel_models_range": [
+      1,
+      3
+    ],
+    "openrouter_free_parallelism_requires_expected_total_system_value_gain": true,
+    "openrouter_free_fanout_reason_required": true
   },
   "review_and_reflection": {
     "reviewer_should_receive_acceptance_criteria_and_evidence": true,
@@ -366,7 +374,11 @@
     "openrouter_free_paid_sibling_substitution": false,
     "openrouter_free_unknown_account_daily_hard_stop": 45,
     "openrouter_free_verified_10_credit_daily_hard_stop": 900,
-    "openrouter_free_900_limit_requires_account_evidence": true
+    "openrouter_free_900_limit_requires_account_evidence": true,
+    "openrouter_free_dynamic_fanout_range": [
+      1,
+      3
+    ]
   },
   "paid_model_exceptions": {
     "deepseek_supervisor": {
