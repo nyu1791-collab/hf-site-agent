@@ -15,6 +15,7 @@ on:
       - "hf-space/**"
       - "requirements*.txt"
       - "missions/jev-trial/**"
+      - "missions/jev-benchmark/**"
   workflow_dispatch:
 
 permissions:
@@ -96,6 +97,23 @@ jobs:
         with:
           name: jev-five-domain-trial-${{ github.run_id }}
           path: artifacts/jev_five_domain_parallel_trial.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Run Jev routing A/B benchmark
+        if: ${{ hashFiles('missions/jev-benchmark/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m scripts.jev_route_ab_benchmark --output artifacts/jev_route_ab_benchmark.json
+
+      - name: Upload Jev routing A/B evidence
+        if: ${{ always() && hashFiles('missions/jev-benchmark/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-route-ab-${{ github.run_id }}
+          path: artifacts/jev_route_ab_benchmark.json
           if-no-files-found: warn
           retention-days: 7
 
