@@ -34,6 +34,7 @@ MAX_PARALLEL_WORKERS = 10
 def _task_payload(trial: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "task_id": trial["domain"].lower(),
+        "domain": trial["domain"],
         "task_class": trial["task_class"],
         "objective": trial["objective"],
         "independent_workstreams": 2,
@@ -71,7 +72,7 @@ def run_trial(api_key: str) -> dict[str, Any]:
     routing_wall_ms = (time.perf_counter() - route_started) * 1000.0
     plans = routed.get("plans") if isinstance(routed.get("plans"), Mapping) else {}
 
-    work_items: list[tuple[str, str, str, Mapping[str, Any]]] = []
+    work_items: list[tuple[str, str, str, Mapping[str, Any], float | None]] = []
     task_meta: dict[str, dict[str, Any]] = {}
     for trial in TRIALS:
         task_id = str(trial["domain"]).lower()
@@ -83,15 +84,18 @@ def run_trial(api_key: str) -> dict[str, Any]:
             "selected": selected,
             "results": [],
         }
-        for model in selected:
-            work_items.append((task_id, model, str(trial["prompt"]), trial["expected"]))
+        challenger_timeout = plan.get("latency_challenger_timeout_seconds")
+        is_latency_hedge = "RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED" in list(plan.get("fanout_reason") or [])
+        for index, model in enumerate(selected):
+            timeout_seconds = float(challenger_timeout) if is_latency_hedge and index > 0 and challenger_timeout else None
+            work_items.append((task_id, model, str(trial["prompt"]), trial["expected"], timeout_seconds))
 
     work_items = work_items[:MAX_TOTAL_FREE_WORKER_CALLS]
     worker_started = time.perf_counter()
     with ThreadPoolExecutor(max_workers=max(1, min(MAX_PARALLEL_WORKERS, len(work_items)))) as pool:
         futures = {
-            pool.submit(_worker_call, model, prompt, expected, api_key): (task_id, model)
-            for task_id, model, prompt, expected in work_items
+            pool.submit(_worker_call, model, prompt, expected, api_key, timeout_seconds): (task_id, model)
+            for task_id, model, prompt, expected, timeout_seconds in work_items
         }
         for future in as_completed(futures):
             task_id, model = futures[future]
