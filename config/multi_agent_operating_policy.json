@@ -1,5 +1,5 @@
 {
-  "schema_version": "multi-agent-operating-policy-v6",
+  "schema_version": "multi-agent-operating-policy-v7",
   "effective_date_jst": "2026-09-21",
   "status": "PERMANENT_STANDARD",
   "architecture": {
@@ -137,7 +137,11 @@
     "openrouter_free_efficiency_policy": "config/openrouter_free_efficiency_policy.json",
     "openrouter_free_exact_catalog_models_attach_as_standby": true,
     "openrouter_free_default_execution": "DYNAMIC_OPTIMAL_FANOUT",
-    "openrouter_free_fixed_single_model_default": false
+    "openrouter_free_fixed_single_model_default": false,
+    "jev_fast_decision_policy": "config/jev_decision_engine_policy.json",
+    "jev_fast_decision_coordinator": "scripts/jev_routing_coordinator.py",
+    "jev_default_for_nontrivial_model_and_fanout_choice": true,
+    "deterministic_clear_routes_may_bypass_jev": true
   },
   "parallelism": {
     "parallelize_only_independent_tasks": true,
@@ -256,6 +260,27 @@
         "policy_file": "config/deepseek_paid_supervisor_policy.json",
         "canonical_workflow": ".github/workflows/deepseek-supervisor-research.yml",
         "repeat_per_call_approval_required": false,
+        "repository_write": false,
+        "deploy": false,
+        "publish": false,
+        "merge": false,
+        "secret_mutation_or_disclosure": false,
+        "auto_top_up": false,
+        "generic_paid_fallback": false
+      },
+      {
+        "provider": "openrouter-typesafe",
+        "model_family": "Jev",
+        "role": "FAST_DECISION_PLANE",
+        "policy_file": "config/jev_decision_engine_policy.json",
+        "repeat_per_call_approval_required": false,
+        "allowed_scope": [
+          "TASK_CLASSIFICATION",
+          "SPECIALIST_ASSIGNMENT",
+          "FANOUT_DECISION",
+          "PARALLELISM_DECISION",
+          "RESULT_TRIAGE"
+        ],
         "repository_write": false,
         "deploy": false,
         "publish": false,
@@ -392,6 +417,19 @@
       "bulk_coding_worker": false,
       "mandatory_hop_for_every_task": false,
       "chatgpt_final_adjudication_required": true,
+      "other_paid_provider_authorization": false
+    },
+    "jev_decision_plane": {
+      "enabled": true,
+      "preauthorized_by_user": true,
+      "persistent_across_chat_tabs": true,
+      "policy_file": "config/jev_decision_engine_policy.json",
+      "canonical_model_alias": "~typesafe/jev-latest",
+      "role": "FAST_DECISION_PLANE",
+      "reports_to": "chatgpt-work",
+      "long_form_generation": false,
+      "bulk_coding_worker": false,
+      "final_authority": false,
       "other_paid_provider_authorization": false
     }
   }
