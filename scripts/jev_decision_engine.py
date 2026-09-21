@@ -1252,6 +1252,220 @@ def decide_fast(
     }
 
 
+
+# ---------------------------------------------------------------------------
+# Experimental minimum-question route: one Choice over prevalidated portfolios.
+# ---------------------------------------------------------------------------
+
+def _portfolio_options(record: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    candidates = list(record["candidate_models"])[:4]
+    if not candidates:
+        return {}
+    allow_third = bool(record.get("allow_third"))
+    shared = bool(record.get("shared_mutable_state"))
+    options: dict[str, dict[str, Any]] = {}
+
+    def add(key: str, workers: list[str], mode: str, rationale: str) -> None:
+        options[key] = {
+            "workers": workers,
+            "mode": mode,
+            "description": rationale,
+        }
+
+    add("single_primary", [candidates[0]], "SINGLE", f"Use only {candidates[0]} for minimum latency and coordination.")
+    if len(candidates) >= 2:
+        add("single_alternative", [candidates[1]], "SINGLE", f"Use only {candidates[1]} when its specialist profile better matches the task.")
+        if shared:
+            add("sequential_pair_01", [candidates[0], candidates[1]], "SEQUENTIAL", f"Use {candidates[0]} then {candidates[1]} because shared state makes parallel work unsafe.")
+        else:
+            add("parallel_pair_01", [candidates[0], candidates[1]], "PARALLEL", f"Run {candidates[0]} and {candidates[1]} concurrently when complementary coverage or hedging justifies two workers.")
+    if len(candidates) >= 3 and not shared:
+        add("parallel_pair_02", [candidates[0], candidates[2]], "PARALLEL", f"Run {candidates[0]} and {candidates[2]} concurrently when the third-ranked specialist provides a better complement.")
+        if allow_third:
+            add("parallel_triple_012", [candidates[0], candidates[1], candidates[2]], "PARALLEL", "Run three workers only when three independent or complementary workstreams materially improve total value.")
+    add("escalate", [candidates[0]], "SINGLE", "Escalate to ChatGPT when autonomous routing is too ambiguous or high-risk.")
+    return options
+
+
+def build_portfolio_route_batch_request(
+    *,
+    model: str,
+    records: Sequence[Mapping[str, Any]],
+    policy: Mapping[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    batch = policy.get("batch_execution") or {}
+    max_records = int(batch.get("max_records_per_request", 20))
+    if not 1 <= len(records) <= max_records:
+        raise JevDecisionError("batch_size_out_of_bounds")
+    prepared = [
+        _prepare_fast_route_record(record, index=i + 1, policy=policy)
+        for i, record in enumerate(records)
+    ]
+    seen_external: set[str] = set()
+    seen_internal: set[str] = set()
+    questions: dict[str, Any] = {}
+    state_records: list[dict[str, str]] = []
+
+    for i, record in enumerate(prepared, 1):
+        external = str(record["external_id"])
+        if external in seen_external:
+            raise JevDecisionError("duplicate_external_record_id")
+        seen_external.add(external)
+        if record["id"] in seen_internal:
+            record["id"] = f"r_{i:04d}"
+        seen_internal.add(record["id"])
+
+        options = _portfolio_options(record)
+        record["portfolio_options"] = options
+        criteria = {
+            key: (
+                value["description"]
+                + " Profiles: "
+                + " | ".join(
+                    f"{model_id}: {record['candidate_profiles'].get(model_id, '')}"
+                    for model_id in value["workers"]
+                )
+            )
+            for key, value in options.items()
+        }
+        questions[f"{record['id']}__route_portfolio"] = _choice(
+            criteria,
+            f'For record "{record["id"]}", choose the smallest safe execution portfolio that best balances quality and wall-clock speed.',
+        )
+        state_records.append({
+            "id": record["id"],
+            "record": json.dumps({
+                "task_summary": record["task_summary"],
+                "lane": record["lane"],
+                "quota_pressure": record["quota_pressure"],
+                "high_risk": record["high_risk"],
+                "shared_mutable_state": record["shared_mutable_state"],
+                "hard_rules": [
+                    "Choose exactly one provided portfolio.",
+                    "Prefer the smallest portfolio unless another materially improves quality or latency.",
+                    "Do not expand workers, permissions, or paid scope.",
+                ],
+            }, ensure_ascii=False, separators=(",", ":")),
+        })
+
+    return {
+        "model": model,
+        "state": {
+            "description": "Prevalidated routing records with code-generated safe execution portfolios.",
+            "records": state_records,
+        },
+        "questions": questions,
+    }, prepared
+
+
+def parse_portfolio_route_response(
+    payload: Mapping[str, Any],
+    *,
+    prepared_records: Sequence[Mapping[str, Any]],
+    policy: Mapping[str, Any],
+) -> dict[str, dict[str, Any]]:
+    answers = payload.get("answers")
+    if not isinstance(answers, Mapping):
+        raise JevDecisionError("answers_missing")
+    threshold = float((policy.get("decision_contract") or {}).get("low_confidence_threshold", 0.65))
+    out: dict[str, dict[str, Any]] = {}
+    for record in prepared_records:
+        rid = str(record["id"])
+        answer = answers.get(f"{rid}__route_portfolio")
+        if not isinstance(answer, Mapping):
+            raise JevDecisionError(f"{rid}:portfolio_answer_missing")
+        choice_key, confidence, probabilities = _choice_answer(answer)
+        options = record.get("portfolio_options") if isinstance(record.get("portfolio_options"), Mapping) else {}
+        if choice_key not in options:
+            ranked = sorted(
+                ((float(prob), key) for key, prob in probabilities.items() if key in options),
+                reverse=True,
+            )
+            if not ranked:
+                raise JevDecisionError(f"{rid}:portfolio_choice_invalid")
+            choice_key = ranked[0][1]
+        option = options[choice_key]
+        workers = tuple(str(x) for x in option["workers"])
+        mode = str(option["mode"])
+        low = confidence < threshold
+        action = Action.ESCALATE if choice_key == "escalate" or low else Action.EXECUTE
+        out[str(record.get("external_id") or rid)] = NormalizedRoutingDecision(
+            schema_version="jev-portfolio-routing-decision-v1",
+            record_id=str(record.get("external_id") or rid),
+            lane=str(record.get("lane") or Lane.GENERAL_REASONING.value),
+            workers=workers,
+            fanout=len(workers),
+            parallel=mode == "PARALLEL" and len(workers) > 1,
+            execution_mode=mode,
+            independent_verification=len(workers) > 1,
+            action=action.value,
+            confidence=round(confidence, 6),
+            low_confidence=low,
+        ).to_dict()
+    return out
+
+
+def decide_portfolio_batch(
+    *,
+    records: Sequence[Mapping[str, Any]],
+    api_key: str | None = None,
+    timeout_seconds: float = 10.0,
+    catalog_entries: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    policy = load_policy()
+    key = api_key if api_key is not None else os.environ.get("OPENROUTER_API_KEY", "")
+    if not key:
+        return {"status": "JEV_UNAVAILABLE", "reason": "OPENROUTER_API_KEY_MISSING", "decisions": {}}
+    provider = policy.get("provider") or {}
+    latest = str(provider.get("canonical_model_alias") or "~typesafe/jev-latest")
+    pinned = str(provider.get("last_known_good_model") or "typesafe/jev-1.13")
+    try:
+        catalog = list(catalog_entries) if catalog_entries is not None else fetch_catalog()
+    except JevDecisionError as exc:
+        return {"status": "JEV_UNAVAILABLE", "reason": str(exc), "decisions": {}}
+    errors: list[dict[str, Any]] = []
+    for model in [latest, pinned]:
+        if model == pinned and latest == pinned:
+            continue
+        ok, price = price_guard_allows(model, policy=policy, entries=catalog)
+        if not ok:
+            errors.append({"model": model, "reason": "EMERGENCY_PRICE_GUARD_BLOCK"})
+            continue
+        body, prepared = build_portfolio_route_batch_request(model=model, records=records, policy=policy)
+        status, payload, latency_ms = _json_request(
+            DECISIONS_URL,
+            method="POST",
+            api_key=key,
+            body=body,
+            timeout_seconds=timeout_seconds,
+        )
+        if status != 200:
+            errors.append({"model": model, "reason": f"http_{status}"})
+            continue
+        try:
+            decisions = parse_portfolio_route_response(payload, prepared_records=prepared, policy=policy)
+        except JevDecisionError as exc:
+            errors.append({"model": model, "reason": str(exc)})
+            continue
+        usage = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
+        return {
+            "status": "JEV_PORTFOLIO_BATCH_OK",
+            "requested_model": model,
+            "latency_ms": round(latency_ms, 3),
+            "record_count": len(prepared),
+            "question_count": len(body["questions"]),
+            "questions_per_record": round(len(body["questions"]) / max(1, len(prepared)), 3),
+            "decisions": decisions,
+            "usage": {
+                "input_tokens": usage.get("input_tokens"),
+                "output_tokens": usage.get("output_tokens"),
+                "cost": usage.get("cost"),
+            },
+            "prior_errors": errors,
+        }
+    return {"status": "JEV_UNAVAILABLE", "reason": "PORTFOLIO_LATEST_AND_PINNED_FAILED", "errors": errors, "decisions": {}}
+
+
 __all__ = [
     "Action",
     "DECISIONS_URL",
@@ -1275,5 +1489,8 @@ __all__ = [
     "decide_fast",
     "decide_fast_batch",
     "decide_many_fast",
+    "build_portfolio_route_batch_request",
+    "parse_portfolio_route_response",
+    "decide_portfolio_batch",
 
 ]
