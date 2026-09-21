@@ -209,7 +209,7 @@ def coordinate(
 
     free_policy = load_free_policy()
     evidence = load_recent_evidence()
-    candidates = _health_ranked_candidates(free_policy, entries, task, evidence, max_candidates=12)
+    candidates = _health_ranked_candidates(free_policy, entries, task, evidence, max_candidates=4)
     remaining = int(baseline.get("remaining_quota_before_plan", 0))
     lane = str(baseline.get("lane") or "GENERAL_REASONING")
     summary = str(task.get("objective") or task.get("task_summary") or task.get("description") or task)
@@ -337,7 +337,7 @@ def coordinate_many(
         baselines[task_id] = base
         if base.get("status") != "READY" or bool(task.get("deterministic")) or not use_jev:
             continue
-        candidates = _health_ranked_candidates(free_policy, entries, task, evidence, max_candidates=12)
+        candidates = _health_ranked_candidates(free_policy, entries, task, evidence, max_candidates=4)
         task_candidates[task_id] = candidates
         if not candidates:
             continue
