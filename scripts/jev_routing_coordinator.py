@@ -109,6 +109,43 @@ def _bounded_low_confidence_hedge(
     }
 
 
+def _healthy_latency_challenger(
+    selected: Sequence[str],
+    candidates: Sequence[str],
+    evidence: Mapping[str, Mapping[str, Any]],
+    *,
+    latency_threshold_ms: float = 3000.0,
+) -> str | None:
+    if not selected:
+        return None
+    primary = str(selected[0])
+    primary_ev = evidence.get(primary) if isinstance(evidence, Mapping) else None
+    try:
+        primary_latency = float((primary_ev or {}).get("avg_latency_ms") or 0.0)
+    except (TypeError, ValueError):
+        primary_latency = 0.0
+    if primary_latency <= latency_threshold_ms:
+        return None
+    for model in candidates:
+        model = str(model)
+        if not model or model in selected:
+            continue
+        raw = evidence.get(model) if isinstance(evidence, Mapping) else None
+        if isinstance(raw, Mapping):
+            if int(raw.get("rate_limits", 0) or 0) > 0:
+                continue
+            if int(raw.get("quality_failures", 0) or 0) > 0:
+                continue
+            try:
+                latency = float(raw.get("avg_latency_ms") or 0.0)
+            except (TypeError, ValueError):
+                latency = 0.0
+            if latency > 0 and latency >= primary_latency:
+                continue
+        return model
+    return None
+
+
 def _baseline(
     task: Mapping[str, Any],
     entries: Sequence[Mapping[str, Any]],
@@ -220,16 +257,25 @@ def coordinate(
             "jev": jev,
             "final_plan": baseline,
         }
+    latency_challenger = None
+    if len(selected) == 1 and not _is_high_risk(task) and remaining >= 2:
+        latency_challenger = _healthy_latency_challenger(selected, candidates, evidence)
+        if latency_challenger:
+            selected.append(latency_challenger)
     final = {
         **baseline,
         "selected_models": selected,
         "primary_model": selected[0],
         "active_model_count": len(selected),
-        "parallel_model_calls": len(selected) if decision.get("parallel") else 1,
-        "execution_mode": decision.get("execution_mode"),
+        "parallel_model_calls": len(selected) if (decision.get("parallel") or latency_challenger) else 1,
+        "execution_mode": "PARALLEL" if latency_challenger else decision.get("execution_mode"),
         "lane": decision.get("lane") or lane,
         "independent_verification": bool(decision.get("independent_verification")),
-        "fanout_reason": ["JEV_TYPED_SYSTEM_ONE_DECISION", *list(baseline.get("fanout_reason") or [])],
+        "fanout_reason": [
+            "JEV_TYPED_SYSTEM_ONE_DECISION",
+            *(["RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED"] if latency_challenger else []),
+            *list(baseline.get("fanout_reason") or []),
+        ],
         "jev_confidence": decision.get("confidence"),
         "fanout_decision_owner": "chatgpt-top-commander-with-jev-fast-decision-plane",
     }
@@ -310,7 +356,12 @@ def coordinate_many(
         if not selected:
             raw_plans[task_id] = dict(base)
             continue
-        parallel = bool(decision.get("parallel")) and len(selected) > 1
+        latency_challenger = None
+        if len(selected) == 1 and not _is_high_risk(task):
+            latency_challenger = _healthy_latency_challenger(selected, candidates, evidence)
+            if latency_challenger:
+                selected.append(latency_challenger)
+        parallel = (bool(decision.get("parallel")) or latency_challenger is not None) and len(selected) > 1
         raw_plans[task_id] = {
             **base,
             "selected_models": selected,
@@ -321,7 +372,11 @@ def coordinate_many(
             "lane": decision.get("lane") or base.get("lane"),
             "independent_verification": bool(decision.get("independent_verification")),
             "jev_confidence": decision.get("confidence"),
-            "fanout_reason": ["JEV_BATCH_TYPED_DECISION", *list(base.get("fanout_reason") or [])],
+            "fanout_reason": [
+                "JEV_BATCH_TYPED_DECISION",
+                *(["RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED"] if latency_challenger else []),
+                *list(base.get("fanout_reason") or []),
+            ],
         }
 
     # One common reservation gate covers Jev plans and deterministic fallbacks.
