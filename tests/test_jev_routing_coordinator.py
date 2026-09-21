@@ -91,6 +91,58 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         self.assertEqual(len(result["plans"]), 10)
         self.assertTrue(all(plan["active_model_count"] == 1 for plan in result["plans"].values()))
 
+    def test_batch_plan_never_exceeds_remaining_free_worker_budget(self):
+        tasks = [
+            {"task_id": "task_a", "task_class": "GENERAL", "objective": "A"},
+            {"task_id": "task_b", "task_class": "GENERAL", "objective": "B"},
+        ]
+        fake = {
+            "status": "JEV_MANY_OK",
+            "record_count": 2,
+            "batch_count": 1,
+            "parallel_batch_count": 1,
+            "decisions": {
+                "task_a": {
+                    "workers": [
+                        "deepseek/deepseek-v4-flash-0731:free",
+                        "qwen/qwen3.8-27b:free",
+                        "z-ai/glm-5.2:free",
+                    ],
+                    "parallel": True,
+                    "execution_mode": "PARALLEL",
+                    "lane": "GENERAL_REASONING",
+                    "independent_verification": False,
+                    "action": "EXECUTE",
+                    "confidence": 0.9,
+                    "low_confidence": False,
+                },
+                "task_b": {
+                    "workers": [
+                        "deepseek/deepseek-v4-flash-0731:free",
+                        "qwen/qwen3.8-27b:free",
+                        "z-ai/glm-5.2:free",
+                    ],
+                    "parallel": True,
+                    "execution_mode": "PARALLEL",
+                    "lane": "GENERAL_REASONING",
+                    "independent_verification": False,
+                    "action": "EXECUTE",
+                    "confidence": 0.9,
+                    "low_confidence": False,
+                },
+            },
+        }
+        with patch("scripts.jev_routing_coordinator.decide_many", return_value=fake):
+            result = coordinate_many(
+                tasks,
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+                free_requests_today=43,
+            )
+        total = sum(len(plan.get("selected_models", [])) for plan in result["plans"].values())
+        self.assertLessEqual(total, 2)
+
 
 if __name__ == "__main__":
     unittest.main()
