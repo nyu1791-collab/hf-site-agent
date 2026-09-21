@@ -200,6 +200,13 @@ def coordinate_many(
     decisions = jev.get("decisions") if isinstance(jev.get("decisions"), Mapping) else {}
     plans: dict[str, Any] = {}
 
+    # Reserve planned free-worker request capacity across the batch so a fast
+    # Jev plan does not create work that the free ledger will immediately block.
+    remaining_budget = 0
+    for base in baselines.values():
+        if base.get("status") == "READY":
+            remaining_budget = max(remaining_budget, int(base.get("remaining_quota_before_plan", 0) or 0))
+
     for index, task in enumerate(tasks, 1):
         task_id = str(task.get("task_id") or task.get("id") or f"task_{index:04d}")
         base = baselines[task_id]
@@ -211,16 +218,25 @@ def coordinate_many(
         if not selected:
             plans[task_id] = base
             continue
+        if remaining_budget <= 0:
+            plans[task_id] = {**base, "status": "BLOCKED_FREE_QUOTA_PLANNED_EXHAUSTED", "selected_models": []}
+            continue
+        if len(selected) > remaining_budget:
+            selected = selected[:remaining_budget]
+        remaining_budget -= len(selected)
+        parallel = bool(decision.get("parallel")) and len(selected) > 1
         plans[task_id] = {
             **base,
             "selected_models": selected,
             "primary_model": selected[0],
             "active_model_count": len(selected),
-            "parallel_model_calls": len(selected) if decision.get("parallel") else 1,
-            "execution_mode": decision.get("execution_mode"),
+            "parallel_model_calls": len(selected) if parallel else 1,
+            "execution_mode": "PARALLEL" if parallel else ("SINGLE" if len(selected) == 1 else "SEQUENTIAL"),
             "lane": decision.get("lane") or base.get("lane"),
             "independent_verification": bool(decision.get("independent_verification")),
             "jev_confidence": decision.get("confidence"),
+            "planned_free_requests_reserved": len(selected),
+            "remaining_batch_free_request_budget": remaining_budget,
             "fanout_reason": ["JEV_BATCH_TYPED_DECISION", *list(base.get("fanout_reason") or [])],
         }
 
