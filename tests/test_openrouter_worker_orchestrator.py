@@ -249,6 +249,54 @@ class OpenRouterWorkerOrchestratorTests(unittest.TestCase):
         self.assertEqual(result["state"], "WAITING_FOR_BENCHMARK_RECOVERY")
         self.assertEqual(result["next_action"], "RESUME_SAME_PROJECT_WITH_EXISTING_PROBE_EVIDENCE")
 
+    def test_jev_fast_lane_is_bounded_and_does_not_auto_activate(self):
+        probe = {"status": "FREE_ACTIVE", "model_calls": 1, "results": [], "role_probe_candidates": {}}
+        benchmark = {
+            "status": "BENCHMARK_READY",
+            "model_calls": 2,
+            "assignments": {
+                "CODING_WORKER": {
+                    "status": "ready_for_commander_review",
+                    "model": "vendor/code:free",
+                    "score": 0.93,
+                    "ranking": [
+                        {"model": "vendor/code:free", "rank": 1, "score": 0.93},
+                        {"model": "vendor/review:free", "rank": 2, "score": 0.88},
+                    ],
+                },
+            },
+        }
+        jev = {
+            "status": "JEV_DECISION_OK",
+            "decision": {
+                "selected_models": ["vendor/code:free"],
+                "fanout": 1,
+                "execution_mode": "SINGLE",
+                "independent_verification": False,
+                "confidence": 0.94,
+            },
+        }
+        project_loop = {"state": "PROJECT_BATCH_COMPLETE", "next_action": "DONE", "completed_project_ids": ["x"]}
+        with patch("scripts.openrouter_worker_orchestrator.run_multi_probe", return_value=probe), patch(
+            "scripts.openrouter_worker_orchestrator.run_benchmarks", return_value=benchmark
+        ), patch(
+            "scripts.openrouter_worker_orchestrator.jev_decide", return_value=jev
+        ) as jev_call, patch(
+            "scripts.openrouter_worker_orchestrator.run_continuous_project_loop", return_value=project_loop
+        ):
+            result = run_pipeline(
+                source_head="h" * 40,
+                live_report=live_completed(),
+                api_key="secret-placeholder",
+                network_enabled=True,
+                jev_enabled=True,
+            )
+        jev_call.assert_called_once()
+        self.assertEqual(result["scoped_paid_decision_calls"], 1)
+        self.assertEqual(result["handoff"]["fast_lane_recommendation"]["selected_models"], ["vendor/code:free"])
+        self.assertFalse(result["handoff"]["fast_lane_recommendation"]["automatic_activation"])
+        self.assertFalse(result["automatic_activation"])
+
 
 if __name__ == "__main__":
     unittest.main()
