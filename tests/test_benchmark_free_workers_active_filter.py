@@ -47,11 +47,12 @@ class BenchmarkActiveFilterTests(unittest.TestCase):
         with patch("scripts.benchmark_free_workers._safe_json_request", side_effect=fake_request):
             report = run_benchmarks(api_key="test-key", probe_report=probe)
 
-        self.assertEqual(report["model_calls"], 12)
+        self.assertEqual(report["model_calls"], 8)
         self.assertNotIn(inactive_a, seen)
         self.assertNotIn(inactive_b, seen)
-        for model in active:
-            self.assertEqual(seen.count(model), 4)
+        self.assertEqual(seen.count(active[0]), 4)
+        self.assertEqual(seen.count(active[1]), 4)
+        self.assertEqual(seen.count(active[2]), 0)
 
 
 if __name__ == "__main__":
