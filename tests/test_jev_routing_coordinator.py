@@ -198,6 +198,48 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         self.assertEqual(result["route_source"], "CHATGPT_ADJUDICATION_AFTER_JEV")
         self.assertEqual(result["final_plan"]["status"], "REQUIRES_CHATGPT_ADJUDICATION")
 
+    def test_slow_proven_primary_gets_one_latency_challenger(self):
+        fake = {
+            "status": "JEV_DECISION_OK",
+            "decision": {
+                "workers": ["deepseek/deepseek-v4-flash-0731:free"],
+                "fanout": 1,
+                "parallel": False,
+                "execution_mode": "SINGLE",
+                "lane": "GENERAL_REASONING",
+                "independent_verification": False,
+                "action": "EXECUTE",
+                "confidence": 0.95,
+                "low_confidence": False,
+            },
+        }
+        evidence = {
+            "deepseek/deepseek-v4-flash-0731:free": {
+                "successes": 3,
+                "quality_failures": 0,
+                "rate_limits": 0,
+                "avg_latency_ms": 4500,
+            },
+            "qwen/qwen3.8-27b:free": {
+                "successes": 0,
+                "quality_failures": 0,
+                "rate_limits": 0,
+                "avg_latency_ms": 0,
+            },
+        }
+        with patch("scripts.jev_routing_coordinator.decide", return_value=fake), patch(
+            "scripts.jev_routing_coordinator.load_recent_evidence", return_value=evidence
+        ):
+            result = coordinate(
+                {"task_class": "GENERAL", "objective": "Routine task."},
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+            )
+        self.assertEqual(result["final_plan"]["active_model_count"], 2)
+        self.assertEqual(result["final_plan"]["execution_mode"], "PARALLEL")
+        self.assertIn("RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED", result["final_plan"]["fanout_reason"])
+
 
 if __name__ == "__main__":
     unittest.main()
