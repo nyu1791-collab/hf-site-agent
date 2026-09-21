@@ -1,44 +1,223 @@
 {
-  "schema_version": "permanent-standards-manifest-v11",
-  "effective_date_jst": "2026-09-14",
+  "schema_version": "permanent-standards-manifest-v12",
+  "effective_date_jst": "2026-09-21",
   "purpose": "Keep the AI Army, evidence governance, media quality, creator monetization and bounded paid supervision recoverable across new chat tabs while using one expandable manifest plus a compact master rulebook instead of duplicating every detailed rule in startup handoffs.",
   "canonical_branch": "ai-army/provider-v3",
   "startup_rule": "READ_CURRENT_COMMANDER_HANDOFF_THEN_PRIORITY_ZERO_MANIFEST_STANDARDS_AND_MASTER_RULEBOOK_BEFORE_TASK_SPECIFIC_PLANNING",
   "required_standards": [
-    {"id":"current-commander-handoff","machine_policy":"config/current_commander_handoff.json","priority":0},
-    {"id":"master-rulebook","path":"docs/AI_ARMY_MASTER_RULEBOOK.md","priority":0},
-    {"id":"media-command-read-gate","machine_policy":"config/media_command_read_gate.json","human_doc":"docs/MEDIA_COMMAND_READ_GATE.md","priority":0},
-    {"id":"monetization-command-read-gate","machine_policy":"config/monetization_command_read_gate.json","human_doc":"docs/CREATOR_MONETIZATION_AND_AGENT_REVENUE_PLAYBOOK.md","priority":0},
-    {"id":"platform-program-evidence","machine_policy":"config/platform_program_evidence.json","priority":0},
-    {"id":"cross-source-knowhow-evidence","machine_policy":"config/cross_source_knowhow_evidence_matrix.json","human_doc":"docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md","priority":0},
-    {"id":"cross-domain-measurement-registry","machine_policy":"config/cross_domain_measurement_registry.json","priority":0},
-    {"id":"cross-source-second-pass","machine_policy":"config/cross_source_second_pass_policy.json","human_doc":"docs/CROSS_SOURCE_SECOND_PASS_2026-09-13.md","priority":0},
-    {"id":"second-pass-artifact-contracts","machine_policy":"config/second_pass_artifact_contracts.json","runtime":"scripts/second_pass_governance.py","priority":0},
-    {"id":"creator-monetization-portfolio","machine_policy":"config/creator_monetization_policy.json","human_doc":"docs/CREATOR_MONETIZATION_AND_AGENT_REVENUE_PLAYBOOK.md","validator":"scripts/validate_creator_monetization_state.py","priority":1},
-    {"id":"ai-army-org-chart","machine_policy":"config/ai_army_org_chart.json","human_doc":"docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md","priority":1},
-    {"id":"canonical-routing-facade","runtime":"scripts/ai_army_routing_facade.py","priority":1},
-    {"id":"multi-agent-operating-standard","path":"docs/MULTI_AGENT_OPERATING_STANDARD.md","machine_policy":"config/multi_agent_operating_policy.json","priority":1},
-    {"id":"deepseek-executive-supervisor","machine_policy":"config/deepseek_paid_supervisor_policy.json","runtime":"scripts/deepseek_supervisor_research.py","resilient_entrypoint":"scripts/deepseek_supervisor_research_resilient.py","parser_guard":"scripts/deepseek_json_guard.py","workflow":".github/workflows/deepseek-supervisor-research.yml","priority":1},
-    {"id":"ci-execution-control-plane","machine_policy":"config/ci_execution_policy.json","validator":"scripts/ci_control_plane_guard.py","priority":1},
-    {"id":"agent-efficiency-shadow-evaluation","machine_policy":"config/agent_efficiency_policy.json","admission":"scripts/agent_architecture_admission.py","evaluation":"scripts/agent_efficiency_eval.py","priority":1},
-    {"id":"legacy-deepseek-compatibility-registry","machine_policy":"config/legacy_deepseek_compatibility.json","authority":"HISTORICAL_COMPATIBILITY_ONLY","priority":2},
-    {"id":"permanent-ai-army-consistency-gate","validator":"scripts/validate_permanent_ai_army_state.py","workflow":".github/workflows/canonical-ai-army-consistency.yml","priority":1},
-    {"id":"peer-review-adjudication","machine_policy":"config/peer_review_adopted_deltas_20260912.json","priority":1},
-    {"id":"current-media-quality-handoff","machine_policy":"config/current_media_quality_handoff.json","authority":"INDEX_AND_CONTINUITY_SUMMARY_ONLY","priority":1},
-    {"id":"media-character-performance-compact-orchestration","machine_policy":"config/media_character_performance_compact_orchestration_policy.json","priority":1},
-    {"id":"media-pipeline","path":"docs/MEDIA_PIPELINE.md","priority":1},
-    {"id":"media-audio-motion-retention","machine_policy":"config/media_audio_motion_retention_policy.json","priority":1},
-    {"id":"media-reusable-asset-standard","machine_policy":"config/media_reusable_asset_standard.json","runtime":"scripts/media_asset_resolver.py","priority":1},
-    {"id":"media-character-reaction-cache","machine_policy":"config/media_character_reaction_cache_policy.json","human_doc":"docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md","builder":"scripts/prepare_character_reaction_pack.py","validator":"scripts/validate_media_character_reaction_cache.py","priority":1},
-    {"id":"zundamon-metan-production-quality","machine_policy":"config/zundamon_metan_production_quality_policy.json","human_doc":"docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md","validator":"scripts/validate_zundamon_metan_production_quality.py","priority":1},
-    {"id":"free-audio-source-registry","machine_policy":"config/free_audio_source_registry.json","priority":1},
-    {"id":"dova-curated-bgm-catalog","machine_policy":"config/dova_curated_bgm_catalog.json","priority":1},
-    {"id":"longform-video-objectives","path":"docs/LONGFORM_VIDEO_OBJECTIVES.md","machine_policy":"config/longform_video_objectives.json","priority":1},
-    {"id":"longform-video-reliability","path":"docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md","machine_policy":"config/longform_video_reliability_policy.json","priority":1},
-    {"id":"media-research-synthesis","path":"docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md","priority":1},
-    {"id":"authorized-clipping-and-monetization","path":"docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md","machine_policy":"config/authorized_clipping_monetization_policy.json","priority":1},
-    {"id":"bounded-batch-media-orchestration","path":"docs/BATCH_MEDIA_ORCHESTRATION.md","machine_policy":"config/batch_media_orchestration_policy.json","worker_pool":"config/bulk_media_worker_pool.json","job_schema":"schemas/batch_media_job.schema.json","runtime":"scripts/batch_media_scheduler.py","command_center":"scripts/media_batch_command_center.py","command_schema":"schemas/media_batch_command.schema.json","command_doc":"docs/MEDIA_BATCH_COMMAND_CENTER.md","priority":1},
-    {"id":"tiktok-shop-influence","path":"docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md","machine_policy":"config/tiktok_shop_influence_policy.json","priority":1}
+    {
+      "id": "current-commander-handoff",
+      "machine_policy": "config/current_commander_handoff.json",
+      "priority": 0
+    },
+    {
+      "id": "master-rulebook",
+      "path": "docs/AI_ARMY_MASTER_RULEBOOK.md",
+      "priority": 0
+    },
+    {
+      "id": "media-command-read-gate",
+      "machine_policy": "config/media_command_read_gate.json",
+      "human_doc": "docs/MEDIA_COMMAND_READ_GATE.md",
+      "priority": 0
+    },
+    {
+      "id": "monetization-command-read-gate",
+      "machine_policy": "config/monetization_command_read_gate.json",
+      "human_doc": "docs/CREATOR_MONETIZATION_AND_AGENT_REVENUE_PLAYBOOK.md",
+      "priority": 0
+    },
+    {
+      "id": "platform-program-evidence",
+      "machine_policy": "config/platform_program_evidence.json",
+      "priority": 0
+    },
+    {
+      "id": "cross-source-knowhow-evidence",
+      "machine_policy": "config/cross_source_knowhow_evidence_matrix.json",
+      "human_doc": "docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md",
+      "priority": 0
+    },
+    {
+      "id": "cross-domain-measurement-registry",
+      "machine_policy": "config/cross_domain_measurement_registry.json",
+      "priority": 0
+    },
+    {
+      "id": "cross-source-second-pass",
+      "machine_policy": "config/cross_source_second_pass_policy.json",
+      "human_doc": "docs/CROSS_SOURCE_SECOND_PASS_2026-09-13.md",
+      "priority": 0
+    },
+    {
+      "id": "second-pass-artifact-contracts",
+      "machine_policy": "config/second_pass_artifact_contracts.json",
+      "runtime": "scripts/second_pass_governance.py",
+      "priority": 0
+    },
+    {
+      "id": "creator-monetization-portfolio",
+      "machine_policy": "config/creator_monetization_policy.json",
+      "human_doc": "docs/CREATOR_MONETIZATION_AND_AGENT_REVENUE_PLAYBOOK.md",
+      "validator": "scripts/validate_creator_monetization_state.py",
+      "priority": 1
+    },
+    {
+      "id": "ai-army-org-chart",
+      "machine_policy": "config/ai_army_org_chart.json",
+      "human_doc": "docs/AI_ARMY_CANONICAL_ORGANIZATION_2026-09-12.md",
+      "priority": 1
+    },
+    {
+      "id": "canonical-routing-facade",
+      "runtime": "scripts/ai_army_routing_facade.py",
+      "priority": 1
+    },
+    {
+      "id": "multi-agent-operating-standard",
+      "path": "docs/MULTI_AGENT_OPERATING_STANDARD.md",
+      "machine_policy": "config/multi_agent_operating_policy.json",
+      "priority": 1
+    },
+    {
+      "id": "openrouter-free-efficiency",
+      "machine_policy": "config/openrouter_free_efficiency_policy.json",
+      "runtime": "scripts/openrouter_free_efficiency_router.py",
+      "validator": "scripts/validate_openrouter_free_efficiency.py",
+      "priority": 1
+    },
+    {
+      "id": "deepseek-executive-supervisor",
+      "machine_policy": "config/deepseek_paid_supervisor_policy.json",
+      "runtime": "scripts/deepseek_supervisor_research.py",
+      "resilient_entrypoint": "scripts/deepseek_supervisor_research_resilient.py",
+      "parser_guard": "scripts/deepseek_json_guard.py",
+      "workflow": ".github/workflows/deepseek-supervisor-research.yml",
+      "priority": 1
+    },
+    {
+      "id": "ci-execution-control-plane",
+      "machine_policy": "config/ci_execution_policy.json",
+      "validator": "scripts/ci_control_plane_guard.py",
+      "priority": 1
+    },
+    {
+      "id": "agent-efficiency-shadow-evaluation",
+      "machine_policy": "config/agent_efficiency_policy.json",
+      "admission": "scripts/agent_architecture_admission.py",
+      "evaluation": "scripts/agent_efficiency_eval.py",
+      "priority": 1
+    },
+    {
+      "id": "legacy-deepseek-compatibility-registry",
+      "machine_policy": "config/legacy_deepseek_compatibility.json",
+      "authority": "HISTORICAL_COMPATIBILITY_ONLY",
+      "priority": 2
+    },
+    {
+      "id": "permanent-ai-army-consistency-gate",
+      "validator": "scripts/validate_permanent_ai_army_state.py",
+      "workflow": ".github/workflows/canonical-ai-army-consistency.yml",
+      "priority": 1
+    },
+    {
+      "id": "peer-review-adjudication",
+      "machine_policy": "config/peer_review_adopted_deltas_20260912.json",
+      "priority": 1
+    },
+    {
+      "id": "current-media-quality-handoff",
+      "machine_policy": "config/current_media_quality_handoff.json",
+      "authority": "INDEX_AND_CONTINUITY_SUMMARY_ONLY",
+      "priority": 1
+    },
+    {
+      "id": "media-character-performance-compact-orchestration",
+      "machine_policy": "config/media_character_performance_compact_orchestration_policy.json",
+      "priority": 1
+    },
+    {
+      "id": "media-pipeline",
+      "path": "docs/MEDIA_PIPELINE.md",
+      "priority": 1
+    },
+    {
+      "id": "media-audio-motion-retention",
+      "machine_policy": "config/media_audio_motion_retention_policy.json",
+      "priority": 1
+    },
+    {
+      "id": "media-reusable-asset-standard",
+      "machine_policy": "config/media_reusable_asset_standard.json",
+      "runtime": "scripts/media_asset_resolver.py",
+      "priority": 1
+    },
+    {
+      "id": "media-character-reaction-cache",
+      "machine_policy": "config/media_character_reaction_cache_policy.json",
+      "human_doc": "docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md",
+      "builder": "scripts/prepare_character_reaction_pack.py",
+      "validator": "scripts/validate_media_character_reaction_cache.py",
+      "priority": 1
+    },
+    {
+      "id": "zundamon-metan-production-quality",
+      "machine_policy": "config/zundamon_metan_production_quality_policy.json",
+      "human_doc": "docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md",
+      "validator": "scripts/validate_zundamon_metan_production_quality.py",
+      "priority": 1
+    },
+    {
+      "id": "free-audio-source-registry",
+      "machine_policy": "config/free_audio_source_registry.json",
+      "priority": 1
+    },
+    {
+      "id": "dova-curated-bgm-catalog",
+      "machine_policy": "config/dova_curated_bgm_catalog.json",
+      "priority": 1
+    },
+    {
+      "id": "longform-video-objectives",
+      "path": "docs/LONGFORM_VIDEO_OBJECTIVES.md",
+      "machine_policy": "config/longform_video_objectives.json",
+      "priority": 1
+    },
+    {
+      "id": "longform-video-reliability",
+      "path": "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+      "machine_policy": "config/longform_video_reliability_policy.json",
+      "priority": 1
+    },
+    {
+      "id": "media-research-synthesis",
+      "path": "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md",
+      "priority": 1
+    },
+    {
+      "id": "authorized-clipping-and-monetization",
+      "path": "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
+      "machine_policy": "config/authorized_clipping_monetization_policy.json",
+      "priority": 1
+    },
+    {
+      "id": "bounded-batch-media-orchestration",
+      "path": "docs/BATCH_MEDIA_ORCHESTRATION.md",
+      "machine_policy": "config/batch_media_orchestration_policy.json",
+      "worker_pool": "config/bulk_media_worker_pool.json",
+      "job_schema": "schemas/batch_media_job.schema.json",
+      "runtime": "scripts/batch_media_scheduler.py",
+      "command_center": "scripts/media_batch_command_center.py",
+      "command_schema": "schemas/media_batch_command.schema.json",
+      "command_doc": "docs/MEDIA_BATCH_COMMAND_CENTER.md",
+      "priority": 1
+    },
+    {
+      "id": "tiktok-shop-influence",
+      "path": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
+      "machine_policy": "config/tiktok_shop_influence_policy.json",
+      "priority": 1
+    }
   ],
   "canonical_ai_army_execution": {
     "policy_entrypoint": "scripts/ai_army_routing_facade.py",
@@ -60,7 +239,10 @@
     "cross_source_second_pass_policy": "config/cross_source_second_pass_policy.json",
     "second_pass_artifact_contracts": "config/second_pass_artifact_contracts.json",
     "creator_monetization_policy": "config/creator_monetization_policy.json",
-    "platform_program_evidence": "config/platform_program_evidence.json"
+    "platform_program_evidence": "config/platform_program_evidence.json",
+    "openrouter_free_efficiency_policy": "config/openrouter_free_efficiency_policy.json",
+    "openrouter_free_default_active_models_per_task": 1,
+    "openrouter_free_all_current_exact_free_models_attach_as_standby": true
   },
   "media_command_gate": {
     "policy": "config/media_command_read_gate.json",
@@ -142,7 +324,24 @@
       "policy": "config/deepseek_paid_supervisor_policy.json",
       "persistent_authorization": true,
       "repeat_per_call_approval_required": false,
-      "allowed_scope": ["RESEARCH", "EVIDENCE_TRIAGE", "ARCHITECTURE", "PEER_REVIEW", "RED_TEAM", "INCIDENT_ANALYSIS", "STRATEGY", "SCRIPT_AND_REPORT_DRAFTING", "EVIDENCE_PACKAGING", "TASK_PACKAGING", "TASK_DECOMPOSITION", "SUBORDINATE_REVIEW", "BOUNDED_CLERICAL_SUPPORT", "MEDIA_STRATEGY", "TIKTOK_SHOP_STRATEGY", "CREATOR_MONETIZATION_STRATEGY"],
+      "allowed_scope": [
+        "RESEARCH",
+        "EVIDENCE_TRIAGE",
+        "ARCHITECTURE",
+        "PEER_REVIEW",
+        "RED_TEAM",
+        "INCIDENT_ANALYSIS",
+        "STRATEGY",
+        "SCRIPT_AND_REPORT_DRAFTING",
+        "EVIDENCE_PACKAGING",
+        "TASK_PACKAGING",
+        "TASK_DECOMPOSITION",
+        "SUBORDINATE_REVIEW",
+        "BOUNDED_CLERICAL_SUPPORT",
+        "MEDIA_STRATEGY",
+        "TIKTOK_SHOP_STRATEGY",
+        "CREATOR_MONETIZATION_STRATEGY"
+      ],
       "bulk_coding_worker": false,
       "mandatory_hop_for_every_task": false,
       "repository_write_by_deepseek": false,
@@ -156,7 +355,21 @@
       "other_paid_provider_authorization": false
     }
   ],
-  "human_approval_actions": ["PAID_EXECUTION_NOT_MATCHING_ACTIVE_PREAUTHORIZED_EXCEPTION", "PAID_FALLBACK", "SECRET_MUTATION_OR_DISCLOSURE", "MAIN_DIRECT_PUSH", "PR_MERGE", "PRODUCTION_DEPLOY", "PUBLISH", "PLATFORM_PROGRAM_APPLICATION", "CONTRACT_ACCEPTANCE_OR_RATE_COMMITMENT", "USAGE_RIGHTS_OR_PAID_MEDIA_COMMITMENT", "CLIENT_PRODUCTION_ACTIVATION", "DURABLE_OBJECT_CHANGE", "IRREVERSIBLE_EXTERNAL_ACTION"],
+  "human_approval_actions": [
+    "PAID_EXECUTION_NOT_MATCHING_ACTIVE_PREAUTHORIZED_EXCEPTION",
+    "PAID_FALLBACK",
+    "SECRET_MUTATION_OR_DISCLOSURE",
+    "MAIN_DIRECT_PUSH",
+    "PR_MERGE",
+    "PRODUCTION_DEPLOY",
+    "PUBLISH",
+    "PLATFORM_PROGRAM_APPLICATION",
+    "CONTRACT_ACCEPTANCE_OR_RATE_COMMITMENT",
+    "USAGE_RIGHTS_OR_PAID_MEDIA_COMMITMENT",
+    "CLIENT_PRODUCTION_ACTIVATION",
+    "DURABLE_OBJECT_CHANGE",
+    "IRREVERSIBLE_EXTERNAL_ACTION"
+  ],
   "cross_tab_behavior": {
     "do_not_rely_on_chat_memory_only": true,
     "repository_files_are_durable_source_of_truth": true,
