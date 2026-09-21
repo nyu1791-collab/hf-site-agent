@@ -14,6 +14,7 @@ on:
       - "worker/**"
       - "hf-space/**"
       - "requirements*.txt"
+      - "missions/jev-trial/**"
   workflow_dispatch:
 
 permissions:
@@ -81,6 +82,23 @@ jobs:
             tests.test_replace_narration_audio \
             tests.test_media_asset_resolver \
             -v
+      - name: Run bounded Jev end-to-end trial
+        if: ${{ hashFiles('missions/jev-trial/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python scripts/jev_end_to_end_trial.py --output artifacts/jev_end_to_end_trial.json
+
+      - name: Upload Jev trial evidence
+        if: ${{ always() && hashFiles('missions/jev-trial/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-end-to-end-trial-${{ github.run_id }}
+          path: artifacts/jev_end_to_end_trial.json
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Validate JavaScript source syntax
         run: |
           test ! -f worker/index.js || node --check worker/index.js
