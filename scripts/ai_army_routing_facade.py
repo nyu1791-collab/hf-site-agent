@@ -4,12 +4,7 @@
 This module is the policy-facing entry point.  It does not call any model,
 spend money, mutate repositories, deploy, publish, or read secrets.
 
-It chooses among three bounded paths:
-1. ChatGPT + deterministic tools for mechanical work.
-2. Paid DeepSeek Executive Supervisor for pre-authorized supervisory work.
-3. Direct specialist bypass for narrow execution when an extra supervisor hop
-   would add cost/latency without enough value.
-
+It chooses among bounded execution paths while exposing a Jev fast decision\nplane for nontrivial model/fanout choices:\n1. ChatGPT + deterministic tools for mechanical work.\n2. Jev fast typed routing/triage before eligible specialist execution when useful.\n3. Paid DeepSeek Executive Supervisor for high-information-gain supervisory work.\n4. Direct specialist bypass for narrow execution when an extra supervisor hop\n   would add cost/latency without enough value.\n
 The older commander_routing module remains an execution compatibility layer for
 path (3); it is no longer the canonical policy authority.
 """
@@ -91,6 +86,15 @@ def plan_route(
         "canonical_router": "scripts/ai_army_routing_facade.py",
         "admission": admission,
         "chatgpt_final_authority": True,
+        "decision_plane": {
+            "role": "FAST_DECISION_PLANE",
+            "agent": "~typesafe/jev-latest",
+            "policy": "config/jev_decision_engine_policy.json",
+            "coordinator": "scripts/jev_routing_coordinator.py",
+            "use_for_nontrivial_route_choice": not deterministic,
+            "may_expand_permissions": False,
+            "may_authorize_paid_workers": False,
+        },
         "single_writer_required": bool(admission.get("single_writer_required")),
         "generic_paid_fallback": False,
         "auto_top_up": False,
