@@ -1,5 +1,5 @@
 {
-  "schema_version": "permanent-standards-manifest-v14",
+  "schema_version": "permanent-standards-manifest-v15",
   "effective_date_jst": "2026-09-21",
   "purpose": "Keep the AI Army, evidence governance, media quality, creator monetization and bounded paid supervision recoverable across new chat tabs while using one expandable manifest plus a compact master rulebook instead of duplicating every detailed rule in startup handoffs.",
   "canonical_branch": "ai-army/provider-v3",
@@ -260,7 +260,15 @@
     "jev_fast_decision_policy": "config/jev_decision_engine_policy.json",
     "jev_canonical_model_alias": "~typesafe/jev-latest",
     "jev_role": "FAST_DECISION_PLANE",
-    "jev_default_for_nontrivial_route_choice": true
+    "jev_default_for_nontrivial_route_choice": true,
+    "jev_typed_decisions_only": true,
+    "jev_free_text_output": false,
+    "jev_python_normalizes_final_json": true,
+    "jev_batch_first": true,
+    "jev_max_records_per_request": 20,
+    "jev_max_parallel_batches": 5,
+    "jev_quota_math_in_python": true,
+    "jev_cost_priority": "ROUTING_SPEED_FIRST_WITH_EMERGENCY_PRICE_GUARD"
   },
   "media_command_gate": {
     "policy": "config/media_command_read_gate.json",
