@@ -73,11 +73,7 @@ class JevDecisionEngineTests(unittest.TestCase):
             remaining_free_quota=5,
             policy=policy,
         )
-        record = body["state"]["records"][0]["record"]
-        self.assertEqual(record["quota_pressure"], "CRITICAL")
-        self.assertNotIn("remaining_free_quota", record)
-        self.assertNotIn("remaining_free_request_budget", record)
-
+        import json\n        record = json.loads(body["state"]["records"][0]["record"])\n        self.assertEqual(record["quota_pressure"], "CRITICAL")\n        self.assertNotIn("remaining_free_quota", record)\n        self.assertNotIn("remaining_free_request_budget", record)\n
     def test_batch_supports_twenty_records_in_one_request(self):
         policy = load_policy()
         records = [
