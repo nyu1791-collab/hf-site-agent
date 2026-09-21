@@ -350,7 +350,7 @@ def build_batch_decisions_request(
         questions.update(_questions_for_record(record))
         state_records.append({
             "id": record["id"],
-            "record": {
+            "record": json.dumps({
                 "task_summary": record["task_summary"],
                 "eligible_candidate_profiles": record["candidate_profiles"],
                 "quota_pressure": record["quota_pressure"],
@@ -360,7 +360,7 @@ def build_batch_decisions_request(
                     "Parallelize only independent work.",
                     "Do not authorize any paid worker or permission expansion.",
                 ],
-            },
+            }, ensure_ascii=False, separators=(",", ":")),
         })
     return {
         "model": model,
