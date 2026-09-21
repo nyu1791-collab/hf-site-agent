@@ -1,0 +1,78 @@
+{
+  "schema_version": "openrouter-worker-recent-evidence-v1",
+  "source": "jev-five-domain-trial-35613311501",
+  "observed_at_utc": "2026-09-21T14:39:42Z",
+  "purpose": "Short-lived live evidence for worker routing. Never override exact-free eligibility or hard safety rules.",
+  "models": {
+    "qwen/qwen3.8-27b:free": {
+      "successes": 1,
+      "quality_failures": 0,
+      "rate_limits": 0,
+      "avg_latency_ms": 2718.167,
+      "domains": [
+        "PLANNING_ORCHESTRATION"
+      ],
+      "valid_until_utc": "2026-09-21T20:39:42Z"
+    },
+    "poolside/laguna-s-2.1:free": {
+      "successes": 1,
+      "quality_failures": 0,
+      "rate_limits": 0,
+      "avg_latency_ms": 18845.862,
+      "domains": [
+        "CODING_DEBUG"
+      ],
+      "valid_until_utc": "2026-09-21T20:39:42Z"
+    },
+    "nvidia/nemotron-3.5-lightning:free": {
+      "successes": 1,
+      "quality_failures": 0,
+      "rate_limits": 0,
+      "avg_latency_ms": 99638.883,
+      "domains": [
+        "DATA_EXTRACTION"
+      ],
+      "valid_until_utc": "2026-09-21T16:39:42Z"
+    },
+    "nvidia/nemotron-3-ultra-550b-a55b:free": {
+      "successes": 0,
+      "quality_failures": 1,
+      "rate_limits": 0,
+      "avg_latency_ms": 375.852,
+      "domains": [
+        "QUALITY_REVIEW"
+      ],
+      "valid_until_utc": "2026-09-21T20:39:42Z"
+    },
+    "dots-studio/dots-3-note-preview:free": {
+      "successes": 0,
+      "quality_failures": 1,
+      "rate_limits": 0,
+      "avg_latency_ms": 4763.102,
+      "domains": [
+        "EVIDENCE_SYNTHESIS"
+      ],
+      "valid_until_utc": "2026-09-21T20:39:42Z"
+    },
+    "z-ai/glm-5.2:free": {
+      "successes": 0,
+      "quality_failures": 0,
+      "rate_limits": 1,
+      "avg_latency_ms": 250.591,
+      "domains": [
+        "QUALITY_REVIEW"
+      ],
+      "valid_until_utc": "2026-09-21T15:09:42Z"
+    },
+    "google/gemma-4-26b-a4b-it:free": {
+      "successes": 0,
+      "quality_failures": 0,
+      "rate_limits": 1,
+      "avg_latency_ms": 167.729,
+      "domains": [
+        "EVIDENCE_SYNTHESIS"
+      ],
+      "valid_until_utc": "2026-09-21T15:09:42Z"
+    }
+  }
+}
