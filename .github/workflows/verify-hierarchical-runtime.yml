@@ -117,6 +117,23 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      - name: Run Jev candidate-cardinality and profile benchmark
+        if: ${{ hashFiles('missions/jev-benchmark/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m scripts.jev_cardinality_benchmark --output artifacts/jev_cardinality_benchmark.json
+
+      - name: Upload Jev cardinality evidence
+        if: ${{ always() && hashFiles('missions/jev-benchmark/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-cardinality-${{ github.run_id }}
+          path: artifacts/jev_cardinality_benchmark.json
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Validate JavaScript source syntax
         run: |
           test ! -f worker/index.js || node --check worker/index.js
