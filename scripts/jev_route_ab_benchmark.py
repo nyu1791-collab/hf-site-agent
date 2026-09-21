@@ -14,9 +14,9 @@ from pathlib import Path
 from typing import Any, Mapping
 
 try:
-    from scripts.jev_decision_engine import decide_batch, decide_fast_batch
+    from scripts.jev_decision_engine import decide_batch, decide_fast_batch, decide_portfolio_batch
 except ModuleNotFoundError:
-    from jev_decision_engine import decide_batch, decide_fast_batch
+    from jev_decision_engine import decide_batch, decide_fast_batch, decide_portfolio_batch
 
 ITERATIONS = 10
 MODEL_CATALOG = [{
@@ -103,8 +103,14 @@ def _aggregate(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
 def run(api_key: str) -> dict[str, Any]:
     legacy_rows: list[dict[str, Any]] = []
     fast_rows: list[dict[str, Any]] = []
+    portfolio_rows: list[dict[str, Any]] = []
+    rotations = [
+        ("legacy", "fast", "portfolio"),
+        ("fast", "portfolio", "legacy"),
+        ("portfolio", "legacy", "fast"),
+    ]
     for i in range(ITERATIONS):
-        order = ("legacy", "fast") if i % 2 == 0 else ("fast", "legacy")
+        order = rotations[i % len(rotations)]
         for mode in order:
             if mode == "legacy":
                 result = decide_batch(
@@ -119,7 +125,7 @@ def run(api_key: str) -> dict[str, Any]:
                     "usage": result.get("usage"),
                     "question_count": 45,
                 })
-            else:
+            elif mode == "fast":
                 result = decide_fast_batch(
                     records=records(fast=True),
                     api_key=api_key,
@@ -133,27 +139,50 @@ def run(api_key: str) -> dict[str, Any]:
                     "question_count": result.get("question_count"),
                     "questions_per_record": result.get("questions_per_record"),
                 })
+            else:
+                result = decide_portfolio_batch(
+                    records=records(fast=True),
+                    api_key=api_key,
+                    catalog_entries=MODEL_CATALOG,
+                )
+                portfolio_rows.append({
+                    "iteration": i + 1,
+                    "status": result.get("status"),
+                    "latency_ms": result.get("latency_ms"),
+                    "usage": result.get("usage"),
+                    "question_count": result.get("question_count"),
+                    "questions_per_record": result.get("questions_per_record"),
+                })
     legacy = _aggregate(legacy_rows)
     fast = _aggregate(fast_rows)
+    portfolio = _aggregate(portfolio_rows)
     old_p50 = float(legacy.get("latency_p50_ms") or 0.0)
     new_p50 = float(fast.get("latency_p50_ms") or 0.0)
     improvement = ((old_p50 - new_p50) / old_p50 * 100.0) if old_p50 > 0 else None
     old_tokens = float(legacy.get("input_tokens_mean") or 0.0)
     new_tokens = float(fast.get("input_tokens_mean") or 0.0)
     token_reduction = ((old_tokens - new_tokens) / old_tokens * 100.0) if old_tokens > 0 else None
+    portfolio_p50 = float(portfolio.get("latency_p50_ms") or 0.0)
+    portfolio_improvement = ((old_p50 - portfolio_p50) / old_p50 * 100.0) if old_p50 > 0 else None
+    portfolio_tokens = float(portfolio.get("input_tokens_mean") or 0.0)
+    portfolio_token_reduction = ((old_tokens - portfolio_tokens) / old_tokens * 100.0) if old_tokens > 0 else None
     return {
-        "schema_version": "jev-route-ab-benchmark-v1",
-        "status": "PASS" if legacy["successes"] == ITERATIONS and fast["successes"] == ITERATIONS else "PARTIAL",
+        "schema_version": "jev-route-ab-benchmark-v2",
+        "status": "PASS" if legacy["successes"] == ITERATIONS and fast["successes"] == ITERATIONS and portfolio["successes"] == ITERATIONS else "PARTIAL",
         "iterations_per_mode": ITERATIONS,
         "records_per_request": len(TASKS),
         "legacy": legacy,
         "fast": fast,
+        "portfolio": portfolio,
         "comparison": {
-            "question_reduction_percent": round((45 - 15) / 45 * 100.0, 2),
-            "p50_latency_improvement_percent": round(improvement, 2) if improvement is not None else None,
-            "mean_input_token_reduction_percent": round(token_reduction, 2) if token_reduction is not None else None,
+            "fast_question_reduction_percent": round((45 - 15) / 45 * 100.0, 2),
+            "portfolio_question_reduction_percent": round((45 - 5) / 45 * 100.0, 2),
+            "fast_p50_latency_improvement_percent": round(improvement, 2) if improvement is not None else None,
+            "portfolio_p50_latency_improvement_percent": round(portfolio_improvement, 2) if portfolio_improvement is not None else None,
+            "fast_mean_input_token_reduction_percent": round(token_reduction, 2) if token_reduction is not None else None,
+            "portfolio_mean_input_token_reduction_percent": round(portfolio_token_reduction, 2) if portfolio_token_reduction is not None else None,
         },
-        "raw": {"legacy": legacy_rows, "fast": fast_rows},
+        "raw": {"legacy": legacy_rows, "fast": fast_rows, "portfolio": portfolio},
         "safety": {
             "worker_calls": 0,
             "deploy": False,
@@ -177,6 +206,7 @@ def main() -> int:
         "status": report.get("status"),
         "legacy": report.get("legacy"),
         "fast": report.get("fast"),
+        "portfolio": report.get("portfolio"),
         "comparison": report.get("comparison"),
     }, ensure_ascii=False, sort_keys=True))
     return 0 if report.get("status") in {"PASS", "PARTIAL"} else 1
