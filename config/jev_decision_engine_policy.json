@@ -1,0 +1,95 @@
+{
+  "schema_version": "jev-decision-engine-policy-v1",
+  "effective_date_jst": "2026-09-21",
+  "status": "ACTIVE_SCOPED_PAID_EXCEPTION",
+  "role": "LOW_COST_SYSTEM_ONE_DECISION_ENGINE",
+  "reports_to": "chatgpt-top-commander",
+  "user_authorization": {
+    "authorized": true,
+    "authorized_at_jst": "2026-09-21",
+    "persistent_across_chat_tabs": true,
+    "repeat_per_call_approval_required": false,
+    "scope": "JEV_ROUTING_CLASSIFICATION_FANOUT_AND_LIGHTWEIGHT_RESULT_TRIAGE_ONLY"
+  },
+  "provider": {
+    "transport": "openrouter",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "base_url": "https://openrouter.ai/api/v1",
+    "canonical_model_alias": "~typesafe/jev-latest",
+    "last_known_good_model": "typesafe/jev-1.13",
+    "automatic_latest_migration": true,
+    "latest_alias_semantics": "OPENROUTER_ALWAYS_REDIRECTS_TO_LATEST_JEV_FAMILY_MODEL",
+    "current_observed_latest": "typesafe/jev-1.13",
+    "current_observed_release_date": "2026-09-18",
+    "minimum_context_tokens": 32000,
+    "modalities": [
+      "text_to_structured_decisions"
+    ]
+  },
+  "cost_guard": {
+    "current_observed_prompt_usd_per_million": 0.042,
+    "current_observed_completion_usd_per_million": 0,
+    "request_max_price_prompt_usd_per_million": 0.05,
+    "request_max_price_completion_usd_per_million": 0,
+    "max_prompt_chars": 24000,
+    "max_calls_per_task_including_pinned_fallback": 2,
+    "routine_calls_per_task": 1,
+    "auto_top_up": false,
+    "other_paid_model_fallback": false,
+    "price_ceiling_breach_action": "BLOCK_JEV_AND_USE_DETERMINISTIC_OR_CHATGPT_ROUTING"
+  },
+  "intended_uses": [
+    "TASK_CLASSIFICATION",
+    "SPECIALIST_MODEL_ASSIGNMENT",
+    "DYNAMIC_1_TO_3_FANOUT_DECISION",
+    "PARALLEL_VS_SEQUENTIAL_DECISION",
+    "NEED_FOR_INDEPENDENT_VERIFICATION",
+    "STOP_RETRY_ESCALATE_TRIAGE",
+    "LIGHTWEIGHT_POST_WORK_RESULT_TRIAGE"
+  ],
+  "prohibited_uses": [
+    "LONG_FORM_GENERATION",
+    "BULK_CODE_GENERATION",
+    "OPEN_ENDED_RESEARCH",
+    "FACTUAL_FINAL_ADJUDICATION",
+    "PAYMENT_OR_BILLING_DECISIONS",
+    "SECRET_HANDLING",
+    "PR_MERGE",
+    "PRODUCTION_DEPLOY",
+    "PUBLICATION",
+    "PERMISSION_EXPANSION"
+  ],
+  "decision_contract": {
+    "typed_output_required": true,
+    "confidence_required": true,
+    "low_confidence_threshold": 0.65,
+    "low_confidence_action": "RETURN_TO_CHATGPT_OR_DETERMINISTIC_ROUTER",
+    "final_authority": "chatgpt-top-commander",
+    "model_may_not_expand_candidate_set": true,
+    "model_may_not_expand_permissions": true,
+    "model_may_not_authorize_paid_workers": true
+  },
+  "automatic_upgrade_guard": {
+    "use_latest_alias_by_default": true,
+    "accept_new_latest_only_if": [
+      "REQUEST_PRICE_WITHIN_MAX_PRICE_GUARD",
+      "STRUCTURED_DECISION_SCHEMA_PASSES",
+      "MODEL_RESPONSE_IDENTIFIES_JEV_FAMILY",
+      "NO_PERMISSION_OR_CANDIDATE_EXPANSION",
+      "CONFIDENCE_FIELD_VALID"
+    ],
+    "on_contract_failure": "RETRY_ONCE_WITH_LAST_KNOWN_GOOD_PINNED_MODEL",
+    "on_pinned_failure": "FALL_BACK_TO_DETERMINISTIC_OR_CHATGPT_ROUTING",
+    "silent_upgrade_without_guards": false
+  },
+  "observability": {
+    "record_requested_alias": true,
+    "record_resolved_model": true,
+    "record_latency_ms": true,
+    "record_usage_tokens_when_returned": true,
+    "record_usage_cost_when_returned": true,
+    "record_confidence": true,
+    "record_fallback_reason": true,
+    "secret_values_logged": false
+  }
+}
