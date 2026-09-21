@@ -2,14 +2,13 @@
   "schema_version": "openrouter-worker-recent-evidence-v4",
   "source": "improvement-cycle-3-run-35667768086",
   "observed_at_utc": "2026-09-21T23:30:27Z",
-  "purpose": "Short-lived domain-aware evidence from cycle 3. Reorders only already-eligible exact-free workers.",
+  "purpose": "Short-lived domain-aware live evidence from cycle 3. Used only to reorder already-eligible exact-free workers; never expands eligibility.",
   "models": {
     "nvidia/nemotron-3.5-lightning:free": {
       "successes": 5,
       "quality_failures": 0,
       "rate_limits": 0,
       "avg_latency_ms": 4565.731,
-      "valid_until_utc": "2026-09-22T05:30:27Z",
       "domain_stats": {
         "DATA_EXTRACTION": {
           "successes": 1,
@@ -41,14 +40,14 @@
           "rate_limits": 0,
           "avg_latency_ms": 1363.502
         }
-      }
+      },
+      "valid_until_utc": "2026-09-22T05:30:27Z"
     },
     "nvidia/nemotron-3-super-120b-a12b:free": {
       "successes": 1,
       "quality_failures": 0,
       "rate_limits": 0,
       "avg_latency_ms": 814.873,
-      "valid_until_utc": "2026-09-22T05:30:27Z",
       "domain_stats": {
         "DATA_EXTRACTION": {
           "successes": 1,
@@ -56,14 +55,14 @@
           "rate_limits": 0,
           "avg_latency_ms": 814.873
         }
-      }
+      },
+      "valid_until_utc": "2026-09-22T05:30:27Z"
     },
     "poolside/laguna-s-2.1:free": {
       "successes": 1,
       "quality_failures": 0,
       "rate_limits": 0,
       "avg_latency_ms": 1212.805,
-      "valid_until_utc": "2026-09-22T05:30:27Z",
       "domain_stats": {
         "CODING_DEBUG": {
           "successes": 1,
@@ -71,14 +70,14 @@
           "rate_limits": 0,
           "avg_latency_ms": 1212.805
         }
-      }
+      },
+      "valid_until_utc": "2026-09-22T05:30:27Z"
     },
     "nvidia/nemotron-3-ultra-550b-a55b:free": {
       "successes": 2,
       "quality_failures": 1,
       "rate_limits": 0,
       "avg_latency_ms": 4928.771,
-      "valid_until_utc": "2026-09-22T05:30:27Z",
       "domain_stats": {
         "PLANNING_ORCHESTRATION": {
           "successes": 1,
@@ -98,14 +97,14 @@
           "rate_limits": 0,
           "avg_latency_ms": 1197.459
         }
-      }
+      },
+      "valid_until_utc": "2026-09-22T05:30:27Z"
     },
     "qwen/qwen3.8-27b:free": {
       "successes": 0,
       "quality_failures": 0,
       "rate_limits": 1,
       "avg_latency_ms": 221.274,
-      "valid_until_utc": "2026-09-22T00:00:27Z",
       "domain_stats": {
         "PLANNING_ORCHESTRATION": {
           "successes": 0,
@@ -113,7 +112,8 @@
           "rate_limits": 1,
           "avg_latency_ms": 221.274
         }
-      }
+      },
+      "valid_until_utc": "2026-09-22T00:00:27Z"
     }
   }
 }
