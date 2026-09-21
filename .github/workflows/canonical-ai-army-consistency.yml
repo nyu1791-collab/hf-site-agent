@@ -9,6 +9,7 @@ on:
       - 'config/ai_army_org_chart.json'
       - 'config/multi_agent_operating_policy.json'
       - 'config/openrouter_free_efficiency_policy.json'
+      - 'config/jev_decision_engine_policy.json'
       - 'config/deepseek_paid_supervisor_policy.json'
       - 'config/agent_efficiency_policy.json'
       - 'config/framework_adapter_layer.json'
@@ -43,6 +44,9 @@ on:
       - 'config/bulk_media_worker_pool.json'
       - 'scripts/ai_army_routing_facade.py'
       - 'scripts/openrouter_free_efficiency_router.py'
+      - 'scripts/jev_decision_engine.py'
+      - 'scripts/jev_routing_coordinator.py'
+      - 'scripts/validate_jev_decision_engine.py'
       - 'scripts/validate_openrouter_free_efficiency.py'
       - 'scripts/validate_permanent_ai_army_state.py'
       - 'scripts/validate_media_command_read_gate.py'
@@ -100,6 +104,7 @@ on:
       - 'docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md'
       - 'tests/test_ai_army_routing_facade.py'
       - 'tests/test_openrouter_free_efficiency_router.py'
+      - 'tests/test_jev_decision_engine.py'
       - 'tests/test_agent_efficiency_policy_regression.py'
       - 'tests/test_tiktok_shop_claim_gate.py'
       - 'tests/test_deepseek_json_guard.py'
@@ -140,6 +145,9 @@ jobs:
           python -m py_compile \
             scripts/ai_army_routing_facade.py \
             scripts/openrouter_free_efficiency_router.py \
+            scripts/jev_decision_engine.py \
+            scripts/jev_routing_coordinator.py \
+            scripts/validate_jev_decision_engine.py \
             scripts/validate_openrouter_free_efficiency.py \
             scripts/validate_permanent_ai_army_state.py \
             scripts/validate_media_command_read_gate.py \
@@ -176,6 +184,7 @@ jobs:
           python -m json.tool config/ai_army_org_chart.json >/dev/null
           python -m json.tool config/multi_agent_operating_policy.json >/dev/null
           python -m json.tool config/openrouter_free_efficiency_policy.json >/dev/null
+          python -m json.tool config/jev_decision_engine_policy.json >/dev/null
           python -m json.tool config/deepseek_paid_supervisor_policy.json >/dev/null
           python -m json.tool config/agent_efficiency_policy.json >/dev/null
           python -m json.tool config/framework_adapter_layer.json >/dev/null
@@ -230,6 +239,12 @@ jobs:
           set -euo pipefail
           python scripts/validate_openrouter_free_efficiency.py
           python -m unittest tests.test_openrouter_free_efficiency_router
+
+      - name: Enforce Jev fast decision plane
+        run: |
+          set -euo pipefail
+          python scripts/validate_jev_decision_engine.py
+          python -m unittest tests.test_jev_decision_engine
 
       - name: Enforce media command read gate
         run: |
