@@ -613,7 +613,11 @@ def _request_batch_once(
         timeout_seconds=timeout_seconds,
     )
     if status != 200:
-        raise JevDecisionError(f"http_{status}")
+        error = payload.get("error") if isinstance(payload.get("error"), Mapping) else {}
+        code = str(error.get("code") or payload.get("code") or "")[:80]
+        message = str(error.get("message") or payload.get("message") or "")[:180]
+        detail = ":".join(x for x in (code, message) if x)
+        raise JevDecisionError(f"http_{status}" + (f":{detail}" if detail else ""))
     decisions = parse_batch_decisions_response(payload, prepared_records=prepared, policy=policy)
     usage = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
     observed_cost = usage.get("cost")
