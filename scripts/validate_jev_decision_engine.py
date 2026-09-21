@@ -32,13 +32,20 @@ def main() -> int:
     require(provider.get("automatic_latest_migration") is True, "Jev auto latest migration disabled")
 
     guard = policy.get("cost_guard") or {}
-    require(float(guard.get("request_max_price_prompt_usd_per_million", 999)) <= 0.05, "Jev prompt price ceiling expanded")
-    require(float(guard.get("request_max_price_completion_usd_per_million", 999)) == 0.0, "Jev output price ceiling expanded")
+    require(guard.get("cost_is_not_primary_optimization_target_for_jev") is True, "Jev cost became primary optimizer")
+    require(float(guard.get("hard_emergency_price_ceiling_prompt_usd_per_million", 0)) == 1.0, "Jev emergency prompt ceiling drift")
+    require(float(guard.get("hard_emergency_price_ceiling_completion_usd_per_million", 0)) == 1.0, "Jev emergency completion ceiling drift")
+    require(int(guard.get("max_records_per_decisions_request", 0)) == 20, "Jev batch size must remain 20")
+    require(int(guard.get("max_parallel_decision_batches", 0)) == 5, "Jev parallel batch ceiling must remain five")
     require(guard.get("auto_top_up") is False, "Jev auto top-up enabled")
     require(guard.get("other_paid_model_fallback") is False, "Jev may fall back to other paid model")
 
     contract = policy.get("decision_contract") or {}
     require(contract.get("typed_output_required") is True, "Jev typed output lost")
+    require(contract.get("free_text_output_allowed") is False, "Jev free-text output was re-enabled")
+    require(contract.get("python_normalizes_final_json") is True, "Python final normalization lost")
+    require(contract.get("python_performs_all_counting_arithmetic_and_quota_math") is True, "Jev was given arithmetic responsibility")
+    require(contract.get("no_markdown_or_json_text_parsing") is True, "text parsing path re-enabled")
     require(contract.get("final_authority") == "chatgpt-top-commander", "Jev gained final authority")
     require(contract.get("model_may_not_expand_candidate_set") is True, "Jev may expand candidate set")
     require(contract.get("model_may_not_expand_permissions") is True, "Jev may expand permissions")
@@ -48,6 +55,10 @@ def main() -> int:
     require('DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"' in source, "Jev is not using Decisions API")
     require("~typesafe/jev-latest" in source, "Jev latest alias missing from runtime")
     require("candidate_expansion_blocked" in source, "candidate expansion guard missing")
+    require("def decide_many(" in source, "batch-first Jev API missing")
+    require("ThreadPoolExecutor" in source, "parallel Jev batch execution missing")
+    require("max_records_per_request" in source, "Jev 20-record batch control missing")
+    require("quota_pressure_from_remaining" in source, "quota enum preprocessing missing")
     require(COORDINATOR.is_file(), "Jev routing coordinator missing")
 
     multi = json.loads(MULTI.read_text(encoding="utf-8"))
@@ -66,7 +77,9 @@ def main() -> int:
         "role": "FAST_DECISION_PLANE",
         "model_alias": provider.get("canonical_model_alias"),
         "last_known_good": provider.get("last_known_good_model"),
-        "prompt_price_ceiling_per_million": guard.get("request_max_price_prompt_usd_per_million"),
+        "emergency_prompt_price_ceiling_per_million": guard.get("hard_emergency_price_ceiling_prompt_usd_per_million"),
+        "max_records_per_request": guard.get("max_records_per_decisions_request"),
+        "max_parallel_batches": guard.get("max_parallel_decision_batches"),
         "auto_top_up": False,
         "other_paid_fallback": False,
         "chatgpt_final_authority": True,
