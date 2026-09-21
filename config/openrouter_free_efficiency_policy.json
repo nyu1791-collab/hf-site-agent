@@ -1,9 +1,9 @@
 {
-  "schema_version": "openrouter-free-efficiency-policy-v1",
+  "schema_version": "openrouter-free-efficiency-policy-v2",
   "effective_date_jst": "2026-09-21",
   "status": "PERMANENT_STANDARD",
   "decision_owner": "chatgpt-top-commander",
-  "purpose": "Attach the full current OpenRouter exact-free catalog as standby capacity while using the smallest effective number of models per task, normally one, and never crossing a verified free allowance or silently falling back to paid inference.",
+  "purpose": "Attach the full current OpenRouter exact-free catalog as standby capacity and let the Top Commander choose the smallest or broader bounded model set that maximizes total system value for each task, balancing quality, latency, coordination overhead, quota pressure, specialization and verification risk without ever silently falling back to paid inference.",
   "user_authorization": {
     "persistent_free_only_authorization": true,
     "authorized_scope": "OPENROUTER_EXACT_FREE_MODELS_ONLY",
@@ -26,23 +26,46 @@
     "attach_does_not_require_model_inference": true
   },
   "execution": {
-    "default_strategy": "SINGLE_BEST_FIT_MODEL",
-    "default_active_models_per_task": 1,
+    "decision_owner": "chatgpt-top-commander",
+    "strategy": "DYNAMIC_OPTIMAL_FANOUT",
+    "fixed_single_model_default": false,
+    "fixed_parallel_default": false,
+    "minimum_active_models_per_task": 1,
+    "maximum_active_models_per_task": 3,
+    "maximum_parallel_openrouter_models_per_task": 3,
+    "model_count_is_not_a_success_metric": true,
+    "one_model_is_correct_when": "ONE_MODEL_HAS_SUFFICIENT_FIT_AND_EXPECTED_PARALLEL_GAIN_DOES_NOT_EXCEED_COORDINATION_AND_QUOTA_COST",
+    "multiple_models_are_correct_when": "INDEPENDENT_PARALLEL_WORKSTREAMS_OR_COMPLEMENTARY_SPECIALIZATION_OR_MATERIAL_INDEPENDENT_VERIFICATION_IMPROVES_EXPECTED_TOTAL_SYSTEM_VALUE",
+    "commander_must_record_fanout_reason": true,
+    "fanout_decision_factors": [
+      "TASK_DECOMPOSABILITY_AND_INDEPENDENT_WORKSTREAM_COUNT",
+      "EXPECTED_QUALITY_GAIN_FROM_COMPLEMENTARY_MODELS",
+      "EXPECTED_LATENCY_REDUCTION_FROM_PARALLELISM",
+      "COORDINATION_AND_SYNTHESIS_OVERHEAD",
+      "FREE_QUOTA_AND_RPM_HEADROOM",
+      "MODEL_ROLE_FIT_AND_MODALITY_SUPPORT",
+      "PROVIDER_HEALTH_AND_RATE_LIMIT_STATE",
+      "VERIFICATION_RISK_AND_OUTPUT_IMPACT",
+      "SHARED_MUTABLE_STATE_OR_SEQUENTIAL_DEPENDENCIES",
+      "RECENT_OBSERVED_MODEL_SUCCESS_LATENCY_AND_TOKEN_EFFICIENCY"
+    ],
+    "force_single_model_when": [
+      "TASK_IS_NOT_MEANINGFULLY_PARALLELIZABLE",
+      "SHARED_MUTABLE_STATE_REQUIRES_SINGLE_WRITER",
+      "SEQUENTIAL_DEPENDENCY_DOMINATES",
+      "QUOTA_OR_RPM_HEADROOM_IS_LOW",
+      "ONE_MODEL_ALREADY_MEETS_ACCEPTANCE_CRITERIA_WITH_HIGH_CONFIDENCE"
+    ],
+    "allow_parallel_models_when": [
+      "TWO_OR_MORE_INDEPENDENT_WORKSTREAMS_EXIST",
+      "COMPLEMENTARY_SPECIALISTS_CAN_WORK_WITHOUT_DUPLICATION",
+      "HIGH_IMPACT_OUTPUT_BENEFITS_FROM_INDEPENDENT_VERIFICATION",
+      "PARALLELISM_MATERIALLY_REDUCES_LATENCY_WITH_ACCEPTABLE_COORDINATION_COST"
+    ],
     "routine_all_model_parallel_fanout": false,
-    "routine_best_of_n_benchmark_fanout": false,
     "parallel_duplicate_agents_for_majority_vote": false,
     "one_model_may_serve_multiple_roles_when_it_is_best_fit": true,
-    "second_model_allowed_only_for": [
-      "PRIMARY_MODEL_UNAVAILABLE_OR_RATE_LIMITED",
-      "PRIMARY_MODEL_FAILED_ACCEPTANCE_CRITERIA",
-      "PRIMARY_MODEL_LACKS_REQUIRED_MODALITY_OR_TOOL_CAPABILITY",
-      "HIGH_IMPACT_INDEPENDENT_VERIFICATION_MATERIALLY_REDUCES_RISK"
-    ],
-    "fallback_order": "SEQUENTIAL_BY_ROLE_FIT_THEN_LATENCY_THEN_TOKEN_EFFICIENCY",
-    "default_parallel_openrouter_models_per_task": 1,
-    "maximum_parallel_openrouter_models_per_task": 2,
-    "maximum_parallel_two_requires_independent_workstreams": true,
-    "stop_after_first_acceptable_result": true,
+    "stop_when_marginal_expected_value_of_another_model_is_nonpositive": true,
     "failed_same_method_retry_without_change": false,
     "deterministic_tool_bypass_preferred_when_sufficient": true
   },
@@ -214,8 +237,9 @@
     "AUTO_TOP_UP_ENABLED",
     "UNVERIFIED_ACCOUNT_USES_900_DAILY_HARD_STOP",
     "ROUTINE_ALL_MODEL_PARALLEL_FANOUT",
-    "MORE_THAN_ONE_MODEL_USED_WITHOUT_RECORDED_ESCALATION_REASON",
     "FREE_DAILY_HARD_STOP_EXCEEDED",
-    "HTTP_429_RETRIED_AUTOMATICALLY"
+    "HTTP_429_RETRIED_AUTOMATICALLY",
+    "FIXED_SINGLE_MODEL_POLICY_IGNORES_CLEAR_PARALLEL_VALUE",
+    "PARALLEL_FANOUT_WITHOUT_RECORDED_EXPECTED_VALUE_JUSTIFICATION"
   ]
 }
