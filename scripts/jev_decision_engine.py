@@ -206,15 +206,29 @@ def price_guard_allows(
         pinned = str((policy.get("provider") or {}).get("last_known_good_model") or "")
         entry = _catalog_entry_for_model(entries, pinned)
     pricing = entry.get("pricing") if isinstance(entry, Mapping) else None
-    if not isinstance(pricing, Mapping):
-        return False, {"reason": "PRICE_EVIDENCE_UNAVAILABLE", "model": model}
-    prompt = _price_per_million(pricing.get("prompt"))
-    completion = _price_per_million(pricing.get("completion"))
+    evidence_source = "NORMAL_MODELS_CATALOG"
+    if isinstance(pricing, Mapping):
+        prompt = _price_per_million(pricing.get("prompt"))
+        completion = _price_per_million(pricing.get("completion"))
+    else:
+        prompt = completion = None
+
     if prompt is None or completion is None:
-        return False, {"reason": "PRICE_PARSE_FAILED", "model": model}
+        provider = policy.get("provider") or {}
+        authorized_models = {
+            str(provider.get("canonical_model_alias") or ""),
+            str(provider.get("last_known_good_model") or ""),
+        }
+        if model not in authorized_models:
+            return False, {"reason": "PRICE_EVIDENCE_UNAVAILABLE", "model": model}
+        prompt = float(guard.get("current_observed_prompt_usd_per_million", 999.0))
+        completion = float(guard.get("current_observed_completion_usd_per_million", 999.0))
+        evidence_source = "AUTHORIZED_JEV_POLICY_OBSERVATION"
+
     allowed = prompt <= hard_prompt and completion <= hard_completion
     return allowed, {
         "model": model,
+        "evidence_source": evidence_source,
         "observed_prompt_usd_per_million": prompt,
         "observed_completion_usd_per_million": completion,
         "soft_price_observation_prompt_usd_per_million": soft_prompt,
@@ -602,6 +616,7 @@ def _request_batch_once(
         raise JevDecisionError(f"http_{status}")
     decisions = parse_batch_decisions_response(payload, prepared_records=prepared, policy=policy)
     usage = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
+    observed_cost = usage.get("cost")
     return {
         "status": "JEV_BATCH_OK",
         "requested_model": model,
@@ -612,7 +627,11 @@ def _request_batch_once(
         "usage": {
             "input_tokens": usage.get("input_tokens"),
             "output_tokens": usage.get("output_tokens"),
-            "cost": usage.get("cost"),
+            "cost": observed_cost,
+        },
+        "cost_audit": {
+            "post_request_usage_cost_present": observed_cost is not None,
+            "hard_emergency_guard_is_family_price_based": True,
         },
         "paid_execution": True,
         "paid_fallback_to_other_family": False,
