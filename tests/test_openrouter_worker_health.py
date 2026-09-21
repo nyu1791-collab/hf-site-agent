@@ -124,6 +124,42 @@ class OpenRouterWorkerHealthTests(unittest.TestCase):
         self.assertEqual(planning[0], "specialist:free")
         self.assertEqual(review[0], "unknown:free")
 
+    def test_domain_success_can_override_global_mixed_record(self):
+        evidence = {
+            "mixed:free": {
+                "successes": 2,
+                "quality_failures": 1,
+                "rate_limits": 0,
+                "avg_latency_ms": 4900,
+                "domain_stats": {
+                    "PLANNING_ORCHESTRATION": {
+                        "successes": 1,
+                        "quality_failures": 0,
+                        "rate_limits": 0,
+                        "avg_latency_ms": 2800,
+                    },
+                    "QUALITY_REVIEW": {
+                        "successes": 0,
+                        "quality_failures": 1,
+                        "rate_limits": 0,
+                        "avg_latency_ms": 10000,
+                    },
+                },
+            }
+        }
+        planning = rank_candidates(
+            ["unknown:free", "mixed:free"],
+            evidence=evidence,
+            domain="PLANNING_ORCHESTRATION",
+        )
+        review = rank_candidates(
+            ["mixed:free", "unknown:free"],
+            evidence=evidence,
+            domain="QUALITY_REVIEW",
+        )
+        self.assertEqual(planning[0], "mixed:free")
+        self.assertEqual(review[0], "unknown:free")
+
 
 if __name__ == "__main__":
     unittest.main()
