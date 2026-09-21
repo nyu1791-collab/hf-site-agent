@@ -1,6 +1,6 @@
 {
-  "schema_version": "agent-efficiency-policy-v1",
-  "effective_date_jst": "2026-09-12",
+  "schema_version": "agent-efficiency-policy-v2",
+  "effective_date_jst": "2026-09-21",
   "status": "SHADOW_MEASURE_THEN_PROMOTE",
   "decision_owner": "chatgpt-work",
   "research_basis": {
@@ -161,5 +161,32 @@
     "require_no_new_unbounded_paid_or_side_effect_route": true,
     "if_results_are_inconclusive": "KEEP_SIMPLER_ARCHITECTURE",
     "chatgpt_final_adjudication_required": true
+  },
+  "jev_fast_decision_plane": {
+    "status": "ADOPTED_BOUNDED",
+    "policy": "config/jev_decision_engine_policy.json",
+    "runtime": "scripts/jev_decision_engine.py",
+    "coordinator": "scripts/jev_routing_coordinator.py",
+    "purpose": "Replace expensive or slow routing deliberation with typed low-cost decisions when the route is not already deterministic.",
+    "invoke_when": [
+      "MULTIPLE_ELIGIBLE_MODELS",
+      "FANOUT_COUNT_IS_NONTRIVIAL",
+      "PARALLEL_VS_SEQUENTIAL_IS_AMBIGUOUS",
+      "INDEPENDENT_VERIFICATION_VALUE_IS_AMBIGUOUS",
+      "STOP_RETRY_ESCALATE_NEEDS_FAST_TRIAGE"
+    ],
+    "skip_when": [
+      "DETERMINISTIC_TOOL_PATH",
+      "ONE_OBVIOUS_ROUTE_WITH_NO_MATERIAL_SELECTION_VALUE"
+    ],
+    "metrics": [
+      "accepted_route_rate",
+      "p50_latency_ms",
+      "p95_latency_ms",
+      "cost_per_accepted_route",
+      "heavy_model_calls_avoided",
+      "unnecessary_fanout_avoided",
+      "low_confidence_escalation_rate"
+    ]
   }
 }
