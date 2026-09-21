@@ -1,8 +1,8 @@
 {
-  "schema_version": "top-commander-handoff-v11",
+  "schema_version": "top-commander-handoff-v12",
   "effective_date_jst": "2026-09-21",
   "mission_id": "ai-army-canonical-supervisor-routing-20260912",
-  "objective": "Preserve and improve the AI Army with ChatGPT as Top Commander, paid DeepSeek as a bounded working Executive Supervisor for research, evidence triage, drafting, review and coordination, direct specialist bypass for narrow verified execution, deterministic-tool bypass for mechanical work, repository-backed permanent policy continuity across chat tabs, and drift-free task-specific media restoration through the permanent manifest and semantic read gates.",
+  "objective": "Preserve a fast hierarchical AI Army with ChatGPT as final commander, Jev Latest as the typed batch-first decision plane, DeepSeek as bounded executive supervisor for high-information-gain work, deterministic bypasses for mechanical work, and specialist workers activated only when selected by verified routing.",
   "continuity": {
     "portable_across_chat_tabs": true,
     "conversation_memory_is_not_source_of_truth": true,
@@ -208,7 +208,10 @@
     "openrouter_free_fanout_reason_required": true,
     "jev_fast_decision_plane_default_for_nontrivial_routing": true,
     "jev_can_choose_only_prevalidated_candidate_pool": true,
-    "jev_low_confidence_returns_to_chatgpt": true
+    "jev_low_confidence_returns_to_chatgpt": true,
+    "jev_batch_first_for_independent_nontrivial_routing": true,
+    "jev_max_records_per_request": 20,
+    "jev_max_parallel_batches": 5
   },
   "legacy_cleanup_fixed_rules": {
     "legacy_registry": "config/legacy_deepseek_compatibility.json",
@@ -407,6 +410,17 @@
     "final_authority": false,
     "may_expand_permissions": false,
     "may_authorize_other_paid_workers": false,
-    "auto_top_up": false
+    "auto_top_up": false,
+    "typed_decisions_only": true,
+    "free_text_output": false,
+    "python_constructs_final_routing_json": true,
+    "python_handles_counting_arithmetic_and_quota_math": true,
+    "max_records_per_request": 20,
+    "max_parallel_batches": 5,
+    "batch_independent_jobs_by_default": true,
+    "quota_state_sent_as_enum_not_number": true,
+    "cost_is_not_primary_optimization_target": true,
+    "hard_emergency_prompt_price_ceiling_usd_per_million": 1,
+    "hard_emergency_completion_price_ceiling_usd_per_million": 1
   }
 }
