@@ -46,6 +46,7 @@ on:
       - 'scripts/openrouter_free_efficiency_router.py'
       - 'scripts/jev_decision_engine.py'
       - 'scripts/jev_routing_coordinator.py'
+      - 'scripts/openrouter_worker_health.py'
       - 'scripts/openrouter_worker_orchestrator.py'
       - 'scripts/validate_jev_decision_engine.py'
       - 'scripts/validate_openrouter_free_efficiency.py'
@@ -107,6 +108,7 @@ on:
       - 'tests/test_openrouter_free_efficiency_router.py'
       - 'tests/test_jev_decision_engine.py'
       - 'tests/test_jev_routing_coordinator.py'
+      - 'tests/test_openrouter_worker_health.py'
       - 'tests/test_openrouter_worker_orchestrator.py'
       - 'tests/test_agent_efficiency_policy_regression.py'
       - 'tests/test_tiktok_shop_claim_gate.py'
@@ -150,6 +152,7 @@ jobs:
             scripts/openrouter_free_efficiency_router.py \
             scripts/jev_decision_engine.py \
             scripts/jev_routing_coordinator.py \
+            scripts/openrouter_worker_health.py \
             scripts/openrouter_worker_orchestrator.py \
             scripts/validate_jev_decision_engine.py \
             scripts/validate_openrouter_free_efficiency.py \
@@ -248,7 +251,7 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_jev_decision_engine.py
-          python -m unittest tests.test_jev_decision_engine tests.test_jev_routing_coordinator tests.test_openrouter_worker_orchestrator
+          python -m unittest tests.test_jev_decision_engine tests.test_jev_routing_coordinator tests.test_openrouter_worker_health tests.test_openrouter_worker_orchestrator
 
       - name: Enforce media command read gate
         run: |
