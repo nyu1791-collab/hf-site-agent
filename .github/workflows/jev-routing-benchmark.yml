@@ -1,0 +1,58 @@
+name: "Jev routing benchmark"
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - ".github/workflows/jev-routing-benchmark.yml"
+      - "scripts/jev_decision_engine.py"
+      - "scripts/jev_route_ab_benchmark.py"
+      - "config/jev_decision_engine_policy.json"
+      - "missions/jev-benchmark/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jev-routing-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Compile Jev benchmark
+        run: |
+          python -m py_compile scripts/jev_decision_engine.py scripts/jev_route_ab_benchmark.py
+
+      - name: Run 9-vs-3-vs-1 Jev routing benchmark
+        if: ${{ hashFiles('missions/jev-benchmark/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python -m scripts.jev_route_ab_benchmark --output artifacts/jev_route_ab_benchmark.json
+
+      - name: Upload benchmark evidence
+        if: ${{ always() && hashFiles('missions/jev-benchmark/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-route-ab-${{ github.run_id }}
+          path: artifacts/jev_route_ab_benchmark.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Assert no worker or production authority
+        run: |
+          test -f scripts/jev_route_ab_benchmark.py
+          ! grep -q 'chat/completions' scripts/jev_route_ab_benchmark.py
+          echo 'WORKER_CALLS=0'
+          echo 'PRODUCTION_SIDE_EFFECTS=0'
