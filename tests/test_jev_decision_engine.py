@@ -263,6 +263,17 @@ class JevDecisionEngineTests(unittest.TestCase):
         self.assertFalse(out["low_confidence"])
         self.assertEqual(out["action"], "EXECUTE")
 
+    def test_authorized_jev_is_not_blocked_when_normal_catalog_omits_decisions_model(self):
+        policy = load_policy()
+        ok, evidence = price_guard_allows(
+            "~typesafe/jev-latest",
+            policy=policy,
+            entries=[],
+        )
+        self.assertTrue(ok)
+        self.assertEqual(evidence["evidence_source"], "AUTHORIZED_JEV_POLICY_OBSERVATION")
+        self.assertAlmostEqual(evidence["observed_prompt_usd_per_million"], 0.042)
+
 
 if __name__ == "__main__":
     unittest.main()
