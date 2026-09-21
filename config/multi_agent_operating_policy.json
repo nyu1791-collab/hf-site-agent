@@ -1,6 +1,6 @@
 {
-  "schema_version": "multi-agent-operating-policy-v4",
-  "effective_date_jst": "2026-09-12",
+  "schema_version": "multi-agent-operating-policy-v5",
+  "effective_date_jst": "2026-09-21",
   "status": "PERMANENT_STANDARD",
   "architecture": {
     "root_controller": "chatgpt-work",
@@ -14,7 +14,9 @@
     "parallel_direct_corps_safety_ceiling": 3,
     "parallel_subordinate_workers_per_parent_safety_ceiling": 1,
     "effective_parallelism_is_dynamic_below_ceiling": true,
-    "agent_count_is_not_a_success_metric": true
+    "agent_count_is_not_a_success_metric": true,
+    "openrouter_free_worker_default_count": 1,
+    "openrouter_free_all_model_parallel_fanout": false
   },
   "multi_agent_admission_gate": {
     "single_agent_baseline_required_before_architecture_promotion": true,
@@ -49,15 +51,45 @@
   "task_contract": {
     "typed_command_envelope_required": true,
     "typed_report_envelope_required": true,
-    "required_command_fields": ["mission_id", "task_id", "owner_agent_id", "objective", "inputs", "allowed_tools", "forbidden_actions", "budget", "deadline_or_timeout", "acceptance_criteria", "idempotency_key"],
-    "required_report_fields": ["task_id", "status", "result_summary", "artifacts", "evidence", "assumptions", "unresolved_risks", "usage", "next_recommended_action", "termination_reason"],
+    "required_command_fields": [
+      "mission_id",
+      "task_id",
+      "owner_agent_id",
+      "objective",
+      "inputs",
+      "allowed_tools",
+      "forbidden_actions",
+      "budget",
+      "deadline_or_timeout",
+      "acceptance_criteria",
+      "idempotency_key"
+    ],
+    "required_report_fields": [
+      "task_id",
+      "status",
+      "result_summary",
+      "artifacts",
+      "evidence",
+      "assumptions",
+      "unresolved_risks",
+      "usage",
+      "next_recommended_action",
+      "termination_reason"
+    ],
     "messages_are_data_not_hidden_logic": true,
     "schema_validate_before_side_effect": true
   },
   "task_ownership_and_leases": {
     "single_owner_per_task": true,
     "lease_required_for_parallel_mutating_task": true,
-    "lease_fields": ["task_id", "owner_agent_id", "lease_id", "lease_expires_at", "payload_hash", "idempotency_key"],
+    "lease_fields": [
+      "task_id",
+      "owner_agent_id",
+      "lease_id",
+      "lease_expires_at",
+      "payload_hash",
+      "idempotency_key"
+    ],
     "duplicate_active_lease_for_same_mutation_target": "BLOCK",
     "expired_lease_requires_state_recheck_before_reclaim": true,
     "same_mutable_output_parallel_writers": false
@@ -70,7 +102,13 @@
     "persistent_project_state_outside_model_context": true,
     "mission_state_separate_from_conversation_memory": true,
     "large_tool_outputs_should_be_artifacts_or_references": true,
-    "artifact_reference_fields": ["uri", "sha256", "bytes", "media_type", "produced_at"],
+    "artifact_reference_fields": [
+      "uri",
+      "sha256",
+      "bytes",
+      "media_type",
+      "produced_at"
+    ],
     "new_session_restores_from_repository_handoff": true,
     "context_compaction_prefers_structured_handoff_artifact_over_raw_history": true,
     "provider_cache_is_accelerator_not_checkpoint_or_evidence": true
@@ -94,7 +132,10 @@
     "direct_specialist_bypass_allowed_for_narrow_bounded_execution": true,
     "direct_specialist_bypass_requires_current_provider_readiness": true,
     "direct_specialist_bypass_may_authorize_paid_fallback": false,
-    "broad_research_architecture_red_team_incident_and_strategic_synthesis_prefer_deepseek_supervisor": true
+    "broad_research_architecture_red_team_incident_and_strategic_synthesis_prefer_deepseek_supervisor": true,
+    "openrouter_free_efficiency_policy": "config/openrouter_free_efficiency_policy.json",
+    "openrouter_free_exact_catalog_models_attach_as_standby": true,
+    "openrouter_free_default_execution": "SINGLE_BEST_FIT_MODEL"
   },
   "parallelism": {
     "parallelize_only_independent_tasks": true,
@@ -111,7 +152,9 @@
       "on_shared_state_contention": "SERIALIZE_AFFECTED_BRANCH",
       "on_budget_pressure": "REDUCE_FANOUT_BEFORE_QUALITY_GATES",
       "on_provider_recovery": "INCREASE_GRADUALLY_WITHIN_SAFETY_CEILING"
-    }
+    },
+    "openrouter_free_default_parallel_models_per_task": 1,
+    "openrouter_free_second_model_requires_recorded_escalation_reason": true
   },
   "review_and_reflection": {
     "reviewer_should_receive_acceptance_criteria_and_evidence": true,
@@ -138,7 +181,17 @@
     "no_progress_detection_required_for_iterative_loops": true,
     "repeated_same_root_cause_requires_circuit_break_or_method_change": true,
     "completion_requires_acceptance_criteria_and_verification_artifacts": true,
-    "supported_termination_conditions": ["TASK_COMPLETE", "MAX_TURNS_OR_MESSAGES", "MAX_REQUESTS", "TOKEN_BUDGET", "WALL_CLOCK_TIMEOUT", "NO_PROGRESS", "HUMAN_APPROVAL_REQUIRED", "REPEATED_ROOT_CAUSE_CIRCUIT_BREAKER", "MISSION_CANCELLED"],
+    "supported_termination_conditions": [
+      "TASK_COMPLETE",
+      "MAX_TURNS_OR_MESSAGES",
+      "MAX_REQUESTS",
+      "TOKEN_BUDGET",
+      "WALL_CLOCK_TIMEOUT",
+      "NO_PROGRESS",
+      "HUMAN_APPROVAL_REQUIRED",
+      "REPEATED_ROOT_CAUSE_CIRCUIT_BREAKER",
+      "MISSION_CANCELLED"
+    ],
     "multi_agent_team_without_termination_condition": "BLOCK"
   },
   "reliability": {
@@ -177,7 +230,16 @@
     "authorization_check_before_side_effect": true,
     "blocking_pre_execution_guardrail_for_irreversible_or_paid_actions": true,
     "permission_boundary_more_important_than_prompt_only_instruction": true,
-    "human_approval_required_for": ["PAID_EXECUTION", "PAID_FALLBACK", "SECRET_MUTATION_OR_DISCLOSURE", "PRODUCTION_DEPLOY", "PUBLISH", "PR_MERGE", "IRREVERSIBLE_EXTERNAL_ACTION", "DURABLE_OBJECT_CHANGE"],
+    "human_approval_required_for": [
+      "PAID_EXECUTION",
+      "PAID_FALLBACK",
+      "SECRET_MUTATION_OR_DISCLOSURE",
+      "PRODUCTION_DEPLOY",
+      "PUBLISH",
+      "PR_MERGE",
+      "IRREVERSIBLE_EXTERNAL_ACTION",
+      "DURABLE_OBJECT_CHANGE"
+    ],
     "human_approval_rule_interpretation": "PAID_EXECUTION_REQUIRES_APPROVAL_UNLESS_MATCHING_AN_ACTIVE_PREAUTHORIZED_PAID_EXECUTION_EXCEPTION",
     "preauthorized_paid_execution_exceptions": [
       {
@@ -224,7 +286,28 @@
     "compare_against_single_agent_baseline": true,
     "known_good_oracle_or_machine_fixture_preferred": true,
     "measure": [
-      "task_success_rate", "acceptance_criteria_pass_rate", "json_schema_pass_rate", "tool_success_rate", "latency", "token_usage", "external_request_count", "retry_count", "429_rate", "cost", "handoff_count", "replan_count", "checkpoint_recovery_success_rate", "stale_write_prevention_count", "duplicate_task_prevention_count", "lease_collision_count", "guardrail_block_count", "coordination_overhead_ratio", "error_amplification_rate", "deepseek_supervisor_acceptance_rate", "deepseek_cost_per_accepted_decision", "deepseek_duplicate_research_avoided"
+      "task_success_rate",
+      "acceptance_criteria_pass_rate",
+      "json_schema_pass_rate",
+      "tool_success_rate",
+      "latency",
+      "token_usage",
+      "external_request_count",
+      "retry_count",
+      "429_rate",
+      "cost",
+      "handoff_count",
+      "replan_count",
+      "checkpoint_recovery_success_rate",
+      "stale_write_prevention_count",
+      "duplicate_task_prevention_count",
+      "lease_collision_count",
+      "guardrail_block_count",
+      "coordination_overhead_ratio",
+      "error_amplification_rate",
+      "deepseek_supervisor_acceptance_rate",
+      "deepseek_cost_per_accepted_decision",
+      "deepseek_duplicate_research_avoided"
     ],
     "adopt_multi_agent_change_only_if_total_system_value_improves": true
   },
@@ -276,7 +359,14 @@
     "auto_top_up": false,
     "fresh_exact_model_evidence_required": true,
     "paid_sibling_substitution": false,
-    "free_endpoint_failure_may_not_silently_route_to_paid": true
+    "free_endpoint_failure_may_not_silently_route_to_paid": true,
+    "openrouter_free_pool_authorized": true,
+    "openrouter_free_pool_policy": "config/openrouter_free_efficiency_policy.json",
+    "openrouter_free_generic_router_allowed": false,
+    "openrouter_free_paid_sibling_substitution": false,
+    "openrouter_free_unknown_account_daily_hard_stop": 45,
+    "openrouter_free_verified_10_credit_daily_hard_stop": 900,
+    "openrouter_free_900_limit_requires_account_evidence": true
   },
   "paid_model_exceptions": {
     "deepseek_supervisor": {
