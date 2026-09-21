@@ -226,6 +226,43 @@ class JevDecisionEngineTests(unittest.TestCase):
         self.assertEqual(len(out["decisions"]), 100)
         self.assertEqual(call.call_count, 5)
 
+    def test_external_hyphenated_task_id_is_preserved(self):
+        policy = load_policy()
+        records = [{
+            "id": "task-alpha-01",
+            "task_summary": "Task",
+            "candidate_models": ["a:free", "b:free", "c:free"],
+            "quota_pressure": "AMPLE",
+        }]
+        _, prepared = build_batch_decisions_request(
+            model="~typesafe/jev-latest",
+            records=records,
+            policy=policy,
+        )
+        internal_id = prepared[0]["id"]
+        payload = {"answers": answers_for(internal_id, second=0.1, parallel=0.1)}
+        out = parse_batch_decisions_response(payload, prepared_records=prepared, policy=policy)
+        self.assertIn("task-alpha-01", out)
+        self.assertEqual(out["task-alpha-01"]["record_id"], "task-alpha-01")
+
+    def test_fanout_boundary_uncertainty_does_not_force_chatgpt_escalation(self):
+        policy = load_policy()
+        records = [{
+            "id": "task_epsilon",
+            "task_summary": "Task",
+            "candidate_models": ["a:free", "b:free", "c:free"],
+            "quota_pressure": "AMPLE",
+        }]
+        _, prepared = build_batch_decisions_request(
+            model="~typesafe/jev-latest",
+            records=records,
+            policy=policy,
+        )
+        payload = {"answers": answers_for("task_epsilon", confidence=0.95, second=0.55, parallel=0.55)}
+        out = parse_batch_decisions_response(payload, prepared_records=prepared, policy=policy)["task_epsilon"]
+        self.assertFalse(out["low_confidence"])
+        self.assertEqual(out["action"], "EXECUTE")
+
 
 if __name__ == "__main__":
     unittest.main()
