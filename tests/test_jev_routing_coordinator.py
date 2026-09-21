@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from scripts.jev_routing_coordinator import coordinate
+from scripts.jev_routing_coordinator import coordinate, coordinate_many
 
 
 def entry(model, *, context=131072):
@@ -31,11 +31,12 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         fake = {
             "status": "JEV_DECISION_OK",
             "decision": {
-                "selected_models": [
+                "workers": [
                     "deepseek/deepseek-v4-flash-0731:free",
                     "qwen/qwen3.8-27b:free",
                 ],
                 "fanout": 2,
+                "parallel": True,
                 "execution_mode": "PARALLEL",
                 "lane": "GENERAL_REASONING",
                 "independent_verification": True,
@@ -49,12 +50,46 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         self.assertEqual(result["route_source"], "JEV_FAST_DECISION_PLANE")
         self.assertEqual(result["final_plan"]["active_model_count"], 2)
         self.assertEqual(result["final_plan"]["execution_mode"], "PARALLEL")
+        self.assertEqual(result["final_plan"]["parallel_model_calls"], 2)
 
     def test_jev_failure_preserves_deterministic_route(self):
         with patch("scripts.jev_routing_coordinator.decide", return_value={"status": "JEV_UNAVAILABLE"}):
             result = coordinate({"task_class": "GENERAL"}, CATALOG, use_jev=True, api_key="x")
         self.assertEqual(result["route_source"], "DETERMINISTIC_FALLBACK_AFTER_JEV_UNAVAILABLE")
         self.assertEqual(result["final_plan"], result["baseline"])
+
+    def test_coordinate_many_uses_one_batch_surface_for_many_tasks(self):
+        tasks = [
+            {"task_id": f"task_{i:02d}", "task_class": "GENERAL", "objective": f"Task {i}"}
+            for i in range(10)
+        ]
+        decisions = {
+            f"task_{i:02d}": {
+                "workers": ["deepseek/deepseek-v4-flash-0731:free"],
+                "fanout": 1,
+                "parallel": False,
+                "execution_mode": "SINGLE",
+                "lane": "GENERAL_REASONING",
+                "independent_verification": False,
+                "action": "EXECUTE",
+                "confidence": 0.9,
+                "low_confidence": False,
+            }
+            for i in range(10)
+        }
+        fake = {
+            "status": "JEV_MANY_OK",
+            "record_count": 10,
+            "batch_count": 1,
+            "parallel_batch_count": 1,
+            "decisions": decisions,
+        }
+        with patch("scripts.jev_routing_coordinator.decide_many", return_value=fake) as call:
+            result = coordinate_many(tasks, CATALOG, use_jev=True, api_key="x")
+        call.assert_called_once()
+        self.assertEqual(result["task_count"], 10)
+        self.assertEqual(len(result["plans"]), 10)
+        self.assertTrue(all(plan["active_model_count"] == 1 for plan in result["plans"].values()))
 
 
 if __name__ == "__main__":
