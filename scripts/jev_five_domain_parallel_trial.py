@@ -10,6 +10,11 @@ import statistics
 import time
 from pathlib import Path
 from typing import Any, Mapping
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 try:
     from scripts.jev_five_domain_trial import TRIALS, _worker_call
