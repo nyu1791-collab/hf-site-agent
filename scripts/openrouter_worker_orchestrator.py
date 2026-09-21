@@ -31,6 +31,7 @@ if __package__ in {None, ""}:  # pragma: no cover - direct script entrypoint
 from scripts.benchmark_free_workers import run_benchmarks
 from scripts.continuous_project_loop import AUTO_NEXT_SAFE, PROJECT_BOUNDARY, run_continuous_project_loop
 from scripts.openrouter_worker_mission import build_mission_packet
+from scripts.jev_decision_engine import decide as jev_decide
 from scripts.probe_free_workers_multi import run_multi_probe
 
 SCHEMA_VERSION = "openrouter-worker-orchestrator-v5"
@@ -159,6 +160,7 @@ def run_pipeline(
     network_enabled: bool,
     continuation_mode: str = AUTO_NEXT_SAFE,
     max_auto_projects: int = 3,
+    jev_enabled: bool = False,
 ) -> dict[str, Any]:
     events: list[dict[str, Any]] = []
     report: dict[str, Any] = {
@@ -178,6 +180,7 @@ def run_pipeline(
         "probe": {},
         "benchmark": {},
         "handoff": {},
+        "jev_fast_decision": {},
         "project_loop": {},
     }
 
@@ -269,6 +272,55 @@ def run_pipeline(
         )
         return report
 
+    if jev_enabled:
+        unique_models: list[str] = []
+        profiles: dict[str, str] = {}
+        selected_workers = handoff.get("selected_workers") if isinstance(handoff.get("selected_workers"), Mapping) else {}
+        for role, value in selected_workers.items():
+            if not isinstance(value, Mapping):
+                continue
+            ranked = value.get("ranked_candidates") if isinstance(value.get("ranked_candidates"), list) else []
+            if not ranked and value.get("model"):
+                ranked = [{"model": value.get("model"), "rank": 1, "score": value.get("score")}]
+            for item in ranked:
+                if not isinstance(item, Mapping) or not item.get("model"):
+                    continue
+                model = str(item.get("model"))
+                if model not in unique_models:
+                    unique_models.append(model)
+                profiles[model] = f"Eligible exact-free candidate for role={role}; benchmark rank={item.get('rank')}; score={item.get('score')}."
+        if unique_models:
+            jev_result = jev_decide(
+                task_summary=(
+                    "Choose the most efficient 1-3 exact-free specialist models for the current OpenRouter worker project. "
+                    "Use parallel execution only for independent work and prefer the smallest team that maximizes quality and wall-clock efficiency."
+                ),
+                candidate_models=unique_models[:12],
+                candidate_profiles=profiles,
+                remaining_free_quota=max(1, 900 - int(probe.get("model_calls", 0) or 0) - int(benchmark.get("model_calls", 0) or 0)),
+                api_key=api_key,
+            )
+            report["jev_fast_decision"] = jev_result
+            if jev_result.get("status") == "JEV_DECISION_OK":
+                decision = jev_result.get("decision") if isinstance(jev_result.get("decision"), Mapping) else {}
+                handoff["fast_lane_recommendation"] = {
+                    "selected_models": list(decision.get("selected_models") or []),
+                    "fanout": decision.get("fanout"),
+                    "execution_mode": decision.get("execution_mode"),
+                    "independent_verification": decision.get("independent_verification"),
+                    "confidence": decision.get("confidence"),
+                    "automatic_activation": False,
+                }
+                report["scoped_paid_decision_calls"] = 1
+                events.append(_event("JEV_FAST_DECISION", "READY", "Jev produced a bounded typed routing recommendation"))
+            else:
+                report["scoped_paid_decision_calls"] = 0
+                events.append(_event("JEV_FAST_DECISION", "FALLBACK", "Jev unavailable or blocked; deterministic benchmark handoff retained"))
+        else:
+            report["scoped_paid_decision_calls"] = 0
+    else:
+        report["scoped_paid_decision_calls"] = 0
+
     handoff["commander_acceptance_pending"] = degraded_bootstrap
     events.append(_event("WORKER_BENCHMARK", "PASSED", f"{handoff['ready_role_count']} worker roles have ranked winners"))
     handoff_summary = (
@@ -333,6 +385,7 @@ def main() -> int:
             network_enabled=args.network,
             continuation_mode=mode,
             max_auto_projects=max_auto,
+            jev_enabled=str(os.environ.get("JEV_FAST_DECISION_ENABLED") or "1").strip().lower() not in {"0", "false", "off", "no"},
         )
     except Exception:
         report = {
