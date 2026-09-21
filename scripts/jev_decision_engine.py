@@ -853,6 +853,12 @@ def _prepare_fast_route_record(
     prepared["allow_third"] = bool(record.get("allow_third"))
     prepared["shared_mutable_state"] = bool(record.get("shared_mutable_state"))
     prepared["high_risk"] = bool(record.get("high_risk"))
+    manual = policy.get("official_manual_alignment") or {}
+    max_profile_chars = int(manual.get("fast_candidate_profile_chars", 360))
+    prepared["candidate_profiles"] = {
+        model: str(profile)[:max_profile_chars]
+        for model, profile in prepared["candidate_profiles"].items()
+    }
     return prepared
 
 
@@ -860,9 +866,8 @@ def _fast_questions_for_record(record: Mapping[str, Any]) -> dict[str, dict[str,
     rid = str(record["id"])
     prefix = f"{rid}__"
     candidates = list(record["candidate_models"])
-    profiles = record["candidate_profiles"]
     model_criteria = {
-        model: f"Choose {model} when it is the strongest fit. {profiles[model]}"
+        model: "Eligible candidate. Use when the candidate profile stored in this record best fits the requested role."
         for model in candidates
     }
     route_shapes = _fast_route_shapes(bool(record.get("allow_third")))
