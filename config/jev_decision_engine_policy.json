@@ -1,5 +1,5 @@
 {
-  "schema_version": "jev-decision-engine-policy-v5",
+  "schema_version": "jev-decision-engine-policy-v6",
   "effective_date_jst": "2026-09-22",
   "status": "ACTIVE_SCOPED_PAID_EXCEPTION",
   "role": "FAST_SYSTEM_ONE_DECISION_PLANE",
@@ -184,7 +184,7 @@
     "free_text_route_generation": false,
     "selected_default_route_surface": "FAST_THREE_QUESTION",
     "portfolio_one_choice_status": "EXPERIMENTAL_ECONOMY_NOT_SPEED_DEFAULT",
-    "fast_candidate_profile_chars": 360,
+    "fast_candidate_profile_chars": 240,
     "question_criteria_reuse_state_profiles": true,
     "latest_ab_evidence": {
       "run_id": 35669377196,
@@ -198,6 +198,23 @@
       "fast_input_token_reduction_percent": 34.06,
       "portfolio_input_token_reduction_percent": 61.02,
       "all_modes_success_rate": 1
+    },
+    "fast_candidate_count": 4,
+    "cardinality_benchmark_evidence": {
+      "run_id": 35669772394,
+      "iterations_per_variant": 20,
+      "records_per_request": 5,
+      "candidate_4_p50_ms": 282.71,
+      "candidate_6_p50_ms": 307.748,
+      "candidate_8_p50_ms": 327.221,
+      "candidate_12_p50_ms": 317.994,
+      "candidate_4_primary_hit_rate": 1,
+      "recommended_candidate_count": 4,
+      "profile_120_p50_ms": 274.778,
+      "profile_240_p50_ms": 271.273,
+      "profile_360_p50_ms": 285.83,
+      "profile_240_p95_ms": 324.185,
+      "recommended_profile_char_limit": 240
     }
   }
 }
