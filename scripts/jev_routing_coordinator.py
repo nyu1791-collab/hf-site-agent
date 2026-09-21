@@ -200,32 +200,20 @@ def coordinate_many(
     decisions = jev.get("decisions") if isinstance(jev.get("decisions"), Mapping) else {}
     plans: dict[str, Any] = {}
 
-    # Reserve planned free-worker request capacity across the batch so a fast
-    # Jev plan does not create work that the free ledger will immediately block.
-    remaining_budget = 0
-    for base in baselines.values():
-        if base.get("status") == "READY":
-            remaining_budget = max(remaining_budget, int(base.get("remaining_quota_before_plan", 0) or 0))
-
+    raw_plans: dict[str, Any] = {}
     for index, task in enumerate(tasks, 1):
         task_id = str(task.get("task_id") or task.get("id") or f"task_{index:04d}")
         base = baselines[task_id]
         decision = decisions.get(task_id) if isinstance(decisions, Mapping) else None
         if not isinstance(decision, Mapping) or decision.get("action") != "EXECUTE" or decision.get("low_confidence"):
-            plans[task_id] = base
+            raw_plans[task_id] = dict(base)
             continue
         selected = list(decision.get("workers") or [])
         if not selected:
-            plans[task_id] = base
+            raw_plans[task_id] = dict(base)
             continue
-        if remaining_budget <= 0:
-            plans[task_id] = {**base, "status": "BLOCKED_FREE_QUOTA_PLANNED_EXHAUSTED", "selected_models": []}
-            continue
-        if len(selected) > remaining_budget:
-            selected = selected[:remaining_budget]
-        remaining_budget -= len(selected)
         parallel = bool(decision.get("parallel")) and len(selected) > 1
-        plans[task_id] = {
+        raw_plans[task_id] = {
             **base,
             "selected_models": selected,
             "primary_model": selected[0],
@@ -235,10 +223,42 @@ def coordinate_many(
             "lane": decision.get("lane") or base.get("lane"),
             "independent_verification": bool(decision.get("independent_verification")),
             "jev_confidence": decision.get("confidence"),
-            "planned_free_requests_reserved": len(selected),
-            "remaining_batch_free_request_budget": remaining_budget,
             "fanout_reason": ["JEV_BATCH_TYPED_DECISION", *list(base.get("fanout_reason") or [])],
         }
+
+    # One common reservation gate covers Jev plans and deterministic fallbacks.
+    remaining_budget = 0
+    for base in baselines.values():
+        if base.get("status") == "READY":
+            remaining_budget = max(remaining_budget, int(base.get("remaining_quota_before_plan", 0) or 0))
+
+    for index, task in enumerate(tasks, 1):
+        task_id = str(task.get("task_id") or task.get("id") or f"task_{index:04d}")
+        plan = dict(raw_plans[task_id])
+        selected = list(plan.get("selected_models") or [])
+        if plan.get("status") == "READY" and selected:
+            if remaining_budget <= 0:
+                plan.update(
+                    status="BLOCKED_FREE_QUOTA_PLANNED_EXHAUSTED",
+                    selected_models=[],
+                    active_model_count=0,
+                    parallel_model_calls=0,
+                )
+            else:
+                if len(selected) > remaining_budget:
+                    selected = selected[:remaining_budget]
+                remaining_budget -= len(selected)
+                parallel = plan.get("execution_mode") == "PARALLEL" and len(selected) > 1
+                plan.update(
+                    selected_models=selected,
+                    primary_model=selected[0],
+                    active_model_count=len(selected),
+                    parallel_model_calls=len(selected) if parallel else 1,
+                    execution_mode="PARALLEL" if parallel else ("SINGLE" if len(selected) == 1 else "SEQUENTIAL"),
+                    planned_free_requests_reserved=len(selected),
+                    remaining_batch_free_request_budget=remaining_budget,
+                )
+        plans[task_id] = plan
 
     return {
         "schema_version": "jev-routing-coordinator-batch-v1",
