@@ -88,7 +88,7 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           set -euo pipefail
-          python scripts/jev_five_domain_parallel_trial.py --output artifacts/jev_five_domain_parallel_trial.json
+          python -m scripts.jev_five_domain_parallel_trial --output artifacts/jev_five_domain_parallel_trial.json
 
       - name: Upload Jev five-domain evidence
         if: ${{ always() && hashFiles('missions/jev-trial/active.json') != '' }}
