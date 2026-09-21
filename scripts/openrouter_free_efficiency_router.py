@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Deterministic OpenRouter exact-free efficiency router.
+"""Deterministic planner for efficient OpenRouter exact-free model fanout.
 
-This module performs catalog-only selection. It never reads an API key, never
-calls a model, never spends credits, and never enables paid fallback. All current
-zero-priced exact :free models may enter standby. Normal task execution selects
-one best-fit primary and keeps the rest as sequential standby only.
+This module performs catalog-only planning. It never reads an API key, never
+calls a model, never spends credits, and never enables paid fallback.
+
+The current zero-priced exact :free catalog is standby capacity. The planner
+chooses 1..3 models according to expected total system value. One model is
+correct when coordination or quota cost dominates. Parallel models are correct
+when independent work, complementary specialization, or verification value
+materially improves quality or latency.
 """
 from __future__ import annotations
 
@@ -19,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "config" / "openrouter_free_efficiency_policy.json"
 CATALOG_URL = "https://openrouter.ai/api/v1/models"
 GENERIC_FREE_ROUTER = "openrouter/free"
+MAX_DYNAMIC_FANOUT = 3
 
 TASK_LANE_MAP = {
     "CODING": "CODING_ENGINEERING",
@@ -70,13 +75,11 @@ def exact_free_catalog_entry(entry: Mapping[str, Any]) -> bool:
 
 
 def current_free_catalog(entries: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
-    result: dict[str, dict[str, Any]] = {}
-    for entry in entries:
-        if not isinstance(entry, Mapping) or not exact_free_catalog_entry(entry):
-            continue
-        model = str(entry["id"])
-        result[model] = dict(entry)
-    return result
+    return {
+        str(entry["id"]): dict(entry)
+        for entry in entries
+        if isinstance(entry, Mapping) and exact_free_catalog_entry(entry)
+    }
 
 
 def _modalities(entry: Mapping[str, Any]) -> set[str]:
@@ -84,9 +87,7 @@ def _modalities(entry: Mapping[str, Any]) -> set[str]:
     if not isinstance(arch, Mapping):
         return set()
     raw = arch.get("input_modalities")
-    if not isinstance(raw, list):
-        return set()
-    return {str(x).lower() for x in raw}
+    return {str(x).lower() for x in raw} if isinstance(raw, list) else set()
 
 
 def _supported(entry: Mapping[str, Any]) -> set[str]:
@@ -136,7 +137,7 @@ def ordered_candidates(
             ordered.append(model)
             seen.add(model)
 
-    dynamic = []
+    dynamic: list[tuple[int, int, str]] = []
     for model, entry in free.items():
         if model in seen or not _meets_task(entry, task):
             continue
@@ -153,11 +154,76 @@ def ordered_candidates(
     return ordered
 
 
+def decide_fanout(
+    task: Mapping[str, Any],
+    *,
+    candidate_count: int,
+    remaining_quota: int,
+) -> tuple[int, list[str]]:
+    """Choose 1..3 models and record why.
+
+    The heuristic intentionally uses explicit task evidence rather than a rigid
+    single-model or parallel-model default. It is conservative under quota
+    pressure and shared-state/sequential work, and expands only when the task
+    exposes independent or verification value.
+    """
+    if candidate_count <= 0 or remaining_quota <= 0:
+        return 0, ["NO_ELIGIBLE_MODEL_OR_QUOTA"]
+
+    reasons: list[str] = []
+    if (
+        bool(task.get("shared_mutable_state"))
+        or bool(task.get("strictly_sequential"))
+        or bool(task.get("single_writer_only"))
+    ):
+        return 1, ["SERIAL_OR_SHARED_STATE_DOMINATES"]
+
+    if remaining_quota <= 5 or bool(task.get("quota_pressure")):
+        return 1, ["FREE_QUOTA_HEADROOM_LOW"]
+
+    independent = max(1, int(task.get("independent_workstreams") or 1))
+    parallel_fraction = float(task.get("parallelizable_fraction") or (1.0 if independent > 1 else 0.0))
+    quality_priority = str(task.get("quality_priority") or "normal").lower()
+    latency_priority = str(task.get("latency_priority") or "normal").lower()
+    high_impact = bool(task.get("high_impact"))
+    high_uncertainty = bool(task.get("high_uncertainty"))
+    independent_verification = bool(task.get("independent_verification"))
+    complementary = bool(task.get("complementary_specialization"))
+
+    desired = 1
+    if independent >= 2 and parallel_fraction >= 0.45:
+        desired = min(MAX_DYNAMIC_FANOUT, independent)
+        reasons.append("INDEPENDENT_WORKSTREAMS_REDUCE_WALL_CLOCK")
+    if complementary and candidate_count >= 2:
+        desired = max(desired, 2)
+        reasons.append("COMPLEMENTARY_SPECIALIZATION_EXPECTED_TO_RAISE_QUALITY")
+    if high_impact and independent_verification and candidate_count >= 2:
+        desired = max(desired, 2)
+        reasons.append("INDEPENDENT_VERIFICATION_MATERIALLY_REDUCES_RISK")
+    if high_uncertainty and quality_priority in {"high", "critical"} and candidate_count >= 2:
+        desired = max(desired, 2)
+        reasons.append("HIGH_UNCERTAINTY_JUSTIFIES_COMPLEMENTARY_CHECK")
+    if latency_priority in {"high", "critical"} and independent >= 3 and parallel_fraction >= 0.65:
+        desired = max(desired, 3)
+        reasons.append("PARALLELISM_MATERIALLY_REDUCES_LATENCY")
+
+    coordination_penalty = float(task.get("coordination_overhead_ratio") or 0.0)
+    if coordination_penalty >= 0.35:
+        desired = 1
+        reasons = ["COORDINATION_OVERHEAD_EXCEEDS_EXPECTED_FANOUT_GAIN"]
+
+    desired = min(desired, candidate_count, MAX_DYNAMIC_FANOUT, remaining_quota)
+    if desired <= 1:
+        return 1, reasons or ["ONE_MODEL_HAS_HIGHEST_EXPECTED_TOTAL_SYSTEM_VALUE"]
+    return desired, reasons
+
+
 def plan_task(
     task: Mapping[str, Any],
     entries: Sequence[Mapping[str, Any]],
     *,
     account_ten_dollar_eligibility_verified: bool = False,
+    free_requests_today: int = 0,
 ) -> dict[str, Any]:
     policy = load_policy()
     candidates = ordered_candidates(policy, entries, task)
@@ -167,42 +233,54 @@ def plan_task(
         if account_ten_dollar_eligibility_verified
         else quota.get("unverified_account_daily_hard_stop_requests", 45)
     )
-    if not candidates:
+    remaining = max(0, hard_stop - max(0, int(free_requests_today)))
+    fanout, reasons = decide_fanout(task, candidate_count=len(candidates), remaining_quota=remaining)
+
+    if fanout == 0:
         return {
-            "schema_version": "openrouter-free-efficiency-plan-v1",
-            "status": "BLOCKED_NO_EXACT_FREE_MATCH",
+            "schema_version": "openrouter-free-efficiency-plan-v2",
+            "status": "BLOCKED_NO_EXACT_FREE_MATCH_OR_QUOTA",
             "lane": infer_lane(task),
-            "primary_model": None,
+            "selected_models": [],
             "active_model_count": 0,
-            "standby_models": [],
+            "standby_models": candidates[:8],
             "parallel_model_calls": 0,
+            "fanout_reason": reasons,
             "paid_fallback": False,
             "quota_hard_stop": hard_stop,
+            "remaining_quota_before_plan": remaining,
         }
+
+    selected = candidates[:fanout]
+    execution_mode = "SINGLE_MODEL" if fanout == 1 else "PARALLEL_INDEPENDENT_OR_VERIFICATION"
     return {
-        "schema_version": "openrouter-free-efficiency-plan-v1",
+        "schema_version": "openrouter-free-efficiency-plan-v2",
         "status": "READY",
         "lane": infer_lane(task),
-        "primary_model": candidates[0],
-        "active_model_count": 1,
-        "standby_models": candidates[1:8],
-        "standby_mode": "SEQUENTIAL_ESCALATION_ONLY",
-        "parallel_model_calls": 1,
-        "stop_after_first_acceptable_result": True,
-        "second_model_requires_recorded_escalation_reason": True,
+        "selected_models": selected,
+        "primary_model": selected[0],
+        "active_model_count": fanout,
+        "execution_mode": execution_mode,
+        "parallel_model_calls": fanout,
+        "fanout_reason": reasons,
+        "fanout_decision_owner": "chatgpt-top-commander",
+        "standby_models": candidates[fanout:fanout + 8],
+        "standby_mode": "SEQUENTIAL_ESCALATION_OR_FUTURE_REPLAN",
         "provider_allow_fallbacks": False,
         "generic_free_router_allowed": False,
         "paid_fallback": False,
         "auto_top_up": False,
         "quota_hard_stop": hard_stop,
+        "remaining_quota_before_plan": remaining,
         "catalog_free_model_count": len(current_free_catalog(entries)),
+        "stop_when_marginal_expected_value_nonpositive": True,
     }
 
 
 def fetch_catalog(timeout: int = 8) -> list[dict[str, Any]]:
     request = Request(
         CATALOG_URL,
-        headers={"Accept": "application/json", "User-Agent": "hf-site-agent-openrouter-free-efficiency/1.0"},
+        headers={"Accept": "application/json", "User-Agent": "hf-site-agent-openrouter-free-efficiency/2.0"},
     )
     with urlopen(request, timeout=timeout) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -219,6 +297,16 @@ def main() -> int:
     parser.add_argument("--requires-image", action="store_true")
     parser.add_argument("--requires-video", action="store_true")
     parser.add_argument("--long-context", action="store_true")
+    parser.add_argument("--independent-workstreams", type=int, default=1)
+    parser.add_argument("--parallelizable-fraction", type=float, default=0.0)
+    parser.add_argument("--quality-priority", default="normal")
+    parser.add_argument("--latency-priority", default="normal")
+    parser.add_argument("--high-impact", action="store_true")
+    parser.add_argument("--high-uncertainty", action="store_true")
+    parser.add_argument("--independent-verification", action="store_true")
+    parser.add_argument("--complementary-specialization", action="store_true")
+    parser.add_argument("--coordination-overhead-ratio", type=float, default=0.0)
+    parser.add_argument("--free-requests-today", type=int, default=0)
     parser.add_argument("--catalog", default="")
     parser.add_argument("--network-catalog", action="store_true")
     parser.add_argument("--ten-dollar-eligibility-verified", action="store_true")
@@ -244,11 +332,21 @@ def main() -> int:
         "requires_image": args.requires_image,
         "requires_video": args.requires_video,
         "long_context": args.long_context,
+        "independent_workstreams": args.independent_workstreams,
+        "parallelizable_fraction": args.parallelizable_fraction,
+        "quality_priority": args.quality_priority,
+        "latency_priority": args.latency_priority,
+        "high_impact": args.high_impact,
+        "high_uncertainty": args.high_uncertainty,
+        "independent_verification": args.independent_verification,
+        "complementary_specialization": args.complementary_specialization,
+        "coordination_overhead_ratio": args.coordination_overhead_ratio,
     }
     plan = plan_task(
         task,
         entries,
         account_ten_dollar_eligibility_verified=args.ten_dollar_eligibility_verified,
+        free_requests_today=args.free_requests_today,
     )
     out = Path(args.output)
     if out.is_absolute() or ".." in out.parts:
