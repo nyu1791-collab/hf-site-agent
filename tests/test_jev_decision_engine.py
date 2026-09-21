@@ -7,9 +7,12 @@ from scripts.jev_decision_engine import (
     QuotaPressure,
     build_batch_decisions_request,
     build_decisions_request,
+    build_fast_route_batch_request,
     decide_many,
+    decide_many_fast,
     load_policy,
     parse_batch_decisions_response,
+    parse_fast_route_response,
     price_guard_allows,
     quota_pressure_from_remaining,
 )
@@ -42,6 +45,19 @@ def answers_for(record_id, *, primary="a:free", secondary="b:free", tertiary="c:
         p + "independent_verification": noul(verify),
         p + "action": choice("EXECUTE", confidence),
     }
+
+
+def fast_answers(record_id, *, primary="a:free", secondary="b:free", tertiary="c:free",
+                 route_shape="SINGLE", confidence=0.95):
+    p = record_id + "__"
+    out = {
+        p + "primary_worker": choice(primary, confidence, {primary: 0.9, secondary: 0.08, tertiary: 0.02}),
+        p + "route_shape": choice(route_shape, confidence, {route_shape: confidence}),
+        p + "secondary_worker": choice(secondary, confidence, {secondary: 0.8, tertiary: 0.15, primary: 0.05}),
+    }
+    if tertiary is not None:
+        out[p + "tertiary_worker"] = choice(tertiary, confidence, {tertiary: 0.8, secondary: 0.15, primary: 0.05})
+    return out
 
 
 class JevDecisionEngineTests(unittest.TestCase):
@@ -273,6 +289,96 @@ class JevDecisionEngineTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(evidence["evidence_source"], "AUTHORIZED_JEV_POLICY_OBSERVATION")
         self.assertAlmostEqual(evidence["observed_prompt_usd_per_million"], 0.042)
+
+    def test_fast_route_routine_uses_three_questions_per_record(self):
+        policy = load_policy()
+        records = [
+            {
+                "id": f"fast_{i:02d}",
+                "task_summary": "Route a routine task.",
+                "candidate_models": ["a:free", "b:free", "c:free"],
+                "quota_pressure": "AMPLE",
+                "lane": "GENERAL_REASONING",
+                "allow_third": False,
+            }
+            for i in range(20)
+        ]
+        body, prepared = build_fast_route_batch_request(
+            model="~typesafe/jev-latest",
+            records=records,
+            policy=policy,
+        )
+        self.assertEqual(len(prepared), 20)
+        self.assertEqual(len(body["questions"]), 60)
+        self.assertTrue(all(q["type"] == "choice" for q in body["questions"].values()))
+
+    def test_fast_route_adds_fourth_question_only_when_third_prequalified(self):
+        policy = load_policy()
+        body, _ = build_fast_route_batch_request(
+            model="~typesafe/jev-latest",
+            records=[{
+                "id": "three_way",
+                "task_summary": "Three independent workstreams.",
+                "candidate_models": ["a:free", "b:free", "c:free"],
+                "quota_pressure": "AMPLE",
+                "lane": "GENERAL_REASONING",
+                "allow_third": True,
+            }],
+            policy=policy,
+        )
+        self.assertEqual(len(body["questions"]), 4)
+        self.assertIn("three_way__tertiary_worker", body["questions"])
+
+    def test_fast_route_pair_is_normalized_by_python(self):
+        policy = load_policy()
+        _, prepared = build_fast_route_batch_request(
+            model="~typesafe/jev-latest",
+            records=[{
+                "id": "pair_task",
+                "task_summary": "Use two independent complementary specialists.",
+                "candidate_models": ["a:free", "b:free", "c:free"],
+                "quota_pressure": "AMPLE",
+                "lane": "CODING_ENGINEERING",
+                "allow_third": False,
+            }],
+            policy=policy,
+        )
+        payload = {"answers": fast_answers(
+            "pair_task",
+            primary="a:free",
+            secondary="b:free",
+            tertiary=None,
+            route_shape="PARALLEL_PAIR",
+        )}
+        out = parse_fast_route_response(
+            payload,
+            prepared_records=prepared,
+            policy=policy,
+        )["pair_task"]
+        self.assertEqual(out["workers"], ["a:free", "b:free"])
+        self.assertEqual(out["fanout"], 2)
+        self.assertTrue(out["parallel"])
+        self.assertEqual(out["execution_mode"], "PARALLEL")
+
+    def test_fast_route_shared_state_removes_parallel_shapes(self):
+        policy = load_policy()
+        body, _ = build_fast_route_batch_request(
+            model="~typesafe/jev-latest",
+            records=[{
+                "id": "writer_task",
+                "task_summary": "Edit one shared file.",
+                "candidate_models": ["a:free", "b:free"],
+                "quota_pressure": "AMPLE",
+                "lane": "CODING_ENGINEERING",
+                "allow_third": False,
+                "shared_mutable_state": True,
+            }],
+            policy=policy,
+        )
+        criteria = body["questions"]["writer_task__route_shape"]["criteria"]
+        self.assertNotIn("PARALLEL_PAIR", criteria)
+        self.assertNotIn("PARALLEL_TRIPLE", criteria)
+        self.assertIn("SEQUENTIAL_PAIR", criteria)
 
 
 if __name__ == "__main__":
