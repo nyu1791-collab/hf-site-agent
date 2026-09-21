@@ -1,6 +1,6 @@
 {
-  "schema_version": "multi-agent-operating-policy-v8",
-  "effective_date_jst": "2026-09-21",
+  "schema_version": "multi-agent-operating-policy-v9",
+  "effective_date_jst": "2026-09-22",
   "status": "PERMANENT_STANDARD",
   "architecture": {
     "root_controller": "chatgpt-work",
@@ -148,7 +148,11 @@
     "jev_batch_first_for_independent_tasks": true,
     "jev_max_records_per_request": 20,
     "jev_max_parallel_batches": 5,
-    "jev_quota_pressure_is_precomputed_enum": true
+    "jev_quota_pressure_is_precomputed_enum": true,
+    "domain_aware_recent_worker_health": true,
+    "recent_worker_health_evidence_expires_automatically": true,
+    "independent_task_bundle_uses_single_jev_batch_when_within_batch_limit": true,
+    "bundle_size_does_not_increase_per_task_fanout": true
   },
   "parallelism": {
     "parallelize_only_independent_tasks": true,
@@ -175,7 +179,13 @@
     "openrouter_free_parallelism_requires_expected_total_system_value_gain": true,
     "openrouter_free_fanout_reason_required": true,
     "jev_decision_batches_may_parallelize_when_records_independent": true,
-    "jev_batch_parallelism_ceiling": 5
+    "jev_batch_parallelism_ceiling": 5,
+    "inter_task_parallelism_is_distinct_from_intra_task_model_fanout": true,
+    "independent_bundle_must_not_inflate_each_task_independent_workstreams": true,
+    "independent_bundle_execution_rule": "PARALLELIZE_ACROSS_TASKS_AFTER_BATCH_ROUTING_WHILE_KEEPING_EACH_TASK_AT_THE_SMALLEST_JUSTIFIED_FANOUT",
+    "latency_challenger_max_per_task": 1,
+    "latency_challenger_requires_recent_slow_primary_evidence": true,
+    "latency_challenger_does_not_apply_to_high_risk_tasks": true
   },
   "review_and_reflection": {
     "reviewer_should_receive_acceptance_criteria_and_evidence": true,
@@ -324,7 +334,9 @@
     "record_jev_batch_size": true,
     "record_jev_batch_count": true,
     "record_jev_batch_latency": true,
-    "record_jev_heavy_model_calls_avoided": true
+    "record_jev_heavy_model_calls_avoided": true,
+    "record_domain_scoped_worker_success_latency_and_429": true,
+    "record_inter_task_parallelism_separately_from_intra_task_fanout": true
   },
   "evaluation": {
     "evaluate_system_not_only_individual_model": true,
@@ -358,7 +370,10 @@
       "jev_routing_p50_latency",
       "jev_routing_p95_latency",
       "jev_heavy_model_calls_avoided",
-      "jev_unnecessary_fanout_avoided"
+      "jev_unnecessary_fanout_avoided",
+      "domain_scoped_worker_success_rate",
+      "inter_task_parallel_efficiency",
+      "intra_task_fanout_efficiency"
     ],
     "adopt_multi_agent_change_only_if_total_system_value_improves": true
   },
