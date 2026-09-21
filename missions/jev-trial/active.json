@@ -1,0 +1,8 @@
+{
+  "schema_version": "jev-trial-mission-v1",
+  "created_at_jst": "2026-09-21",
+  "purpose": "Run one bounded end-to-end Jev decision-plane trial against three deterministic tasks.",
+  "free_worker_call_cap": 9,
+  "paid_scope": "JEV_DECISION_ONLY",
+  "production_side_effects": false
+}
