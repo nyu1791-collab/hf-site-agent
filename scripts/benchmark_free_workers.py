@@ -26,9 +26,9 @@ from scripts.worker_benchmark_ranking import rank_benchmarked_workers, select_be
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 TIMEOUT_SECONDS = 35
 MAX_OUTPUT_TOKENS = 512
-MAX_CANDIDATES_PER_ROLE = 12
-MAX_BENCHMARK_CALLS = 48
-MAX_PARALLEL_BENCHMARKS = 6
+MAX_CANDIDATES_PER_ROLE = 2
+MAX_BENCHMARK_CALLS = 8
+MAX_PARALLEL_BENCHMARKS = 1
 RESPONSE_REASONING = {"effort": "minimal", "exclude": True}
 
 BENCHMARKS: dict[str, dict[str, Any]] = {
@@ -258,7 +258,7 @@ def run_benchmarks(*, api_key: str, probe_report: Mapping[str, Any]) -> dict[str
         "max_calls": MAX_BENCHMARK_CALLS,
         "max_output_tokens_per_call": MAX_OUTPUT_TOKENS,
         "reasoning_policy": "MINIMAL_EXCLUDED_TO_PRESERVE_VISIBLE_JSON",
-        "parallel_execution": True,
+        "parallel_execution": False,
         "parallel_worker_limit": MAX_PARALLEL_BENCHMARKS,
         "native_json_mode_required": False,
         "provider_allow_fallbacks": False,
@@ -367,7 +367,7 @@ def main() -> int:
             "records": [],
             "rankings": {},
             "assignments": {},
-            "parallel_execution": True,
+            "parallel_execution": False,
             "parallel_worker_limit": MAX_PARALLEL_BENCHMARKS,
             "automatic_activation": False,
             "paid_fallback": False,
