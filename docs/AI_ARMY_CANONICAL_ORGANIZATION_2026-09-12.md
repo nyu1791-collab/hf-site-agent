@@ -7,6 +7,16 @@ This document is the human-readable companion to the machine policies. The machi
 ### Top Commander — ChatGPT Work
 Owns the Mission, authorization boundary, cross-domain integration, final adjudication, and user delivery. No subordinate model can override this layer.
 
+### Fast Decision Plane — Jev Latest
+
+Jev sits directly under ChatGPT as a **control-plane decision engine**, not as a content Worker and not under DeepSeek. It is the normal fast lane for nontrivial routing choices: task classification, specialist assignment, 1–3 model fanout, parallel vs sequential execution, independent-verification need, and stop/retry/escalate triage. Clear deterministic routes may bypass Jev because adding any model hop would be waste.
+
+The canonical entry is `~typesafe/jev-latest`, guarded by a local price ceiling and typed Decisions contract. If Latest fails the guard or contract, the runtime may try the last-known-good pinned Jev once, then falls back to deterministic/ChatGPT routing. Jev cannot expand permissions, candidate models, paid Worker scope, deployment, publication, merge, payment, or secret access.
+
+The target fast path is:
+
+`ChatGPT → deterministic eligibility filter → Jev typed decision → only the selected specialist(s) → machine/Jev light triage → ChatGPT final adjudication`.
+
 ### Executive Supervisor — paid DeepSeek
 Paid DeepSeek is persistently pre-authorized only for the supervisory scope in `config/deepseek_paid_supervisor_policy.json`. It is intentionally **not** the default bottom Worker and **not** a boilerplate code factory.
 
@@ -43,9 +53,10 @@ All new policy-facing routing decisions should enter through:
 
 It selects among:
 1. deterministic-tool path
-2. paid DeepSeek Executive Supervisor path
-3. direct specialist bypass
-4. ChatGPT single-controller fallback
+2. Jev-assisted fast routing for nontrivial eligible-model/fanout choices
+3. paid DeepSeek Executive Supervisor path for high-information-gain supervision
+4. direct specialist bypass
+5. ChatGPT single-controller fallback
 
 `scripts/commander_routing.py` remains a compatibility execution layer for legacy direct-provider routing and is not the policy source of truth.
 
@@ -81,7 +92,7 @@ Historical paid engineering/specialist experiment workflows are retired from the
 
 ## 7. Cost policy
 
-Default routes remain free-only. Paid DeepSeek is the one persistent paid exception for the authorized supervisory scope. This does not authorize other paid providers.
+Default execution routes remain free-only. There are two narrow persistent paid exceptions: paid DeepSeek for the authorized supervisory scope, and Jev for the bounded fast-decision scope. Neither exception authorizes any other paid provider or generic paid fallback.
 
 - no auto top-up
 - no generic paid fallback
