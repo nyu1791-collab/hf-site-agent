@@ -1,0 +1,20 @@
+{
+  "schema_version": "jev-five-domain-cycle-v1",
+  "cycle": 3,
+  "created_at_jst": "2026-09-22",
+  "purpose": "Cycle 3 of 3: preserve 5/5 quality while racing one healthy challenger against proven workers slower than 3 seconds.",
+  "domains": [
+    "DATA_EXTRACTION",
+    "CODING_DEBUG",
+    "PLANNING_ORCHESTRATION",
+    "QUALITY_REVIEW",
+    "EVIDENCE_SYNTHESIS"
+  ],
+  "recent_cycle2_evidence": true,
+  "latency_challenger_max": 1,
+  "slow_primary_threshold_ms": 3000,
+  "worker_timeout_seconds": 10,
+  "free_worker_call_cap": 12,
+  "paid_scope": "JEV_ONLY",
+  "production_side_effects": false
+}
