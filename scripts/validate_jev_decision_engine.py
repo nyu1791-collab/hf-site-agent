@@ -50,12 +50,19 @@ def main() -> int:
     require(contract.get("model_may_not_expand_candidate_set") is True, "Jev may expand candidate set")
     require(contract.get("model_may_not_expand_permissions") is True, "Jev may expand permissions")
     require(contract.get("model_may_not_authorize_paid_workers") is True, "Jev may authorize paid workers")
+    fast_contract = contract.get("fast_route_contract") or {}
+    require(int(fast_contract.get("routine_question_count", 0)) == 3, "routine Jev route must use three questions")
+    require(int(fast_contract.get("max_question_count", 0)) == 4, "Jev fast route must cap at four questions")
+    require(fast_contract.get("python_derives_fanout") is True, "Python no longer derives fast-route fanout")
 
     source = RUNTIME.read_text(encoding="utf-8")
     require('DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"' in source, "Jev is not using Decisions API")
     require("~typesafe/jev-latest" in source, "Jev latest alias missing from runtime")
     require("candidate_expansion_blocked" in source, "candidate expansion guard missing")
     require("def decide_many(" in source, "batch-first Jev API missing")
+    require("def decide_many_fast(" in source, "manual-aligned Jev fast batch API missing")
+    require("def build_fast_route_batch_request(" in source, "three-question Jev request builder missing")
+    require('"PARALLEL_PAIR"' in source and '"SEQUENTIAL_PAIR"' in source, "typed route-shape contract missing")
     require("ThreadPoolExecutor" in source, "parallel Jev batch execution missing")
     require("max_records_per_request" in source, "Jev 20-record batch control missing")
     require("quota_pressure_from_remaining" in source, "quota enum preprocessing missing")
@@ -80,6 +87,8 @@ def main() -> int:
         "emergency_prompt_price_ceiling_per_million": guard.get("hard_emergency_price_ceiling_prompt_usd_per_million"),
         "max_records_per_request": guard.get("max_records_per_decisions_request"),
         "max_parallel_batches": guard.get("max_parallel_decision_batches"),
+        "routine_fast_route_questions": fast_contract.get("routine_question_count"),
+        "max_fast_route_questions": fast_contract.get("max_question_count"),
         "auto_top_up": False,
         "other_paid_fallback": False,
         "chatgpt_final_authority": True,
