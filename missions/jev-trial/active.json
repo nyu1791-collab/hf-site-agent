@@ -1,0 +1,16 @@
+{
+  "schema_version": "jev-five-domain-cycle-v1",
+  "cycle": 1,
+  "created_at_jst": "2026-09-22",
+  "purpose": "Cycle 1 of 3: refresh live worker health and run five domains.",
+  "domains": [
+    "DATA_EXTRACTION",
+    "CODING_DEBUG",
+    "PLANNING_ORCHESTRATION",
+    "QUALITY_REVIEW",
+    "EVIDENCE_SYNTHESIS"
+  ],
+  "free_worker_call_cap": 12,
+  "paid_scope": "JEV_ONLY",
+  "production_side_effects": false
+}
