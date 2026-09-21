@@ -1,5 +1,5 @@
 {
-  "schema_version": "permanent-standards-manifest-v13",
+  "schema_version": "permanent-standards-manifest-v14",
   "effective_date_jst": "2026-09-21",
   "purpose": "Keep the AI Army, evidence governance, media quality, creator monetization and bounded paid supervision recoverable across new chat tabs while using one expandable manifest plus a compact master rulebook instead of duplicating every detailed rule in startup handoffs.",
   "canonical_branch": "ai-army/provider-v3",
@@ -84,6 +84,14 @@
       "machine_policy": "config/openrouter_free_efficiency_policy.json",
       "runtime": "scripts/openrouter_free_efficiency_router.py",
       "validator": "scripts/validate_openrouter_free_efficiency.py",
+      "priority": 1
+    },
+    {
+      "id": "jev-fast-decision-plane",
+      "machine_policy": "config/jev_decision_engine_policy.json",
+      "runtime": "scripts/jev_decision_engine.py",
+      "coordinator": "scripts/jev_routing_coordinator.py",
+      "validator": "scripts/validate_jev_decision_engine.py",
       "priority": 1
     },
     {
@@ -248,7 +256,11 @@
     ],
     "openrouter_free_fanout_strategy": "DYNAMIC_OPTIMAL_FANOUT",
     "openrouter_free_fanout_decision_owner": "chatgpt-top-commander",
-    "openrouter_free_parallelism_requires_expected_total_system_value_gain": true
+    "openrouter_free_parallelism_requires_expected_total_system_value_gain": true,
+    "jev_fast_decision_policy": "config/jev_decision_engine_policy.json",
+    "jev_canonical_model_alias": "~typesafe/jev-latest",
+    "jev_role": "FAST_DECISION_PLANE",
+    "jev_default_for_nontrivial_route_choice": true
   },
   "media_command_gate": {
     "policy": "config/media_command_read_gate.json",
@@ -359,6 +371,32 @@
       "merge": false,
       "secret_mutation_or_disclosure": false,
       "other_paid_provider_authorization": false
+    },
+    {
+      "provider": "openrouter-typesafe",
+      "model_family": "Jev",
+      "role": "FAST_DECISION_PLANE",
+      "policy": "config/jev_decision_engine_policy.json",
+      "persistent_authorization": true,
+      "repeat_per_call_approval_required": false,
+      "allowed_scope": [
+        "TASK_CLASSIFICATION",
+        "SPECIALIST_ASSIGNMENT",
+        "DYNAMIC_FANOUT",
+        "PARALLELISM_DECISION",
+        "VERIFICATION_NEED",
+        "STOP_RETRY_ESCALATE_TRIAGE"
+      ],
+      "long_form_generation": false,
+      "bulk_coding_worker": false,
+      "repository_write": false,
+      "auto_top_up": false,
+      "generic_paid_fallback": false,
+      "deploy": false,
+      "publish": false,
+      "merge": false,
+      "secret_mutation_or_disclosure": false,
+      "other_paid_provider_authorization": false
     }
   ],
   "human_approval_actions": [
@@ -396,7 +434,7 @@
     "second_pass_artifact_contracts_survive_tab_change": true,
     "deepseek_supervisor_preauthorization_survives_tab_change": true,
     "deepseek_working_manager_drafting_scope_survives_tab_change": true,
-    "deepseek_exception_does_not_expand_to_other_paid_providers": true,
+    "deepseek_exception_does_not_expand_to_other_paid_providers": "TRUE_EXCEPT_SEPARATELY_AUTHORIZED_JEV_FAST_DECISION_PLANE",
     "canonical_router_survives_tab_change": true,
     "ci_execution_contract_survives_tab_change": true,
     "historical_deepseek_artifacts_do_not_become_authoritative_on_tab_change": true,
@@ -411,7 +449,9 @@
     "media_character_reaction_cache_survives_tab_change": true,
     "zundamon_metan_production_quality_survives_tab_change": true,
     "free_audio_source_registry_survives_tab_change": true,
-    "dova_curated_bgm_preference_survives_tab_change": true
+    "dova_curated_bgm_preference_survives_tab_change": true,
+    "jev_fast_decision_preauthorization_survives_tab_change": true,
+    "jev_latest_alias_with_price_and_contract_guard_survives_tab_change": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",
