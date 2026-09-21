@@ -56,6 +56,7 @@ def load_recent_evidence(
 
 
 def evidence_penalty(raw: Mapping[str, Any]) -> tuple[int, int, int, int, float]:
+    has_evidence = bool(raw)
     rate_limits = max(0, int(raw.get("rate_limits", 0) or 0))
     quality_failures = max(0, int(raw.get("quality_failures", 0) or 0))
     successes = max(0, int(raw.get("successes", 0) or 0))
@@ -65,10 +66,10 @@ def evidence_penalty(raw: Mapping[str, Any]) -> tuple[int, int, int, int, float]
         latency = 0.0
     severe_slow = 1 if latency >= 30_000 else 0
     slow = 1 if latency >= 10_000 else 0
-    # Lower tuple is better. 429 and quality failures dominate; proven success
-    # then improves ranking, while high latency prevents slow successful models
-    # from beating fast successful ones.
-    return (rate_limits, quality_failures, severe_slow, slow, latency - successes * 2_000.0)
+    # Unknown models keep a modest exploration penalty. A recent fast success
+    # gets a strong bonus; a slow success still loses to healthy unknown models.
+    latency_score = (latency - successes * 10_000.0) if has_evidence else 5_000.0
+    return (rate_limits, quality_failures, severe_slow, slow, latency_score)
 
 
 def rank_candidates(
