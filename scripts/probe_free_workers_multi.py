@@ -28,10 +28,10 @@ from scripts.probe_free_workers import (
 )
 from scripts.worker_selection import WORKER_ROLES, catalog_worker_candidates
 
-CANDIDATES_PER_ROLE = 24
-RECENT_CANDIDATES_PER_ROLE = 6
-MAX_UNIQUE_PROBES = 64
-MAX_PARALLEL_PROBES = 6
+CANDIDATES_PER_ROLE = 6
+RECENT_CANDIDATES_PER_ROLE = 2
+MAX_UNIQUE_PROBES = 6
+MAX_PARALLEL_PROBES = 1
 
 
 def _created_epoch(candidate: Mapping[str, Any]) -> int:
@@ -207,7 +207,7 @@ def run_multi_probe(*, api_key: str = "", registry: Mapping[str, Any] | None = N
         "model_calls": 0,
         "probe_max_tokens": MAX_TOKENS,
         "retries": 0,
-        "parallel_execution": True,
+        "parallel_execution": False,
         "parallel_worker_limit": MAX_PARALLEL_PROBES,
         "provider_allow_fallbacks": False,
         "paid_fallback": False,
@@ -301,7 +301,7 @@ def main() -> int:
             "preferred_bulk_coding_targets": list(PREFERRED_BULK_CODING_TARGETS),
             "preferred_bulk_targets_present_in_current_free_catalog": [],
             "catalog_model_metadata": {},
-            "parallel_execution": True,
+            "parallel_execution": False,
             "parallel_worker_limit": MAX_PARALLEL_PROBES,
             "paid_fallback": False,
             "registry_changed": False,
