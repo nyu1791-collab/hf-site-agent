@@ -1,5 +1,5 @@
 {
-  "schema_version": "openrouter-free-efficiency-policy-v2",
+  "schema_version": "openrouter-free-efficiency-policy-v3",
   "effective_date_jst": "2026-09-21",
   "status": "PERMANENT_STANDARD",
   "decision_owner": "chatgpt-top-commander",
@@ -217,9 +217,11 @@
   },
   "paid_models": {
     "jev": {
-      "observed_model_id": "typesafe/jev-1.13",
-      "execution_enabled": false,
-      "reason": "PAID_MODEL_NOT_AUTHORIZED_BY_FREE_ONLY_POLICY"
+      "execution_enabled_via_separate_scoped_policy": true,
+      "policy_file": "config/jev_decision_engine_policy.json",
+      "role": "FAST_DECISION_PLANE_ONLY",
+      "may_select_only_from_prevalidated_free_candidate_pool": true,
+      "does_not_authorize_paid_worker_fallback": true
     }
   },
   "privacy_and_data": {
