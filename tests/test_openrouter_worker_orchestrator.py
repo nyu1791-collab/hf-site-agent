@@ -269,7 +269,8 @@ class OpenRouterWorkerOrchestratorTests(unittest.TestCase):
         jev = {
             "status": "JEV_DECISION_OK",
             "decision": {
-                "selected_models": ["vendor/code:free"],
+                "workers": ["vendor/code:free"],
+                "parallel": False,
                 "fanout": 1,
                 "execution_mode": "SINGLE",
                 "independent_verification": False,
