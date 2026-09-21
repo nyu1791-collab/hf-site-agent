@@ -349,6 +349,29 @@ def run_trial(api_key: str) -> dict[str, Any]:
                     break
             selected = hedge or candidates[:1]
 
+        # Cycle-level exploration: when recent evidence says the selected
+        # primary is reliable but slower than 3s, race one healthy challenger.
+        if len(selected) == 1 and len(selected) < MAX_WORKERS_PER_ROUND:
+            primary = selected[0]
+            raw = recent_evidence.get(primary) if isinstance(recent_evidence, Mapping) else None
+            try:
+                primary_latency = float((raw or {}).get("avg_latency_ms") or 0.0)
+            except (TypeError, ValueError):
+                primary_latency = 0.0
+            if primary_latency > 3000.0:
+                for challenger in candidates:
+                    if challenger in selected:
+                        continue
+                    challenger_ev = recent_evidence.get(challenger) if isinstance(recent_evidence, Mapping) else None
+                    if isinstance(challenger_ev, Mapping):
+                        if int(challenger_ev.get("rate_limits", 0) or 0) > 0:
+                            continue
+                        if int(challenger_ev.get("quality_failures", 0) or 0) > 0:
+                            continue
+                    selected.append(challenger)
+                    route_source = "JEV_WITH_LATENCY_CHALLENGER"
+                    break
+
         available_calls = max(0, MAX_TOTAL_FREE_WORKER_CALLS - free_worker_calls)
         selected = selected[:available_calls]
         worker_results: list[dict[str, Any]] = []
@@ -391,6 +414,8 @@ def run_trial(api_key: str) -> dict[str, Any]:
             improvements.append("JEV_ROUTE_FALLBACK_RETAINED_WORKFLOW_PROGRESS")
         elif route_source == "JEV_LOW_CONFIDENCE_HEDGE":
             improvements.append("LOW_CONFIDENCE_ROUTED_TO_BOUNDED_TWO_WORKER_HEDGE")
+        elif route_source == "JEV_WITH_LATENCY_CHALLENGER":
+            improvements.append("ONE_HEALTHY_LATENCY_CHALLENGER_ADDED")
         if task_pass:
             improvements.append("QUALITY_ORACLE_PASSED")
         else:
