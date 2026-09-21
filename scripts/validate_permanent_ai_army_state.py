@@ -33,6 +33,7 @@ def main() -> int:
     multi = load_json("config/multi_agent_operating_policy.json")
     supervisor = load_json("config/deepseek_paid_supervisor_policy.json")
     efficiency = load_json("config/agent_efficiency_policy.json")
+    jev = load_json("config/jev_decision_engine_policy.json")
     legacy = load_json("config/legacy_deepseek_compatibility.json")
     model_registry = load_json("config/model_registry.json")
     ci_policy = load_json("config/ci_execution_policy.json")
@@ -44,6 +45,7 @@ def main() -> int:
     require(manifest.get("canonical_branch") == "ai-army/provider-v3", "wrong canonical branch")
     require(org.get("status") == "CANONICAL", "AI Army org chart is not canonical")
     require(supervisor.get("status") == "ACTIVE_SCOPED_EXCEPTION", "DeepSeek supervisor exception inactive")
+    require(jev.get("status") == "ACTIVE_SCOPED_PAID_EXCEPTION", "Jev fast decision exception inactive")
     require(ci_policy.get("schema_version") == "ci-execution-policy-v2", "CI execution policy is not canonical v2")
 
     standards = manifest.get("required_standards") or []
@@ -147,6 +149,8 @@ def main() -> int:
     require(routing.get("deepseek_supervisor_not_mandatory_for_every_task") is True, "DeepSeek mandatory-hop drift")
     require(routing.get("direct_specialist_bypass_allowed_for_narrow_bounded_execution") is True, "specialist bypass missing")
     require(routing.get("direct_specialist_bypass_may_authorize_paid_fallback") is False, "specialist bypass paid fallback drift")
+    require(routing.get("jev_default_for_nontrivial_model_and_fanout_choice") is True, "Jev fast decision default missing")
+    require(routing.get("deterministic_clear_routes_may_bypass_jev") is True, "deterministic Jev bypass rule missing")
 
     admission = org.get("admission") or {}
     bypass = org.get("direct_specialist_bypass") or {}
@@ -200,6 +204,8 @@ def main() -> int:
         require(not (workflows / old_name).exists(), f"retired paid workflow still active by CI registry: {old_name}")
 
     require((ROOT / "scripts" / "ai_army_routing_facade.py").is_file(), "canonical routing facade missing")
+    require((ROOT / "scripts" / "jev_decision_engine.py").is_file(), "Jev decision runtime missing")
+    require((ROOT / "scripts" / "jev_routing_coordinator.py").is_file(), "Jev routing coordinator missing")
     require((ROOT / "scripts" / "deepseek_supervisor_research.py").is_file(), "DeepSeek supervisor runner missing")
     require((ROOT / "scripts" / "ci_control_plane_guard.py").is_file(), "CI control-plane guard missing")
     require((ROOT / "schemas" / "deepseek_supervisor_mission.schema.json").is_file(), "DeepSeek mission schema missing")
@@ -209,6 +215,7 @@ def main() -> int:
         "status": "PASS",
         "canonical_router": "scripts/ai_army_routing_facade.py",
         "deepseek_role": "EXECUTIVE_SUPERVISOR",
+        "jev_role": "FAST_DECISION_PLANE",
         "master_rulebook": "PRIORITY_0",
         "media_creative_restore": "ENFORCED",
         "active_paid_deepseek_workflow": ".github/workflows/deepseek-supervisor-research.yml",
