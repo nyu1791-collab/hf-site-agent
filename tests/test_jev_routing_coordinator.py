@@ -143,6 +143,61 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         total = sum(len(plan.get("selected_models", [])) for plan in result["plans"].values())
         self.assertLessEqual(total, 2)
 
+    def test_low_confidence_routine_task_uses_bounded_hedge(self):
+        fake = {
+            "status": "JEV_DECISION_OK",
+            "decision": {
+                "workers": ["qwen/qwen3.8-27b:free"],
+                "fanout": 1,
+                "parallel": False,
+                "execution_mode": "SINGLE",
+                "lane": "GENERAL_REASONING",
+                "independent_verification": False,
+                "action": "ESCALATE",
+                "confidence": 0.44,
+                "low_confidence": True,
+            },
+        }
+        with patch("scripts.jev_routing_coordinator.decide", return_value=fake), patch(
+            "scripts.jev_routing_coordinator.load_recent_evidence", return_value={}
+        ):
+            result = coordinate(
+                {"task_class": "GENERAL", "objective": "Routine synthesis."},
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+            )
+        self.assertEqual(result["route_source"], "JEV_LOW_CONFIDENCE_BOUNDED_HEDGE")
+        self.assertLessEqual(result["final_plan"]["active_model_count"], 2)
+        self.assertNotEqual(result["final_plan"]["status"], "REQUIRES_CHATGPT_ADJUDICATION")
+
+    def test_low_confidence_high_impact_task_returns_to_chatgpt(self):
+        fake = {
+            "status": "JEV_DECISION_OK",
+            "decision": {
+                "workers": ["qwen/qwen3.8-27b:free"],
+                "fanout": 1,
+                "parallel": False,
+                "execution_mode": "SINGLE",
+                "lane": "GENERAL_REASONING",
+                "independent_verification": True,
+                "action": "ESCALATE",
+                "confidence": 0.44,
+                "low_confidence": True,
+            },
+        }
+        with patch("scripts.jev_routing_coordinator.decide", return_value=fake), patch(
+            "scripts.jev_routing_coordinator.load_recent_evidence", return_value={}
+        ):
+            result = coordinate(
+                {"task_class": "GENERAL", "objective": "High impact decision.", "high_impact": True},
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+            )
+        self.assertEqual(result["route_source"], "CHATGPT_ADJUDICATION_AFTER_JEV")
+        self.assertEqual(result["final_plan"]["status"], "REQUIRES_CHATGPT_ADJUDICATION")
+
 
 if __name__ == "__main__":
     unittest.main()
