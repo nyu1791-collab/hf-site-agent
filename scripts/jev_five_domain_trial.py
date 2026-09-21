@@ -32,7 +32,7 @@ except ModuleNotFoundError:
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 MAX_TOTAL_FREE_WORKER_CALLS = 12
 MAX_WORKERS_PER_ROUND = 2
-WORKER_TIMEOUT_SECONDS = 25.0
+WORKER_TIMEOUT_SECONDS = 10.0
 
 TRIALS = [
     {
@@ -449,6 +449,7 @@ def run_trial(api_key: str) -> dict[str, Any]:
             "free_worker_call_cap": MAX_TOTAL_FREE_WORKER_CALLS,
             "worker_429_count": rate_limits,
             "worker_latency_p50_ms": round(statistics.median(latencies), 3) if latencies else None,
+            "worker_latency_p95_ms": round(sorted(latencies)[max(0, min(len(latencies)-1, int(len(latencies)*0.95)-1))], 3) if latencies else None,
             "jev_total_cost": total_jev_cost,
             "recent_evidence_models_loaded": len(recent_evidence),
             "total_wall_ms": round((time.perf_counter() - started) * 1000.0, 3),
@@ -488,7 +489,29 @@ def main() -> int:
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"status": report.get("status"), "summary": report.get("summary")}, ensure_ascii=False, sort_keys=True))
+    compact_rounds = []
+    for row in report.get("rounds", []) if isinstance(report.get("rounds"), list) else []:
+        compact_rounds.append({
+            "round": row.get("round"),
+            "domain": row.get("domain"),
+            "status": row.get("status"),
+            "route_source": row.get("route_source"),
+            "jev_confidence": (row.get("jev") or {}).get("confidence"),
+            "jev_workers": (row.get("jev") or {}).get("workers"),
+            "fallback_model": row.get("fallback_model"),
+            "worker_results": [
+                {
+                    "model": result.get("model"),
+                    "status": result.get("status"),
+                    "quality_pass": result.get("quality_pass"),
+                    "latency_ms": result.get("latency_ms"),
+                    "http_status": result.get("http_status"),
+                }
+                for result in row.get("worker_results", [])
+            ],
+            "round_wall_ms": row.get("round_wall_ms"),
+        })
+    print(json.dumps({"status": report.get("status"), "summary": report.get("summary"), "rounds": compact_rounds}, ensure_ascii=False, sort_keys=True))
     return 0 if report.get("status") in {"PASS", "NEEDS_TUNING"} else 1
 
 
