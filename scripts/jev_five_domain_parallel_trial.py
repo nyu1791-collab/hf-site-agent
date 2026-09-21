@@ -37,9 +37,10 @@ def _task_payload(trial: Mapping[str, Any]) -> dict[str, Any]:
         "domain": trial["domain"],
         "task_class": trial["task_class"],
         "objective": trial["objective"],
-        "independent_workstreams": 2,
-        "parallelizable_fraction": 0.9,
-        "quality_priority": "high",
+        # Bundle-level independence must not inflate per-task fanout.
+        "independent_workstreams": 1,
+        "parallelizable_fraction": 0.0,
+        "quality_priority": "normal",
         "latency_priority": "high",
     }
 
@@ -57,6 +58,7 @@ def _fallback_candidates(
         raw,
         catalog_model_ids=catalog_ids,
         evidence=evidence,
+        domain=str(trial.get("domain") or ""),
         max_candidates=12,
     )
     return [m for m in ranked if m not in attempted]
