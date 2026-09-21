@@ -26,17 +26,25 @@ def main() -> int:
     require(auth.get("auto_top_up_authorized") is False, "auto top up enabled")
 
     conn = policy.get("connection") or {}
-    require(conn.get("dynamic_attach_rule") == "ALL_CURRENT_CATALOG_MODELS_WITH_EXACT_COLON_FREE_ID_AND_ZERO_PROMPT_AND_COMPLETION_PRICE", "dynamic exact-free attach rule drift")
+    require(
+        conn.get("dynamic_attach_rule")
+        == "ALL_CURRENT_CATALOG_MODELS_WITH_EXACT_COLON_FREE_ID_AND_ZERO_PROMPT_AND_COMPLETION_PRICE",
+        "dynamic exact-free attach rule drift",
+    )
     require(conn.get("generic_free_router_allowed") is False, "generic free router must remain blocked")
     require(conn.get("provider_allow_fallbacks") is False, "provider fallback must remain disabled")
 
     execution = policy.get("execution") or {}
-    require(execution.get("default_strategy") == "SINGLE_BEST_FIT_MODEL", "single best-fit default lost")
-    require(int(execution.get("default_active_models_per_task", 0)) == 1, "default active model count must be one")
+    require(execution.get("strategy") == "DYNAMIC_OPTIMAL_FANOUT", "dynamic optimal fanout required")
+    require(execution.get("fixed_single_model_default") is False, "fixed single-model default is forbidden")
+    require(execution.get("fixed_parallel_default") is False, "fixed parallel default is forbidden")
+    require(int(execution.get("minimum_active_models_per_task", 0)) == 1, "minimum active model count must be one")
+    require(int(execution.get("maximum_active_models_per_task", 0)) == 3, "maximum active model count must remain three")
+    require(int(execution.get("maximum_parallel_openrouter_models_per_task", 0)) == 3, "parallel ceiling must remain three")
     require(execution.get("routine_all_model_parallel_fanout") is False, "all-model fanout re-enabled")
-    require(execution.get("routine_best_of_n_benchmark_fanout") is False, "routine benchmark fanout re-enabled")
-    require(int(execution.get("default_parallel_openrouter_models_per_task", 0)) == 1, "default OpenRouter parallelism must be one")
-    require(execution.get("stop_after_first_acceptable_result") is True, "must stop after first acceptable result")
+    require(execution.get("parallel_duplicate_agents_for_majority_vote") is False, "majority-vote fanout re-enabled")
+    require(execution.get("commander_must_record_fanout_reason") is True, "fanout reason must be recorded")
+    require(execution.get("stop_when_marginal_expected_value_of_another_model_is_nonpositive") is True, "marginal-value stop rule missing")
 
     quota = policy.get("quota") or {}
     require(int(quota.get("unverified_account_daily_hard_stop_requests", 999)) <= 45, "unverified account may exceed safe 50/day allowance")
@@ -48,20 +56,25 @@ def main() -> int:
 
     require(ROUTER.is_file(), "efficiency router missing")
     source = ROUTER.read_text(encoding="utf-8")
-    require("SINGLE_BEST_FIT_MODEL" not in source or "active_model_count" in source, "router does not expose single model plan")
-    require("GENERIC_FREE_ROUTER = \"openrouter/free\"" in source, "router lost generic free router block")
-    require('"active_model_count": 1' in source, "router no longer defaults to one model")
-    require('"parallel_model_calls": 1' in source, "router no longer serializes normal execution")
+    require("MAX_DYNAMIC_FANOUT = 3" in source, "dynamic fanout ceiling missing")
+    require("def decide_fanout(" in source, "fanout decision function missing")
+    require("ONE_MODEL_HAS_HIGHEST_EXPECTED_TOTAL_SYSTEM_VALUE" in source, "single-model value path missing")
+    require("INDEPENDENT_WORKSTREAMS_REDUCE_WALL_CLOCK" in source, "parallel latency path missing")
+    require("INDEPENDENT_VERIFICATION_MATERIALLY_REDUCES_RISK" in source, "parallel verification path missing")
     require('"paid_fallback": False' in source, "router paid fallback guarantee missing")
 
     if MULTI.is_file():
         multi = json.loads(MULTI.read_text(encoding="utf-8"))
         arch = multi.get("architecture") or {}
-        require(arch.get("single_agent_preferred_when_sufficient") is True, "multi-agent policy no longer prefers single agent")
+        parallelism = multi.get("parallelism") or {}
+        require(arch.get("openrouter_free_model_count_policy") == "DYNAMIC_1_TO_3_BY_EXPECTED_TOTAL_SYSTEM_VALUE", "multi-agent dynamic fanout rule drift")
+        require(parallelism.get("openrouter_free_dynamic_parallel_models_range") == [1, 3], "multi-agent dynamic range drift")
+        require(parallelism.get("openrouter_free_parallelism_requires_expected_total_system_value_gain") is True, "parallel value gate missing")
 
     print(json.dumps({
         "status": "PASS",
-        "default_active_models_per_task": 1,
+        "fanout_strategy": "DYNAMIC_OPTIMAL_FANOUT",
+        "active_model_range": [1, 3],
         "unverified_daily_hard_stop": quota.get("unverified_account_daily_hard_stop_requests"),
         "verified_daily_hard_stop": quota.get("verified_ten_dollar_account_daily_hard_stop_requests"),
         "paid_fallback": False,
