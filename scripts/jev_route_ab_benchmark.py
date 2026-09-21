@@ -18,7 +18,7 @@ try:
 except ModuleNotFoundError:
     from jev_decision_engine import decide_batch, decide_fast_batch, decide_portfolio_batch
 
-ITERATIONS = 10
+ITERATIONS = 50
 MODEL_CATALOG = [{
     "id": "typesafe/jev-1.13",
     "pricing": {"prompt": "0.000000042", "completion": "0"},
@@ -92,8 +92,11 @@ def _aggregate(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
         "successes": len(good),
         "success_rate": round(len(good) / max(1, len(rows)), 4),
         "latency_p50_ms": round(statistics.median(latencies), 3) if latencies else None,
+        "latency_p90_ms": _metric(latencies, 0.90),
         "latency_p95_ms": _metric(latencies, 0.95),
+        "latency_p99_ms": _metric(latencies, 0.99),
         "latency_mean_ms": round(statistics.mean(latencies), 3) if latencies else None,
+        "latency_stdev_ms": round(statistics.pstdev(latencies), 3) if len(latencies) > 1 else 0.0,
         "input_tokens_mean": round(statistics.mean(input_tokens), 3) if input_tokens else None,
         "cost_total_usd": round(sum(costs), 9),
         "question_count_mean": round(statistics.mean(question_counts), 3) if question_counts else None,
@@ -181,6 +184,8 @@ def run(api_key: str) -> dict[str, Any]:
             "portfolio_p50_latency_improvement_percent": round(portfolio_improvement, 2) if portfolio_improvement is not None else None,
             "fast_mean_input_token_reduction_percent": round(token_reduction, 2) if token_reduction is not None else None,
             "portfolio_mean_input_token_reduction_percent": round(portfolio_token_reduction, 2) if portfolio_token_reduction is not None else None,
+            "fast_vs_portfolio_p50_delta_ms": round(float(fast.get("latency_p50_ms") or 0.0) - float(portfolio.get("latency_p50_ms") or 0.0), 3),
+            "fast_vs_portfolio_p95_delta_ms": round(float(fast.get("latency_p95_ms") or 0.0) - float(portfolio.get("latency_p95_ms") or 0.0), 3),
         },
         "raw": {"legacy": legacy_rows, "fast": fast_rows, "portfolio": portfolio},
         "safety": {
