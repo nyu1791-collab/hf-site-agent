@@ -88,6 +88,42 @@ class OpenRouterWorkerHealthTests(unittest.TestCase):
         self.assertIn("proven:free", out)
         self.assertEqual(out[0], "proven:free")
 
+    def test_domain_specific_failure_does_not_poison_other_domain(self):
+        evidence = {
+            "specialist:free": {
+                "successes": 2,
+                "quality_failures": 1,
+                "rate_limits": 0,
+                "avg_latency_ms": 4000,
+                "domain_stats": {
+                    "PLANNING_ORCHESTRATION": {
+                        "successes": 1,
+                        "quality_failures": 0,
+                        "rate_limits": 0,
+                        "avg_latency_ms": 1200,
+                    },
+                    "QUALITY_REVIEW": {
+                        "successes": 0,
+                        "quality_failures": 1,
+                        "rate_limits": 0,
+                        "avg_latency_ms": 9000,
+                    },
+                },
+            }
+        }
+        planning = rank_candidates(
+            ["unknown:free", "specialist:free"],
+            evidence=evidence,
+            domain="PLANNING_ORCHESTRATION",
+        )
+        review = rank_candidates(
+            ["unknown:free", "specialist:free"],
+            evidence=evidence,
+            domain="QUALITY_REVIEW",
+        )
+        self.assertEqual(planning[0], "specialist:free")
+        self.assertEqual(review[0], "unknown:free")
+
 
 if __name__ == "__main__":
     unittest.main()
