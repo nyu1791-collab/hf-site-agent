@@ -3,8 +3,12 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import argparse, json, os, time, urllib.error, urllib.request
 from pathlib import Path
-from scripts.jev_decision_engine import decide_many
-from scripts.openrouter_free_efficiency_router import exact_free_catalog_entry, fetch_catalog, load_policy, ordered_candidates
+try:
+    from scripts.jev_decision_engine import decide_many
+    from scripts.openrouter_free_efficiency_router import exact_free_catalog_entry, fetch_catalog, load_policy, ordered_candidates
+except ModuleNotFoundError:
+    from jev_decision_engine import decide_many
+    from openrouter_free_efficiency_router import exact_free_catalog_entry, fetch_catalog, load_policy, ordered_candidates
 
 CHAT_URL="https://openrouter.ai/api/v1/chat/completions"
 MAX_JEV_WORKER_CALLS=6
