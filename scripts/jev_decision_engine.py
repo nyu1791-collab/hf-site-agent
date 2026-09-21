@@ -265,7 +265,8 @@ def _prepare_record(
 ) -> dict[str, Any]:
     guard = policy.get("cost_guard") or {}
     max_chars = int(guard.get("max_prompt_chars_per_record", 12000))
-    record_id = _safe_record_id(record.get("id"), index)
+    external_id = str(record.get("id") or f"task_{index:04d}")
+    record_id = _safe_record_id(external_id, index)
     summary = _bounded_text(record.get("task_summary") or record.get("objective"), max_chars)
     candidates = [str(x) for x in (record.get("candidate_models") or []) if str(x).strip()][:12]
     if not candidates:
@@ -280,6 +281,7 @@ def _prepare_record(
         raise JevDecisionError(f"{record_id}:invalid_quota_pressure") from exc
     return {
         "id": record_id,
+        "external_id": external_id,
         "task_summary": summary,
         "candidate_models": candidates,
         "candidate_profiles": profiles,
@@ -342,8 +344,11 @@ def build_batch_decisions_request(
     if not 1 <= len(records) <= max_records:
         raise JevDecisionError("batch_size_out_of_bounds")
     prepared = [_prepare_record(record, index=i + 1, policy=policy) for i, record in enumerate(records)]
-    if len({x["id"] for x in prepared}) != len(prepared):
-        raise JevDecisionError("duplicate_record_id")
+    seen_ids: set[str] = set()
+    for index, record in enumerate(prepared, 1):
+        if record["id"] in seen_ids:
+            record["id"] = _safe_record_id(f"{record['id']}_{index:02d}", index)
+        seen_ids.add(record["id"])
     questions: dict[str, Any] = {}
     state_records: list[dict[str, Any]] = []
     for record in prepared:
@@ -514,20 +519,18 @@ def _parse_record(
     )
     verify = verify_prob >= verify_threshold
 
-    confidence_parts = [lane_conf, action_conf, second_need_conf, parallel_conf, *selected_confidences]
-    if len(selected) >= 3:
-        confidence_parts.append(third_need_conf)
-    if verify:
-        confidence_parts.append(verify_conf)
-    confidence = min(confidence_parts) if confidence_parts else 0.0
+    # Only route-critical ambiguity escalates. Fanout/parallel uncertainty is
+    # intentionally resolved by Python thresholds so Jev stays a fast lane.
+    critical_confidence = min(lane_conf, primary_conf, action_conf)
+    quality_confidence = min([critical_confidence, *selected_confidences]) if selected_confidences else critical_confidence
     low_threshold = float(contract.get("low_confidence_threshold", 0.65))
-    low_confidence = confidence < low_threshold
+    low_confidence = critical_confidence < low_threshold
     if low_confidence:
         action_enum = Action.ESCALATE
 
     return NormalizedRoutingDecision(
         schema_version="jev-routing-decision-v3",
-        record_id=rid,
+        record_id=str(record.get("external_id") or rid),
         lane=lane_enum.value,
         workers=tuple(selected),
         fanout=len(selected),
@@ -535,7 +538,7 @@ def _parse_record(
         execution_mode=mode.value,
         independent_verification=verify,
         action=action_enum.value,
-        confidence=round(confidence, 6),
+        confidence=round(quality_confidence, 6),
         low_confidence=low_confidence,
     )
 
