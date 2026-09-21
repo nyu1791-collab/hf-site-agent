@@ -1,6 +1,6 @@
 {
-  "schema_version": "ai-army-org-chart-v5",
-  "effective_date_jst": "2026-09-21",
+  "schema_version": "ai-army-org-chart-v6",
+  "effective_date_jst": "2026-09-22",
   "status": "CANONICAL",
   "design_goal": "Maximize verified task success and speed per unit cost using a fast Jev decision plane, deterministic bypasses, a heavy DeepSeek supervisory lane only when justified, and bounded specialist execution.",
   "policy_entrypoint": "scripts/ai_army_routing_facade.py",
@@ -296,7 +296,10 @@
     "JEV_ROUTING_LATENCY",
     "JEV_COST_PER_ACCEPTED_ROUTE",
     "HEAVY_MODEL_CALLS_AVOIDED",
-    "UNNECESSARY_FANOUT_AVOIDED"
+    "UNNECESSARY_FANOUT_AVOIDED",
+    "DOMAIN_SCOPED_WORKER_SUCCESS_RATE",
+    "INTER_TASK_PARALLEL_EFFICIENCY",
+    "INTRA_TASK_FANOUT_EFFICIENCY"
   ],
   "fast_decision_flow": {
     "default_nontrivial_path": [
@@ -320,9 +323,29 @@
       "PACK_UP_TO_20_RECORDS_PER_JEV_REQUEST",
       "RUN_UP_TO_5_JEV_BATCHES_IN_PARALLEL",
       "PYTHON_NORMALIZE_TYPED_ANSWERS",
-      "START_SELECTED_WORKERS_IMMEDIATELY",
-      "FALL_BACK_FAILED_RECORDS_WITHOUT_CANCELLING_HEALTHY_BATCHES"
+      "KEEP_PER_TASK_FANOUT_INDEPENDENT_OF_BUNDLE_SIZE",
+      "PARALLELIZE_ACROSS_INDEPENDENT_TASKS",
+      "START_ONLY_THE_SMALLEST_JUSTIFIED_WORKER_SET_PER_TASK",
+      "FALL_BACK_FAILED_RECORDS_WITHOUT_CANCELLING_HEALTHY_TASKS"
     ],
-    "target_100_jobs": "FIVE_20_RECORD_JEV_BATCHES_IN_PARALLEL_WHEN_INDEPENDENT"
+    "target_100_jobs": "FIVE_20_RECORD_JEV_BATCHES_IN_PARALLEL_WHEN_INDEPENDENT",
+    "worker_health_learning": {
+      "scope": "SHORT_LIVED_DOMAIN_AWARE_EVIDENCE",
+      "evidence": "config/openrouter_worker_recent_evidence.json",
+      "rank_by": [
+        "DOMAIN_SUCCESS",
+        "DOMAIN_QUALITY_FAILURE",
+        "RECENT_429",
+        "RECENT_LATENCY"
+      ],
+      "expiry_required": true,
+      "may_expand_model_eligibility": false
+    },
+    "latency_challenger": {
+      "max_optional_challengers_per_task": 1,
+      "only_for_recently_slow_primary": true,
+      "high_risk_tasks": false,
+      "purpose": "DISCOVER_OR_USE_A_FASTER_HEALTHY_WORKER_WITHOUT_ROUTINE_ALL_MODEL_FANOUT"
+    }
   }
 }
