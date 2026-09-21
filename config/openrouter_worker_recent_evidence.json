@@ -1,14 +1,14 @@
 {
   "schema_version": "openrouter-worker-recent-evidence-v3",
-  "source": "jev-five-domain-cycle2-35667266917",
-  "observed_at_utc": "2026-09-21T23:24:33Z",
-  "purpose": "Short-lived live evidence for worker routing. Never overrides exact-free eligibility or hard safety rules.",
+  "source": "improvement-cycle-2-run-35667266917",
+  "observed_at_utc": "2026-09-21T23:24:34Z",
+  "purpose": "Short-lived live evidence from cycle 2. Used only to reorder already-eligible exact-free workers.",
   "models": {
     "nvidia/nemotron-3.5-lightning:free": {
       "successes": 5,
       "quality_failures": 0,
       "rate_limits": 0,
-      "avg_latency_ms": 4150.281,
+      "avg_latency_ms": 4350.281,
       "domains": [
         "DATA_EXTRACTION",
         "CODING_DEBUG",
@@ -16,7 +16,7 @@
         "QUALITY_REVIEW",
         "EVIDENCE_SYNTHESIS"
       ],
-      "valid_until_utc": "2026-09-22T01:24:33Z"
+      "valid_until_utc": "2026-09-22T05:24:34Z"
     },
     "qwen/qwen3.8-27b:free": {
       "successes": 0,
@@ -26,7 +26,7 @@
       "domains": [
         "PLANNING_ORCHESTRATION"
       ],
-      "valid_until_utc": "2026-09-22T00:24:33Z"
+      "valid_until_utc": "2026-09-21T23:54:34Z"
     }
   }
 }
