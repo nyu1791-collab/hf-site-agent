@@ -344,10 +344,13 @@ def build_batch_decisions_request(
     if not 1 <= len(records) <= max_records:
         raise JevDecisionError("batch_size_out_of_bounds")
     prepared = [_prepare_record(record, index=i + 1, policy=policy) for i, record in enumerate(records)]
+    external_ids = [str(x["external_id"]) for x in prepared]
+    if len(set(external_ids)) != len(external_ids):
+        raise JevDecisionError("duplicate_external_record_id")
     seen_ids: set[str] = set()
     for index, record in enumerate(prepared, 1):
         if record["id"] in seen_ids:
-            record["id"] = _safe_record_id(f"{record['id']}_{index:02d}", index)
+            record["id"] = f"r_{index:04d}"
         seen_ids.add(record["id"])
     questions: dict[str, Any] = {}
     state_records: list[dict[str, Any]] = []
