@@ -23,6 +23,36 @@ class FinalExecutionAdmissionGuardTests(unittest.TestCase):
         )
         self.assertEqual(plan["status"], "BLOCKED_FREE_QUOTA_PLANNED_EXHAUSTED")
 
+    def test_delayed_challenger_is_checked_and_reserved_before_primary_release(self):
+        plan = apply_final_execution_admission_guard(
+            {},
+            {
+                "status": "READY",
+                "selected_models": ["a:free"],
+                "execution_reservation_models": ["a:free", "b:free"],
+                "execution_mode": "SINGLE",
+            },
+            eligible_models=["a:free", "b:free"],
+            remaining_quota=2,
+        )
+        self.assertEqual(plan["status"], "READY")
+        self.assertEqual(plan["active_model_count"], 1)
+        self.assertEqual(plan["final_execution_admission"]["reserved_worker_calls"], 2)
+
+    def test_delayed_challenger_cannot_bypass_quota(self):
+        plan = apply_final_execution_admission_guard(
+            {},
+            {
+                "status": "READY",
+                "selected_models": ["a:free"],
+                "execution_reservation_models": ["a:free", "b:free"],
+                "execution_mode": "SINGLE",
+            },
+            eligible_models=["a:free", "b:free"],
+            remaining_quota=1,
+        )
+        self.assertEqual(plan["status"], "BLOCKED_FREE_QUOTA_PLANNED_EXHAUSTED")
+
     def test_requires_real_verifier_not_worker_count(self):
         plan = apply_final_execution_admission_guard(
             {"shared_mutable_state": True},

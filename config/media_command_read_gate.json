@@ -40,6 +40,8 @@
   "common_media_read_set": [
     "config/current_commander_handoff.json",
     "config/permanent_standards_manifest.json",
+    "config/free_execution_guard.json",
+    "config/video_creation_admission_policy.json",
     "docs/AI_ARMY_MASTER_RULEBOOK.md",
     "config/multi_agent_operating_policy.json",
     "config/agent_efficiency_policy.json",
@@ -58,7 +60,11 @@
   ],
   "trigger_sets": {
     "VIDEO_CREATION": {
-      "required": ["config/media_source_policy.json"],
+      "required": [
+        "config/media_source_policy.json",
+        "config/video_creation_admission_policy.json",
+        "scripts/video_creation_admission.py"
+      ],
       "conditional": {
         "if_longform": [
           "config/longform_video_objectives.json",
@@ -178,6 +184,8 @@
       "measure actual audio duration and align captions to audio boundaries",
       "keep katakana pronunciation in voice_text while using official English spelling in caption_text for English proper nouns and technical terms",
       "for shortform/news explainers prefer a truthful 1-3 second hook over a generic greeting unless context or safety requires otherwise",
+      "every VIDEO_CREATION request must run scripts/video_creation_admission.py before scene rendering; missing local VOICEVOX or the ずんだもん standard cast blocks rendering and cannot silently produce a mute video",
+      "voice_text must be synthesized with local VOICEVOX, actual WAV duration must be recorded, and the output must carry the VOICEVOX credit",
       "longform-only reliability material is loaded only for longform work"
     ],
     "clipping_repurposing": [

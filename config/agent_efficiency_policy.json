@@ -1,8 +1,17 @@
 {
-  "schema_version": "agent-efficiency-policy-v2",
+  "schema_version": "agent-efficiency-policy-v3",
   "effective_date_jst": "2026-09-21",
   "status": "SHADOW_MEASURE_THEN_PROMOTE",
   "decision_owner": "chatgpt-work",
+  "free_execution_guard": {
+    "policy": "config/free_execution_guard.json",
+    "free_only_default": true,
+    "paid_media_generation": false,
+    "paid_fallback": false,
+    "auto_top_up": false,
+    "unknown_cost_action": "BLOCK",
+    "must_survive_chat_tab_change": true
+  },
   "research_basis": {
     "google_research_agent_scaling_2026": {
       "parallelizable_tasks_favor_centralized_multi_agent": true,
@@ -130,7 +139,13 @@
       "external_request_count",
       "estimated_cost_usd",
       "retry_count",
-      "coordination_overhead_ratio"
+      "coordination_overhead_ratio",
+      "time_to_first_verified_result_ms",
+      "critical_path_duration_ms",
+      "worker_ttft_ms",
+      "verifier_latency_ms",
+      "cancelled_work_ratio",
+      "cache_hit_rate"
     ],
     "supervisor_metrics": [
       "accepted_recommendation_rate",
@@ -168,6 +183,7 @@
     "runtime": "scripts/jev_decision_engine.py",
     "coordinator": "scripts/jev_routing_coordinator.py",
     "purpose": "Replace expensive or slow routing deliberation with typed low-cost decisions when the route is not already deterministic.",
+    "priority": "VERIFIED_ROUTE_CORRECTNESS_AND_DECISION_STABILITY_BEFORE_ROUTING_LATENCY",
     "invoke_when": [
       "MULTIPLE_ELIGIBLE_MODELS",
       "FANOUT_COUNT_IS_NONTRIVIAL",
@@ -186,7 +202,11 @@
       "cost_per_accepted_route",
       "heavy_model_calls_avoided",
       "unnecessary_fanout_avoided",
-      "low_confidence_escalation_rate"
+      "low_confidence_escalation_rate",
+      "route_stability_rate",
+      "zero_or_one_question_evidence_sufficiency_rate",
+      "delayed_challenger_trigger_rate",
+      "first_verified_result_latency_ms"
     ]
   }
 }

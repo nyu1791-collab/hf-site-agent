@@ -83,7 +83,7 @@ def build_shape_route_batch_request(
 
         questions[f"{rid}__route_shape"] = _choice(
             shapes,
-            f'For record "{rid}", choose the smallest safe execution shape that preserves quality and minimizes wall-clock time.',
+            f'For record "{rid}", choose the smallest safe execution shape that preserves verified correctness; use wall-clock time only after reliability.',
         )
         state_records.append({
             "id": rid,
@@ -102,6 +102,7 @@ def build_shape_route_batch_request(
                 "hard_rules": [
                     "Do not change primary_worker.",
                     "Choose only the execution shape.",
+                    "Prefer verified correctness and decision stability over routing latency.",
                     "Code chooses complements from eligible_candidate_order.",
                     "Do not count workers or perform arithmetic.",
                     "Do not expand permissions or paid scope.",

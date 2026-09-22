@@ -54,6 +54,17 @@ def main() -> int:
     require(contract.get("model_may_not_expand_candidate_set") is True, "Jev may expand candidate set")
     require(contract.get("model_may_not_expand_permissions") is True, "Jev may expand permissions")
     require(contract.get("model_may_not_authorize_paid_workers") is True, "Jev may authorize paid workers")
+    quality = policy.get("decision_quality") or {}
+    require(
+        quality.get("priority_order", [None])[0] == "VERIFIED_ROUTE_CORRECTNESS",
+        "Jev route correctness is not the first optimization priority",
+    )
+    require(quality.get("routing_latency_is_not_sufficient_reason_to_reduce_question_surface") is True, "routing latency can incorrectly reduce Jev decision surface")
+    require(int(quality.get("minimum_domain_successes_for_clear_primary", 0)) >= 3, "clear primary requires insufficient domain evidence")
+    require(quality.get("single_success_or_latency_advantage_alone_cannot_clear_primary") is True, "single success or latency can clear primary")
+    require(quality.get("thin_or_tied_evidence_action") == "KEEP_JEV_LEAN_OR_RICH_DECISION_SURFACE", "thin evidence may bypass Jev")
+    require(float(quality.get("minimum_confidence_for_autonomous_execute", 0)) >= 0.75, "Jev autonomous confidence threshold too low")
+    require(float(contract.get("low_confidence_threshold", 0)) >= float(quality.get("minimum_confidence_for_autonomous_execute", 1)), "runtime confidence threshold is below Jev quality policy")
     fast_contract = contract.get("fast_route_contract") or {}
     require(int(fast_contract.get("routine_question_count", 0)) == 3, "rich Jev route must use three questions")
     require(int(fast_contract.get("max_question_count", 0)) == 4, "Jev fast route must cap at four questions")
@@ -110,6 +121,11 @@ def main() -> int:
     require("decide_shape" in coordinator_source and "decide_many_shape" in coordinator_source, "coordinator not using shape-only route")
     require("DETERMINISTIC_HEALTH_FAST_PATH" in coordinator_source, "zero-question fast path missing")
     require("apply_final_execution_admission_guard" in coordinator_source, "coordinator bypasses final execution guard")
+    require("_attach_delayed_latency_challenger" in coordinator_source, "coordinator lacks delayed challenger control")
+    require("minimum_domain_successes_for_clear_primary" in coordinator_source, "coordinator does not enforce evidence threshold")
+    require("reservation_models" in coordinator_source, "batch coordinator does not reserve delayed challenger quota")
+    guard_source = FINAL_GUARD.read_text(encoding="utf-8")
+    require("execution_reservation_models" in guard_source, "final guard does not validate delayed reservations")
 
     multi = json.loads(MULTI.read_text(encoding="utf-8"))
     require((multi.get("routing") or {}).get("jev_default_for_nontrivial_model_and_fanout_choice") is True, "Jev not default for nontrivial routing choice")
@@ -121,6 +137,8 @@ def main() -> int:
     plane = (org.get("hierarchy") or {}).get("decision_plane") or {}
     require(plane.get("role") == "FAST_DECISION_PLANE", "org chart lost Jev decision plane")
     require(plane.get("final_decision_authority") is False, "Jev gained final authority")
+    require((plane.get("routing_priority") or [None])[0] == "VERIFIED_ROUTE_CORRECTNESS", "org chart lost Jev correctness priority")
+    require(plane.get("thin_evidence_keeps_jev_decision_surface") is True, "org chart allows thin-evidence Jev bypass")
 
     print(json.dumps({
         "status": "PASS",
@@ -134,6 +152,8 @@ def main() -> int:
         "routine_lean_route_questions": lean_contract.get("routine_question_count"),
         "complex_fast_route_questions": fast_contract.get("routine_question_count"),
         "max_fast_route_questions": fast_contract.get("max_question_count"),
+        "route_correctness_priority": quality.get("priority_order", [None])[0],
+        "minimum_domain_successes_for_clear_primary": quality.get("minimum_domain_successes_for_clear_primary"),
         "auto_top_up": False,
         "other_paid_fallback": False,
         "chatgpt_final_authority": True,

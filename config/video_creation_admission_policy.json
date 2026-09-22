@@ -1,0 +1,42 @@
+{
+  "schema_version": "video-creation-admission-v1",
+  "effective_date_jst": "2026-09-22",
+  "status": "ENFORCED_PERMANENT_STANDARD",
+  "purpose": "Make every VIDEO_CREATION request restore the repository media rules before rendering, including the mandatory local VOICEVOX cast.",
+  "semantic_trigger": "VIDEO_CREATION",
+  "required_read_set": [
+    "config/current_commander_handoff.json",
+    "config/permanent_standards_manifest.json",
+    "config/free_execution_guard.json",
+    "config/media_command_read_gate.json",
+    "config/media_audio_motion_retention_policy.json",
+    "docs/MEDIA_PIPELINE.md"
+  ],
+  "voice_contract": {
+    "engine": "VOICEVOX_LOCAL",
+    "primary_voice": "ずんだもん",
+    "secondary_voice_when_dialogue_helps": "四国めたん",
+    "standard_cast": ["ずんだもん", "四国めたん"],
+    "runtime_speaker_discovery_required": true,
+    "actual_wav_duration_drives_timeline": true,
+    "voicevox_unavailable_action": "BLOCK_BEFORE_RENDER",
+    "silent_video_fallback": false
+  },
+  "free_execution_contract": {
+    "local_voicevox_only": true,
+    "paid_or_freemium_tts": false,
+    "paid_media_substitution": false,
+    "external_voice_provider_probe": false
+  },
+  "cross_tab_contract": {
+    "repository_read_required_on_every_new_tab": true,
+    "video_request_reopens_this_gate": true,
+    "chat_memory_cannot_override": true,
+    "missing_or_stale_policy_blocks_render": true
+  },
+  "artifact_contract": {
+    "must_include_voice_timing_manifest": true,
+    "must_include_voicevox_credit": true,
+    "must_pass_ffprobe_and_decode": true
+  }
+}

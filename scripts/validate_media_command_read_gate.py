@@ -83,6 +83,7 @@ def main() -> int:
     required_common = {
         "config/current_commander_handoff.json",
         "config/permanent_standards_manifest.json",
+        "config/free_execution_guard.json",
         "docs/AI_ARMY_MASTER_RULEBOOK.md",
         "config/multi_agent_operating_policy.json",
         "config/agent_efficiency_policy.json",
@@ -201,6 +202,9 @@ def main() -> int:
     require(reusable_manifest.get("runtime") == "scripts/media_asset_resolver.py", "permanent manifest lost reusable media asset resolver")
     require(reusable_manifest.get("priority") == 1, "reusable media asset standard priority drift")
     media_manifest = manifest.get("media_command_gate") or {}
+    require(media_manifest.get("free_execution_guard") == "config/free_execution_guard.json", "manifest media gate lost free execution guard")
+    require(media_manifest.get("paid_or_freemium_media_routes_are_blocked") is True, "media gate permits paid or freemium routes")
+    require(media_manifest.get("free_route_failure_never_silently_becomes_paid") is True, "media gate permits paid fallback after free failure")
     require(media_manifest.get("must_complete_before_media_planning_or_external_media_calls") is True, "manifest no longer blocks external media calls until the read gate finishes")
     require(media_manifest.get("conversation_memory_is_not_a_substitute") is True, "manifest allows chat memory to replace repository restore")
     require(media_manifest.get("re_read_current_repository_versions_after_tab_or_session_change") is True, "manifest no longer requires repository reread after tab/session change")

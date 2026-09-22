@@ -1,5 +1,5 @@
 {
-  "schema_version": "permanent-standards-manifest-v16",
+  "schema_version": "permanent-standards-manifest-v19",
   "effective_date_jst": "2026-09-22",
   "purpose": "Keep the AI Army, evidence governance, media quality, creator monetization and bounded paid supervision recoverable across new chat tabs while using one expandable manifest plus a compact master rulebook instead of duplicating every detailed rule in startup handoffs.",
   "canonical_branch": "ai-army/provider-v3",
@@ -14,6 +14,19 @@
       "id": "master-rulebook",
       "path": "docs/AI_ARMY_MASTER_RULEBOOK.md",
       "priority": 0
+    },
+    {
+      "id": "free-execution-guard",
+      "machine_policy": "config/free_execution_guard.json",
+      "validator": "scripts/validate_free_execution_guard.py",
+      "priority": 0
+    },
+    {
+      "id": "video-creation-admission",
+      "machine_policy": "config/video_creation_admission_policy.json",
+      "runtime": "scripts/video_creation_admission.py",
+      "priority": 0,
+      "purpose": "RESTORE_MEDIA_POLICY_AND_BLOCK_VIDEO_RENDERING_UNTIL_LOCAL_VOICEVOX_ZUNDAMON_ADMISSION_PASSES"
     },
     {
       "id": "media-command-read-gate",
@@ -279,7 +292,11 @@
     "jev_max_records_per_request": 20,
     "jev_max_parallel_batches": 5,
     "jev_quota_math_in_python": true,
-    "jev_cost_priority": "ROUTING_SPEED_FIRST_WITH_EMERGENCY_PRICE_GUARD",
+    "jev_cost_priority": "VERIFIED_ROUTE_CORRECTNESS_FIRST_WITH_EMERGENCY_PRICE_GUARD",
+    "jev_decision_quality_priority": "VERIFIED_ROUTE_CORRECTNESS_THEN_DECISION_STABILITY_THEN_TIME_TO_VERIFIED_COMPLETION",
+    "jev_thin_evidence_keeps_lean_or_rich_surface": true,
+    "jev_delayed_challenger_requires_guarded_reservation": true,
+    "execution_dispatch_policy": "STREAM_ADMITTED_DEPENDENCY_READY_TASKS_WITH_CRITICAL_PATH_PRIORITY",
     "jev_fast_decision_playbook": "docs/JEV_FAST_DECISION_PLAYBOOK.md",
     "jev_production_route_tiers": [
       "ZERO_QUESTION_DETERMINISTIC_HEALTH_FAST_PATH",
@@ -301,6 +318,7 @@
   },
   "media_command_gate": {
     "policy": "config/media_command_read_gate.json",
+    "free_execution_guard": "config/free_execution_guard.json",
     "human_doc": "docs/MEDIA_COMMAND_READ_GATE.md",
     "current_media_quality_handoff": "config/current_media_quality_handoff.json",
     "character_performance_compact_orchestration_policy": "config/media_character_performance_compact_orchestration_policy.json",
@@ -326,6 +344,8 @@
     "default_media_research_and_script_pair_is_chatgpt_plus_deepseek": true,
     "routine_media_research_and_script_should_not_be_overfragmented": true,
     "background_music_prefers_curated_verified_free_sources": true
+    ,"paid_or_freemium_media_routes_are_blocked": true
+    ,"free_route_failure_never_silently_becomes_paid": true
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
@@ -457,6 +477,10 @@
     "on_new_tab_recover_from_current_commander_handoff_first": true,
     "priority_zero_manifest_is_expandable_startup_index": true,
     "master_rulebook_survives_tab_change": true,
+    "free_execution_guard_survives_tab_change": true,
+    "video_creation_admission_survives_tab_change": true,
+    "video_requests_require_voicevox_zundamon_preflight": true,
+    "paid_media_block_survives_tab_change": true,
     "do_not_duplicate_full_required_standard_list_into_commander_handoff": true,
     "media_command_read_gate_survives_tab_change": true,
     "current_media_quality_handoff_survives_tab_change": true,

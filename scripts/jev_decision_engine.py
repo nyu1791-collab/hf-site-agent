@@ -308,13 +308,16 @@ def _questions_for_record(record: Mapping[str, Any]) -> dict[str, dict[str, Any]
     candidates = list(record["candidate_models"])
     profiles = record["candidate_profiles"]
     model_criteria = {
-        model_id: f"Best fit when this candidate's verified profile matches the work: {profiles[model_id]}"
+        model_id: (
+            "Best fit when this candidate's verified domain-quality profile and task fit "
+            f"make it the most reliable choice: {profiles[model_id]}"
+        )
         for model_id in candidates
     }
     prefix = f"{record_id}__"
     return {
         prefix + "lane": _choice(_lane_criteria(), f'For record "{record_id}", choose the best specialist lane.'),
-        prefix + "primary_model": _choice(model_criteria, f'For record "{record_id}", choose the best primary eligible model.'),
+        prefix + "primary_model": _choice(model_criteria, f'For record "{record_id}", choose the most reliable primary eligible model for verified completion.'),
         prefix + "use_second_model": _noul(
             f'For record "{record_id}", would a second eligible model materially improve total system value?',
             "Independent parallel work, complementary specialization, or meaningful verification benefit exceeds coordination overhead.",
@@ -879,11 +882,11 @@ def _fast_questions_for_record(record: Mapping[str, Any]) -> dict[str, dict[str,
     questions = {
         prefix + "primary_worker": _choice(
             model_criteria,
-            f'For record "{rid}", choose the single best primary eligible worker.',
+            f'For record "{rid}", choose the single most reliable primary eligible worker for verified completion.',
         ),
         prefix + "route_shape": _choice(
             route_shapes,
-            f'For record "{rid}", choose the smallest execution shape that preserves quality and minimizes wall-clock time.',
+            f'For record "{rid}", choose the smallest execution shape that preserves verified correctness; optimize wall-clock time only after reliability.',
         ),
         prefix + "secondary_worker": _choice(
             model_criteria,
@@ -1335,7 +1338,7 @@ def build_portfolio_route_batch_request(
         }
         questions[f"{record['id']}__route_portfolio"] = _choice(
             criteria,
-            f'For record "{record["id"]}", choose the smallest safe execution portfolio that best balances quality and wall-clock speed.',
+            f'For record "{record["id"]}", choose the smallest safe execution portfolio that preserves verified correctness before wall-clock speed.',
         )
         state_records.append({
             "id": record["id"],
@@ -1498,11 +1501,11 @@ def _lean_questions_for_record(record: Mapping[str, Any]) -> dict[str, dict[str,
     return {
         prefix + "primary_worker": _choice(
             model_criteria,
-            f'For record "{rid}", choose the single best primary eligible worker.',
+            f'For record "{rid}", choose the single most reliable primary eligible worker for verified completion.',
         ),
         prefix + "route_shape": _choice(
             route_shapes,
-            f'For record "{rid}", choose the smallest safe execution shape that preserves quality and minimizes wall-clock time.',
+            f'For record "{rid}", choose the smallest safe execution shape that preserves verified correctness; optimize wall-clock time only after reliability.',
         ),
     }
 
@@ -1553,7 +1556,7 @@ def build_lean_route_batch_request(
                 ),
                 "hard_rules": [
                     "Choose only from eligible_candidate_profiles.",
-                    "Use the smallest safe route shape that preserves quality.",
+                    "Use the smallest safe route shape that preserves verified correctness before latency.",
                     "Do not count workers or perform arithmetic.",
                     "Do not expand permissions or authorize paid workers.",
                     "Code selects secondary and tertiary workers from the pre-ranked candidate order.",

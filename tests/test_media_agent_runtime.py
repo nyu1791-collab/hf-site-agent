@@ -127,10 +127,10 @@ class MediaAgentRuntimeTests(unittest.TestCase):
         self.assertFalse(state["video_editing"]["runway"])
         self.assertEqual(select_generation_route(state), "BLOCKED_NEEDS_APPROVED_MEDIA_GENERATION_ROUTE")
 
-    def test_paid_generation_route_uses_fal_by_default_and_runway_for_advanced_video(self):
+    def test_paid_generation_route_remains_blocked_even_when_caller_passes_approval_flag(self):
         state = build_connector_state(connected_plugins=["fal", "runway"], paid_media_approved=True)
-        self.assertEqual(select_generation_route(state), "FAL_CONNECTOR_APPROVED")
-        self.assertEqual(select_generation_route(state, advanced_video_required=True), "RUNWAY_CONNECTOR_APPROVED")
+        self.assertEqual(select_generation_route(state), "BLOCKED_NEEDS_APPROVED_MEDIA_GENERATION_ROUTE")
+        self.assertEqual(select_generation_route(state, advanced_video_required=True), "BLOCKED_NEEDS_APPROVED_MEDIA_GENERATION_ROUTE")
 
     def test_descript_precedes_paid_semantic_editors(self):
         state = build_connector_state(connected_plugins=["descript", "fal", "runway"], paid_media_approved=True)
@@ -151,7 +151,7 @@ class MediaAgentRuntimeTests(unittest.TestCase):
         self.assertEqual(plan["selected_routes"]["generation"], "BLOCKED_NEEDS_APPROVED_MEDIA_GENERATION_ROUTE")
         self.assertFalse(plan["hard_boundaries"]["installed_plugin_implies_paid_execution_approval"])
 
-    def test_generation_task_routes_to_runway_only_when_advanced_and_approved(self):
+    def test_generation_task_stays_blocked_for_paid_media_even_when_advanced_and_approved(self):
         plan = build_media_mission(
             target_platforms=["youtube"],
             accounts=[{"platform": "youtube", "needs_reconnect": False}],
@@ -163,8 +163,8 @@ class MediaAgentRuntimeTests(unittest.TestCase):
             platform_metadata=platform_metadata("youtube"),
         )
         by_id = {task["task_id"]: task for task in plan["tasks"]}
-        self.assertEqual(by_id["generate_assets"]["state"], "READY")
-        self.assertEqual(plan["selected_routes"]["generation"], "RUNWAY_CONNECTOR_APPROVED")
+        self.assertEqual(by_id["generate_assets"]["state"], "BLOCKED")
+        self.assertEqual(plan["selected_routes"]["generation"], "BLOCKED_NEEDS_APPROVED_MEDIA_GENERATION_ROUTE")
 
     def test_rights_and_disclosure_gate_publish(self):
         unknown = build_media_mission(

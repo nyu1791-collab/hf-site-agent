@@ -22,6 +22,7 @@
 
 - 調査・原稿: **ChatGPT + DeepSeek** のCompact Pairを1つの判断Stageとして使う。
 - 音声: VOICEVOX local、標準castは **ずんだもん + 四国めたん**。
+- 動画生成前に `config/video_creation_admission_policy.json` を復元し、`scripts/video_creation_admission.py --runtime` を通す。ローカルVOICEVOXまたはずんだもんが利用できない場合はレンダリングを停止し、無音動画へフォールバックしない。
 - 機械制作: Python / FFmpeg / ffprobe / Pillow / OpenCV / ASS等。
 - Rendering / timing / hashing / decode QA等に不要なAgentを増やさない。
 - Runway / Fal / Descript / VEED / HeyGen / Higgsfield等のPaid/Freemium/Trial経路を標準制作にしない。Unknown costはBLOCK。

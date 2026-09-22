@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from scripts.openrouter_worker_health import (
+    evidence_quality_summary,
     load_recent_evidence,
     merge_proven_into_candidates,
     rank_candidates,
@@ -12,6 +13,15 @@ from scripts.openrouter_worker_health import (
 
 
 class OpenRouterWorkerHealthTests(unittest.TestCase):
+    def test_quality_summary_keeps_sample_count_separate_from_latency(self):
+        summary = evidence_quality_summary({
+            "successes": 3,
+            "quality_failures": 1,
+            "rate_limits": 0,
+            "avg_latency_ms": 1,
+        })
+        self.assertEqual(summary["observed_outcomes"], 4)
+        self.assertEqual(summary["quality_pass_rate"], 0.75)
     def test_expired_evidence_is_ignored(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "evidence.json"

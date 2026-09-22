@@ -1,5 +1,5 @@
 {
-  "schema_version": "jev-decision-engine-policy-v8",
+  "schema_version": "jev-decision-engine-policy-v9",
   "effective_date_jst": "2026-09-22",
   "status": "ACTIVE_SCOPED_PAID_EXCEPTION",
   "role": "FAST_SYSTEM_ONE_DECISION_PLANE",
@@ -88,7 +88,7 @@
     "python_computes_execution_mode_from_typed_flags": true,
     "python_performs_all_counting_arithmetic_and_quota_math": true,
     "confidence_required": true,
-    "low_confidence_threshold": 0.65,
+    "low_confidence_threshold": 0.75,
     "second_worker_probability_threshold": 0.55,
     "third_worker_probability_threshold": 0.65,
     "parallel_probability_threshold": 0.55,
@@ -156,6 +156,27 @@
       "high_risk_low_confidence_requires_chatgpt_adjudication_in_single_and_batch_routes": true
     }
   },
+  "decision_quality": {
+    "priority_order": [
+      "VERIFIED_ROUTE_CORRECTNESS",
+      "DECISION_STABILITY_AND_EVIDENCE_SUFFICIENCY",
+      "TOTAL_TIME_TO_VERIFIED_COMPLETION",
+      "UNNECESSARY_WORKER_CALLS_AND_COORDINATION",
+      "JEV_COST",
+      "RAW_TOKENS"
+    ],
+    "routing_latency_is_not_sufficient_reason_to_reduce_question_surface": true,
+    "minimum_domain_successes_for_clear_primary": 3,
+    "minimum_success_margin_over_clean_runner_up": 1,
+    "zero_or_one_question_requires_current_domain_evidence": true,
+    "single_success_or_latency_advantage_alone_cannot_clear_primary": true,
+    "thin_or_tied_evidence_action": "KEEP_JEV_LEAN_OR_RICH_DECISION_SURFACE",
+    "accuracy_sensitive_tasks_use_rich_route": true,
+    "decision_confidence_is_not_sole_evidence": true,
+    "minimum_confidence_for_autonomous_execute": 0.75,
+    "below_minimum_confidence_action": "BOUNDED_HEDGE_FOR_LOW_RISK_OR_CHATGPT_FOR_HIGH_RISK",
+    "candidate_cards_include_domain_quality_samples_failures_and_rate_limits": true
+  },
   "automatic_upgrade_guard": {
     "use_latest_alias_by_default": true,
     "accept_new_latest_only_if": [
@@ -183,7 +204,10 @@
     "record_heavy_model_calls_avoided": true,
     "record_unnecessary_fanout_avoided": true,
     "record_question_count": true,
-    "record_route_shape": true
+    "record_route_shape": true,
+    "record_route_surface_downgrade_reason": true,
+    "record_decision_evidence_tier": true,
+    "record_delayed_challenger_reserved_and_triggered": true
   },
   "batch_execution": {
     "enabled": true,
@@ -207,7 +231,8 @@
     ],
     "candidate_counting_done_in_python": true,
     "full_conversation_not_sent": true,
-    "free_text_worker_output_not_sent_when_typed_summary_exists": true
+    "free_text_worker_output_not_sent_when_typed_summary_exists": true,
+    "candidate_cards_include_compact_domain_quality_evidence": true
   },
   "official_manual_alignment": {
     "structure_over_monolithic_prompt": true,
@@ -226,7 +251,7 @@
     "lane_is_precomputed_when_task_class_is_known": true,
     "third_worker_question_only_when_code_prequalifies_three_independent_workstreams": true,
     "free_text_route_generation": false,
-    "selected_default_route_surface": "ZERO_IF_BOTH_CLEAR__SHAPE_1Q_IF_PRIMARY_CLEAR__LEAN_2Q_IF_PRIMARY_FUZZY__FAST_3_TO_4Q_IF_COMPLEX",
+    "selected_default_route_surface": "ZERO_ONLY_WITH_STABLE_DOMAIN_EVIDENCE_AND_CODE_CLEAR_SHAPE__SHAPE_1Q_ONLY_WITH_STABLE_PRIMARY__LEAN_2Q_FOR_THIN_OR_FUZZY_EVIDENCE__FAST_3_TO_4Q_FOR_COMPLEX_OR_ACCURACY_SENSITIVE",
     "portfolio_one_choice_status": "EXPERIMENTAL_ECONOMY_NOT_SPEED_DEFAULT",
     "fast_candidate_profile_chars": 240,
     "question_criteria_reuse_state_profiles": true,

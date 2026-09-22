@@ -1,8 +1,8 @@
 {
-  "schema_version": "ai-army-org-chart-v6",
+  "schema_version": "ai-army-org-chart-v7",
   "effective_date_jst": "2026-09-22",
   "status": "CANONICAL",
-  "design_goal": "Maximize verified task success and speed per unit cost using a fast Jev decision plane, deterministic bypasses, a heavy DeepSeek supervisory lane only when justified, and bounded specialist execution.",
+  "design_goal": "Maximize verified task success by prioritizing route correctness and decision stability before time to verified completion, using Jev typed decisions, deterministic bypasses, a DeepSeek supervisory lane only when justified, and bounded specialist execution.",
   "policy_entrypoint": "scripts/ai_army_routing_facade.py",
   "hierarchy": {
     "depth_0": {
@@ -46,7 +46,14 @@
       "max_records_per_request": 20,
       "max_parallel_batches": 5,
       "quota_math_location": "PYTHON_ONLY",
-      "cost_priority": "SECONDARY_TO_ROUTING_SPEED_AND_SYSTEM_EFFICIENCY_WITH_EMERGENCY_CEILING_ONLY"
+      "cost_priority": "SECONDARY_TO_VERIFIED_ROUTE_CORRECTNESS_DECISION_STABILITY_AND_TIME_TO_VERIFIED_COMPLETION_WITH_EMERGENCY_CEILING_ONLY",
+      "routing_priority": [
+        "VERIFIED_ROUTE_CORRECTNESS",
+        "DECISION_STABILITY_AND_EVIDENCE_SUFFICIENCY",
+        "TIME_TO_VERIFIED_COMPLETION",
+        "COORDINATION_EFFICIENCY"
+      ],
+      "thin_evidence_keeps_jev_decision_surface": true
     },
     "depth_1": {
       "role": "EXECUTIVE_SUPERVISOR",
@@ -299,6 +306,9 @@
     "DUPLICATE_RESEARCH_AVOIDED",
     "DRAFT_ACCEPTANCE_RATE",
     "JEV_ROUTING_LATENCY",
+    "JEV_ROUTE_STABILITY",
+    "TIME_TO_FIRST_VERIFIED_RESULT",
+    "CRITICAL_PATH_DURATION",
     "JEV_COST_PER_ACCEPTED_ROUTE",
     "HEAVY_MODEL_CALLS_AVOIDED",
     "UNNECESSARY_FANOUT_AVOIDED",
@@ -321,13 +331,15 @@
       "OPEN_ENDED_RESEARCH",
       "FINAL_FACTUAL_ADJUDICATION"
     ],
-    "principle": "USE_JEV_TO_AVOID_WAKING_HEAVY_MODELS_OR_EXTRA_WORKERS_WHEN_THEIR_EXPECTED_VALUE_IS_LOW",
+    "principle": "USE_JEV_FOR_EVIDENCE-SUFFICIENT_TYPED_ROUTING; NEVER REDUCE THE DECISION SURFACE FROM A SINGLE SUCCESS OR LATENCY LEAD ALONE",
     "batch_path": [
       "COLLECT_INDEPENDENT_ROUTING_RECORDS",
       "PREVALIDATE_CANDIDATE_POOLS_AND_QUOTA_ENUMS",
       "PACK_UP_TO_20_RECORDS_PER_JEV_REQUEST",
       "RUN_UP_TO_5_JEV_BATCHES_IN_PARALLEL",
       "PYTHON_NORMALIZE_TYPED_ANSWERS",
+      "FINAL_ADMISSION_GUARD_AND_QUOTA_RESERVATION",
+      "STREAM_DEPENDENCY_READY_TASKS_BY_CRITICAL_PATH",
       "KEEP_PER_TASK_FANOUT_INDEPENDENT_OF_BUNDLE_SIZE",
       "PARALLELIZE_ACROSS_INDEPENDENT_TASKS",
       "START_ONLY_THE_SMALLEST_JUSTIFIED_WORKER_SET_PER_TASK",
@@ -338,8 +350,8 @@
       "scope": "SHORT_LIVED_DOMAIN_AWARE_EVIDENCE",
       "evidence": "config/openrouter_worker_recent_evidence.json",
       "rank_by": [
-        "DOMAIN_SUCCESS",
         "DOMAIN_QUALITY_FAILURE",
+        "DOMAIN_SUCCESS_AND_SAMPLE_SUFFICIENCY",
         "RECENT_429",
         "RECENT_LATENCY"
       ],
@@ -350,7 +362,9 @@
       "max_optional_challengers_per_task": 1,
       "only_for_recently_slow_primary": true,
       "high_risk_tasks": false,
-      "purpose": "DISCOVER_OR_USE_A_FASTER_HEALTHY_WORKER_WITHOUT_ROUTINE_ALL_MODEL_FANOUT"
+      "purpose": "RESERVE_ONE_HEALTHY_CHALLENGER_AND_LAUNCH_ONLY_AFTER_PRIMARY_HAS_NOT_REACHED_VERIFIED_COMPLETION",
+      "winner_rule": "FIRST_VERIFIED_RESULT_WINS",
+      "reservation_requires_final_admission_guard": true
     }
   }
 }

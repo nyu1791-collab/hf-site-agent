@@ -32,9 +32,16 @@ The durable recall contract is therefore: **save → classify by meaning → rec
 
 ChatGPT is Top Commander and final adjudicator. **Jev Latest is the fast System-One decision plane directly under ChatGPT.** Detailed durable rules are in `docs/JEV_FAST_DECISION_PLAYBOOK.md` and `config/jev_decision_engine_policy.json`.
 
-Jev uses only typed `choice / noul / score` decisions. Python owns arithmetic, quota math, duplicate removal, fanout counting, execution-mode derivation and final routing JSON. Production routing uses the smallest verified decision surface: **0 questions** when recent domain evidence and route shape are both clear; **1 shape question** when the primary is clear; **2 questions** as the routine default when the primary is fuzzy; **3–4 questions** only for genuinely complex routing. Routine Jev candidate shortlists target **4 eligible Workers** with compact profiles of about **240 characters/model**.
+Jev uses only typed `choice / noul / score` decisions. Python owns arithmetic, quota math, duplicate removal, fanout counting, execution-mode derivation and final routing JSON. Jev optimization priority is **verified route correctness, then decision stability, then time to verified completion**. Production routing uses the smallest *evidence-sufficient* decision surface: **0 questions** only when at least three clean current domain successes and a margin over a clean runner-up make the primary stable and route shape is clear in code; **1 shape question** only with the same stable-primary evidence; **2 questions** as the routine default when evidence is thin, tied or fuzzy; **3–4 questions** for genuinely complex, high-impact or accuracy-sensitive routing. A single success, raw latency lead or self-reported confidence cannot alone clear a 0/1-question route. Routine Jev candidate shortlists target **4 eligible Workers** with compact profiles of about **240 characters/model**.
 
-Independent routing is batch-first: up to **20 records/request** and **5 concurrent Jev batches**. Recent Worker evidence is expiring and domain-aware; it may reorder only already-eligible Workers. Routine low-confidence work may use a bounded two-Worker hedge so ChatGPT does not become the throughput bottleneck; high-risk ambiguity returns to ChatGPT. Jev is not a long-form Worker and cannot expand candidate eligibility or authority.
+Independent routing is batch-first: up to **20 records/request** and **5 concurrent Jev batches**. Recent Worker evidence is expiring and domain-aware; it may reorder only already-eligible Workers. Candidate cards compactly include success, quality-failure, rate-limit and sample evidence. Routine low-confidence work may use a bounded two-Worker hedge so ChatGPT does not become the throughput bottleneck; high-risk ambiguity returns to ChatGPT. A latency Challenger is a quota-reserved delayed backup: it starts only when a slow Primary has not reached verified completion, then the first verified result wins. Jev is not a long-form Worker and cannot expand candidate eligibility or authority.
+
+After final admission, dependency-ready tasks stream to execution immediately;
+they do not wait for unrelated records in the same Jev batch. Queue contention is
+resolved by critical-path and user-visible priority, while dependent tasks wait
+for verified artifacts rather than unverified completion claims. Concurrency is
+raised gradually after stable success and reduced on 429/5xx/P95 breaches; this
+never weakens verification or shared-state serialization.
 
 Material Jev routing changes require comparable A/B evidence with success rate plus P50/P95 latency and request/token measurements. Promote the simpler route only when quality does not regress, preserve rollback, and prune inferior route surfaces.
 
@@ -49,7 +56,7 @@ must explicitly identify the verifier and preserve what it verified.
 
 Use deterministic tools or one capable agent first. Add specialists only when decomposition, independent verification or parallel research can improve total system value. Keep central management, Single Writer, bounded delegation, typed contracts, explicit termination, checkpoint/recovery and isolated failures. Worker-to-worker unbounded delegation and unbounded swarm behavior are prohibited.\n\nFor OpenRouter free workers, all currently verified zero-priced exact `:free` models may be attached as standby capacity, but the number actually used is a per-task command decision rather than a fixed single-model or fixed-parallel rule. The Top Commander chooses 1–3 models by expected total system value: role fit, quality gain, wall-clock reduction, independent-work fraction, coordination/synthesis overhead, quota/RPM headroom, provider health and verification risk. Use one model when one model is sufficient; use multiple models when independent or complementary work materially improves time or quality. Routine all-model fanout, majority-vote swarms, `openrouter/free`, paid sibling substitution, paid fallback and auto top-up remain prohibited.
 
-Multi-agent or routing changes require a comparable single-agent/deterministic baseline, the same fixtures and acceptance criteria, and measurement of success, verifier pass rate, P50/P95 latency, tokens, requests, tool use, errors, retries, handoffs, coordination overhead, cost estimate and recovery. A model vote is never stronger than a machine oracle or current primary evidence.
+Multi-agent or routing changes require a comparable single-agent/deterministic baseline, the same fixtures and acceptance criteria, and measurement of success, verifier pass rate, route stability, time to first verified result, critical-path duration, Worker TTFT, verifier latency, P50/P95 latency, tokens, requests, tool use, errors, retries, handoffs, cancelled work, cache hits, coordination overhead, cost estimate and recovery. A model vote is never stronger than a machine oracle or current primary evidence.
 
 Paid DeepSeek calls stop when marginal information gain becomes low. Reuse successful lanes; do not rerun the same lane without new evidence. Default free-only rules remain in force outside the explicitly bounded DeepSeek supervisory exception. No auto top-up or generic paid fallback.
 
@@ -63,9 +70,11 @@ Factual current-event, product, numeric, offer and policy claims use claim-level
 
 ## 4. Video creation and quality
 
-When a video command arrives, reread the current media command gate and required media standards before planning, asset fetch, voice generation, render or publish handoff.
+When a video command arrives, reread the current media command gate and required media standards before planning, asset fetch, voice generation, render or publish handoff. The mandatory admission contract is `config/video_creation_admission_policy.json`, enforced by `scripts/video_creation_admission.py`; it must be restored from the repository on every new tab and run before any scene render.
 
-Default production is local/deterministic: scene/chapter units, the current VOICEVOX standard cast of **Zundamon + Shikoku Metan** where applicable, audio-first timing from actual generated WAV duration, pre-downloaded/decode-validated assets, rights/provenance ledger, content-addressed checkpoints, atomic partial-to-verified scene promotion and failed-unit-only retry. Preserve healthy prior work after an isolated failure. Discover the currently available VOICEVOX speaker/style IDs at runtime instead of hardcoding stale IDs.
+The permanent free-execution guard is `config/free_execution_guard.json`. Media work is free-only: paid or freemium video generation, editing, captioning and TTS services are blocked, and a paid media route must not even be probed to discover availability. If a verified free route is unavailable, stop and report the block; never open an upgrade/billing flow, silently substitute a paid service, use trial credits as if they were free, or retry the same paid route. The default fallback is local Python/Pillow/FFmpeg/ffprobe and locally verified free voice/audio tooling.
+
+Default production is local/deterministic: scene/chapter units, the current VOICEVOX standard cast of **Zundamon + Shikoku Metan** where applicable, audio-first timing from actual generated WAV duration, pre-downloaded/decode-validated assets, rights/provenance ledger, content-addressed checkpoints, atomic partial-to-verified scene promotion and failed-unit-only retry. Preserve healthy prior work after an isolated failure. Discover the currently available VOICEVOX speaker/style IDs at runtime instead of hardcoding stale IDs. **ずんだもん is the primary voice; if local VOICEVOX or the standard cast is unavailable, rendering is blocked. A silent-video fallback is not permitted.**
 
 A finished vertical contract is normally 1080x1920, 30 fps, H.264, yuv420p, AAC 48 kHz unless a task-specific contract says otherwise. Completion requires machine QA: ffprobe, decode integrity, stream/codec/dimension checks, caption coverage and applicable loudness/true-peak/silence/black/freeze/safe-zone checks. Do not claim completion before the machine gate passes.
 
@@ -73,7 +82,7 @@ Viewer-retention optimization uses real analytics when available: intro retentio
 
 Captions are synchronized attention/accessibility UI, not merely a transcript dump. Full narration coverage is required; speaker identity and important non-speech sounds are included when needed for understanding. No unsupported universal characters-per-line or reading-speed threshold is hardcoded.
 
-Do not use Descript, Runway, Fal/fal.ai, VEED, HeyGen or Higgsfield as paid/freemium media-generation shortcuts under the permanent default policy.
+Do not use Descript, Runway, Fal/fal.ai, VEED, HeyGen or Higgsfield as paid/freemium media-generation shortcuts under the permanent default policy. This rule is restored from the repository on every new chat tab; conversation memory cannot weaken it. The separately preauthorized Jev Decision Plane remains routing-only and never authorizes media generation.
 
 ## 5. Clipping and repurposing
 

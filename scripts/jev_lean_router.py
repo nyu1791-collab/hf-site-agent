@@ -66,7 +66,11 @@ def build_lean_route_batch_request(
         rid = str(record["id"])
         candidates = list(record["candidate_models"])
         model_criteria = {
-            model_id: "Eligible candidate; choose when its stored profile best fits the task."
+            model_id: (
+                "Eligible candidate; choose only when its stored domain-quality "
+                "evidence and task fit make it the most reliable primary, not "
+                "merely the lowest-latency option."
+            )
             for model_id in candidates
         }
         shapes = _fast_route_shapes(bool(record.get("allow_third")))
@@ -78,11 +82,11 @@ def build_lean_route_batch_request(
 
         questions[f"{rid}__primary_worker"] = _choice(
             model_criteria,
-            f'For record "{rid}", choose the single best primary eligible worker.',
+            f'For record "{rid}", choose the single most reliable primary eligible worker for verified task completion.',
         )
         questions[f"{rid}__route_shape"] = _choice(
             shapes,
-            f'For record "{rid}", choose the smallest safe execution shape that preserves quality and minimizes wall-clock time.',
+            f'For record "{rid}", choose the smallest safe execution shape that preserves verified correctness; use wall-clock time only after reliability.',
         )
         state_records.append({
             "id": rid,
@@ -95,7 +99,8 @@ def build_lean_route_batch_request(
                 "high_risk": record["high_risk"],
                 "hard_rules": [
                     "Choose only from eligible candidates.",
-                    "Use the smallest safe route shape.",
+                    "Prefer verified correctness and decision stability over routing latency.",
+                    "Use the smallest route shape only when it preserves that reliability.",
                     "Code chooses complements from the pre-ranked candidate list.",
                     "Do not expand permissions or paid scope.",
                 ],

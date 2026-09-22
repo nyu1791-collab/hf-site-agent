@@ -9,7 +9,7 @@ Owns the Mission, authorization boundary, cross-domain integration, final adjudi
 
 ### Fast Decision Plane — Jev Latest
 
-Jev sits directly under ChatGPT as a **control-plane decision engine**, not as a content Worker and not under DeepSeek. It is the normal fast lane for nontrivial routing choices: task classification, specialist assignment, 1–3 model fanout, parallel vs sequential execution, independent-verification need, and stop/retry/escalate triage. Clear deterministic routes may bypass Jev because adding any model hop would be waste.
+Jev sits directly under ChatGPT as a **control-plane decision engine**, not as a content Worker and not under DeepSeek. It is the normal typed-decision lane for nontrivial routing choices: task classification, specialist assignment, 1–3 model fanout, parallel vs sequential execution, independent-verification need, and stop/retry/escalate triage. Its permanent priority is verified route correctness, then decision stability and evidence sufficiency, then time to verified completion. Clear deterministic routes may bypass Jev only when current domain evidence is sufficient; a single success or latency lead does not make a route clear.
 
 The canonical entry is `~typesafe/jev-latest`, guarded by a local price ceiling and typed Decisions contract. If Latest fails the guard or contract, the runtime may try the last-known-good pinned Jev once, then falls back to deterministic/ChatGPT routing. Jev cannot expand permissions, candidate models, paid Worker scope, deployment, publication, merge, payment, or secret access.
 
@@ -17,7 +17,7 @@ The target fast path is:
 
 `ChatGPT → deterministic eligibility filter → Jev typed decision → only the selected specialist(s) → machine/Jev light triage → ChatGPT final adjudication`.
 
-Jev never generates the final routing JSON as text. The Decisions API returns Choice/Noul/Score values; Python validates those values, resolves duplicate worker choices, computes fanout/execution mode, and emits the final schema. Arithmetic such as remaining quota is precomputed in Python and sent only as `AMPLE / LIMITED / CRITICAL`. Independent jobs are batch-first: up to 20 records in one Decisions request and up to 5 batches concurrently, allowing 100 independent routing records to be decided in five parallel calls.
+Jev never generates the final routing JSON as text. The Decisions API returns Choice/Noul/Score values; Python validates those values, resolves duplicate worker choices, computes fanout/execution mode, and emits the final schema. Arithmetic such as remaining quota is precomputed in Python and sent only as `AMPLE / LIMITED / CRITICAL`. Independent jobs are batch-first: up to 20 records in one Decisions request and up to 5 batches concurrently, allowing 100 independent routing records to be decided in five parallel calls. After final admission, dependency-ready records dispatch immediately by critical-path priority instead of waiting for unrelated batch tail work; dependencies require verified artifacts.
 
 ### Executive Supervisor — paid DeepSeek
 Paid DeepSeek is persistently pre-authorized only for the supervisory scope in `config/deepseek_paid_supervisor_policy.json`. It is intentionally **not** the default bottom Worker and **not** a boilerplate code factory.

@@ -41,16 +41,51 @@ def main() -> int:
     media_creative = load_json("config/media_audio_motion_retention_policy.json")
     free_audio = load_json("config/free_audio_source_registry.json")
     dova = load_json("config/dova_curated_bgm_catalog.json")
+    free_guard = load_json("config/free_execution_guard.json")
+    video_admission = load_json("config/video_creation_admission_policy.json")
 
     require(manifest.get("canonical_branch") == "ai-army/provider-v3", "wrong canonical branch")
     require(org.get("status") == "CANONICAL", "AI Army org chart is not canonical")
+    plane = (org.get("hierarchy") or {}).get("decision_plane") or {}
+    require((plane.get("routing_priority") or [None])[0] == "VERIFIED_ROUTE_CORRECTNESS", "org chart lost Jev correctness priority")
     require(supervisor.get("status") == "ACTIVE_SCOPED_EXCEPTION", "DeepSeek supervisor exception inactive")
     require(jev.get("status") == "ACTIVE_SCOPED_PAID_EXCEPTION", "Jev fast decision exception inactive")
+    jev_quality = jev.get("decision_quality") or {}
+    require(jev_quality.get("priority_order", [None])[0] == "VERIFIED_ROUTE_CORRECTNESS", "Jev must prioritize verified route correctness")
+    require(jev_quality.get("single_success_or_latency_advantage_alone_cannot_clear_primary") is True, "Jev may clear a primary from thin evidence")
+    require(int(jev_quality.get("minimum_domain_successes_for_clear_primary", 0)) >= 3, "Jev clear-primary evidence threshold too low")
     require(ci_policy.get("schema_version") == "ci-execution-policy-v2", "CI execution policy is not canonical v2")
+
+    guard_default = free_guard.get("default_runtime") or {}
+    require(free_guard.get("status") == "ENFORCED_PERMANENT_STANDARD", "free execution guard is not enforced")
+    require(guard_default.get("free_only_mode") is True, "free-only mode is disabled")
+    require(guard_default.get("allow_paid_model") is False, "unscoped paid model execution is enabled")
+    require(guard_default.get("allow_paid_fallback") is False, "paid fallback is enabled")
+    require(guard_default.get("auto_top_up") is False, "auto top-up is enabled")
+    require(guard_default.get("unknown_cost_route") == "BLOCK", "unknown cost route is not blocked")
+    media_guard = free_guard.get("media_boundary") or {}
+    require(media_guard.get("paid_or_freemium_video_generation") is False, "paid media generation enabled")
+    require(media_guard.get("paid_or_freemium_video_editing") is False, "paid media editing enabled")
+    require(media_guard.get("paid_media_tool_discovery") is False, "paid media discovery enabled")
+    require(video_admission.get("status") == "ENFORCED_PERMANENT_STANDARD", "video creation admission is not enforced")
+    voice_contract = video_admission.get("voice_contract") or {}
+    require(voice_contract.get("engine") == "VOICEVOX_LOCAL", "video creation engine drift")
+    require(voice_contract.get("primary_voice") == "ずんだもん", "video creation primary voice drift")
+    require(voice_contract.get("silent_video_fallback") is False, "video creation silent fallback enabled")
 
     standards = manifest.get("required_standards") or []
     by_standard = {str(x.get("id")): x for x in standards if isinstance(x, dict)}
     require("master-rulebook" in by_standard, "permanent manifest lost compact master rulebook")
+    require("free-execution-guard" in by_standard, "permanent manifest lost free execution guard")
+    require("video-creation-admission" in by_standard, "permanent manifest lost video creation admission")
+    video_standard = by_standard["video-creation-admission"]
+    require(video_standard.get("machine_policy") == "config/video_creation_admission_policy.json", "video admission policy path drift")
+    require(video_standard.get("runtime") == "scripts/video_creation_admission.py", "video admission runtime path drift")
+    require(video_standard.get("priority") == 0, "video admission must remain priority 0")
+    free_standard = by_standard["free-execution-guard"]
+    require(free_standard.get("machine_policy") == "config/free_execution_guard.json", "free execution guard path drift")
+    require(free_standard.get("validator") == "scripts/validate_free_execution_guard.py", "free execution guard validator drift")
+    require(free_standard.get("priority") == 0, "free execution guard must remain priority 0")
     require(by_standard["master-rulebook"].get("path") == "docs/AI_ARMY_MASTER_RULEBOOK.md", "master rulebook path drift")
     require(by_standard["master-rulebook"].get("priority") == 0, "master rulebook must remain priority 0")
     require((ROOT / "docs/AI_ARMY_MASTER_RULEBOOK.md").is_file(), "master rulebook file missing")
@@ -73,6 +108,10 @@ def main() -> int:
     cross_tab = manifest.get("cross_tab_behavior") or {}
     require(cross_tab.get("priority_zero_manifest_is_expandable_startup_index") is True, "priority-zero manifest startup index drift")
     require(cross_tab.get("master_rulebook_survives_tab_change") is True, "master rulebook cross-tab continuity lost")
+    require(cross_tab.get("free_execution_guard_survives_tab_change") is True, "free execution guard cross-tab continuity lost")
+    require(cross_tab.get("paid_media_block_survives_tab_change") is True, "paid media block cross-tab continuity lost")
+    require(cross_tab.get("video_creation_admission_survives_tab_change") is True, "video admission cross-tab continuity lost")
+    require(cross_tab.get("video_requests_require_voicevox_zundamon_preflight") is True, "VOICEVOX preflight cross-tab continuity lost")
     require(cross_tab.get("do_not_duplicate_full_required_standard_list_into_commander_handoff") is True, "startup duplication guard lost")
     require(cross_tab.get("media_audio_motion_retention_survives_tab_change") is True, "media creative standard cross-tab continuity lost")
     require(cross_tab.get("free_audio_source_registry_survives_tab_change") is True, "free audio registry cross-tab continuity lost")
@@ -83,8 +122,20 @@ def main() -> int:
     require(multi_routing.get("final_execution_admission_guard") == "scripts/final_execution_admission_guard.py", "multi-agent routing lost final guard")
     require(multi_routing.get("missing_or_invalid_worker_health_expiry_is_ignored") is True, "invalid health expiry may route")
     require(multi_routing.get("domain_absent_health_cannot_qualify_zero_or_one_question_primary") is True, "domain-absent evidence may clear primary")
+    require(multi_routing.get("jev_prioritizes_verified_route_correctness_and_decision_stability_over_routing_latency") is True, "multi-agent policy lost Jev correctness priority")
     review = multi.get("review_and_reflection") or {}
     require(review.get("multiple_workers_is_not_independent_verification_by_itself") is True, "worker count became verification proof")
+    parallel = multi.get("parallelism") or {}
+    require(parallel.get("latency_challenger_strategy") == "DELAYED_RESERVED_CHALLENGER_AFTER_PRIMARY_HAS_NOT_REACHED_VERIFIED_COMPLETION", "latency challenger is not delayed and guarded")
+    acceleration = multi.get("execution_acceleration") or {}
+    require(acceleration.get("stream_admitted_dependency_ready_tasks_without_waiting_for_unrelated_batch_tail") is True, "streaming dispatch acceleration missing")
+    require(acceleration.get("critical_path_and_user_visible_work_win_queue_contention") is True, "critical path queue priority missing")
+    require((acceleration.get("adaptive_concurrency") or {}).get("reduce_on_429_5xx_or_p95_breach") is True, "adaptive backpressure missing")
+
+    canonical = manifest.get("canonical_ai_army_execution") or {}
+    require(canonical.get("jev_decision_quality_priority") == "VERIFIED_ROUTE_CORRECTNESS_THEN_DECISION_STABILITY_THEN_TIME_TO_VERIFIED_COMPLETION", "manifest lost Jev quality priority")
+    handoff_rules = handoff.get("multi_agent_fixed_rules") or {}
+    require(handoff_rules.get("jev_verified_route_correctness_and_decision_stability_precede_routing_latency") is True, "handoff lost Jev correctness priority")
 
     media_common = list(media_gate.get("common_media_read_set") or [])
     for required_path in (

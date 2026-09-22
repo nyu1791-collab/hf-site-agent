@@ -100,6 +100,10 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         self.assertEqual(result["task_count"], 10)
         self.assertEqual(len(result["plans"]), 10)
         self.assertTrue(all(plan["active_model_count"] == 1 for plan in result["plans"].values()))
+        self.assertEqual(
+            result["dispatch_schedule"]["dispatch_policy"],
+            "STREAM_ADMITTED_DEPENDENCY_READY_TASKS_WITH_CRITICAL_PATH_PRIORITY",
+        )
 
     def test_batch_plan_never_exceeds_remaining_free_worker_budget(self):
         tasks = [
@@ -263,7 +267,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         self.assertEqual(plan["parallel_model_calls"], 1)
         self.assertEqual(plan["worker_roles"][1]["role"], "INDEPENDENT_VERIFIER")
 
-    def test_slow_proven_primary_gets_one_latency_challenger(self):
+    def test_slow_proven_primary_reserves_one_delayed_latency_challenger(self):
         fake = {
             "status": "JEV_LEAN_DECISION_OK",
             "decision": {
@@ -303,10 +307,15 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 use_jev=True,
                 api_key="x",
             )
-        self.assertEqual(result["final_plan"]["active_model_count"], 2)
-        self.assertEqual(result["final_plan"]["execution_mode"], "PARALLEL")
-        self.assertIn("RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED", result["final_plan"]["fanout_reason"])
+        self.assertEqual(result["final_plan"]["active_model_count"], 1)
+        self.assertEqual(result["final_plan"]["execution_mode"], "SINGLE")
+        self.assertIn("RECENT_PRIMARY_SLOW_DELAYED_CHALLENGER_RESERVED", result["final_plan"]["fanout_reason"])
         self.assertEqual(result["final_plan"]["latency_challenger_timeout_seconds"], 3.5)
+        self.assertEqual(
+            result["final_plan"]["deferred_challenger"]["model"],
+            "qwen/qwen3.8-27b:free",
+        )
+        self.assertEqual(result["final_plan"]["final_execution_admission"]["reserved_worker_calls"], 2)
 
     def test_explicit_single_stream_with_fuzzy_primary_uses_lean_two_question_route(self):
         fake = {
@@ -492,11 +501,11 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
     def test_clear_primary_and_clear_shape_use_zero_question_fast_path(self):
         evidence = {
             "deepseek/deepseek-v4-flash-0731:free": {
-                "successes": 2,
+                "successes": 3,
                 "quality_failures": 0,
                 "rate_limits": 0,
                 "avg_latency_ms": 900,
-                "domain_stats": {"GENERAL": {"successes": 2, "quality_failures": 0, "rate_limits": 0, "avg_latency_ms": 900}},
+                "domain_stats": {"GENERAL": {"successes": 3, "quality_failures": 0, "rate_limits": 0, "avg_latency_ms": 900}},
             }
         }
         with patch("scripts.jev_routing_coordinator.load_recent_evidence", return_value=evidence), patch(
@@ -525,11 +534,11 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
     def test_clear_primary_and_ambiguous_shape_use_shape_one_question(self):
         evidence = {
             "deepseek/deepseek-v4-flash-0731:free": {
-                "successes": 2,
+                "successes": 3,
                 "quality_failures": 0,
                 "rate_limits": 0,
                 "avg_latency_ms": 900,
-                "domain_stats": {"GENERAL": {"successes": 2, "quality_failures": 0, "rate_limits": 0, "avg_latency_ms": 900}},
+                "domain_stats": {"GENERAL": {"successes": 3, "quality_failures": 0, "rate_limits": 0, "avg_latency_ms": 900}},
             }
         }
         fake = {

@@ -12,6 +12,24 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 
+def reservation_models(plan: Mapping[str, Any]) -> list[str]:
+    """Return all Worker calls a plan may release, including delayed work.
+
+    A delayed challenger is not dispatched with the primary, but its quota and
+    eligibility must be reserved before the plan is released.  This prevents a
+    later timeout path from silently exceeding the free-request budget.
+    """
+    reserved: list[str] = []
+    for raw in [
+        *list(plan.get("selected_models") or []),
+        *list(plan.get("execution_reservation_models") or []),
+    ]:
+        model = str(raw)
+        if model and model not in reserved:
+            reserved.append(model)
+    return reserved
+
+
 def apply_final_execution_admission_guard(
     task: Mapping[str, Any],
     plan: Mapping[str, Any],
@@ -39,7 +57,8 @@ def apply_final_execution_admission_guard(
         }
         return guarded
 
-    if allowed and any(model not in allowed for model in selected):
+    reserved = reservation_models(guarded)
+    if allowed and any(model not in allowed for model in reserved):
         guarded.update(
             status="BLOCKED_INELIGIBLE_MODEL_AFTER_ROUTING",
             selected_models=[],
@@ -54,7 +73,7 @@ def apply_final_execution_admission_guard(
         )
         return guarded
 
-    if remaining_quota is not None and len(selected) > max(0, int(remaining_quota)):
+    if remaining_quota is not None and len(reserved) > max(0, int(remaining_quota)):
         guarded.update(
             status="BLOCKED_FREE_QUOTA_PLANNED_EXHAUSTED",
             selected_models=[],
@@ -113,6 +132,7 @@ def apply_final_execution_admission_guard(
             "status": "PASS",
             "eligibility_checked": True,
             "quota_checked": remaining_quota is not None,
+            "reserved_worker_calls": len(reserved),
             "shared_state_serialized": shared_state and len(selected) > 1,
             "verification_role_explicit": verification_requested,
         },
@@ -120,4 +140,4 @@ def apply_final_execution_admission_guard(
     return guarded
 
 
-__all__ = ["apply_final_execution_admission_guard"]
+__all__ = ["apply_final_execution_admission_guard", "reservation_models"]

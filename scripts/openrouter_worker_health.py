@@ -73,6 +73,38 @@ def domain_evidence(
     return raw if allow_global_fallback else {}
 
 
+def evidence_quality_summary(
+    raw: Mapping[str, Any] | None,
+    *,
+    domain: str | None = None,
+    allow_global_fallback: bool = True,
+) -> dict[str, Any]:
+    """Return a small, deterministic reliability summary for one domain.
+
+    Latency is useful for ordering already-safe candidates, but it is not
+    evidence that a worker is correct.  Routing code uses this summary to
+    decide whether health is strong enough to remove a Jev judgment surface.
+    """
+    scoped = domain_evidence(
+        raw,
+        domain,
+        allow_global_fallback=allow_global_fallback,
+    )
+    successes = max(0, int(scoped.get("successes", 0) or 0))
+    quality_failures = max(0, int(scoped.get("quality_failures", 0) or 0))
+    rate_limits = max(0, int(scoped.get("rate_limits", 0) or 0))
+    observed_outcomes = successes + quality_failures
+    quality_pass_rate = successes / observed_outcomes if observed_outcomes else None
+    return {
+        "successes": successes,
+        "quality_failures": quality_failures,
+        "rate_limits": rate_limits,
+        "observed_outcomes": observed_outcomes,
+        "quality_pass_rate": quality_pass_rate,
+        "has_domain_evidence": bool(scoped),
+    }
+
+
 def evidence_penalty(raw: Mapping[str, Any], *, domain: str | None = None) -> tuple[int, int, int, int, float]:
     scoped = domain_evidence(raw, domain)
     has_evidence = bool(scoped)
@@ -136,11 +168,15 @@ def profile_suffix(
     if not isinstance(raw, Mapping):
         return "recent_evidence=none"
     scoped = domain_evidence(raw, domain)
+    quality = evidence_quality_summary(raw, domain=domain)
+    pass_rate = quality["quality_pass_rate"]
     return (
         f"recent_domain={domain or 'global'}; "
-        f"recent_successes={int(scoped.get('successes', 0) or 0)}; "
-        f"recent_quality_failures={int(scoped.get('quality_failures', 0) or 0)}; "
-        f"recent_rate_limits={int(scoped.get('rate_limits', 0) or 0)}; "
+        f"recent_successes={quality['successes']}; "
+        f"recent_quality_failures={quality['quality_failures']}; "
+        f"recent_rate_limits={quality['rate_limits']}; "
+        f"recent_samples={quality['observed_outcomes']}; "
+        f"recent_quality_pass_rate={'unknown' if pass_rate is None else f'{pass_rate:.2f}'}; "
         f"recent_avg_latency_ms={float(scoped.get('avg_latency_ms') or 0.0):.1f}"
     )
 
@@ -173,6 +209,7 @@ def merge_proven_into_candidates(
 __all__ = [
     "EVIDENCE_PATH",
     "domain_evidence",
+    "evidence_quality_summary",
     "evidence_penalty",
     "load_recent_evidence",
     "merge_proven_into_candidates",

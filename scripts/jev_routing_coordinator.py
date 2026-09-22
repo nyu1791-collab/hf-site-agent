@@ -5,18 +5,28 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Mapping, Sequence
 
-from scripts.jev_decision_engine import decide_fast, decide_many_fast, quota_pressure_from_remaining
+from scripts.jev_decision_engine import (
+    decide_fast,
+    decide_many_fast,
+    load_policy as load_jev_policy,
+    quota_pressure_from_remaining,
+)
 from scripts.jev_lean_router import decide_lean, decide_many_lean
 from scripts.jev_shape_router import decide_shape, decide_many_shape
 from scripts.openrouter_free_efficiency_router import load_policy as load_free_policy
 from scripts.openrouter_free_efficiency_router import ordered_candidates, plan_task
 from scripts.openrouter_worker_health import (
     domain_evidence,
+    evidence_quality_summary,
     load_recent_evidence,
     merge_proven_into_candidates,
     profile_suffix,
 )
-from scripts.final_execution_admission_guard import apply_final_execution_admission_guard
+from scripts.final_execution_admission_guard import (
+    apply_final_execution_admission_guard,
+    reservation_models,
+)
+from scripts.multi_agent_execution_schedule import build_dispatch_schedule
 
 LATENCY_CHALLENGER_TIMEOUT_SECONDS = 3.5
 
@@ -75,47 +85,46 @@ def _health_primary_is_clear(
     evidence: Mapping[str, Mapping[str, Any]],
     *,
     domain: str | None = None,
+    quality_policy: Mapping[str, Any] | None = None,
 ) -> bool:
-    """Return true only when recent empirical evidence makes candidate[0] clearly best.
+    """Return true only when enough domain evidence makes the primary stable.
 
-    This is deliberately conservative. Unknown-vs-unknown never qualifies.
-    A clean recent winner qualifies when the runner-up has no clean success,
-    or when both are clean but the winner is materially faster.
+    Accuracy-first routing deliberately does *not* promote a primary merely
+    because it won a single request or is faster than another healthy worker.
+    Thin or tied evidence stays on a Jev decision surface, where the task
+    contract and full candidate cards can be considered together.
     """
     if not candidates:
         return False
+    policy = quality_policy or {}
+    min_successes = max(1, int(policy.get("minimum_domain_successes_for_clear_primary", 3) or 3))
+    required_margin = max(0, int(policy.get("minimum_success_margin_over_clean_runner_up", 1) or 1))
     primary = str(candidates[0])
     raw = evidence.get(primary) if isinstance(evidence, Mapping) else None
     # A global success can improve shortlist ordering, but it is not proof that
     # the model is clear enough for a no-question / one-question decision in a
     # different domain.
-    scoped = domain_evidence(raw, domain, allow_global_fallback=False)
-    successes = int(scoped.get("successes", 0) or 0)
-    failures = int(scoped.get("quality_failures", 0) or 0)
-    rate_limits = int(scoped.get("rate_limits", 0) or 0)
-    if successes <= 0 or failures > 0 or rate_limits > 0:
+    primary_quality = evidence_quality_summary(raw, domain=domain, allow_global_fallback=False)
+    successes = int(primary_quality["successes"])
+    if (
+        successes < min_successes
+        or int(primary_quality["quality_failures"]) > 0
+        or int(primary_quality["rate_limits"]) > 0
+    ):
         return False
     if len(candidates) == 1:
         return True
 
     second_raw = evidence.get(str(candidates[1])) if isinstance(evidence, Mapping) else None
-    second = domain_evidence(second_raw, domain, allow_global_fallback=False)
+    second = evidence_quality_summary(second_raw, domain=domain, allow_global_fallback=False)
     second_clean = (
-        int(second.get("successes", 0) or 0) > 0
-        and int(second.get("quality_failures", 0) or 0) == 0
-        and int(second.get("rate_limits", 0) or 0) == 0
+        int(second["successes"]) > 0
+        and int(second["quality_failures"]) == 0
+        and int(second["rate_limits"]) == 0
     )
     if not second_clean:
         return True
-
-    try:
-        primary_latency = float(scoped.get("avg_latency_ms") or 0.0)
-        second_latency = float(second.get("avg_latency_ms") or 0.0)
-    except (TypeError, ValueError):
-        return False
-    if primary_latency <= 0 or second_latency <= 0:
-        return False
-    return primary_latency <= second_latency * 0.75
+    return successes >= int(second["successes"]) + required_margin
 
 
 def _decision_from_code_shape(
@@ -152,6 +161,8 @@ def _needs_rich_jev_route(task: Mapping[str, Any]) -> bool:
     """Use the richer Jev surface only when worker composition itself is fuzzy."""
     return bool(
         _is_high_risk(task)
+        or task.get("accuracy_sensitive")
+        or task.get("requires_stable_route")
         or task.get("complementary_specialization")
         or task.get("independent_verification")
         or task.get("requires_distinct_specialists")
@@ -291,6 +302,29 @@ def _healthy_latency_challenger(
     return None
 
 
+def _attach_delayed_latency_challenger(
+    plan: Mapping[str, Any],
+    challenger: str | None,
+) -> dict[str, Any]:
+    """Reserve, but do not immediately dispatch, one healthy challenger."""
+    if not challenger:
+        return dict(plan)
+    primary = str(plan.get("primary_model") or "")
+    reserved = [model for model in [primary, challenger] if model]
+    return {
+        **dict(plan),
+        "execution_reservation_models": reserved,
+        "deferred_challenger": {
+            "model": challenger,
+            "release_after_seconds": LATENCY_CHALLENGER_TIMEOUT_SECONDS,
+            "trigger": "PRIMARY_HAS_NOT_REACHED_VERIFIED_COMPLETION",
+            "winner_rule": "FIRST_VERIFIED_RESULT_WINS",
+            "cancel_remaining_work_after_verified_winner": True,
+        },
+        "latency_challenger_timeout_seconds": LATENCY_CHALLENGER_TIMEOUT_SECONDS,
+    }
+
+
 def _baseline(
     task: Mapping[str, Any],
     entries: Sequence[Mapping[str, Any]],
@@ -365,6 +399,8 @@ def coordinate(
         }
 
     free_policy = load_free_policy()
+    jev_policy = load_jev_policy()
+    quality_policy = jev_policy.get("decision_quality") if isinstance(jev_policy, Mapping) else {}
     evidence = load_recent_evidence()
     candidates = _health_ranked_candidates(free_policy, entries, task, evidence, max_candidates=4)
     remaining = int(baseline.get("remaining_quota_before_plan", 0))
@@ -387,7 +423,12 @@ def coordinate(
     primary_clear = (
         False
         if rich_route
-        else _health_primary_is_clear(candidates, evidence, domain=domain)
+        else _health_primary_is_clear(
+            candidates,
+            evidence,
+            domain=domain,
+            quality_policy=quality_policy,
+        )
     )
     if rich_route:
         route_surface = "FAST_RICH"
@@ -504,15 +545,13 @@ def coordinate(
     latency_challenger = None
     if len(selected) == 1 and not _is_high_risk(task) and remaining >= 2:
         latency_challenger = _healthy_latency_challenger(selected, candidates, evidence, domain=domain)
-        if latency_challenger:
-            selected.append(latency_challenger)
     final = {
         **baseline,
         "selected_models": selected,
         "primary_model": selected[0],
         "active_model_count": len(selected),
-        "parallel_model_calls": len(selected) if (decision.get("parallel") or latency_challenger) else 1,
-        "execution_mode": "PARALLEL" if latency_challenger else decision.get("execution_mode"),
+        "parallel_model_calls": len(selected) if decision.get("parallel") else 1,
+        "execution_mode": decision.get("execution_mode"),
         "lane": decision.get("lane") or lane,
         "independent_verification": bool(decision.get("independent_verification")),
         "fanout_reason": [
@@ -522,13 +561,13 @@ def coordinate(
                 "SHAPE_ONE_QUESTION": "JEV_SHAPE_ONE_QUESTION_DECISION",
                 "LEAN_TWO_QUESTION": "JEV_LEAN_TWO_QUESTION_DECISION",
             }[route_surface],
-            *(["RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED"] if latency_challenger else []),
+            *(["RECENT_PRIMARY_SLOW_DELAYED_CHALLENGER_RESERVED"] if latency_challenger else []),
             *list(baseline.get("fanout_reason") or []),
         ],
         "jev_confidence": decision.get("confidence"),
         "fanout_decision_owner": "chatgpt-top-commander-with-jev-fast-decision-plane",
-        "latency_challenger_timeout_seconds": LATENCY_CHALLENGER_TIMEOUT_SECONDS if latency_challenger else None,
     }
+    final = _attach_delayed_latency_challenger(final, latency_challenger)
     final = _release_plan(task, final, candidates, remaining_quota=remaining)
     return {
         "schema_version": "jev-routing-coordinator-v4",
@@ -563,6 +602,8 @@ def coordinate_many(
     task_candidates: dict[str, list[str]] = {}
     task_route_surface: dict[str, str] = {}
     free_policy = load_free_policy()
+    jev_policy = load_jev_policy()
+    quality_policy = jev_policy.get("decision_quality") if isinstance(jev_policy, Mapping) else {}
     evidence = load_recent_evidence()
 
     for index, task in enumerate(tasks, 1):
@@ -607,7 +648,12 @@ def coordinate_many(
         primary_clear = (
             False
             if rich
-            else _health_primary_is_clear(candidates, evidence, domain=domain)
+            else _health_primary_is_clear(
+                candidates,
+                evidence,
+                domain=domain,
+                quality_policy=quality_policy,
+            )
         )
         if rich:
             task_route_surface[task_id] = "FAST_RICH"
@@ -698,10 +744,8 @@ def coordinate_many(
         if len(selected) == 1 and not _is_high_risk(task):
             domain = str(task.get("domain") or task.get("task_class") or base.get("lane") or "").strip() or None
             latency_challenger = _healthy_latency_challenger(selected, candidates, evidence, domain=domain)
-            if latency_challenger:
-                selected.append(latency_challenger)
-        parallel = (bool(decision.get("parallel")) or latency_challenger is not None) and len(selected) > 1
-        raw_plans[task_id] = {
+        parallel = bool(decision.get("parallel")) and len(selected) > 1
+        raw_plan = {
             **base,
             "selected_models": selected,
             "primary_model": selected[0],
@@ -711,7 +755,6 @@ def coordinate_many(
             "lane": decision.get("lane") or base.get("lane"),
             "independent_verification": bool(decision.get("independent_verification")),
             "jev_confidence": decision.get("confidence"),
-            "latency_challenger_timeout_seconds": LATENCY_CHALLENGER_TIMEOUT_SECONDS if latency_challenger else None,
             "fanout_reason": [
                 {
                     "FAST_RICH": "JEV_FAST_RICH_BATCH_DECISION",
@@ -719,10 +762,11 @@ def coordinate_many(
                     "SHAPE_ONE_QUESTION": "JEV_SHAPE_ONE_QUESTION_BATCH_DECISION",
                     "LEAN_TWO_QUESTION": "JEV_LEAN_TWO_QUESTION_BATCH_DECISION",
                 }.get(task_route_surface.get(task_id), "JEV_BATCH_DECISION"),
-                *(["RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED"] if latency_challenger else []),
+                *(["RECENT_PRIMARY_SLOW_DELAYED_CHALLENGER_RESERVED"] if latency_challenger else []),
                 *list(base.get("fanout_reason") or []),
             ],
         }
+        raw_plans[task_id] = _attach_delayed_latency_challenger(raw_plan, latency_challenger)
 
     # One common reservation gate covers Jev plans and deterministic fallbacks.
     remaining_budget = 0
@@ -734,6 +778,7 @@ def coordinate_many(
         task_id = str(task.get("task_id") or task.get("id") or f"task_{index:04d}")
         plan = dict(raw_plans[task_id])
         selected = list(plan.get("selected_models") or [])
+        reserved = reservation_models(plan)
         if plan.get("status") == "READY" and selected:
             if remaining_budget <= 0:
                 plan.update(
@@ -743,9 +788,14 @@ def coordinate_many(
                     parallel_model_calls=0,
                 )
             else:
-                if len(selected) > remaining_budget:
-                    selected = selected[:remaining_budget]
-                remaining_budget -= len(selected)
+                if len(reserved) > remaining_budget:
+                    # Preserve a valid immediate primary rather than releasing
+                    # an unreserved delayed hedge later.
+                    selected = selected[:1]
+                    plan.pop("deferred_challenger", None)
+                    plan.pop("execution_reservation_models", None)
+                    reserved = selected
+                remaining_budget -= len(reserved)
                 parallel = plan.get("execution_mode") == "PARALLEL" and len(selected) > 1
                 plan.update(
                     selected_models=selected,
@@ -753,14 +803,14 @@ def coordinate_many(
                     active_model_count=len(selected),
                     parallel_model_calls=len(selected) if parallel else 1,
                     execution_mode="PARALLEL" if parallel else ("SINGLE" if len(selected) == 1 else "SEQUENTIAL"),
-                    planned_free_requests_reserved=len(selected),
+                    planned_free_requests_reserved=len(reserved),
                     remaining_batch_free_request_budget=remaining_budget,
                 )
         plans[task_id] = _release_plan(
             task,
             plan,
             task_candidates.get(task_id, list(plan.get("selected_models") or [])),
-            remaining_quota=int(plan.get("planned_free_requests_reserved", len(plan.get("selected_models") or [])) or 0),
+            remaining_quota=int(plan.get("planned_free_requests_reserved", len(reservation_models(plan))) or 0),
         )
 
     return {
@@ -769,6 +819,7 @@ def coordinate_many(
         "task_count": len(tasks),
         "jev": jev,
         "plans": plans,
+        "dispatch_schedule": build_dispatch_schedule(tasks, plans, max_parallel_tasks=3),
     }
 
 

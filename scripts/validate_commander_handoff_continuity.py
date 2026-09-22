@@ -25,10 +25,12 @@ def main() -> int:
     handoff = load_json("config/current_commander_handoff.json")
     manifest = load_json("config/permanent_standards_manifest.json")
     media_gate = load_json("config/media_command_read_gate.json")
+    free_guard = load_json("config/free_execution_guard.json")
+    video_admission = load_json("config/video_creation_admission_policy.json")
     media_creative = load_json("config/media_audio_motion_retention_policy.json")
     longform = load_json("config/longform_video_reliability_policy.json")
 
-    require(handoff.get("schema_version") == "top-commander-handoff-v13", "commander handoff schema is not current v13")
+    require(handoff.get("schema_version") == "top-commander-handoff-v16", "commander handoff schema is not current v16")
     continuity = handoff.get("continuity") or {}
     require(continuity.get("repository_is_source_of_truth") is True, "handoff lost repository source-of-truth rule")
     require(continuity.get("conversation_memory_is_not_source_of_truth") is True, "handoff made chat memory authoritative")
@@ -62,11 +64,17 @@ def main() -> int:
     require(cross_tab.get("priority_zero_manifest_is_expandable_startup_index") is True, "manifest startup index rule drifted")
     require(cross_tab.get("do_not_duplicate_full_required_standard_list_into_commander_handoff") is True, "manifest duplication guard drifted")
     require(cross_tab.get("media_command_read_gate_survives_tab_change") is True, "media gate no longer survives tab changes")
+    require(cross_tab.get("free_execution_guard_survives_tab_change") is True, "free execution guard no longer survives tab changes")
+    require(cross_tab.get("paid_media_block_survives_tab_change") is True, "paid media block no longer survives tab changes")
+    require(cross_tab.get("video_creation_admission_survives_tab_change") is True, "video creation admission no longer survives tab changes")
+    require(cross_tab.get("video_requests_require_voicevox_zundamon_preflight") is True, "VOICEVOX Zundamon preflight no longer survives tab changes")
 
     active = handoff.get("active_standards") or {}
     for key, expected in {
         "permanent_manifest": "config/permanent_standards_manifest.json",
         "master_rulebook": "docs/AI_ARMY_MASTER_RULEBOOK.md",
+        "free_execution_guard": "config/free_execution_guard.json",
+        "video_creation_admission": "config/video_creation_admission_policy.json",
         "media_command_gate": "config/media_command_read_gate.json",
         "media_audio_motion_retention": "config/media_audio_motion_retention_policy.json",
         "free_audio_source_registry": "config/free_audio_source_registry.json",
@@ -83,6 +91,12 @@ def main() -> int:
     require(handoff_longform.get("task_specific_media_execution_state_is_not_a_permanent_standard") is True, "handoff made task-specific media state permanent")
     require("video_creation_not_started_by_this_integration_mission" not in handoff_longform, "stale integration-mission media hold returned")
 
+    routing_rules = handoff.get("multi_agent_fixed_rules") or {}
+    require(routing_rules.get("jev_verified_route_correctness_and_decision_stability_precede_routing_latency") is True, "handoff lost Jev correctness priority")
+    require(routing_rules.get("single_success_or_latency_advantage_cannot_clear_zero_or_one_question_primary") is True, "handoff allows thin evidence Jev fast path")
+    require(routing_rules.get("latency_challenger_is_delayed_guarded_reservation_not_routine_immediate_parallel_fanout") is True, "handoff lost delayed challenger guard")
+    require(routing_rules.get("admitted_dependency_ready_tasks_stream_by_critical_path_without_waiting_for_unrelated_batch_tail") is True, "handoff lost streaming dispatch rule")
+
     serialized_handoff = json.dumps(handoff, ensure_ascii=False)
     require("VOICEVOX_ZUNDAMON_LOCAL" not in serialized_handoff, "stale Zundamon-only handoff token returned")
     require("media_production_hold" not in serialized_handoff, "media production hold was reintroduced into commander handoff")
@@ -97,6 +111,12 @@ def main() -> int:
     common_media = set(media_gate.get("common_media_read_set") or [])
     require("config/current_commander_handoff.json" in common_media, "media gate no longer rereads commander handoff")
     require("config/permanent_standards_manifest.json" in common_media, "media gate no longer rereads permanent manifest")
+    require("config/free_execution_guard.json" in common_media, "media gate no longer rereads free execution guard")
+    require("config/video_creation_admission_policy.json" in common_media, "media gate no longer rereads video creation admission")
+    require(video_admission.get("status") == "ENFORCED_PERMANENT_STANDARD", "video creation admission is not enforced")
+    require((video_admission.get("voice_contract") or {}).get("primary_voice") == "ずんだもん", "video admission primary voice drifted")
+    require((video_admission.get("voice_contract") or {}).get("silent_video_fallback") is False, "video admission allows silent fallback")
+    require(free_guard.get("status") == "ENFORCED_PERMANENT_STANDARD", "free execution guard is not enforced")
 
     overrides = handoff.get("temporary_user_overrides") or {}
     require("media_production_hold" not in overrides, "media production hold must stay absent from temporary overrides")
@@ -107,7 +127,7 @@ def main() -> int:
 
     print(json.dumps({
         "status": "PASS",
-        "handoff_schema": "v13",
+        "handoff_schema": "v16",
         "compact_bootstrap": True,
         "semantic_task_gates": True,
         "voicevox_cast": ["ずんだもん", "四国めたん"],

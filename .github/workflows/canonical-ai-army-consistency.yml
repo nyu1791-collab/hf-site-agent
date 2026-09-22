@@ -15,6 +15,8 @@ on:
       - 'config/framework_adapter_layer.json'
       - 'config/current_commander_handoff.json'
       - 'config/permanent_standards_manifest.json'
+      - 'config/free_execution_guard.json'
+      - 'config/video_creation_admission_policy.json'
       - 'config/media_command_read_gate.json'
       - 'config/evidence_visual_static_character_policy.json'
       - 'config/media_source_policy.json'
@@ -47,6 +49,7 @@ on:
       - 'scripts/jev_decision_engine.py'
       - 'scripts/jev_routing_coordinator.py'
       - 'scripts/final_execution_admission_guard.py'
+      - 'scripts/multi_agent_execution_schedule.py'
       - 'scripts/jev_lean_router.py'
       - 'scripts/jev_primary_router.py'
       - 'scripts/jev_shape_router.py'
@@ -55,6 +58,8 @@ on:
       - 'scripts/validate_jev_decision_engine.py'
       - 'scripts/validate_openrouter_free_efficiency.py'
       - 'scripts/validate_permanent_ai_army_state.py'
+      - 'scripts/validate_free_execution_guard.py'
+      - 'scripts/video_creation_admission.py'
       - 'scripts/validate_media_command_read_gate.py'
       - 'scripts/validate_semantic_recall_and_commerce_precision.py'
       - 'scripts/validate_media_character_visual_standard.py'
@@ -114,12 +119,14 @@ on:
       - 'tests/test_jev_decision_engine.py'
       - 'tests/test_jev_routing_coordinator.py'
       - 'tests/test_final_execution_admission_guard.py'
+      - 'tests/test_multi_agent_execution_schedule.py'
       - 'tests/test_jev_lean_router.py'
       - 'tests/test_jev_primary_router.py'
       - 'tests/test_jev_shape_router.py'
       - 'tests/test_openrouter_worker_health.py'
       - 'tests/test_openrouter_worker_orchestrator.py'
       - 'tests/test_agent_efficiency_policy_regression.py'
+      - 'tests/test_free_execution_guard.py'
       - 'tests/test_tiktok_shop_claim_gate.py'
       - 'tests/test_deepseek_json_guard.py'
       - 'tests/test_batch_media_scheduler.py'
@@ -162,6 +169,7 @@ jobs:
             scripts/jev_decision_engine.py \
             scripts/jev_routing_coordinator.py \
             scripts/final_execution_admission_guard.py \
+            scripts/multi_agent_execution_schedule.py \
             scripts/jev_lean_router.py \
             scripts/jev_primary_router.py \
             scripts/jev_shape_router.py \
@@ -170,6 +178,8 @@ jobs:
             scripts/validate_jev_decision_engine.py \
             scripts/validate_openrouter_free_efficiency.py \
             scripts/validate_permanent_ai_army_state.py \
+            scripts/validate_free_execution_guard.py \
+            scripts/video_creation_admission.py \
             scripts/validate_media_command_read_gate.py \
             scripts/validate_semantic_recall_and_commerce_precision.py \
             scripts/validate_media_character_visual_standard.py \
@@ -210,6 +220,8 @@ jobs:
           python -m json.tool config/framework_adapter_layer.json >/dev/null
           python -m json.tool config/current_commander_handoff.json >/dev/null
           python -m json.tool config/permanent_standards_manifest.json >/dev/null
+          python -m json.tool config/free_execution_guard.json >/dev/null
+          python -m json.tool config/video_creation_admission_policy.json >/dev/null
           python -m json.tool config/media_command_read_gate.json >/dev/null
           python -m json.tool config/evidence_visual_static_character_policy.json >/dev/null
           python -m json.tool config/media_source_policy.json >/dev/null
@@ -249,6 +261,16 @@ jobs:
           set -euo pipefail
           python scripts/validate_permanent_ai_army_state.py
 
+      - name: Enforce permanent free execution guard
+        run: |
+          set -euo pipefail
+          python scripts/validate_free_execution_guard.py
+
+      - name: Enforce video creation admission contract
+        run: |
+          set -euo pipefail
+          python scripts/video_creation_admission.py
+
       - name: Enforce commander handoff continuity
         run: |
           set -euo pipefail
@@ -264,7 +286,7 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_jev_decision_engine.py
-          python -m unittest tests.test_jev_decision_engine tests.test_jev_lean_router tests.test_jev_primary_router tests.test_jev_shape_router tests.test_jev_routing_coordinator tests.test_final_execution_admission_guard tests.test_openrouter_worker_health tests.test_openrouter_worker_orchestrator
+          python -m unittest tests.test_jev_decision_engine tests.test_jev_lean_router tests.test_jev_primary_router tests.test_jev_shape_router tests.test_jev_routing_coordinator tests.test_final_execution_admission_guard tests.test_multi_agent_execution_schedule tests.test_openrouter_worker_health tests.test_openrouter_worker_orchestrator
 
       - name: Enforce media command read gate
         run: |
@@ -332,6 +354,7 @@ jobs:
           python -m unittest \
             tests.test_ai_army_routing_facade \
             tests.test_agent_efficiency_policy_regression \
+            tests.test_free_execution_guard \
             tests.test_tiktok_shop_claim_gate \
             tests.test_deepseek_json_guard \
             tests.test_batch_media_scheduler \

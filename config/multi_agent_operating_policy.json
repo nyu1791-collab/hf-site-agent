@@ -1,5 +1,5 @@
 {
-  "schema_version": "multi-agent-operating-policy-v9",
+  "schema_version": "multi-agent-operating-policy-v10",
   "effective_date_jst": "2026-09-22",
   "status": "PERMANENT_STANDARD",
   "architecture": {
@@ -141,6 +141,9 @@
     "jev_fast_decision_policy": "config/jev_decision_engine_policy.json",
     "jev_fast_decision_coordinator": "scripts/jev_routing_coordinator.py",
     "jev_default_for_nontrivial_model_and_fanout_choice": true,
+    "jev_prioritizes_verified_route_correctness_and_decision_stability_over_routing_latency": true,
+    "thin_or_tied_domain_evidence_keeps_lean_or_rich_jev_surface": true,
+    "single_success_or_latency_advantage_cannot_unlock_zero_or_one_question_route": true,
     "deterministic_clear_routes_may_bypass_jev": true,
     "jev_typed_decisions_only": true,
     "jev_free_text_output": false,
@@ -191,7 +194,34 @@
     "latency_challenger_requires_recent_slow_primary_evidence": true,
     "latency_challenger_does_not_apply_to_high_risk_tasks": true,
     "latency_challenger_requires_healthy_domain_success": true,
+    "latency_challenger_strategy": "DELAYED_RESERVED_CHALLENGER_AFTER_PRIMARY_HAS_NOT_REACHED_VERIFIED_COMPLETION",
+    "latency_challenger_winner_rule": "FIRST_VERIFIED_RESULT_WINS_AND_CANCEL_REMAINING_WORK",
+    "latency_challenger_reservation_must_pass_final_guard_before_primary_release": true,
     "final_execution_guard_serializes_shared_state_after_any_challenger_or_hedge": true
+  },
+  "execution_acceleration": {
+    "stream_admitted_dependency_ready_tasks_without_waiting_for_unrelated_batch_tail": true,
+    "critical_path_and_user_visible_work_win_queue_contention": true,
+    "dependency_wait_requires_verified_artifact_not_worker_completion_claim": true,
+    "initial_dispatch_parallel_task_ceiling": 3,
+    "adaptive_concurrency": {
+      "enabled": true,
+      "increase_only_gradually_after_stable_success": true,
+      "reduce_on_429_5xx_or_p95_breach": true,
+      "do_not_reduce_verification_requirements_under_pressure": true,
+      "calibrate_numeric_steps_on_fixed_fixtures_before_hardcoding": true
+    },
+    "context_and_cache": {
+      "worker_receives_minimum_task_packet_and_artifact_references": true,
+      "routing_evidence_and_verified_artifact_caches_require_policy_and_dependency_hash_match": true,
+      "volatile_or_expired_evidence_never_served_from_cache": true
+    },
+    "progressive_verification": [
+      "SCHEMA_AND_POLICY_CHECK",
+      "MACHINE_ORACLE_WHEN_AVAILABLE",
+      "LIGHTWEIGHT_SEMANTIC_CHECK",
+      "INDEPENDENT_AI_VERIFIER_ONLY_FOR_HIGH_RISK_OR_UNCERTAIN_OUTPUT"
+    ]
   },
   "review_and_reflection": {
     "reviewer_should_receive_acceptance_criteria_and_evidence": true,
@@ -344,7 +374,12 @@
     "record_jev_batch_latency": true,
     "record_jev_heavy_model_calls_avoided": true,
     "record_domain_scoped_worker_success_latency_and_429": true,
-    "record_inter_task_parallelism_separately_from_intra_task_fanout": true
+    "record_inter_task_parallelism_separately_from_intra_task_fanout": true,
+    "record_time_to_first_verified_result": true,
+    "record_critical_path_duration": true,
+    "record_queue_wait_and_worker_ttft": true,
+    "record_verifier_latency": true,
+    "record_cancelled_work_and_cache_hits": true
   },
   "evaluation": {
     "evaluate_system_not_only_individual_model": true,
@@ -426,6 +461,7 @@
     "uncertain_complexity_reduction_requires_ablation_test_before_deletion": true
   },
   "free_only_policy": {
+    "permanent_guard": "config/free_execution_guard.json",
     "free_only_mode": true,
     "scope": "DEFAULT_FOR_ALL_ROUTES_EXCEPT_EXPLICIT_PREAUTHORIZED_PAID_EXCEPTIONS",
     "allow_paid_model": false,
@@ -434,6 +470,9 @@
     "fresh_exact_model_evidence_required": true,
     "paid_sibling_substitution": false,
     "free_endpoint_failure_may_not_silently_route_to_paid": true,
+    "paid_or_freemium_media_routes_blocked": true,
+    "paid_media_tool_discovery_blocked": true,
+    "free_route_unavailable_action": "BLOCK_AND_REPORT_NO_PAID_SUBSTITUTION",
     "openrouter_free_pool_authorized": true,
     "openrouter_free_pool_policy": "config/openrouter_free_efficiency_policy.json",
     "openrouter_free_generic_router_allowed": false,

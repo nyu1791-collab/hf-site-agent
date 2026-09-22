@@ -85,8 +85,11 @@ def build_connector_state(
         for platform in SOCIAL_PLATFORMS
     }
     descript_ready = descript_installed and fresh
-    fal_ready = fal_installed and fresh and bool(paid_media_approved)
-    runway_ready = runway_installed and fresh and bool(paid_media_approved)
+    # Permanent free-execution guard: an installed connector or a caller-side
+    # approval flag never enables paid/freemium media generation.  Media must
+    # use local/deterministic tooling or a freshly verified zero-cost route.
+    fal_ready = False
+    runway_ready = False
     return {
         "snapshot": {
             "observed_at": observed_at.isoformat(),
@@ -119,11 +122,13 @@ def build_connector_state(
             "fal": fal_ready,
             "runway": runway_ready,
             "paid_media_approved": bool(paid_media_approved),
+            "free_execution_guard": "BLOCK_PAID_OR_FREEMIUM_MEDIA",
         },
         "creative_generation": {
             "fal": fal_ready,
             "runway": runway_ready,
             "paid_media_approved": bool(paid_media_approved),
+            "free_execution_guard": "BLOCK_PAID_OR_FREEMIUM_MEDIA",
         },
         "research": {
             "public_web": True,
