@@ -6,7 +6,6 @@ on:
     branches:
       - ai-army/provider-v3
     paths:
-      - .github/workflows/build-latest-mars-news60-durable.yml
       - missions/media/20260922-mars-water-news60-v1.json.gz.b64
       - missions/media/20260922-mars-water-news60-v1.sources.json
 
@@ -214,16 +213,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf "$OUT/preview"
-          python scripts/render_zundamon_metan_longform.py \
-            --mission-b64 "$MISSION" \
-            --timing "$OUT/timing.json" \
-            --reaction-inventory "$OUT/static_inventory.json" \
-            --asset-manifest "$OUT/visual_assets.json" \
-            --voice-root "$OUT/voice" \
-            --output-dir "$OUT/preview"
-          test -s "$OUT/preview/ai-slowdown-longform-v1.mp4"
-          rm -f "$OUT/preview/ai-slowdown-longform-v1.mp4"
+          rm -rf "$OUT/preview-only"
           python scripts/render_zundamon_metan_longform.py \
             --mission-b64 "$MISSION" \
             --timing "$OUT/timing.json" \
