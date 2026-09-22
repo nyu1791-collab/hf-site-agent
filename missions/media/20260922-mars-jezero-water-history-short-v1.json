@@ -44,7 +44,7 @@
   "claims": [
     {
       "id": "C1",
-      "text": "Margin Unit records at least three distinct episodes of water-rock interaction.",
+      "text": "Lower Margin Unit exposures record at least three distinct episodes of water-rock interaction.",
       "source_refs": [
         "S1",
         "S2"
@@ -71,7 +71,7 @@
     },
     {
       "id": "C4",
-      "text": "The study does not report detection of life; it adds evidence relevant to reconstructing potentially habitable ancient environments.",
+      "text": "The study does not report detection of life; it describes the altered rocks as being of astrobiological interest.",
       "source_refs": [
         "S1",
         "S2"
@@ -105,8 +105,8 @@
     {
       "id": "L01",
       "speaker": "ずんだもん",
-      "voice_text": "火星に水があった、だけじゃないのだ。ジェゼロ・クレーターの岩には、別々の時期に水が少なくとも三回作用した痕跡が残っていたのだ。",
-      "caption_text": "火星に水があった、だけじゃない。\nJezero Craterの岩に「少なくとも3回」の水作用。",
+      "voice_text": "火星に水があった、だけじゃないのだ。ジェゼロ・クレーターのマージン・ユニット下部の岩には、別々の時期に水が少なくとも三回作用した痕跡が残っていたのだ。",
+      "caption_text": "火星に水があった、だけじゃない。\nlower Margin Unitに「少なくとも3回」の水作用。",
       "heading": "火星の水の歴史",
       "claim_ids": [
         "C1"
@@ -116,7 +116,7 @@
     {
       "id": "L02",
       "speaker": "四国めたん",
-      "voice_text": "ナサとジェット推進研究所が九月二十一日に紹介した査読研究ね。パーサヴィアランスのスーパーカムで、マージン・ユニットを調べた結果よ。",
+      "voice_text": "ナサとジェット推進研究所が九月二十一日に紹介した査読研究ね。パーサヴィアランスのスーパーカムで、マージン・ユニットの上部と下部を比べた結果よ。",
       "caption_text": "NASA/JPLが9月21日に紹介した査読研究。\nPerseveranceのSuperCamでMargin Unitを分析。",
       "heading": "最新の査読研究",
       "claim_ids": [
@@ -139,8 +139,8 @@
     {
       "id": "L04",
       "speaker": "四国めたん",
-      "voice_text": "最初は二酸化炭素を含む地下水。その後、湖か地下水が炭酸塩を動かし、シリカを沈殿させたと考えられているわ。",
-      "caption_text": "① CO₂-rich groundwater → carbonate\n② lake / groundwater → silica precipitation",
+      "voice_text": "下部で最初に記録されたのは、二酸化炭素を含む地下水。その後、湖か地下水が炭酸塩を動かし、シリカを沈殿させたと考えられているわ。",
+      "caption_text": "lower Margin Unit\n① CO₂-rich groundwater → carbonate\n② lake / groundwater → silica precipitation",
       "heading": "水作用 ①・②",
       "claim_ids": [
         "C3"
@@ -150,7 +150,7 @@
     {
       "id": "L05",
       "speaker": "ずんだもん",
-      "voice_text": "さらに後には、熱い地下水が通って、硫酸カルシウムとフッ化物を含む鉱物脈ができたのだ。",
+      "voice_text": "さらに後には、熱い地下水が通って、蛍石を含む硫酸カルシウムの鉱物脈ができたのだ。",
       "caption_text": "③ late hydrothermal fluids\n→ fluorite-bearing Ca-sulfate veins",
       "heading": "水作用 ③",
       "claim_ids": [
@@ -161,8 +161,8 @@
     {
       "id": "L06",
       "speaker": "四国めたん",
-      "voice_text": "つまりジェゼロは、単純な古代湖の跡ではなく、地下水、湖、熱水が重なる複雑な水環境だったと考えられるの。",
-      "caption_text": "Jezeroは「湖だけ」ではない。\ngroundwater・lake・hydrothermal activityが重なる環境。",
+      "voice_text": "つまりマージン・ユニット下部には、地下水、湖、熱水という、別々の水環境が重なった履歴が残っていると考えられるの。",
+      "caption_text": "lower Margin Unitに残る複雑な履歴。\ngroundwater・lake・hydrothermal activity",
       "heading": "複雑な水環境",
       "claim_ids": [
         "C1",
@@ -173,8 +173,8 @@
     {
       "id": "L07",
       "speaker": "ずんだもん",
-      "voice_text": "ただし、これは生命そのものを発見したという報告ではないのだ。古代火星で生命が存在できた環境を考える手がかりが増えた、という段階なのだ。",
-      "caption_text": "※生命そのものの発見ではない。\n古代火星のhabitabilityを考える手がかり。",
+      "voice_text": "ただし、これは生命そのものを発見したという報告ではないのだ。研究が示すのは、火星の過去の環境を宇宙生物学の視点で調べる手がかりが増えた、という段階なのだ。",
+      "caption_text": "※生命の証拠ではない。\n研究はastrobiological interestを示す段階。",
       "heading": "ここは誤解注意",
       "claim_ids": [
         "C4"
