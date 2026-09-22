@@ -44,14 +44,22 @@ def load_recent_evidence(*, now: datetime | None = None, path: Path = EVIDENCE_P
     for model, raw in models.items():
         if not isinstance(raw, Mapping):
             continue
+        # Evidence without a valid expiry may be displayed for diagnosis but
+        # must never influence a routing decision.  Treating it as fresh would
+        # make an old or malformed record silently become a permanent ranking.
         expires = _parse_utc(raw.get("valid_until_utc"))
-        if expires is not None and expires <= current:
+        if expires is None or expires <= current:
             continue
         active[str(model)] = dict(raw)
     return active
 
 
-def domain_evidence(raw: Mapping[str, Any] | None, domain: str | None = None) -> Mapping[str, Any]:
+def domain_evidence(
+    raw: Mapping[str, Any] | None,
+    domain: str | None = None,
+    *,
+    allow_global_fallback: bool = True,
+) -> Mapping[str, Any]:
     if not isinstance(raw, Mapping):
         return {}
     name = str(domain or "").strip()
@@ -62,7 +70,7 @@ def domain_evidence(raw: Mapping[str, Any] | None, domain: str | None = None) ->
             merged = dict(raw)
             merged.update(dict(scoped))
             return merged
-    return raw
+    return raw if allow_global_fallback else {}
 
 
 def evidence_penalty(raw: Mapping[str, Any], *, domain: str | None = None) -> tuple[int, int, int, int, float]:
@@ -147,7 +155,14 @@ def merge_proven_into_candidates(
 ) -> list[str]:
     empirical = evidence or {}
     base = [str(x) for x in base_candidates if str(x) in catalog_model_ids]
-    proven = [x for x in proven_models(evidence=empirical, domain=domain) if x in catalog_model_ids]
+    # Evidence can reorder the prevalidated base pool only.  In particular it
+    # must not promote a catalog entry (including a paid sibling) that was not
+    # eligible for the current task before health ranking.
+    base_set = set(base)
+    proven = [
+        x for x in proven_models(evidence=empirical, domain=domain)
+        if x in catalog_model_ids and x in base_set
+    ]
     merged: list[str] = []
     for model in [*base[:4], *proven, *base[4:]]:
         if model not in merged:

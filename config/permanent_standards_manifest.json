@@ -98,6 +98,14 @@
       "worker_health_evidence": "config/openrouter_worker_recent_evidence.json"
     },
     {
+      "id": "final-execution-admission-guard",
+      "runtime": "scripts/final_execution_admission_guard.py",
+      "integrates_with": "scripts/jev_routing_coordinator.py",
+      "validator": "scripts/validate_jev_decision_engine.py",
+      "purpose": "ONE_DETERMINISTIC_FINAL_CHECK_FOR_ELIGIBILITY_QUOTA_SHARED_STATE_APPROVAL_AND_EXPLICIT_VERIFICATION_ROLES_ACROSS_ALL_ROUTING_SURFACES",
+      "priority": 1
+    },
+    {
       "id": "deepseek-executive-supervisor",
       "machine_policy": "config/deepseek_paid_supervisor_policy.json",
       "runtime": "scripts/deepseek_supervisor_research.py",
@@ -283,6 +291,10 @@
     "jev_candidate_profile_char_target": 240,
     "jev_recent_domain_worker_health": true,
     "jev_recent_health_reorders_only_prevalidated_eligibility": true,
+    "jev_final_execution_admission_guard_required": true,
+    "jev_missing_or_invalid_health_expiry_is_ignored": true,
+    "jev_domain_absent_health_cannot_qualify_zero_or_one_question_primary": true,
+    "jev_independent_verification_requires_explicit_role": true,
     "jev_routine_low_confidence_bounded_hedge": true,
     "jev_high_risk_low_confidence_chatgpt_adjudication": true,
     "jev_official_manual_alignment_required": true

@@ -76,6 +76,11 @@ Routing uses recent, expiring, domain-aware Worker evidence:
 
 Recent evidence may reorder eligible Workers but never expand eligibility. Expired evidence is ignored.
 
+Evidence with a missing or invalid expiry is also ignored for routing. Global
+evidence may help rank an already eligible Worker, but only current evidence
+for the task's actual domain may establish the clear-primary condition used by
+the zero-question and shape-only tiers.
+
 A fast recent success may outrank an unknown candidate. A 429, quality failure or severe latency causes temporary/domain-specific demotion.
 
 ## Low-confidence handling
@@ -83,6 +88,20 @@ A fast recent success may outrank an unknown candidate. A 429, quality failure o
 Routine low-risk work should not overload ChatGPT merely because Jev confidence is modest. A bounded hedge of at most two Workers may be used when appropriate.
 
 High-impact or authority-sensitive ambiguity returns to ChatGPT.
+
+## Final execution admission guard
+
+Every route, including deterministic routing, Jev failure fallback, bounded
+hedges, latency challengers and batch plans, passes one Python-only final guard
+immediately before release. The guard confirms that selected Workers remain
+inside the prevalidated eligible pool, that their count fits reserved free
+quota, and that a shared mutable target is serialized even if a later hedge or
+challenger was proposed.
+
+Two selected Workers do not by themselves mean independent verification. A
+verification route must name a separate verifier role and retain its
+verification evidence. A high-risk low-confidence decision remains a ChatGPT
+adjudication stop in both single and batch execution.
 
 ## Speed objective
 

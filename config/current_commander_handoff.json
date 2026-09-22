@@ -62,7 +62,8 @@
     "jev_routing_coordinator": "scripts/jev_routing_coordinator.py",
     "jev_fast_decision_playbook": "docs/JEV_FAST_DECISION_PLAYBOOK.md",
     "openrouter_worker_health": "scripts/openrouter_worker_health.py",
-    "openrouter_worker_recent_evidence": "config/openrouter_worker_recent_evidence.json"
+    "openrouter_worker_recent_evidence": "config/openrouter_worker_recent_evidence.json",
+    "final_execution_admission_guard": "scripts/final_execution_admission_guard.py"
   },
   "peer_review_status": {
     "completed": true,
@@ -221,7 +222,11 @@
     "jev_routine_candidate_count": 4,
     "jev_candidate_profile_char_target": 240,
     "openrouter_worker_health_is_recent_expiring_and_domain_aware": true,
-    "openrouter_worker_health_may_reorder_but_not_expand_eligibility": true
+    "openrouter_worker_health_may_reorder_but_not_expand_eligibility": true,
+    "final_execution_admission_guard_required_after_every_route_surface": true,
+    "missing_or_invalid_health_expiry_is_not_routable_evidence": true,
+    "domain_absent_health_does_not_qualify_zero_or_one_question_primary": true,
+    "independent_verification_requires_explicit_verifier_role": true
   },
   "legacy_cleanup_fixed_rules": {
     "legacy_registry": "config/legacy_deepseek_compatibility.json",
@@ -386,7 +391,9 @@
     "Jev production routing preserves the zero-question, shape-one-question, lean-two-question and rich-three-to-four-question tiers",
     "Jev never performs counting or quota arithmetic that Python can do deterministically",
     "recent domain-aware Worker evidence may reorder only already-eligible Workers and expires automatically",
-    "routine low-confidence Jev routing may use a bounded two-Worker hedge but high-risk ambiguity returns to ChatGPT"
+    "routine low-confidence Jev routing may use a bounded two-Worker hedge but high-risk ambiguity returns to ChatGPT",
+    "every deterministic Jev fallback hedge challenger and batch route passes the same final eligibility quota shared-state approval and verification-role guard",
+    "multiple Workers are not labeled independent verification unless an explicit verifier role and verification evidence exist"
   ],
   "delivery": {
     "intermediate_to_user": false,
@@ -454,6 +461,10 @@
     "domain_aware_recent_worker_health": true,
     "expired_worker_evidence_is_ignored": true,
     "recent_health_may_reorder_but_not_expand_eligibility": true,
+    "final_execution_admission_guard": "scripts/final_execution_admission_guard.py",
+    "missing_or_invalid_expiry_is_ignored": true,
+    "domain_absent_evidence_cannot_clear_primary": true,
+    "verification_role_is_explicit": true,
     "routine_low_confidence_may_use_bounded_two_worker_hedge": true,
     "high_risk_low_confidence_returns_to_chatgpt": true,
     "generic_paid_fallback": false,

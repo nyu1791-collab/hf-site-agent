@@ -70,7 +70,7 @@ class OpenRouterWorkerHealthTests(unittest.TestCase):
         ranked = rank_candidates(["limited:free", "unknown:free"], evidence=evidence)
         self.assertEqual(ranked[0], "unknown:free")
 
-    def test_proven_model_is_merged_into_shortlist(self):
+    def test_proven_model_cannot_expand_prevalidated_shortlist(self):
         evidence = {
             "proven:free": {
                 "successes": 1,
@@ -85,8 +85,27 @@ class OpenRouterWorkerHealthTests(unittest.TestCase):
             evidence=evidence,
             max_candidates=4,
         )
-        self.assertIn("proven:free", out)
-        self.assertEqual(out[0], "proven:free")
+        self.assertNotIn("proven:free", out)
+        self.assertEqual(out, ["a:free", "b:free", "c:free", "d:free"])
+
+    def test_health_cannot_promote_paid_catalog_entry(self):
+        out = merge_proven_into_candidates(
+            ["a:free"],
+            catalog_model_ids={"a:free", "paid/model"},
+            evidence={"paid/model": {"successes": 3, "quality_failures": 0, "rate_limits": 0}},
+        )
+        self.assertEqual(out, ["a:free"])
+
+    def test_missing_or_invalid_expiry_is_ignored(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "evidence.json"
+            path.write_text(json.dumps({"models": {
+                "missing:free": {"successes": 1},
+                "invalid:free": {"successes": 1, "valid_until_utc": "not-a-date"},
+                "fresh:free": {"successes": 1, "valid_until_utc": "2026-09-22T01:00:00Z"},
+            }}), encoding="utf-8")
+            out = load_recent_evidence(now=datetime(2026, 9, 21, tzinfo=timezone.utc), path=path)
+        self.assertEqual(set(out), {"fresh:free"})
 
     def test_domain_specific_failure_does_not_poison_other_domain(self):
         evidence = {

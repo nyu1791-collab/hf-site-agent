@@ -65,7 +65,8 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         with patch("scripts.jev_routing_coordinator.decide_lean", return_value={"status": "JEV_UNAVAILABLE"}):
             result = coordinate({"task_class": "GENERAL"}, CATALOG, use_jev=True, api_key="x")
         self.assertEqual(result["route_source"], "DETERMINISTIC_FALLBACK_AFTER_JEV_UNAVAILABLE")
-        self.assertEqual(result["final_plan"], result["baseline"])
+        self.assertEqual(result["final_plan"]["selected_models"], result["baseline"]["selected_models"])
+        self.assertEqual(result["final_plan"]["final_execution_admission"]["status"], "PASS")
 
     def test_coordinate_many_uses_one_batch_surface_for_many_tasks(self):
         tasks = [
@@ -207,9 +208,64 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         self.assertEqual(result["route_source"], "CHATGPT_ADJUDICATION_AFTER_JEV")
         self.assertEqual(result["final_plan"]["status"], "REQUIRES_CHATGPT_ADJUDICATION")
 
+    def test_batch_high_impact_low_confidence_keeps_chatgpt_stop(self):
+        fake = {
+            "status": "JEV_FAST_MANY_OK",
+            "record_count": 1,
+            "batch_count": 1,
+            "decisions": {
+                "risk": {
+                    "workers": ["qwen/qwen3.8-27b:free"],
+                    "parallel": False,
+                    "execution_mode": "SINGLE",
+                    "lane": "GENERAL_REASONING",
+                    "independent_verification": True,
+                    "action": "ESCALATE",
+                    "confidence": 0.4,
+                    "low_confidence": True,
+                }
+            },
+        }
+        with patch("scripts.jev_routing_coordinator.decide_many_fast", return_value=fake):
+            result = coordinate_many(
+                [{"task_id": "risk", "task_class": "GENERAL", "high_impact": True}],
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+            )
+        plan = result["plans"]["risk"]
+        self.assertEqual(plan["status"], "REQUIRES_CHATGPT_ADJUDICATION")
+        self.assertEqual(plan["selected_models"], [])
+
+    def test_final_guard_serializes_shared_state_and_marks_verifier_role(self):
+        fake = {
+            "status": "JEV_FAST_DECISION_OK",
+            "decision": {
+                "workers": ["deepseek/deepseek-v4-flash-0731:free", "qwen/qwen3.8-27b:free"],
+                "parallel": True,
+                "execution_mode": "PARALLEL",
+                "lane": "GENERAL_REASONING",
+                "independent_verification": True,
+                "action": "EXECUTE",
+                "confidence": 0.9,
+                "low_confidence": False,
+            },
+        }
+        with patch("scripts.jev_routing_coordinator.decide_fast", return_value=fake):
+            result = coordinate(
+                {"task_class": "GENERAL", "shared_mutable_state": True, "requires_distinct_specialists": True},
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+            )
+        plan = result["final_plan"]
+        self.assertEqual(plan["execution_mode"], "SEQUENTIAL")
+        self.assertEqual(plan["parallel_model_calls"], 1)
+        self.assertEqual(plan["worker_roles"][1]["role"], "INDEPENDENT_VERIFIER")
+
     def test_slow_proven_primary_gets_one_latency_challenger(self):
         fake = {
-            "status": "JEV_PRIMARY_DECISION_OK",
+            "status": "JEV_LEAN_DECISION_OK",
             "decision": {
                 "workers": ["deepseek/deepseek-v4-flash-0731:free"],
                 "fanout": 1,
@@ -228,12 +284,14 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "quality_failures": 0,
                 "rate_limits": 0,
                 "avg_latency_ms": 4500,
+                "domain_stats": {"GENERAL": {"successes": 3, "quality_failures": 0, "rate_limits": 0, "avg_latency_ms": 4500}},
             },
             "qwen/qwen3.8-27b:free": {
-                "successes": 0,
+                "successes": 1,
                 "quality_failures": 0,
                 "rate_limits": 0,
                 "avg_latency_ms": 0,
+                "domain_stats": {"GENERAL": {"successes": 1, "quality_failures": 0, "rate_limits": 0, "avg_latency_ms": 1200}},
             },
         }
         with patch("scripts.jev_routing_coordinator.decide_lean", return_value=fake), patch(
@@ -287,6 +345,28 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         fast.assert_not_called()
         self.assertEqual(result["route_source"], "JEV_LEAN_DECISION_PLANE")
         self.assertIn("JEV_LEAN_TWO_QUESTION_DECISION", result["final_plan"]["fanout_reason"])
+
+    def test_global_only_health_cannot_unlock_zero_question_route(self):
+        evidence = {
+            "deepseek/deepseek-v4-flash-0731:free": {
+                "successes": 5,
+                "quality_failures": 0,
+                "rate_limits": 0,
+                "avg_latency_ms": 300,
+                "domain_stats": {"DATA_EXTRACTION": {"successes": 5, "quality_failures": 0, "rate_limits": 0, "avg_latency_ms": 300}},
+            }
+        }
+        fake = {"status": "JEV_LEAN_DECISION_OK", "decision": {
+            "workers": ["deepseek/deepseek-v4-flash-0731:free"], "parallel": False,
+            "execution_mode": "SINGLE", "lane": "GENERAL_REASONING",
+            "independent_verification": False, "action": "EXECUTE", "confidence": 0.9, "low_confidence": False,
+        }}
+        with patch("scripts.jev_routing_coordinator.load_recent_evidence", return_value=evidence), patch(
+            "scripts.jev_routing_coordinator.decide_lean", return_value=fake
+        ) as lean:
+            result = coordinate({"task_class": "GENERAL", "objective": "General task."}, CATALOG, use_jev=True, api_key="x")
+        lean.assert_called_once()
+        self.assertEqual(result["route_source"], "JEV_LEAN_DECISION_PLANE")
 
     def test_explicit_parallel_pair_with_fuzzy_primary_uses_lean_two_question_route(self):
         fake = {
@@ -416,6 +496,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "quality_failures": 0,
                 "rate_limits": 0,
                 "avg_latency_ms": 900,
+                "domain_stats": {"GENERAL": {"successes": 2, "quality_failures": 0, "rate_limits": 0, "avg_latency_ms": 900}},
             }
         }
         with patch("scripts.jev_routing_coordinator.load_recent_evidence", return_value=evidence), patch(
@@ -448,6 +529,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "quality_failures": 0,
                 "rate_limits": 0,
                 "avg_latency_ms": 900,
+                "domain_stats": {"GENERAL": {"successes": 2, "quality_failures": 0, "rate_limits": 0, "avg_latency_ms": 900}},
             }
         }
         fake = {

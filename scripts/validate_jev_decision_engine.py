@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config" / "jev_decision_engine_policy.json"
 RUNTIME = ROOT / "scripts" / "jev_decision_engine.py"
 COORDINATOR = ROOT / "scripts" / "jev_routing_coordinator.py"
+FINAL_GUARD = ROOT / "scripts" / "final_execution_admission_guard.py"
 JEV_PLAYBOOK = ROOT / "docs" / "JEV_FAST_DECISION_PLAYBOOK.md"
 LEAN_RUNTIME = ROOT / "scripts" / "jev_lean_router.py"
 SHAPE_RUNTIME = ROOT / "scripts" / "jev_shape_router.py"
@@ -66,6 +67,14 @@ def main() -> int:
     zero_contract = contract.get("deterministic_health_fast_path") or {}
     require(zero_contract.get("enabled") is True, "zero-question deterministic health fast path disabled")
     require(int(zero_contract.get("jev_question_count", -1)) == 0, "zero-question fast path drift")
+    final_guard = contract.get("final_execution_admission_guard") or {}
+    require(final_guard.get("required_for_every_route_surface") is True, "final execution guard is not universal")
+    require(final_guard.get("runtime") == "scripts/final_execution_admission_guard.py", "final execution guard path drift")
+    require(final_guard.get("health_may_reorder_prevalidated_candidates_only") is True, "health eligibility boundary drift")
+    require(final_guard.get("missing_or_invalid_evidence_expiry_is_not_routable_evidence") is True, "invalid expiry may route")
+    require(final_guard.get("domain_absent_evidence_may_not_qualify_zero_or_one_question_primary") is True, "domain-absent evidence may clear primary")
+    require(final_guard.get("shared_mutable_state_forces_sequential_execution") is True, "shared-state serialization drift")
+    require(final_guard.get("independent_verification_requires_explicit_verifier_role") is True, "verification role contract drift")
 
     source = RUNTIME.read_text(encoding="utf-8")
     require('DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"' in source, "Jev is not using Decisions API")
@@ -79,6 +88,7 @@ def main() -> int:
     require("max_records_per_request" in source, "Jev 20-record batch control missing")
     require("quota_pressure_from_remaining" in source, "quota enum preprocessing missing")
     require(COORDINATOR.is_file(), "Jev routing coordinator missing")
+    require(FINAL_GUARD.is_file(), "final execution admission guard missing")
     require(JEV_PLAYBOOK.is_file(), "Jev permanent playbook missing")
     playbook = JEV_PLAYBOOK.read_text(encoding="utf-8")
     require("ZERO_QUESTION_DETERMINISTIC_HEALTH_FAST_PATH" in playbook, "Jev zero-question tier missing from playbook")
@@ -99,6 +109,7 @@ def main() -> int:
     require("decide_lean" in coordinator_source and "decide_many_lean" in coordinator_source, "coordinator not using lean route")
     require("decide_shape" in coordinator_source and "decide_many_shape" in coordinator_source, "coordinator not using shape-only route")
     require("DETERMINISTIC_HEALTH_FAST_PATH" in coordinator_source, "zero-question fast path missing")
+    require("apply_final_execution_admission_guard" in coordinator_source, "coordinator bypasses final execution guard")
 
     multi = json.loads(MULTI.read_text(encoding="utf-8"))
     require((multi.get("routing") or {}).get("jev_default_for_nontrivial_model_and_fanout_choice") is True, "Jev not default for nontrivial routing choice")

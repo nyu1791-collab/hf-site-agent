@@ -16,6 +16,7 @@ from scripts.openrouter_worker_health import (
     merge_proven_into_candidates,
     profile_suffix,
 )
+from scripts.final_execution_admission_guard import apply_final_execution_admission_guard
 
 LATENCY_CHALLENGER_TIMEOUT_SECONDS = 3.5
 
@@ -85,7 +86,10 @@ def _health_primary_is_clear(
         return False
     primary = str(candidates[0])
     raw = evidence.get(primary) if isinstance(evidence, Mapping) else None
-    scoped = domain_evidence(raw, domain)
+    # A global success can improve shortlist ordering, but it is not proof that
+    # the model is clear enough for a no-question / one-question decision in a
+    # different domain.
+    scoped = domain_evidence(raw, domain, allow_global_fallback=False)
     successes = int(scoped.get("successes", 0) or 0)
     failures = int(scoped.get("quality_failures", 0) or 0)
     rate_limits = int(scoped.get("rate_limits", 0) or 0)
@@ -95,7 +99,7 @@ def _health_primary_is_clear(
         return True
 
     second_raw = evidence.get(str(candidates[1])) if isinstance(evidence, Mapping) else None
-    second = domain_evidence(second_raw, domain)
+    second = domain_evidence(second_raw, domain, allow_global_fallback=False)
     second_clean = (
         int(second.get("successes", 0) or 0) > 0
         and int(second.get("quality_failures", 0) or 0) == 0
@@ -257,7 +261,7 @@ def _healthy_latency_challenger(
         return None
     primary = str(selected[0])
     primary_ev = evidence.get(primary) if isinstance(evidence, Mapping) else None
-    primary_scoped = domain_evidence(primary_ev, domain)
+    primary_scoped = domain_evidence(primary_ev, domain, allow_global_fallback=False)
     try:
         primary_latency = float(primary_scoped.get("avg_latency_ms") or 0.0)
     except (TypeError, ValueError):
@@ -269,8 +273,10 @@ def _healthy_latency_challenger(
         if not model or model in selected:
             continue
         raw = evidence.get(model) if isinstance(evidence, Mapping) else None
-        scoped = domain_evidence(raw, domain)
+        scoped = domain_evidence(raw, domain, allow_global_fallback=False)
         if isinstance(scoped, Mapping):
+            if int(scoped.get("successes", 0) or 0) <= 0:
+                continue
             if int(scoped.get("rate_limits", 0) or 0) > 0:
                 continue
             if int(scoped.get("quality_failures", 0) or 0) > 0:
@@ -300,6 +306,26 @@ def _baseline(
     )
 
 
+def _release_plan(
+    task: Mapping[str, Any],
+    plan: Mapping[str, Any],
+    candidates: Sequence[str],
+    *,
+    remaining_quota: int | None = None,
+) -> dict[str, Any]:
+    """Apply the one final deterministic admission guard to every route."""
+    eligible = list(candidates) or [str(x) for x in list(plan.get("selected_models") or [])]
+    quota = remaining_quota
+    if quota is None:
+        quota = int(plan.get("remaining_quota_before_plan", 0) or 0)
+    return apply_final_execution_admission_guard(
+        task,
+        plan,
+        eligible_models=eligible,
+        remaining_quota=quota,
+    )
+
+
 def coordinate(
     task: Mapping[str, Any],
     entries: Sequence[Mapping[str, Any]],
@@ -317,23 +343,25 @@ def coordinate(
         free_requests_today=free_requests_today,
     )
     if baseline.get("status") != "READY":
+        final = _release_plan(task, baseline, list(baseline.get("selected_models") or []))
         return {
             "schema_version": "jev-routing-coordinator-v4",
             "status": baseline.get("status"),
             "route_source": "DETERMINISTIC_BASELINE",
             "baseline": baseline,
             "jev": None,
-            "final_plan": baseline,
+            "final_plan": final,
         }
 
     if not use_jev or bool(task.get("deterministic")):
+        final = _release_plan(task, baseline, list(baseline.get("selected_models") or []))
         return {
             "schema_version": "jev-routing-coordinator-v4",
             "status": "READY",
             "route_source": "DETERMINISTIC_BASELINE",
             "baseline": baseline,
             "jev": None,
-            "final_plan": baseline,
+            "final_plan": final,
         }
 
     free_policy = load_free_policy()
@@ -415,50 +443,63 @@ def coordinate(
         )
         expected_status = "JEV_LEAN_DECISION_OK"
     if jev.get("status") != expected_status:
+        final = _release_plan(task, baseline, candidates, remaining_quota=remaining)
         return {
             "schema_version": "jev-routing-coordinator-v4",
             "status": "READY",
             "route_source": "DETERMINISTIC_FALLBACK_AFTER_JEV_UNAVAILABLE",
             "baseline": baseline,
             "jev": jev,
-            "final_plan": baseline,
+            "final_plan": final,
         }
 
     decision = jev.get("decision") or {}
     if decision.get("action") != "EXECUTE" or decision.get("low_confidence") is True:
         hedge = _bounded_low_confidence_hedge(task, baseline, candidates, decision)
         if hedge is not None:
+            final = _release_plan(task, hedge, candidates, remaining_quota=remaining)
             return {
                 "schema_version": "jev-routing-coordinator-v4",
                 "status": "READY",
                 "route_source": "JEV_LOW_CONFIDENCE_BOUNDED_HEDGE",
                 "baseline": baseline,
                 "jev": jev,
-                "final_plan": hedge,
+                "final_plan": final,
             }
+        final = _release_plan(
+            task,
+            {
+                **baseline,
+                "status": "REQUIRES_CHATGPT_ADJUDICATION",
+                "selected_models": [],
+                "active_model_count": 0,
+                "parallel_model_calls": 0,
+                "execution_mode": "BLOCKED",
+                "jev_action": decision.get("action"),
+                "jev_confidence": decision.get("confidence"),
+            },
+            candidates,
+            remaining_quota=remaining,
+        )
         return {
             "schema_version": "jev-routing-coordinator-v4",
             "status": "READY",
             "route_source": "CHATGPT_ADJUDICATION_AFTER_JEV",
             "baseline": baseline,
             "jev": jev,
-            "final_plan": {
-                **baseline,
-                "status": "REQUIRES_CHATGPT_ADJUDICATION",
-                "jev_action": decision.get("action"),
-                "jev_confidence": decision.get("confidence"),
-            },
+            "final_plan": final,
         }
 
     selected = list(decision.get("workers") or [])
     if not selected or any(model not in candidates for model in selected):
+        final = _release_plan(task, baseline, candidates, remaining_quota=remaining)
         return {
             "schema_version": "jev-routing-coordinator-v4",
             "status": "READY",
             "route_source": "DETERMINISTIC_FALLBACK_AFTER_JEV_CONTRACT_FAILURE",
             "baseline": baseline,
             "jev": jev,
-            "final_plan": baseline,
+            "final_plan": final,
         }
     latency_challenger = None
     if len(selected) == 1 and not _is_high_risk(task) and remaining >= 2:
@@ -488,6 +529,7 @@ def coordinate(
         "fanout_decision_owner": "chatgpt-top-commander-with-jev-fast-decision-plane",
         "latency_challenger_timeout_seconds": LATENCY_CHALLENGER_TIMEOUT_SECONDS if latency_challenger else None,
     }
+    final = _release_plan(task, final, candidates, remaining_quota=remaining)
     return {
         "schema_version": "jev-routing-coordinator-v4",
         "status": "READY",
@@ -637,7 +679,16 @@ def coordinate_many(
             continue
         if decision.get("action") != "EXECUTE" or decision.get("low_confidence"):
             hedge = _bounded_low_confidence_hedge(task, base, candidates, decision)
-            raw_plans[task_id] = hedge if hedge is not None else dict(base)
+            raw_plans[task_id] = hedge if hedge is not None else {
+                **dict(base),
+                "status": "REQUIRES_CHATGPT_ADJUDICATION",
+                "selected_models": [],
+                "active_model_count": 0,
+                "parallel_model_calls": 0,
+                "execution_mode": "BLOCKED",
+                "jev_action": decision.get("action"),
+                "jev_confidence": decision.get("confidence"),
+            }
             continue
         selected = [str(model) for model in list(decision.get("workers") or []) if str(model) in candidates]
         if not selected:
@@ -705,7 +756,12 @@ def coordinate_many(
                     planned_free_requests_reserved=len(selected),
                     remaining_batch_free_request_budget=remaining_budget,
                 )
-        plans[task_id] = plan
+        plans[task_id] = _release_plan(
+            task,
+            plan,
+            task_candidates.get(task_id, list(plan.get("selected_models") or [])),
+            remaining_quota=int(plan.get("planned_free_requests_reserved", len(plan.get("selected_models") or [])) or 0),
+        )
 
     return {
         "schema_version": "jev-routing-coordinator-batch-v4",

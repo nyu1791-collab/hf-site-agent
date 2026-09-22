@@ -135,6 +135,25 @@
       "jev_question_count": 0,
       "python_composes_route": true,
       "unknown_or_stale_evidence_must_not_qualify": true
+    },
+    "final_execution_admission_guard": {
+      "required_for_every_route_surface": true,
+      "runtime": "scripts/final_execution_admission_guard.py",
+      "applies_to": [
+        "DETERMINISTIC",
+        "JEV_TYPED",
+        "JEV_UNAVAILABLE_FALLBACK",
+        "LOW_CONFIDENCE_HEDGE",
+        "LATENCY_CHALLENGER",
+        "BATCH"
+      ],
+      "health_may_reorder_prevalidated_candidates_only": true,
+      "missing_or_invalid_evidence_expiry_is_not_routable_evidence": true,
+      "domain_absent_evidence_may_not_qualify_zero_or_one_question_primary": true,
+      "final_selected_workers_must_fit_reserved_free_quota": true,
+      "shared_mutable_state_forces_sequential_execution": true,
+      "independent_verification_requires_explicit_verifier_role": true,
+      "high_risk_low_confidence_requires_chatgpt_adjudication_in_single_and_batch_routes": true
     }
   },
   "automatic_upgrade_guard": {

@@ -198,7 +198,12 @@
     "bounded_retry": true,
     "bounded_replan": true,
     "circuit_break_repeated_root_cause": true,
-    "machine_oracle_over_majority_vote": true
+    "machine_oracle_over_majority_vote": true,
+    "final_execution_admission_guard": "scripts/final_execution_admission_guard.py",
+    "final_execution_admission_guard_required_for_every_route_surface": true,
+    "health_evidence_may_reorder_but_never_expand_prevalidated_eligibility": true,
+    "shared_state_is_rechecked_after_hedge_or_latency_challenger": true,
+    "independent_verifier_role_must_be_explicit": true
   },
   "failure_observability": {
     "required_failure_classes": [

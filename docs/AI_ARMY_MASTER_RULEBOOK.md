@@ -38,6 +38,15 @@ Independent routing is batch-first: up to **20 records/request** and **5 concurr
 
 Material Jev routing changes require comparable A/B evidence with success rate plus P50/P95 latency and request/token measurements. Promote the simpler route only when quality does not regress, preserve rollback, and prune inferior route surfaces.
 
+Before any plan is released, the deterministic final-execution admission guard
+checks the same invariants for every route surface: prevalidated Worker
+eligibility, reserved quota, approval stops, shared-state serialization and
+explicit verification roles. Health evidence can rank only already eligible
+Workers; a missing/invalid expiry is ignored, and cross-domain success cannot
+by itself make a Worker clear enough for a zero- or one-question route.
+Selecting two Workers is not evidence of independent verification. The plan
+must explicitly identify the verifier and preserve what it verified.
+
 Use deterministic tools or one capable agent first. Add specialists only when decomposition, independent verification or parallel research can improve total system value. Keep central management, Single Writer, bounded delegation, typed contracts, explicit termination, checkpoint/recovery and isolated failures. Worker-to-worker unbounded delegation and unbounded swarm behavior are prohibited.\n\nFor OpenRouter free workers, all currently verified zero-priced exact `:free` models may be attached as standby capacity, but the number actually used is a per-task command decision rather than a fixed single-model or fixed-parallel rule. The Top Commander chooses 1–3 models by expected total system value: role fit, quality gain, wall-clock reduction, independent-work fraction, coordination/synthesis overhead, quota/RPM headroom, provider health and verification risk. Use one model when one model is sufficient; use multiple models when independent or complementary work materially improves time or quality. Routine all-model fanout, majority-vote swarms, `openrouter/free`, paid sibling substitution, paid fallback and auto top-up remain prohibited.
 
 Multi-agent or routing changes require a comparable single-agent/deterministic baseline, the same fixtures and acceptance criteria, and measurement of success, verifier pass rate, P50/P95 latency, tokens, requests, tool use, errors, retries, handoffs, coordination overhead, cost estimate and recovery. A model vote is never stronger than a machine oracle or current primary evidence.

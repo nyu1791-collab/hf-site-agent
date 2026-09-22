@@ -54,6 +54,10 @@ def main() -> int:
     require(by_standard["master-rulebook"].get("path") == "docs/AI_ARMY_MASTER_RULEBOOK.md", "master rulebook path drift")
     require(by_standard["master-rulebook"].get("priority") == 0, "master rulebook must remain priority 0")
     require((ROOT / "docs/AI_ARMY_MASTER_RULEBOOK.md").is_file(), "master rulebook file missing")
+    require("final-execution-admission-guard" in by_standard, "permanent manifest lost final execution guard")
+    guard_standard = by_standard["final-execution-admission-guard"]
+    require(guard_standard.get("runtime") == "scripts/final_execution_admission_guard.py", "final execution guard path drift")
+    require((ROOT / "scripts/final_execution_admission_guard.py").is_file(), "final execution guard missing")
 
     durable_media = {
         "media-audio-motion-retention": "config/media_audio_motion_retention_policy.json",
@@ -75,6 +79,12 @@ def main() -> int:
     require(cross_tab.get("dova_curated_bgm_preference_survives_tab_change") is True, "DOVA preference cross-tab continuity lost")
     read_order = list(((handoff.get("continuity") or {}).get("on_new_session_required_read_order") or []))
     require("config/permanent_standards_manifest.json" in read_order, "commander handoff must restore permanent manifest")
+    multi_routing = multi.get("routing") or {}
+    require(multi_routing.get("final_execution_admission_guard") == "scripts/final_execution_admission_guard.py", "multi-agent routing lost final guard")
+    require(multi_routing.get("missing_or_invalid_worker_health_expiry_is_ignored") is True, "invalid health expiry may route")
+    require(multi_routing.get("domain_absent_health_cannot_qualify_zero_or_one_question_primary") is True, "domain-absent evidence may clear primary")
+    review = multi.get("review_and_reflection") or {}
+    require(review.get("multiple_workers_is_not_independent_verification_by_itself") is True, "worker count became verification proof")
 
     media_common = list(media_gate.get("common_media_read_set") or [])
     for required_path in (
