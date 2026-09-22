@@ -2,17 +2,6 @@ name: Build latest Mars news 60s durable
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - missions/media/20260922-mars-water-news60-v1.json.gz.b64
-      - missions/media/20260922-mars-water-news60-v1.sources.json
-      - config/media_reusable_asset_standard.json
-      - config/evidence_visual_static_character_policy.json
-      - scripts/synthesize_longform_voicevox.py
-      - scripts/render_static_speaker_color_longform.py
-      - scripts/validate_video_caption_contract.py
 
 permissions:
   contents: read

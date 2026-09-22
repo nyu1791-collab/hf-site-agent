@@ -1,12 +1,6 @@
 name: Build Mars Jezero current-news short
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - ".github/workflows/build-mars-jezero-water-news-20260922.yml"
-      - "missions/media/20260922-mars-jezero-water-history-short-v1.json"
   workflow_dispatch:
 
 permissions:
