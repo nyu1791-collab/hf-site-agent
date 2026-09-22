@@ -1,0 +1,342 @@
+name: Build latest Mars news 60s durable
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/workflows/build-latest-mars-news60-durable.yml
+      - missions/media/20260922-mars-water-news60-v1.json.gz.b64
+      - missions/media/20260922-mars-water-news60-v1.sources.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: latest-mars-news60-durable-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      OUT: artifacts/mars-water-news60-v1
+      CACHE: .media-cache/assets
+      MISSION: missions/media/20260922-mars-water-news60-v1.json.gz.b64
+      SOURCES: missions/media/20260922-mars-water-news60-v1.sources.json
+      FINAL: artifacts/mars-water-news60-v1/final/mars-water-news60-v1.mp4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Initialize durable run state
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          mission=Path(os.environ["MISSION"])
+          out=Path(os.environ["OUT"])
+          state={
+            "schema":"durable-media-run-state-v1",
+            "mission_id":"20260922-mars-water-news60-v1",
+            "request_hash":hashlib.sha256(mission.read_bytes()).hexdigest(),
+            "head_sha":os.environ.get("GITHUB_SHA"),
+            "run_id":os.environ.get("GITHUB_RUN_ID"),
+            "stage":"ADMISSION_PENDING",
+            "status":"RUNNING",
+            "last_progress_at":"RUN_INITIALIZED",
+            "verified_artifacts":[],
+            "failure_class":None,
+            "termination_reason":None,
+            "chat_stream_is_execution_authority":False
+          }
+          (out/"state.json").write_text(json.dumps(state,ensure_ascii=False,indent=2)+"\n")
+          PY
+
+      - name: Install deterministic media toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
+          python -m pip install --disable-pip-version-check --no-input pillow
+          mkdir -p "$OUT" "$CACHE"
+
+      - name: Validate free-only and video admission policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/video_creation_admission.py
+          python scripts/validate_free_execution_guard.py
+          python scripts/validate_media_command_read_gate.py
+          python -m py_compile scripts/synthesize_longform_voicevox.py
+          python -m py_compile scripts/render_zundamon_metan_longform.py
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["OUT"])/"state.json"; s=json.loads(p.read_text())
+          s.update(stage="STATIC_ADMISSION_VERIFIED",last_progress_at="STATIC_ADMISSION_VERIFIED")
+          s["verified_artifacts"].append("config/session_stream_resilience_policy.json")
+          p.write_text(json.dumps(s,ensure_ascii=False,indent=2)+"\n")
+          PY
+
+      - name: Start local VOICEVOX
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          docker run -d --rm --name voicevox -p 50021:50021 voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs voicevox || true
+          exit 1
+
+      - name: Runtime admission with current VOICEVOX cast
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/video_creation_admission.py --runtime | tee "$OUT/video-creation-runtime-admission.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["OUT"])/"state.json"; s=json.loads(p.read_text())
+          s.update(stage="VOICEVOX_RUNTIME_VERIFIED",last_progress_at="VOICEVOX_RUNTIME_VERIFIED")
+          s["verified_artifacts"].append("video-creation-runtime-admission.json")
+          p.write_text(json.dumps(s,ensure_ascii=False,indent=2)+"\n")
+          PY
+
+      - name: Synthesize VOICEVOX dialogue and measured timing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/synthesize_longform_voicevox.py \
+            --mission-b64 "$MISSION" \
+            --output-dir "$OUT/voice" \
+            --timing-out "$OUT/timing.json" \
+            --speed-scale 1.16 \
+            --min-seconds 45 \
+            --max-seconds 80
+          cp "$SOURCES" "$OUT/source-claim-lock.json"
+          printf '%s\n' 'VOICEVOX:ずんだもん' 'VOICEVOX:四国めたん' > "$OUT/VOICEVOX_CREDIT.txt"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["OUT"])/"state.json"; s=json.loads(p.read_text())
+          s.update(stage="VOICE_VERIFIED",last_progress_at="VOICE_VERIFIED")
+          s["verified_artifacts"] += ["timing.json","voice/","source-claim-lock.json","VOICEVOX_CREDIT.txt"]
+          p.write_text(json.dumps(s,ensure_ascii=False,indent=2)+"\n")
+          PY
+
+      - name: Upload verified voice checkpoint
+        uses: actions/upload-artifact@v4
+        with:
+          name: mars-water-news60-voice-checkpoint-${{ github.run_id }}
+          path: |
+            artifacts/mars-water-news60-v1/voice
+            artifacts/mars-water-news60-v1/timing.json
+            artifacts/mars-water-news60-v1/source-claim-lock.json
+            artifacts/mars-water-news60-v1/VOICEVOX_CREDIT.txt
+            artifacts/mars-water-news60-v1/state.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Resolve registered Zundamon and Metan shell once
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/media_asset_resolver.py \
+            --asset-id zm_shell_20230806 \
+            --cache-root "$CACHE" \
+            --allow-network \
+            --max-workers 1 \
+            --manifest-out "$OUT/character-shell.json"
+          RAW=$(python - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=json.loads((Path(os.environ["OUT"])/"character-shell.json").read_text())
+          p=m["results"][0].get("extracted_path")
+          assert p and Path(p).is_dir(), p
+          print(p)
+          PY
+          )
+          python scripts/character_shell_root.py "$RAW" > "$OUT/character-source-resolved.txt"
+
+      - name: Build static portrait inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          from PIL import Image
+          out=Path(os.environ["OUT"])
+          root=Path((out/"character-source-resolved.txt").read_text().strip())
+          dstroot=out/"static-portraits"; dstroot.mkdir(parents=True,exist_ok=True)
+          records=[]
+          for source_char,target_char in [("Zundamon","zundamon"),("Metan","metan")]:
+              candidates=sorted((root/source_char).rglob("All.png"),key=lambda p:(len(p.parts),p.as_posix()))
+              assert candidates, source_char
+              with Image.open(candidates[0]) as im:
+                  rgba=im.convert("RGBA")
+                  if rgba.getchannel("A").getextrema()==(255,255):
+                      corner=rgba.getpixel((0,0))
+                      if max(corner[:3])<=8:
+                          px=rgba.load()
+                          for y in range(rgba.height):
+                              for x in range(rgba.width):
+                                  r,g,b,a=px[x,y]
+                                  if r<=8 and g<=8 and b<=8: px[x,y]=(r,g,b,0)
+                  dst=dstroot/f"{target_char}.png"; rgba.save(dst)
+              records.append({"character":target_char,"category":"full_body","path":str(dst.resolve())})
+          (out/"static_inventory.json").write_text(json.dumps({"schema":"static-character-inventory-v1","records":records},ensure_ascii=False,indent=2)+"\n")
+          (out/"visual_assets.json").write_text(json.dumps({
+              "schema":"media-asset-materialization-manifest-v1",
+              "asset_count":0,
+              "generated_image_count":0,
+              "external_news_image_count":0,
+              "results":[],
+              "rights_strategy":"ORIGINAL_TEXT_DIAGRAMS_ONLY_FOR_FACTUAL_NEWS_VISUALS"
+          },ensure_ascii=False,indent=2)+"\n")
+          PY
+
+      - name: Preview before full render
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$OUT/preview"
+          python scripts/render_zundamon_metan_longform.py \
+            --mission-b64 "$MISSION" \
+            --timing "$OUT/timing.json" \
+            --reaction-inventory "$OUT/static_inventory.json" \
+            --asset-manifest "$OUT/visual_assets.json" \
+            --voice-root "$OUT/voice" \
+            --output-dir "$OUT/preview"
+          test -s "$OUT/preview/ai-slowdown-longform-v1.mp4"
+          rm -f "$OUT/preview/ai-slowdown-longform-v1.mp4"
+          python scripts/render_zundamon_metan_longform.py \
+            --mission-b64 "$MISSION" \
+            --timing "$OUT/timing.json" \
+            --reaction-inventory "$OUT/static_inventory.json" \
+            --asset-manifest "$OUT/visual_assets.json" \
+            --voice-root "$OUT/voice" \
+            --output-dir "$OUT/preview-only" \
+            --preview-only
+          test -s "$OUT/preview-only/representative_contact_sheet.jpg"
+
+      - name: Render final MP4
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$OUT/final"
+          python scripts/render_zundamon_metan_longform.py \
+            --mission-b64 "$MISSION" \
+            --timing "$OUT/timing.json" \
+            --reaction-inventory "$OUT/static_inventory.json" \
+            --asset-manifest "$OUT/visual_assets.json" \
+            --voice-root "$OUT/voice" \
+            --output-dir "$OUT/final"
+          mv "$OUT/final/ai-slowdown-longform-v1.mp4" "$FINAL"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["OUT"])/"state.json"; s=json.loads(p.read_text())
+          s.update(stage="RENDER_VERIFIED",last_progress_at="RENDER_VERIFIED")
+          s["verified_artifacts"].append("final/mars-water-news60-v1.mp4")
+          p.write_text(json.dumps(s,ensure_ascii=False,indent=2)+"\n")
+          PY
+
+      - name: Mechanical final gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          ffprobe -v error -show_streams -show_format -of json "$FINAL" > "$OUT/final/ffprobe.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          out=Path(os.environ["OUT"])
+          d=json.loads((out/"final/ffprobe.json").read_text())
+          v=next(x for x in d["streams"] if x["codec_type"]=="video")
+          a=next(x for x in d["streams"] if x["codec_type"]=="audio")
+          dur=float(d["format"]["duration"])
+          assert 45 <= dur <= 80, dur
+          assert (int(v["width"]),int(v["height"]))==(1080,1920)
+          assert v["codec_name"]=="h264" and v.get("pix_fmt")=="yuv420p"
+          assert a["codec_name"]=="aac" and int(a["sample_rate"])==48000
+          t=json.loads((out/"timing.json").read_text())
+          assert float(t["subtitle_narration_coverage_ratio"])==1.0
+          assert t["runtime_discovered_cast"]["ずんだもん"]["style_id"] is not None
+          print({"duration_seconds":dur,"video":"h264/yuv420p","audio":"aac/48k","coverage":1.0})
+          PY
+          ffmpeg -v error -i "$FINAL" -f null - 2> "$OUT/final/decode-errors.log"
+          test ! -s "$OUT/final/decode-errors.log"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          out=Path(os.environ["OUT"]); mp4=Path(os.environ["FINAL"])
+          b=mp4.read_bytes()[:8000000]; moov=b.find(b"moov"); mdat=b.find(b"mdat")
+          assert moov>0 and mdat>0 and moov<mdat,(moov,mdat)
+          probe=json.loads((out/"final/ffprobe.json").read_text())
+          dur=float(probe["format"]["duration"])
+          completion={
+            "schema":"finished-news-video-v1",
+            "mission_id":"20260922-mars-water-news60-v1",
+            "status":"MACHINE_GATES_PASS",
+            "duration_seconds":dur,
+            "sha256":hashlib.sha256(mp4.read_bytes()).hexdigest(),
+            "bytes":mp4.stat().st_size,
+            "voice_engine":"VOICEVOX_LOCAL",
+            "primary_voice":"ずんだもん",
+            "secondary_voice":"四国めたん",
+            "runtime_speaker_discovery":True,
+            "source_claim_lock":"source-claim-lock.json",
+            "external_news_images_used":False,
+            "generated_factual_background_used":False,
+            "paid_or_freemium_media_used":False,
+            "public_publish":False
+          }
+          (out/"final/completion.json").write_text(json.dumps(completion,ensure_ascii=False,indent=2)+"\n")
+          p=out/"state.json"; s=json.loads(p.read_text())
+          s.update(stage="COMPLETE",status="COMPLETE",last_progress_at="FINAL_MACHINE_GATE_VERIFIED",termination_reason="SUCCESS")
+          s["verified_artifacts"] += ["final/ffprobe.json","final/completion.json"]
+          p.write_text(json.dumps(s,ensure_ascii=False,indent=2)+"\n")
+          PY
+
+      - name: Preserve terminal run state
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          out=Path(os.environ["OUT"]); p=out/"state.json"
+          if not p.exists(): raise SystemExit(0)
+          s=json.loads(p.read_text())
+          if os.environ.get("JOB_STATUS")!="success" and s.get("status")!="COMPLETE":
+              s["status"]="FAILED_RETRYABLE"
+              s["failure_class"]="RUNNER_OR_STAGE_FAILURE"
+              s["termination_reason"]="WORKFLOW_JOB_NOT_SUCCESSFUL"
+              s["last_progress_at"]="TERMINAL_STATE_CAPTURED"
+          p.write_text(json.dumps(s,ensure_ascii=False,indent=2)+"\n")
+          PY
+
+      - name: Upload durable final or partial artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mars-water-news60-durable-${{ github.run_id }}
+          path: artifacts/mars-water-news60-v1
+          if-no-files-found: warn
+          retention-days: 7
