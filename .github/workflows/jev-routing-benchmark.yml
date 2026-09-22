@@ -2,13 +2,6 @@ name: "Jev routing benchmark"
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - 'missions/jev-speed-benchmark/**'
-      - 'scripts/jev_mixed_batch_benchmark.py'
-      - '.github/workflows/jev-routing-benchmark.yml'
 
 permissions:
   contents: read
