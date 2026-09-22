@@ -420,9 +420,11 @@ def coordinate_many(
 ) -> dict[str, Any]:
     """Batch independent routing tasks through Jev with deterministic per-task fallback."""
     baselines: dict[str, dict[str, Any]] = {}
+    primary_records: list[dict[str, Any]] = []
     lean_records: list[dict[str, Any]] = []
     fast_records: list[dict[str, Any]] = []
     task_candidates: dict[str, list[str]] = {}
+    task_route_surface: dict[str, str] = {}
     free_policy = load_free_policy()
     evidence = load_recent_evidence()
 
@@ -459,11 +461,28 @@ def coordinate_many(
             "shared_mutable_state": bool(task.get("shared_mutable_state") or task.get("strictly_sequential") or task.get("single_writer_only")),
             "high_risk": _is_high_risk(task),
         }
-        (fast_records if _needs_rich_jev_route(task) else lean_records).append(record)
+        rich = _needs_rich_jev_route(task)
+        shape = None if rich else _deterministic_route_shape(
+            task,
+            remaining_quota=remaining,
+            candidate_count=len(candidates),
+        )
+        if rich:
+            task_route_surface[task_id] = "FAST_RICH"
+            fast_records.append(record)
+        elif shape is not None:
+            task_route_surface[task_id] = "PRIMARY_ONE_QUESTION"
+            record["route_shape"] = shape
+            primary_records.append(record)
+        else:
+            task_route_surface[task_id] = "LEAN_TWO_QUESTION"
+            lean_records.append(record)
 
     results: dict[str, Mapping[str, Any]] = {}
     jobs = []
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        if primary_records:
+            jobs.append(("primary", pool.submit(decide_many_primary, records=primary_records, api_key=api_key)))
         if lean_records:
             jobs.append(("lean", pool.submit(decide_many_lean, records=lean_records, api_key=api_key)))
         if fast_records:
@@ -475,19 +494,27 @@ def coordinate_many(
                 result = {"status": "JEV_UNAVAILABLE", "reason": type(exc).__name__, "decisions": {}}
             results[name] = result
 
+    primary_result = results.get("primary") or {"status": "JEV_PRIMARY_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
     lean_result = results.get("lean") or {"status": "JEV_LEAN_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
-    fast_result = results.get("fast") or {"status": "JEV_LEAN_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
+    fast_result = results.get("fast") or {"status": "JEV_FAST_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
     decisions: dict[str, Any] = {}
-    for result in (lean_result, fast_result):
+    for result in (primary_result, lean_result, fast_result):
         if isinstance(result.get("decisions"), Mapping):
             decisions.update(result.get("decisions") or {})
+    active_surfaces = sum(bool(rows) for rows in (primary_records, lean_records, fast_records))
     jev = {
         "status": "JEV_MIXED_MANY_OK",
+        "primary": primary_result,
         "lean": lean_result,
         "fast": fast_result,
-        "record_count": len(lean_records) + len(fast_records),
-        "batch_count": int(lean_result.get("batch_count", 0) or 0) + int(fast_result.get("batch_count", 0) or 0),
-        "parallel_route_surfaces": bool(lean_records and fast_records),
+        "record_count": len(primary_records) + len(lean_records) + len(fast_records),
+        "batch_count": (
+            int(primary_result.get("batch_count", 0) or 0)
+            + int(lean_result.get("batch_count", 0) or 0)
+            + int(fast_result.get("batch_count", 0) or 0)
+        ),
+        "parallel_route_surfaces": active_surfaces > 1,
+        "active_route_surface_count": active_surfaces,
         "decisions": decisions,
     }
     plans: dict[str, Any] = {}
@@ -528,7 +555,11 @@ def coordinate_many(
             "jev_confidence": decision.get("confidence"),
             "latency_challenger_timeout_seconds": LATENCY_CHALLENGER_TIMEOUT_SECONDS if latency_challenger else None,
             "fanout_reason": [
-                ("JEV_FAST_RICH_BATCH_DECISION" if _needs_rich_jev_route(task) else "JEV_LEAN_TWO_QUESTION_BATCH_DECISION"),
+                {
+                    "FAST_RICH": "JEV_FAST_RICH_BATCH_DECISION",
+                    "PRIMARY_ONE_QUESTION": "JEV_PRIMARY_ONE_QUESTION_BATCH_DECISION",
+                    "LEAN_TWO_QUESTION": "JEV_LEAN_TWO_QUESTION_BATCH_DECISION",
+                }.get(task_route_surface.get(task_id), "JEV_BATCH_DECISION"),
                 *(["RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED"] if latency_challenger else []),
                 *list(base.get("fanout_reason") or []),
             ],
@@ -569,7 +600,7 @@ def coordinate_many(
         plans[task_id] = plan
 
     return {
-        "schema_version": "jev-routing-coordinator-batch-v3",
+        "schema_version": "jev-routing-coordinator-batch-v4",
         "status": "READY",
         "task_count": len(tasks),
         "jev": jev,
