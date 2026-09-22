@@ -16,6 +16,7 @@ on:
       - "requirements*.txt"
       - "missions/jev-trial/**"
       - "missions/jev-benchmark/**"
+      - "missions/jev-lean/**"
   workflow_dispatch:
 
 permissions:
@@ -131,6 +132,23 @@ jobs:
         with:
           name: jev-cardinality-${{ github.run_id }}
           path: artifacts/jev_cardinality_benchmark.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Run Jev 3-question vs 2-question benchmark
+        if: ${{ hashFiles('missions/jev-lean/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m scripts.jev_lean_route_benchmark --output artifacts/jev_lean_route_benchmark.json
+
+      - name: Upload Jev lean-route evidence
+        if: ${{ always() && hashFiles('missions/jev-lean/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-lean-route-${{ github.run_id }}
+          path: artifacts/jev_lean_route_benchmark.json
           if-no-files-found: warn
           retention-days: 7
 
