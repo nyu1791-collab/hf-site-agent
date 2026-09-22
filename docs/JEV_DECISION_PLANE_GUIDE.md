@@ -98,3 +98,26 @@ The current optimization order is:
 5. Slow hedges use short challenger timeouts.
 6. Measured worker/domain health expires and is re-learned instead of becoming
    a permanent static ranking.
+
+
+## Mixed-surface batching promotion
+
+OpenRouter's Jev Decisions example allows record-scoped questions inside one
+request, so different records do not need identical question sets. Live A/B
+testing therefore compared three separate surface requests, one fully unified
+heterogeneous request, and all three possible two-request groupings.
+
+The promoted production grouping is:
+
+- request A: shape-only records;
+- request B: lean + rich records together.
+
+Across two confirmation attempts (24 iterations per grouping per attempt), this
+layout preserved 100% parse/decision success and produced more stable tail
+latency than three separate surface requests. It is implemented by
+`scripts/jev_mixed_router.py`.
+
+For 100 independent routing jobs, the 20-record ceiling remains canonical.
+Repeated Jev-only measurements generally favored five concurrent 20-record
+requests over smaller 5- or 10-record chunks. One noisy single-iteration sample
+did not override the repeated evidence.
