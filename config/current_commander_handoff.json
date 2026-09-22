@@ -1,8 +1,8 @@
 {
-  "schema_version": "top-commander-handoff-v12",
-  "effective_date_jst": "2026-09-21",
+  "schema_version": "top-commander-handoff-v13",
+  "effective_date_jst": "2026-09-22",
   "mission_id": "ai-army-canonical-supervisor-routing-20260912",
-  "objective": "Preserve a fast hierarchical AI Army with ChatGPT as final commander, Jev Latest as the typed batch-first decision plane, DeepSeek as bounded executive supervisor for high-information-gain work, deterministic bypasses for mechanical work, and specialist workers activated only when selected by verified routing.",
+  "objective": "Preserve a fast hierarchical AI Army with ChatGPT as final commander, Jev Latest as the official-manual-aligned typed decision plane using 0/1/2/3-4 question routing tiers, DeepSeek as bounded executive supervisor for high-information-gain work, deterministic bypasses for mechanical work, and domain-aware specialist routing backed by expiring live evidence.",
   "continuity": {
     "portable_across_chat_tabs": true,
     "conversation_memory_is_not_source_of_truth": true,
@@ -59,7 +59,10 @@
     "openrouter_free_efficiency_router": "scripts/openrouter_free_efficiency_router.py",
     "jev_decision_policy": "config/jev_decision_engine_policy.json",
     "jev_decision_runtime": "scripts/jev_decision_engine.py",
-    "jev_routing_coordinator": "scripts/jev_routing_coordinator.py"
+    "jev_routing_coordinator": "scripts/jev_routing_coordinator.py",
+    "jev_fast_decision_playbook": "docs/JEV_FAST_DECISION_PLAYBOOK.md",
+    "openrouter_worker_health": "scripts/openrouter_worker_health.py",
+    "openrouter_worker_recent_evidence": "config/openrouter_worker_recent_evidence.json"
   },
   "peer_review_status": {
     "completed": true,
@@ -208,10 +211,17 @@
     "openrouter_free_fanout_reason_required": true,
     "jev_fast_decision_plane_default_for_nontrivial_routing": true,
     "jev_can_choose_only_prevalidated_candidate_pool": true,
-    "jev_low_confidence_returns_to_chatgpt": true,
+    "jev_low_confidence_returns_to_chatgpt": false,
     "jev_batch_first_for_independent_nontrivial_routing": true,
     "jev_max_records_per_request": 20,
-    "jev_max_parallel_batches": 5
+    "jev_max_parallel_batches": 5,
+    "jev_routine_low_confidence_uses_bounded_hedge_when_safe": true,
+    "jev_high_risk_low_confidence_returns_to_chatgpt": true,
+    "jev_zero_one_two_rich_tier_is_permanent_standard": true,
+    "jev_routine_candidate_count": 4,
+    "jev_candidate_profile_char_target": 240,
+    "openrouter_worker_health_is_recent_expiring_and_domain_aware": true,
+    "openrouter_worker_health_may_reorder_but_not_expand_eligibility": true
   },
   "legacy_cleanup_fixed_rules": {
     "legacy_registry": "config/legacy_deepseek_compatibility.json",
@@ -371,7 +381,12 @@
     "storytelling may improve persuasion but never upgrades evidence grade",
     "price coupon stock shipping and other volatile commerce facts are refreshed before publication",
     "AIGC rule and disclosure requirements are refreshed before publication",
-    "winning commerce creatives may update generation heuristics but never relax evidence policy safety or customer-experience guardrails"
+    "winning commerce creatives may update generation heuristics but never relax evidence policy safety or customer-experience guardrails",
+    "new sessions restore docs/JEV_FAST_DECISION_PLAYBOOK.md before changing Jev routing behavior",
+    "Jev production routing preserves the zero-question, shape-one-question, lean-two-question and rich-three-to-four-question tiers",
+    "Jev never performs counting or quota arithmetic that Python can do deterministically",
+    "recent domain-aware Worker evidence may reorder only already-eligible Workers and expires automatically",
+    "routine low-confidence Jev routing may use a bounded two-Worker hedge but high-risk ambiguity returns to ChatGPT"
   ],
   "delivery": {
     "intermediate_to_user": false,
@@ -388,7 +403,7 @@
   "jev_fast_decision_fixed_rules": {
     "persistently_authorized": true,
     "repeat_per_call_approval_required": false,
-    "role": "FAST_DECISION_PLANE",
+    "role": "FAST_SYSTEM_ONE_DECISION_PLANE",
     "reports_to": "chatgpt-work",
     "canonical_model_alias": "~typesafe/jev-latest",
     "last_known_good_pin": "typesafe/jev-1.13",
@@ -421,6 +436,28 @@
     "quota_state_sent_as_enum_not_number": true,
     "cost_is_not_primary_optimization_target": true,
     "hard_emergency_prompt_price_ceiling_usd_per_million": 1,
-    "hard_emergency_completion_price_ceiling_usd_per_million": 1
+    "hard_emergency_completion_price_ceiling_usd_per_million": 1,
+    "official_manual_playbook": "docs/JEV_FAST_DECISION_PLAYBOOK.md",
+    "allowed_primitives": [
+      "choice",
+      "noul",
+      "score"
+    ],
+    "production_route_tiers": [
+      "ZERO_QUESTION_DETERMINISTIC_HEALTH_FAST_PATH",
+      "SHAPE_ONE_QUESTION_WHEN_PRIMARY_CLEAR",
+      "LEAN_TWO_QUESTION_WHEN_PRIMARY_FUZZY",
+      "FAST_THREE_TO_FOUR_QUESTION_WHEN_COMPLEX"
+    ],
+    "routine_candidate_count": 4,
+    "candidate_profile_char_target": 240,
+    "domain_aware_recent_worker_health": true,
+    "expired_worker_evidence_is_ignored": true,
+    "recent_health_may_reorder_but_not_expand_eligibility": true,
+    "routine_low_confidence_may_use_bounded_two_worker_hedge": true,
+    "high_risk_low_confidence_returns_to_chatgpt": true,
+    "generic_paid_fallback": false,
+    "continuous_ab_measurement_required_for_material_route_changes": true,
+    "preserve_rollback_and_prune_inferior_route_surfaces": true
   }
 }
