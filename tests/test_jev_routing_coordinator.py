@@ -345,7 +345,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "low_confidence": False,
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_primary") as primary, patch(
+        with patch(
             "scripts.jev_routing_coordinator.decide_lean", return_value=fake
         ) as lean, patch(
             "scripts.jev_routing_coordinator.decide_fast"
@@ -385,7 +385,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "low_confidence": False,
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_primary") as primary, patch(
+        with patch(
             "scripts.jev_routing_coordinator.decide_lean"
         ) as lean, patch(
             "scripts.jev_routing_coordinator.decide_fast", return_value=fake
@@ -421,8 +421,6 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         with patch("scripts.jev_routing_coordinator.load_recent_evidence", return_value=evidence), patch(
             "scripts.jev_routing_coordinator.decide_shape"
         ) as shape, patch(
-            "scripts.jev_routing_coordinator.decide_primary"
-        ) as primary, patch(
             "scripts.jev_routing_coordinator.decide_lean"
         ) as lean, patch(
             "scripts.jev_routing_coordinator.decide_fast"
@@ -470,8 +468,6 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         with patch("scripts.jev_routing_coordinator.load_recent_evidence", return_value=evidence), patch(
             "scripts.jev_routing_coordinator.decide_shape", return_value=fake
         ) as shape, patch(
-            "scripts.jev_routing_coordinator.decide_primary"
-        ) as primary, patch(
             "scripts.jev_routing_coordinator.decide_lean"
         ) as lean, patch(
             "scripts.jev_routing_coordinator.decide_fast"
