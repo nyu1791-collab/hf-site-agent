@@ -101,6 +101,12 @@
     "video_uses_character_assets_and_original_text_diagrams_only": true,
     "note": "Search results and article images are not treated as reusable assets. No NASA/JPL/Nature imagery is embedded in this build."
   },
-  "build_revision": 2,
-  "qa_note": "Rerender requested after token-aware caption wrapping fix; Latin technical terms must not split across lines."
+  "build_revision": 3,
+  "qa_note": "Durable rerun requested after chat response-stream interruption hardening; factual claims and source lock unchanged.",
+  "execution_trigger": {
+    "reason": "CHAT_STREAM_INDEPENDENT_DURABLE_RERUN",
+    "free_runner": "PUBLIC_REPOSITORY_STANDARD_GITHUB_HOSTED_RUNNER",
+    "paid_media_used": false,
+    "public_publish": false
+  }
 }
