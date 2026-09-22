@@ -148,6 +148,20 @@
     "avoid_more_than_two_judgmental_handoffs_before_script_lock_without_reason": true
   },
   "production_speed_without_quality_loss": {
+    "media_speed_quality_policy": "config/media_speed_quality_policy.json",
+    "media_speed_orchestrator": "scripts/media_speed_orchestrator.py",
+    "media_speed_validator": "scripts/validate_media_speed_quality.py",
+    "target_wall_clock_minutes": [
+      10,
+      15
+    ],
+    "historical_local_baseline_minutes": 40,
+    "target_is_observed_goal_not_guarantee": true,
+    "max_independent_preparation_lanes": 3,
+    "one_pass_final_encode_for_bounded_shortform": true,
+    "jev_media_planning": true,
+    "jev_surface": "LEAN_TWO_QUESTION_PROFILE_AND_SHAPE",
+    "python_owns_cache_invalidation_parallelism_and_final_plan": true,
     "preferred_mechanisms": [
       "consolidated ChatGPT plus DeepSeek research-and-script stage",
       "reusable editor or machine templates",

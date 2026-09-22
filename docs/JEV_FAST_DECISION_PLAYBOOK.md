@@ -55,6 +55,12 @@ current domain evidence to be stable**:
 
 Do not keep old route surfaces merely for compatibility if measured evidence shows a simpler surface is better.
 
+## Media pipeline typed surface (permanent)
+
+For bounded vertical video production, Jev also acts as a narrow **MEDIA_PIPELINE_PROFILE_AND_SHAPE** decision surface. It may choose only one of the four Python-prevalidated profiles in `config/media_speed_quality_policy.json`: `CACHE_INCREMENTAL`, `PARALLEL_PREP`, `FULL_REBUILD`, or `ESCALATE_TO_CHATGPT`. The routine surface is the accuracy-first lean two-question contract (profile plus route shape), and it uses the existing `VISION_AND_MEDIA_UNDERSTANDING` lane.
+
+Jev does not hash files, decide cache invalidation, count lanes, calculate timings or encode passes, select rights, write captions, or compose the final plan JSON. Python (`scripts/media_speed_orchestrator.py`) owns the input manifest, true-dependent invalidation, the maximum-three preparation lanes, dependency joins, the one-pass shortform encode contract, and the final deterministic admission guard. If Jev is unavailable or its typed profile conflicts with a deterministic quality guard, Python keeps the safe deterministic profile; high-risk ambiguity returns to ChatGPT. This use of Jev preserves accuracy and decision stability while removing unnecessary coordination work.
+
 ## Candidate and state compaction
 
 Current production defaults:

@@ -57,13 +57,16 @@
     "PARALLEL_VS_SEQUENTIAL_DECISION",
     "NEED_FOR_INDEPENDENT_VERIFICATION",
     "STOP_RETRY_ESCALATE_TRIAGE",
-    "LIGHTWEIGHT_POST_WORK_RESULT_TRIAGE"
+    "LIGHTWEIGHT_POST_WORK_RESULT_TRIAGE",
+    "MEDIA_PIPELINE_PROFILE_AND_SHAPE"
   ],
   "prohibited_uses": [
     "LONG_FORM_GENERATION",
     "BULK_CODE_GENERATION",
     "OPEN_ENDED_RESEARCH",
     "FACTUAL_FINAL_ADJUDICATION",
+    "MEDIA_GENERATION_OR_RENDERING",
+    "MEDIA_CACHE_INVALIDATION_OR_TIMING_ARITHMETIC",
     "PAYMENT_OR_BILLING_DECISIONS",
     "SECRET_HANDLING",
     "PR_MERGE",
@@ -100,6 +103,22 @@
     "model_may_not_authorize_paid_workers": true,
     "no_markdown_or_json_text_parsing": true,
     "transport_and_schema_failures_fail_closed": true,
+    "media_pipeline_contract": {
+      "enabled": true,
+      "surface": "LEAN_TWO_QUESTION_PROFILE_AND_SHAPE",
+      "lane": "VISION_AND_MEDIA_UNDERSTANDING",
+      "candidate_profiles": [
+        "CACHE_INCREMENTAL",
+        "PARALLEL_PREP",
+        "FULL_REBUILD",
+        "ESCALATE_TO_CHATGPT"
+      ],
+      "profile_and_shape_are_typed_choices": true,
+      "python_owns_hashes_invalidation_parallelism_and_final_plan": true,
+      "jev_may_not_count_lanes_or_encode_passes": true,
+      "jev_may_not_write_final_plan_json": true,
+      "low_confidence_returns_to_python_or_chatgpt_by_risk": true
+    },
     "fast_route_contract": {
       "primary_worker": "CHOICE",
       "route_shape": "CHOICE_SINGLE_PARALLEL_PAIR_SEQUENTIAL_PAIR_OPTIONAL_PARALLEL_TRIPLE_ESCALATE",
@@ -207,7 +226,11 @@
     "record_route_shape": true,
     "record_route_surface_downgrade_reason": true,
     "record_decision_evidence_tier": true,
-    "record_delayed_challenger_reserved_and_triggered": true
+    "record_delayed_challenger_reserved_and_triggered": true,
+    "record_media_profile_and_shape": true,
+    "record_media_cache_invalidation_reason": true,
+    "record_media_stage_reuse_and_critical_path": true,
+    "record_media_jev_guard_admission_or_rejection": true
   },
   "batch_execution": {
     "enabled": true,

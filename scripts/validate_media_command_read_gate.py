@@ -13,6 +13,9 @@ MEDIA = ROOT / "config/media_audio_motion_retention_policy.json"
 MANIFEST = ROOT / "config/permanent_standards_manifest.json"
 REUSABLE = ROOT / "config/media_reusable_asset_standard.json"
 PERFORMANCE = ROOT / "config/media_character_performance_compact_orchestration_policy.json"
+SPEED = ROOT / "config/media_speed_quality_policy.json"
+SPEED_RUNTIME = ROOT / "scripts/media_speed_orchestrator.py"
+SPEED_VALIDATOR = ROOT / "scripts/validate_media_speed_quality.py"
 CLIPPING = ROOT / "config/authorized_clipping_monetization_policy.json"
 RESOLVER = ROOT / "scripts/media_asset_resolver.py"
 
@@ -50,6 +53,7 @@ def main() -> int:
     manifest = load(MANIFEST)
     reusable = load(REUSABLE)
     performance = load(PERFORMANCE)
+    speed = load(SPEED)
     clipping = load(CLIPPING)
 
     require(gate.get("schema_version") == "media-command-read-gate-v11", "media read gate must be v11")
@@ -94,6 +98,9 @@ def main() -> int:
         "scripts/validate_video_caption_contract.py",
         "config/free_audio_source_registry.json",
         "config/dova_curated_bgm_catalog.json",
+        "config/media_speed_quality_policy.json",
+        "scripts/media_speed_orchestrator.py",
+        "scripts/validate_media_speed_quality.py",
         "docs/MEDIA_PIPELINE.md",
     }
     require(required_common.issubset(set(common)), "lean common media restore set lost a required current standard")
@@ -190,6 +197,8 @@ def main() -> int:
         "character_performance_compact_orchestration_policy_must_be_re_read",
         "free_audio_source_registry_must_be_re_read",
         "dova_curated_bgm_catalog_must_be_re_read",
+        "media_speed_quality_policy_must_be_re_read",
+        "jev_media_planning_contract_must_be_re_read",
         "full_spoken_caption_contract_must_be_re_read",
         "related_visual_provenance_contract_must_be_re_read",
         "do_not_rely_on_prior_tab_summary_as_substitute",
@@ -249,6 +258,23 @@ def main() -> int:
     require(pair.get("default_judgmental_team") == ["ChatGPT", "DeepSeek"], "compact media pair drift")
     require(pair.get("research_and_script_are_one_combined_judgment_stage") is True, "research and script were split into routine agent stages")
     require(pair.get("mechanical_media_work_uses_deterministic_tools_not_more_agents") is True, "mechanical media work regressed to extra AI agents")
+
+    require(speed.get("schema_version") == "media-speed-quality-v1", "media speed quality policy schema drift")
+    require(speed.get("status") == "ENFORCED_PERMANENT_STANDARD", "media speed quality policy is not enforced")
+    require(speed.get("target_wall_clock_minutes") == [10, 15], "media speed target drift")
+    require(speed.get("target_is_observed_goal_not_guarantee") is True, "media speed target must remain an observed goal")
+    speed_graph = speed.get("execution_graph") or {}
+    require(int(speed_graph.get("max_independent_preparation_lanes") or 0) == 3, "media speed lane ceiling drift")
+    require(speed_graph.get("single_writer_per_run") is True, "media speed path lost single writer")
+    speed_encode = speed.get("encode_contract") or {}
+    require(speed_encode.get("shortform_bounded_vertical_uses_one_final_encode") is True, "media speed one-pass encode disabled")
+    require(int(speed_encode.get("final_encode_count_must_equal") or 0) == 1, "media speed final encode count drift")
+    require(speed_encode.get("no_per_scene_video_encode_on_fast_path") is True, "per-scene encode returned to fast path")
+    speed_jev = speed.get("jev_media_planning") or {}
+    require(speed_jev.get("enabled") is True, "Jev media planning disabled")
+    require(speed_jev.get("surface") == "LEAN_TWO_QUESTION_PROFILE_AND_SHAPE", "Jev media surface drift")
+    require(speed_jev.get("python_owns_manifest_hashes_stage_graph_parallelism_and_final_plan") is True, "Python media control-plane ownership drift")
+    require(SPEED_RUNTIME.is_file() and SPEED_VALIDATOR.is_file(), "media speed runtime or validator missing")
 
     require(batch.get("schema_version") == "batch-media-orchestration-v4", "batch media policy must be v4")
     architecture = batch.get("architecture") or {}

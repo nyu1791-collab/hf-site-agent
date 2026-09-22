@@ -44,6 +44,7 @@ def main() -> int:
     dova = load_json("config/dova_curated_bgm_catalog.json")
     free_guard = load_json("config/free_execution_guard.json")
     video_admission = load_json("config/video_creation_admission_policy.json")
+    media_speed = load_json("config/media_speed_quality_policy.json")
 
     require(manifest.get("canonical_branch") == "ai-army/provider-v3", "wrong canonical branch")
     require(org.get("status") == "CANONICAL", "AI Army org chart is not canonical")
@@ -69,6 +70,12 @@ def main() -> int:
     require(media_guard.get("paid_or_freemium_video_editing") is False, "paid media editing enabled")
     require(media_guard.get("paid_media_tool_discovery") is False, "paid media discovery enabled")
     require(video_admission.get("status") == "ENFORCED_PERMANENT_STANDARD", "video creation admission is not enforced")
+    require(media_speed.get("schema_version") == "media-speed-quality-v1", "media speed quality policy schema drift")
+    require(media_speed.get("status") == "ENFORCED_PERMANENT_STANDARD", "media speed quality policy is not enforced")
+    require(media_speed.get("target_wall_clock_minutes") == [10, 15], "media speed target drift")
+    require((media_speed.get("quality_first") or {}).get("verified_correctness_precedes_wall_clock") is True, "media speed quality-first rule drift")
+    require(int((media_speed.get("execution_graph") or {}).get("max_independent_preparation_lanes") or 0) == 3, "media speed lane ceiling drift")
+    require((media_speed.get("encode_contract") or {}).get("no_per_scene_video_encode_on_fast_path") is True, "media speed per-scene encode regression")
     voice_contract = video_admission.get("voice_contract") or {}
     require(voice_contract.get("engine") == "VOICEVOX_LOCAL", "video creation engine drift")
     require(voice_contract.get("primary_voice") == "ずんだもん", "video creation primary voice drift")
@@ -101,6 +108,10 @@ def main() -> int:
     guard_standard = by_standard["final-execution-admission-guard"]
     require(guard_standard.get("runtime") == "scripts/final_execution_admission_guard.py", "final execution guard path drift")
     require((ROOT / "scripts/final_execution_admission_guard.py").is_file(), "final execution guard missing")
+    speed_standard = by_standard.get("media-speed-quality") or {}
+    require(speed_standard.get("machine_policy") == "config/media_speed_quality_policy.json", "permanent manifest lost media speed quality policy")
+    require(speed_standard.get("runtime") == "scripts/media_speed_orchestrator.py", "permanent manifest lost media speed runtime")
+    require(speed_standard.get("validator") == "scripts/validate_media_speed_quality.py", "permanent manifest lost media speed validator")
 
     durable_media = {
         "media-audio-motion-retention": "config/media_audio_motion_retention_policy.json",
@@ -127,6 +138,8 @@ def main() -> int:
     require(cross_tab.get("related_visual_provenance_contract_survives_tab_change") is True, "related visual provenance cross-tab continuity lost")
     require(cross_tab.get("free_audio_source_registry_survives_tab_change") is True, "free audio registry cross-tab continuity lost")
     require(cross_tab.get("dova_curated_bgm_preference_survives_tab_change") is True, "DOVA preference cross-tab continuity lost")
+    require(cross_tab.get("media_speed_quality_policy_survives_tab_change") is True, "media speed quality cross-tab continuity lost")
+    require(cross_tab.get("jev_media_planning_contract_survives_tab_change") is True, "Jev media planning cross-tab continuity lost")
     read_order = list(((handoff.get("continuity") or {}).get("on_new_session_required_read_order") or []))
     require("config/permanent_standards_manifest.json" in read_order, "commander handoff must restore permanent manifest")
     multi_routing = multi.get("routing") or {}
@@ -155,6 +168,9 @@ def main() -> int:
         "config/evidence_visual_static_character_policy.json",
         "config/free_audio_source_registry.json",
         "config/dova_curated_bgm_catalog.json",
+        "config/media_speed_quality_policy.json",
+        "scripts/media_speed_orchestrator.py",
+        "scripts/validate_media_speed_quality.py",
         "scripts/validate_video_caption_contract.py",
     ):
         require(required_path in media_common, f"media gate lost required read: {required_path}")
@@ -163,6 +179,8 @@ def main() -> int:
     require(media_new_session.get("audio_motion_retention_policy_must_be_re_read") is True, "media gate no longer rereads creative standard")
     require(media_new_session.get("free_audio_source_registry_must_be_re_read") is True, "media gate no longer rereads free audio registry")
     require(media_new_session.get("dova_curated_bgm_catalog_must_be_re_read") is True, "media gate no longer rereads DOVA catalog")
+    require(media_new_session.get("media_speed_quality_policy_must_be_re_read") is True, "media gate no longer rereads speed policy")
+    require(media_new_session.get("jev_media_planning_contract_must_be_re_read") is True, "media gate no longer rereads Jev media planning")
     require(media_new_session.get("full_spoken_caption_contract_must_be_re_read") is True, "media gate no longer rereads full spoken caption contract")
     require(media_new_session.get("related_visual_provenance_contract_must_be_re_read") is True, "media gate no longer rereads related visual provenance contract")
     require(media_new_session.get("do_not_rely_on_prior_tab_summary_as_substitute") is True, "media gate allows tab summary to replace repository restore")

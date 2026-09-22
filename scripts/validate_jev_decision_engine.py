@@ -54,6 +54,16 @@ def main() -> int:
     require(contract.get("model_may_not_expand_candidate_set") is True, "Jev may expand candidate set")
     require(contract.get("model_may_not_expand_permissions") is True, "Jev may expand permissions")
     require(contract.get("model_may_not_authorize_paid_workers") is True, "Jev may authorize paid workers")
+    require("MEDIA_PIPELINE_PROFILE_AND_SHAPE" in set(policy.get("intended_uses") or []), "Jev media typed surface missing")
+    require("MEDIA_GENERATION_OR_RENDERING" in set(policy.get("prohibited_uses") or []), "Jev may be used as a media generator")
+    media_contract = contract.get("media_pipeline_contract") or {}
+    require(media_contract.get("enabled") is True, "Jev media pipeline contract disabled")
+    require(media_contract.get("surface") == "LEAN_TWO_QUESTION_PROFILE_AND_SHAPE", "Jev media surface drift")
+    require(media_contract.get("lane") == "VISION_AND_MEDIA_UNDERSTANDING", "Jev media lane drift")
+    require(media_contract.get("profile_and_shape_are_typed_choices") is True, "Jev media profile/shape is not typed")
+    require(media_contract.get("python_owns_hashes_invalidation_parallelism_and_final_plan") is True, "Jev media Python boundary drift")
+    require(media_contract.get("jev_may_not_count_lanes_or_encode_passes") is True, "Jev may count media lanes or encodes")
+    require(media_contract.get("jev_may_not_write_final_plan_json") is True, "Jev may write final media plan JSON")
     quality = policy.get("decision_quality") or {}
     require(
         quality.get("priority_order", [None])[0] == "VERIFIED_ROUTE_CORRECTNESS",

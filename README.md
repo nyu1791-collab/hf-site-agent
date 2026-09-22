@@ -15,6 +15,7 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 
 - 動画・音声・字幕・キャラクター・BGM・SFX・画像素材・切り抜き・TikTok Shopメディア: `config/media_command_read_gate.json`
 - 現在の動画品質・視聴維持・時短改善をタブ跨ぎで即復元する補助Checkpoint: `config/current_media_quality_handoff.json`
+- 10〜15分目標の品質維持型メディア時短（マニフェストキャッシュ、最大3準備レーン、影響範囲修復、短尺1回エンコード、Jev typed計画）: `config/media_speed_quality_policy.json` / `scripts/media_speed_orchestrator.py`
 - 2026-09-15以降の明示的な字幕配色・説明図静止・8〜12分目安のユーザー指定: `config/media_user_visual_duration_preferences.json`
 - 収益化・案件・アフィリエイト・Creator Program・AI workflow service: `config/monetization_command_read_gate.json`
 
@@ -33,6 +34,8 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 ユーザーに「前に保存したファイル名」や同じ仕様をもう一度言わせることを前提にしない。低コストで判断できる曖昧さなら関連Read Setを少し広めに復元するが、毎回Repository全体を無差別に読むこともしない。**Semantic Recallは `保存 → 意味判定 → 現行Repository再読 → 適用` までを1セットとする。** 同一HEAD・同一Blobを同一タスク内ですでに読んでいる場合だけ、安全なRead Cache再利用を許容する。
 
 `config/current_media_quality_handoff.json` は会話Memoryの代わりとなる現行サマリーだが、最終Authorityではない。内容が異なる場合は現行のMachine Policy・Validator・CIを優先する。メディア依頼ではBootstrap後にこのCheckpoint、`config/media_user_visual_duration_preferences.json`、`config/media_command_read_gate.json` を読み、そこから現在の詳細Policyへ展開する。
+
+時短を求めるメディア依頼では、さらに `config/media_speed_quality_policy.json` と `scripts/media_speed_orchestrator.py` を復元する。Jevは候補プロファイルと実行形状のtyped判断だけを行い、ハッシュ、キャッシュ無効化、並列数、エンコード回数、最終JSONはPythonが決める。目標の10〜15分は過去の約40分ローカル実測から設定した観測目標であり、品質ゲートを緩める保証値ではない。
 
 詳細が文書間で異なる場合は、最新の明示的ユーザー指示と安全境界を守ったうえで、現行Machine-readable Policy・Validator・CIを優先する。恒久ルールを変更する場合は会話だけで終わらせず、Machine Policy / Rulebook / Validator / CI / Read Gateの整合性を同じ変更で確認する。
 

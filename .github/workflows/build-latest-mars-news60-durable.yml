@@ -111,29 +111,70 @@ jobs:
           p.write_text(json.dumps(s,ensure_ascii=False,indent=2)+"\n")
           PY
 
-      - name: Synthesize VOICEVOX dialogue and measured timing
+      - name: Run bounded three-lane preparation wave
         shell: bash
         run: |
           set -euo pipefail
+          # Voice, registered character shell and rights-verified visual assets
+          # are independent after admission.  Keep the permanent ceiling at 3.
           python scripts/synthesize_longform_voicevox.py \
             --mission-b64 "$MISSION" \
             --output-dir "$OUT/voice" \
             --timing-out "$OUT/timing.json" \
             --speed-scale 1.20 \
             --min-seconds 45 \
-            --max-seconds 80
+            --max-seconds 80 > "$OUT/voice-stage.log" 2>&1 &
+          VOICE_PID=$!
+          python scripts/media_asset_resolver.py \
+            --asset-id zm_shell_20230806 \
+            --cache-root "$CACHE" \
+            --allow-network \
+            --max-workers 1 \
+            --manifest-out "$OUT/character-shell.json" > "$OUT/character-stage.log" 2>&1 &
+          CHARACTER_PID=$!
+          python scripts/media_asset_resolver.py \
+            --group mars_jezero_context_visuals \
+            --cache-root "$CACHE" \
+            --allow-network \
+            --max-workers 2 \
+            --manifest-out "$OUT/visual_assets.json" > "$OUT/visual-stage.log" 2>&1 &
+          VISUAL_PID=$!
+          set +e
+          wait "$VOICE_PID"; VOICE_STATUS=$?
+          wait "$CHARACTER_PID"; CHARACTER_STATUS=$?
+          wait "$VISUAL_PID"; VISUAL_STATUS=$?
+          set -e
+          if [ "$VOICE_STATUS" -ne 0 ] || [ "$CHARACTER_STATUS" -ne 0 ] || [ "$VISUAL_STATUS" -ne 0 ]; then
+            cat "$OUT/voice-stage.log" "$OUT/character-stage.log" "$OUT/visual-stage.log" >&2 || true
+            exit 1
+          fi
           python scripts/validate_video_caption_contract.py \
             --mission-b64 "$MISSION" \
             --timing "$OUT/timing.json"
           cp "$SOURCES" "$OUT/source-claim-lock.json"
           printf '%s\n' 'VOICEVOX:ずんだもん' 'VOICEVOX:四国めたん' > "$OUT/VOICEVOX_CREDIT.txt"
+          RAW=$(python - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=json.loads((Path(os.environ["OUT"])/"character-shell.json").read_text())
+          p=m["results"][0].get("extracted_path")
+          assert p and Path(p).is_dir(), p
+          print(p)
+          PY
+          )
+          python scripts/character_shell_root.py "$RAW" > "$OUT/character-source-resolved.txt"
           python - <<'PY'
           import json,os
           from pathlib import Path
-          p=Path(os.environ["OUT"])/"state.json"; s=json.loads(p.read_text())
-          s.update(stage="VOICE_VERIFIED",last_progress_at="VOICE_VERIFIED")
-          s["verified_artifacts"] += ["timing.json","voice/","source-claim-lock.json","VOICEVOX_CREDIT.txt"]
+          out=Path(os.environ["OUT"])
+          manifest=json.loads((out/"visual_assets.json").read_text())
+          assert int(manifest.get("asset_count",0)) >= 2, manifest
+          assert all(Path(row["path"]).is_file() for row in manifest.get("results",[])), manifest
+          p=out/"state.json"; s=json.loads(p.read_text())
+          s.update(stage="PREPARATION_WAVE_VERIFIED",last_progress_at="PREPARATION_WAVE_VERIFIED")
+          s["verified_artifacts"] += ["timing.json","voice/","source-claim-lock.json","VOICEVOX_CREDIT.txt","visual_assets.json","character-shell.json"]
           p.write_text(json.dumps(s,ensure_ascii=False,indent=2)+"\n")
+          print({"asset_count":manifest["asset_count"],"rights":"registry-verified","parallel_lanes":3})
           PY
 
       - name: Upload verified voice checkpoint
@@ -148,27 +189,6 @@ jobs:
             artifacts/mars-water-news60-v1/state.json
           if-no-files-found: error
           retention-days: 7
-
-      - name: Resolve registered Zundamon and Metan shell once
-        shell: bash
-        run: |
-          set -euo pipefail
-          python scripts/media_asset_resolver.py \
-            --asset-id zm_shell_20230806 \
-            --cache-root "$CACHE" \
-            --allow-network \
-            --max-workers 1 \
-            --manifest-out "$OUT/character-shell.json"
-          RAW=$(python - <<'PY'
-          import json,os
-          from pathlib import Path
-          m=json.loads((Path(os.environ["OUT"])/"character-shell.json").read_text())
-          p=m["results"][0].get("extracted_path")
-          assert p and Path(p).is_dir(), p
-          print(p)
-          PY
-          )
-          python scripts/character_shell_root.py "$RAW" > "$OUT/character-source-resolved.txt"
 
       - name: Build static portrait inventory
         shell: bash
@@ -200,31 +220,34 @@ jobs:
           (out/"static_inventory.json").write_text(json.dumps({"schema":"static-character-inventory-v1","records":records},ensure_ascii=False,indent=2)+"\n")
           PY
 
-      - name: Materialize researched rights-verified Jezero context visuals
+      - name: Build quality-preserving speed plan with Jev guard
         shell: bash
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           set -euo pipefail
-          python scripts/media_asset_resolver.py \
-            --group mars_jezero_context_visuals \
+          python scripts/media_speed_orchestrator.py \
+            --mission "$MISSION" \
+            --timing "$OUT/timing.json" \
+            --asset-manifest "$OUT/visual_assets.json" \
+            --static-inventory "$OUT/static_inventory.json" \
+            --source-claim-lock "$OUT/source-claim-lock.json" \
             --cache-root "$CACHE" \
-            --allow-network \
-            --max-workers 2 \
-            --manifest-out "$OUT/visual_assets.json"
+            --plan-out "$OUT/speed-plan.json" \
+            --use-jev
           python - <<'PY'
           import json,os
           from pathlib import Path
-          out=Path(os.environ["OUT"])
-          manifest=json.loads((out/"visual_assets.json").read_text())
-          assert int(manifest.get("asset_count",0)) >= 2, manifest
-          assert all(Path(row["path"]).is_file() for row in manifest.get("results",[])), manifest
-          print({"asset_count":manifest["asset_count"],"search_performed":manifest.get("search_performed"),"rights":"registry-verified"})
-          PY
-          python - <<'PY'
-          import json,os
-          from pathlib import Path
-          p=Path(os.environ["OUT"])/"state.json"; s=json.loads(p.read_text())
-          s["verified_artifacts"].append("visual_assets.json")
-          p.write_text(json.dumps(s,ensure_ascii=False,indent=2)+"\n")
+          plan=json.loads((Path(os.environ["OUT"])/"speed-plan.json").read_text())
+          assert plan["final_encode"]["count"] == 1
+          assert max((len(w) for w in plan["parallel_waves"]), default=0) <= 3
+          assert plan["quality_gates"]["paid_or_freemium_media"] is False
+          state_path=Path(os.environ["OUT"])/"state.json"
+          state=json.loads(state_path.read_text())
+          state["verified_artifacts"].append("speed-plan.json")
+          state["speed_plan"]={"execution_profile":plan["execution_profile"],"jev_status":plan["jev"].get("status"),"parallel_waves":plan["parallel_waves"],"final_encode_count":plan["final_encode"]["count"]}
+          state_path.write_text(json.dumps(state,ensure_ascii=False,indent=2)+"\n")
+          print({"profile":plan["execution_profile"],"jev":plan["jev"].get("status"),"waves":plan["parallel_waves"]})
           PY
 
       - name: Preview before full render
@@ -253,7 +276,8 @@ jobs:
             --static-inventory "$OUT/static_inventory.json" \
             --asset-manifest "$OUT/visual_assets.json" \
             --voice-root "$OUT/voice" \
-            --output-dir "$OUT/final"
+            --output-dir "$OUT/final" \
+            --one-pass-final-encode
           mv "$OUT/final/ai-slowdown-longform-speaker-color.mp4" "$FINAL"
           python - <<'PY'
           import json,os

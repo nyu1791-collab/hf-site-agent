@@ -45,6 +45,9 @@
     "multi_agent_standard": "docs/MULTI_AGENT_OPERATING_STANDARD.md",
     "media_command_gate": "config/media_command_read_gate.json",
     "current_media_quality_handoff": "config/current_media_quality_handoff.json",
+    "media_speed_quality_policy": "config/media_speed_quality_policy.json",
+    "media_speed_orchestrator": "scripts/media_speed_orchestrator.py",
+    "media_speed_validator": "scripts/validate_media_speed_quality.py",
     "media_character_performance_compact_orchestration": "config/media_character_performance_compact_orchestration_policy.json",
     "media_audio_motion_retention": "config/media_audio_motion_retention_policy.json",
     "free_audio_source_registry": "config/free_audio_source_registry.json",
@@ -235,6 +238,29 @@
     "missing_or_invalid_health_expiry_is_not_routable_evidence": true,
     "domain_absent_health_does_not_qualify_zero_or_one_question_primary": true,
     "independent_verification_requires_explicit_verifier_role": true
+  },
+  "media_speed_fixed_rules": {
+    "policy": "config/media_speed_quality_policy.json",
+    "runtime": "scripts/media_speed_orchestrator.py",
+    "validator": "scripts/validate_media_speed_quality.py",
+    "target_wall_clock_minutes": [
+      10,
+      15
+    ],
+    "historical_local_baseline_minutes": 40,
+    "target_is_observed_goal_not_guarantee": true,
+    "cache_first_content_addressed_stage_reuse": true,
+    "repair_smallest_affected_stage_and_true_dependents": true,
+    "max_independent_preparation_lanes": 3,
+    "single_writer_and_dependency_join": true,
+    "risk_triggered_preview_reuses_composed_stills": true,
+    "one_pass_final_encode": true,
+    "scene_video_intermediate_encodes_on_fast_path": 0,
+    "jev_typed_profile_and_shape_decision": true,
+    "jev_does_not_compute_hashes_invalidation_or_arithmetic": true,
+    "python_constructs_final_plan_json": true,
+    "full_spoken_caption_rights_voicevox_and_machine_qa_gates_unchanged": true,
+    "paid_or_freemium_media_generation": false
   },
   "legacy_cleanup_fixed_rules": {
     "legacy_registry": "config/legacy_deepseek_compatibility.json",

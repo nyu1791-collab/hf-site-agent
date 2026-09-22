@@ -1,0 +1,227 @@
+{
+  "schema_version": "media-speed-quality-v1",
+  "effective_date_jst": "2026-09-22",
+  "status": "ENFORCED_PERMANENT_STANDARD",
+  "decision_owner": "chatgpt-top-commander",
+  "purpose": "Reduce routine shortform Zundamon/Metan production from the observed approximately 40-minute baseline toward a 10-15-minute target without weakening evidence, rights, caption, VOICEVOX, single-writer, checkpoint or final-QA contracts.",
+  "target_is_observed_goal_not_guarantee": true,
+  "historical_local_baseline_minutes": 40,
+  "target_wall_clock_minutes": [
+    10,
+    15
+  ],
+  "scope": [
+    "SHORTFORM_VERTICAL_NEWS",
+    "BOUNDED_VERTICAL_EXPLAINER",
+    "CLAIM_BEARING_MEDIA_WITH_STATIC_SPEAKER_COLOR_RENDERER"
+  ],
+  "authoritative_runtime": "scripts/media_speed_orchestrator.py",
+  "authoritative_validator": "scripts/validate_media_speed_quality.py",
+  "renderer": "scripts/render_static_speaker_color_longform.py",
+  "quality_first": {
+    "verified_correctness_precedes_wall_clock": true,
+    "rights_and_claim_gates_never_relaxed": true,
+    "full_spoken_caption_contract_never_relaxed": true,
+    "voicevox_local_cast_never_relaxed": true,
+    "machine_qa_and_representative_visual_rereview_never_relaxed": true,
+    "paid_or_freemium_media_generation": false,
+    "unknown_cost_route": "BLOCK"
+  },
+  "execution_graph": {
+    "single_writer_per_run": true,
+    "max_independent_preparation_lanes": 3,
+    "parallelism_is_bounded_by_existing_media_ceiling": true,
+    "parallel_lanes": [
+      "VOICE_AND_MEASURED_TIMING",
+      "RIGHTS_VERIFIED_VISUAL_ASSETS",
+      "CHARACTER_SHELL_AND_TOOLCHAIN_PREP"
+    ],
+    "parallel_wave_requires_admission_pass": true,
+    "dependency_join_required": true,
+    "shared_mutable_state_forces_sequential_execution": true,
+    "retry_smallest_failed_stage_and_true_dependents_only": true,
+    "unrelated_successful_stage_must_not_be_rebuilt": true
+  },
+  "stage_graph": {
+    "admission_and_script_lock": [],
+    "voice_and_measured_timing": [
+      "admission_and_script_lock"
+    ],
+    "rights_verified_visual_assets": [
+      "admission_and_script_lock"
+    ],
+    "character_shell_and_toolchain_prep": [
+      "admission_and_script_lock"
+    ],
+    "caption_overlay": [
+      "admission_and_script_lock",
+      "voice_and_measured_timing"
+    ],
+    "scene_composition": [
+      "rights_verified_visual_assets",
+      "character_shell_and_toolchain_prep",
+      "caption_overlay"
+    ],
+    "risk_triggered_visual_preview": [
+      "scene_composition"
+    ],
+    "one_pass_final_encode": [
+      "voice_and_measured_timing",
+      "scene_composition",
+      "risk_triggered_visual_preview"
+    ],
+    "machine_qa_and_visual_rereview": [
+      "one_pass_final_encode"
+    ]
+  },
+  "cache_and_checkpoint": {
+    "cache_is_accelerator_not_durable_truth": true,
+    "verified_checkpoint_is_required_for_reuse": true,
+    "content_addressed_stage_outputs": true,
+    "input_manifest_keyed": true,
+    "manifest_fields": [
+      "mission_or_script_hash",
+      "source_claim_lock_hash",
+      "voice_text_and_pronunciation_hash",
+      "measured_audio_timing_hash",
+      "caption_policy_and_font_hash",
+      "speaker_color_and_emphasis_policy_hash",
+      "rights_verified_asset_manifest_hash",
+      "character_shell_and_anchor_hash",
+      "renderer_version_hash",
+      "ffmpeg_and_output_contract_hash",
+      "effective_policy_versions"
+    ],
+    "reuse_requires_exact_manifest_match": true,
+    "stale_policy_or_expired_rights_evidence_invalidates_reuse": true,
+    "partial_artifact_is_never_verified": true,
+    "full_pipeline_rerender_requires_recorded_dependency_justification": true,
+    "invalidation_rules": {
+      "caption_only": [
+        "caption_overlay",
+        "scene_composition",
+        "risk_triggered_visual_preview",
+        "one_pass_final_encode",
+        "machine_qa_and_visual_rereview"
+      ],
+      "visual_or_rights_asset": [
+        "rights_verified_visual_assets",
+        "scene_composition",
+        "risk_triggered_visual_preview",
+        "one_pass_final_encode",
+        "machine_qa_and_visual_rereview"
+      ],
+      "character_shell_or_anchor": [
+        "character_shell_and_toolchain_prep",
+        "scene_composition",
+        "risk_triggered_visual_preview",
+        "one_pass_final_encode",
+        "machine_qa_and_visual_rereview"
+      ],
+      "voice_or_script": [
+        "voice_and_measured_timing",
+        "caption_overlay",
+        "scene_composition",
+        "one_pass_final_encode",
+        "machine_qa_and_visual_rereview"
+      ],
+      "renderer_font_policy_or_output_contract": [
+        "admission_and_script_lock",
+        "voice_and_measured_timing",
+        "rights_verified_visual_assets",
+        "character_shell_and_toolchain_prep",
+        "caption_overlay",
+        "scene_composition",
+        "risk_triggered_visual_preview",
+        "one_pass_final_encode",
+        "machine_qa_and_visual_rereview"
+      ]
+    }
+  },
+  "preview_contract": {
+    "risk_triggered_not_always_full_duplicate": true,
+    "preview_runs_when_visual_layer_or_caption_safe_zone_changes": true,
+    "preview_reuses_composed_stills_when_possible": true,
+    "preview_failure_blocks_expensive_encode": true,
+    "decode_pass_alone_is_not_visual_pass": true,
+    "required_samples": [
+      "speaker_color_and_emphasis",
+      "full_spoken_caption",
+      "longest_latin_token",
+      "safe_zone_edge",
+      "rights_visual_semantic_match",
+      "both_character_size_and_focus"
+    ]
+  },
+  "encode_contract": {
+    "shortform_bounded_vertical_uses_one_final_encode": true,
+    "final_encode_count_must_equal": 1,
+    "scene_stills_and_audio_are_prepared_before_encode": true,
+    "no_per_scene_video_encode_on_fast_path": true,
+    "fast_start_required": true,
+    "longform_scene_checkpoint_policy_remains_authoritative": true
+  },
+  "jev_media_planning": {
+    "enabled": true,
+    "runtime": "scripts/jev_lean_router.py",
+    "decision_plane": "FAST_SYSTEM_ONE_DECISION_PLANE_DIRECTLY_UNDER_CHATGPT",
+    "lane": "VISION_AND_MEDIA_UNDERSTANDING",
+    "surface": "LEAN_TWO_QUESTION_PROFILE_AND_SHAPE",
+    "question_count": 2,
+    "typed_primitives_only": [
+      "choice",
+      "noul",
+      "score"
+    ],
+    "candidate_profile_count": 4,
+    "candidate_profile_char_target": 240,
+    "candidate_profiles": [
+      "CACHE_INCREMENTAL",
+      "PARALLEL_PREP",
+      "FULL_REBUILD",
+      "ESCALATE_TO_CHATGPT"
+    ],
+    "jev_may_choose_only_prevalidated_profiles": true,
+    "jev_does_not_compute_cache_invalidations": true,
+    "jev_does_not_count_lanes_or_encode_passes": true,
+    "jev_does_not_write_final_plan_json": true,
+    "python_owns_manifest_hashes_stage_graph_parallelism_and_final_plan": true,
+    "low_confidence_action": "DETERMINISTIC_PROFILE_OR_CHATGPT_ADJUDICATION_BY_RISK",
+    "latest_alias": "~typesafe/jev-latest",
+    "last_known_good": "typesafe/jev-1.13",
+    "no_other_paid_model_fallback": true,
+    "auto_top_up": false
+  },
+  "metrics_contract": {
+    "record": [
+      "total_wall_clock_ms",
+      "critical_path_ms",
+      "stage_wall_clock_ms",
+      "parallel_wave_count",
+      "max_parallel_lanes",
+      "stage_cache_hit_ratio",
+      "stage_reuse_ratio",
+      "full_rerender_avoided",
+      "jev_status_and_question_count",
+      "jev_route_confidence",
+      "retry_count_by_stage",
+      "rights_gate_result",
+      "caption_coverage_ratio",
+      "machine_qa_result",
+      "visual_rereview_result"
+    ],
+    "promotion_requires_same_fixture_ab": true,
+    "promotion_requires_no_quality_regression": true,
+    "rollback_plan_required": true,
+    "inferior_route_is_removed_after_promotion": true
+  },
+  "safety_and_side_effects": {
+    "main_direct_push": false,
+    "pr_merge": false,
+    "production_deploy": false,
+    "public_publish": false,
+    "secret_mutation_or_disclosure": false,
+    "paid_media_generation": false,
+    "auto_top_up": false
+  }
+}

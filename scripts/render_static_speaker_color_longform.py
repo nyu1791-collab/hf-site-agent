@@ -401,10 +401,21 @@ def make_contact_sheet(paths: list[Path], output: Path) -> None:
     sheet.save(output, quality=90)
 
 
-def render(mission: dict, timing: dict, portraits: dict, assets: dict, voice_root: Path, output_dir: Path, preview_only: bool) -> None:
+def render(
+    mission: dict,
+    timing: dict,
+    portraits: dict,
+    assets: dict,
+    voice_root: Path,
+    output_dir: Path,
+    preview_only: bool,
+    one_pass_final_encode: bool = False,
+) -> None:
     by_id = {record["id"]: record for record in timing["records"]}
     representative: list[Path] = []
     scene_videos: list[Path] = []
+    all_audio_records: list[dict] = []
+    all_image_entries: list[tuple[Path, float]] = []
 
     for scene in mission["scenes"]:
         scene_dir = output_dir / "scenes" / scene["scene_id"]
@@ -417,14 +428,16 @@ def render(mission: dict, timing: dict, portraits: dict, assets: dict, voice_roo
                 raise RuntimeError(f"missing timing record: {line['id']}")
             record = by_id[line["id"]]
             audio_records.append(record)
+            all_audio_records.append(record)
             still = scene_dir / f'{line["id"]}_static.jpg'
             compose_turn(line, scene, record, portraits, assets, still)
             if line_index == 0:
                 representative.append(still)
             duration = float(record["duration"]) + float(record.get("pause_after", 0))
             image_entries.append((still, duration))
+            all_image_entries.append((still, duration))
 
-        if preview_only:
+        if preview_only or one_pass_final_encode:
             continue
 
         scene_audio = scene_dir / "scene_audio.wav"
@@ -451,13 +464,33 @@ def render(mission: dict, timing: dict, portraits: dict, assets: dict, voice_roo
     if preview_only:
         return
 
+    final_path = output_dir / "ai-slowdown-longform-speaker-color.mp4"
+    if one_pass_final_encode:
+        # Shortform/bounded vertical fast path: all stills and the measured
+        # timeline audio are prepared first, then FFmpeg performs exactly one
+        # video+audio encode.  Scene stills remain durable checkpoints.
+        timeline_audio = output_dir / "timeline_audio.wav"
+        total_duration = make_scene_audio(all_audio_records, voice_root, timeline_audio)
+        frames_concat = output_dir / "timeline_frames.ffconcat"
+        write_ffconcat(all_image_entries, frames_concat)
+        run([
+            "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+            "-f", "concat", "-safe", "0", "-i", str(frames_concat),
+            "-i", str(timeline_audio),
+            "-vf", f"fps={FPS},format=yuv420p",
+            "-t", f"{total_duration:.6f}",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-c:a", "aac", "-b:a", "160k", "-ar", "48000",
+            "-movflags", "+faststart", str(final_path),
+        ])
+        return
+
     concat_path = output_dir / "scenes.ffconcat"
     with concat_path.open("w", encoding="utf-8") as handle:
         handle.write("ffconcat version 1.0\n")
         for path in scene_videos:
             safe = str(path.resolve()).replace("'", "'\\''")
             handle.write(f"file '{safe}'\n")
-    final_path = output_dir / "ai-slowdown-longform-speaker-color.mp4"
     run([
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
         "-f", "concat", "-safe", "0", "-i", str(concat_path),
@@ -475,6 +508,11 @@ def main() -> int:
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--asset-registry", default="config/media_reusable_asset_standard.json")
     parser.add_argument("--preview-only", action="store_true")
+    parser.add_argument(
+        "--one-pass-final-encode",
+        action="store_true",
+        help="Use the bounded-shortform one-pass encode path; longform callers keep scene checkpoint encoding by default.",
+    )
     args = parser.parse_args()
 
     mission = decode_mission(Path(args.mission_b64))
@@ -494,7 +532,16 @@ def main() -> int:
     assets = load_assets(Path(args.asset_manifest), Path(args.asset_registry))
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    render(mission, timing, portraits, assets, Path(args.voice_root), output_dir, args.preview_only)
+    render(
+        mission,
+        timing,
+        portraits,
+        assets,
+        Path(args.voice_root),
+        output_dir,
+        args.preview_only,
+        one_pass_final_encode=args.one_pass_final_encode,
+    )
     print(json.dumps({
         "status": "PASS",
         "renderer": "static-speaker-color-longform-v1",
@@ -503,6 +550,8 @@ def main() -> int:
         "mouth_animation": False,
         "photo_first": True,
         "timing_records": len(timing["records"]),
+        "one_pass_final_encode": args.one_pass_final_encode and not args.preview_only,
+        "scene_video_intermediate_encodes": 0 if args.one_pass_final_encode else len(mission["scenes"]),
     }, ensure_ascii=False, sort_keys=True))
     return 0
 

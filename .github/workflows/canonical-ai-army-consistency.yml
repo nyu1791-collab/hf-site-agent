@@ -18,6 +18,7 @@ on:
       - 'config/free_execution_guard.json'
       - 'config/video_creation_admission_policy.json'
       - 'config/media_command_read_gate.json'
+      - 'config/media_speed_quality_policy.json'
       - 'config/evidence_visual_static_character_policy.json'
       - 'config/media_source_policy.json'
       - 'config/media_audio_motion_retention_policy.json'
@@ -62,6 +63,8 @@ on:
       - 'scripts/video_creation_admission.py'
       - 'scripts/validate_video_caption_contract.py'
       - 'scripts/validate_media_command_read_gate.py'
+      - 'scripts/media_speed_orchestrator.py'
+      - 'scripts/validate_media_speed_quality.py'
       - 'scripts/validate_semantic_recall_and_commerce_precision.py'
       - 'scripts/validate_media_character_visual_standard.py'
       - 'scripts/validate_evidence_visual_static_character_standard.py'
@@ -119,6 +122,7 @@ on:
       - 'tests/test_openrouter_free_efficiency_router.py'
       - 'tests/test_jev_decision_engine.py'
       - 'tests/test_jev_routing_coordinator.py'
+      - 'tests/test_media_speed_orchestrator.py'
       - 'tests/test_final_execution_admission_guard.py'
       - 'tests/test_multi_agent_execution_schedule.py'
       - 'tests/test_jev_lean_router.py'
@@ -190,6 +194,8 @@ jobs:
             scripts/video_creation_admission.py \
             scripts/validate_video_caption_contract.py \
             scripts/validate_media_command_read_gate.py \
+            scripts/media_speed_orchestrator.py \
+            scripts/validate_media_speed_quality.py \
             scripts/validate_semantic_recall_and_commerce_precision.py \
             scripts/validate_media_character_visual_standard.py \
             scripts/validate_evidence_visual_static_character_standard.py \
@@ -232,6 +238,7 @@ jobs:
           python -m json.tool config/free_execution_guard.json >/dev/null
           python -m json.tool config/video_creation_admission_policy.json >/dev/null
           python -m json.tool config/media_command_read_gate.json >/dev/null
+          python -m json.tool config/media_speed_quality_policy.json >/dev/null
           python -m json.tool config/evidence_visual_static_character_policy.json >/dev/null
           python -m json.tool config/media_source_policy.json >/dev/null
           python -m json.tool config/media_audio_motion_retention_policy.json >/dev/null
@@ -301,6 +308,12 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_media_command_read_gate.py
+
+      - name: Enforce quality-preserving media speed and Jev plan
+        run: |
+          set -euo pipefail
+          python scripts/validate_media_speed_quality.py
+          python -m unittest tests.test_media_speed_orchestrator
 
       - name: Enforce semantic recall and commerce clipping precision
         run: |

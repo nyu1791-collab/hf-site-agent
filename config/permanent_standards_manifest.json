@@ -164,6 +164,14 @@
       "priority": 1
     },
     {
+      "id": "media-speed-quality",
+      "machine_policy": "config/media_speed_quality_policy.json",
+      "runtime": "scripts/media_speed_orchestrator.py",
+      "validator": "scripts/validate_media_speed_quality.py",
+      "priority": 1,
+      "purpose": "CACHE_FIRST_INCREMENTAL_MEDIA_PRODUCTION_WITH_MAX_THREE_INDEPENDENT_PREPARATION_LANES_ONE_PASS_SHORTFORM_ENCODE_AND_TYPED_JEV_PROFILE_SHAPE_SELECTION"
+    },
+    {
       "id": "media-character-performance-compact-orchestration",
       "machine_policy": "config/media_character_performance_compact_orchestration_policy.json",
       "priority": 1
@@ -321,6 +329,9 @@
     "free_execution_guard": "config/free_execution_guard.json",
     "human_doc": "docs/MEDIA_COMMAND_READ_GATE.md",
     "current_media_quality_handoff": "config/current_media_quality_handoff.json",
+    "media_speed_quality_policy": "config/media_speed_quality_policy.json",
+    "media_speed_orchestrator": "scripts/media_speed_orchestrator.py",
+    "media_speed_validator": "scripts/validate_media_speed_quality.py",
     "character_performance_compact_orchestration_policy": "config/media_character_performance_compact_orchestration_policy.json",
     "semantic_intent_not_exact_keyword_match": true,
     "mixed_media_intents_are_additive": true,
@@ -359,7 +370,12 @@
     "paid_or_freemium_media_routes_are_blocked": true,
     "free_route_failure_never_silently_becomes_paid": true,
     "session_stream_resilience_policy": "config/session_stream_resilience_policy.json",
-    "long_running_media_must_not_depend_on_single_chat_response_stream": true
+    "long_running_media_must_not_depend_on_single_chat_response_stream": true,
+    "media_speed_quality_is_cache_first_incremental_and_quality_preserving": true,
+    "media_speed_target_is_observed_10_to_15_minutes_not_a_guarantee": true,
+    "media_speed_uses_at_most_three_independent_preparation_lanes": true,
+    "media_speed_uses_one_pass_final_encode_for_bounded_shortform": true,
+    "jev_is_used_for_typed_media_profile_and_shape_only": true
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
@@ -528,6 +544,8 @@
     "related_visual_provenance_contract_survives_tab_change": true,
     "free_audio_source_registry_survives_tab_change": true,
     "dova_curated_bgm_preference_survives_tab_change": true,
+    "media_speed_quality_policy_survives_tab_change": true,
+    "jev_media_planning_contract_survives_tab_change": true,
     "jev_fast_decision_preauthorization_survives_tab_change": true,
     "jev_latest_alias_with_price_and_contract_guard_survives_tab_change": true,
     "jev_fast_decision_playbook_survives_tab_change": true,

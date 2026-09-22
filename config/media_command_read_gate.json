@@ -57,6 +57,9 @@
     "scripts/validate_video_caption_contract.py",
     "config/free_audio_source_registry.json",
     "config/dova_curated_bgm_catalog.json",
+    "config/media_speed_quality_policy.json",
+    "scripts/media_speed_orchestrator.py",
+    "scripts/validate_media_speed_quality.py",
     "docs/MEDIA_PIPELINE.md"
   ],
   "trigger_sets": {
@@ -281,6 +284,8 @@
     "zundamon_metan_production_quality_human_standard_must_be_re_read": true,
     "free_audio_source_registry_must_be_re_read": true,
     "dova_curated_bgm_catalog_must_be_re_read": true,
+    "media_speed_quality_policy_must_be_re_read": true,
+    "jev_media_planning_contract_must_be_re_read": true,
     "commerce_clipping_precision_overlay_must_be_re_read_for_relevant_intent": true,
     "do_not_rely_on_prior_tab_summary_as_substitute": true,
     "exact_same_head_and_blob_cache_may_satisfy_repeat_read_within_active_task": true
