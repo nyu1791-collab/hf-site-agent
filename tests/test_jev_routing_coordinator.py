@@ -411,5 +411,92 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         self.assertEqual(result["route_source"], "JEV_FAST_DECISION_PLANE")
 
 
+    def test_clear_primary_and_clear_shape_use_zero_question_fast_path(self):
+        evidence = {
+            "deepseek/deepseek-v4-flash-0731:free": {
+                "successes": 2,
+                "quality_failures": 0,
+                "rate_limits": 0,
+                "avg_latency_ms": 900,
+            }
+        }
+        with patch("scripts.jev_routing_coordinator.load_recent_evidence", return_value=evidence), patch(
+            "scripts.jev_routing_coordinator.decide_shape"
+        ) as shape, patch(
+            "scripts.jev_routing_coordinator.decide_primary"
+        ) as primary, patch(
+            "scripts.jev_routing_coordinator.decide_lean"
+        ) as lean, patch(
+            "scripts.jev_routing_coordinator.decide_fast"
+        ) as fast:
+            result = coordinate(
+                {
+                    "task_class": "GENERAL",
+                    "objective": "Routine single-stream task.",
+                    "independent_workstreams": 1,
+                },
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+            )
+        shape.assert_not_called()
+        primary.assert_not_called()
+        lean.assert_not_called()
+        fast.assert_not_called()
+        self.assertEqual(result["route_source"], "DETERMINISTIC_HEALTH_FAST_PATH")
+        self.assertIn("PYTHON_CLEAR_PRIMARY_AND_CLEAR_SHAPE", result["final_plan"]["fanout_reason"])
+
+    def test_clear_primary_and_ambiguous_shape_use_shape_one_question(self):
+        evidence = {
+            "deepseek/deepseek-v4-flash-0731:free": {
+                "successes": 2,
+                "quality_failures": 0,
+                "rate_limits": 0,
+                "avg_latency_ms": 900,
+            }
+        }
+        fake = {
+            "status": "JEV_SHAPE_DECISION_OK",
+            "decision": {
+                "workers": ["deepseek/deepseek-v4-flash-0731:free"],
+                "fanout": 1,
+                "parallel": False,
+                "execution_mode": "SINGLE",
+                "lane": "GENERAL_REASONING",
+                "independent_verification": False,
+                "action": "EXECUTE",
+                "confidence": 0.96,
+                "low_confidence": False,
+                "route_shape": "SINGLE",
+            },
+        }
+        with patch("scripts.jev_routing_coordinator.load_recent_evidence", return_value=evidence), patch(
+            "scripts.jev_routing_coordinator.decide_shape", return_value=fake
+        ) as shape, patch(
+            "scripts.jev_routing_coordinator.decide_primary"
+        ) as primary, patch(
+            "scripts.jev_routing_coordinator.decide_lean"
+        ) as lean, patch(
+            "scripts.jev_routing_coordinator.decide_fast"
+        ) as fast:
+            result = coordinate(
+                {
+                    "task_class": "GENERAL",
+                    "objective": "Two workstreams with uncertain parallel value.",
+                    "independent_workstreams": 2,
+                    "parallelizable_fraction": 0.3,
+                },
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+            )
+        shape.assert_called_once()
+        primary.assert_not_called()
+        lean.assert_not_called()
+        fast.assert_not_called()
+        self.assertEqual(result["route_source"], "JEV_SHAPE_DECISION_PLANE")
+        self.assertIn("JEV_SHAPE_ONE_QUESTION_DECISION", result["final_plan"]["fanout_reason"])
+
+
 if __name__ == "__main__":
     unittest.main()
