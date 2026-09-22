@@ -31,7 +31,7 @@ jobs:
 
       - name: Compile Jev benchmark
         run: |
-          python -m py_compile scripts/jev_decision_engine.py scripts/jev_lean_router.py scripts/jev_route_ab_benchmark.py scripts/jev_cardinality_benchmark.py scripts/jev_lean_route_benchmark.py
+          python -m py_compile scripts/jev_decision_engine.py scripts/jev_lean_router.py scripts/jev_route_ab_benchmark.py scripts/jev_cardinality_benchmark.py scripts/jev_lean_route_benchmark.py scripts/jev_lean_portfolio_benchmark.py
 
       - name: Run 9-vs-3-vs-1 Jev routing benchmark
         if: ${{ hashFiles('missions/jev-benchmark/active.json') != '' }}
@@ -69,6 +69,22 @@ jobs:
         with:
           name: jev-lean-route-${{ github.run_id }}
           path: artifacts/jev_lean_route_benchmark.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Run Jev 2-question vs 1-question benchmark
+        if: ${{ hashFiles('missions/jev-lean/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python -m scripts.jev_lean_portfolio_benchmark --output artifacts/jev_lean_portfolio_benchmark.json
+
+      - name: Upload Jev lean-vs-portfolio evidence
+        if: ${{ always() && hashFiles('missions/jev-lean/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-lean-portfolio-${{ github.run_id }}
+          path: artifacts/jev_lean_portfolio_benchmark.json
           if-no-files-found: error
           retention-days: 7
 
