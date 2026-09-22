@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config/media_speed_quality_policy.json"
 ORCHESTRATOR = ROOT / "scripts/media_speed_orchestrator.py"
 VALIDATOR = ROOT / "scripts/validate_media_speed_quality.py"
+CHECKPOINT_SEALER = ROOT / "scripts/seal_media_speed_checkpoint.py"
 GATE = ROOT / "config/media_command_read_gate.json"
 MANIFEST = ROOT / "config/permanent_standards_manifest.json"
 HANDOFF = ROOT / "config/current_commander_handoff.json"
@@ -53,6 +54,7 @@ def main() -> int:
     ):
         require(quality.get(key) is True, f"quality guard missing: {key}")
     require(quality.get("paid_or_freemium_media_generation") is False, "paid/freemium media generation enabled")
+    require(float(quality.get("caption_coverage_ratio_must_equal") or 0) == 1.0, "full spoken caption coverage was weakened")
 
     graph = policy.get("execution_graph") or {}
     require(graph.get("single_writer_per_run") is True, "media speed path lost single-writer rule")
@@ -60,6 +62,8 @@ def main() -> int:
     require(graph.get("parallel_wave_requires_admission_pass") is True, "parallel media wave may bypass admission")
     require(graph.get("dependency_join_required") is True, "media speed path lost dependency join")
     require(graph.get("shared_mutable_state_forces_sequential_execution") is True, "shared state may be parallelized")
+    require(graph.get("independent_parallel_lanes_use_separate_cache_namespaces") is True, "parallel lanes may share mutable cache state")
+    require(graph.get("chatgpt_escalation_blocks_all_execution_waves") is True, "escalated plan may still execute")
     require(graph.get("retry_smallest_failed_stage_and_true_dependents_only") is True, "media retries may rebuild unrelated stages")
 
     stages = policy.get("stage_graph") or {}
@@ -85,6 +89,8 @@ def main() -> int:
     for key in (
         "cache_is_accelerator_not_durable_truth",
         "verified_checkpoint_is_required_for_reuse",
+        "verified_artifact_hash_and_path_required_for_reuse",
+        "policy_content_hash_required_for_reuse",
         "content_addressed_stage_outputs",
         "input_manifest_keyed",
         "reuse_requires_exact_manifest_match",
@@ -98,6 +104,7 @@ def main() -> int:
     invalidation = cache.get("invalidation_rules") or {}
     require(invalidation.get("caption_only") == ["caption_overlay", "scene_composition", "risk_triggered_visual_preview", "one_pass_final_encode", "machine_qa_and_visual_rereview"], "caption-only invalidation drift")
     require(invalidation.get("visual_or_rights_asset"), "visual invalidation rule missing")
+    require(cache.get("expired_rights_evidence_action") == "BLOCK_REUSE_AND_REVERIFY", "expired rights evidence may be reused")
 
     preview = policy.get("preview_contract") or {}
     require(preview.get("risk_triggered_not_always_full_duplicate") is True, "preview policy still duplicates every expensive render")
@@ -116,17 +123,22 @@ def main() -> int:
     require(jev.get("jev_does_not_write_final_plan_json") is True, "Jev was assigned final JSON composition")
     require(jev.get("python_owns_manifest_hashes_stage_graph_parallelism_and_final_plan") is True, "Python control plane ownership drifted")
     require(jev.get("no_other_paid_model_fallback") is True and jev.get("auto_top_up") is False, "Jev media scope permits paid fallback or top-up")
+    quality_decision = policy.get("decision_quality") or {}
+    require(float(quality_decision.get("minimum_confidence_for_autonomous_execute") or 0) == 0.75, "media Jev confidence threshold drifted")
+    require(quality_decision.get("typed_result_must_have_success_status_action_shape_and_low_confidence_false") is True, "malformed Jev result may be admitted")
 
     source = ORCHESTRATOR.read_text(encoding="utf-8")
     require("def plan_media_run(" in source, "media speed planner entrypoint missing")
     require("decide_lean" in source, "media speed planner is not wired to Jev lean decisions")
     require("VISION_AND_MEDIA_UNDERSTANDING" in source, "media Jev lane missing")
     require("_safe_profile" in source and "deterministic_profile" in source, "media deterministic admission guard missing")
+    require("execution_blocked" in source and "_valid_jev_media_decision" in source, "media escalation or typed Jev guard missing")
     require("final_encode_count" in source or '"count": 1' in source, "media final encode count is not represented")
     require(VALIDATOR.is_file(), "media speed validator missing")
+    require(CHECKPOINT_SEALER.is_file(), "verified media checkpoint sealer missing")
 
     common = set(gate.get("common_media_read_set") or [])
-    for path in ("config/media_speed_quality_policy.json", "scripts/media_speed_orchestrator.py", "scripts/validate_media_speed_quality.py"):
+    for path in ("config/media_speed_quality_policy.json", "scripts/media_speed_orchestrator.py", "scripts/validate_media_speed_quality.py", "scripts/seal_media_speed_checkpoint.py"):
         require(path in common, f"media read gate does not restore speed standard: {path}")
     session = gate.get("new_session_behavior") or {}
     require(session.get("media_speed_quality_policy_must_be_re_read") is True, "new tabs may skip media speed policy")
@@ -137,6 +149,7 @@ def main() -> int:
     require(item.get("machine_policy") == "config/media_speed_quality_policy.json", "manifest lost media speed policy")
     require(item.get("runtime") == "scripts/media_speed_orchestrator.py", "manifest lost media speed runtime")
     require(item.get("validator") == "scripts/validate_media_speed_quality.py", "manifest lost media speed validator")
+    require(item.get("checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "manifest lost verified media checkpoint sealer")
     cross_tab = manifest.get("cross_tab_behavior") or {}
     require(cross_tab.get("media_speed_quality_policy_survives_tab_change") is True, "media speed policy does not survive tab changes")
     require(cross_tab.get("jev_media_planning_contract_survives_tab_change") is True, "Jev media planning does not survive tab changes")
@@ -144,6 +157,7 @@ def main() -> int:
     active = handoff.get("active_standards") or {}
     require(active.get("media_speed_quality_policy") == "config/media_speed_quality_policy.json", "commander handoff lost speed policy pointer")
     require(active.get("media_speed_orchestrator") == "scripts/media_speed_orchestrator.py", "commander handoff lost speed runtime pointer")
+    require(active.get("media_speed_checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "commander handoff lost checkpoint sealer pointer")
     media_speed = handoff.get("media_speed_fixed_rules") or {}
     require(media_speed.get("target_wall_clock_minutes") == [10, 15], "handoff target drifted")
     require(media_speed.get("max_independent_preparation_lanes") == 3, "handoff lane ceiling drifted")
@@ -154,6 +168,7 @@ def main() -> int:
     require(media_speed_handoff.get("target_wall_clock_minutes") == [10, 15], "media quality handoff target missing")
     require(media_speed_handoff.get("media_speed_quality_policy") == "config/media_speed_quality_policy.json", "media quality handoff speed pointer missing")
     require(media_speed_handoff.get("jev_media_planning") is True, "media quality handoff Jev planning rule missing")
+    require(media_speed_handoff.get("media_speed_checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "media quality handoff checkpoint sealer missing")
 
     playbook = PLAYBOOK.read_text(encoding="utf-8")
     require("MEDIA_PIPELINE_PROFILE_AND_SHAPE" in playbook, "Jev playbook lacks media pipeline typed surface")

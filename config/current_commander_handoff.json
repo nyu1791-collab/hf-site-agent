@@ -48,6 +48,7 @@
     "media_speed_quality_policy": "config/media_speed_quality_policy.json",
     "media_speed_orchestrator": "scripts/media_speed_orchestrator.py",
     "media_speed_validator": "scripts/validate_media_speed_quality.py",
+    "media_speed_checkpoint_sealer": "scripts/seal_media_speed_checkpoint.py",
     "media_character_performance_compact_orchestration": "config/media_character_performance_compact_orchestration_policy.json",
     "media_audio_motion_retention": "config/media_audio_motion_retention_policy.json",
     "free_audio_source_registry": "config/free_audio_source_registry.json",
@@ -243,6 +244,7 @@
     "policy": "config/media_speed_quality_policy.json",
     "runtime": "scripts/media_speed_orchestrator.py",
     "validator": "scripts/validate_media_speed_quality.py",
+    "checkpoint_sealer": "scripts/seal_media_speed_checkpoint.py",
     "target_wall_clock_minutes": [
       10,
       15

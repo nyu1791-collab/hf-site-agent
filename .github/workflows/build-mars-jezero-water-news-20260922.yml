@@ -1,4 +1,4 @@
-name: Build Mars Jezero current-news short
+name: Retired Mars Jezero route (use durable speed-quality workflow)
 
 on:
   workflow_dispatch:
@@ -13,6 +13,7 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:

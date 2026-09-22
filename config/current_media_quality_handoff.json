@@ -1,6 +1,6 @@
 {
   "schema_version": "current-media-quality-handoff-v2",
-  "effective_date_jst": "2026-09-14",
+  "effective_date_jst": "2026-09-22",
   "status": "CURRENT_CROSS_TAB_CONTINUITY_SUMMARY",
   "authority": "INDEX_AND_CONTINUITY_SUMMARY_ONLY",
   "purpose": "Make the latest Zundamon/Shikoku Metan video-quality, retention, efficiency, compact ChatGPT+DeepSeek orchestration and character-performance decisions immediately recoverable after a chat-tab or session change without relying on conversation memory. Machine-readable policies, validators and CI remain authoritative over this summary.",
@@ -151,6 +151,7 @@
     "media_speed_quality_policy": "config/media_speed_quality_policy.json",
     "media_speed_orchestrator": "scripts/media_speed_orchestrator.py",
     "media_speed_validator": "scripts/validate_media_speed_quality.py",
+    "media_speed_checkpoint_sealer": "scripts/seal_media_speed_checkpoint.py",
     "target_wall_clock_minutes": [
       10,
       15

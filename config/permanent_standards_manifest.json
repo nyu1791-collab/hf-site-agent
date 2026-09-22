@@ -168,6 +168,7 @@
       "machine_policy": "config/media_speed_quality_policy.json",
       "runtime": "scripts/media_speed_orchestrator.py",
       "validator": "scripts/validate_media_speed_quality.py",
+      "checkpoint_sealer": "scripts/seal_media_speed_checkpoint.py",
       "priority": 1,
       "purpose": "CACHE_FIRST_INCREMENTAL_MEDIA_PRODUCTION_WITH_MAX_THREE_INDEPENDENT_PREPARATION_LANES_ONE_PASS_SHORTFORM_ENCODE_AND_TYPED_JEV_PROFILE_SHAPE_SELECTION"
     },
@@ -332,6 +333,7 @@
     "media_speed_quality_policy": "config/media_speed_quality_policy.json",
     "media_speed_orchestrator": "scripts/media_speed_orchestrator.py",
     "media_speed_validator": "scripts/validate_media_speed_quality.py",
+    "media_speed_checkpoint_sealer": "scripts/seal_media_speed_checkpoint.py",
     "character_performance_compact_orchestration_policy": "config/media_character_performance_compact_orchestration_policy.json",
     "semantic_intent_not_exact_keyword_match": true,
     "mixed_media_intents_are_additive": true,

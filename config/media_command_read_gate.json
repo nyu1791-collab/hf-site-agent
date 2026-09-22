@@ -60,6 +60,7 @@
     "config/media_speed_quality_policy.json",
     "scripts/media_speed_orchestrator.py",
     "scripts/validate_media_speed_quality.py",
+    "scripts/seal_media_speed_checkpoint.py",
     "docs/MEDIA_PIPELINE.md"
   ],
   "trigger_sets": {

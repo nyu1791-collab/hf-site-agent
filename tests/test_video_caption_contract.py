@@ -23,6 +23,12 @@ class VideoCaptionContractTests(unittest.TestCase):
         self.assertEqual(caption, line["voice_text"])
         self.assertEqual(source, "VOICE_TEXT")
 
+    def test_explicit_full_caption_cannot_omit_spoken_text(self):
+        mission = {"caption_text_mode": "FULL_SPOKEN_TEXT"}
+        line = {"id": "L02", "voice_text": "火星のJezeroで水が何度も動いたのだ。", "full_caption_text": "火星の水"}
+        with self.assertRaises(SystemExit):
+            caption_text_for_line(mission, line)
+
     def test_marked_terms_keep_emphasis_color_after_split(self):
         spans = rich_character_spans("重要語Jezero", ["Jezero"], (77, 224, 132, 255))
         colors = {color for _, color in spans}

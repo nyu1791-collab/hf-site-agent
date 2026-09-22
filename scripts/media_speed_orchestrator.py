@@ -32,6 +32,14 @@ PROFILE_IDS = (
     "ESCALATE_TO_CHATGPT",
 )
 
+ROUTE_SHAPES = (
+    "SINGLE",
+    "PARALLEL_PAIR",
+    "SEQUENTIAL_PAIR",
+    "PARALLEL_TRIPLE",
+    "ESCALATE",
+)
+
 STAGES = (
     "admission_and_script_lock",
     "voice_and_measured_timing",
@@ -62,6 +70,13 @@ COMPONENT_TO_STAGES = {
         "machine_qa_and_visual_rereview",
     ],
     "voice_and_pronunciation": [
+        "voice_and_measured_timing",
+        "caption_overlay",
+        "scene_composition",
+        "one_pass_final_encode",
+        "machine_qa_and_visual_rereview",
+    ],
+    "measured_audio_timing": [
         "voice_and_measured_timing",
         "caption_overlay",
         "scene_composition",
@@ -137,6 +152,16 @@ def build_input_manifest(inputs: Mapping[str, Any]) -> dict[str, Any]:
     manifest: dict[str, Any] = {}
     for key in sorted(inputs):
         value = inputs[key]
+        if str(key) == "cache_root":
+            # The cache location identifies the proof namespace.  Hashing its
+            # mutable contents would invalidate the plan as soon as a proof is
+            # written; hash the configured location instead.
+            manifest[str(key)] = {
+                "kind": "cache_namespace",
+                "path": str(value),
+                "sha256": sha256_bytes(_canonical(str(value))),
+            }
+            continue
         if isinstance(value, (str, Path)) and (Path(value).exists() or str(value).startswith(("/", "."))):
             manifest[str(key)] = {
                 "kind": "path",
@@ -158,9 +183,14 @@ def _manifest_value(manifest: Mapping[str, Any], key: str) -> str:
     return str(value or "MISSING")
 
 
+def policy_fingerprint(policy: Mapping[str, Any]) -> str:
+    """A policy content change must invalidate every dependent stage."""
+    return sha256_bytes(_canonical(policy))
+
+
 def stage_fingerprints(manifest: Mapping[str, Any], policy: Mapping[str, Any]) -> dict[str, str]:
     """Build dependency-aware stage identities from the input manifest."""
-    p = str(policy.get("schema_version") or "")
+    p = policy_fingerprint(policy)
     common = {
         "policy": p,
         "mission": _manifest_value(manifest, "mission_or_script"),
@@ -172,24 +202,34 @@ def stage_fingerprints(manifest: Mapping[str, Any], policy: Mapping[str, Any]) -
         "character": _manifest_value(manifest, "character_shell_and_anchor"),
         "renderer": _manifest_value(manifest, "renderer_font_policy_or_output_contract"),
     }
+    # Link every stage to its true prerequisite.  A schema label alone is not
+    # sufficient: policy-content changes must invalidate existing cache rows.
+    fps: dict[str, str] = {}
+    fps["admission_and_script_lock"] = sha256_bytes(_canonical({
+        "policy": p, "mission": common["mission"], "source": common["source"],
+    }))
+    fps["voice_and_measured_timing"] = sha256_bytes(_canonical({
+        "policy": p, "admission": fps["admission_and_script_lock"],
+        "mission": common["mission"], "voice": common["voice"], "timing_contract": common["timing"],
+    }))
+    fps["rights_verified_visual_assets"] = sha256_bytes(_canonical({
+        "policy": p, "admission": fps["admission_and_script_lock"],
+        "source": common["source"], "visual_request": common["visual"],
+    }))
+    fps["character_shell_and_toolchain_prep"] = sha256_bytes(_canonical({
+        "policy": p, "admission": fps["admission_and_script_lock"],
+        "character_request": common["character"], "renderer": common["renderer"],
+    }))
+    fps["caption_overlay"] = sha256_bytes(_canonical({
+        "policy": p, "admission": fps["admission_and_script_lock"],
+        "voice": fps["voice_and_measured_timing"], "caption": common["caption"], "mission": common["mission"],
+    }))
     raw = {
-        "admission_and_script_lock": {"policy": p, "mission": common["mission"], "source": common["source"]},
-        "voice_and_measured_timing": {"admission": None, "mission": common["mission"], "voice": common["voice"], "timing": common["timing"]},
-        "rights_verified_visual_assets": {"admission": None, "source": common["source"], "visual": common["visual"]},
-        "character_shell_and_toolchain_prep": {"admission": None, "character": common["character"], "renderer": common["renderer"]},
-        "caption_overlay": {"admission": None, "voice": common["voice"], "timing": common["timing"], "caption": common["caption"], "mission": common["mission"]},
-        "scene_composition": {"assets": None, "character": None, "caption": None, "renderer": common["renderer"]},
-        "risk_triggered_visual_preview": {"scene": None, "caption": common["caption"], "visual": common["visual"]},
-        "one_pass_final_encode": {"voice": None, "scene": None, "output": common["renderer"]},
+        "scene_composition": {"policy": p, "assets": None, "character": None, "caption": None, "renderer": common["renderer"]},
+        "risk_triggered_visual_preview": {"policy": p, "scene": None, "caption": common["caption"], "visual": common["visual"]},
+        "one_pass_final_encode": {"policy": p, "voice": None, "scene": None, "output": common["renderer"]},
         "machine_qa_and_visual_rereview": {"final": None, "policy": p},
     }
-    # Dependency hashes are linked after leaf hashes are computed.  This makes
-    # a change in an upstream verified artifact invalidate only true dependents.
-    for stage in ("admission_and_script_lock", "voice_and_measured_timing", "rights_verified_visual_assets", "character_shell_and_toolchain_prep", "caption_overlay"):
-        raw[stage] = {k: v for k, v in raw[stage].items() if v is not None}
-    fps: dict[str, str] = {}
-    for stage in ("admission_and_script_lock", "voice_and_measured_timing", "rights_verified_visual_assets", "character_shell_and_toolchain_prep", "caption_overlay"):
-        fps[stage] = sha256_bytes(_canonical(raw[stage]))
     raw["scene_composition"].update({
         "assets": fps["rights_verified_visual_assets"],
         "character": fps["character_shell_and_toolchain_prep"],
@@ -208,19 +248,39 @@ def stage_fingerprints(manifest: Mapping[str, Any], policy: Mapping[str, Any]) -
     return fps
 
 
-def _previous_verified(previous: Mapping[str, Any], stage: str) -> bool:
+def _previous_verified(previous: Mapping[str, Any], stage: str, *, artifact_root: Path | None) -> bool:
     stages = previous.get("stages") if isinstance(previous, Mapping) else None
     row = stages.get(stage) if isinstance(stages, Mapping) else None
-    return isinstance(row, Mapping) and str(row.get("status")) in {"VERIFIED", "REUSED", "COMPLETE"}
+    if not isinstance(row, Mapping) or str(row.get("status")) not in {"VERIFIED", "REUSED", "COMPLETE"}:
+        return False
+    artifact = row.get("artifact")
+    if not isinstance(artifact, Mapping) or artifact_root is None:
+        return False
+    relative = artifact.get("path")
+    expected = str(artifact.get("sha256") or "")
+    if not isinstance(relative, str) or not expected:
+        return False
+    target = artifact_root / relative
+    return target.exists() and file_fingerprint(target) == expected
 
 
-def cache_reuse(stage_fps: Mapping[str, str], previous: Mapping[str, Any] | None) -> dict[str, str]:
+def cache_reuse(
+    stage_fps: Mapping[str, str],
+    previous: Mapping[str, Any] | None,
+    *,
+    invalidated: Sequence[str],
+    artifact_root: Path | None,
+) -> dict[str, str]:
     if not previous:
         return {stage: "RUN" for stage in STAGES}
     prior_fps = previous.get("stage_fingerprints") if isinstance(previous, Mapping) else {}
     prior_fps = prior_fps if isinstance(prior_fps, Mapping) else {}
     return {
-        stage: "REUSE" if _previous_verified(previous, stage) and str(prior_fps.get(stage)) == stage_fps[stage] else "RUN"
+        stage: "REUSE" if (
+            stage not in set(invalidated)
+            and _previous_verified(previous, stage, artifact_root=artifact_root)
+            and str(prior_fps.get(stage)) == stage_fps[stage]
+        ) else "RUN"
         for stage in STAGES
     }
 
@@ -269,7 +329,11 @@ def _safe_profile(profile: str, *, changed: Sequence[str], pending: Sequence[str
     return True
 
 
-def deterministic_profile(changed: Sequence[str], pending: Sequence[str], independent_lane_count: int) -> str:
+def deterministic_profile(
+    changed: Sequence[str], pending: Sequence[str], independent_lane_count: int, *, high_risk: bool = False
+) -> str:
+    if high_risk:
+        return "ESCALATE_TO_CHATGPT"
     if not pending:
         return "CACHE_INCREMENTAL"
     if "initial_run" in changed:
@@ -286,6 +350,7 @@ def _jev_profile_decision(
     api_key: str | None,
     decider: Callable[..., Mapping[str, Any]] | None,
     high_risk: bool,
+    shared_mutable_state: bool,
 ) -> dict[str, Any]:
     if decider is None:
         decider = decide_lean
@@ -297,7 +362,7 @@ def _jev_profile_decision(
             remaining_free_quota=999,
             lane="VISION_AND_MEDIA_UNDERSTANDING",
             allow_third=False,
-            shared_mutable_state=False,
+            shared_mutable_state=shared_mutable_state,
             high_risk=high_risk,
             api_key=api_key,
         )
@@ -315,18 +380,75 @@ def _jev_profile_decision(
     }
 
 
+def _valid_jev_media_decision(
+    info: Mapping[str, Any],
+    *,
+    policy: Mapping[str, Any],
+    changed: Sequence[str],
+    pending: Sequence[str],
+    independent_lane_count: int,
+) -> tuple[bool, str, str]:
+    """Accept only a complete successful typed Jev decision, never a guess."""
+    if str(info.get("status")) != "JEV_LEAN_DECISION_OK":
+        return False, "", ""
+    if int(info.get("question_count") or 0) != 2:
+        return False, "", ""
+    decision = info.get("decision")
+    if not isinstance(decision, Mapping):
+        return False, "", ""
+    workers = decision.get("workers")
+    if not isinstance(workers, Sequence) or isinstance(workers, (str, bytes)) or not workers:
+        return False, "", ""
+    profile = str(workers[0])
+    shape = str(decision.get("route_shape") or "")
+    try:
+        confidence = float(decision.get("confidence"))
+    except (TypeError, ValueError):
+        return False, "", ""
+    threshold = float((policy.get("decision_quality") or {}).get("minimum_confidence_for_autonomous_execute", 0.75))
+    accepted = (
+        profile in PROFILE_IDS
+        and shape in ROUTE_SHAPES
+        and str(decision.get("action") or "") == "EXECUTE"
+        and decision.get("low_confidence") is False
+        and confidence >= threshold
+        and _safe_profile(profile, changed=changed, pending=pending, independent_lane_count=independent_lane_count)
+    )
+    return accepted, profile, shape
+
+
+def _deterministic_shape(independent_lane_count: int, *, shared_mutable_state: bool) -> str:
+    if shared_mutable_state or independent_lane_count < 2:
+        return "SINGLE"
+    if independent_lane_count == 2:
+        return "PARALLEL_PAIR"
+    return "PARALLEL_TRIPLE"
+
+
+def _shape_lane_limit(shape: str, *, ceiling: int, shared_mutable_state: bool) -> int:
+    if shared_mutable_state or shape in {"SINGLE", "SEQUENTIAL_PAIR", "ESCALATE"}:
+        return 1
+    if shape == "PARALLEL_PAIR":
+        return min(2, ceiling)
+    if shape == "PARALLEL_TRIPLE":
+        return min(3, ceiling)
+    return 1
+
+
 def _parallel_waves(run_stages: Sequence[str], *, max_lanes: int) -> list[list[str]]:
     run = set(run_stages)
-    first = [
+    preparation = [
         stage for stage in (
             "voice_and_measured_timing",
             "rights_verified_visual_assets",
             "character_shell_and_toolchain_prep",
         ) if stage in run
-    ][:max_lanes]
+    ]
     waves: list[list[str]] = []
-    if first:
-        waves.append(first)
+    if "admission_and_script_lock" in run:
+        waves.append(["admission_and_script_lock"])
+    for offset in range(0, len(preparation), max_lanes):
+        waves.append(preparation[offset:offset + max_lanes])
     for stage in ("caption_overlay", "scene_composition", "risk_triggered_visual_preview", "one_pass_final_encode", "machine_qa_and_visual_rereview"):
         if stage in run:
             waves.append([stage])
@@ -342,6 +464,7 @@ def plan_media_run(
     api_key: str | None = None,
     jev_decider: Callable[..., Mapping[str, Any]] | None = None,
     high_risk: bool = False,
+    shared_mutable_state: bool = False,
 ) -> dict[str, Any]:
     policy = policy or load_policy()
     if policy.get("status") != "ENFORCED_PERMANENT_STANDARD":
@@ -350,15 +473,18 @@ def plan_media_run(
     fps = stage_fingerprints(manifest, policy)
     changed = changed_components(manifest, previous_plan)
     invalidated = invalidated_stages(changed, policy=policy)
-    reuse = cache_reuse(fps, previous_plan)
+    cache_value = inputs.get("cache_root")
+    artifact_root = Path(str(cache_value)) if isinstance(cache_value, (str, Path)) and str(cache_value) not in {"", "MISSING"} else None
+    reuse = cache_reuse(fps, previous_plan, invalidated=invalidated, artifact_root=artifact_root)
     pending = [stage for stage in STAGES if reuse[stage] == "RUN"]
     independent_count = sum(stage in pending for stage in (
         "voice_and_measured_timing",
         "rights_verified_visual_assets",
         "character_shell_and_toolchain_prep",
     ))
-    deterministic = deterministic_profile(changed, pending, independent_count)
+    deterministic = deterministic_profile(changed, pending, independent_count, high_risk=high_risk)
     profile = deterministic
+    execution_shape = _deterministic_shape(independent_count, shared_mutable_state=shared_mutable_state)
     jev_info: dict[str, Any] = {
         "status": "JEV_SKIPPED",
         "reason": "DISABLED_BY_CALLER" if not use_jev else "NO_AUTHORIZED_KEY_OR_PROFILE_DECISION",
@@ -384,47 +510,63 @@ def plan_media_run(
             api_key=api_key,
             decider=jev_decider,
             high_risk=high_risk,
+            shared_mutable_state=shared_mutable_state,
         )
-        decision = jev_info.get("decision") or {}
-        workers = decision.get("workers") if isinstance(decision, Mapping) else []
-        candidate = str(workers[0]) if workers else ""
-        confidence = float(decision.get("confidence") or 0.0) if isinstance(decision, Mapping) else 0.0
-        threshold = float((load_policy().get("decision_quality") or {}).get("minimum_confidence_for_autonomous_execute", 0.75))
-        if _safe_profile(candidate, changed=changed, pending=pending, independent_lane_count=independent_count) and confidence >= threshold and str(decision.get("action") or "EXECUTE") == "EXECUTE":
+        accepted, candidate, candidate_shape = _valid_jev_media_decision(
+        jev_info,
+            policy=policy,
+            changed=changed,
+            pending=pending,
+            independent_lane_count=independent_count,
+        )
+        if accepted:
             profile = candidate
+            execution_shape = candidate_shape
             jev_info["admission"] = "ACCEPTED_TYPED_PROFILE"
         else:
             jev_info["admission"] = "REJECTED_BY_DETERMINISTIC_MEDIA_GUARD"
-            if high_risk and candidate == "ESCALATE_TO_CHATGPT":
+            if high_risk:
                 profile = "ESCALATE_TO_CHATGPT"
+                execution_shape = "ESCALATE"
     if profile == "ESCALATE_TO_CHATGPT" and not high_risk:
         profile = deterministic
         jev_info["escalation_resolution"] = "LOW_RISK_DETERMINISTIC_PROFILE"
 
-    max_lanes = int((policy.get("execution_graph") or {}).get("max_independent_preparation_lanes") or 3)
-    if not 1 <= max_lanes <= 3:
-        raise MediaSpeedPlanError("parallel_lane_ceiling_out_of_bounds")
-    run_stages = [stage for stage in STAGES if reuse[stage] == "RUN"]
-    waves = _parallel_waves(run_stages, max_lanes=max_lanes)
-    stage_rows = {
-        stage: {
-            "fingerprint": fps[stage],
-            "status": "REUSED" if reuse[stage] == "REUSE" else "PENDING",
-            "invalidated": stage in invalidated,
-        }
-        for stage in STAGES
-    }
     if profile == "CACHE_INCREMENTAL" and pending:
         # A typed profile cannot suppress a deterministic invalidation.
         profile = deterministic
         jev_info["admission"] = "CACHE_PROFILE_REJECTED_PENDING_STAGES_REMAIN"
+
+    max_lanes = int((policy.get("execution_graph") or {}).get("max_independent_preparation_lanes") or 3)
+    if not 1 <= max_lanes <= 3:
+        raise MediaSpeedPlanError("parallel_lane_ceiling_out_of_bounds")
+    planned_max_lanes = _shape_lane_limit(
+        execution_shape,
+        ceiling=max_lanes,
+        shared_mutable_state=shared_mutable_state,
+    )
+    execution_blocked = profile == "ESCALATE_TO_CHATGPT"
+    run_stages = [] if execution_blocked else [stage for stage in STAGES if reuse[stage] == "RUN"]
+    waves = [] if execution_blocked else _parallel_waves(run_stages, max_lanes=planned_max_lanes)
+    stage_rows = {
+        stage: {
+            "fingerprint": fps[stage],
+            "status": "BLOCKED" if execution_blocked else ("REUSED" if reuse[stage] == "REUSE" else "PENDING"),
+            "invalidated": stage in invalidated,
+            "artifact": ((previous_plan.get("stages") or {}).get(stage) or {}).get("artifact") if reuse[stage] == "REUSE" and isinstance(previous_plan, Mapping) else None,
+        }
+        for stage in STAGES
+    }
     return {
         "schema_version": "media-speed-plan-v1",
-        "status": "READY" if profile != "ESCALATE_TO_CHATGPT" else "CHATGPT_ADJUDICATION_REQUIRED",
+        "status": "READY" if not execution_blocked else "CHATGPT_ADJUDICATION_REQUIRED",
+        "execution_blocked": execution_blocked,
         "policy": str(policy.get("schema_version")),
         "target_wall_clock_minutes": list(policy.get("target_wall_clock_minutes") or [10, 15]),
         "historical_local_baseline_minutes": int(policy.get("historical_local_baseline_minutes") or 40),
         "input_manifest": manifest,
+        "input_manifest_fingerprint": sha256_bytes(_canonical(manifest)),
+        "policy_fingerprint": policy_fingerprint(policy),
         "changed_components": changed,
         "invalidated_stages": invalidated,
         "stage_fingerprints": fps,
@@ -435,22 +577,26 @@ def plan_media_run(
         "parallel_waves": waves,
         "parallelism": {
             "max_independent_lanes": max_lanes,
+            "planned_parallel_lanes": planned_max_lanes,
             "observed_wave_widths": [len(wave) for wave in waves],
             "independent_preparation_lanes": independent_count,
+            "shared_mutable_state": shared_mutable_state,
             "shared_mutable_state_forces_sequential": True,
         },
+        "execution_shape": execution_shape,
         "final_encode": {
-            "mode": "ONE_PASS_FINAL_ENCODE",
-            "count": 1,
+            "mode": "BLOCKED" if execution_blocked else ("REUSED_FINAL" if reuse["one_pass_final_encode"] == "REUSE" else "ONE_PASS_FINAL_ENCODE"),
+            "count": 0 if execution_blocked or reuse["one_pass_final_encode"] == "REUSE" else 1,
             "scene_video_intermediate_encodes": 0,
         },
         "preview": {
-            "required": bool(any(stage in invalidated for stage in ("caption_overlay", "scene_composition", "risk_triggered_visual_preview"))),
+            "required": bool(not execution_blocked and any(stage in run_stages for stage in ("caption_overlay", "scene_composition", "risk_triggered_visual_preview"))),
             "risk_triggered": True,
             "failure_blocks_encode": True,
         },
         "cache": {
             "exact_manifest_match_required": True,
+            "verified_artifact_proof_required": True,
             "stage_cache_hit_ratio": round(sum(row["status"] == "REUSED" for row in stage_rows.values()) / len(STAGES), 6),
             "full_rerender_avoided": bool(previous_plan and pending and len(pending) < len(STAGES)),
         },
@@ -485,6 +631,10 @@ def main() -> int:
     parser.add_argument("--static-inventory")
     parser.add_argument("--source-claim-lock")
     parser.add_argument("--cache-root")
+    parser.add_argument("--voice-contract")
+    parser.add_argument("--asset-request")
+    parser.add_argument("--character-request")
+    parser.add_argument("--shared-mutable-state", action="store_true")
     parser.add_argument("--previous-plan")
     parser.add_argument("--plan-out", required=True)
     parser.add_argument("--use-jev", action="store_true")
@@ -494,16 +644,23 @@ def main() -> int:
     inputs = {
         "mission_or_script": args.mission,
         "source_claim_lock": args.source_claim_lock or "MISSING",
-        "voice_and_pronunciation": {"mission": args.mission, "engine": "VOICEVOX_LOCAL", "speed_scale": "1.20"},
-        "measured_audio_timing": args.timing or "MISSING",
-        "caption_and_font": {"timing": args.timing or "MISSING", "caption_contract": "FULL_SPOKEN_TEXT"},
-        "rights_verified_visual_assets": args.asset_manifest or "MISSING",
-        "character_shell_and_anchor": args.static_inventory or "MISSING",
-        "renderer_font_policy_or_output_contract": {"renderer": "static-speaker-color-longform-v1", "output": "1080x1920-h264-yuv420p-aac48k"},
+        "voice_and_pronunciation": args.voice_contract or {"mission": args.mission, "engine": "VOICEVOX_LOCAL", "speed_scale": "1.20"},
+        "measured_audio_timing": {"producer": "VOICEVOX_FFPROBE", "contract": "MEASURED_AUDIO_TIMING_V1"},
+        "caption_and_font": {"caption_contract": "FULL_SPOKEN_TEXT", "renderer_hash": file_fingerprint(ROOT / "scripts/render_static_speaker_color_longform.py")},
+        "rights_verified_visual_assets": args.asset_request or {"manifest": args.asset_manifest or "MISSING"},
+        "character_shell_and_anchor": args.character_request or {"inventory": args.static_inventory or "MISSING"},
+        "renderer_font_policy_or_output_contract": {"renderer_hash": file_fingerprint(ROOT / "scripts/render_static_speaker_color_longform.py"), "output": "1080x1920-h264-yuv420p-aac48k"},
         "cache_root": args.cache_root or "MISSING",
     }
     previous = _load_json(args.previous_plan)
-    plan = plan_media_run(inputs, previous_plan=previous, use_jev=args.use_jev, high_risk=args.high_risk, api_key=os.environ.get("OPENROUTER_API_KEY"))
+    plan = plan_media_run(
+        inputs,
+        previous_plan=previous,
+        use_jev=args.use_jev,
+        high_risk=args.high_risk,
+        shared_mutable_state=args.shared_mutable_state,
+        api_key=os.environ.get("OPENROUTER_API_KEY"),
+    )
     output = Path(args.plan_out)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

@@ -73,15 +73,16 @@ def caption_text_for_line(mission: dict, line: dict) -> tuple[str, str]:
     mode = str(line.get("caption_text_mode") or mission.get("caption_text_mode") or "VOICE_TEXT_FULL")
     voice_text = str(line.get("voice_text") or "").strip()
     explicit_full = str(line.get("full_caption_text") or "").strip()
-    reviewed_caption = str(line.get("caption_text") or "").strip()
-    if mode == "FULL_SPOKEN_TEXT":
-        value = explicit_full or reviewed_caption or voice_text
-        source = "EXPLICIT_FULL_SPOKEN_TEXT" if (explicit_full or reviewed_caption) else "VOICE_TEXT_FALLBACK"
-    else:
-        value = explicit_full or voice_text
-        source = "FULL_CAPTION_TEXT" if explicit_full else "VOICE_TEXT"
-    if not value:
+    if not voice_text:
         raise SystemExit(f"full spoken caption is missing for line {line.get('id')}")
+    # The displayed caption must carry every spoken turn.  A separately
+    # reviewed value is permitted only when it is the same spoken text before
+    # approved presentation-only spelling substitutions are applied.
+    candidate = explicit_full if mode == "FULL_SPOKEN_TEXT" and explicit_full else voice_text
+    if normalized_caption_text(candidate) != normalized_caption_text(voice_text):
+        raise SystemExit(f"full spoken caption diverges from narration for line {line.get('id')}")
+    value = candidate
+    source = "EXPLICIT_FULL_SPOKEN_TEXT" if candidate != voice_text else "VOICE_TEXT"
 
     # Keep official Latin spellings in captions even when the narration uses
     # a Japanese pronunciation.  This mapping is intentionally presentation
@@ -94,8 +95,12 @@ def caption_text_for_line(mission: dict, line: dict) -> tuple[str, str]:
     return value, source
 
 
+def normalized_caption_text(value: str) -> str:
+    return "".join(char for char in value if not char.isspace() and char not in "、。！？：；,.!?()（）[]【】「」『』\"'")
+
+
 def normalized_caption_length(value: str) -> int:
-    return sum(1 for char in value if not char.isspace() and char not in "、。！？：；,.!?()（）[]【】「」『』\"'")
+    return len(normalized_caption_text(value))
 
 
 def deterministic_emphasis_terms(line: dict, caption: str) -> list[str]:
@@ -145,14 +150,7 @@ def main():
             raw.unlink(missing_ok=True)
             d=duration(final)
             caption_text, caption_source = caption_text_for_line(mission, line)
-            voice_len = normalized_caption_length(str(line.get("voice_text") or ""))
-            caption_len = normalized_caption_length(caption_text)
-            coverage = 1.0 if voice_len == 0 else min(1.0, caption_len / voice_len)
-            if coverage < 0.70:
-                raise SystemExit(
-                    f"caption appears to be a summary rather than full speech for {lid}: "
-                    f"coverage={coverage:.3f}"
-                )
+            coverage = 1.0
             is_last=idx==len(scene["dialogue"])-1
             pause=0.34 if is_last else 0.12
             records.append({

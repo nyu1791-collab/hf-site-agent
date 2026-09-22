@@ -309,6 +309,8 @@ def compose_turn(line: dict, scene: dict, timing_record: dict, portraits: dict, 
             yy += max(1, box[3] - box[1]) + 12
 
     speaker = line["speaker"]
+    if speaker not in {"ずんだもん", "四国めたん"}:
+        raise RuntimeError(f"speaker is outside the approved local cast: {speaker}")
     accent = ZUNDAMON_ACCENT if speaker == "ずんだもん" else METAN_ACCENT
 
     heading = topic_heading(line, scene)

@@ -65,6 +65,7 @@ on:
       - 'scripts/validate_media_command_read_gate.py'
       - 'scripts/media_speed_orchestrator.py'
       - 'scripts/validate_media_speed_quality.py'
+      - 'scripts/seal_media_speed_checkpoint.py'
       - 'scripts/validate_semantic_recall_and_commerce_precision.py'
       - 'scripts/validate_media_character_visual_standard.py'
       - 'scripts/validate_evidence_visual_static_character_standard.py'
@@ -123,6 +124,7 @@ on:
       - 'tests/test_jev_decision_engine.py'
       - 'tests/test_jev_routing_coordinator.py'
       - 'tests/test_media_speed_orchestrator.py'
+      - 'tests/test_seal_media_speed_checkpoint.py'
       - 'tests/test_final_execution_admission_guard.py'
       - 'tests/test_multi_agent_execution_schedule.py'
       - 'tests/test_jev_lean_router.py'
@@ -196,6 +198,7 @@ jobs:
             scripts/validate_media_command_read_gate.py \
             scripts/media_speed_orchestrator.py \
             scripts/validate_media_speed_quality.py \
+            scripts/seal_media_speed_checkpoint.py \
             scripts/validate_semantic_recall_and_commerce_precision.py \
             scripts/validate_media_character_visual_standard.py \
             scripts/validate_evidence_visual_static_character_standard.py \
@@ -313,7 +316,7 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_media_speed_quality.py
-          python -m unittest tests.test_media_speed_orchestrator
+          python -m unittest tests.test_media_speed_orchestrator tests.test_seal_media_speed_checkpoint
 
       - name: Enforce semantic recall and commerce clipping precision
         run: |

@@ -22,6 +22,7 @@
     "verified_correctness_precedes_wall_clock": true,
     "rights_and_claim_gates_never_relaxed": true,
     "full_spoken_caption_contract_never_relaxed": true,
+    "caption_coverage_ratio_must_equal": 1.0,
     "voicevox_local_cast_never_relaxed": true,
     "machine_qa_and_representative_visual_rereview_never_relaxed": true,
     "paid_or_freemium_media_generation": false,
@@ -39,6 +40,8 @@
     "parallel_wave_requires_admission_pass": true,
     "dependency_join_required": true,
     "shared_mutable_state_forces_sequential_execution": true,
+    "independent_parallel_lanes_use_separate_cache_namespaces": true,
+    "chatgpt_escalation_blocks_all_execution_waves": true,
     "retry_smallest_failed_stage_and_true_dependents_only": true,
     "unrelated_successful_stage_must_not_be_rebuilt": true
   },
@@ -77,6 +80,8 @@
   "cache_and_checkpoint": {
     "cache_is_accelerator_not_durable_truth": true,
     "verified_checkpoint_is_required_for_reuse": true,
+    "verified_artifact_hash_and_path_required_for_reuse": true,
+    "policy_content_hash_required_for_reuse": true,
     "content_addressed_stage_outputs": true,
     "input_manifest_keyed": true,
     "manifest_fields": [
@@ -94,6 +99,7 @@
     ],
     "reuse_requires_exact_manifest_match": true,
     "stale_policy_or_expired_rights_evidence_invalidates_reuse": true,
+    "expired_rights_evidence_action": "BLOCK_REUSE_AND_REVERIFY",
     "partial_artifact_is_never_verified": true,
     "full_pipeline_rerender_requires_recorded_dependency_justification": true,
     "invalidation_rules": {
@@ -191,6 +197,11 @@
     "last_known_good": "typesafe/jev-1.13",
     "no_other_paid_model_fallback": true,
     "auto_top_up": false
+  },
+  "decision_quality": {
+    "minimum_confidence_for_autonomous_execute": 0.75,
+    "typed_result_must_have_success_status_action_shape_and_low_confidence_false": true,
+    "high_risk_or_malformed_result_action": "ESCALATE_TO_CHATGPT_AND_BLOCK_EXECUTION"
   },
   "metrics_contract": {
     "record": [
