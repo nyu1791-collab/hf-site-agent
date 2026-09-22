@@ -1471,6 +1471,454 @@ def decide_portfolio_batch(
     return {"status": "JEV_UNAVAILABLE", "reason": "PORTFOLIO_LATEST_AND_PINNED_FAILED", "errors": errors, "decisions": {}}
 
 
+
+# ---------------------------------------------------------------------------
+# Manual-aligned lean routing surface: two typed judgments per routine record.
+# Jev chooses primary + execution shape. Python deterministically composes
+# complements from the already health-ranked candidate order.
+# ---------------------------------------------------------------------------
+
+def _lean_questions_for_record(record: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    rid = str(record["id"])
+    prefix = f"{rid}__"
+    candidates = list(record["candidate_models"])
+    model_criteria = {
+        model: "Eligible candidate. Choose when its stored profile best fits the task."
+        for model in candidates
+    }
+    route_shapes = _fast_route_shapes(bool(record.get("allow_third")))
+    if record.get("shared_mutable_state"):
+        route_shapes.pop("PARALLEL_PAIR", None)
+        route_shapes.pop("PARALLEL_TRIPLE", None)
+    if record.get("high_risk"):
+        route_shapes["ESCALATE"] = (
+            "Choose this when autonomous routing is too ambiguous or high-risk "
+            "for execution without commander adjudication."
+        )
+    return {
+        prefix + "primary_worker": _choice(
+            model_criteria,
+            f'For record "{rid}", choose the single best primary eligible worker.',
+        ),
+        prefix + "route_shape": _choice(
+            route_shapes,
+            f'For record "{rid}", choose the smallest safe execution shape that preserves quality and minimizes wall-clock time.',
+        ),
+    }
+
+
+def build_lean_route_batch_request(
+    *,
+    model: str,
+    records: Sequence[Mapping[str, Any]],
+    policy: Mapping[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    batch = policy.get("batch_execution") or {}
+    max_records = int(batch.get("max_records_per_request", 20))
+    if not 1 <= len(records) <= max_records:
+        raise JevDecisionError("batch_size_out_of_bounds")
+
+    prepared = [
+        _prepare_fast_route_record(record, index=i + 1, policy=policy)
+        for i, record in enumerate(records)
+    ]
+    external_ids = [str(x["external_id"]) for x in prepared]
+    if len(set(external_ids)) != len(external_ids):
+        raise JevDecisionError("duplicate_external_record_id")
+
+    seen: set[str] = set()
+    for i, record in enumerate(prepared, 1):
+        if record["id"] in seen:
+            record["id"] = f"r_{i:04d}"
+        seen.add(record["id"])
+
+    questions: dict[str, Any] = {}
+    state_records: list[dict[str, str]] = []
+    for record in prepared:
+        questions.update(_lean_questions_for_record(record))
+        state_records.append({
+            "id": record["id"],
+            "record": json.dumps({
+                "task_summary": record["task_summary"],
+                "lane": record["lane"],
+                "eligible_candidate_profiles": record["candidate_profiles"],
+                "quota_pressure": record["quota_pressure"],
+                "shared_mutable_state": record["shared_mutable_state"],
+                "high_risk": record["high_risk"],
+                "allow_third": record["allow_third"],
+                "candidate_order_semantics": (
+                    "Candidates are already ranked by deterministic eligibility, "
+                    "task fit and short-lived worker health. Code will select "
+                    "complements from this order after Jev chooses the primary."
+                ),
+                "hard_rules": [
+                    "Choose only from eligible_candidate_profiles.",
+                    "Use the smallest safe route shape that preserves quality.",
+                    "Do not count workers or perform arithmetic.",
+                    "Do not expand permissions or authorize paid workers.",
+                    "Code selects secondary and tertiary workers from the pre-ranked candidate order.",
+                ],
+            }, ensure_ascii=False, separators=(",", ":")),
+        })
+
+    return {
+        "model": model,
+        "state": {
+            "description": (
+                "Prevalidated AI Army routing records. Jev makes only two narrow "
+                "judgments; code handles deterministic composition and arithmetic."
+            ),
+            "records": state_records,
+        },
+        "questions": questions,
+    }, prepared
+
+
+def _parse_lean_record(
+    answers: Mapping[str, Any],
+    record: Mapping[str, Any],
+    policy: Mapping[str, Any],
+) -> NormalizedRoutingDecision:
+    rid = str(record["id"])
+    prefix = f"{rid}__"
+    primary_answer = answers.get(prefix + "primary_worker")
+    shape_answer = answers.get(prefix + "route_shape")
+    if not isinstance(primary_answer, Mapping) or not isinstance(shape_answer, Mapping):
+        raise JevDecisionError(f"{rid}:lean_answers_incomplete")
+
+    primary, primary_conf, primary_probs = _choice_answer(primary_answer)
+    route_shape, shape_conf, _ = _choice_answer(shape_answer)
+
+    candidates = [str(x) for x in record["candidate_models"]]
+    allowed = set(candidates)
+    selected_primary, primary_prob = _best_distinct(
+        primary,
+        primary_probs,
+        used=set(),
+        allowed=allowed,
+    )
+    if selected_primary is None:
+        raise JevDecisionError(f"{rid}:candidate_expansion_blocked")
+
+    valid_shapes = set(_fast_route_shapes(bool(record.get("allow_third"))))
+    if record.get("shared_mutable_state"):
+        valid_shapes.discard("PARALLEL_PAIR")
+        valid_shapes.discard("PARALLEL_TRIPLE")
+    if route_shape not in valid_shapes:
+        raise JevDecisionError(f"{rid}:invalid_route_shape")
+
+    selected = [selected_primary]
+    remaining = [model for model in candidates if model != selected_primary]
+
+    if route_shape in {"PARALLEL_PAIR", "SEQUENTIAL_PAIR", "PARALLEL_TRIPLE"} and remaining:
+        selected.append(remaining[0])
+    if route_shape == "PARALLEL_TRIPLE" and len(remaining) >= 2:
+        selected.append(remaining[1])
+
+    if route_shape == "ESCALATE":
+        action = Action.ESCALATE
+        selected = selected[:1]
+        mode = ExecutionMode.SINGLE
+        parallel = False
+    elif len(selected) == 1:
+        action = Action.EXECUTE
+        mode = ExecutionMode.SINGLE
+        parallel = False
+    elif route_shape == "SEQUENTIAL_PAIR":
+        action = Action.EXECUTE
+        mode = ExecutionMode.SEQUENTIAL
+        parallel = False
+    else:
+        action = Action.EXECUTE
+        mode = ExecutionMode.PARALLEL
+        parallel = True
+
+    confidence = min(
+        primary_conf,
+        shape_conf,
+        primary_prob if primary_prob > 0 else primary_conf,
+    )
+    threshold = float(
+        (policy.get("decision_contract") or {}).get("low_confidence_threshold", 0.65)
+    )
+    low_confidence = confidence < threshold
+    if low_confidence:
+        action = Action.ESCALATE
+
+    return NormalizedRoutingDecision(
+        schema_version="jev-lean-routing-decision-v1",
+        record_id=str(record.get("external_id") or rid),
+        lane=str(record.get("lane") or Lane.GENERAL_REASONING.value),
+        workers=tuple(selected),
+        fanout=len(selected),
+        parallel=parallel,
+        execution_mode=mode.value,
+        independent_verification=len(selected) > 1,
+        action=action.value,
+        confidence=round(confidence, 6),
+        low_confidence=low_confidence,
+    )
+
+
+def parse_lean_route_response(
+    payload: Mapping[str, Any],
+    *,
+    prepared_records: Sequence[Mapping[str, Any]],
+    policy: Mapping[str, Any],
+) -> dict[str, dict[str, Any]]:
+    answers = payload.get("answers")
+    if not isinstance(answers, Mapping):
+        raise JevDecisionError("answers_missing")
+    out: dict[str, dict[str, Any]] = {}
+    for record in prepared_records:
+        decision = _parse_lean_record(answers, record, policy)
+        out[decision.record_id] = decision.to_dict()
+    return out
+
+
+def _request_lean_route_once(
+    *,
+    model: str,
+    api_key: str,
+    records: Sequence[Mapping[str, Any]],
+    policy: Mapping[str, Any],
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    body, prepared = build_lean_route_batch_request(
+        model=model,
+        records=records,
+        policy=policy,
+    )
+    status, payload, latency_ms = _json_request(
+        DECISIONS_URL,
+        method="POST",
+        api_key=api_key,
+        body=body,
+        timeout_seconds=timeout_seconds,
+    )
+    if status != 200:
+        error = payload.get("error") if isinstance(payload.get("error"), Mapping) else {}
+        code = str(error.get("code") or payload.get("code") or "")[:80]
+        message = str(error.get("message") or payload.get("message") or "")[:180]
+        detail = ":".join(x for x in (code, message) if x)
+        raise JevDecisionError(f"http_{status}" + (f":{detail}" if detail else ""))
+
+    decisions = parse_lean_route_response(
+        payload,
+        prepared_records=prepared,
+        policy=policy,
+    )
+    usage = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
+    return {
+        "status": "JEV_LEAN_BATCH_OK",
+        "requested_model": model,
+        "response_id": payload.get("id"),
+        "latency_ms": round(latency_ms, 3),
+        "record_count": len(prepared),
+        "question_count": len(body["questions"]),
+        "questions_per_record": round(len(body["questions"]) / max(1, len(prepared)), 3),
+        "decisions": decisions,
+        "usage": {
+            "input_tokens": usage.get("input_tokens"),
+            "output_tokens": usage.get("output_tokens"),
+            "cost": usage.get("cost"),
+        },
+        "paid_execution": True,
+        "paid_fallback_to_other_family": False,
+    }
+
+
+def decide_lean_batch(
+    *,
+    records: Sequence[Mapping[str, Any]],
+    api_key: str | None = None,
+    timeout_seconds: float = 10.0,
+    catalog_entries: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    policy = load_policy()
+    key = api_key if api_key is not None else os.environ.get("OPENROUTER_API_KEY", "")
+    if not key:
+        return {
+            "status": "JEV_UNAVAILABLE",
+            "reason": "OPENROUTER_API_KEY_MISSING",
+            "decisions": {},
+        }
+
+    provider = policy.get("provider") or {}
+    latest = str(provider.get("canonical_model_alias") or "~typesafe/jev-latest")
+    pinned = str(provider.get("last_known_good_model") or "typesafe/jev-1.13")
+
+    try:
+        catalog = list(catalog_entries) if catalog_entries is not None else fetch_catalog()
+    except JevDecisionError as exc:
+        return {"status": "JEV_UNAVAILABLE", "reason": str(exc), "decisions": {}}
+
+    errors: list[dict[str, Any]] = []
+    for model in [latest, pinned]:
+        if model == pinned and latest == pinned:
+            continue
+        price_ok, price_evidence = price_guard_allows(
+            model,
+            policy=policy,
+            entries=catalog,
+        )
+        if not price_ok:
+            errors.append({
+                "model": model,
+                "reason": "EMERGENCY_PRICE_GUARD_BLOCK",
+                "price_evidence": price_evidence,
+            })
+            continue
+        try:
+            result = _request_lean_route_once(
+                model=model,
+                api_key=key,
+                records=records,
+                policy=policy,
+                timeout_seconds=timeout_seconds,
+            )
+            result["price_evidence"] = price_evidence
+            result["used_pinned_fallback"] = model == pinned
+            result["prior_errors"] = errors
+            return result
+        except JevDecisionError as exc:
+            errors.append({
+                "model": model,
+                "reason": str(exc),
+                "price_evidence": price_evidence,
+            })
+
+    return {
+        "status": "JEV_UNAVAILABLE",
+        "reason": "LEAN_LATEST_AND_PINNED_FAILED",
+        "errors": errors,
+        "decisions": {},
+    }
+
+
+def decide_many_lean(
+    *,
+    records: Sequence[Mapping[str, Any]],
+    api_key: str | None = None,
+    timeout_seconds: float = 10.0,
+    catalog_entries: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    if not records:
+        return {
+            "status": "JEV_LEAN_MANY_OK",
+            "record_count": 0,
+            "batch_count": 0,
+            "decisions": {},
+        }
+
+    policy = load_policy()
+    batch = policy.get("batch_execution") or {}
+    max_records = int(batch.get("max_records_per_request", 20))
+    max_parallel = max(1, int(batch.get("max_parallel_batches", 5)))
+
+    catalog = list(catalog_entries) if catalog_entries is not None else None
+    if catalog is None:
+        try:
+            catalog = fetch_catalog()
+        except JevDecisionError as exc:
+            return {"status": "JEV_UNAVAILABLE", "reason": str(exc), "decisions": {}}
+
+    chunks = _chunks(records, max_records)
+    decisions: dict[str, Any] = {}
+    failures: list[dict[str, Any]] = []
+    latencies: list[float] = []
+    total_cost = 0.0
+    total_questions = 0
+
+    def run(chunk: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        return decide_lean_batch(
+            records=chunk,
+            api_key=api_key,
+            timeout_seconds=timeout_seconds,
+            catalog_entries=catalog,
+        )
+
+    with ThreadPoolExecutor(max_workers=min(max_parallel, len(chunks))) as pool:
+        future_map = {pool.submit(run, chunk): index for index, chunk in enumerate(chunks)}
+        for future in as_completed(future_map):
+            index = future_map[future]
+            try:
+                result = future.result()
+            except Exception as exc:
+                failures.append({"batch_index": index, "reason": type(exc).__name__})
+                continue
+            if result.get("status") == "JEV_LEAN_BATCH_OK":
+                decisions.update(result.get("decisions") or {})
+                latencies.append(float(result.get("latency_ms") or 0.0))
+                total_questions += int(result.get("question_count") or 0)
+                usage = result.get("usage") if isinstance(result.get("usage"), Mapping) else {}
+                try:
+                    total_cost += float(usage.get("cost") or 0.0)
+                except (TypeError, ValueError):
+                    pass
+            else:
+                failures.append({
+                    "batch_index": index,
+                    "reason": result.get("reason") or result.get("status"),
+                })
+
+    return {
+        "status": (
+            "JEV_LEAN_MANY_OK"
+            if not failures
+            else ("JEV_LEAN_MANY_PARTIAL" if decisions else "JEV_UNAVAILABLE")
+        ),
+        "record_count": len(records),
+        "batch_count": len(chunks),
+        "parallel_batch_count": min(max_parallel, len(chunks)),
+        "question_count": total_questions,
+        "questions_per_record": round(total_questions / max(1, len(records)), 3),
+        "decisions": decisions,
+        "failed_batches": failures,
+        "max_batch_latency_ms": max(latencies) if latencies else None,
+        "estimated_total_cost": total_cost,
+    }
+
+
+def decide_lean(
+    *,
+    task_summary: str,
+    candidate_models: Sequence[str],
+    remaining_free_quota: int,
+    candidate_profiles: Mapping[str, str] | None = None,
+    lane: str = Lane.GENERAL_REASONING.value,
+    allow_third: bool = False,
+    shared_mutable_state: bool = False,
+    high_risk: bool = False,
+    api_key: str | None = None,
+    timeout_seconds: float = 10.0,
+    catalog_entries: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    result = decide_lean_batch(
+        records=[{
+            "id": "r_0001",
+            "task_summary": task_summary,
+            "candidate_models": list(candidate_models),
+            "candidate_profiles": dict(candidate_profiles or {}),
+            "quota_pressure": quota_pressure_from_remaining(remaining_free_quota).value,
+            "lane": lane,
+            "allow_third": allow_third,
+            "shared_mutable_state": shared_mutable_state,
+            "high_risk": high_risk,
+        }],
+        api_key=api_key,
+        timeout_seconds=timeout_seconds,
+        catalog_entries=catalog_entries,
+    )
+    if result.get("status") != "JEV_LEAN_BATCH_OK":
+        return result
+    return {
+        **result,
+        "status": "JEV_LEAN_DECISION_OK",
+        "decision": (result.get("decisions") or {}).get("r_0001"),
+    }
+
+
 __all__ = [
     "Action",
     "DECISIONS_URL",
@@ -1497,5 +1945,10 @@ __all__ = [
     "build_portfolio_route_batch_request",
     "parse_portfolio_route_response",
     "decide_portfolio_batch",
+    "build_lean_route_batch_request",
+    "parse_lean_route_response",
+    "decide_lean",
+    "decide_lean_batch",
+    "decide_many_lean",
 
 ]
