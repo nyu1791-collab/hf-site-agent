@@ -31,7 +31,7 @@ if __package__ in {None, ""}:  # pragma: no cover - direct script entrypoint
 from scripts.benchmark_free_workers import run_benchmarks
 from scripts.continuous_project_loop import AUTO_NEXT_SAFE, PROJECT_BOUNDARY, run_continuous_project_loop
 from scripts.openrouter_worker_mission import build_mission_packet
-from scripts.jev_decision_engine import decide_fast as jev_decide
+from scripts.jev_decision_engine import decide_lean as jev_decide
 from scripts.probe_free_workers_multi import run_multi_probe
 
 SCHEMA_VERSION = "openrouter-worker-orchestrator-v5"
@@ -295,7 +295,7 @@ def run_pipeline(
                     "Choose the most efficient 1-3 exact-free specialist models for the current OpenRouter worker project. "
                     "Use parallel execution only for independent work and prefer the smallest team that maximizes quality and wall-clock efficiency."
                 ),
-                candidate_models=unique_models[:12],
+                candidate_models=unique_models[:4],
                 candidate_profiles=profiles,
                 remaining_free_quota=max(1, 900 - int(probe.get("model_calls", 0) or 0) - int(benchmark.get("model_calls", 0) or 0)),
                 lane="GENERAL_REASONING",
@@ -305,7 +305,7 @@ def run_pipeline(
                 api_key=api_key,
             )
             report["jev_fast_decision"] = jev_result
-            if jev_result.get("status") == "JEV_FAST_DECISION_OK":
+            if jev_result.get("status") == "JEV_LEAN_DECISION_OK":
                 decision = jev_result.get("decision") if isinstance(jev_result.get("decision"), Mapping) else {}
                 handoff["fast_lane_recommendation"] = {
                     "selected_models": list(decision.get("workers") or []),
