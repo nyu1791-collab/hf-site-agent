@@ -2,6 +2,14 @@ name: "Jev routing benchmark"
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - 'missions/jev-one-question/**'
+      - 'scripts/jev_shape_router.py'
+      - 'scripts/jev_one_question_benchmark.py'
+      - '.github/workflows/jev-routing-benchmark.yml'
 
 permissions:
   contents: read
@@ -23,7 +31,7 @@ jobs:
 
       - name: Compile Jev benchmark
         run: |
-          python -m py_compile scripts/jev_decision_engine.py scripts/jev_lean_router.py scripts/jev_route_ab_benchmark.py scripts/jev_cardinality_benchmark.py scripts/jev_lean_route_benchmark.py scripts/jev_lean_portfolio_benchmark.py
+          python -m py_compile scripts/jev_decision_engine.py scripts/jev_lean_router.py scripts/jev_primary_router.py scripts/jev_shape_router.py scripts/jev_route_ab_benchmark.py scripts/jev_cardinality_benchmark.py scripts/jev_lean_route_benchmark.py scripts/jev_lean_portfolio_benchmark.py scripts/jev_one_question_benchmark.py
 
       - name: Run 9-vs-3-vs-1 Jev routing benchmark
         if: ${{ hashFiles('missions/jev-benchmark/active.json') != '' }}
@@ -86,6 +94,22 @@ jobs:
         with:
           name: jev-route-ab-${{ github.run_id }}
           path: artifacts/jev_route_ab_benchmark.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Run Jev 2q-vs-primary1q-vs-shape1q benchmark
+        if: ${{ hashFiles('missions/jev-one-question/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python -m scripts.jev_one_question_benchmark --output artifacts/jev_one_question_benchmark.json
+
+      - name: Upload Jev one-question benchmark evidence
+        if: ${{ always() && hashFiles('missions/jev-one-question/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-one-question-${{ github.run_id }}
+          path: artifacts/jev_one_question_benchmark.json
           if-no-files-found: error
           retention-days: 7
 
