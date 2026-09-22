@@ -162,6 +162,11 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
+      - name: Install deterministic media test dependency
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input pillow
+
       - name: Compile canonical routing and validation code
         run: |
           set -euo pipefail
