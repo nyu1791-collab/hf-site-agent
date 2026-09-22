@@ -1,0 +1,6 @@
+schema: private-media-run-request-v1
+request_id: mars-water-news60-20260922-speed-quality-trial-01
+purpose: "Private durable trial after speed-quality orchestration hardening."
+public_publish_authorized: false
+production_deploy_authorized: false
+requested_by: user

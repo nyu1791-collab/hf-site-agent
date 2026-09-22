@@ -2,6 +2,11 @@ name: Build latest Mars news 60s durable
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .media-run-request
 
 permissions:
   contents: read
