@@ -168,6 +168,7 @@ jobs:
             scripts/openrouter_free_efficiency_router.py \
             scripts/jev_decision_engine.py \
             scripts/jev_routing_coordinator.py \
+            scripts/jev_mixed_router.py \
             scripts/final_execution_admission_guard.py \
             scripts/multi_agent_execution_schedule.py \
             scripts/jev_lean_router.py \
@@ -286,7 +287,7 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_jev_decision_engine.py
-          python -m unittest tests.test_jev_decision_engine tests.test_jev_lean_router tests.test_jev_primary_router tests.test_jev_shape_router tests.test_jev_routing_coordinator tests.test_final_execution_admission_guard tests.test_multi_agent_execution_schedule tests.test_openrouter_worker_health tests.test_openrouter_worker_orchestrator
+          python -m unittest tests.test_jev_decision_engine tests.test_jev_lean_router tests.test_jev_primary_router tests.test_jev_shape_router tests.test_jev_mixed_router tests.test_jev_routing_coordinator tests.test_final_execution_admission_guard tests.test_multi_agent_execution_schedule tests.test_openrouter_worker_health tests.test_openrouter_worker_orchestrator
 
       - name: Enforce media command read gate
         run: |
