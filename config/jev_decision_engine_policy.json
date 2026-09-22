@@ -219,7 +219,10 @@
     "questions_prefixed_by_record_id": true,
     "one_failed_batch_does_not_cancel_healthy_batches": true,
     "failed_records_fall_back_to_deterministic_or_chatgpt_routing": true,
-    "target_100_jobs": "5_DECISION_BATCHES_IN_PARALLEL_WHEN_INDEPENDENT"
+    "target_100_jobs": "5_DECISION_BATCHES_IN_PARALLEL_WHEN_INDEPENDENT",
+    "production_mixed_surface_grouping": "SHAPE_SEPARATE__LEAN_PLUS_RICH",
+    "max_route_surface_requests_per_wave": 2,
+    "grouping_rationale": "Repeated live A/B showed lower and more stable tail latency than three separate surface requests; shape stays isolated while lean and rich share one heterogeneous request."
   },
   "state_compaction": {
     "send_minimum_task_relevant_state": true,
@@ -330,6 +333,38 @@
       "SHAPE_ONE_QUESTION_WHEN_PRIMARY_CLEAR",
       "LEAN_TWO_QUESTION_WHEN_PRIMARY_FUZZY",
       "FAST_THREE_TO_FOUR_QUESTION_WHEN_COMPLEX"
-    ]
+    ],
+    "heterogeneous_questions_per_request": true,
+    "mixed_surface_grouping_status": "PROMOTED_SHAPE_SEPARATE__LEAN_PLUS_RICH",
+    "mixed_surface_grouping_evidence": {
+      "benchmark_run_id": 35692249074,
+      "confirmation_attempts": 2,
+      "iterations_per_grouping_per_attempt": 24,
+      "promoted_grouping": "SHAPE_SEPARATE__LEAN_PLUS_RICH",
+      "attempt_1": {
+        "p50_ms": 314.167,
+        "p95_ms": 392.695,
+        "success_rate": 1
+      },
+      "attempt_2": {
+        "p50_ms": 275.182,
+        "p95_ms": 396.591,
+        "success_rate": 1
+      },
+      "current_three_request_attempt_1": {
+        "p50_ms": 350.09,
+        "p95_ms": 452.017
+      },
+      "current_three_request_attempt_2": {
+        "p50_ms": 290.05,
+        "p95_ms": 655.894
+      },
+      "conclusion": "PROMOTE_TWO_REQUEST_GROUPING_FOR_MIXED_BATCH_ROUTING"
+    },
+    "batch_size_100_job_evidence": {
+      "retained_batch_size": 20,
+      "max_parallel_batches": 5,
+      "evidence": "Repeated Jev-only tests generally show 20-record batches minimizing total wall time for 100 independent records; retain 20 and do not overfit a single noisy sample."
+    }
   }
 }
