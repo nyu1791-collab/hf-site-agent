@@ -100,5 +100,7 @@
     "generated_factual_background_used": false,
     "video_uses_character_assets_and_original_text_diagrams_only": true,
     "note": "Search results and article images are not treated as reusable assets. No NASA/JPL/Nature imagery is embedded in this build."
-  }
+  },
+  "build_revision": 2,
+  "qa_note": "Rerender requested after token-aware caption wrapping fix; Latin technical terms must not split across lines."
 }
