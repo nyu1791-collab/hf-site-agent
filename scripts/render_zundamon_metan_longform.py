@@ -40,20 +40,56 @@ def rounded_panel(im, box, fill, radius=34, outline=None, width=2):
     d=ImageDraw.Draw(im)
     d.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
 
+def _wrap_tokens(text):
+    # Keep Latin/technical tokens intact; Japanese/CJK remains breakable by character.
+    latin_extra=set("._:/+-")
+    subscript=set("₀₁₂₃₄₅₆₇₈₉")
+    tokens=[]; i=0
+    while i < len(text):
+        ch=text[i]
+        if ch.isspace():
+            j=i+1
+            while j < len(text) and text[j].isspace(): j+=1
+            tokens.append(" ")
+            i=j
+            continue
+        if ch.isascii() and (ch.isalnum() or ch in latin_extra):
+            j=i+1
+            while j < len(text):
+                c=text[j]
+                if (c.isascii() and (c.isalnum() or c in latin_extra)) or c in subscript:
+                    j+=1
+                else:
+                    break
+            tokens.append(text[i:j]); i=j; continue
+        if ch in subscript and tokens and tokens[-1] and tokens[-1][0].isascii():
+            tokens[-1]+=ch; i+=1; continue
+        tokens.append(ch); i+=1
+    return tokens
+
 def wrap(draw, text, fnt, maxw):
     out=[]
+    no_line_start=set("、。！？：；)]}」』】〉》〕")
     for para in str(text).splitlines() or [""]:
         if not para:
             out.append(""); continue
         cur=""
-        for ch in para:
-            t=cur+ch
+        for tok in _wrap_tokens(para):
+            if tok==" ":
+                if cur and not cur.endswith(" "): cur+=" "
+                continue
+            t=cur+tok
             if draw.textbbox((0,0),t,font=fnt,stroke_width=0)[2] <= maxw:
                 cur=t
-            else:
-                if cur: out.append(cur)
-                cur=ch
-        if cur: out.append(cur)
+                continue
+            if tok in no_line_start and cur:
+                cur=cur.rstrip()+tok
+                continue
+            if cur.strip():
+                out.append(cur.rstrip())
+            cur=tok.lstrip()
+        if cur.strip() or not out:
+            out.append(cur.rstrip())
     return out
 
 def draw_centered(draw, text, y, fnt, fill, maxw, stroke_fill=None, stroke_width=0, line_gap=10):
