@@ -31,7 +31,7 @@ if __package__ in {None, ""}:  # pragma: no cover - direct script entrypoint
 from scripts.benchmark_free_workers import run_benchmarks
 from scripts.continuous_project_loop import AUTO_NEXT_SAFE, PROJECT_BOUNDARY, run_continuous_project_loop
 from scripts.openrouter_worker_mission import build_mission_packet
-from scripts.jev_decision_engine import decide_lean as jev_decide
+from scripts.jev_lean_router import decide_lean as jev_decide
 from scripts.probe_free_workers_multi import run_multi_probe
 
 SCHEMA_VERSION = "openrouter-worker-orchestrator-v5"
