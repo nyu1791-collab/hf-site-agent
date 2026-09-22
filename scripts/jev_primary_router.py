@@ -161,13 +161,12 @@ def parse_primary_route_response(
         elif shape == "PARALLEL_TRIPLE":
             selected.extend(remaining[:2])
 
-        mode = ExecutionMode(shape if shape != "PARALLEL_TRIPLE" else "PARALLEL")
-        if shape == "PARALLEL_PAIR":
-            mode = ExecutionMode.PARALLEL
-        elif shape == "SEQUENTIAL_PAIR":
-            mode = ExecutionMode.SEQUENTIAL
-        elif shape == "SINGLE":
-            mode = ExecutionMode.SINGLE
+        mode = {
+            "SINGLE": ExecutionMode.SINGLE,
+            "PARALLEL_PAIR": ExecutionMode.PARALLEL,
+            "PARALLEL_TRIPLE": ExecutionMode.PARALLEL,
+            "SEQUENTIAL_PAIR": ExecutionMode.SEQUENTIAL,
+        }[shape]
 
         low = confidence < threshold
         decision = NormalizedRoutingDecision(
