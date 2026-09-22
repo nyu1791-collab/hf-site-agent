@@ -29,7 +29,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
 
     def test_jev_can_refine_only_prevalidated_candidates(self):
         fake = {
-            "status": "JEV_LEAN_DECISION_OK",
+            "status": "JEV_FAST_DECISION_OK",
             "decision": {
                 "workers": [
                     "deepseek/deepseek-v4-flash-0731:free",
@@ -45,15 +45,24 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "low_confidence": False,
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_lean", return_value=fake):
-            result = coordinate({"task_class": "GENERAL", "objective": "Compare two independent approaches."}, CATALOG, use_jev=True, api_key="x")
+        with patch("scripts.jev_routing_coordinator.decide_fast", return_value=fake):
+            result = coordinate(
+                {
+                    "task_class": "GENERAL",
+                    "objective": "Compare two independent approaches.",
+                    "requires_distinct_specialists": True,
+                },
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+            )
         self.assertEqual(result["route_source"], "JEV_FAST_DECISION_PLANE")
         self.assertEqual(result["final_plan"]["active_model_count"], 2)
         self.assertEqual(result["final_plan"]["execution_mode"], "PARALLEL")
         self.assertEqual(result["final_plan"]["parallel_model_calls"], 2)
 
     def test_jev_failure_preserves_deterministic_route(self):
-        with patch("scripts.jev_routing_coordinator.decide_lean", return_value={"status": "JEV_UNAVAILABLE"}):
+        with patch("scripts.jev_routing_coordinator.decide_primary", return_value={"status": "JEV_UNAVAILABLE"}):
             result = coordinate({"task_class": "GENERAL"}, CATALOG, use_jev=True, api_key="x")
         self.assertEqual(result["route_source"], "DETERMINISTIC_FALLBACK_AFTER_JEV_UNAVAILABLE")
         self.assertEqual(result["final_plan"], result["baseline"])
@@ -78,13 +87,13 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
             for i in range(10)
         }
         fake = {
-            "status": "JEV_LEAN_MANY_OK",
+            "status": "JEV_PRIMARY_MANY_OK",
             "record_count": 10,
             "batch_count": 1,
             "parallel_batch_count": 1,
             "decisions": decisions,
         }
-        with patch("scripts.jev_routing_coordinator.decide_many_lean", return_value=fake) as call:
+        with patch("scripts.jev_routing_coordinator.decide_many_primary", return_value=fake) as call:
             result = coordinate_many(tasks, CATALOG, use_jev=True, api_key="x")
         call.assert_called_once()
         self.assertEqual(result["task_count"], 10)
@@ -97,7 +106,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
             {"task_id": "task_b", "task_class": "GENERAL", "objective": "B"},
         ]
         fake = {
-            "status": "JEV_LEAN_MANY_OK",
+            "status": "JEV_PRIMARY_MANY_OK",
             "record_count": 2,
             "batch_count": 1,
             "parallel_batch_count": 1,
@@ -132,7 +141,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 },
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_many_lean", return_value=fake):
+        with patch("scripts.jev_routing_coordinator.decide_many_primary", return_value=fake):
             result = coordinate_many(
                 tasks,
                 CATALOG,
@@ -145,7 +154,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
 
     def test_low_confidence_routine_task_uses_bounded_hedge(self):
         fake = {
-            "status": "JEV_LEAN_DECISION_OK",
+            "status": "JEV_PRIMARY_DECISION_OK",
             "decision": {
                 "workers": ["qwen/qwen3.8-27b:free"],
                 "fanout": 1,
@@ -158,11 +167,11 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "low_confidence": True,
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_lean", return_value=fake), patch(
+        with patch("scripts.jev_routing_coordinator.decide_primary", return_value=fake), patch(
             "scripts.jev_routing_coordinator.load_recent_evidence", return_value={}
         ):
             result = coordinate(
-                {"task_class": "GENERAL", "objective": "Routine synthesis."},
+                {"task_class": "GENERAL", "objective": "Routine synthesis.", "independent_workstreams": 1},
                 CATALOG,
                 use_jev=True,
                 api_key="x",
@@ -173,7 +182,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
 
     def test_low_confidence_high_impact_task_returns_to_chatgpt(self):
         fake = {
-            "status": "JEV_LEAN_DECISION_OK",
+            "status": "JEV_FAST_DECISION_OK",
             "decision": {
                 "workers": ["qwen/qwen3.8-27b:free"],
                 "fanout": 1,
@@ -186,7 +195,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "low_confidence": True,
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_lean", return_value=fake), patch(
+        with patch("scripts.jev_routing_coordinator.decide_fast", return_value=fake), patch(
             "scripts.jev_routing_coordinator.load_recent_evidence", return_value={}
         ):
             result = coordinate(
@@ -200,7 +209,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
 
     def test_slow_proven_primary_gets_one_latency_challenger(self):
         fake = {
-            "status": "JEV_LEAN_DECISION_OK",
+            "status": "JEV_PRIMARY_DECISION_OK",
             "decision": {
                 "workers": ["deepseek/deepseek-v4-flash-0731:free"],
                 "fanout": 1,
@@ -227,11 +236,11 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "avg_latency_ms": 0,
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_lean", return_value=fake), patch(
+        with patch("scripts.jev_routing_coordinator.decide_primary", return_value=fake), patch(
             "scripts.jev_routing_coordinator.load_recent_evidence", return_value=evidence
         ):
             result = coordinate(
-                {"task_class": "GENERAL", "objective": "Routine task."},
+                {"task_class": "GENERAL", "objective": "Routine task.", "independent_workstreams": 1},
                 CATALOG,
                 use_jev=True,
                 api_key="x",
