@@ -38,7 +38,8 @@ from scripts.jev_shape_router import (
 )
 
 MIXED_ITERATIONS = 12
-BATCH_ITERATIONS = 3
+GROUPED_ITERATIONS = 24
+BATCH_ITERATIONS = 1
 MODEL = "~typesafe/jev-latest"
 MODEL_CATALOG = [{"id":"typesafe/jev-1.13","pricing":{"prompt":"0.000000042","completion":"0"}}]
 CANDIDATES = [
@@ -111,6 +112,57 @@ def _merge_request(policy: Mapping[str,Any]) -> tuple[dict[str,Any], tuple[list[
         },
         "questions":questions,
     },(shape_prepared,lean_prepared,fast_prepared)
+
+def _merge_bodies(bodies: Sequence[Mapping[str,Any]]) -> dict[str,Any]:
+    records=[]
+    questions={}
+    for body in bodies:
+        records.extend(body["state"]["records"])
+        questions.update(body["questions"])
+    return {
+        "model":MODEL,
+        "state":{
+            "description":"Mixed prevalidated AI Army routing records with record-scoped minimal questions.",
+            "records":records,
+        },
+        "questions":questions,
+    }
+
+def _surface_payloads(policy: Mapping[str,Any]):
+    sb,sp=build_shape_route_batch_request(model=MODEL,records=shape_records(),policy=policy)
+    lb,lp=build_lean_route_batch_request(model=MODEL,records=lean_records(),policy=policy)
+    fb,fp=build_fast_route_batch_request(model=MODEL,records=fast_records(),policy=policy)
+    return {"shape":(sb,sp,parse_shape_route_response),"lean":(lb,lp,parse_lean_route_response),"fast":(fb,fp,parse_fast_route_response)}
+
+def _grouped_once(api_key: str, policy: Mapping[str,Any], groups: Sequence[Sequence[str]]) -> dict[str,Any]:
+    surfaces=_surface_payloads(policy)
+    started=time.perf_counter()
+    outputs=[]
+    def run(group):
+        bodies=[surfaces[name][0] for name in group]
+        body=_merge_bodies(bodies)
+        payload,lat=_request(body,api_key)
+        if payload.get("status")=="HTTP_FAILED":
+            return False,lat,0.0,0.0
+        ok=True
+        for name in group:
+            _body,prepared,parser=surfaces[name]
+            decisions=parser(payload,prepared_records=prepared,policy=policy)
+            if len(decisions)!=len(prepared):
+                ok=False
+        usage=payload.get("usage") if isinstance(payload.get("usage"),Mapping) else {}
+        return ok,lat,float(usage.get("input_tokens") or 0),float(usage.get("cost") or 0)
+    with ThreadPoolExecutor(max_workers=len(groups)) as pool:
+        futures=[pool.submit(run,group) for group in groups]
+        for future in as_completed(futures):
+            outputs.append(future.result())
+    return {
+        "ok":all(x[0] for x in outputs),
+        "wall_ms":(time.perf_counter()-started)*1000.0,
+        "input_tokens":sum(x[2] for x in outputs),
+        "cost":sum(x[3] for x in outputs),
+        "request_count":len(groups),
+    }
 
 def _request(body: Mapping[str,Any], api_key: str, timeout: float=10.0) -> tuple[dict[str,Any],float]:
     status,payload,latency_ms=_json_request(
@@ -230,12 +282,26 @@ def run(api_key: str) -> dict[str,Any]:
             split_rows.append(_split_once(api_key,policy)); unified_rows.append(_unified_once(api_key,policy))
         else:
             unified_rows.append(_unified_once(api_key,policy)); split_rows.append(_split_once(api_key,policy))
+
+    group_specs={
+        "shape_lean__fast":(("shape","lean"),("fast",)),
+        "shape__lean_fast":(("shape",),("lean","fast")),
+        "shape_fast__lean":(("shape","fast"),("lean",)),
+    }
+    grouped_rows={name:[] for name in group_specs}
+    names=list(group_specs)
+    for i in range(GROUPED_ITERATIONS):
+        order=names[i%len(names):]+names[:i%len(names)]
+        for name in order:
+            grouped_rows[name].append(_grouped_once(api_key,policy,group_specs[name]))
+
     batch_rows={str(n):[] for n in (5,10,20)}
     for i in range(BATCH_ITERATIONS):
         order=(5,10,20) if i%2==0 else (20,10,5)
         for size in order:
             batch_rows[str(size)].append(_batch_size_once(api_key,size))
     split=_summary(split_rows); unified=_summary(unified_rows)
+    grouped={k:_summary(v) | {"request_count":v[0]["request_count"]} for k,v in grouped_rows.items()}
     batch={k:_summary(v) | {"request_count":v[0]["request_count"],"waves":v[0]["waves"]} for k,v in batch_rows.items()}
     sp=float(split.get("wall_p50_ms") or 0); up=float(unified.get("wall_p50_ms") or 0)
     mixed_improvement=((sp-up)/sp*100.0) if sp else None
@@ -250,6 +316,14 @@ def run(api_key: str) -> dict[str,Any]:
             "split_three_requests_parallel":split,
             "unified_heterogeneous_request":unified,
             "unified_p50_improvement_percent":round(mixed_improvement,2) if mixed_improvement is not None else None,
+        },
+        "two_request_grouping":{
+            "iterations_per_variant":GROUPED_ITERATIONS,
+            "variants":grouped,
+            "recommended":min(
+                [(k,v) for k,v in grouped.items() if v.get("success_rate")==1],
+                key=lambda kv:(float(kv[1].get("wall_p50_ms") or 1e9),float(kv[1].get("wall_p95_ms") or 1e9))
+            )[0] if any(v.get("success_rate")==1 for v in grouped.values()) else None,
         },
         "hundred_record_batch_size":{
             "iterations_per_size":BATCH_ITERATIONS,
