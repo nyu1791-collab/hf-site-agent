@@ -343,9 +343,11 @@
     "video_creation_reads_audio_motion_caption_contextual_visual_rules": true,
     "default_media_research_and_script_pair_is_chatgpt_plus_deepseek": true,
     "routine_media_research_and_script_should_not_be_overfragmented": true,
-    "background_music_prefers_curated_verified_free_sources": true
-    ,"paid_or_freemium_media_routes_are_blocked": true
-    ,"free_route_failure_never_silently_becomes_paid": true
+    "background_music_prefers_curated_verified_free_sources": true,
+    "paid_or_freemium_media_routes_are_blocked": true,
+    "free_route_failure_never_silently_becomes_paid": true,
+    "session_stream_resilience_policy": "config/session_stream_resilience_policy.json",
+    "long_running_media_must_not_depend_on_single_chat_response_stream": true
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
@@ -516,7 +518,9 @@
     "jev_fast_decision_playbook_survives_tab_change": true,
     "jev_zero_one_two_rich_route_tiers_survive_tab_change": true,
     "jev_recent_domain_worker_health_policy_survives_tab_change": true,
-    "jev_official_manual_alignment_survives_tab_change": true
+    "jev_official_manual_alignment_survives_tab_change": true,
+    "session_stream_resilience_survives_tab_change": true,
+    "chat_stream_disconnect_does_not_reset_verified_media_work": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",
@@ -586,5 +590,12 @@
     "USE_BACKGROUND_TEXT_WALL_AS_DEFAULT_VISUAL",
     "TREAT_SEARCH_ENGINE_RESULT_AS_REUSE_LICENSE",
     "CLAIM_VIDEO_COMPLETE_BEFORE_MACHINE_GATE_PASS"
-  ]
+  ],
+  "session_stream_resilience": {
+    "policy": "config/session_stream_resilience_policy.json",
+    "status": "ENFORCED_PERMANENT_STANDARD",
+    "chat_response_stream_is_not_execution_authority": true,
+    "durable_media_runner_survives_tab_or_response_disconnect": true,
+    "recover_from_repository_and_verified_artifacts": true
+  }
 }
