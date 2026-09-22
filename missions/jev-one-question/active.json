@@ -1,0 +1,10 @@
+{
+  "schema_version": "jev-one-question-benchmark-mission-v1",
+  "created_at_jst": "2026-09-22",
+  "purpose": "Compare production lean 2-question routing against primary-only and shape-only 1-question Jev surfaces.",
+  "iterations_per_mode": 50,
+  "records_per_request": 5,
+  "worker_calls": 0,
+  "paid_scope": "JEV_ONLY",
+  "production_side_effects": false
+}
