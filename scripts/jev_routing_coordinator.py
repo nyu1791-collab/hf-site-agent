@@ -2,9 +2,11 @@
 """Fast Jev control-plane overlay for exact-free specialist routing."""
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Mapping, Sequence
 
 from scripts.jev_decision_engine import decide_fast, decide_many_fast, quota_pressure_from_remaining
+from scripts.jev_lean_router import decide_lean, decide_many_lean
 from scripts.openrouter_free_efficiency_router import load_policy as load_free_policy
 from scripts.openrouter_free_efficiency_router import ordered_candidates, plan_task
 from scripts.openrouter_worker_health import (
@@ -63,6 +65,16 @@ def _health_ranked_candidates(
         evidence=evidence,
         domain=domain,
         max_candidates=max_candidates,
+    )
+
+
+def _needs_rich_jev_route(task: Mapping[str, Any]) -> bool:
+    return bool(
+        _is_high_risk(task)
+        or int(task.get("independent_workstreams", 1) or 1) >= 2
+        or task.get("complementary_specialization")
+        or task.get("independent_verification")
+        or task.get("requires_distinct_specialists")
     )
 
 
@@ -189,7 +201,7 @@ def coordinate(
     )
     if baseline.get("status") != "READY":
         return {
-            "schema_version": "jev-routing-coordinator-v3",
+            "schema_version": "jev-routing-coordinator-v4",
             "status": baseline.get("status"),
             "route_source": "DETERMINISTIC_BASELINE",
             "baseline": baseline,
@@ -199,7 +211,7 @@ def coordinate(
 
     if not use_jev or bool(task.get("deterministic")):
         return {
-            "schema_version": "jev-routing-coordinator-v3",
+            "schema_version": "jev-routing-coordinator-v4",
             "status": "READY",
             "route_source": "DETERMINISTIC_BASELINE",
             "baseline": baseline,
@@ -220,7 +232,9 @@ def coordinate(
         and float(task.get("parallelizable_fraction", 0.0) or 0.0) >= 0.65
         and not bool(task.get("shared_mutable_state") or task.get("strictly_sequential") or task.get("single_writer_only"))
     )
-    jev = decide_fast(
+    rich_route = _needs_rich_jev_route(task)
+    route_fn = decide_fast if rich_route else decide_lean
+    jev = route_fn(
         task_summary=summary,
         candidate_models=candidates,
         remaining_free_quota=remaining,
@@ -231,9 +245,10 @@ def coordinate(
         high_risk=_is_high_risk(task),
         api_key=api_key,
     )
-    if jev.get("status") != "JEV_FAST_DECISION_OK":
+    expected_status = "JEV_FAST_DECISION_OK" if rich_route else "JEV_LEAN_DECISION_OK"
+    if jev.get("status") != expected_status:
         return {
-            "schema_version": "jev-routing-coordinator-v3",
+            "schema_version": "jev-routing-coordinator-v4",
             "status": "READY",
             "route_source": "DETERMINISTIC_FALLBACK_AFTER_JEV_UNAVAILABLE",
             "baseline": baseline,
@@ -246,7 +261,7 @@ def coordinate(
         hedge = _bounded_low_confidence_hedge(task, baseline, candidates, decision)
         if hedge is not None:
             return {
-                "schema_version": "jev-routing-coordinator-v3",
+                "schema_version": "jev-routing-coordinator-v4",
                 "status": "READY",
                 "route_source": "JEV_LOW_CONFIDENCE_BOUNDED_HEDGE",
                 "baseline": baseline,
@@ -254,7 +269,7 @@ def coordinate(
                 "final_plan": hedge,
             }
         return {
-            "schema_version": "jev-routing-coordinator-v3",
+            "schema_version": "jev-routing-coordinator-v4",
             "status": "READY",
             "route_source": "CHATGPT_ADJUDICATION_AFTER_JEV",
             "baseline": baseline,
@@ -270,7 +285,7 @@ def coordinate(
     selected = list(decision.get("workers") or [])
     if not selected or any(model not in candidates for model in selected):
         return {
-            "schema_version": "jev-routing-coordinator-v3",
+            "schema_version": "jev-routing-coordinator-v4",
             "status": "READY",
             "route_source": "DETERMINISTIC_FALLBACK_AFTER_JEV_CONTRACT_FAILURE",
             "baseline": baseline,
@@ -292,7 +307,7 @@ def coordinate(
         "lane": decision.get("lane") or lane,
         "independent_verification": bool(decision.get("independent_verification")),
         "fanout_reason": [
-            "JEV_TYPED_SYSTEM_ONE_DECISION",
+            ("JEV_FAST_RICH_TYPED_DECISION" if rich_route else "JEV_LEAN_TWO_QUESTION_DECISION"),
             *(["RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED"] if latency_challenger else []),
             *list(baseline.get("fanout_reason") or []),
         ],
@@ -301,9 +316,9 @@ def coordinate(
         "latency_challenger_timeout_seconds": LATENCY_CHALLENGER_TIMEOUT_SECONDS if latency_challenger else None,
     }
     return {
-        "schema_version": "jev-routing-coordinator-v3",
+        "schema_version": "jev-routing-coordinator-v4",
         "status": "READY",
-        "route_source": "JEV_FAST_DECISION_PLANE",
+        "route_source": "JEV_FAST_DECISION_PLANE" if rich_route else "JEV_LEAN_DECISION_PLANE",
         "baseline": baseline,
         "jev": jev,
         "final_plan": final,
@@ -321,7 +336,8 @@ def coordinate_many(
 ) -> dict[str, Any]:
     """Batch independent routing tasks through Jev with deterministic per-task fallback."""
     baselines: dict[str, dict[str, Any]] = {}
-    records: list[dict[str, Any]] = []
+    lean_records: list[dict[str, Any]] = []
+    fast_records: list[dict[str, Any]] = []
     task_candidates: dict[str, list[str]] = {}
     free_policy = load_free_policy()
     evidence = load_recent_evidence()
@@ -344,7 +360,7 @@ def coordinate_many(
         lane = str(base.get("lane") or "GENERAL_REASONING")
         remaining = int(base.get("remaining_quota_before_plan", 0))
         domain = str(task.get("domain") or task.get("task_class") or lane).strip() or None
-        records.append({
+        record = {
             "id": task_id,
             "task_summary": str(task.get("objective") or task.get("task_summary") or task.get("description") or task),
             "candidate_models": candidates,
@@ -358,15 +374,38 @@ def coordinate_many(
             ),
             "shared_mutable_state": bool(task.get("shared_mutable_state") or task.get("strictly_sequential") or task.get("single_writer_only")),
             "high_risk": _is_high_risk(task),
-        })
+        }
+        (fast_records if _needs_rich_jev_route(task) else lean_records).append(record)
 
-    jev = decide_many_fast(records=records, api_key=api_key) if records else {
-        "status": "JEV_FAST_MANY_OK",
-        "record_count": 0,
-        "batch_count": 0,
-        "decisions": {},
+    results: dict[str, Mapping[str, Any]] = {}
+    jobs = []
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        if lean_records:
+            jobs.append(("lean", pool.submit(decide_many_lean, records=lean_records, api_key=api_key)))
+        if fast_records:
+            jobs.append(("fast", pool.submit(decide_many_fast, records=fast_records, api_key=api_key)))
+        for name, future in jobs:
+            try:
+                result = future.result()
+            except Exception as exc:
+                result = {"status": "JEV_UNAVAILABLE", "reason": type(exc).__name__, "decisions": {}}
+            results[name] = result
+
+    lean_result = results.get("lean") or {"status": "JEV_LEAN_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
+    fast_result = results.get("fast") or {"status": "JEV_FAST_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
+    decisions: dict[str, Any] = {}
+    for result in (lean_result, fast_result):
+        if isinstance(result.get("decisions"), Mapping):
+            decisions.update(result.get("decisions") or {})
+    jev = {
+        "status": "JEV_MIXED_MANY_OK",
+        "lean": lean_result,
+        "fast": fast_result,
+        "record_count": len(lean_records) + len(fast_records),
+        "batch_count": int(lean_result.get("batch_count", 0) or 0) + int(fast_result.get("batch_count", 0) or 0),
+        "parallel_route_surfaces": bool(lean_records and fast_records),
+        "decisions": decisions,
     }
-    decisions = jev.get("decisions") if isinstance(jev.get("decisions"), Mapping) else {}
     plans: dict[str, Any] = {}
 
     raw_plans: dict[str, Any] = {}
@@ -405,7 +444,7 @@ def coordinate_many(
             "jev_confidence": decision.get("confidence"),
             "latency_challenger_timeout_seconds": LATENCY_CHALLENGER_TIMEOUT_SECONDS if latency_challenger else None,
             "fanout_reason": [
-                "JEV_BATCH_TYPED_DECISION",
+                ("JEV_FAST_RICH_BATCH_DECISION" if _needs_rich_jev_route(task) else "JEV_LEAN_TWO_QUESTION_BATCH_DECISION"),
                 *(["RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED"] if latency_challenger else []),
                 *list(base.get("fanout_reason") or []),
             ],
@@ -446,7 +485,7 @@ def coordinate_many(
         plans[task_id] = plan
 
     return {
-        "schema_version": "jev-routing-coordinator-batch-v2",
+        "schema_version": "jev-routing-coordinator-batch-v3",
         "status": "READY",
         "task_count": len(tasks),
         "jev": jev,
