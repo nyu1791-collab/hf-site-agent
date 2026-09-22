@@ -1,5 +1,5 @@
 {
-  "schema_version": "multi-agent-operating-policy-v10",
+  "schema_version": "multi-agent-operating-policy-v11",
   "effective_date_jst": "2026-09-22",
   "status": "PERMANENT_STANDARD",
   "architecture": {
@@ -204,6 +204,10 @@
     "critical_path_and_user_visible_work_win_queue_contention": true,
     "dependency_wait_requires_verified_artifact_not_worker_completion_claim": true,
     "initial_dispatch_parallel_task_ceiling": 3,
+    "complete_dependency_dag_is_planned_before_dispatch": true,
+    "duplicate_task_id_unknown_dependency_and_dependency_cycle_fail_closed": true,
+    "weighted_remaining_critical_path_uses_estimated_duration_when_available": true,
+    "planned_dependency_wave_never_bypasses_runtime_verified_artifact_join": true,
     "adaptive_concurrency": {
       "enabled": true,
       "increase_only_gradually_after_stable_success": true,

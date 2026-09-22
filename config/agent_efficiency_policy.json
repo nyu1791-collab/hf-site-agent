@@ -1,5 +1,5 @@
 {
-  "schema_version": "agent-efficiency-policy-v3",
+  "schema_version": "agent-efficiency-policy-v4",
   "effective_date_jst": "2026-09-21",
   "status": "SHADOW_MEASURE_THEN_PROMOTE",
   "decision_owner": "chatgpt-work",
@@ -68,7 +68,11 @@
     "peer_mesh_default": false,
     "majority_vote_is_not_ground_truth": true,
     "machine_oracle_wins_when_available": true,
-    "shared_mutable_output_requires_single_writer": true
+    "shared_mutable_output_requires_single_writer": true,
+    "architecture_evidence_complete_before_promotion": true,
+    "missing_measurement_keeps_recommendation_in_shadow_mode": true,
+    "declared_coordination_cost_above_expected_benefit_requires_single_controller": true,
+    "do_not_copy_research_thresholds_without_local_fixture_calibration": true
   },
   "deepseek_supervisor_efficiency": {
     "stable_shared_prefix_first": true,
@@ -128,6 +132,17 @@
     "treatment": "CENTRALIZED_MANAGER_WITH_SPECIALISTS",
     "same_mission_fixture_required": true,
     "promote_architecture_only_after_measured_evidence": true,
+    "admission_measurements_required": [
+      "parallelizable_fraction",
+      "single_agent_baseline_quality",
+      "tool_intensity",
+      "shared_mutable_state_risk",
+      "verification_risk",
+      "estimated_coordination_overhead_ratio",
+      "estimated_latency_ms",
+      "estimated_cost_usd",
+      "provider_health"
+    ],
     "no_universal_fixed_improvement_threshold_before_calibration": true,
     "primary_metrics": [
       "task_success_rate",

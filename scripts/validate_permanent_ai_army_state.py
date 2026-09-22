@@ -154,12 +154,40 @@ def main() -> int:
     acceleration = multi.get("execution_acceleration") or {}
     require(acceleration.get("stream_admitted_dependency_ready_tasks_without_waiting_for_unrelated_batch_tail") is True, "streaming dispatch acceleration missing")
     require(acceleration.get("critical_path_and_user_visible_work_win_queue_contention") is True, "critical path queue priority missing")
+    require(acceleration.get("complete_dependency_dag_is_planned_before_dispatch") is True, "complete dependency DAG planning missing")
+    require(acceleration.get("duplicate_task_id_unknown_dependency_and_dependency_cycle_fail_closed") is True, "dependency graph fail-closed rule missing")
+    require(acceleration.get("weighted_remaining_critical_path_uses_estimated_duration_when_available") is True, "weighted critical-path rule missing")
+    require(acceleration.get("planned_dependency_wave_never_bypasses_runtime_verified_artifact_join") is True, "dependency plan may bypass verified artifact join")
     require((acceleration.get("adaptive_concurrency") or {}).get("reduce_on_429_5xx_or_p95_breach") is True, "adaptive backpressure missing")
+
+    efficiency_admission = efficiency.get("admission") or {}
+    require(efficiency_admission.get("architecture_evidence_complete_before_promotion") is True, "architecture evidence completeness gate missing")
+    require(efficiency_admission.get("missing_measurement_keeps_recommendation_in_shadow_mode") is True, "incomplete architecture evidence may promote")
+    required_architecture_measurements = set(((efficiency.get("experiment") or {}).get("admission_measurements_required") or []))
+    require({
+        "parallelizable_fraction",
+        "single_agent_baseline_quality",
+        "tool_intensity",
+        "shared_mutable_state_risk",
+        "verification_risk",
+        "estimated_coordination_overhead_ratio",
+        "estimated_latency_ms",
+        "estimated_cost_usd",
+        "provider_health",
+    }.issubset(required_architecture_measurements), "architecture admission measurement contract incomplete")
 
     canonical = manifest.get("canonical_ai_army_execution") or {}
     require(canonical.get("jev_decision_quality_priority") == "VERIFIED_ROUTE_CORRECTNESS_THEN_DECISION_STABILITY_THEN_TIME_TO_VERIFIED_COMPLETION", "manifest lost Jev quality priority")
     handoff_rules = handoff.get("multi_agent_fixed_rules") or {}
     require(handoff_rules.get("jev_verified_route_correctness_and_decision_stability_precede_routing_latency") is True, "handoff lost Jev correctness priority")
+    require(handoff_rules.get("multi_agent_architecture_evidence_must_be_complete_before_promotion") is True, "handoff lost architecture evidence gate")
+    require(handoff_rules.get("dependency_dag_duplicate_unknown_and_cycle_errors_fail_closed") is True, "handoff lost dependency graph fail-closed rule")
+    require(handoff_rules.get("weighted_critical_path_plans_full_dependency_release_order") is True, "handoff lost weighted critical-path rule")
+    require(handoff_rules.get("planned_dependency_waves_never_replace_verified_artifact_joins") is True, "handoff allows planned waves to bypass verified joins")
+
+    require(cross_tab.get("multi_agent_architecture_evidence_completeness_survives_tab_change") is True, "architecture evidence gate cross-tab continuity lost")
+    require(cross_tab.get("dependency_dag_cycle_and_unknown_dependency_fail_closed_survives_tab_change") is True, "dependency graph guard cross-tab continuity lost")
+    require(cross_tab.get("weighted_critical_path_schedule_survives_tab_change") is True, "weighted critical path cross-tab continuity lost")
 
     media_common = list(media_gate.get("common_media_read_set") or [])
     for required_path in (

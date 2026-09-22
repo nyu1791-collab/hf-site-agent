@@ -328,6 +328,13 @@ jobs:
             --output-dir "$OUT/preview-only" \
             --preview-only
           test -s "$OUT/preview-only/representative_contact_sheet.jpg"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          evidence=json.loads((Path(os.environ["OUT"])/"preview-only"/"rendered-visual-evidence.json").read_text())
+          assert evidence["rendered_photo_scene_count"] >= 2, evidence
+          assert float(evidence["rendered_photo_scene_coverage_ratio"]) == 1.0, evidence
+          PY
 
       - name: Render final MP4
         shell: bash
@@ -376,6 +383,10 @@ jobs:
           assert t["runtime_discovered_cast"]["ずんだもん"]["style_id"] is not None
           visual_manifest=json.loads((out/"visual_assets.json").read_text())
           assert int(visual_manifest.get("asset_count",0)) >= 2
+          rendered_visuals=json.loads((out/"final"/"rendered-visual-evidence.json").read_text())
+          assert rendered_visuals["rendered_photo_scene_count"] >= 2, rendered_visuals
+          assert float(rendered_visuals["rendered_photo_scene_coverage_ratio"]) == 1.0, rendered_visuals
+          assert len(rendered_visuals.get("asset_ids_used") or []) >= 2, rendered_visuals
           source_lock=json.loads((out/"source-claim-lock.json").read_text())
           assert source_lock.get("visual_rights",{}).get("external_news_images_used") is True
           visuals=source_lock.get("visuals") or []
@@ -412,6 +423,7 @@ jobs:
             "caption_contract":"FULL_SPOKEN_TEXT",
             "caption_coverage_ratio":float(t["caption_coverage_ratio"]),
             "visual_asset_manifest":"visual_assets.json",
+            "rendered_visual_evidence":"final/rendered-visual-evidence.json",
             "paid_or_freemium_media_used":False,
             "public_publish":False
           }

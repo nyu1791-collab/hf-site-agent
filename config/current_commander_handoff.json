@@ -1,5 +1,5 @@
 {
-  "schema_version": "top-commander-handoff-v16",
+  "schema_version": "top-commander-handoff-v17",
   "effective_date_jst": "2026-09-22",
   "mission_id": "ai-army-canonical-supervisor-routing-20260912",
   "objective": "Preserve a hierarchical AI Army with ChatGPT as final commander, Jev Latest as the official-manual-aligned typed decision plane that prioritizes verified route correctness and decision stability over raw routing latency, DeepSeek as bounded executive supervisor for high-information-gain work, deterministic bypasses for mechanical work, and domain-aware specialist routing backed by expiring live evidence.",
@@ -202,6 +202,11 @@
     "failure_class_and_termination_reason_required": true,
     "hard_numeric_multi_agent_thresholds_wait_for_fixture_calibration": true,
     "multi_agent_promotion_is_shadow_measured_first": true,
+    "multi_agent_architecture_evidence_must_be_complete_before_promotion": true,
+    "missing_architecture_measurements_keep_recommendation_in_shadow_mode": true,
+    "dependency_dag_duplicate_unknown_and_cycle_errors_fail_closed": true,
+    "weighted_critical_path_plans_full_dependency_release_order": true,
+    "planned_dependency_waves_never_replace_verified_artifact_joins": true,
     "free_routes_are_default_except_explicit_deepseek_supervisor_exception": true,
     "openrouter_free_all_current_exact_free_models_attach_as_standby": true,
     "openrouter_free_routine_all_model_parallel_fanout": false,

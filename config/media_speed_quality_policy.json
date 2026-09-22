@@ -25,6 +25,9 @@
     "caption_coverage_ratio_must_equal": 1.0,
     "voicevox_local_cast_never_relaxed": true,
     "machine_qa_and_representative_visual_rereview_never_relaxed": true,
+    "rendered_rights_verified_visual_evidence_never_relaxed": true,
+    "minimum_rendered_photo_scenes": 2,
+    "rendered_photo_scene_coverage_ratio_must_equal": 1.0,
     "paid_or_freemium_media_generation": false,
     "unknown_cost_route": "BLOCK"
   },
@@ -201,6 +204,7 @@
   "decision_quality": {
     "minimum_confidence_for_autonomous_execute": 0.75,
     "typed_result_must_have_success_status_action_shape_and_low_confidence_false": true,
+    "rejected_typed_decisions_must_record_reason": true,
     "high_risk_or_malformed_result_action": "ESCALATE_TO_CHATGPT_AND_BLOCK_EXECUTION"
   },
   "metrics_contract": {

@@ -180,6 +180,7 @@ class MediaSpeedOrchestratorTests(unittest.TestCase):
             plan = plan_media_run(_inputs(Path(raw)), jev_decider=fake_jev)
         self.assertEqual(plan["profile_source"], "PYTHON_DETERMINISTIC_CONTROL_PLANE")
         self.assertEqual(plan["jev"]["admission"], "REJECTED_BY_DETERMINISTIC_MEDIA_GUARD")
+        self.assertIn("STATUS_NOT_SUCCESS", plan["jev"]["rejection_reasons"])
 
     def test_jev_shape_is_applied_without_dropping_a_preparation_stage(self):
         def fake_jev(**kwargs):

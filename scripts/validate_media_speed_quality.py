@@ -51,10 +51,13 @@ def main() -> int:
         "full_spoken_caption_contract_never_relaxed",
         "voicevox_local_cast_never_relaxed",
         "machine_qa_and_representative_visual_rereview_never_relaxed",
+        "rendered_rights_verified_visual_evidence_never_relaxed",
     ):
         require(quality.get(key) is True, f"quality guard missing: {key}")
     require(quality.get("paid_or_freemium_media_generation") is False, "paid/freemium media generation enabled")
     require(float(quality.get("caption_coverage_ratio_must_equal") or 0) == 1.0, "full spoken caption coverage was weakened")
+    require(int(quality.get("minimum_rendered_photo_scenes") or 0) >= 2, "rendered photo floor was weakened")
+    require(float(quality.get("rendered_photo_scene_coverage_ratio_must_equal") or 0) == 1.0, "rendered photo coverage was weakened")
 
     graph = policy.get("execution_graph") or {}
     require(graph.get("single_writer_per_run") is True, "media speed path lost single-writer rule")
@@ -126,6 +129,7 @@ def main() -> int:
     quality_decision = policy.get("decision_quality") or {}
     require(float(quality_decision.get("minimum_confidence_for_autonomous_execute") or 0) == 0.75, "media Jev confidence threshold drifted")
     require(quality_decision.get("typed_result_must_have_success_status_action_shape_and_low_confidence_false") is True, "malformed Jev result may be admitted")
+    require(quality_decision.get("rejected_typed_decisions_must_record_reason") is True, "rejected Jev decisions may be opaque")
 
     source = ORCHESTRATOR.read_text(encoding="utf-8")
     require("def plan_media_run(" in source, "media speed planner entrypoint missing")
@@ -133,6 +137,7 @@ def main() -> int:
     require("VISION_AND_MEDIA_UNDERSTANDING" in source, "media Jev lane missing")
     require("_safe_profile" in source and "deterministic_profile" in source, "media deterministic admission guard missing")
     require("execution_blocked" in source and "_valid_jev_media_decision" in source, "media escalation or typed Jev guard missing")
+    require("rejection_reasons" in source, "media Jev rejection evidence is missing")
     require("final_encode_count" in source or '"count": 1' in source, "media final encode count is not represented")
     require(VALIDATOR.is_file(), "media speed validator missing")
     require(CHECKPOINT_SEALER.is_file(), "verified media checkpoint sealer missing")

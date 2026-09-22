@@ -8,6 +8,7 @@ for a whole Jev batch or a slow unrelated task.
 """
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Any, Mapping, Sequence
 
 
@@ -22,7 +23,19 @@ def _dependencies(task: Mapping[str, Any]) -> list[str]:
     return [str(item) for item in raw if str(item)] if isinstance(raw, Sequence) else []
 
 
-def _priority(task: Mapping[str, Any], dependent_count: int) -> tuple[int, int, int]:
+def _duration_ms(task: Mapping[str, Any]) -> float:
+    try:
+        value = float(task.get("estimated_duration_ms", 1.0) or 1.0)
+    except (TypeError, ValueError):
+        value = 1.0
+    return max(1.0, value)
+
+
+def _priority(
+    task: Mapping[str, Any],
+    dependent_count: int,
+    critical_path_score: float,
+) -> tuple[int, int, float, int]:
     try:
         critical = int(task.get("critical_path_priority", 0) or 0)
     except (TypeError, ValueError):
@@ -30,8 +43,59 @@ def _priority(task: Mapping[str, Any], dependent_count: int) -> tuple[int, int, 
     return (
         critical,
         1 if bool(task.get("user_visible") or task.get("interactive")) else 0,
+        critical_path_score,
         dependent_count,
     )
+
+
+def _cycle_members(nodes: set[str], dependencies: Mapping[str, list[str]]) -> set[str]:
+    """Return exact members of dependency cycles, excluding downstream waiters."""
+    visiting: list[str] = []
+    visiting_index: dict[str, int] = {}
+    visited: set[str] = set()
+    cycles: set[str] = set()
+
+    def visit(node: str) -> None:
+        if node in visited:
+            return
+        if node in visiting_index:
+            cycles.update(visiting[visiting_index[node]:])
+            return
+        visiting_index[node] = len(visiting)
+        visiting.append(node)
+        for dependency in dependencies.get(node, []):
+            if dependency in nodes:
+                visit(dependency)
+        visiting.pop()
+        visiting_index.pop(node, None)
+        visited.add(node)
+
+    for node in sorted(nodes):
+        visit(node)
+    return cycles
+
+
+def _critical_path_scores(
+    nodes: set[str],
+    tasks_by_id: Mapping[str, Mapping[str, Any]],
+    dependents: Mapping[str, list[str]],
+) -> dict[str, float]:
+    """Compute remaining weighted DAG duration from each task to a leaf."""
+    memo: dict[str, float] = {}
+
+    def score(node: str) -> float:
+        if node in memo:
+            return memo[node]
+        children = [child for child in dependents.get(node, []) if child in nodes]
+        memo[node] = _duration_ms(tasks_by_id[node]) + max(
+            (score(child) for child in children),
+            default=0.0,
+        )
+        return memo[node]
+
+    for node in sorted(nodes):
+        score(node)
+    return memo
 
 
 def build_dispatch_schedule(
@@ -46,52 +110,133 @@ def build_dispatch_schedule(
     dependencies are absent are released in the initial waves.  Dependent work
     stays queued until its prerequisite produces a verified artifact.
     """
-    cap = max(1, int(max_parallel_tasks))
+    cap = min(3, max(1, int(max_parallel_tasks)))
     indexed = [(_task_id(task, index), task) for index, task in enumerate(tasks, 1)]
-    known_ids = {task_id for task_id, _task in indexed}
+    seen: set[str] = set()
+    duplicate_ids: set[str] = set()
+    for task_id, _task in indexed:
+        if task_id in seen:
+            duplicate_ids.add(task_id)
+        seen.add(task_id)
+    known_ids = set(seen)
+    tasks_by_id = {task_id: task for task_id, task in indexed if task_id not in duplicate_ids}
     dependent_counts = {task_id: 0 for task_id in known_ids}
+    dependencies_by_id = {task_id: _dependencies(task) for task_id, task in indexed}
+    dependents: dict[str, list[str]] = defaultdict(list)
     for _task_id_value, task in indexed:
         for dependency in _dependencies(task):
             if dependency in dependent_counts:
                 dependent_counts[dependency] += 1
+                dependents[dependency].append(_task_id_value)
 
-    ready: list[tuple[str, Mapping[str, Any]]] = []
-    waiting: list[dict[str, Any]] = []
     blocked: list[dict[str, Any]] = []
+    admitted: set[str] = set()
     for task_id, task in indexed:
+        if task_id in duplicate_ids:
+            blocked.append({"task_id": task_id, "reason": "DUPLICATE_TASK_ID"})
+            continue
         plan = plans.get(task_id)
         admission = plan.get("final_execution_admission") if isinstance(plan, Mapping) else None
         if not isinstance(plan, Mapping) or plan.get("status") != "READY" or not isinstance(admission, Mapping) or admission.get("status") != "PASS":
             blocked.append({"task_id": task_id, "reason": "PLAN_NOT_ADMITTED"})
             continue
-        dependencies = _dependencies(task)
-        unresolved = [dependency for dependency in dependencies if dependency in known_ids]
-        external = [dependency for dependency in dependencies if dependency not in known_ids]
-        if unresolved or external:
-            waiting.append({
+        external = [dependency for dependency in dependencies_by_id[task_id] if dependency not in known_ids]
+        if external:
+            blocked.append({
                 "task_id": task_id,
-                "wait_for_verified_artifacts": unresolved,
+                "reason": "UNKNOWN_DEPENDENCY",
                 "unknown_dependencies": external,
             })
             continue
-        ready.append((task_id, task))
+        admitted.add(task_id)
 
-    ready.sort(
-        key=lambda item: (
-            *_priority(item[1], dependent_counts[item[0]]),
-            item[0],
-        ),
-        reverse=True,
-    )
-    waves = [
-        [task_id for task_id, _task in ready[start:start + cap]]
-        for start in range(0, len(ready), cap)
+    # A task cannot be dispatched if a known prerequisite failed admission.
+    changed = True
+    while changed:
+        changed = False
+        for task_id in sorted(admitted):
+            unavailable = [dependency for dependency in dependencies_by_id[task_id] if dependency not in admitted]
+            if unavailable:
+                admitted.remove(task_id)
+                blocked.append({
+                    "task_id": task_id,
+                    "reason": "DEPENDENCY_NOT_ADMITTED",
+                    "dependencies": unavailable,
+                })
+                changed = True
+
+    cycle_ids = _cycle_members(admitted, dependencies_by_id)
+    for task_id in sorted(cycle_ids):
+        admitted.remove(task_id)
+        blocked.append({"task_id": task_id, "reason": "DEPENDENCY_CYCLE"})
+
+    # Remove tasks downstream of a cycle rather than leaving them waiting forever.
+    changed = True
+    while changed:
+        changed = False
+        for task_id in sorted(admitted):
+            unavailable = [dependency for dependency in dependencies_by_id[task_id] if dependency not in admitted]
+            if unavailable:
+                admitted.remove(task_id)
+                blocked.append({
+                    "task_id": task_id,
+                    "reason": "DEPENDENCY_CYCLE_UPSTREAM",
+                    "dependencies": unavailable,
+                })
+                changed = True
+
+    scores = _critical_path_scores(admitted, tasks_by_id, dependents)
+
+    def sort_ids(task_ids: Sequence[str]) -> list[str]:
+        return sorted(
+            task_ids,
+            key=lambda task_id: (
+                *_priority(tasks_by_id[task_id], dependent_counts[task_id], scores[task_id]),
+                task_id,
+            ),
+            reverse=True,
+        )
+
+    roots = [task_id for task_id in admitted if not dependencies_by_id[task_id]]
+    ready = sort_ids(roots)
+    waves = [ready[start:start + cap] for start in range(0, len(ready), cap)]
+
+    # This is a plan only: runtime still waits for verified prerequisite artifacts.
+    remaining = set(admitted)
+    completed: set[str] = set()
+    dependency_waves: list[list[str]] = []
+    while remaining:
+        candidates = sort_ids([
+            task_id
+            for task_id in remaining
+            if set(dependencies_by_id[task_id]).issubset(completed)
+        ])
+        if not candidates:  # Defensive fail-closed guard; cycles were handled above.
+            for task_id in sorted(remaining):
+                blocked.append({"task_id": task_id, "reason": "UNSCHEDULABLE_DEPENDENCY_GRAPH"})
+            break
+        wave = candidates[:cap]
+        dependency_waves.append(wave)
+        completed.update(wave)
+        remaining.difference_update(wave)
+
+    waiting = [
+        {
+            "task_id": task_id,
+            "wait_for_verified_artifacts": list(dependencies_by_id[task_id]),
+            "unknown_dependencies": [],
+        }
+        for task_id in sort_ids([task_id for task_id in admitted if dependencies_by_id[task_id]])
     ]
     return {
-        "schema_version": "multi-agent-execution-schedule-v1",
+        "schema_version": "multi-agent-execution-schedule-v2",
         "dispatch_policy": "STREAM_ADMITTED_DEPENDENCY_READY_TASKS_WITH_CRITICAL_PATH_PRIORITY",
+        "planning_policy": "FULL_DAG_FAIL_CLOSED_WEIGHTED_REMAINING_CRITICAL_PATH",
         "max_parallel_tasks": cap,
         "initial_dispatch_waves": waves,
+        "planned_dependency_release_waves": dependency_waves,
+        "critical_path_score_ms": {task_id: scores[task_id] for task_id in sorted(scores)},
+        "dependency_cycle_task_ids": sorted(cycle_ids),
         "waiting_for_verified_dependencies": waiting,
         "blocked": blocked,
     }

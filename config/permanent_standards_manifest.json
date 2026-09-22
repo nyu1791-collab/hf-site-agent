@@ -1,5 +1,5 @@
 {
-  "schema_version": "permanent-standards-manifest-v19",
+  "schema_version": "permanent-standards-manifest-v20",
   "effective_date_jst": "2026-09-22",
   "purpose": "Keep the AI Army, evidence governance, media quality, creator monetization and bounded paid supervision recoverable across new chat tabs while using one expandable manifest plus a compact master rulebook instead of duplicating every detailed rule in startup handoffs.",
   "canonical_branch": "ai-army/provider-v3",
@@ -555,7 +555,10 @@
     "jev_recent_domain_worker_health_policy_survives_tab_change": true,
     "jev_official_manual_alignment_survives_tab_change": true,
     "session_stream_resilience_survives_tab_change": true,
-    "chat_stream_disconnect_does_not_reset_verified_media_work": true
+    "chat_stream_disconnect_does_not_reset_verified_media_work": true,
+    "multi_agent_architecture_evidence_completeness_survives_tab_change": true,
+    "dependency_dag_cycle_and_unknown_dependency_fail_closed_survives_tab_change": true,
+    "weighted_critical_path_schedule_survives_tab_change": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",

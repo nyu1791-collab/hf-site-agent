@@ -380,6 +380,52 @@ def _jev_profile_decision(
     }
 
 
+def _assess_jev_media_decision(
+    info: Mapping[str, Any],
+    *,
+    policy: Mapping[str, Any],
+    changed: Sequence[str],
+    pending: Sequence[str],
+    independent_lane_count: int,
+) -> tuple[bool, str, str, list[str]]:
+    """Accept only a complete successful typed Jev decision, never a guess.
+
+    Rejection causes are persisted: a successful transport response is not
+    evidence that autonomous adoption was safe.
+    """
+    reasons: list[str] = []
+    if str(info.get("status")) != "JEV_LEAN_DECISION_OK":
+        return False, "", "", ["STATUS_NOT_SUCCESS"]
+    if int(info.get("question_count") or 0) != 2:
+        return False, "", "", ["QUESTION_SURFACE_MISMATCH"]
+    decision = info.get("decision")
+    if not isinstance(decision, Mapping):
+        return False, "", "", ["DECISION_MISSING"]
+    workers = decision.get("workers")
+    if not isinstance(workers, Sequence) or isinstance(workers, (str, bytes)) or not workers:
+        return False, "", "", ["PRIMARY_PROFILE_MISSING"]
+    profile = str(workers[0])
+    shape = str(decision.get("route_shape") or "")
+    try:
+        confidence = float(decision.get("confidence"))
+    except (TypeError, ValueError):
+        return False, profile, shape, ["CONFIDENCE_MISSING"]
+    threshold = float((policy.get("decision_quality") or {}).get("minimum_confidence_for_autonomous_execute", 0.75))
+    if profile not in PROFILE_IDS:
+        reasons.append("PROFILE_NOT_PREVALIDATED")
+    if shape not in ROUTE_SHAPES:
+        reasons.append("ROUTE_SHAPE_NOT_PREVALIDATED")
+    if str(decision.get("action") or "") != "EXECUTE":
+        reasons.append("ACTION_NOT_EXECUTE")
+    if decision.get("low_confidence") is not False:
+        reasons.append("LOW_CONFIDENCE_FLAG")
+    if confidence < threshold:
+        reasons.append("CONFIDENCE_BELOW_AUTONOMY_THRESHOLD")
+    if not _safe_profile(profile, changed=changed, pending=pending, independent_lane_count=independent_lane_count):
+        reasons.append("PROFILE_CONFLICTS_WITH_DETERMINISTIC_INVALIDATION")
+    return not reasons, profile, shape, reasons
+
+
 def _valid_jev_media_decision(
     info: Mapping[str, Any],
     *,
@@ -388,31 +434,12 @@ def _valid_jev_media_decision(
     pending: Sequence[str],
     independent_lane_count: int,
 ) -> tuple[bool, str, str]:
-    """Accept only a complete successful typed Jev decision, never a guess."""
-    if str(info.get("status")) != "JEV_LEAN_DECISION_OK":
-        return False, "", ""
-    if int(info.get("question_count") or 0) != 2:
-        return False, "", ""
-    decision = info.get("decision")
-    if not isinstance(decision, Mapping):
-        return False, "", ""
-    workers = decision.get("workers")
-    if not isinstance(workers, Sequence) or isinstance(workers, (str, bytes)) or not workers:
-        return False, "", ""
-    profile = str(workers[0])
-    shape = str(decision.get("route_shape") or "")
-    try:
-        confidence = float(decision.get("confidence"))
-    except (TypeError, ValueError):
-        return False, "", ""
-    threshold = float((policy.get("decision_quality") or {}).get("minimum_confidence_for_autonomous_execute", 0.75))
-    accepted = (
-        profile in PROFILE_IDS
-        and shape in ROUTE_SHAPES
-        and str(decision.get("action") or "") == "EXECUTE"
-        and decision.get("low_confidence") is False
-        and confidence >= threshold
-        and _safe_profile(profile, changed=changed, pending=pending, independent_lane_count=independent_lane_count)
+    accepted, profile, shape, _ = _assess_jev_media_decision(
+        info,
+        policy=policy,
+        changed=changed,
+        pending=pending,
+        independent_lane_count=independent_lane_count,
     )
     return accepted, profile, shape
 
@@ -512,8 +539,8 @@ def plan_media_run(
             high_risk=high_risk,
             shared_mutable_state=shared_mutable_state,
         )
-        accepted, candidate, candidate_shape = _valid_jev_media_decision(
-        jev_info,
+        accepted, candidate, candidate_shape, rejection_reasons = _assess_jev_media_decision(
+            jev_info,
             policy=policy,
             changed=changed,
             pending=pending,
@@ -525,6 +552,7 @@ def plan_media_run(
             jev_info["admission"] = "ACCEPTED_TYPED_PROFILE"
         else:
             jev_info["admission"] = "REJECTED_BY_DETERMINISTIC_MEDIA_GUARD"
+            jev_info["rejection_reasons"] = rejection_reasons
             if high_risk:
                 profile = "ESCALATE_TO_CHATGPT"
                 execution_shape = "ESCALATE"

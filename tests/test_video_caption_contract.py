@@ -7,6 +7,7 @@ from scripts.render_static_speaker_color_longform import (
     EMPHASIS_YELLOW,
     emphasis_terms_for_line,
     rich_character_spans,
+    rendered_visual_evidence,
 )
 from scripts.synthesize_longform_voicevox import caption_text_for_line, deterministic_emphasis_terms
 
@@ -62,6 +63,15 @@ class VideoCaptionContractTests(unittest.TestCase):
         for visual in lock["visuals"]:
             self.assertTrue(all(visual.get(field) for field in required))
             self.assertTrue(visual["semantic_match"])
+
+    def test_rendered_visual_evidence_requires_actual_scene_use(self):
+        mission = {"scenes": [{"scene_id": "M01"}, {"scene_id": "M02"}]}
+        evidence = rendered_visual_evidence([
+            {"scene_id": "M01", "photo_rendered": True, "asset_id": "mars_jezero_crater_rim_panorama"},
+            {"scene_id": "M02", "photo_rendered": True, "asset_id": "mars_perseverance_jezero_map"},
+        ], mission)
+        self.assertEqual(evidence["rendered_photo_scene_coverage_ratio"], 1.0)
+        self.assertEqual(evidence["asset_ids_used"], ["mars_jezero_crater_rim_panorama", "mars_perseverance_jezero_map"])
 
 
 if __name__ == "__main__":

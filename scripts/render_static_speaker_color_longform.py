@@ -240,14 +240,14 @@ def load_assets(manifest_path: Path, registry_path: Path) -> dict:
 def scene_photo(scene_id: str, assets: dict):
     asset_id = SCENE_ASSET.get(scene_id)
     if not asset_id or asset_id not in assets:
-        return None, None
+        return None, None, None
     item = assets[asset_id]
     image = Image.open(item["path"]).convert("RGB")
     image = crop_cover(image, (880, 650))
     meta = item["meta"]
     attribution = meta.get("attribution_text") or meta.get("creator_or_source") or asset_id
     label = str(meta.get("usage") or meta.get("evidence_or_illustrative") or "CONTEXTUAL_VISUAL")
-    return image, f"{attribution} ({label})"
+    return image, f"{attribution} ({label})", asset_id
 
 
 def paste_fit(background: Image.Image, foreground: Image.Image, center_x: int, bottom_y: int, target_h: int, opacity: int) -> None:
@@ -269,7 +269,7 @@ def topic_heading(line: dict, scene: dict) -> str:
     return str(line.get("topic_heading") or line.get("section_heading") or scene.get("topic_heading") or scene.get("title") or "").strip()
 
 
-def compose_turn(line: dict, scene: dict, timing_record: dict, portraits: dict, assets: dict, out_path: Path) -> None:
+def compose_turn(line: dict, scene: dict, timing_record: dict, portraits: dict, assets: dict, out_path: Path) -> dict:
     image = Image.new("RGBA", (W, H), (241, 247, 251, 255))
     draw = ImageDraw.Draw(image)
     f_body = get_font(38)
@@ -282,7 +282,7 @@ def compose_turn(line: dict, scene: dict, timing_record: dict, portraits: dict, 
     draw.text((54, 58), f'{scene["scene_id"]}  {scene["title"]}', font=f_body, fill=(255, 255, 255, 255))
     draw.rounded_rectangle((60, 245, 1020, 1085), radius=34, fill=(255, 255, 255, 255), outline=(205, 220, 232, 255), width=3)
 
-    photo, attribution = scene_photo(scene["scene_id"], assets)
+    photo, attribution, asset_id = scene_photo(scene["scene_id"], assets)
     if photo is not None:
         ph = photo.convert("RGBA")
         mask = Image.new("L", ph.size, 0)
@@ -353,6 +353,13 @@ def compose_turn(line: dict, scene: dict, timing_record: dict, portraits: dict, 
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     image.convert("RGB").save(out_path, quality=92)
+    return {
+        "scene_id": scene["scene_id"],
+        "line_id": line["id"],
+        "photo_rendered": photo is not None,
+        "asset_id": asset_id,
+        "attribution_rendered": attribution if photo is not None else None,
+    }
 
 
 def make_scene_audio(records: list[dict], voice_root: Path, output: Path) -> float:
@@ -403,6 +410,34 @@ def make_contact_sheet(paths: list[Path], output: Path) -> None:
     sheet.save(output, quality=90)
 
 
+def rendered_visual_evidence(scene_rows: list[dict], mission: dict) -> dict:
+    """Record actual renderer use, not merely successful asset materialization."""
+    first_by_scene: dict[str, dict] = {}
+    for row in scene_rows:
+        scene_id = str(row.get("scene_id") or "")
+        if scene_id and scene_id not in first_by_scene:
+            first_by_scene[scene_id] = row
+    scene_ids = [str(scene["scene_id"]) for scene in mission["scenes"]]
+    rendered = [first_by_scene[scene_id] for scene_id in scene_ids if first_by_scene.get(scene_id, {}).get("photo_rendered")]
+    asset_ids = sorted({str(row["asset_id"]) for row in rendered if row.get("asset_id")})
+    return {
+        "schema": "rendered-visual-evidence-v1",
+        "photo_first": True,
+        "scene_count": len(scene_ids),
+        "rendered_photo_scene_count": len(rendered),
+        "rendered_photo_scene_coverage_ratio": round(len(rendered) / max(1, len(scene_ids)), 6),
+        "scenes": [
+            {
+                "scene_id": scene_id,
+                "photo_rendered": bool(first_by_scene.get(scene_id, {}).get("photo_rendered")),
+                "asset_id": first_by_scene.get(scene_id, {}).get("asset_id"),
+            }
+            for scene_id in scene_ids
+        ],
+        "asset_ids_used": asset_ids,
+    }
+
+
 def render(
     mission: dict,
     timing: dict,
@@ -418,6 +453,7 @@ def render(
     scene_videos: list[Path] = []
     all_audio_records: list[dict] = []
     all_image_entries: list[tuple[Path, float]] = []
+    visual_rows: list[dict] = []
 
     for scene in mission["scenes"]:
         scene_dir = output_dir / "scenes" / scene["scene_id"]
@@ -432,7 +468,7 @@ def render(
             audio_records.append(record)
             all_audio_records.append(record)
             still = scene_dir / f'{line["id"]}_static.jpg'
-            compose_turn(line, scene, record, portraits, assets, still)
+            visual_rows.append(compose_turn(line, scene, record, portraits, assets, still))
             if line_index == 0:
                 representative.append(still)
             duration = float(record["duration"]) + float(record.get("pause_after", 0))
@@ -463,6 +499,10 @@ def render(
         scene_videos.append(scene_video)
 
     make_contact_sheet(representative, output_dir / "representative_contact_sheet.jpg")
+    evidence = rendered_visual_evidence(visual_rows, mission)
+    (output_dir / "rendered-visual-evidence.json").write_text(
+        json.dumps(evidence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     if preview_only:
         return
 
@@ -525,8 +565,8 @@ def main() -> int:
         raise RuntimeError("subtitle narration coverage must remain 1.0")
     if timing.get("caption_contract") != "FULL_SPOKEN_TEXT":
         raise RuntimeError("caption contract must be FULL_SPOKEN_TEXT")
-    if float(timing.get("caption_coverage_ratio", 0)) < 0.70:
-        raise RuntimeError("caption coverage ratio is below the full-speech guard")
+    if float(timing.get("caption_coverage_ratio", 0)) != 1.0:
+        raise RuntimeError("caption coverage ratio must remain exactly 1.0")
     if any(float(record.get("pause_after", 0)) > 0.45 for record in timing["records"]):
         raise RuntimeError("excessive dead air exceeds 0.45 second pacing gate")
 
@@ -551,6 +591,7 @@ def main() -> int:
         "voice_speed_scale_expected": 1.2,
         "mouth_animation": False,
         "photo_first": True,
+        "rendered_photo_scene_count": json.loads((output_dir / "rendered-visual-evidence.json").read_text(encoding="utf-8"))["rendered_photo_scene_count"],
         "timing_records": len(timing["records"]),
         "one_pass_final_encode": args.one_pass_final_encode and not args.preview_only,
         "scene_video_intermediate_encodes": 0 if args.one_pass_final_encode else len(mission["scenes"]),

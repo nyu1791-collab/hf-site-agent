@@ -52,6 +52,18 @@ Agentの多数決だけでArchitectureを変更しない。変更は必ず機械
 - Context windowを共有ゴミ箱にしない。Project stateは外部Artifact/Checkpointへ置く。
 - 無限探索を防ぐGuardrailと停止条件が必須。
 
+### Google Research: Scaling Agent Systems
+
+- https://research.google/blog/towards-a-science-of-scaling-agent-systems/
+- https://arxiv.org/abs/2512.08296
+
+採用した要点:
+
+- Multi-Agentの効果はTaskの並列性、単独Agent能力、Tool負荷、Topologyで変わる。
+- Parallelizable workでは中央Coordinatorが有効だが、Sequential workではCoordination taxが利益を消し得る。
+- Independent swarmよりCentralized topologyの方が誤りの増幅を抑えやすい。
+- 論文の数値閾値をそのまま恒久Ruleにせず、AI Army固有の固定Fixtureで校正する。
+
 ### LangChain / LangGraph
 
 - https://docs.langchain.com/oss/python/langchain/multi-agent
@@ -139,6 +151,11 @@ A2Aそのものを今すぐ必須化しない。Native AI Army contractを壊さ
 
 **必ずSingle-Agent baselineと比較する。** Agent数増加そのものを成功指標にしない。
 
+Architectureを昇格する前に、parallelizable fraction、single-agent baseline
+quality、tool intensity、shared-state risk、verification risk、coordination
+overhead、latency、cost、provider healthを記録する。欠落がある提案はShadow
+recommendationに留める。
+
 ---
 
 ## 4. 正式な指揮系統
@@ -218,6 +235,11 @@ Subagentは大量に調査してもよいが、親へ返すのは「結論 + 根
 ## 7. Parallelism
 
 Parallel化してよいのは**独立Taskだけ**。
+
+実行前に完全なDependency DAGを作り、Task ID重複・不明Dependency・Cycleを
+fail closedで止める。Queueは明示priority、user-visible性、推定実行時間を
+含むremaining critical pathで決める。将来Waveの計画は高速化のための予測で
+あり、Runtimeでは各Dependencyのverified artifactが揃うまで次Taskを解放しない。
 
 良い例:
 

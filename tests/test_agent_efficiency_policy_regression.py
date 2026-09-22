@@ -72,6 +72,52 @@ class AgentEfficiencyPolicyRegressionTest(unittest.TestCase):
         self.assertTrue(shared["single_writer_required"])
         self.assertTrue(shared["independent_verifier_required"])
 
+    def test_architecture_admission_exposes_missing_evidence_and_accepts_complete_profile(self) -> None:
+        module = _load_module(ROOT / "scripts" / "agent_architecture_admission.py", "agent_architecture_admission_evidence")
+        incomplete = module.advise(
+            {
+                "task_class": "RESEARCH",
+                "dependency_shape": "PARALLEL",
+                "mutation_scope": "READ_ONLY",
+                "independent_workstreams": 3,
+            }
+        )
+        self.assertFalse(incomplete["architecture_evidence_complete"])
+        self.assertFalse(incomplete["architecture_promotion_eligible"])
+        self.assertIn("parallelizable_fraction", incomplete["missing_admission_measurements"])
+
+        complete = module.advise(
+            {
+                "task_class": "RESEARCH",
+                "dependency_shape": "PARALLEL",
+                "mutation_scope": "DISJOINT",
+                "independent_workstreams": 3,
+                "parallelizable_fraction": 0.8,
+                "single_agent_baseline_quality": 0.7,
+                "tool_intensity": "MEDIUM",
+                "estimated_coordination_overhead_ratio": 0.2,
+                "estimated_latency_ms": 1000,
+                "estimated_cost_usd": 0.0,
+                "provider_health": "HEALTHY",
+            }
+        )
+        self.assertTrue(complete["architecture_evidence_complete"])
+        self.assertTrue(complete["architecture_promotion_eligible"])
+
+    def test_declared_negative_coordination_economics_keeps_single_controller(self) -> None:
+        module = _load_module(ROOT / "scripts" / "agent_architecture_admission.py", "agent_architecture_admission_economics")
+        result = module.advise(
+            {
+                "task_class": "CODING",
+                "dependency_shape": "PARALLEL",
+                "mutation_scope": "DISJOINT",
+                "independent_workstreams": 3,
+                "coordination_cost_exceeds_expected_benefit": True,
+            }
+        )
+        self.assertEqual(result["architecture"], "SINGLE_CONTROLLER")
+        self.assertEqual(result["recommended_parallel_direct_workstreams"], 1)
+
     def test_efficiency_evaluator_does_not_promote_worse_multi_agent_treatment(self) -> None:
         rows = [
             {"architecture": "SINGLE_CONTROLLER", "success": True, "acceptance_pass": True, "latency_ms": 1000, "tokens": 1000, "requests": 2, "estimated_cost_usd": 0.01, "retry_count": 0, "escaped_defects": 0},
