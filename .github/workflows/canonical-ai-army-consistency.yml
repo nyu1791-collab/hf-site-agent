@@ -48,6 +48,7 @@ on:
       - 'scripts/jev_routing_coordinator.py'
       - 'scripts/jev_lean_router.py'
       - 'scripts/jev_primary_router.py'
+      - 'scripts/jev_shape_router.py'
       - 'scripts/openrouter_worker_health.py'
       - 'scripts/openrouter_worker_orchestrator.py'
       - 'scripts/validate_jev_decision_engine.py'
@@ -112,6 +113,7 @@ on:
       - 'tests/test_jev_routing_coordinator.py'
       - 'tests/test_jev_lean_router.py'
       - 'tests/test_jev_primary_router.py'
+      - 'tests/test_jev_shape_router.py'
       - 'tests/test_openrouter_worker_health.py'
       - 'tests/test_openrouter_worker_orchestrator.py'
       - 'tests/test_agent_efficiency_policy_regression.py'
@@ -158,6 +160,7 @@ jobs:
             scripts/jev_routing_coordinator.py \
             scripts/jev_lean_router.py \
             scripts/jev_primary_router.py \
+            scripts/jev_shape_router.py \
             scripts/openrouter_worker_health.py \
             scripts/openrouter_worker_orchestrator.py \
             scripts/validate_jev_decision_engine.py \
@@ -257,7 +260,7 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_jev_decision_engine.py
-          python -m unittest tests.test_jev_decision_engine tests.test_jev_lean_router tests.test_jev_routing_coordinator tests.test_openrouter_worker_health tests.test_openrouter_worker_orchestrator
+          python -m unittest tests.test_jev_decision_engine tests.test_jev_lean_router tests.test_jev_primary_router tests.test_jev_shape_router tests.test_jev_routing_coordinator tests.test_openrouter_worker_health tests.test_openrouter_worker_orchestrator
 
       - name: Enforce media command read gate
         run: |
