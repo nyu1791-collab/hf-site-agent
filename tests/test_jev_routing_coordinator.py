@@ -88,13 +88,13 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
             for i in range(10)
         }
         fake = {
-            "status": "JEV_LEAN_MANY_OK",
+            "status": "JEV_LEAN_FAST_MANY_OK",
             "record_count": 10,
             "batch_count": 1,
             "parallel_batch_count": 1,
             "decisions": decisions,
         }
-        with patch("scripts.jev_routing_coordinator.decide_many_lean", return_value=fake) as call:
+        with patch("scripts.jev_routing_coordinator.decide_many_lean_fast", return_value=fake) as call:
             result = coordinate_many(tasks, CATALOG, use_jev=True, api_key="x")
         call.assert_called_once()
         self.assertEqual(result["task_count"], 10)
@@ -111,7 +111,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
             {"task_id": "task_b", "task_class": "GENERAL", "objective": "B"},
         ]
         fake = {
-            "status": "JEV_LEAN_MANY_OK",
+            "status": "JEV_LEAN_FAST_MANY_OK",
             "record_count": 2,
             "batch_count": 1,
             "parallel_batch_count": 1,
@@ -146,7 +146,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 },
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_many_lean", return_value=fake):
+        with patch("scripts.jev_routing_coordinator.decide_many_lean_fast", return_value=fake):
             result = coordinate_many(
                 tasks,
                 CATALOG,
@@ -214,7 +214,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
 
     def test_batch_high_impact_low_confidence_keeps_chatgpt_stop(self):
         fake = {
-            "status": "JEV_FAST_MANY_OK",
+            "status": "JEV_LEAN_FAST_MANY_OK",
             "record_count": 1,
             "batch_count": 1,
             "decisions": {
@@ -230,7 +230,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 }
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_many_fast", return_value=fake):
+        with patch("scripts.jev_routing_coordinator.decide_many_lean_fast", return_value=fake):
             result = coordinate_many(
                 [{"task_id": "risk", "task_class": "GENERAL", "high_impact": True}],
                 CATALOG,
