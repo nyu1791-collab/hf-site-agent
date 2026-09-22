@@ -2,6 +2,14 @@ name: "Jev routing benchmark"
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - 'missions/jev-benchmark/**'
+      - 'missions/jev-cardinality/**'
+      - 'missions/jev-lean/**'
+      - '.github/workflows/jev-routing-benchmark.yml'
 
 permissions:
   contents: read
@@ -23,7 +31,7 @@ jobs:
 
       - name: Compile Jev benchmark
         run: |
-          python -m py_compile scripts/jev_decision_engine.py scripts/jev_route_ab_benchmark.py scripts/jev_cardinality_benchmark.py scripts/jev_lean_route_benchmark.py
+          python -m py_compile scripts/jev_decision_engine.py scripts/jev_lean_router.py scripts/jev_route_ab_benchmark.py scripts/jev_cardinality_benchmark.py scripts/jev_lean_route_benchmark.py
 
       - name: Run 9-vs-3-vs-1 Jev routing benchmark
         if: ${{ hashFiles('missions/jev-benchmark/active.json') != '' }}
