@@ -1,0 +1,104 @@
+{
+  "schema_version": "news-source-claim-lock-v1",
+  "mission_id": "20260922-mars-water-news60-v1",
+  "locked_at_jst": "2026-09-22",
+  "topic": "NASA/JPL report and peer-reviewed study on complex ancient water systems in Jezero Crater, Mars",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "NASA Discovery Reveals Complex Water Systems on Early Mars",
+      "publisher": "NASA",
+      "url": "https://www.nasa.gov/solar-system/planets/mars/nasa-discovery-reveals-complex-water-systems-on-early-mars/",
+      "accessed_jst": "2026-09-22",
+      "role": "primary_agency_summary"
+    },
+    {
+      "id": "S2",
+      "title": "NASA Discovery Reveals Complex Water Systems on Early Mars",
+      "publisher": "NASA Jet Propulsion Laboratory",
+      "url": "https://www.jpl.nasa.gov/home/news/nasa-discovery-reveals-complex-water-systems-on-early-mars/",
+      "accessed_jst": "2026-09-22",
+      "role": "mission_science_summary"
+    },
+    {
+      "id": "S3",
+      "title": "Lake- and groundwater-associated alteration of the olivine-rich Margin unit in Jezero crater, Mars",
+      "publisher": "Communications Earth & Environment",
+      "url": "https://www.nature.com/articles/s43247-026-03997-9",
+      "published": "2026-09-21",
+      "accessed_jst": "2026-09-22",
+      "license": "CC BY 4.0",
+      "role": "peer_reviewed_primary_research"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "statement": "The study analyzes Perseverance SuperCam observations of Jezero Crater's Margin Unit.",
+      "sources": [
+        "S1",
+        "S2",
+        "S3"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "C2",
+      "statement": "The Margin Unit records a complex sequence of ancient lake and groundwater processes rather than one simple water episode.",
+      "sources": [
+        "S1",
+        "S2",
+        "S3"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "C3",
+      "statement": "Higher-elevation exposures show limited water alteration, while lower exposures below the proposed paleolake terrace show stronger water-rock interaction.",
+      "sources": [
+        "S3"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "C4",
+      "statement": "The authors identify an early neutral-to-alkaline CO2-rich groundwater alteration stage producing carbonate-rich features.",
+      "sources": [
+        "S3"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "C5",
+      "statement": "Later alteration includes silica precipitation and a still later hydrothermal-fracture event with fluorite-bearing calcium-sulfate veins.",
+      "sources": [
+        "S3"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "C6",
+      "statement": "The sequence makes the Margin Unit a locality of astrobiological interest because it records multiple fluid environments.",
+      "sources": [
+        "S3"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "C7",
+      "statement": "The study does not report a discovery of life; it reports geological evidence relevant to past aqueous environments and astrobiological investigation.",
+      "sources": [
+        "S1",
+        "S2",
+        "S3"
+      ],
+      "confidence": "HIGH"
+    }
+  ],
+  "visual_rights": {
+    "external_news_images_used": false,
+    "generated_factual_background_used": false,
+    "video_uses_character_assets_and_original_text_diagrams_only": true,
+    "note": "Search results and article images are not treated as reusable assets. No NASA/JPL/Nature imagery is embedded in this build."
+  }
+}
