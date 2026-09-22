@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config" / "jev_decision_engine_policy.json"
 RUNTIME = ROOT / "scripts" / "jev_decision_engine.py"
 COORDINATOR = ROOT / "scripts" / "jev_routing_coordinator.py"
+JEV_PLAYBOOK = ROOT / "docs" / "JEV_FAST_DECISION_PLAYBOOK.md"
 LEAN_RUNTIME = ROOT / "scripts" / "jev_lean_router.py"
 SHAPE_RUNTIME = ROOT / "scripts" / "jev_shape_router.py"
 MULTI = ROOT / "config" / "multi_agent_operating_policy.json"
@@ -78,6 +79,12 @@ def main() -> int:
     require("max_records_per_request" in source, "Jev 20-record batch control missing")
     require("quota_pressure_from_remaining" in source, "quota enum preprocessing missing")
     require(COORDINATOR.is_file(), "Jev routing coordinator missing")
+    require(JEV_PLAYBOOK.is_file(), "Jev permanent playbook missing")
+    playbook = JEV_PLAYBOOK.read_text(encoding="utf-8")
+    require("ZERO_QUESTION_DETERMINISTIC_HEALTH_FAST_PATH" in playbook, "Jev zero-question tier missing from playbook")
+    require("SHAPE_ONE_QUESTION" in playbook, "Jev one-question tier missing from playbook")
+    require("LEAN_TWO_QUESTION" in playbook, "Jev two-question tier missing from playbook")
+    require("FAST_THREE_TO_FOUR_QUESTION" in playbook, "Jev rich tier missing from playbook")
     require(LEAN_RUNTIME.is_file(), "Jev lean routing runtime missing")
     require(SHAPE_RUNTIME.is_file(), "Jev shape routing runtime missing")
     lean_source = LEAN_RUNTIME.read_text(encoding="utf-8")
