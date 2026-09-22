@@ -11,7 +11,7 @@ triage. It is not a long-form worker and never gains final authority.
 ## Source guidance incorporated
 
 Primary references:
-- https://docs.typesafe.ai/concepts/system-one
+- https://typesafe.ai/blog/introducing-system-one-models-and-jev
 - https://openrouter.ai/labs/jev/compile
 - https://openrouter.ai/typesafe/jev-1.13/
 - https://evals.typesafe.ai/
@@ -28,6 +28,12 @@ The implementation follows these principles:
 7. Batch up to 20 independent records per Decisions request.
 8. Consume Choice probabilities and confidence programmatically.
 9. Use Jev Latest by default, with the pinned Jev 1.13 only as guarded fallback.
+10. Keep Choice cardinality low when code can pre-rank candidates. TypeSafe notes
+    that high-cardinality choices can require a two-stage score-then-choice path
+    and can slow down.
+11. Stage follow-up judgments only when the first-stage result requires them.
+    This mirrors TypeSafe's workflow examples where follow-up questions run only
+    after earlier decisions make them relevant.
 
 ## Routing surfaces
 
@@ -60,3 +66,35 @@ Jev cannot:
 
 The user has authorized paid Jev routing. Auto top-up and generic paid fallback
 remain disabled.
+
+## Measured production-routing optimizations
+
+Jev-only live benchmarks on 2026-09-22 found:
+
+- 4 eligible worker candidates: p50 282.710 ms, p95 358.687 ms, primary hit rate 100%.
+- 6 candidates: p50 307.748 ms.
+- 8 candidates: p50 327.221 ms.
+- 12 candidates: p50 317.994 ms.
+- Candidate-profile limit 240 chars: p50 271.273 ms, p95 324.185 ms, hit rate 100%.
+- 120 chars: p50 274.778 ms.
+- 360 chars: p50 285.830 ms.
+
+Canonical routing therefore pre-ranks exact-free workers in Python and exposes
+only the top four to Jev for routine routing, with candidate profiles capped at
+240 characters.
+
+A 9-vs-3-vs-1 benchmark also showed that fewer questions do not automatically
+mean lower tail latency. The one-Choice portfolio route used fewer input tokens
+but had worse p95 than the three-question route in one run. This is consistent
+with TypeSafe's high-cardinality warning, so routing surfaces are promoted only
+from repeated live A/B evidence rather than question-count aesthetics.
+
+The current optimization order is:
+
+1. Python performs deterministic eligibility, health ranking and quota math.
+2. Jev sees a small typed decision surface.
+3. Python composes the final route.
+4. Downstream workers start immediately.
+5. Slow hedges use short challenger timeouts.
+6. Measured worker/domain health expires and is re-learned instead of becoming
+   a permanent static ranking.
