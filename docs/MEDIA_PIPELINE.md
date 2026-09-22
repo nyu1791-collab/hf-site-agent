@@ -86,3 +86,18 @@ Timelineは文字数推測ではなく生成済みWAVのffprobe実時間を正�
 - 元依頼と現行PolicyのRereview
 
 Decode PASSだけをVisual PASSとみなさない。Candidate完成直後に即納せず、一度見直してから渡す。
+
+
+## チャット配信中断への耐性
+
+ChatGPTアプリ側の応答ストリームは、長時間の動画生成Jobそのものの実行基盤として扱わない。長時間処理はRepositoryとDurable Runner上へ先に固定し、チャット表示が切れてもJob・Checkpoint・Artifactが残る設計にする。
+
+- 実行前にMission / Source Lock / Policy version / request hashをRepositoryへ永続化する。
+- Runnerはチャット接続から独立して継続し、`cancel-in-progress: false`を標準とする。
+- VOICEVOX音声など高コストStageはRender前にVerified checkpointとしてArtifact化する。
+- 各Stageはstate manifestへ `PENDING / RUNNING / VERIFIED / BLOCKED / FAILED_RETRYABLE / FAILED_PERMANENT / COMPLETE` を記録する。
+- 再接続時は会話文から再開せず、最新HEAD、PR状態、request state、workflow run、verified artifactsを読み直す。
+- 同一Root CauseをEvidenceなしで再試行せず、壊れたStageだけを再実行する。
+- 応答ストリームの中断だけを動画生成失敗と判定しない。一方、Playable artifactが無い状態を完成扱いもしない。
+
+Machine authority: `config/session_stream_resilience_policy.json`
