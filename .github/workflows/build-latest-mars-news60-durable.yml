@@ -8,6 +8,11 @@ on:
     paths:
       - missions/media/20260922-mars-water-news60-v1.json.gz.b64
       - missions/media/20260922-mars-water-news60-v1.sources.json
+      - config/media_reusable_asset_standard.json
+      - config/evidence_visual_static_character_policy.json
+      - scripts/synthesize_longform_voicevox.py
+      - scripts/render_static_speaker_color_longform.py
+      - scripts/validate_video_caption_contract.py
 
 permissions:
   contents: read
@@ -75,8 +80,10 @@ jobs:
           python scripts/video_creation_admission.py
           python scripts/validate_free_execution_guard.py
           python scripts/validate_media_command_read_gate.py
+          python scripts/validate_evidence_visual_static_character_standard.py
           python -m py_compile scripts/synthesize_longform_voicevox.py
-          python -m py_compile scripts/render_zundamon_metan_longform.py
+          python -m py_compile scripts/render_static_speaker_color_longform.py
+          python -m py_compile scripts/validate_video_caption_contract.py
           python - <<'PY'
           import json,os
           from pathlib import Path
@@ -123,9 +130,12 @@ jobs:
             --mission-b64 "$MISSION" \
             --output-dir "$OUT/voice" \
             --timing-out "$OUT/timing.json" \
-            --speed-scale 1.16 \
+            --speed-scale 1.20 \
             --min-seconds 45 \
             --max-seconds 80
+          python scripts/validate_video_caption_contract.py \
+            --mission-b64 "$MISSION" \
+            --timing "$OUT/timing.json"
           cp "$SOURCES" "$OUT/source-claim-lock.json"
           printf '%s\n' 'VOICEVOX:ずんだもん' 'VOICEVOX:四国めたん' > "$OUT/VOICEVOX_CREDIT.txt"
           python - <<'PY'
@@ -199,14 +209,33 @@ jobs:
                   dst=dstroot/f"{target_char}.png"; rgba.save(dst)
               records.append({"character":target_char,"category":"full_body","path":str(dst.resolve())})
           (out/"static_inventory.json").write_text(json.dumps({"schema":"static-character-inventory-v1","records":records},ensure_ascii=False,indent=2)+"\n")
-          (out/"visual_assets.json").write_text(json.dumps({
-              "schema":"media-asset-materialization-manifest-v1",
-              "asset_count":0,
-              "generated_image_count":0,
-              "external_news_image_count":0,
-              "results":[],
-              "rights_strategy":"ORIGINAL_TEXT_DIAGRAMS_ONLY_FOR_FACTUAL_NEWS_VISUALS"
-          },ensure_ascii=False,indent=2)+"\n")
+          PY
+
+      - name: Materialize researched rights-verified Jezero context visuals
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/media_asset_resolver.py \
+            --group mars_jezero_context_visuals \
+            --cache-root "$CACHE" \
+            --allow-network \
+            --max-workers 2 \
+            --manifest-out "$OUT/visual_assets.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          out=Path(os.environ["OUT"])
+          manifest=json.loads((out/"visual_assets.json").read_text())
+          assert int(manifest.get("asset_count",0)) >= 2, manifest
+          assert all(Path(row["path"]).is_file() for row in manifest.get("results",[])), manifest
+          print({"asset_count":manifest["asset_count"],"search_performed":manifest.get("search_performed"),"rights":"registry-verified"})
+          PY
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["OUT"])/"state.json"; s=json.loads(p.read_text())
+          s["verified_artifacts"].append("visual_assets.json")
+          p.write_text(json.dumps(s,ensure_ascii=False,indent=2)+"\n")
           PY
 
       - name: Preview before full render
@@ -214,10 +243,10 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf "$OUT/preview-only"
-          python scripts/render_zundamon_metan_longform.py \
+          python scripts/render_static_speaker_color_longform.py \
             --mission-b64 "$MISSION" \
             --timing "$OUT/timing.json" \
-            --reaction-inventory "$OUT/static_inventory.json" \
+            --static-inventory "$OUT/static_inventory.json" \
             --asset-manifest "$OUT/visual_assets.json" \
             --voice-root "$OUT/voice" \
             --output-dir "$OUT/preview-only" \
@@ -229,14 +258,14 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf "$OUT/final"
-          python scripts/render_zundamon_metan_longform.py \
+          python scripts/render_static_speaker_color_longform.py \
             --mission-b64 "$MISSION" \
             --timing "$OUT/timing.json" \
-            --reaction-inventory "$OUT/static_inventory.json" \
+            --static-inventory "$OUT/static_inventory.json" \
             --asset-manifest "$OUT/visual_assets.json" \
             --voice-root "$OUT/voice" \
             --output-dir "$OUT/final"
-          mv "$OUT/final/ai-slowdown-longform-v1.mp4" "$FINAL"
+          mv "$OUT/final/ai-slowdown-longform-speaker-color.mp4" "$FINAL"
           python - <<'PY'
           import json,os
           from pathlib import Path
@@ -265,7 +294,17 @@ jobs:
           assert a["codec_name"]=="aac" and int(a["sample_rate"])==48000
           t=json.loads((out/"timing.json").read_text())
           assert float(t["subtitle_narration_coverage_ratio"])==1.0
+          assert t.get("caption_contract")=="FULL_SPOKEN_TEXT"
+          assert float(t.get("caption_coverage_ratio",0)) >= 0.70
           assert t["runtime_discovered_cast"]["ずんだもん"]["style_id"] is not None
+          visual_manifest=json.loads((out/"visual_assets.json").read_text())
+          assert int(visual_manifest.get("asset_count",0)) >= 2
+          source_lock=json.loads((out/"source-claim-lock.json").read_text())
+          assert source_lock.get("visual_rights",{}).get("external_news_images_used") is True
+          visuals=source_lock.get("visuals") or []
+          assert len(visuals) >= 2
+          required_visual_fields=("source_page","asset_locator","rights_state","claim_mapping","retrieval_or_verification_timestamp")
+          assert all(all(row.get(field) for field in required_visual_fields) and row.get("semantic_match") is True for row in visuals), visuals
           print({"duration_seconds":dur,"video":"h264/yuv420p","audio":"aac/48k","coverage":1.0})
           PY
           ffmpeg -v error -i "$FINAL" -f null - 2> "$OUT/final/decode-errors.log"
@@ -290,8 +329,11 @@ jobs:
             "secondary_voice":"四国めたん",
             "runtime_speaker_discovery":True,
             "source_claim_lock":"source-claim-lock.json",
-            "external_news_images_used":False,
+            "external_news_images_used":True,
             "generated_factual_background_used":False,
+            "caption_contract":"FULL_SPOKEN_TEXT",
+            "caption_coverage_ratio":float(t["caption_coverage_ratio"]),
+            "visual_asset_manifest":"visual_assets.json",
             "paid_or_freemium_media_used":False,
             "public_publish":False
           }

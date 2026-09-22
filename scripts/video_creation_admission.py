@@ -88,6 +88,19 @@ def static_admission() -> dict[str, Any]:
     free = policy.get("free_execution_contract") if isinstance(policy.get("free_execution_contract"), Mapping) else {}
     if free.get("paid_or_freemium_tts") is not False or free.get("paid_media_substitution") is not False:
         failures.append("paid/freemium voice substitution is enabled")
+    captions = policy.get("caption_contract") if isinstance(policy.get("caption_contract"), Mapping) else {}
+    if captions.get("full_spoken_text_required") is not True:
+        failures.append("full spoken captions are not required")
+    if captions.get("summary_caption_may_not_replace_narration") is not True:
+        failures.append("summary captions may replace narration")
+    if captions.get("caption_contract_name") != "FULL_SPOKEN_TEXT":
+        failures.append("FULL_SPOKEN_TEXT caption contract is missing")
+    if captions.get("renderer") != "scripts/render_static_speaker_color_longform.py":
+        failures.append("canonical speaker-color caption renderer drift")
+    visuals = policy.get("visual_asset_contract") if isinstance(policy.get("visual_asset_contract"), Mapping) else {}
+    for key in ("claim_bearing_news_requires_related_visual_plan", "source_page_required", "asset_locator_required", "license_or_public_domain_state_required", "scene_or_claim_mapping_required", "semantic_match_required"):
+        if visuals.get(key) is not True:
+            failures.append(f"related visual provenance rule missing: {key}")
     return {
         "schema_version": policy.get("schema_version"),
         "status": "PASS" if not failures else "BLOCKED",
@@ -98,6 +111,8 @@ def static_admission() -> dict[str, Any]:
         "standard_cast": voice.get("standard_cast"),
         "voicevox_unavailable_action": voice.get("voicevox_unavailable_action"),
         "paid_or_freemium_tts": free.get("paid_or_freemium_tts"),
+        "caption_contract": captions.get("caption_contract_name"),
+        "related_visual_plan_required": visuals.get("claim_bearing_news_requires_related_visual_plan"),
     }
 
 

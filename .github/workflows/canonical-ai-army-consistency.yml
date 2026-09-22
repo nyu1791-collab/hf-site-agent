@@ -60,6 +60,7 @@ on:
       - 'scripts/validate_permanent_ai_army_state.py'
       - 'scripts/validate_free_execution_guard.py'
       - 'scripts/video_creation_admission.py'
+      - 'scripts/validate_video_caption_contract.py'
       - 'scripts/validate_media_command_read_gate.py'
       - 'scripts/validate_semantic_recall_and_commerce_precision.py'
       - 'scripts/validate_media_character_visual_standard.py'
@@ -134,6 +135,7 @@ on:
       - 'tests/test_media_batch_command_center_ffmpeg.py'
       - 'tests/test_media_parallel_framework_mission.py'
       - 'tests/test_media_asset_resolver.py'
+      - 'tests/test_video_caption_contract.py'
       - 'tests/test_second_pass_governance.py'
       - '.github/workflows/deepseek-*.yml'
       - '.github/workflows/*-once.yml'
@@ -181,6 +183,7 @@ jobs:
             scripts/validate_permanent_ai_army_state.py \
             scripts/validate_free_execution_guard.py \
             scripts/video_creation_admission.py \
+            scripts/validate_video_caption_contract.py \
             scripts/validate_media_command_read_gate.py \
             scripts/validate_semantic_recall_and_commerce_precision.py \
             scripts/validate_media_character_visual_standard.py \
@@ -309,6 +312,11 @@ jobs:
           set -euo pipefail
           python scripts/validate_evidence_visual_static_character_standard.py
 
+      - name: Enforce full-spoken caption contract
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/validate_video_caption_contract.py
+
       - name: Enforce reusable character reactions and caption spelling
         run: |
           set -euo pipefail
@@ -363,6 +371,7 @@ jobs:
             tests.test_media_batch_command_center_ffmpeg \
             tests.test_media_parallel_framework_mission \
             tests.test_media_asset_resolver \
+            tests.test_video_caption_contract \
             tests.test_second_pass_governance -v
 
       - name: Prove no paid call occurs in consistency CI

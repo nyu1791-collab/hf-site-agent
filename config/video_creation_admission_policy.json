@@ -26,6 +26,34 @@
     "voicevox_unavailable_action": "BLOCK_BEFORE_RENDER",
     "silent_video_fallback": false
   },
+  "caption_contract": {
+    "full_spoken_text_required": true,
+    "every_spoken_turn_must_have_visible_caption": true,
+    "caption_source_of_truth": "MEASURED_TIMING_MANIFEST_WITH_FULL_SPOKEN_TEXT",
+    "summary_caption_may_not_replace_narration": true,
+    "caption_coverage_ratio_minimum": 0.70,
+    "caption_contract_name": "FULL_SPOKEN_TEXT",
+    "speaker_colors": {
+      "ずんだもん": "#4DE084",
+      "四国めたん": "#FF5BB9"
+    },
+    "important_term_colors": ["#FFEB3B", "#F44336"],
+    "renderer": "scripts/render_static_speaker_color_longform.py",
+    "validator": "scripts/validate_video_caption_contract.py"
+  },
+  "visual_asset_contract": {
+    "claim_bearing_news_requires_related_visual_plan": true,
+    "search_or_registered_cache_before_render": true,
+    "source_page_required": true,
+    "asset_locator_required": true,
+    "license_or_public_domain_state_required": true,
+    "scene_or_claim_mapping_required": true,
+    "semantic_match_required": true,
+    "generated_factual_background_default": false,
+    "unknown_rights_action": "BLOCK_BEFORE_RENDER",
+    "visual_provenance_manifest_required": true,
+    "renderer_reads": "config/media_reusable_asset_standard.json"
+  },
   "free_execution_contract": {
     "local_voicevox_only": true,
     "paid_or_freemium_tts": false,

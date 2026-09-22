@@ -274,7 +274,16 @@
     "disk_and_ram_preflight_required": true,
     "safe_contract_mismatch_normalizes_only_offending_scene": true,
     "final_full_decode_required_unless_declared_time_budget_forces_recorded_sampling": true,
-    "known_tts_does_not_require_asr_every_scene": true
+    "known_tts_does_not_require_asr_every_scene": true,
+    "full_spoken_caption_contract": "FULL_SPOKEN_TEXT",
+    "summary_caption_may_not_replace_narration": true,
+    "speaker_caption_colors": {
+      "ずんだもん": "#4DE084",
+      "四国めたん": "#FF5BB9"
+    },
+    "important_caption_emphasis_colors": ["#FFEB3B", "#F44336"],
+    "claim_bearing_news_related_visuals_required": true,
+    "related_visuals_must_have_source_page_asset_locator_rights_state_and_claim_mapping": true
   },
   "clipping_fixed_rules": {
     "authorized_creator_repurposing_and_official_clipping_adopted": true,
@@ -378,6 +387,10 @@
     "free execution guard is restored from the repository on every new tab before media or external provider work",
     "every video request restores config/video_creation_admission_policy.json and runs scripts/video_creation_admission.py before rendering",
     "video rendering is blocked unless local VOICEVOX and the ずんだもん standard cast are available; silent fallback is forbidden",
+    "every video request uses the FULL_SPOKEN_TEXT caption contract with no summary-caption substitution",
+    "speaker caption text is green for ずんだもん and pink/magenta for 四国めたん, with marked important terms emphasized deterministically",
+    "claim-bearing news visuals are searched or restored from a verified registry and retain source page, asset locator, rights state and claim mapping",
+    "caption and related-visual rules are restored from the repository after a tab or session change",
     "paid or freemium media routes are blocked without probing and free-route failure never silently becomes paid",
     "CI execution limits match the DeepSeek supervisor policy and reject legacy paid workflow revival",
     "multi-agent promotion is measured against a single-agent baseline",

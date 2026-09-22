@@ -103,7 +103,8 @@
       "csiro_server_racks_2042",
       "cyberport_network_operations_centre"
     ],
-    "reusable_ai_people_visuals": ["sam_altman_ted_2025", "sam_altman_2022", "dario_amodei_tc_disrupt_2023"]
+    "reusable_ai_people_visuals": ["sam_altman_ted_2025", "sam_altman_2022", "dario_amodei_tc_disrupt_2023"],
+    "mars_jezero_context_visuals": ["mars_jezero_crater_rim_panorama", "mars_perseverance_jezero_map"]
   },
   "assets": [
     {
@@ -239,6 +240,44 @@
       "commercial_use_allowed": true,
       "attribution_required": true,
       "attribution_text": "TechCrunch / Wikimedia Commons / CC BY 2.0",
+      "publication_requires_reverification": true,
+      "validation": "JPEG_MAGIC"
+    },
+    {
+      "asset_id": "mars_jezero_crater_rim_panorama",
+      "registry_revision": "pdusgov-20260922",
+      "kind": "real_photo",
+      "category": "visuals",
+      "filename": "mars_jezero_crater_rim_panorama.jpg",
+      "acquisition_mode": "DIRECT_KNOWN_URL",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Jezero_Crater_Rim_Panorama_NASA_Perseverance_rover.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Jezero_Crater_Rim_Panorama_NASA_Perseverance_rover.jpg",
+      "creator_or_source": "NASA/JPL-Caltech via Wikimedia Commons",
+      "rights_state": "PD-USGov",
+      "commercial_use_allowed": true,
+      "attribution_required": false,
+      "attribution_text": "NASA/JPL-Caltech via Wikimedia Commons / public domain",
+      "usage": "CONTEXTUAL_JEZERO_LOCATION",
+      "evidence_or_illustrative": "ILLUSTRATIVE_CONTEXT",
+      "publication_requires_reverification": true,
+      "validation": "JPEG_MAGIC"
+    },
+    {
+      "asset_id": "mars_perseverance_jezero_map",
+      "registry_revision": "pdusgov-20260922",
+      "kind": "real_photo",
+      "category": "visuals",
+      "filename": "mars_perseverance_jezero_map.jpg",
+      "acquisition_mode": "DIRECT_KNOWN_URL",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Locations_and_future_destinations_of_Perseverance_in_Jezero.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Locations_and_future_destinations_of_Perseverance_in_Jezero.jpg",
+      "creator_or_source": "NASA/JPL-Caltech/University of Arizona via Wikimedia Commons",
+      "rights_state": "PD-USGov",
+      "commercial_use_allowed": true,
+      "attribution_required": false,
+      "attribution_text": "NASA/JPL-Caltech/University of Arizona via Wikimedia Commons / public domain",
+      "usage": "MISSION_AND_GEOGRAPHIC_CONTEXT",
+      "evidence_or_illustrative": "ILLUSTRATIVE_CONTEXT",
       "publication_requires_reverification": true,
       "validation": "JPEG_MAGIC"
     }

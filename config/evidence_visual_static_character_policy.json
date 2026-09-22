@@ -74,6 +74,9 @@
   "caption_rendering": {
     "full_caption_coverage_required": true,
     "every_spoken_turn_must_have_visible_caption_text": true,
+    "full_spoken_text_contract": "FULL_SPOKEN_TEXT",
+    "summary_caption_may_not_replace_narration": true,
+    "caption_coverage_ratio_minimum": 0.70,
     "caption_text_must_not_be_truncated_by_fixed_line_count": true,
     "fit_strategy": [
       "semantic_wrap",
@@ -93,6 +96,9 @@
     "caption_body_color_role": "MATCH_ACTIVE_SPEAKER_ACCENT",
     "caption_text_dark_stroke_or_shadow_allowed_for_readability": true,
     "white_caption_body_as_default_for_zundamon_metan": false,
+    "important_term_emphasis_required_when_marked": true,
+    "important_term_emphasis_colors": ["#FFEB3B", "#F44336"],
+    "important_term_emphasis_must_not_be_the_only_meaning_signal": true,
     "topic_heading_required": true,
     "topic_heading_granularity": "SEMANTIC_CONTENT_BLOCK_NOT_EVERY_UTTERANCE",
     "topic_heading_changes_only_when_subject_or_argument_block_changes": true,
@@ -156,6 +162,7 @@
   },
   "production_efficiency": {
     "canonical_static_speaker_color_renderer": "scripts/render_static_speaker_color_longform.py",
+    "full_spoken_caption_validator": "scripts/validate_video_caption_contract.py",
     "do_not_build_or_regenerate_character_reaction_pack_for_normal_static_turn_focus": true,
     "do_not_run_full_face_mouth_fixture_for_unchanged_static_portraits": true,
     "do_not_generate_background_images_when_searchable_evidence_visual_exists": true,

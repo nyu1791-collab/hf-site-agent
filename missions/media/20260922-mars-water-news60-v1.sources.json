@@ -95,13 +95,50 @@
       "confidence": "HIGH"
     }
   ],
+  "visuals": [
+    {
+      "id": "V1",
+      "asset_id": "mars_jezero_crater_rim_panorama",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Jezero_Crater_Rim_Panorama_NASA_Perseverance_rover.jpg",
+      "asset_locator": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Jezero_Crater_Rim_Panorama_NASA_Perseverance_rover.jpg",
+      "title": "Jezero Crater Rim Panorama NASA Perseverance rover",
+      "creator_or_source": "NASA/JPL-Caltech via Wikimedia Commons",
+      "license": "PD-USGov",
+      "rights_state": "PD-USGov",
+      "evidence_or_illustrative": "ILLUSTRATIVE_CONTEXT",
+      "claim_mapping": ["C1", "C2", "C6", "C7"],
+      "semantic_match": true,
+      "retrieval_or_verification_timestamp": "2026-09-22T00:00:00+09:00",
+      "exact_study_visual": false
+    },
+    {
+      "id": "V2",
+      "asset_id": "mars_perseverance_jezero_map",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Locations_and_future_destinations_of_Perseverance_in_Jezero.jpg",
+      "asset_locator": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Locations_and_future_destinations_of_Perseverance_in_Jezero.jpg",
+      "title": "Locations and future destinations of Perseverance in Jezero",
+      "creator_or_source": "NASA/JPL-Caltech/University of Arizona via Wikimedia Commons",
+      "license": "PD-USGov",
+      "rights_state": "PD-USGov",
+      "evidence_or_illustrative": "ILLUSTRATIVE_CONTEXT",
+      "claim_mapping": ["C1", "C2", "C3"],
+      "semantic_match": true,
+      "retrieval_or_verification_timestamp": "2026-09-22T00:00:00+09:00",
+      "exact_study_visual": false
+    }
+  ],
   "visual_rights": {
-    "external_news_images_used": false,
+    "external_news_images_used": true,
     "generated_factual_background_used": false,
-    "video_uses_character_assets_and_original_text_diagrams_only": true,
-    "note": "Search results and article images are not treated as reusable assets. No NASA/JPL/Nature imagery is embedded in this build."
+    "video_uses_verified_context_visuals_and_original_text_diagrams": true,
+    "search_is_discovery_not_license": true,
+    "source_page_and_asset_locator_verified": true,
+    "visual_provenance_fields_complete": true,
+    "research_method": "PRIMARY_SOURCE_AND_RIGHTS_VERIFIED_CONTEXT_VISUAL_REGISTRY",
+    "publication_rights_reverification_required": true,
+    "note": "The visuals are contextual NASA/JPL mission images from Wikimedia Commons and are not presented as exact study figures or proof of the claims."
   },
-  "build_revision": 3,
+  "build_revision": 4,
   "qa_note": "Durable rerun requested after chat response-stream interruption hardening; factual claims and source lock unchanged.",
   "execution_trigger": {
     "reason": "CHAT_STREAM_INDEPENDENT_DURABLE_RERUN",

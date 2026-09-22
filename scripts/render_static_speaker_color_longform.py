@@ -5,6 +5,7 @@ import argparse
 import base64
 import gzip
 import json
+import re
 import subprocess
 import wave
 from pathlib import Path
@@ -21,6 +22,8 @@ INACTIVE_CHARACTER_H = 390
 ACTIVE_CHARACTER_H = int(round(INACTIVE_CHARACTER_H * ACTIVE_SCALE))
 ZUNDAMON_ACCENT = (77, 224, 132, 255)
 METAN_ACCENT = (255, 91, 185, 255)
+EMPHASIS_YELLOW = (255, 235, 59, 255)
+EMPHASIS_RED = (244, 67, 54, 255)
 
 SCENE_ASSET = {
     "S01": "openai_hq_1515_third_street",
@@ -33,6 +36,14 @@ SCENE_ASSET = {
     "S08": "cyberport_network_operations_centre",
     "S09": "datacenter_server_racks_22370909788",
     "S10": "openai_hq_1515_third_street",
+    # Mars Jezero current-news mission: contextual, rights-verified visuals.
+    "M01": "mars_jezero_crater_rim_panorama",
+    "M02": "mars_perseverance_jezero_map",
+    "M03": "mars_jezero_crater_rim_panorama",
+    "M04": "mars_jezero_crater_rim_panorama",
+    "M05": "mars_perseverance_jezero_map",
+    "M06": "mars_perseverance_jezero_map",
+    "M07": "mars_jezero_crater_rim_panorama",
 }
 
 
@@ -54,6 +65,16 @@ def get_font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
     for candidate in candidates:
         if Path(candidate).exists():
             return ImageFont.truetype(candidate, size)
+    try:
+        resolved = subprocess.check_output(
+            ["fc-match", "-f", "%{file}", "Noto Sans CJK JP"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        if resolved and Path(resolved).exists():
+            return ImageFont.truetype(resolved, size)
+    except (FileNotFoundError, subprocess.CalledProcessError, OSError):
+        pass
     return ImageFont.load_default()
 
 
@@ -86,6 +107,93 @@ def fit_caption(draw: ImageDraw.ImageDraw, text: str, maxw: int, maxh: int, star
         if total <= maxh:
             return fnt, lines, total
     raise RuntimeError(f"caption does not fit reserved safe zone without truncation: {text[:100]}")
+
+
+def emphasis_terms_for_line(line: dict, caption: str) -> list[str]:
+    """Resolve explicit emphasis first, then a small deterministic fallback set."""
+    explicit = [str(value).strip() for value in (line.get("emphasis_terms") or []) if str(value).strip()]
+    if explicit:
+        return list(dict.fromkeys(explicit))[:5]
+    candidates = (
+        "Jezero", "Perseverance", "SuperCam", "Margin Unit", "NASA", "CO2", "CO₂",
+        "火星", "新研究", "何度も", "複数回", "二酸化炭素", "地下水", "湖", "熱水", "炭酸塩", "シリカ",
+        "高い場所", "低い場所", "水と岩", "痕跡", "証拠", "重要", "複雑", "可能性", "生命", "生命探査",
+        "少なくとも3回", "第1段階", "第2段階", "第3段階",
+    )
+    return [term for term in candidates if term in caption][:5]
+
+
+def emphasis_color(term: str):
+    if any(marker in term for marker in ("生命", "注意", "誤解", "ではない")):
+        return EMPHASIS_RED
+    return EMPHASIS_YELLOW
+
+
+def rich_character_spans(text: str, terms: list[str], accent) -> list[tuple[str, tuple[int, int, int, int]]]:
+    """Create character-level color spans so wrapping never drops emphasis."""
+    marks: dict[int, tuple[int, int, int, int]] = {}
+    for term in sorted(set(terms), key=len, reverse=True):
+        if not term:
+            continue
+        start = 0
+        while True:
+            found = text.find(term, start)
+            if found < 0:
+                break
+            color = emphasis_color(term)
+            for index in range(found, found + len(term)):
+                marks.setdefault(index, color)
+            start = found + max(1, len(term))
+    out: list[tuple[str, tuple[int, int, int, int]]] = []
+    for index, char in enumerate(text):
+        color = marks.get(index, accent)
+        if out and out[-1][1] == color:
+            out[-1] = (out[-1][0] + char, color)
+        else:
+            out.append((char, color))
+    return out
+
+
+def _text_width(draw: ImageDraw.ImageDraw, value: str, fnt) -> float:
+    return float(draw.textlength(value, font=fnt))
+
+
+def wrap_rich(draw: ImageDraw.ImageDraw, text: str, fnt, maxw: int, terms: list[str], accent):
+    lines: list[list[tuple[str, tuple[int, int, int, int]]]] = []
+    for paragraph in str(text).splitlines() or [""]:
+        chars: list[tuple[str, tuple[int, int, int, int]]] = []
+        for value, color in rich_character_spans(paragraph, terms, accent):
+            for char in value:
+                trial = "".join(part for part, _ in chars) + char
+                if chars and _text_width(draw, trial, fnt) > maxw:
+                    lines.append(chars)
+                    chars = []
+                chars.append((char, color))
+        lines.append(chars)
+    return lines
+
+
+def fit_rich_caption(draw: ImageDraw.ImageDraw, text: str, terms: list[str], accent, maxw: int, maxh: int, start_size: int = 54, min_size: int = 30):
+    for size in range(start_size, min_size - 1, -2):
+        fnt = get_font(size)
+        lines = wrap_rich(draw, text, fnt, maxw, terms, accent)
+        heights = [max(1, draw.textbbox((0, 0), "あ", font=fnt)[3] - draw.textbbox((0, 0), "あ", font=fnt)[1]) for _ in lines]
+        total = sum(heights) + max(0, len(lines) - 1) * 10
+        if total <= maxh:
+            return fnt, lines, total
+    raise RuntimeError(f"full spoken caption does not fit reserved safe zone without truncation: {text[:100]}")
+
+
+def draw_rich_caption(draw: ImageDraw.ImageDraw, lines, fnt, yy: int) -> int:
+    for line in lines:
+        width = sum(_text_width(draw, text, fnt) for text, _ in line)
+        xx = (W - width) / 2
+        for text, color in line:
+            draw.text((xx, yy), text, font=fnt, fill=color, stroke_width=2, stroke_fill=(8, 12, 18, 255))
+            xx += _text_width(draw, text, fnt)
+        height = max(1, draw.textbbox((0, 0), "あ", font=fnt)[3] - draw.textbbox((0, 0), "あ", font=fnt)[1])
+        yy += height + 10
+    return yy
 
 
 def crop_cover(image: Image.Image, size: tuple[int, int]) -> Image.Image:
@@ -138,7 +246,8 @@ def scene_photo(scene_id: str, assets: dict):
     image = crop_cover(image, (880, 650))
     meta = item["meta"]
     attribution = meta.get("attribution_text") or meta.get("creator_or_source") or asset_id
-    return image, attribution
+    label = str(meta.get("usage") or meta.get("evidence_or_illustrative") or "CONTEXTUAL_VISUAL")
+    return image, f"{attribution} ({label})"
 
 
 def paste_fit(background: Image.Image, foreground: Image.Image, center_x: int, bottom_y: int, target_h: int, opacity: int) -> None:
@@ -160,7 +269,7 @@ def topic_heading(line: dict, scene: dict) -> str:
     return str(line.get("topic_heading") or line.get("section_heading") or scene.get("topic_heading") or scene.get("title") or "").strip()
 
 
-def compose_turn(line: dict, scene: dict, portraits: dict, assets: dict, out_path: Path) -> None:
+def compose_turn(line: dict, scene: dict, timing_record: dict, portraits: dict, assets: dict, out_path: Path) -> None:
     image = Image.new("RGBA", (W, H), (241, 247, 251, 255))
     draw = ImageDraw.Draw(image)
     f_body = get_font(38)
@@ -216,17 +325,18 @@ def compose_turn(line: dict, scene: dict, portraits: dict, assets: dict, out_pat
     draw.rounded_rectangle((92, 1190, 122 + pill_width, 1238), radius=18, fill=accent)
     draw.text((106, 1199), pill, font=f_small, fill=(15, 20, 25, 255))
 
-    caption = str(line["caption_text"])
+    caption = str(timing_record.get("caption_text") or line.get("full_caption_text") or line.get("caption_text") or line.get("voice_text") or "").strip()
+    if not caption:
+        raise RuntimeError(f"full spoken caption is missing for {line.get('id')}")
+    if str(timing_record.get("caption_contract") or "FULL_SPOKEN_TEXT") != "FULL_SPOKEN_TEXT":
+        raise RuntimeError(f"caption contract is not FULL_SPOKEN_TEXT for {line.get('id')}")
+    emphasis_terms = list(timing_record.get("caption_emphasis_terms") or line.get("emphasis_terms") or [])
+    emphasis_terms = emphasis_terms_for_line({"emphasis_terms": emphasis_terms}, caption)
     maxw = CAPTION_BOX[2] - CAPTION_BOX[0] - 70
     maxh = CAPTION_BOX[3] - 1250 - 28
-    cap_font, caption_lines, total_h = fit_caption(draw, caption, maxw, maxh)
+    cap_font, caption_lines, total_h = fit_rich_caption(draw, caption, emphasis_terms, accent, maxw, maxh)
     yy = 1252 + max(0, (maxh - total_h) // 2)
-    for value in caption_lines:
-        box = draw.textbbox((0, 0), value, font=cap_font, stroke_width=2)
-        width = box[2] - box[0]
-        height = max(1, box[3] - box[1])
-        draw.text(((W - width) // 2, yy), value, font=cap_font, fill=accent, stroke_width=2, stroke_fill=(8, 12, 18, 255))
-        yy += height + 10
+    draw_rich_caption(draw, caption_lines, cap_font, yy)
 
     z_active = speaker == "ずんだもん"
     m_active = speaker == "四国めたん"
@@ -308,7 +418,7 @@ def render(mission: dict, timing: dict, portraits: dict, assets: dict, voice_roo
             record = by_id[line["id"]]
             audio_records.append(record)
             still = scene_dir / f'{line["id"]}_static.jpg'
-            compose_turn(line, scene, portraits, assets, still)
+            compose_turn(line, scene, record, portraits, assets, still)
             if line_index == 0:
                 representative.append(still)
             duration = float(record["duration"]) + float(record.get("pause_after", 0))
@@ -373,6 +483,10 @@ def main() -> int:
         raise RuntimeError("mission/timing line-count mismatch")
     if float(timing.get("subtitle_narration_coverage_ratio", 0)) != 1.0:
         raise RuntimeError("subtitle narration coverage must remain 1.0")
+    if timing.get("caption_contract") != "FULL_SPOKEN_TEXT":
+        raise RuntimeError("caption contract must be FULL_SPOKEN_TEXT")
+    if float(timing.get("caption_coverage_ratio", 0)) < 0.70:
+        raise RuntimeError("caption coverage ratio is below the full-speech guard")
     if any(float(record.get("pause_after", 0)) > 0.45 for record in timing["records"]):
         raise RuntimeError("excessive dead air exceeds 0.45 second pacing gate")
 

@@ -14,6 +14,7 @@ DOC = ROOT / "docs/EVIDENCE_VISUAL_AND_STATIC_CHARACTER_STANDARD.md"
 LEGACY_RENDERER = ROOT / "scripts/render_zundamon_metan_longform.py"
 STATIC_RENDERER = ROOT / "scripts/render_static_speaker_color_longform.py"
 SYNTH = ROOT / "scripts/synthesize_longform_voicevox.py"
+CAPTION_VALIDATOR = ROOT / "scripts/validate_video_caption_contract.py"
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -35,7 +36,7 @@ def main() -> int:
 
     require(policy.get("schema_version") == "evidence-visual-static-character-v1", "static character policy schema drift")
     require(policy.get("status") == "MANDATORY_MEDIA_STANDARD", "static character policy is not mandatory")
-    for required_file in (DOC, LEGACY_RENDERER, STATIC_RENDERER, SYNTH):
+    for required_file in (DOC, LEGACY_RENDERER, STATIC_RENDERER, SYNTH, CAPTION_VALIDATOR):
         require(required_file.is_file(), f"required media file missing: {required_file}")
 
     authority = policy.get("authority") or {}
@@ -64,6 +65,9 @@ def main() -> int:
     captions = policy.get("caption_rendering") or {}
     require(captions.get("full_caption_coverage_required") is True, "full caption coverage disabled")
     require(captions.get("every_spoken_turn_must_have_visible_caption_text") is True, "spoken turns may omit captions")
+    require(captions.get("full_spoken_text_contract") == "FULL_SPOKEN_TEXT", "full spoken caption contract missing")
+    require(captions.get("summary_caption_may_not_replace_narration") is True, "summary captions may replace narration")
+    require(float(captions.get("caption_coverage_ratio_minimum") or 0) >= 0.70, "caption coverage ratio guard too weak")
     require(captions.get("caption_text_must_not_be_truncated_by_fixed_line_count") is True, "caption truncation re-enabled")
     require(captions.get("speaker_colored_border_required") is True, "speaker-colored border removed")
     require(captions.get("speaker_colored_caption_text_required") is True, "speaker-colored caption text removed")
@@ -71,6 +75,8 @@ def main() -> int:
     require(captions.get("metan_caption_text_color_role") == "BRIGHT_PINK_MAGENTA", "Metan caption text color drift")
     require(captions.get("caption_body_color_role") == "MATCH_ACTIVE_SPEAKER_ACCENT", "caption body is no longer speaker-colored")
     require(captions.get("white_caption_body_as_default_for_zundamon_metan") is False, "white caption body re-enabled as default")
+    require(captions.get("important_term_emphasis_required_when_marked") is True, "important-term emphasis disabled")
+    require(set(captions.get("important_term_emphasis_colors") or []) == {"#FFEB3B", "#F44336"}, "important-term colors drift")
     require(captions.get("topic_heading_granularity") == "SEMANTIC_CONTENT_BLOCK_NOT_EVERY_UTTERANCE", "heading granularity drift")
     require(captions.get("per_utterance_heading_forbidden_by_default") is True, "per-utterance headings re-enabled")
 
@@ -98,6 +104,7 @@ def main() -> int:
 
     efficiency = policy.get("production_efficiency") or {}
     require(efficiency.get("canonical_static_speaker_color_renderer") == "scripts/render_static_speaker_color_longform.py", "canonical static renderer drift")
+    require(efficiency.get("full_spoken_caption_validator") == "scripts/validate_video_caption_contract.py", "full spoken caption validator drift")
     require(efficiency.get("do_not_generate_background_images_when_searchable_evidence_visual_exists") is True, "searchable visual may be replaced by generated background")
 
     source_policy = source.get("policy") or {}
@@ -114,6 +121,8 @@ def main() -> int:
     require("ACTIVE_SCALE = 1.08" in static_renderer, "static renderer lost 1.08 active scale")
     require("INACTIVE_OPACITY = 0.55" in static_renderer, "static renderer lost 55% inactive opacity")
     require("fill=accent" in static_renderer, "static renderer no longer colors caption text by speaker")
+    require("draw_rich_caption" in static_renderer and "EMPHASIS_YELLOW" in static_renderer, "static renderer lost important-term caption emphasis")
+    require("FULL_SPOKEN_TEXT" in static_renderer, "static renderer lost full-spoken caption contract")
     require("mouth_animation" in static_renderer and '"mouth_animation": False' in static_renderer, "static renderer contract lost mouth-animation=false evidence")
     require("SCENE_ASSET" in static_renderer and "Photo:" in static_renderer, "static renderer lost photo-first scene path")
     require("pause_after" in static_renderer and "0.45" in static_renderer, "static renderer lost dead-air gate")

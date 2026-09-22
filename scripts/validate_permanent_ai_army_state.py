@@ -38,6 +38,7 @@ def main() -> int:
     model_registry = load_json("config/model_registry.json")
     ci_policy = load_json("config/ci_execution_policy.json")
     media_gate = load_json("config/media_command_read_gate.json")
+    evidence_visual = load_json("config/evidence_visual_static_character_policy.json")
     media_creative = load_json("config/media_audio_motion_retention_policy.json")
     free_audio = load_json("config/free_audio_source_registry.json")
     dova = load_json("config/dova_curated_bgm_catalog.json")
@@ -72,6 +73,13 @@ def main() -> int:
     require(voice_contract.get("engine") == "VOICEVOX_LOCAL", "video creation engine drift")
     require(voice_contract.get("primary_voice") == "ずんだもん", "video creation primary voice drift")
     require(voice_contract.get("silent_video_fallback") is False, "video creation silent fallback enabled")
+    caption_contract = video_admission.get("caption_contract") or {}
+    require(caption_contract.get("full_spoken_text_required") is True, "full spoken caption contract disabled")
+    require(caption_contract.get("caption_contract_name") == "FULL_SPOKEN_TEXT", "video caption contract drift")
+    require(caption_contract.get("renderer") == "scripts/render_static_speaker_color_longform.py", "video caption renderer drift")
+    visual_contract = video_admission.get("visual_asset_contract") or {}
+    require(visual_contract.get("claim_bearing_news_requires_related_visual_plan") is True, "related news visual plan disabled")
+    require(visual_contract.get("unknown_rights_action") == "BLOCK_BEFORE_RENDER", "unknown visual rights are not blocking")
 
     standards = manifest.get("required_standards") or []
     by_standard = {str(x.get("id")): x for x in standards if isinstance(x, dict)}
@@ -114,6 +122,9 @@ def main() -> int:
     require(cross_tab.get("video_requests_require_voicevox_zundamon_preflight") is True, "VOICEVOX preflight cross-tab continuity lost")
     require(cross_tab.get("do_not_duplicate_full_required_standard_list_into_commander_handoff") is True, "startup duplication guard lost")
     require(cross_tab.get("media_audio_motion_retention_survives_tab_change") is True, "media creative standard cross-tab continuity lost")
+    require(cross_tab.get("full_spoken_caption_contract_survives_tab_change") is True, "full spoken caption contract cross-tab continuity lost")
+    require(cross_tab.get("speaker_caption_color_and_emphasis_survive_tab_change") is True, "speaker caption color cross-tab continuity lost")
+    require(cross_tab.get("related_visual_provenance_contract_survives_tab_change") is True, "related visual provenance cross-tab continuity lost")
     require(cross_tab.get("free_audio_source_registry_survives_tab_change") is True, "free audio registry cross-tab continuity lost")
     require(cross_tab.get("dova_curated_bgm_preference_survives_tab_change") is True, "DOVA preference cross-tab continuity lost")
     read_order = list(((handoff.get("continuity") or {}).get("on_new_session_required_read_order") or []))
@@ -141,8 +152,10 @@ def main() -> int:
     for required_path in (
         "docs/AI_ARMY_MASTER_RULEBOOK.md",
         "config/media_audio_motion_retention_policy.json",
+        "config/evidence_visual_static_character_policy.json",
         "config/free_audio_source_registry.json",
         "config/dova_curated_bgm_catalog.json",
+        "scripts/validate_video_caption_contract.py",
     ):
         require(required_path in media_common, f"media gate lost required read: {required_path}")
     media_new_session = media_gate.get("new_session_behavior") or {}
@@ -150,6 +163,8 @@ def main() -> int:
     require(media_new_session.get("audio_motion_retention_policy_must_be_re_read") is True, "media gate no longer rereads creative standard")
     require(media_new_session.get("free_audio_source_registry_must_be_re_read") is True, "media gate no longer rereads free audio registry")
     require(media_new_session.get("dova_curated_bgm_catalog_must_be_re_read") is True, "media gate no longer rereads DOVA catalog")
+    require(media_new_session.get("full_spoken_caption_contract_must_be_re_read") is True, "media gate no longer rereads full spoken caption contract")
+    require(media_new_session.get("related_visual_provenance_contract_must_be_re_read") is True, "media gate no longer rereads related visual provenance contract")
     require(media_new_session.get("do_not_rely_on_prior_tab_summary_as_substitute") is True, "media gate allows tab summary to replace repository restore")
 
     media_default = media_creative.get("semantic_default") or {}
@@ -171,6 +186,12 @@ def main() -> int:
     require(contextual.get("search_engine_result_is_discovery_not_license") is True, "search result incorrectly treated as license")
     require(hierarchy.get("one_primary_hero_per_beat") is True, "one-primary-hero attention rule lost")
     require(int(collision.get("max_attention_dominant_elements_per_beat") or 0) == 1, "attention collision ceiling drift")
+    evidence_captions = evidence_visual.get("caption_rendering") or {}
+    require(evidence_captions.get("full_spoken_text_contract") == "FULL_SPOKEN_TEXT", "evidence visual policy lost full spoken caption contract")
+    require(evidence_captions.get("speaker_colored_caption_text_required") is True, "evidence visual policy lost speaker caption colors")
+    require(evidence_captions.get("important_term_emphasis_required_when_marked") is True, "evidence visual policy lost important term emphasis")
+    evidence_assets = evidence_visual.get("evidence_visual_acquisition") or {}
+    require(evidence_assets.get("source_page_required") is True and evidence_assets.get("asset_locator_required") is True, "related visual provenance fields weakened")
 
     require(free_audio.get("status") == "ENFORCED_SOURCE_REGISTRY", "free audio source registry is not enforced")
     source_ids = {str(x.get("id")) for x in (free_audio.get("sources") or []) if isinstance(x, dict)}

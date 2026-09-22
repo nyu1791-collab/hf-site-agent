@@ -88,8 +88,10 @@ def main() -> int:
         "config/multi_agent_operating_policy.json",
         "config/agent_efficiency_policy.json",
         "config/media_audio_motion_retention_policy.json",
+        "config/evidence_visual_static_character_policy.json",
         "config/media_reusable_asset_standard.json",
         "config/media_character_performance_compact_orchestration_policy.json",
+        "scripts/validate_video_caption_contract.py",
         "config/free_audio_source_registry.json",
         "config/dova_curated_bgm_catalog.json",
         "docs/MEDIA_PIPELINE.md",
@@ -188,6 +190,8 @@ def main() -> int:
         "character_performance_compact_orchestration_policy_must_be_re_read",
         "free_audio_source_registry_must_be_re_read",
         "dova_curated_bgm_catalog_must_be_re_read",
+        "full_spoken_caption_contract_must_be_re_read",
+        "related_visual_provenance_contract_must_be_re_read",
         "do_not_rely_on_prior_tab_summary_as_substitute",
     ):
         require(session.get(key) is True, f"media session restore guarantee missing: {key}")

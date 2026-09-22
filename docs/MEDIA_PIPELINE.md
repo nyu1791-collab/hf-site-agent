@@ -45,9 +45,11 @@ Scene/Chapter単位で `Render -> Validate -> Checkpoint -> Join`。成功済み
 
 ## Timeline / Caption
 
-Timelineは文字数推測ではなく生成済みWAVのffprobe実時間を正本にする。字幕はSemantic Chunk、Rendered Width、Audio Timing、Emphasisを分けて扱い、Narration coverage 100%を維持する。
+Timelineは文字数推測ではなく生成済みWAVのffprobe実時間を正本にする。字幕は `FULL_SPOKEN_TEXT` 契約で話し言葉を省略せず、Semantic Chunk、Rendered Width、Audio Timing、Emphasisを分けて扱い、Narration coverage 100%を維持する。短い要約字幕を音声字幕の代わりにしてはならない。
 
-字幕本文は白。ずんだもんは明るい緑、四国めたんは明るいピンク/マゼンタを枠・外周Accentに使う。大きな黒ベタ字幕箱を標準にせず、必要なら細い暗色内縁等でContrastを確保する。
+字幕本文と枠は話者色で分ける。ずんだもんは明るい緑、四国めたんは明るいピンク/マゼンタ。重要語は黄色または赤で強調し、暗い内縁・話者ラベル・文言を併用する。大きな黒ベタ字幕箱を標準にせず、必要なら細い暗色内縁等でContrastを確保する。
+
+ニュースや事実説明の背景は、話題に意味的に合う検索済み／登録済みの権利確認済み画像を優先する。source page、asset locator、ライセンス／パブリックドメイン状態、scene/claim mapping、取得・確認時刻を台帳に残し、検索結果そのものを許諾とみなさない。
 
 ## Character / Diagram
 

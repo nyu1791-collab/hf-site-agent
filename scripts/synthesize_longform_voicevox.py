@@ -6,6 +6,12 @@ from pathlib import Path
 DEFAULT_SPEED_SCALE=1.20
 VOICEVOX_TIMEOUT_SECONDS=60
 STANDARD_CAST=("ずんだもん","四国めたん")
+DETERMINISTIC_EMPHASIS_CANDIDATES=(
+    "Jezero", "Perseverance", "SuperCam", "Margin Unit", "NASA", "CO2", "CO₂",
+    "火星", "新研究", "何度も", "複数回", "二酸化炭素", "地下水", "湖", "熱水", "炭酸塩", "シリカ",
+    "高い場所", "低い場所", "水と岩", "痕跡", "証拠", "重要", "複雑", "可能性", "生命", "生命探査",
+    "少なくとも3回", "第1段階", "第2段階", "第3段階",
+)
 
 
 def decode_mission(path:Path):
@@ -55,6 +61,51 @@ def duration(path:Path):
     return float(out.strip())
 
 
+def caption_text_for_line(mission: dict, line: dict) -> tuple[str, str]:
+    """Return a complete spoken caption, never the short visual summary.
+
+    Older missions used ``caption_text`` as a short headline.  The durable
+    media contract now treats captions as accessibility UI and therefore uses
+    the full spoken turn by default.  A mission may opt into an explicitly
+    reviewed ``FULL_SPOKEN_TEXT`` caption, but an unmarked short caption must
+    not silently replace the narration.
+    """
+    mode = str(line.get("caption_text_mode") or mission.get("caption_text_mode") or "VOICE_TEXT_FULL")
+    voice_text = str(line.get("voice_text") or "").strip()
+    explicit_full = str(line.get("full_caption_text") or "").strip()
+    reviewed_caption = str(line.get("caption_text") or "").strip()
+    if mode == "FULL_SPOKEN_TEXT":
+        value = explicit_full or reviewed_caption or voice_text
+        source = "EXPLICIT_FULL_SPOKEN_TEXT" if (explicit_full or reviewed_caption) else "VOICE_TEXT_FALLBACK"
+    else:
+        value = explicit_full or voice_text
+        source = "FULL_CAPTION_TEXT" if explicit_full else "VOICE_TEXT"
+    if not value:
+        raise SystemExit(f"full spoken caption is missing for line {line.get('id')}")
+
+    # Keep official Latin spellings in captions even when the narration uses
+    # a Japanese pronunciation.  This mapping is intentionally presentation
+    # only; VOICEVOX still receives the pronunciation text below.
+    for item in mission.get("pronunciation_dictionary", []):
+        reading = str(item.get("voice_reading") or "")
+        spelling = str(item.get("caption_spelling") or item.get("surface_term") or "")
+        if reading and spelling:
+            value = value.replace(reading, spelling)
+    return value, source
+
+
+def normalized_caption_length(value: str) -> int:
+    return sum(1 for char in value if not char.isspace() and char not in "、。！？：；,.!?()（）[]【】「」『』\"'")
+
+
+def deterministic_emphasis_terms(line: dict, caption: str) -> list[str]:
+    """Persist the same bounded emphasis selection that the renderer will use."""
+    explicit = [str(value).strip() for value in (line.get("emphasis_terms") or []) if str(value).strip()]
+    if explicit:
+        return list(dict.fromkeys(explicit))[:5]
+    return [term for term in DETERMINISTIC_EMPHASIS_CANDIDATES if term in caption][:5]
+
+
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--mission-b64",type=Path,required=True)
@@ -93,6 +144,15 @@ def main():
             subprocess.run(["ffmpeg","-y","-hide_banner","-loglevel","error","-i",str(raw),"-ar","48000","-ac","2","-c:a","pcm_s16le",str(final)],check=True)
             raw.unlink(missing_ok=True)
             d=duration(final)
+            caption_text, caption_source = caption_text_for_line(mission, line)
+            voice_len = normalized_caption_length(str(line.get("voice_text") or ""))
+            caption_len = normalized_caption_length(caption_text)
+            coverage = 1.0 if voice_len == 0 else min(1.0, caption_len / voice_len)
+            if coverage < 0.70:
+                raise SystemExit(
+                    f"caption appears to be a summary rather than full speech for {lid}: "
+                    f"coverage={coverage:.3f}"
+                )
             is_last=idx==len(scene["dialogue"])-1
             pause=0.34 if is_last else 0.12
             records.append({
@@ -107,6 +167,10 @@ def main():
                 "start":t,
                 "end":t+d,
                 "speed_scale":args.speed_scale,
+                "caption_text":caption_text,
+                "caption_source":caption_source,
+                "caption_emphasis_terms":deterministic_emphasis_terms(line, caption_text),
+                "caption_coverage_ratio":round(coverage, 4),
             })
             t += d+pause
 
@@ -118,6 +182,8 @@ def main():
         "line_count":len(records),
         "audio_source":"VOICEVOX_LOCAL_AND_FFPROBE_ACTUAL_GENERATED_WAV",
         "subtitle_narration_coverage_ratio":1.0,
+        "caption_contract": "FULL_SPOKEN_TEXT",
+        "caption_coverage_ratio": min((float(record["caption_coverage_ratio"]) for record in records), default=1.0),
         "voicevox_speed_scale":args.speed_scale,
         "runtime_discovered_cast":cast,
         "voicevox_credit":["VOICEVOX:ずんだもん","VOICEVOX:四国めたん"],

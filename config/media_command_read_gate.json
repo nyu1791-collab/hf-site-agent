@@ -54,6 +54,7 @@
     "docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md",
     "config/zundamon_metan_production_quality_policy.json",
     "docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md",
+    "scripts/validate_video_caption_contract.py",
     "config/free_audio_source_registry.json",
     "config/dova_curated_bgm_catalog.json",
     "docs/MEDIA_PIPELINE.md"
@@ -186,6 +187,9 @@
       "for shortform/news explainers prefer a truthful 1-3 second hook over a generic greeting unless context or safety requires otherwise",
       "every VIDEO_CREATION request must run scripts/video_creation_admission.py before scene rendering; missing local VOICEVOX or the ずんだもん standard cast blocks rendering and cannot silently produce a mute video",
       "voice_text must be synthesized with local VOICEVOX, actual WAV duration must be recorded, and the output must carry the VOICEVOX credit",
+      "every spoken turn must use the FULL_SPOKEN_TEXT caption contract; a short visual summary may not replace the spoken narration",
+      "important terms marked by the script use deterministic emphasis colors while speaker identity remains encoded by green/pink caption text and border",
+      "claim-bearing news scenes require a semantically matched searched or registered rights-verified visual with source page, asset locator, license state and scene/claim mapping",
       "longform-only reliability material is loaded only for longform work"
     ],
     "clipping_repurposing": [
@@ -251,6 +255,8 @@
     "ADD_SPECIALIST_AGENT_WITHOUT_MATERIAL_EXPECTED_INFORMATION_GAIN",
     "USE_RETIRED_SHORTFORM_EDIT_PROFILE",
     "TREAT_SEARCH_RESULT_AS_LICENSE",
+    "USE_SUMMARY_CAPTION_INSTEAD_OF_FULL_SPOKEN_TEXT",
+    "USE_UNRELATED_OR_UNVERIFIED_NEWS_VISUAL",
     "AUTO_PAID_FALLBACK"
   ],
   "retired_references": {
@@ -269,6 +275,8 @@
     "character_reaction_cache_policy_must_be_re_read": true,
     "character_performance_compact_orchestration_policy_must_be_re_read": true,
     "reaction_subtitle_human_standard_must_be_re_read": true,
+    "full_spoken_caption_contract_must_be_re_read": true,
+    "related_visual_provenance_contract_must_be_re_read": true,
     "zundamon_metan_production_quality_policy_must_be_re_read": true,
     "zundamon_metan_production_quality_human_standard_must_be_re_read": true,
     "free_audio_source_registry_must_be_re_read": true,

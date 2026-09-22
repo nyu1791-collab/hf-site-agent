@@ -239,6 +239,10 @@
   "caption_grammar": {
     "captions_are_attention_ui_not_transcript_dump": true,
     "full_narration_coverage_required": true,
+    "full_spoken_text_contract": "FULL_SPOKEN_TEXT",
+    "summary_caption_may_not_replace_narration": true,
+    "speaker_colored_caption_text_required": true,
+    "important_term_emphasis_colors": ["#FFEB3B", "#F44336"],
     "default_lines_per_block": "1_OR_2",
     "semantic_chunking_required": true,
     "longform_structural_hierarchy": ["title", "chapter", "subheading", "body"],

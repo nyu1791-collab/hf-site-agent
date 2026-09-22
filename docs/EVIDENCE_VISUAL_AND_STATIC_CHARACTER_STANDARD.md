@@ -43,6 +43,8 @@ For the standard Zundamon + Shikoku Metan presentation, VOICEVOX uses **speedSca
 
 Every spoken turn must be fully captioned. A fixed three-line cutoff, ellipsis caused by layout limits, or other silent omission of spoken text is forbidden.
 
+The machine contract for new durable video runs is `FULL_SPOKEN_TEXT`: the timing manifest must carry the complete spoken turn (or a reviewed spelling-preserving equivalent), and a short visual headline may not replace it. The caption validator fails closed when coverage drops below the configured minimum or a caption record is missing.
+
 Caption fitting order is:
 
 1. semantic wrapping,
@@ -58,6 +60,7 @@ Both the caption border **and the caption body text** identify the active speake
 - **Shikoku Metan:** bright pink / magenta border + bright pink / magenta caption text.
 - A thin dark stroke or shadow may be used to preserve readability.
 - White caption body text is no longer the default for Zundamon/Metan dialogue.
+- Important terms explicitly marked by the script use the stable emphasis colors yellow (`#FFEB3B`) or red (`#F44336`). Speaker color, speaker label and caption wording remain visible so color is never the only meaning channel.
 
 Captions occupy their own reserved safe zone and must not overlap character art, evidence imagery, source attribution, or other captions.
 
