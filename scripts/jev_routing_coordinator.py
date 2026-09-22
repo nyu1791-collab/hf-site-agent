@@ -5,7 +5,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Mapping, Sequence
 
-from scripts.jev_decision_engine import decide_fast, decide_many_fast, quota_pressure_from_remaining
+from scripts.jev_decision_engine import decide_lean, decide_many_lean, quota_pressure_from_remaining
 from scripts.jev_lean_router import decide_lean, decide_many_lean
 from scripts.openrouter_free_efficiency_router import load_policy as load_free_policy
 from scripts.openrouter_free_efficiency_router import ordered_candidates, plan_task
@@ -392,7 +392,7 @@ def coordinate_many(
             results[name] = result
 
     lean_result = results.get("lean") or {"status": "JEV_LEAN_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
-    fast_result = results.get("fast") or {"status": "JEV_FAST_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
+    fast_result = results.get("fast") or {"status": "JEV_LEAN_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
     decisions: dict[str, Any] = {}
     for result in (lean_result, fast_result):
         if isinstance(result.get("decisions"), Mapping):
