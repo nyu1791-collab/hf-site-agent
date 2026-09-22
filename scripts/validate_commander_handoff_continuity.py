@@ -96,6 +96,10 @@ def main() -> int:
     require(routing_rules.get("single_success_or_latency_advantage_cannot_clear_zero_or_one_question_primary") is True, "handoff allows thin evidence Jev fast path")
     require(routing_rules.get("latency_challenger_is_delayed_guarded_reservation_not_routine_immediate_parallel_fanout") is True, "handoff lost delayed challenger guard")
     require(routing_rules.get("admitted_dependency_ready_tasks_stream_by_critical_path_without_waiting_for_unrelated_batch_tail") is True, "handoff lost streaming dispatch rule")
+    require(routing_rules.get("multi_agent_architecture_evidence_must_be_complete_before_promotion") is True, "handoff lost complete architecture evidence gate")
+    require(routing_rules.get("dependency_dag_duplicate_unknown_and_cycle_errors_fail_closed") is True, "handoff lost dependency DAG fail-closed rule")
+    require(routing_rules.get("weighted_critical_path_plans_full_dependency_release_order") is True, "handoff lost full weighted critical-path planning")
+    require(routing_rules.get("planned_dependency_waves_never_replace_verified_artifact_joins") is True, "handoff allows a planned dependency wave to bypass verified artifact joins")
 
     serialized_handoff = json.dumps(handoff, ensure_ascii=False)
     require("VOICEVOX_ZUNDAMON_LOCAL" not in serialized_handoff, "stale Zundamon-only handoff token returned")
