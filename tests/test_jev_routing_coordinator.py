@@ -241,6 +241,166 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         self.assertIn("RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED", result["final_plan"]["fanout_reason"])
         self.assertEqual(result["final_plan"]["latency_challenger_timeout_seconds"], 3.5)
 
+    def test_explicit_single_stream_uses_one_question_primary_route(self):
+        fake = {
+            "status": "JEV_PRIMARY_DECISION_OK",
+            "decision": {
+                "workers": ["qwen/qwen3.8-27b:free"],
+                "fanout": 1,
+                "parallel": False,
+                "execution_mode": "SINGLE",
+                "lane": "GENERAL_REASONING",
+                "independent_verification": False,
+                "action": "EXECUTE",
+                "confidence": 0.91,
+                "low_confidence": False,
+            },
+        }
+        with patch("scripts.jev_routing_coordinator.decide_primary", return_value=fake) as primary, patch(
+            "scripts.jev_routing_coordinator.decide_lean"
+        ) as lean, patch(
+            "scripts.jev_routing_coordinator.decide_fast"
+        ) as fast, patch(
+            "scripts.jev_routing_coordinator.load_recent_evidence", return_value={}
+        ):
+            result = coordinate(
+                {
+                    "task_class": "GENERAL",
+                    "objective": "Routine single-stream task.",
+                    "independent_workstreams": 1,
+                },
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+            )
+        primary.assert_called_once()
+        lean.assert_not_called()
+        fast.assert_not_called()
+        self.assertEqual(result["route_source"], "JEV_PRIMARY_DECISION_PLANE")
+        self.assertIn("JEV_PRIMARY_ONE_QUESTION_DECISION", result["final_plan"]["fanout_reason"])
+
+    def test_explicit_parallel_pair_uses_one_question_primary_route(self):
+        fake = {
+            "status": "JEV_PRIMARY_DECISION_OK",
+            "decision": {
+                "workers": [
+                    "deepseek/deepseek-v4-flash-0731:free",
+                    "qwen/qwen3.8-27b:free",
+                ],
+                "fanout": 2,
+                "parallel": True,
+                "execution_mode": "PARALLEL",
+                "lane": "GENERAL_REASONING",
+                "independent_verification": True,
+                "action": "EXECUTE",
+                "confidence": 0.9,
+                "low_confidence": False,
+            },
+        }
+        with patch("scripts.jev_routing_coordinator.decide_primary", return_value=fake) as primary, patch(
+            "scripts.jev_routing_coordinator.decide_lean"
+        ) as lean, patch(
+            "scripts.jev_routing_coordinator.decide_fast"
+        ) as fast, patch(
+            "scripts.jev_routing_coordinator.load_recent_evidence", return_value={}
+        ):
+            result = coordinate(
+                {
+                    "task_class": "GENERAL",
+                    "objective": "Two independent workstreams.",
+                    "independent_workstreams": 2,
+                    "parallelizable_fraction": 0.9,
+                },
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+            )
+        primary.assert_called_once()
+        self.assertEqual(primary.call_args.kwargs["route_shape"], "PARALLEL_PAIR")
+        lean.assert_not_called()
+        fast.assert_not_called()
+        self.assertEqual(result["final_plan"]["execution_mode"], "PARALLEL")
+
+    def test_ambiguous_shape_uses_two_question_lean_route(self):
+        fake = {
+            "status": "JEV_LEAN_DECISION_OK",
+            "decision": {
+                "workers": ["qwen/qwen3.8-27b:free"],
+                "fanout": 1,
+                "parallel": False,
+                "execution_mode": "SINGLE",
+                "lane": "GENERAL_REASONING",
+                "independent_verification": False,
+                "action": "EXECUTE",
+                "confidence": 0.9,
+                "low_confidence": False,
+            },
+        }
+        with patch("scripts.jev_routing_coordinator.decide_primary") as primary, patch(
+            "scripts.jev_routing_coordinator.decide_lean", return_value=fake
+        ) as lean, patch(
+            "scripts.jev_routing_coordinator.decide_fast"
+        ) as fast, patch(
+            "scripts.jev_routing_coordinator.load_recent_evidence", return_value={}
+        ):
+            result = coordinate(
+                {
+                    "task_class": "GENERAL",
+                    "objective": "Two workstreams with uncertain parallel value.",
+                    "independent_workstreams": 2,
+                    "parallelizable_fraction": 0.3,
+                },
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+            )
+        primary.assert_not_called()
+        lean.assert_called_once()
+        fast.assert_not_called()
+        self.assertEqual(result["route_source"], "JEV_LEAN_DECISION_PLANE")
+
+    def test_distinct_specialists_keep_rich_route(self):
+        fake = {
+            "status": "JEV_FAST_DECISION_OK",
+            "decision": {
+                "workers": [
+                    "deepseek/deepseek-v4-flash-0731:free",
+                    "qwen/qwen3.8-27b:free",
+                ],
+                "fanout": 2,
+                "parallel": True,
+                "execution_mode": "PARALLEL",
+                "lane": "GENERAL_REASONING",
+                "independent_verification": True,
+                "action": "EXECUTE",
+                "confidence": 0.9,
+                "low_confidence": False,
+            },
+        }
+        with patch("scripts.jev_routing_coordinator.decide_primary") as primary, patch(
+            "scripts.jev_routing_coordinator.decide_lean"
+        ) as lean, patch(
+            "scripts.jev_routing_coordinator.decide_fast", return_value=fake
+        ) as fast, patch(
+            "scripts.jev_routing_coordinator.load_recent_evidence", return_value={}
+        ):
+            result = coordinate(
+                {
+                    "task_class": "GENERAL",
+                    "objective": "Use distinct complementary specialists.",
+                    "independent_workstreams": 2,
+                    "parallelizable_fraction": 0.9,
+                    "requires_distinct_specialists": True,
+                },
+                CATALOG,
+                use_jev=True,
+                api_key="x",
+            )
+        primary.assert_not_called()
+        lean.assert_not_called()
+        fast.assert_called_once()
+        self.assertEqual(result["route_source"], "JEV_FAST_DECISION_PLANE")
+
 
 if __name__ == "__main__":
     unittest.main()
