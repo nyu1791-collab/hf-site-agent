@@ -8,12 +8,14 @@ from scripts.jev_decision_engine import (
     build_batch_decisions_request,
     build_decisions_request,
     build_fast_route_batch_request,
+    build_lean_route_batch_request,
     build_portfolio_route_batch_request,
     decide_many,
     decide_many_fast,
     load_policy,
     parse_batch_decisions_response,
     parse_fast_route_response,
+    parse_lean_route_response,
     parse_portfolio_route_response,
     price_guard_allows,
     quota_pressure_from_remaining,
@@ -453,6 +455,106 @@ class JevDecisionEngineTests(unittest.TestCase):
         criteria = body["questions"]["shared_writer__route_portfolio"]["criteria"]
         self.assertFalse(any(key.startswith("parallel_") for key in criteria))
         self.assertIn("sequential_pair_01", criteria)
+
+    def test_lean_route_uses_two_questions_per_record(self):
+        policy = load_policy()
+        records = [
+            {
+                "id": f"lean_{i:02d}",
+                "task_summary": "Route a routine task.",
+                "candidate_models": ["a:free", "b:free", "c:free"],
+                "quota_pressure": "AMPLE",
+                "lane": "GENERAL_REASONING",
+                "allow_third": False,
+            }
+            for i in range(20)
+        ]
+        body, prepared = build_lean_route_batch_request(
+            model="~typesafe/jev-latest",
+            records=records,
+            policy=policy,
+        )
+        self.assertEqual(len(prepared), 20)
+        self.assertEqual(len(body["questions"]), 40)
+        self.assertTrue(all(q["type"] == "choice" for q in body["questions"].values()))
+
+    def test_lean_route_python_selects_complement_from_ranked_candidates(self):
+        policy = load_policy()
+        _, prepared = build_lean_route_batch_request(
+            model="~typesafe/jev-latest",
+            records=[{
+                "id": "lean_pair",
+                "task_summary": "Use a parallel pair.",
+                "candidate_models": ["a:free", "b:free", "c:free"],
+                "quota_pressure": "AMPLE",
+                "lane": "GENERAL_REASONING",
+                "allow_third": False,
+            }],
+            policy=policy,
+        )
+        payload = {"answers": {
+            "lean_pair__primary_worker": choice(
+                "b:free", 0.95, {"b:free": 0.9, "a:free": 0.08, "c:free": 0.02}
+            ),
+            "lean_pair__route_shape": choice(
+                "PARALLEL_PAIR", 0.94, {"PARALLEL_PAIR": 0.94}
+            ),
+        }}
+        out = parse_lean_route_response(
+            payload,
+            prepared_records=prepared,
+            policy=policy,
+        )["lean_pair"]
+        self.assertEqual(out["workers"], ["b:free", "a:free"])
+        self.assertEqual(out["fanout"], 2)
+        self.assertTrue(out["parallel"])
+        self.assertEqual(out["execution_mode"], "PARALLEL")
+
+    def test_lean_route_shared_state_excludes_parallel_shapes(self):
+        policy = load_policy()
+        body, _ = build_lean_route_batch_request(
+            model="~typesafe/jev-latest",
+            records=[{
+                "id": "lean_writer",
+                "task_summary": "Edit one shared file.",
+                "candidate_models": ["a:free", "b:free"],
+                "quota_pressure": "AMPLE",
+                "lane": "CODING_ENGINEERING",
+                "allow_third": False,
+                "shared_mutable_state": True,
+            }],
+            policy=policy,
+        )
+        criteria = body["questions"]["lean_writer__route_shape"]["criteria"]
+        self.assertNotIn("PARALLEL_PAIR", criteria)
+        self.assertNotIn("PARALLEL_TRIPLE", criteria)
+        self.assertIn("SEQUENTIAL_PAIR", criteria)
+
+    def test_lean_route_low_confidence_escalates(self):
+        policy = load_policy()
+        _, prepared = build_lean_route_batch_request(
+            model="~typesafe/jev-latest",
+            records=[{
+                "id": "lean_low",
+                "task_summary": "Ambiguous task.",
+                "candidate_models": ["a:free", "b:free"],
+                "quota_pressure": "AMPLE",
+                "lane": "GENERAL_REASONING",
+                "allow_third": False,
+            }],
+            policy=policy,
+        )
+        payload = {"answers": {
+            "lean_low__primary_worker": choice("a:free", 0.4, {"a:free": 0.55, "b:free": 0.45}),
+            "lean_low__route_shape": choice("SINGLE", 0.45, {"SINGLE": 0.6}),
+        }}
+        out = parse_lean_route_response(
+            payload,
+            prepared_records=prepared,
+            policy=policy,
+        )["lean_low"]
+        self.assertTrue(out["low_confidence"])
+        self.assertEqual(out["action"], "ESCALATE")
 
 
 if __name__ == "__main__":
