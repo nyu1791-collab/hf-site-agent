@@ -10,6 +10,7 @@ POLICY = ROOT / "config" / "jev_decision_engine_policy.json"
 RUNTIME = ROOT / "scripts" / "jev_decision_engine.py"
 COORDINATOR = ROOT / "scripts" / "jev_routing_coordinator.py"
 LEAN_RUNTIME = ROOT / "scripts" / "jev_lean_router.py"
+SHAPE_RUNTIME = ROOT / "scripts" / "jev_shape_router.py"
 MULTI = ROOT / "config" / "multi_agent_operating_policy.json"
 ORG = ROOT / "config" / "ai_army_org_chart.json"
 
@@ -58,6 +59,12 @@ def main() -> int:
     lean_contract = contract.get("lean_route_contract") or {}
     require(int(lean_contract.get("routine_question_count", 0)) == 2, "routine Jev route must use two questions")
     require(lean_contract.get("python_selects_secondary_and_tertiary_from_health_ranked_candidates") is True, "Python complement selection drift")
+    shape_contract = contract.get("shape_only_route_contract") or {}
+    require(int(shape_contract.get("routine_question_count", 0)) == 1, "shape-only Jev route must use one question")
+    require(shape_contract.get("python_selects_primary_and_complements") is True, "Python shape-only composition drift")
+    zero_contract = contract.get("deterministic_health_fast_path") or {}
+    require(zero_contract.get("enabled") is True, "zero-question deterministic health fast path disabled")
+    require(int(zero_contract.get("jev_question_count", -1)) == 0, "zero-question fast path drift")
 
     source = RUNTIME.read_text(encoding="utf-8")
     require('DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"' in source, "Jev is not using Decisions API")
@@ -72,12 +79,19 @@ def main() -> int:
     require("quota_pressure_from_remaining" in source, "quota enum preprocessing missing")
     require(COORDINATOR.is_file(), "Jev routing coordinator missing")
     require(LEAN_RUNTIME.is_file(), "Jev lean routing runtime missing")
+    require(SHAPE_RUNTIME.is_file(), "Jev shape routing runtime missing")
     lean_source = LEAN_RUNTIME.read_text(encoding="utf-8")
     require("def build_lean_route_batch_request(" in lean_source, "two-question request builder missing")
     require("def decide_many_lean(" in lean_source, "two-question batch API missing")
     require("__primary_worker" in lean_source and "__route_shape" in lean_source, "two-question typed surface missing")
+    shape_source = SHAPE_RUNTIME.read_text(encoding="utf-8")
+    require("def build_shape_route_batch_request(" in shape_source, "one-question shape request builder missing")
+    require("def decide_many_shape(" in shape_source, "one-question shape batch API missing")
+    require("__route_shape" in shape_source, "shape-only typed surface missing")
     coordinator_source = COORDINATOR.read_text(encoding="utf-8")
     require("decide_lean" in coordinator_source and "decide_many_lean" in coordinator_source, "coordinator not using lean route")
+    require("decide_shape" in coordinator_source and "decide_many_shape" in coordinator_source, "coordinator not using shape-only route")
+    require("DETERMINISTIC_HEALTH_FAST_PATH" in coordinator_source, "zero-question fast path missing")
 
     multi = json.loads(MULTI.read_text(encoding="utf-8"))
     require((multi.get("routing") or {}).get("jev_default_for_nontrivial_model_and_fanout_choice") is True, "Jev not default for nontrivial routing choice")
@@ -98,6 +112,7 @@ def main() -> int:
         "emergency_prompt_price_ceiling_per_million": guard.get("hard_emergency_price_ceiling_prompt_usd_per_million"),
         "max_records_per_request": guard.get("max_records_per_decisions_request"),
         "max_parallel_batches": guard.get("max_parallel_decision_batches"),
+        "routine_shape_route_questions": shape_contract.get("routine_question_count"),
         "routine_lean_route_questions": lean_contract.get("routine_question_count"),
         "complex_fast_route_questions": fast_contract.get("routine_question_count"),
         "max_fast_route_questions": fast_contract.get("max_question_count"),
