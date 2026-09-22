@@ -70,6 +70,7 @@ Independent routing work is batch-first:
 - up to 20 records per Jev request;
 - up to 5 independent Jev batches concurrently;
 - 100 independent routing jobs can therefore be represented as five 20-record decision requests.
+- mixed route surfaces use two concurrent request groups: `shape` alone and `lean+rich` together; repeated A/B evidence showed better tail stability than three surface requests.
 
 Batching is for independent work only. Shared-state or sequential work stays ordered.
 
