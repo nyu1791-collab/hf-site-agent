@@ -7,8 +7,6 @@ from typing import Any, Mapping, Sequence
 
 from scripts.jev_decision_engine import decide_fast, decide_many_fast, quota_pressure_from_remaining
 from scripts.jev_lean_router import decide_lean, decide_many_lean
-from scripts.jev_primary_router import decide_primary, decide_many_primary
-from scripts.jev_shape_router import decide_shape_batch, decide_many_shape
 from scripts.jev_shape_router import decide_shape, decide_many_shape
 from scripts.openrouter_free_efficiency_router import load_policy as load_free_policy
 from scripts.openrouter_free_efficiency_router import ordered_candidates, plan_task
@@ -197,25 +195,6 @@ def _deterministic_route_shape(
     return None
 
 
-def _primary_is_proven(
-    primary: str | None,
-    evidence: Mapping[str, Mapping[str, Any]],
-    *,
-    domain: str | None,
-) -> bool:
-    if not primary:
-        return False
-    raw = evidence.get(str(primary)) if isinstance(evidence, Mapping) else None
-    scoped = domain_evidence(raw if isinstance(raw, Mapping) else None, domain)
-    if not isinstance(scoped, Mapping):
-        return False
-    return (
-        int(scoped.get("successes", 0) or 0) > 0
-        and int(scoped.get("quality_failures", 0) or 0) == 0
-        and int(scoped.get("rate_limits", 0) or 0) == 0
-    )
-
-
 def _is_high_risk(task: Mapping[str, Any]) -> bool:
     return bool(
         task.get("high_impact")
@@ -382,7 +361,6 @@ def coordinate(
         if rich_route
         else _health_primary_is_clear(candidates, evidence, domain=domain)
     )
-    proven_primary = _primary_is_proven(candidates[0] if candidates else None, evidence, domain=domain)
     if rich_route:
         route_surface = "FAST_RICH"
         jev = decide_fast(
@@ -420,28 +398,6 @@ def coordinate(
             shared_mutable_state=shared_state,
             high_risk=False,
             api_key=api_key,
-        )
-        expected_status = "JEV_SHAPE_DECISION_OK"
-    elif proven_primary:
-        route_surface = "SHAPE_ONE_QUESTION"
-        shape_result = decide_shape_batch(
-            records=[{
-                "id": "r_0001",
-                "task_summary": summary,
-                "candidate_models": candidates,
-                "candidate_profiles": profiles,
-                "quota_pressure": quota_pressure_from_remaining(remaining).value,
-                "lane": lane,
-                "allow_third": allow_third,
-                "shared_mutable_state": shared_state,
-                "high_risk": False,
-            }],
-            api_key=api_key,
-        )
-        jev = (
-            {**shape_result, "status": "JEV_SHAPE_DECISION_OK", "decision": (shape_result.get("decisions") or {}).get("r_0001")}
-            if shape_result.get("status") == "JEV_SHAPE_BATCH_OK"
-            else shape_result
         )
         expected_status = "JEV_SHAPE_DECISION_OK"
     else:
@@ -523,7 +479,6 @@ def coordinate(
                 "FAST_RICH": "JEV_FAST_RICH_TYPED_DECISION",
                 "DETERMINISTIC_HEALTH_FAST_PATH": "PYTHON_CLEAR_PRIMARY_AND_CLEAR_SHAPE",
                 "SHAPE_ONE_QUESTION": "JEV_SHAPE_ONE_QUESTION_DECISION",
-                "SHAPE_ONE_QUESTION": "JEV_SHAPE_ONE_QUESTION_DECISION",
                 "LEAN_TWO_QUESTION": "JEV_LEAN_TWO_QUESTION_DECISION",
             }[route_surface],
             *(["RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED"] if latency_challenger else []),
@@ -539,7 +494,6 @@ def coordinate(
         "route_source": {
             "FAST_RICH": "JEV_FAST_DECISION_PLANE",
             "DETERMINISTIC_HEALTH_FAST_PATH": "DETERMINISTIC_HEALTH_FAST_PATH",
-            "SHAPE_ONE_QUESTION": "JEV_SHAPE_DECISION_PLANE",
             "SHAPE_ONE_QUESTION": "JEV_SHAPE_DECISION_PLANE",
             "LEAN_TWO_QUESTION": "JEV_LEAN_DECISION_PLANE",
         }[route_surface],
@@ -562,7 +516,6 @@ def coordinate_many(
     baselines: dict[str, dict[str, Any]] = {}
     deterministic_decisions: dict[str, dict[str, Any]] = {}
     shape_records: list[dict[str, Any]] = []
-    primary_records: list[dict[str, Any]] = []
     lean_records: list[dict[str, Any]] = []
     fast_records: list[dict[str, Any]] = []
     task_candidates: dict[str, list[str]] = {}
@@ -627,21 +580,15 @@ def coordinate_many(
         elif primary_clear:
             task_route_surface[task_id] = "SHAPE_ONE_QUESTION"
             shape_records.append(record)
-        elif shape is not None:
-            task_route_surface[task_id] = "PRIMARY_ONE_QUESTION"
-            record["route_shape"] = shape
-            primary_records.append(record)
         else:
             task_route_surface[task_id] = "LEAN_TWO_QUESTION"
             lean_records.append(record)
 
     results: dict[str, Mapping[str, Any]] = {}
     jobs = []
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=3) as pool:
         if shape_records:
             jobs.append(("shape", pool.submit(decide_many_shape, records=shape_records, api_key=api_key)))
-        if primary_records:
-            jobs.append(("primary", pool.submit(decide_many_primary, records=primary_records, api_key=api_key)))
         if lean_records:
             jobs.append(("lean", pool.submit(decide_many_lean, records=lean_records, api_key=api_key)))
         if fast_records:
@@ -654,25 +601,22 @@ def coordinate_many(
             results[name] = result
 
     shape_result = results.get("shape") or {"status": "JEV_SHAPE_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
-    primary_result = results.get("primary") or {"status": "JEV_PRIMARY_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
     lean_result = results.get("lean") or {"status": "JEV_LEAN_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
     fast_result = results.get("fast") or {"status": "JEV_FAST_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
     decisions: dict[str, Any] = dict(deterministic_decisions)
-    for result in (shape_result, primary_result, lean_result, fast_result):
+    for result in (shape_result, lean_result, fast_result):
         if isinstance(result.get("decisions"), Mapping):
             decisions.update(result.get("decisions") or {})
-    active_surfaces = sum(bool(rows) for rows in (shape_records, primary_records, lean_records, fast_records))
+    active_surfaces = sum(bool(rows) for rows in (shape_records, lean_records, fast_records))
     jev = {
         "status": "JEV_MIXED_MANY_OK",
         "shape": shape_result,
-        "primary": primary_result,
         "lean": lean_result,
         "fast": fast_result,
         "deterministic_health_fast_path_count": len(deterministic_decisions),
-        "record_count": len(shape_records) + len(primary_records) + len(lean_records) + len(fast_records),
+        "record_count": len(shape_records) + len(lean_records) + len(fast_records),
         "batch_count": (
             int(shape_result.get("batch_count", 0) or 0)
-            + int(primary_result.get("batch_count", 0) or 0)
             + int(lean_result.get("batch_count", 0) or 0)
             + int(fast_result.get("batch_count", 0) or 0)
         ),
@@ -722,7 +666,6 @@ def coordinate_many(
                     "FAST_RICH": "JEV_FAST_RICH_BATCH_DECISION",
                     "DETERMINISTIC_HEALTH_FAST_PATH": "PYTHON_CLEAR_PRIMARY_AND_CLEAR_SHAPE",
                     "SHAPE_ONE_QUESTION": "JEV_SHAPE_ONE_QUESTION_BATCH_DECISION",
-                    "PRIMARY_ONE_QUESTION": "JEV_PRIMARY_ONE_QUESTION_BATCH_DECISION",
                     "LEAN_TWO_QUESTION": "JEV_LEAN_TWO_QUESTION_BATCH_DECISION",
                 }.get(task_route_surface.get(task_id), "JEV_BATCH_DECISION"),
                 *(["RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED"] if latency_challenger else []),
