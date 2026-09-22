@@ -8,6 +8,7 @@ from typing import Any, Mapping, Sequence
 from scripts.jev_decision_engine import decide_fast, decide_many_fast, quota_pressure_from_remaining
 from scripts.jev_lean_router import decide_lean, decide_many_lean
 from scripts.jev_primary_router import decide_primary, decide_many_primary
+from scripts.jev_shape_router import decide_shape_batch, decide_many_shape
 from scripts.jev_shape_router import decide_shape, decide_many_shape
 from scripts.openrouter_free_efficiency_router import load_policy as load_free_policy
 from scripts.openrouter_free_efficiency_router import ordered_candidates, plan_task
@@ -196,6 +197,25 @@ def _deterministic_route_shape(
     return None
 
 
+def _primary_is_proven(
+    primary: str | None,
+    evidence: Mapping[str, Mapping[str, Any]],
+    *,
+    domain: str | None,
+) -> bool:
+    if not primary:
+        return False
+    raw = evidence.get(str(primary)) if isinstance(evidence, Mapping) else None
+    scoped = domain_evidence(raw if isinstance(raw, Mapping) else None, domain)
+    if not isinstance(scoped, Mapping):
+        return False
+    return (
+        int(scoped.get("successes", 0) or 0) > 0
+        and int(scoped.get("quality_failures", 0) or 0) == 0
+        and int(scoped.get("rate_limits", 0) or 0) == 0
+    )
+
+
 def _is_high_risk(task: Mapping[str, Any]) -> bool:
     return bool(
         task.get("high_impact")
@@ -362,6 +382,7 @@ def coordinate(
         if rich_route
         else _health_primary_is_clear(candidates, evidence, domain=domain)
     )
+    proven_primary = _primary_is_proven(candidates[0] if candidates else None, evidence, domain=domain)
     if rich_route:
         route_surface = "FAST_RICH"
         jev = decide_fast(
@@ -401,19 +422,28 @@ def coordinate(
             api_key=api_key,
         )
         expected_status = "JEV_SHAPE_DECISION_OK"
-    elif primary_shape is not None:
-        route_surface = "PRIMARY_ONE_QUESTION"
-        jev = decide_primary(
-            task_summary=summary,
-            candidate_models=candidates,
-            remaining_free_quota=remaining,
-            route_shape=primary_shape,
-            candidate_profiles=profiles,
-            lane=lane,
-            shared_mutable_state=shared_state,
+    elif proven_primary:
+        route_surface = "SHAPE_ONE_QUESTION"
+        shape_result = decide_shape_batch(
+            records=[{
+                "id": "r_0001",
+                "task_summary": summary,
+                "candidate_models": candidates,
+                "candidate_profiles": profiles,
+                "quota_pressure": quota_pressure_from_remaining(remaining).value,
+                "lane": lane,
+                "allow_third": allow_third,
+                "shared_mutable_state": shared_state,
+                "high_risk": False,
+            }],
             api_key=api_key,
         )
-        expected_status = "JEV_PRIMARY_DECISION_OK"
+        jev = (
+            {**shape_result, "status": "JEV_SHAPE_DECISION_OK", "decision": (shape_result.get("decisions") or {}).get("r_0001")}
+            if shape_result.get("status") == "JEV_SHAPE_BATCH_OK"
+            else shape_result
+        )
+        expected_status = "JEV_SHAPE_DECISION_OK"
     else:
         route_surface = "LEAN_TWO_QUESTION"
         jev = decide_lean(
@@ -493,7 +523,7 @@ def coordinate(
                 "FAST_RICH": "JEV_FAST_RICH_TYPED_DECISION",
                 "DETERMINISTIC_HEALTH_FAST_PATH": "PYTHON_CLEAR_PRIMARY_AND_CLEAR_SHAPE",
                 "SHAPE_ONE_QUESTION": "JEV_SHAPE_ONE_QUESTION_DECISION",
-                "PRIMARY_ONE_QUESTION": "JEV_PRIMARY_ONE_QUESTION_DECISION",
+                "SHAPE_ONE_QUESTION": "JEV_SHAPE_ONE_QUESTION_DECISION",
                 "LEAN_TWO_QUESTION": "JEV_LEAN_TWO_QUESTION_DECISION",
             }[route_surface],
             *(["RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED"] if latency_challenger else []),
@@ -510,7 +540,7 @@ def coordinate(
             "FAST_RICH": "JEV_FAST_DECISION_PLANE",
             "DETERMINISTIC_HEALTH_FAST_PATH": "DETERMINISTIC_HEALTH_FAST_PATH",
             "SHAPE_ONE_QUESTION": "JEV_SHAPE_DECISION_PLANE",
-            "PRIMARY_ONE_QUESTION": "JEV_PRIMARY_DECISION_PLANE",
+            "SHAPE_ONE_QUESTION": "JEV_SHAPE_DECISION_PLANE",
             "LEAN_TWO_QUESTION": "JEV_LEAN_DECISION_PLANE",
         }[route_surface],
         "baseline": baseline,
