@@ -275,19 +275,53 @@ def coordinate(
         and not bool(task.get("shared_mutable_state") or task.get("strictly_sequential") or task.get("single_writer_only"))
     )
     rich_route = _needs_rich_jev_route(task)
-    route_fn = decide_fast if rich_route else decide_lean
-    jev = route_fn(
-        task_summary=summary,
-        candidate_models=candidates,
-        remaining_free_quota=remaining,
-        candidate_profiles=profiles,
-        lane=lane,
-        allow_third=allow_third,
-        shared_mutable_state=bool(task.get("shared_mutable_state") or task.get("strictly_sequential") or task.get("single_writer_only")),
-        high_risk=_is_high_risk(task),
-        api_key=api_key,
+    shared_state = bool(task.get("shared_mutable_state") or task.get("strictly_sequential") or task.get("single_writer_only"))
+    primary_shape = None if rich_route else _deterministic_route_shape(
+        task,
+        remaining_quota=remaining,
+        candidate_count=len(candidates),
     )
-    expected_status = "JEV_FAST_DECISION_OK" if rich_route else "JEV_LEAN_DECISION_OK"
+    if rich_route:
+        route_surface = "FAST_RICH"
+        jev = decide_fast(
+            task_summary=summary,
+            candidate_models=candidates,
+            remaining_free_quota=remaining,
+            candidate_profiles=profiles,
+            lane=lane,
+            allow_third=allow_third,
+            shared_mutable_state=shared_state,
+            high_risk=_is_high_risk(task),
+            api_key=api_key,
+        )
+        expected_status = "JEV_FAST_DECISION_OK"
+    elif primary_shape is not None:
+        route_surface = "PRIMARY_ONE_QUESTION"
+        jev = decide_primary(
+            task_summary=summary,
+            candidate_models=candidates,
+            remaining_free_quota=remaining,
+            route_shape=primary_shape,
+            candidate_profiles=profiles,
+            lane=lane,
+            shared_mutable_state=shared_state,
+            api_key=api_key,
+        )
+        expected_status = "JEV_PRIMARY_DECISION_OK"
+    else:
+        route_surface = "LEAN_TWO_QUESTION"
+        jev = decide_lean(
+            task_summary=summary,
+            candidate_models=candidates,
+            remaining_free_quota=remaining,
+            candidate_profiles=profiles,
+            lane=lane,
+            allow_third=allow_third,
+            shared_mutable_state=shared_state,
+            high_risk=False,
+            api_key=api_key,
+        )
+        expected_status = "JEV_LEAN_DECISION_OK"
     if jev.get("status") != expected_status:
         return {
             "schema_version": "jev-routing-coordinator-v4",
@@ -349,7 +383,11 @@ def coordinate(
         "lane": decision.get("lane") or lane,
         "independent_verification": bool(decision.get("independent_verification")),
         "fanout_reason": [
-            ("JEV_FAST_RICH_TYPED_DECISION" if rich_route else "JEV_LEAN_TWO_QUESTION_DECISION"),
+            {
+                "FAST_RICH": "JEV_FAST_RICH_TYPED_DECISION",
+                "PRIMARY_ONE_QUESTION": "JEV_PRIMARY_ONE_QUESTION_DECISION",
+                "LEAN_TWO_QUESTION": "JEV_LEAN_TWO_QUESTION_DECISION",
+            }[route_surface],
             *(["RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED"] if latency_challenger else []),
             *list(baseline.get("fanout_reason") or []),
         ],
@@ -360,7 +398,11 @@ def coordinate(
     return {
         "schema_version": "jev-routing-coordinator-v4",
         "status": "READY",
-        "route_source": "JEV_FAST_DECISION_PLANE" if rich_route else "JEV_LEAN_DECISION_PLANE",
+        "route_source": {
+            "FAST_RICH": "JEV_FAST_DECISION_PLANE",
+            "PRIMARY_ONE_QUESTION": "JEV_PRIMARY_DECISION_PLANE",
+            "LEAN_TWO_QUESTION": "JEV_LEAN_DECISION_PLANE",
+        }[route_surface],
         "baseline": baseline,
         "jev": jev,
         "final_plan": final,
