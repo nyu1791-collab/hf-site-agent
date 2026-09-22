@@ -1,5 +1,5 @@
 {
-  "schema_version": "jev-decision-engine-policy-v7",
+  "schema_version": "jev-decision-engine-policy-v8",
   "effective_date_jst": "2026-09-22",
   "status": "ACTIVE_SCOPED_PAID_EXCEPTION",
   "role": "FAST_SYSTEM_ONE_DECISION_PLANE",
@@ -119,6 +119,22 @@
       "python_derives_parallel_flag": true,
       "python_derives_execution_mode": true,
       "routine_question_count": 2
+    },
+    "shape_only_route_contract": {
+      "route_shape": "CHOICE_SINGLE_PARALLEL_PAIR_SEQUENTIAL_PAIR_OPTIONAL_PARALLEL_TRIPLE_ESCALATE",
+      "primary_worker": "PYTHON_HEALTH_RANKED_CLEAR_PRIMARY",
+      "python_selects_primary_and_complements": true,
+      "python_derives_fanout": true,
+      "python_derives_parallel_flag": true,
+      "python_derives_execution_mode": true,
+      "routine_question_count": 1
+    },
+    "deterministic_health_fast_path": {
+      "enabled": true,
+      "condition": "RECENT_DOMAIN_PRIMARY_CLEAR_AND_EXECUTION_SHAPE_CODE_CLEAR",
+      "jev_question_count": 0,
+      "python_composes_route": true,
+      "unknown_or_stale_evidence_must_not_qualify": true
     }
   },
   "automatic_upgrade_guard": {
@@ -191,7 +207,7 @@
     "lane_is_precomputed_when_task_class_is_known": true,
     "third_worker_question_only_when_code_prequalifies_three_independent_workstreams": true,
     "free_text_route_generation": false,
-    "selected_default_route_surface": "LEAN_TWO_QUESTION_FOR_ROUTINE__FAST_THREE_TO_FOUR_FOR_COMPLEX",
+    "selected_default_route_surface": "ZERO_IF_BOTH_CLEAR__SHAPE_1Q_IF_PRIMARY_CLEAR__PRIMARY_1Q_IF_SHAPE_CLEAR__LEAN_2Q_IF_BOTH_FUZZY__FAST_3_TO_4Q_IF_COMPLEX",
     "portfolio_one_choice_status": "EXPERIMENTAL_ECONOMY_NOT_SPEED_DEFAULT",
     "fast_candidate_profile_chars": 240,
     "question_criteria_reuse_state_profiles": true,
@@ -241,6 +257,28 @@
       "fast_primary_hit_rate": 1,
       "p50_improvement_percent": 10.29,
       "input_token_reduction_percent": 32.06
+    },
+    "zero_one_two_rich_tier_status": "PRODUCTION_ROUTING_STANDARD",
+    "one_question_shape_status": "PROMOTED_WHEN_PRIMARY_IS_CLEAR_FROM_RECENT_DOMAIN_EVIDENCE",
+    "primary_one_question_tail_status": "KEEP_ONLY_WHEN_SHAPE_IS_CODE_CLEAR_AND_PRIMARY_IS_FUZZY",
+    "one_question_benchmark_evidence": {
+      "run_id": 35671082445,
+      "iterations_per_mode": 50,
+      "records_per_request": 5,
+      "lean_two_question_p50_ms": 259.622,
+      "lean_two_question_p95_ms": 337.239,
+      "lean_input_tokens_mean": 2668,
+      "shape_one_question_p50_ms": 246.764,
+      "shape_one_question_p95_ms": 325.589,
+      "shape_input_tokens_mean": 1907,
+      "shape_p50_improvement_percent": 4.95,
+      "shape_input_token_reduction_percent": 28.52,
+      "shape_primary_hit_rate": 1,
+      "shape_route_shape_hit_rate": 1,
+      "shape_success_rate": 1,
+      "primary_one_question_p50_ms": 249.511,
+      "primary_one_question_p95_ms": 906.02,
+      "primary_one_question_status": "CONDITIONAL_ONLY_DUE_TO_P95_TAIL"
     }
   }
 }
