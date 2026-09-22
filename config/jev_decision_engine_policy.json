@@ -207,7 +207,7 @@
     "lane_is_precomputed_when_task_class_is_known": true,
     "third_worker_question_only_when_code_prequalifies_three_independent_workstreams": true,
     "free_text_route_generation": false,
-    "selected_default_route_surface": "ZERO_IF_BOTH_CLEAR__SHAPE_1Q_IF_PRIMARY_CLEAR__PRIMARY_1Q_IF_SHAPE_CLEAR__LEAN_2Q_IF_BOTH_FUZZY__FAST_3_TO_4Q_IF_COMPLEX",
+    "selected_default_route_surface": "ZERO_IF_BOTH_CLEAR__SHAPE_1Q_IF_PRIMARY_CLEAR__LEAN_2Q_IF_PRIMARY_FUZZY__FAST_3_TO_4Q_IF_COMPLEX",
     "portfolio_one_choice_status": "EXPERIMENTAL_ECONOMY_NOT_SPEED_DEFAULT",
     "fast_candidate_profile_chars": 240,
     "question_criteria_reuse_state_profiles": true,
@@ -279,6 +279,13 @@
       "primary_one_question_p50_ms": 249.511,
       "primary_one_question_p95_ms": 906.02,
       "primary_one_question_status": "CONDITIONAL_ONLY_DUE_TO_P95_TAIL"
-    }
+    },
+    "primary_one_question_status": "BENCHMARK_ONLY_NOT_PRODUCTION_DEFAULT_P95_TAIL",
+    "production_tiers": [
+      "ZERO_QUESTION_DETERMINISTIC_HEALTH_FAST_PATH",
+      "SHAPE_ONE_QUESTION_WHEN_PRIMARY_CLEAR",
+      "LEAN_TWO_QUESTION_WHEN_PRIMARY_FUZZY",
+      "FAST_THREE_TO_FOUR_QUESTION_WHEN_COMPLEX"
+    ]
   }
 }
