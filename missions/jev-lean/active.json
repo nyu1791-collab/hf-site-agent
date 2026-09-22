@@ -6,5 +6,7 @@
   "records_per_request": 5,
   "worker_calls": 0,
   "paid_scope": "JEV_ONLY",
-  "production_side_effects": false
+  "production_side_effects": false,
+  "retriggered_at_jst": "2026-09-22",
+  "retrigger_reason": "restore push trigger and run 2-vs-3 question A/B"
 }
