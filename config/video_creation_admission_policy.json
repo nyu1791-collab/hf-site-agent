@@ -10,13 +10,17 @@
     "config/free_execution_guard.json",
     "config/media_command_read_gate.json",
     "config/media_audio_motion_retention_policy.json",
-    "docs/MEDIA_PIPELINE.md"
+    "docs/MEDIA_PIPELINE.md",
+    "config/session_stream_resilience_policy.json"
   ],
   "voice_contract": {
     "engine": "VOICEVOX_LOCAL",
     "primary_voice": "ずんだもん",
     "secondary_voice_when_dialogue_helps": "四国めたん",
-    "standard_cast": ["ずんだもん", "四国めたん"],
+    "standard_cast": [
+      "ずんだもん",
+      "四国めたん"
+    ],
     "runtime_speaker_discovery_required": true,
     "actual_wav_duration_drives_timeline": true,
     "voicevox_unavailable_action": "BLOCK_BEFORE_RENDER",
@@ -38,5 +42,11 @@
     "must_include_voice_timing_manifest": true,
     "must_include_voicevox_credit": true,
     "must_pass_ffprobe_and_decode": true
+  },
+  "durable_execution_contract": {
+    "session_stream_resilience_policy": "config/session_stream_resilience_policy.json",
+    "chat_stream_is_not_execution_authority": true,
+    "durable_runner_required_when_long_running_job_would_otherwise_depend_on_one_live_chat_stream": true,
+    "recover_from_repository_and_verified_artifacts_after_disconnect": true
   }
 }
