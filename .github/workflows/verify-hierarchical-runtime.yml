@@ -17,6 +17,7 @@ on:
       - "missions/jev-trial/**"
       - "missions/jev-benchmark/**"
       - "missions/jev-lean/**"
+      - "missions/jev-primary-benchmark/**"
   workflow_dispatch:
 
 permissions:
@@ -149,6 +150,23 @@ jobs:
         with:
           name: jev-lean-route-${{ github.run_id }}
           path: artifacts/jev_lean_route_benchmark.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Run Jev primary-one vs lean-two benchmark
+        if: ${{ hashFiles('missions/jev-primary-benchmark/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m scripts.jev_primary_route_benchmark --output artifacts/jev_primary_route_benchmark.json
+
+      - name: Upload Jev primary-route evidence
+        if: ${{ always() && hashFiles('missions/jev-primary-benchmark/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-primary-route-${{ github.run_id }}
+          path: artifacts/jev_primary_route_benchmark.json
           if-no-files-found: warn
           retention-days: 7
 
