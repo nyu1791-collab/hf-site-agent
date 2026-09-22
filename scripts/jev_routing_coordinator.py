@@ -5,8 +5,9 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Mapping, Sequence
 
-from scripts.jev_decision_engine import decide_lean, decide_many_lean, quota_pressure_from_remaining
+from scripts.jev_decision_engine import decide_fast, decide_many_fast, quota_pressure_from_remaining
 from scripts.jev_lean_router import decide_lean, decide_many_lean
+from scripts.jev_primary_router import decide_primary, decide_many_primary
 from scripts.openrouter_free_efficiency_router import load_policy as load_free_policy
 from scripts.openrouter_free_efficiency_router import ordered_candidates, plan_task
 from scripts.openrouter_worker_health import (
@@ -69,13 +70,54 @@ def _health_ranked_candidates(
 
 
 def _needs_rich_jev_route(task: Mapping[str, Any]) -> bool:
+    """Use the richer Jev surface only when worker composition itself is fuzzy."""
     return bool(
         _is_high_risk(task)
-        or int(task.get("independent_workstreams", 1) or 1) >= 2
         or task.get("complementary_specialization")
         or task.get("independent_verification")
         or task.get("requires_distinct_specialists")
     )
+
+
+def _deterministic_route_shape(
+    task: Mapping[str, Any],
+    *,
+    remaining_quota: int,
+    candidate_count: int,
+) -> str | None:
+    """Return a code-determined execution shape when task structure is explicit.
+
+    This keeps counting, thresholds and dependency rules out of Jev. None means
+    the shape remains ambiguous and should go to the two-question Lean route.
+    """
+    if candidate_count <= 0 or remaining_quota <= 0:
+        return None
+    if candidate_count == 1 or remaining_quota == 1:
+        return "SINGLE"
+
+    shared = bool(
+        task.get("shared_mutable_state")
+        or task.get("strictly_sequential")
+        or task.get("single_writer_only")
+    )
+    try:
+        workstreams = max(1, int(task.get("independent_workstreams", 1) or 1))
+    except (TypeError, ValueError):
+        workstreams = 1
+    try:
+        parallel_fraction = float(task.get("parallelizable_fraction", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        parallel_fraction = 0.0
+
+    if shared:
+        return "SEQUENTIAL_PAIR" if workstreams >= 2 and remaining_quota >= 2 else "SINGLE"
+    if workstreams >= 3 and parallel_fraction >= 0.65 and remaining_quota >= 3 and candidate_count >= 3:
+        return "PARALLEL_TRIPLE"
+    if workstreams >= 2 and parallel_fraction >= 0.55 and remaining_quota >= 2:
+        return "PARALLEL_PAIR"
+    if workstreams <= 1:
+        return "SINGLE"
+    return None
 
 
 def _is_high_risk(task: Mapping[str, Any]) -> bool:
