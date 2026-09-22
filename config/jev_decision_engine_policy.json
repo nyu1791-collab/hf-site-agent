@@ -1,5 +1,5 @@
 {
-  "schema_version": "jev-decision-engine-policy-v6",
+  "schema_version": "jev-decision-engine-policy-v7",
   "effective_date_jst": "2026-09-22",
   "status": "ACTIVE_SCOPED_PAID_EXCEPTION",
   "role": "FAST_SYSTEM_ONE_DECISION_PLANE",
@@ -110,6 +110,15 @@
       "python_derives_execution_mode": true,
       "routine_question_count": 3,
       "max_question_count": 4
+    },
+    "lean_route_contract": {
+      "primary_worker": "CHOICE",
+      "route_shape": "CHOICE_SINGLE_PARALLEL_PAIR_SEQUENTIAL_PAIR_OPTIONAL_PARALLEL_TRIPLE_ESCALATE",
+      "python_selects_secondary_and_tertiary_from_health_ranked_candidates": true,
+      "python_derives_fanout": true,
+      "python_derives_parallel_flag": true,
+      "python_derives_execution_mode": true,
+      "routine_question_count": 2
     }
   },
   "automatic_upgrade_guard": {
@@ -176,13 +185,13 @@
     ],
     "batch_records_per_request": 20,
     "probabilities_and_confidence_are_machine_consumed": true,
-    "routine_route_question_budget": 3,
+    "routine_route_question_budget": 2,
     "third_worker_route_question_budget": 4,
     "route_shape_is_typed_choice": true,
     "lane_is_precomputed_when_task_class_is_known": true,
     "third_worker_question_only_when_code_prequalifies_three_independent_workstreams": true,
     "free_text_route_generation": false,
-    "selected_default_route_surface": "FAST_THREE_QUESTION",
+    "selected_default_route_surface": "LEAN_TWO_QUESTION_FOR_ROUTINE__FAST_THREE_TO_FOUR_FOR_COMPLEX",
     "portfolio_one_choice_status": "EXPERIMENTAL_ECONOMY_NOT_SPEED_DEFAULT",
     "fast_candidate_profile_chars": 240,
     "question_criteria_reuse_state_profiles": true,
@@ -215,6 +224,23 @@
       "profile_360_p50_ms": 285.83,
       "profile_240_p95_ms": 324.185,
       "recommended_profile_char_limit": 240
+    },
+    "complex_route_question_budget": 3,
+    "lean_two_question_status": "PRODUCTION_DEFAULT_FOR_ROUTINE_TASKS",
+    "lean_ab_evidence": {
+      "run_id": 35670216972,
+      "iterations_per_mode": 30,
+      "records_per_request": 5,
+      "fast_three_question_p50_ms": 300.667,
+      "fast_three_question_p95_ms": 498.917,
+      "fast_input_tokens_mean": 3690,
+      "lean_two_question_p50_ms": 269.719,
+      "lean_two_question_p95_ms": 385.773,
+      "lean_input_tokens_mean": 2507,
+      "lean_primary_hit_rate": 1,
+      "fast_primary_hit_rate": 1,
+      "p50_improvement_percent": 10.29,
+      "input_token_reduction_percent": 32.06
     }
   }
 }
