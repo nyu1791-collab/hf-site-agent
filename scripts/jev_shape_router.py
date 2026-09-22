@@ -405,9 +405,49 @@ def decide_many_shape(
     }
 
 
+def decide_shape(
+    *,
+    task_summary: str,
+    candidate_models: Sequence[str],
+    remaining_free_quota: int,
+    candidate_profiles: Mapping[str, str] | None = None,
+    lane: str = Lane.GENERAL_REASONING.value,
+    allow_third: bool = False,
+    shared_mutable_state: bool = False,
+    high_risk: bool = False,
+    api_key: str | None = None,
+    timeout_seconds: float = 10.0,
+    catalog_entries: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    result = decide_shape_batch(
+        records=[{
+            "id": "r_0001",
+            "task_summary": task_summary,
+            "candidate_models": list(candidate_models),
+            "candidate_profiles": dict(candidate_profiles or {}),
+            "quota_pressure": quota_pressure_from_remaining(remaining_free_quota).value,
+            "lane": lane,
+            "allow_third": allow_third,
+            "shared_mutable_state": shared_mutable_state,
+            "high_risk": high_risk,
+        }],
+        api_key=api_key,
+        timeout_seconds=timeout_seconds,
+        catalog_entries=catalog_entries,
+    )
+    if result.get("status") != "JEV_SHAPE_BATCH_OK":
+        return result
+    return {
+        **result,
+        "status": "JEV_SHAPE_DECISION_OK",
+        "decision": (result.get("decisions") or {}).get("r_0001"),
+    }
+
+
 __all__ = [
     "build_shape_route_batch_request",
     "decide_many_shape",
+    "decide_shape",
     "decide_shape_batch",
     "parse_shape_route_response",
 ]
