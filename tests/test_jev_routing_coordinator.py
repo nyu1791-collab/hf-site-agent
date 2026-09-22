@@ -62,7 +62,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         self.assertEqual(result["final_plan"]["parallel_model_calls"], 2)
 
     def test_jev_failure_preserves_deterministic_route(self):
-        with patch("scripts.jev_routing_coordinator.decide_primary", return_value={"status": "JEV_UNAVAILABLE"}):
+        with patch("scripts.jev_routing_coordinator.decide_lean", return_value={"status": "JEV_UNAVAILABLE"}):
             result = coordinate({"task_class": "GENERAL"}, CATALOG, use_jev=True, api_key="x")
         self.assertEqual(result["route_source"], "DETERMINISTIC_FALLBACK_AFTER_JEV_UNAVAILABLE")
         self.assertEqual(result["final_plan"], result["baseline"])
@@ -87,13 +87,13 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
             for i in range(10)
         }
         fake = {
-            "status": "JEV_PRIMARY_MANY_OK",
+            "status": "JEV_LEAN_MANY_OK",
             "record_count": 10,
             "batch_count": 1,
             "parallel_batch_count": 1,
             "decisions": decisions,
         }
-        with patch("scripts.jev_routing_coordinator.decide_many_primary", return_value=fake) as call:
+        with patch("scripts.jev_routing_coordinator.decide_many_lean", return_value=fake) as call:
             result = coordinate_many(tasks, CATALOG, use_jev=True, api_key="x")
         call.assert_called_once()
         self.assertEqual(result["task_count"], 10)
@@ -106,7 +106,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
             {"task_id": "task_b", "task_class": "GENERAL", "objective": "B"},
         ]
         fake = {
-            "status": "JEV_PRIMARY_MANY_OK",
+            "status": "JEV_LEAN_MANY_OK",
             "record_count": 2,
             "batch_count": 1,
             "parallel_batch_count": 1,
@@ -141,7 +141,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 },
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_many_primary", return_value=fake):
+        with patch("scripts.jev_routing_coordinator.decide_many_lean", return_value=fake):
             result = coordinate_many(
                 tasks,
                 CATALOG,
@@ -154,7 +154,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
 
     def test_low_confidence_routine_task_uses_bounded_hedge(self):
         fake = {
-            "status": "JEV_PRIMARY_DECISION_OK",
+            "status": "JEV_LEAN_DECISION_OK",
             "decision": {
                 "workers": ["qwen/qwen3.8-27b:free"],
                 "fanout": 1,
@@ -167,7 +167,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "low_confidence": True,
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_primary", return_value=fake), patch(
+        with patch("scripts.jev_routing_coordinator.decide_lean", return_value=fake), patch(
             "scripts.jev_routing_coordinator.load_recent_evidence", return_value={}
         ):
             result = coordinate(
@@ -236,7 +236,7 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "avg_latency_ms": 0,
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_primary", return_value=fake), patch(
+        with patch("scripts.jev_routing_coordinator.decide_lean", return_value=fake), patch(
             "scripts.jev_routing_coordinator.load_recent_evidence", return_value=evidence
         ):
             result = coordinate(
@@ -250,9 +250,9 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
         self.assertIn("RECENT_PRIMARY_SLOW_LATENCY_CHALLENGER_ADDED", result["final_plan"]["fanout_reason"])
         self.assertEqual(result["final_plan"]["latency_challenger_timeout_seconds"], 3.5)
 
-    def test_explicit_single_stream_uses_one_question_primary_route(self):
+    def test_explicit_single_stream_with_fuzzy_primary_uses_lean_two_question_route(self):
         fake = {
-            "status": "JEV_PRIMARY_DECISION_OK",
+            "status": "JEV_LEAN_DECISION_OK",
             "decision": {
                 "workers": ["qwen/qwen3.8-27b:free"],
                 "fanout": 1,
@@ -265,8 +265,8 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "low_confidence": False,
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_primary", return_value=fake) as primary, patch(
-            "scripts.jev_routing_coordinator.decide_lean"
+        with patch("scripts.jev_routing_coordinator.decide_shape") as shape, patch(
+            "scripts.jev_routing_coordinator.decide_lean", return_value=fake
         ) as lean, patch(
             "scripts.jev_routing_coordinator.decide_fast"
         ) as fast, patch(
@@ -282,15 +282,15 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 use_jev=True,
                 api_key="x",
             )
-        primary.assert_called_once()
-        lean.assert_not_called()
+        shape.assert_not_called()
+        lean.assert_called_once()
         fast.assert_not_called()
-        self.assertEqual(result["route_source"], "JEV_PRIMARY_DECISION_PLANE")
-        self.assertIn("JEV_PRIMARY_ONE_QUESTION_DECISION", result["final_plan"]["fanout_reason"])
+        self.assertEqual(result["route_source"], "JEV_LEAN_DECISION_PLANE")
+        self.assertIn("JEV_LEAN_TWO_QUESTION_DECISION", result["final_plan"]["fanout_reason"])
 
-    def test_explicit_parallel_pair_uses_one_question_primary_route(self):
+    def test_explicit_parallel_pair_with_fuzzy_primary_uses_lean_two_question_route(self):
         fake = {
-            "status": "JEV_PRIMARY_DECISION_OK",
+            "status": "JEV_LEAN_DECISION_OK",
             "decision": {
                 "workers": [
                     "deepseek/deepseek-v4-flash-0731:free",
@@ -306,8 +306,8 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 "low_confidence": False,
             },
         }
-        with patch("scripts.jev_routing_coordinator.decide_primary", return_value=fake) as primary, patch(
-            "scripts.jev_routing_coordinator.decide_lean"
+        with patch("scripts.jev_routing_coordinator.decide_shape") as shape, patch(
+            "scripts.jev_routing_coordinator.decide_lean", return_value=fake
         ) as lean, patch(
             "scripts.jev_routing_coordinator.decide_fast"
         ) as fast, patch(
@@ -324,10 +324,10 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 use_jev=True,
                 api_key="x",
             )
-        primary.assert_called_once()
-        self.assertEqual(primary.call_args.kwargs["route_shape"], "PARALLEL_PAIR")
-        lean.assert_not_called()
+        shape.assert_not_called()
+        lean.assert_called_once()
         fast.assert_not_called()
+        self.assertEqual(result["route_source"], "JEV_LEAN_DECISION_PLANE")
         self.assertEqual(result["final_plan"]["execution_mode"], "PARALLEL")
 
     def test_ambiguous_shape_uses_two_question_lean_route(self):
@@ -363,7 +363,6 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 use_jev=True,
                 api_key="x",
             )
-        primary.assert_not_called()
         lean.assert_called_once()
         fast.assert_not_called()
         self.assertEqual(result["route_source"], "JEV_LEAN_DECISION_PLANE")
@@ -405,7 +404,6 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 use_jev=True,
                 api_key="x",
             )
-        primary.assert_not_called()
         lean.assert_not_called()
         fast.assert_called_once()
         self.assertEqual(result["route_source"], "JEV_FAST_DECISION_PLANE")
@@ -440,7 +438,6 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 api_key="x",
             )
         shape.assert_not_called()
-        primary.assert_not_called()
         lean.assert_not_called()
         fast.assert_not_called()
         self.assertEqual(result["route_source"], "DETERMINISTIC_HEALTH_FAST_PATH")
@@ -491,7 +488,6 @@ class JevRoutingCoordinatorTests(unittest.TestCase):
                 api_key="x",
             )
         shape.assert_called_once()
-        primary.assert_not_called()
         lean.assert_not_called()
         fast.assert_not_called()
         self.assertEqual(result["route_source"], "JEV_SHAPE_DECISION_PLANE")
