@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config" / "jev_decision_engine_policy.json"
 RUNTIME = ROOT / "scripts" / "jev_decision_engine.py"
 COORDINATOR = ROOT / "scripts" / "jev_routing_coordinator.py"
+LEAN_RUNTIME = ROOT / "scripts" / "jev_lean_router.py"
 MULTI = ROOT / "config" / "multi_agent_operating_policy.json"
 ORG = ROOT / "config" / "ai_army_org_chart.json"
 
@@ -51,9 +52,12 @@ def main() -> int:
     require(contract.get("model_may_not_expand_permissions") is True, "Jev may expand permissions")
     require(contract.get("model_may_not_authorize_paid_workers") is True, "Jev may authorize paid workers")
     fast_contract = contract.get("fast_route_contract") or {}
-    require(int(fast_contract.get("routine_question_count", 0)) == 3, "routine Jev route must use three questions")
+    require(int(fast_contract.get("routine_question_count", 0)) == 3, "rich Jev route must use three questions")
     require(int(fast_contract.get("max_question_count", 0)) == 4, "Jev fast route must cap at four questions")
     require(fast_contract.get("python_derives_fanout") is True, "Python no longer derives fast-route fanout")
+    lean_contract = contract.get("lean_route_contract") or {}
+    require(int(lean_contract.get("routine_question_count", 0)) == 2, "routine Jev route must use two questions")
+    require(lean_contract.get("python_selects_secondary_and_tertiary_from_health_ranked_candidates") is True, "Python complement selection drift")
 
     source = RUNTIME.read_text(encoding="utf-8")
     require('DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"' in source, "Jev is not using Decisions API")
@@ -67,6 +71,13 @@ def main() -> int:
     require("max_records_per_request" in source, "Jev 20-record batch control missing")
     require("quota_pressure_from_remaining" in source, "quota enum preprocessing missing")
     require(COORDINATOR.is_file(), "Jev routing coordinator missing")
+    require(LEAN_RUNTIME.is_file(), "Jev lean routing runtime missing")
+    lean_source = LEAN_RUNTIME.read_text(encoding="utf-8")
+    require("def build_lean_route_batch_request(" in lean_source, "two-question request builder missing")
+    require("def decide_many_lean(" in lean_source, "two-question batch API missing")
+    require("__primary_worker" in lean_source and "__route_shape" in lean_source, "two-question typed surface missing")
+    coordinator_source = COORDINATOR.read_text(encoding="utf-8")
+    require("decide_lean" in coordinator_source and "decide_many_lean" in coordinator_source, "coordinator not using lean route")
 
     multi = json.loads(MULTI.read_text(encoding="utf-8"))
     require((multi.get("routing") or {}).get("jev_default_for_nontrivial_model_and_fanout_choice") is True, "Jev not default for nontrivial routing choice")
@@ -87,7 +98,8 @@ def main() -> int:
         "emergency_prompt_price_ceiling_per_million": guard.get("hard_emergency_price_ceiling_prompt_usd_per_million"),
         "max_records_per_request": guard.get("max_records_per_decisions_request"),
         "max_parallel_batches": guard.get("max_parallel_decision_batches"),
-        "routine_fast_route_questions": fast_contract.get("routine_question_count"),
+        "routine_lean_route_questions": lean_contract.get("routine_question_count"),
+        "complex_fast_route_questions": fast_contract.get("routine_question_count"),
         "max_fast_route_questions": fast_contract.get("max_question_count"),
         "auto_top_up": False,
         "other_paid_fallback": False,
