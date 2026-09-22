@@ -11,8 +11,9 @@ from scripts.jev_decision_engine import (
     load_policy as load_jev_policy,
     quota_pressure_from_remaining,
 )
-from scripts.jev_lean_router import decide_lean, decide_many_lean
+from scripts.jev_lean_router import decide_lean
 from scripts.jev_shape_router import decide_shape, decide_many_shape
+from scripts.jev_mixed_router import decide_many_lean_fast
 from scripts.openrouter_free_efficiency_router import load_policy as load_free_policy
 from scripts.openrouter_free_efficiency_router import ordered_candidates, plan_task
 from scripts.openrouter_worker_health import (
@@ -674,13 +675,16 @@ def coordinate_many(
 
     results: dict[str, Mapping[str, Any]] = {}
     jobs = []
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=2) as pool:
         if shape_records:
             jobs.append(("shape", pool.submit(decide_many_shape, records=shape_records, api_key=api_key)))
-        if lean_records:
-            jobs.append(("lean", pool.submit(decide_many_lean, records=lean_records, api_key=api_key)))
-        if fast_records:
-            jobs.append(("fast", pool.submit(decide_many_fast, records=fast_records, api_key=api_key)))
+        if lean_records or fast_records:
+            jobs.append(("lean_fast", pool.submit(
+                decide_many_lean_fast,
+                lean_records=lean_records,
+                fast_records=fast_records,
+                api_key=api_key,
+            )))
         for name, future in jobs:
             try:
                 result = future.result()
@@ -689,27 +693,25 @@ def coordinate_many(
             results[name] = result
 
     shape_result = results.get("shape") or {"status": "JEV_SHAPE_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
-    lean_result = results.get("lean") or {"status": "JEV_LEAN_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
-    fast_result = results.get("fast") or {"status": "JEV_FAST_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
+    lean_fast_result = results.get("lean_fast") or {"status": "JEV_LEAN_FAST_MANY_OK", "record_count": 0, "batch_count": 0, "decisions": {}}
     decisions: dict[str, Any] = dict(deterministic_decisions)
-    for result in (shape_result, lean_result, fast_result):
+    for result in (shape_result, lean_fast_result):
         if isinstance(result.get("decisions"), Mapping):
             decisions.update(result.get("decisions") or {})
-    active_surfaces = sum(bool(rows) for rows in (shape_records, lean_records, fast_records))
+    active_surfaces = int(bool(shape_records)) + int(bool(lean_records or fast_records))
     jev = {
-        "status": "JEV_MIXED_MANY_OK",
+        "status": "JEV_MIXED_TWO_REQUEST_MANY_OK",
         "shape": shape_result,
-        "lean": lean_result,
-        "fast": fast_result,
+        "lean_fast": lean_fast_result,
         "deterministic_health_fast_path_count": len(deterministic_decisions),
         "record_count": len(shape_records) + len(lean_records) + len(fast_records),
         "batch_count": (
             int(shape_result.get("batch_count", 0) or 0)
-            + int(lean_result.get("batch_count", 0) or 0)
-            + int(fast_result.get("batch_count", 0) or 0)
+            + int(lean_fast_result.get("batch_count", 0) or 0)
         ),
         "parallel_route_surfaces": active_surfaces > 1,
         "active_route_surface_count": active_surfaces,
+        "routing_grouping": "SHAPE_SEPARATE__LEAN_PLUS_RICH",
         "decisions": decisions,
     }
     plans: dict[str, Any] = {}
