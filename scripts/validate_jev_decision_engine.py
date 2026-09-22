@@ -99,7 +99,7 @@ def main() -> int:
     require("max_records_per_request" in source, "Jev 20-record batch control missing")
     require("quota_pressure_from_remaining" in source, "quota enum preprocessing missing")
     require(COORDINATOR.is_file(), "Jev routing coordinator missing")
-    require(FINAL_GUARD.is_file(), "final execution admission guard missing")
+    require((ROOT / "scripts" / "jev_mixed_router.py").is_file(), "Jev mixed router missing")\n    batch = policy.get("batch_execution") or {}\n    require(batch.get("production_mixed_surface_grouping") == "SHAPE_SEPARATE__LEAN_PLUS_RICH", "Jev mixed-surface grouping drift")\n    require(int(batch.get("max_records_per_request", 0)) == 20, "Jev production batch size drift")\n    require(FINAL_GUARD.is_file(), "final execution admission guard missing")
     require(JEV_PLAYBOOK.is_file(), "Jev permanent playbook missing")
     playbook = JEV_PLAYBOOK.read_text(encoding="utf-8")
     require("ZERO_QUESTION_DETERMINISTIC_HEALTH_FAST_PATH" in playbook, "Jev zero-question tier missing from playbook")
