@@ -2,6 +2,12 @@ name: Build latest Mars news 60s durable
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/workflows/build-latest-mars-news60-durable.yml
+
 
 permissions:
   contents: read
@@ -11,7 +17,99 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  face_fixture_preflight:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[inspect-zm-face-layer-fixture]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OUT: artifacts/character-face-fixture
+      CHARACTER_CACHE: .media-cache/assets/character
+      REACTION_PACK: .media-cache/derived/zm-reaction-pack-v1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Restore verified media preparation cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .media-cache
+          key: mars-water-news60-preparation-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            mars-water-news60-preparation-${{ runner.os }}-${{ github.ref_name }}-
+
+      - name: Install deterministic fixture toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk fontconfig
+          python -m pip install --disable-pip-version-check --no-input pillow
+          mkdir -p "$OUT" "$CHARACTER_CACHE"
+
+      - name: Resolve registered character shell and build face fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/media_asset_resolver.py \
+            --asset-id zm_shell_20230806 \
+            --cache-root "$CHARACTER_CACHE" \
+            --allow-network \
+            --max-workers 1 \
+            --manifest-out "$OUT/character-shell.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          row=json.loads((Path(os.environ["OUT"])/"character-shell.json").read_text())["results"][0]
+          raw=Path(row["extracted_path"])
+          receipt=Path(row["receipt"])
+          assert raw.is_dir() and receipt.is_file(), (raw, receipt)
+          Path(os.environ["OUT"],"shell-root-input.txt").write_text(str(raw)+"\n")
+          Path(os.environ["OUT"],"source-receipt-input.txt").write_text(str(receipt)+"\n")
+          PY
+          RAW="$(cat "$OUT/shell-root-input.txt")"
+          RECEIPT="$(cat "$OUT/source-receipt-input.txt")"
+          python scripts/character_shell_root.py "$RAW" > "$OUT/character-source-resolved.txt"
+          SHELL_ROOT="$(cat "$OUT/character-source-resolved.txt")"
+          python scripts/prepare_character_reaction_pack.py \
+            --shell-root "$SHELL_ROOT" \
+            --source-receipt "$RECEIPT" \
+            --output "$REACTION_PACK"
+          python scripts/build_character_full_face_fixture.py \
+            --pack-root "$REACTION_PACK" \
+            --output-dir "$OUT/fixture"
+          test -s "$OUT/fixture/full_face_mouth_contact_sheet.png"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          data=json.loads((Path(os.environ["OUT"])/"fixture/full_face_fixture.json").read_text())
+          assert data["gate"]=="PASS"
+          assert set(data["characters"])=={"Zundamon","Metan"}
+          for char, info in data["characters"].items():
+              assert info["mouth_variants_checked"]==3, (char, info)
+              assert info["eye_variants_checked"]==2 and info["brow_variants_checked"]==2, (char, info)
+          PY
+
+      - name: Save reusable verified character preparation
+        uses: actions/cache/save@v4
+        with:
+          path: .media-cache
+          key: mars-water-news60-preparation-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}
+
+      - name: Upload full-face fixture for visual review
+        uses: actions/upload-artifact@v4
+        with:
+          name: character-face-fixture-${{ github.run_id }}
+          path: |
+            artifacts/character-face-fixture/character-shell.json
+            artifacts/character-face-fixture/character-source-resolved.txt
+            artifacts/character-face-fixture/fixture/full_face_fixture.json
+            artifacts/character-face-fixture/fixture/full_face_mouth_contact_sheet.png
+          if-no-files-found: error
+          retention-days: 3
+
   build:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[build-zundamon-news60-motion-once]')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
