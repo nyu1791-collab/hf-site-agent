@@ -124,7 +124,7 @@ def main() -> int:
     require("draw_rich_caption" in static_renderer and "EMPHASIS_YELLOW" in static_renderer, "static renderer lost important-term caption emphasis")
     require("FULL_SPOKEN_TEXT" in static_renderer, "static renderer lost full-spoken caption contract")
     require("mouth_animation" in static_renderer and '"mouth_animation": False' in static_renderer, "static renderer contract lost mouth-animation=false evidence")
-    require("SCENE_ASSET" in static_renderer and "Photo:" in static_renderer, "static renderer lost photo-first scene path")
+    require("SCENE_ASSET" in static_renderer and ("Image credit:" in static_renderer or "Photo:" in static_renderer) and "fit_single_line" in static_renderer, "static renderer lost bounded photo-first attribution path")
     require("pause_after" in static_renderer and "0.45" in static_renderer, "static renderer lost dead-air gate")
 
     synth = SYNTH.read_text(encoding="utf-8")
