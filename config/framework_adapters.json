@@ -1,0 +1,119 @@
+{
+  "schema_version": "framework-adapters-v1",
+  "control_plane": {
+    "authoritative": "AI_ARMY_NATIVE",
+    "frameworks_are_execution_engines_only": true,
+    "single_writer": true,
+    "native_rollback_always_available": true
+  },
+  "policy": {
+    "FREE_ONLY_MODE": true,
+    "ALLOW_PAID_MODEL": false,
+    "ALLOW_PAID_FALLBACK": false,
+    "AUTO_TOP_UP": false,
+    "native_fallback": true,
+    "main_push": false,
+    "merge": false,
+    "deploy": false,
+    "publish": false,
+    "secret_operations": false,
+    "secrets_to_external_frameworks": false,
+    "image_generation_default": false,
+    "paid_video_generation_default": false,
+    "unknown_asset_license_publish": false,
+    "validator_failure_publish": false,
+    "free_route_evidence_ttl_seconds": 3600,
+    "champion_challenger_min_samples": 20,
+    "external_frameworks_start_shadow_only": true,
+    "external_production_requires_champion_eligibility": true,
+    "shadow_execution_may_not_mutate": true
+  },
+  "selection_order": [
+    "task_profile",
+    "required_capability",
+    "verified_free_route",
+    "exact_model",
+    "framework"
+  ],
+  "free_route_required_assertions": [
+    "exact_model_verified",
+    "route_verified",
+    "current_free_status_verified",
+    "quota_safe",
+    "credential_runtime_present",
+    "paid_fallback_disabled",
+    "auto_top_up_disabled",
+    "fresh_evidence",
+    "provider_binding",
+    "model_binding"
+  ],
+  "review_diversity_pairs": [
+    ["SCRIPT_DRAFT", "FACT_CHECK"],
+    ["CODE_EXECUTOR", "QA_VALIDATOR"],
+    ["MEDIA_EDIT", "FINAL_MEDIA_QA"],
+    ["ARCHITECTURE_PROPOSAL", "ARCHITECTURE_REVIEW"]
+  ],
+  "score_weights": {
+    "capability_fit": 1.0,
+    "measured_quality": 1.0,
+    "validated_success_rate": 1.0,
+    "free_route_bonus": 0.35,
+    "multi_role_efficiency_bonus": 0.2,
+    "latency_fit": 0.3,
+    "provider_concentration_penalty": 0.25,
+    "self_review_penalty": 0.55,
+    "stale_evidence_penalty": 1.0,
+    "failure_rate_penalty": 0.8
+  },
+  "adapters": {
+    "native": {
+      "enabled": true,
+      "shadow_only": false,
+      "kind": "native",
+      "version_pin": "AI_ARMY_NATIVE_CURRENT",
+      "capabilities": ["general", "dag", "coding", "research", "media", "review", "stateful_workflow"],
+      "priority": 100
+    },
+    "langgraph": {
+      "enabled": false,
+      "shadow_only": true,
+      "kind": "python_framework",
+      "distribution": "langgraph",
+      "version_pin": "1.2.11",
+      "capabilities": ["stateful_workflow", "dag", "branch", "retry", "checkpoint", "resume", "human_approval"],
+      "priority": 92,
+      "max_retries": 2
+    },
+    "autogen": {
+      "enabled": false,
+      "shadow_only": true,
+      "kind": "python_framework",
+      "distribution": "autogen-agentchat",
+      "version_pin": "0.7.5",
+      "capabilities": ["council", "debate", "root_cause_analysis", "architecture_review", "adversarial_review"],
+      "priority": 88,
+      "max_rounds": 6
+    },
+    "crewai": {
+      "enabled": false,
+      "shadow_only": true,
+      "kind": "python_framework",
+      "distribution": "crewai",
+      "version_pin": "1.15.21",
+      "capabilities": ["ephemeral_crew", "research", "media_preproduction", "coding_crew", "sequential_flow"],
+      "priority": 86,
+      "max_members": 6,
+      "max_iterations": 4
+    },
+    "copilot": {
+      "enabled": false,
+      "shadow_only": true,
+      "kind": "connector",
+      "version_pin": "copilot-adapter-contract-v1",
+      "capabilities": ["repository_read", "coding", "test_addition", "refactor", "issue_fix", "pr_scoped_change"],
+      "priority": 72,
+      "allowed_write_branch_prefixes": ["ai-army/", "staging/", "feature/"],
+      "forbidden_branches": ["main", "master"]
+    }
+  }
+}
