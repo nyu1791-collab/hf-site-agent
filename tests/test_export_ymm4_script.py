@@ -27,7 +27,7 @@ def sample():
                 "id": "L1",
                 "speaker": "ずんだもん",
                 "voice_text": "結果は,\"三つ\"です。\n続き",
-                "caption_text": "結果は、三つです。",
+                "caption_text": "結果は、三つです。\n続き",
                 "emotion": "curious",
                 "visual_beat": "公式画像を表示",
                 "source_claim_ids": ["C1"],
@@ -66,6 +66,7 @@ class ExportYmm4ScriptTests(unittest.TestCase):
         rows, cues = build_exports(sample())
         self.assertEqual(rows, [["ずんだもん", '結果は,"三つ"です。\n続き'], ["四国めたん", "なるほど。"]])
         self.assertEqual(cues["line_count"], 2)
+        self.assertEqual(cues["caption_text_difference_count"], 1)
         self.assertEqual(cues["cues"][0]["emotion"], "curious")
         self.assertFalse(cues["cues"][0]["caption_matches_voice_text"])
         self.assertEqual(cues["cues"][0]["emphasis_terms"], ["三つ"])
@@ -79,6 +80,7 @@ class ExportYmm4ScriptTests(unittest.TestCase):
             self.assertIn('ずんだもん,"結果は,""三つ""です。\n続き"', text)
             self.assertEqual(list(csv.reader(io.StringIO(text, newline=""))), rows)
             self.assertEqual(json.loads(cues_path.read_text(encoding="utf-8"))["line_count"], 2)
+            self.assertEqual(json.loads(cues_path.read_text(encoding="utf-8"))["caption_text_difference_count"], 1)
 
     def test_rejects_unknown_speaker_and_duplicate_ids(self):
         doc = sample()
