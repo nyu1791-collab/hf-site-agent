@@ -9,6 +9,7 @@ from scripts.render_static_speaker_color_longform import (
     EMPHASIS_YELLOW,
     emphasis_terms_for_line,
     fit_rich_caption,
+    fit_attribution,
     fit_single_line,
     get_font,
     rich_character_spans,
@@ -76,6 +77,23 @@ class VideoCaptionContractTests(unittest.TestCase):
         draw = ImageDraw.Draw(Image.new("RGBA", (100, 80)))
         with self.assertRaises(RuntimeError):
             fit_single_line(draw, "NASA/JPL-Caltech via Wikimedia Commons", 5, start_size=14, min_size=14)
+
+    def test_long_source_credit_wraps_between_attribution_and_rights_metadata(self):
+        draw = ImageDraw.Draw(Image.new("RGBA", (1080, 1920)))
+        source = "NASA/JPL-Caltech/University of Arizona via Wikimedia Commons / public domain"
+        credit = f"Image credit: {source} · PD-USGov · context image"
+        font, lines, widths = fit_attribution(draw, credit, 880)
+        self.assertEqual(len(lines), 2, lines)
+        self.assertEqual(" · ".join(lines), credit)
+        self.assertTrue(all(width <= 880 for width in widths), widths)
+        self.assertGreaterEqual(font.size, 14)
+        self.assertIn("University of Arizona", lines[0])
+        self.assertIn("PD-USGov · context image", lines[1])
+
+    def test_source_attribution_fails_closed_when_two_lines_cannot_fit(self):
+        draw = ImageDraw.Draw(Image.new("RGBA", (100, 80)))
+        with self.assertRaises(RuntimeError):
+            fit_attribution(draw, "Image credit: NASA/JPL-Caltech · PD-USGov", 5, start_size=14, min_size=14)
 
     def test_marked_terms_keep_emphasis_color_after_split(self):
         spans = rich_character_spans("重要語Jezero", ["Jezero"], (77, 224, 132, 255))
