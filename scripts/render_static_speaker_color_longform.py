@@ -99,6 +99,19 @@ def wrap(draw: ImageDraw.ImageDraw, text: str, fnt, maxw: int) -> list[str]:
     return out
 
 
+def fit_single_line(draw: ImageDraw.ImageDraw, text: str, max_width: int, start_size: int = 20, min_size: int = 14):
+    value = str(text)
+    if not value.strip():
+        raise RuntimeError("source attribution is empty")
+    for size in range(start_size, min_size - 1, -1):
+        font = get_font(size, bold=False)
+        box = draw.textbbox((0, 0), value, font=font)
+        width = box[2] - box[0]
+        if width <= max_width:
+            return font, width
+    raise RuntimeError(f"source attribution does not fit reserved width without truncation: {value[:100]}")
+
+
 def fit_caption(draw: ImageDraw.ImageDraw, text: str, maxw: int, maxh: int, start_size: int = 54, min_size: int = 30):
     for size in range(start_size, min_size - 1, -2):
         fnt = get_font(size)
@@ -379,9 +392,12 @@ def scene_photo(scene_id: str, assets: dict):
     image = Image.open(item["path"]).convert("RGB")
     image = crop_cover(image, (880, 650))
     meta = item["meta"]
-    attribution = meta.get("attribution_text") or meta.get("creator_or_source") or asset_id
-    label = str(meta.get("usage") or meta.get("evidence_or_illustrative") or "CONTEXTUAL_VISUAL")
-    return image, f"{attribution} ({label})", asset_id
+    attribution = str(meta.get("attribution_text") or meta.get("creator_or_source") or asset_id).strip()
+    rights = str(meta.get("rights_state") or "").strip()
+    usage = str(meta.get("usage") or meta.get("evidence_or_illustrative") or "CONTEXTUAL_VISUAL").strip()
+    label = "context image" if "ILLUSTRATIVE" in usage.upper() else usage.replace("_", " ").lower()
+    credit_parts = [part for part in (attribution, rights, label) if part]
+    return image, " · ".join(credit_parts), asset_id
 
 
 def paste_fit(background: Image.Image, foreground: Image.Image, center_x: int, bottom_y: int, target_h: int, opacity: int) -> None:
@@ -417,6 +433,9 @@ def compose_turn(line: dict, scene: dict, timing_record: dict, portraits: dict, 
     draw.rounded_rectangle((60, 245, 1020, 1085), radius=34, fill=(255, 255, 255, 255), outline=(205, 220, 232, 255), width=3)
 
     photo, attribution, asset_id = scene_photo(scene["scene_id"], assets)
+    credit_text = None
+    credit_font_size = None
+    credit_width = None
     if photo is not None:
         ph = photo.convert("RGBA")
         mask = Image.new("L", ph.size, 0)
@@ -431,7 +450,11 @@ def compose_turn(line: dict, scene: dict, timing_record: dict, portraits: dict, 
             box = draw.textbbox((0, 0), value, font=f_body)
             draw.text(((W - (box[2] - box[0])) // 2, yy), value, font=f_body, fill=(25, 38, 55, 255))
             yy += max(1, box[3] - box[1]) + 8
-        draw.text((112, 1052), f"Photo: {attribution}"[:105], font=f_small, fill=(75, 88, 100, 255))
+        credit_text = f"Image credit: {attribution}"
+        credit_font, credit_width = fit_single_line(draw, credit_text, 880)
+        credit_font_size = credit_font.size
+        credit_left = 100 + max(0, (880 - credit_width) // 2)
+        draw.text((credit_left, 1052), credit_text, font=credit_font, fill=(75, 88, 100, 255))
     else:
         draw.rounded_rectangle((110, 330, 970, 990), radius=30, fill=(232, 244, 250, 255))
         beat = str(line.get("visual_beat", ""))
@@ -479,12 +502,6 @@ def compose_turn(line: dict, scene: dict, timing_record: dict, portraits: dict, 
     paste_fit(image, portraits["zundamon"], 285, CHARACTER_BOTTOM, ACTIVE_CHARACTER_H if z_active else INACTIVE_CHARACTER_H, 255 if z_active else int(255 * INACTIVE_OPACITY))
     paste_fit(image, portraits["metan"], 795, CHARACTER_BOTTOM, ACTIVE_CHARACTER_H if m_active else INACTIVE_CHARACTER_H, 255 if m_active else int(255 * INACTIVE_OPACITY))
 
-    claims = line.get("source_claim_ids") or []
-    if claims:
-        claim_text = " / ".join(claims[:3])
-        draw.rounded_rectangle((760, 1028, 1000, 1068), radius=16, fill=(230, 237, 243, 245))
-        draw.text((778, 1037), claim_text, font=f_small, fill=(50, 63, 76, 255))
-
     out_path.parent.mkdir(parents=True, exist_ok=True)
     image.convert("RGB").save(out_path, quality=92)
     return {
@@ -493,6 +510,9 @@ def compose_turn(line: dict, scene: dict, timing_record: dict, portraits: dict, 
         "photo_rendered": photo is not None,
         "asset_id": asset_id,
         "attribution_rendered": attribution if photo is not None else None,
+        "attribution_display_text": credit_text,
+        "attribution_font_size": credit_font_size,
+        "attribution_width_px": credit_width,
     }
 
 
@@ -565,6 +585,13 @@ def rendered_visual_evidence(scene_rows: list[dict], mission: dict) -> dict:
                 "scene_id": scene_id,
                 "photo_rendered": bool(first_by_scene.get(scene_id, {}).get("photo_rendered")),
                 "asset_id": first_by_scene.get(scene_id, {}).get("asset_id"),
+                "attribution_display_text": first_by_scene.get(scene_id, {}).get("attribution_display_text"),
+                "attribution_font_size": first_by_scene.get(scene_id, {}).get("attribution_font_size"),
+                "attribution_width_px": first_by_scene.get(scene_id, {}).get("attribution_width_px"),
+                "attribution_fits_reserved_width": (
+                    int(first_by_scene.get(scene_id, {}).get("attribution_width_px") or 0) <= 880
+                    if first_by_scene.get(scene_id, {}).get("attribution_display_text") else False
+                ),
             }
             for scene_id in scene_ids
         ],

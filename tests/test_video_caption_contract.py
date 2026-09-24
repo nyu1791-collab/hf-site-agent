@@ -9,6 +9,7 @@ from scripts.render_static_speaker_color_longform import (
     EMPHASIS_YELLOW,
     emphasis_terms_for_line,
     fit_rich_caption,
+    fit_single_line,
     get_font,
     rich_character_spans,
     wrap_rich,
@@ -62,6 +63,20 @@ class VideoCaptionContractTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             fit_rich_caption(draw, "Jezero", ["Jezero"], ZUNDAMON_ACCENT, 5, 180, start_size=30, min_size=30)
 
+    def test_source_attribution_is_complete_and_fits_reserved_footer(self):
+        draw = ImageDraw.Draw(Image.new("RGBA", (1080, 1920)))
+        credit = "Image credit: NASA/JPL-Caltech/University of Arizona via Wikimedia Commons · PD-USGov · context image"
+        font, width = fit_single_line(draw, credit, 880, start_size=20, min_size=14)
+        self.assertEqual(credit, "Image credit: NASA/JPL-Caltech/University of Arizona via Wikimedia Commons · PD-USGov · context image")
+        self.assertLessEqual(width, 880)
+        self.assertLessEqual(draw.textbbox((0, 0), credit, font=font)[2], 880)
+        self.assertGreaterEqual(font.size, 14)
+
+    def test_source_attribution_fails_closed_instead_of_truncating(self):
+        draw = ImageDraw.Draw(Image.new("RGBA", (100, 80)))
+        with self.assertRaises(RuntimeError):
+            fit_single_line(draw, "NASA/JPL-Caltech via Wikimedia Commons", 5, start_size=14, min_size=14)
+
     def test_marked_terms_keep_emphasis_color_after_split(self):
         spans = rich_character_spans("重要語Jezero", ["Jezero"], (77, 224, 132, 255))
         colors = {color for _, color in spans}
@@ -99,11 +114,26 @@ class VideoCaptionContractTests(unittest.TestCase):
     def test_rendered_visual_evidence_requires_actual_scene_use(self):
         mission = {"scenes": [{"scene_id": "M01"}, {"scene_id": "M02"}]}
         evidence = rendered_visual_evidence([
-            {"scene_id": "M01", "photo_rendered": True, "asset_id": "mars_jezero_crater_rim_panorama"},
-            {"scene_id": "M02", "photo_rendered": True, "asset_id": "mars_perseverance_jezero_map"},
+            {
+                "scene_id": "M01",
+                "photo_rendered": True,
+                "asset_id": "mars_jezero_crater_rim_panorama",
+                "attribution_display_text": "Image credit: NASA/JPL-Caltech via Wikimedia Commons · PD-USGov · context image",
+                "attribution_width_px": 760,
+            },
+            {
+                "scene_id": "M02",
+                "photo_rendered": True,
+                "asset_id": "mars_perseverance_jezero_map",
+                "attribution_display_text": "Image credit: NASA/JPL-Caltech/University of Arizona via Wikimedia Commons · PD-USGov · context image",
+                "attribution_width_px": 840,
+            },
         ], mission)
         self.assertEqual(evidence["rendered_photo_scene_coverage_ratio"], 1.0)
         self.assertEqual(evidence["asset_ids_used"], ["mars_jezero_crater_rim_panorama", "mars_perseverance_jezero_map"])
+        self.assertTrue(all(row["attribution_fits_reserved_width"] for row in evidence["scenes"]))
+        self.assertIn("PD-USGov", evidence["scenes"][0]["attribution_display_text"])
+        self.assertIn("University of Arizona", evidence["scenes"][1]["attribution_display_text"])
 
 
 if __name__ == "__main__":
