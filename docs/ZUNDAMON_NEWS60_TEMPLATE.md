@@ -74,6 +74,8 @@ The helper writes two files:
 
 In YMM4, use Tools → Script Import, load ymm4_script.csv, and add the imported lines to the duplicate project timeline. The built-in CSV importer carries only speaker and spoken text. It does not carry emotion, visual cues, source claims, emphasis metadata, or a separate caption_text field; keep the sidecar beside the project and apply only the few expression changes tied to meaningful story beats. Do not assume a cue was applied just because it appears in the JSON.
 
+Check `caption_text_difference_count` and each cue's `caption_matches_voice_text` before treating imported subtitles as final. Where the texts differ, use a separate displayed text item or another verified YMM4 subtitle workflow to show `caption_text` while keeping the approved voice. YMM4 supports separating a voice item's subtitle into a text item (right-click the voice item → ボイスアイテムの字幕をテキストアイテムとして分離). Check for duplicate on-screen text, then align every displayed word with the measured VOICEVOX audio. Matching strings also need the full-spoken-caption review; this flag is an exact-text difference detector, not a proof of caption completeness.
+
 The exporter refuses unknown speakers/emotions, duplicate line IDs, unjustified highlights, more than one special highlight per semantic beat, and more than three in the full video. It does not synthesize audio, alter a YMM4 project, or render a video. Use the existing admission, VOICEVOX timing, caption, rights, and final QA gates before any later video render.
 
 ### Jev and expression handling
@@ -86,6 +88,7 @@ Official references:
 - YMM4 script CSV import: https://manjubox.net/ymm4/faq/editing/%E5%8F%B0%E6%9C%AC%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E3%82%82%E3%81%A8%E3%81%AB%E3%83%9C%E3%82%A4%E3%82%B9%E3%82%A2%E3%82%A4%E3%83%86%E3%83%A0%E3%82%92%E8%BF%BD%E5%8A%A0%E3%81%99%E3%82%8B/
 - YMM4 supported OS and template feature: https://manjubox.net/ymm4/
 - YMM4 A-I-U-E-O lip sync release notes: https://manjubox.net/ymm4/release/4.49.0.0/
+- YMM4 voice subtitle separation: https://manjubox.net/ymm4/release/4.16.0.0/
 - YMM4 Lite / AquesTalk licensing notes: https://manjubox.net/ymm4/faq/etc/%E5%95%86%E7%94%A8%E5%88%A9%E7%94%A8%E3%83%BB%E5%BA%83%E5%91%8A%E4%BB%98%E3%81%8D%E5%8B%95%E7%94%BB%E3%82%92%E6%8A%95%E7%A8%BF%E3%81%97%E3%81%9F%E3%81%84/
 
 ## Why this lip-sync route
