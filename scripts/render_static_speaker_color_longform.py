@@ -112,6 +112,28 @@ def fit_single_line(draw: ImageDraw.ImageDraw, text: str, max_width: int, start_
     raise RuntimeError(f"source attribution does not fit reserved width without truncation: {value[:100]}")
 
 
+def fit_attribution(draw: ImageDraw.ImageDraw, text: str, max_width: int, start_size: int = 18, min_size: int = 14):
+    """Place complete photo credit and rights metadata on separate safe-width lines."""
+    value = str(text)
+    if not value.strip():
+        raise RuntimeError("source attribution is empty")
+    prefix = "Image credit: "
+    attribution = value[len(prefix):] if value.startswith(prefix) else value
+    parts = attribution.split(" · ", 1)
+    lines = [prefix + parts[0]]
+    if len(parts) == 2 and parts[1]:
+        lines.append(parts[1])
+    for size in range(start_size, min_size - 1, -1):
+        font = get_font(size, bold=False)
+        widths = []
+        for line in lines:
+            box = draw.textbbox((0, 0), line, font=font)
+            widths.append(box[2] - box[0])
+        if all(width <= max_width for width in widths):
+            return font, lines, widths
+    raise RuntimeError(f"source attribution does not fit reserved lines without truncation: {value[:100]}")
+
+
 def fit_caption(draw: ImageDraw.ImageDraw, text: str, maxw: int, maxh: int, start_size: int = 54, min_size: int = 30):
     for size in range(start_size, min_size - 1, -2):
         fnt = get_font(size)
@@ -450,11 +472,14 @@ def compose_turn(line: dict, scene: dict, timing_record: dict, portraits: dict, 
             box = draw.textbbox((0, 0), value, font=f_body)
             draw.text(((W - (box[2] - box[0])) // 2, yy), value, font=f_body, fill=(25, 38, 55, 255))
             yy += max(1, box[3] - box[1]) + 8
-        credit_text = f"Image credit: {attribution}"
-        credit_font, credit_width = fit_single_line(draw, credit_text, 880)
+        full_credit_text = f"Image credit: {attribution}"
+        credit_font, credit_lines, credit_widths = fit_attribution(draw, full_credit_text, 880)
+        credit_text = "\n".join(credit_lines)
         credit_font_size = credit_font.size
-        credit_left = 100 + max(0, (880 - credit_width) // 2)
-        draw.text((credit_left, 1052), credit_text, font=credit_font, fill=(75, 88, 100, 255))
+        credit_width = max(credit_widths)
+        for index, credit_line in enumerate(credit_lines):
+            credit_left = 100 + max(0, (880 - credit_widths[index]) // 2)
+            draw.text((credit_left, 1043 + index * 21), credit_line, font=credit_font, fill=(75, 88, 100, 255))
     else:
         draw.rounded_rectangle((110, 330, 970, 990), radius=30, fill=(232, 244, 250, 255))
         beat = str(line.get("visual_beat", ""))
