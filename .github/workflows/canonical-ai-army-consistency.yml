@@ -14,11 +14,13 @@ on:
       - 'config/agent_efficiency_policy.json'
       - 'config/framework_adapter_layer.json'
       - 'config/current_commander_handoff.json'
+      - 'config/current_media_quality_handoff.json'
       - 'config/permanent_standards_manifest.json'
       - 'config/free_execution_guard.json'
       - 'config/video_creation_admission_policy.json'
       - 'config/media_command_read_gate.json'
       - 'config/media_speed_quality_policy.json'
+      - 'config/zundamon_news60_template.json'
       - 'config/evidence_visual_static_character_policy.json'
       - 'config/media_source_policy.json'
       - 'config/media_audio_motion_retention_policy.json'
@@ -65,6 +67,7 @@ on:
       - 'scripts/validate_media_command_read_gate.py'
       - 'scripts/media_speed_orchestrator.py'
       - 'scripts/validate_media_speed_quality.py'
+      - 'scripts/validate_zundamon_news60_template.py'
       - 'scripts/seal_media_speed_checkpoint.py'
       - 'scripts/validate_semantic_recall_and_commerce_precision.py'
       - 'scripts/validate_media_character_visual_standard.py'
@@ -111,6 +114,7 @@ on:
       - 'docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md'
       - 'docs/CROSS_SOURCE_SECOND_PASS_2026-09-13.md'
       - 'docs/MEDIA_PIPELINE.md'
+      - 'docs/ZUNDAMON_NEWS60_TEMPLATE.md'
       - 'docs/LONGFORM_VIDEO_OBJECTIVES.md'
       - 'docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md'
       - 'docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md'
@@ -142,6 +146,7 @@ on:
       - 'tests/test_media_parallel_framework_mission.py'
       - 'tests/test_media_asset_resolver.py'
       - 'tests/test_video_caption_contract.py'
+      - 'tests/test_zundamon_news60_template.py'
       - 'tests/test_second_pass_governance.py'
       - '.github/workflows/deepseek-*.yml'
       - '.github/workflows/*-once.yml'
@@ -198,6 +203,9 @@ jobs:
             scripts/validate_media_command_read_gate.py \
             scripts/media_speed_orchestrator.py \
             scripts/validate_media_speed_quality.py \
+            scripts/validate_zundamon_news60_template.py \
+            scripts/render_static_speaker_color_longform.py \
+            scripts/synthesize_longform_voicevox.py \
             scripts/seal_media_speed_checkpoint.py \
             scripts/validate_semantic_recall_and_commerce_precision.py \
             scripts/validate_media_character_visual_standard.py \
@@ -238,10 +246,12 @@ jobs:
           python -m json.tool config/framework_adapter_layer.json >/dev/null
           python -m json.tool config/current_commander_handoff.json >/dev/null
           python -m json.tool config/permanent_standards_manifest.json >/dev/null
+          python -m json.tool config/current_media_quality_handoff.json >/dev/null
           python -m json.tool config/free_execution_guard.json >/dev/null
           python -m json.tool config/video_creation_admission_policy.json >/dev/null
           python -m json.tool config/media_command_read_gate.json >/dev/null
           python -m json.tool config/media_speed_quality_policy.json >/dev/null
+          python -m json.tool config/zundamon_news60_template.json >/dev/null
           python -m json.tool config/evidence_visual_static_character_policy.json >/dev/null
           python -m json.tool config/media_source_policy.json >/dev/null
           python -m json.tool config/media_audio_motion_retention_policy.json >/dev/null
@@ -317,6 +327,12 @@ jobs:
           set -euo pipefail
           python scripts/validate_media_speed_quality.py
           python -m unittest tests.test_media_speed_orchestrator tests.test_seal_media_speed_checkpoint
+
+      - name: Enforce reusable shortform Zundamon template
+        run: |
+          set -euo pipefail
+          python scripts/validate_zundamon_news60_template.py
+          python -m unittest tests.test_zundamon_news60_template
 
       - name: Enforce semantic recall and commerce clipping precision
         run: |

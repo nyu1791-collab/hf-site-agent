@@ -39,6 +39,36 @@ def full_caption_text(mission: dict, line: dict) -> str:
     return value
 
 
+def validate_shortform_emphasis(mission: dict, records: list[dict], lines_by_id: dict[str, dict]) -> int:
+    """Enforce sparse, reasoned emphasis only for the one-minute Zundamon profile."""
+    if mission.get("template_id") != "zundamon_news60":
+        return sum(len(record.get("caption_emphasis_terms") or []) for record in records)
+    total = 0
+    per_beat: dict[str, int] = {}
+    for record in records:
+        terms = record.get("caption_emphasis_terms") or []
+        if len(terms) > 1:
+            raise SystemExit(f"more than one emphasis phrase in a turn: {record.get('id')}")
+        if terms:
+            total += len(terms)
+            line = lines_by_id.get(str(record.get("id"))) or {}
+            reason = str(line.get("emphasis_reason") or "").strip()
+            beat = str(line.get("semantic_beat_id") or "").strip()
+            caption = str(record.get("caption_text") or "")
+            if any(term not in caption for term in terms):
+                raise SystemExit(f"special emphasis term is not present in caption: {record.get('id')}")
+            if not reason:
+                raise SystemExit(f"emphasis_reason is required for {record.get('id')}")
+            if not beat:
+                raise SystemExit(f"semantic_beat_id is required for {record.get('id')}")
+            per_beat[beat] = per_beat.get(beat, 0) + len(terms)
+            if per_beat[beat] > 1:
+                raise SystemExit(f"more than one special highlight in semantic beat: {beat}")
+    if total > 3:
+        raise SystemExit(f"shortform special highlights exceed 3: {total}")
+    return total
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mission-b64", type=Path, required=True)
@@ -57,6 +87,7 @@ def main() -> int:
         raise SystemExit("subtitle_narration_coverage_ratio must remain 1.0")
 
     expected = {str(line.get("id")): line for line in lines}
+    emphasis_count = validate_shortform_emphasis(mission, records, expected)
     ratios: list[float] = []
     for record in records:
         line_id = str(record.get("id"))
@@ -85,7 +116,7 @@ def main() -> int:
         "line_count": len(records),
         "caption_contract": timing["caption_contract"],
         "caption_coverage_ratio": round(measured, 4),
-        "emphasis_records": sum(bool(record.get("caption_emphasis_terms")) for record in records),
+        "emphasis_records": emphasis_count,
     }, ensure_ascii=False, sort_keys=True))
     return 0
 

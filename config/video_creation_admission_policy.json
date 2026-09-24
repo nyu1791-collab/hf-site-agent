@@ -1,6 +1,6 @@
 {
   "schema_version": "video-creation-admission-v1",
-  "effective_date_jst": "2026-09-22",
+  "effective_date_jst": "2026-09-24",
   "status": "ENFORCED_PERMANENT_STANDARD",
   "purpose": "Make every VIDEO_CREATION request restore the repository media rules before rendering, including the mandatory local VOICEVOX cast.",
   "semantic_trigger": "VIDEO_CREATION",
@@ -11,7 +11,10 @@
     "config/media_command_read_gate.json",
     "config/media_audio_motion_retention_policy.json",
     "docs/MEDIA_PIPELINE.md",
-    "config/session_stream_resilience_policy.json"
+    "config/session_stream_resilience_policy.json",
+    "config/zundamon_news60_template.json",
+    "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+    "scripts/validate_zundamon_news60_template.py"
   ],
   "voice_contract": {
     "engine": "VOICEVOX_LOCAL",
@@ -31,13 +34,16 @@
     "every_spoken_turn_must_have_visible_caption": true,
     "caption_source_of_truth": "MEASURED_TIMING_MANIFEST_WITH_FULL_SPOKEN_TEXT",
     "summary_caption_may_not_replace_narration": true,
-    "caption_coverage_ratio_minimum": 0.70,
+    "caption_coverage_ratio_minimum": 0.7,
     "caption_contract_name": "FULL_SPOKEN_TEXT",
     "speaker_colors": {
       "ずんだもん": "#4DE084",
       "四国めたん": "#FF5BB9"
     },
-    "important_term_colors": ["#FFEB3B", "#F44336"],
+    "important_term_colors": [
+      "#FFEB3B",
+      "#F44336"
+    ],
     "renderer": "scripts/render_static_speaker_color_longform.py",
     "validator": "scripts/validate_video_caption_contract.py"
   },
@@ -76,5 +82,19 @@
     "chat_stream_is_not_execution_authority": true,
     "durable_runner_required_when_long_running_job_would_otherwise_depend_on_one_live_chat_stream": true,
     "recover_from_repository_and_verified_artifacts_after_disconnect": true
+  },
+  "shortform_zundamon_news60_profile": {
+    "machine_template": "config/zundamon_news60_template.json",
+    "human_prompt": "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+    "validator": "scripts/validate_zundamon_news60_template.py",
+    "scope_seconds": [
+      55,
+      60
+    ],
+    "default_for_scoped_shortform": true,
+    "measured_voicevox_timing_required": true,
+    "explicit_critical_highlights_only": true,
+    "voice_synchronized_mouth_and_semantic_facial_expression_required": true,
+    "static_character_renderer_allowed": false
   }
 }

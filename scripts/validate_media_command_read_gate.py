@@ -56,7 +56,7 @@ def main() -> int:
     speed = load(SPEED)
     clipping = load(CLIPPING)
 
-    require(gate.get("schema_version") == "media-command-read-gate-v11", "media read gate must be v11")
+    require(gate.get("schema_version") == "media-command-read-gate-v12", "media read gate must be v11")
     require(gate.get("status") == "ENFORCED_STANDARD", "media read gate is not enforced")
 
     execution = gate.get("execution_gate") or {}
@@ -123,6 +123,12 @@ def main() -> int:
     require({"VIDEO_CREATION", "CLIPPING_REPURPOSING", "TIKTOK_SHOP_COMMERCE"}.issubset(triggers), "media trigger set missing")
 
     video = triggers["VIDEO_CREATION"]
+    for shortform_path in (
+        "config/zundamon_news60_template.json",
+        "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+        "scripts/validate_zundamon_news60_template.py",
+    ):
+        require(shortform_path in set(video.get("required") or []), f"shortform Zundamon template file missing from video read gate: {shortform_path}")
     longform = ((video.get("conditional") or {}).get("if_longform") or [])
     require("config/longform_video_objectives.json" in longform, "longform objectives are not restored for longform work")
     require("config/longform_video_reliability_policy.json" in longform, "longform reliability policy is not restored for longform work")

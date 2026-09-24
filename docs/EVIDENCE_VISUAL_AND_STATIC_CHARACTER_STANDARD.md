@@ -127,3 +127,10 @@ Before delivery, verify representative turns for:
 - public-use rights state when publication is intended.
 
 A technical decode pass by itself is not a visual-quality pass.
+
+
+## Approved 55–60 second Zundamon news template exception
+
+The general character default remains static turn focus. When the shortform profile in `config/zundamon_news60_template.json` is explicitly selected for a requested or continuing one-minute Zundamon news video, use voice-synchronized mouth motion and sparse, meaning-led facial expression changes. Prefer the local YMM4 and VOICEVOX link or a free deterministic compositor with validated timing and cached, calibrated face layers. Do not use the static-character renderer for this profile. Reuse the registered shell and reaction cache; pass the full-face fixture for each visible character before a full render whenever the asset, anchor, scale or geometry identity changes.
+
+For the same profile, green and pink continue to identify speakers. Yellow/red term emphasis is explicit-only, zero by default, one per semantic beat, at most three per 60-second video, and requires a written reason. Topic keywords and names do not receive highlight color just because they occur in the script. These exceptions do not change the general static default for other video profiles.

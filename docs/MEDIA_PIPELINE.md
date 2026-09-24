@@ -103,3 +103,8 @@ ChatGPTアプリ側の応答ストリームは、長時間の動画生成Jobそ�
 - 応答ストリームの中断だけを動画生成失敗と判定しない。一方、Playable artifactが無い状態を完成扱いもしない。
 
 Machine authority: `config/session_stream_resilience_policy.json`
+
+
+## Reusable one-minute Zundamon news profile
+
+For a requested or continuing 55–60 second vertical news explainer, use `config/zundamon_news60_template.json` and its ready-to-use prompt in `docs/ZUNDAMON_NEWS60_TEMPLATE.md`. The shortform exception requires VOICEVOX-synchronized mouth motion and sparse semantic facial acting; the static renderer remains valid for other profiles. Keep speaker identity colors (green/pink), but do not auto-highlight words: extra yellow/red emphasis is opt-in, justified, and limited to three phrases for the whole short. The profile keeps the 10–15 minute production-time goal, verified-source and rights gates, full measured captions, cache-first preparation, bounded parallel lanes, one final encode, and final visual review.

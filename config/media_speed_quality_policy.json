@@ -1,6 +1,6 @@
 {
   "schema_version": "media-speed-quality-v1",
-  "effective_date_jst": "2026-09-22",
+  "effective_date_jst": "2026-09-24",
   "status": "ENFORCED_PERMANENT_STANDARD",
   "decision_owner": "chatgpt-top-commander",
   "purpose": "Reduce routine shortform Zundamon/Metan production from the observed approximately 40-minute baseline toward a 10-15-minute target without weakening evidence, rights, caption, VOICEVOX, single-writer, checkpoint or final-QA contracts.",
@@ -22,12 +22,12 @@
     "verified_correctness_precedes_wall_clock": true,
     "rights_and_claim_gates_never_relaxed": true,
     "full_spoken_caption_contract_never_relaxed": true,
-    "caption_coverage_ratio_must_equal": 1.0,
+    "caption_coverage_ratio_must_equal": 1,
     "voicevox_local_cast_never_relaxed": true,
     "machine_qa_and_representative_visual_rereview_never_relaxed": true,
     "rendered_rights_verified_visual_evidence_never_relaxed": true,
     "minimum_rendered_photo_scenes": 2,
-    "rendered_photo_scene_coverage_ratio_must_equal": 1.0,
+    "rendered_photo_scene_coverage_ratio_must_equal": 1,
     "paid_or_freemium_media_generation": false,
     "unknown_cost_route": "BLOCK"
   },
@@ -98,7 +98,11 @@
       "character_shell_and_anchor_hash",
       "renderer_version_hash",
       "ffmpeg_and_output_contract_hash",
-      "effective_policy_versions"
+      "effective_policy_versions",
+      "shortform_template_policy_hash",
+      "character_motion_plan_hash",
+      "mouth_anchor_profile_hash",
+      "explicit_caption_emphasis_manifest_hash"
     ],
     "reuse_requires_exact_manifest_match": true,
     "stale_policy_or_expired_rights_evidence_invalidates_reuse": true,
@@ -159,7 +163,10 @@
       "longest_latin_token",
       "safe_zone_edge",
       "rights_visual_semantic_match",
-      "both_character_size_and_focus"
+      "both_character_size_and_focus",
+      "mouth_closed_and_open_alignment",
+      "semantic_facial_expression_states",
+      "explicit_highlight_sparsity"
     ]
   },
   "encode_contract": {
@@ -238,5 +245,19 @@
     "secret_mutation_or_disclosure": false,
     "paid_media_generation": false,
     "auto_top_up": false
+  },
+  "shortform_template_profile": {
+    "template": "config/zundamon_news60_template.json",
+    "applies_to": "USER_REQUESTED_OR_CONTINUED_55_TO_60_SECOND_ZUNDAMON_NEWS_SHORT",
+    "target_wall_clock_minutes": [
+      10,
+      15
+    ],
+    "target_is_observed_goal_not_guarantee": true,
+    "template_and_character_motion_are_cache_inputs": true,
+    "non_default_character_motion_uses_cached_reaction_pack": true,
+    "mouth_alignment_fixture_required_when_geometry_identity_changes": true,
+    "special_caption_highlights_default_zero": true,
+    "special_caption_highlights_maximum": 3
   }
 }

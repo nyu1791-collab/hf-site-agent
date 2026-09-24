@@ -1,6 +1,6 @@
 {
-  "schema_version": "permanent-standards-manifest-v20",
-  "effective_date_jst": "2026-09-22",
+  "schema_version": "permanent-standards-manifest-v21",
+  "effective_date_jst": "2026-09-24",
   "purpose": "Keep the AI Army, evidence governance, media quality, creator monetization and bounded paid supervision recoverable across new chat tabs while using one expandable manifest plus a compact master rulebook instead of duplicating every detailed rule in startup handoffs.",
   "canonical_branch": "ai-army/provider-v3",
   "startup_rule": "READ_CURRENT_COMMANDER_HANDOFF_THEN_PRIORITY_ZERO_MANIFEST_STANDARDS_AND_MASTER_RULEBOOK_BEFORE_TASK_SPECIFIC_PLANNING",
@@ -258,6 +258,14 @@
       "path": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
       "machine_policy": "config/tiktok_shop_influence_policy.json",
       "priority": 1
+    },
+    {
+      "id": "zundamon-news60-template",
+      "machine_policy": "config/zundamon_news60_template.json",
+      "human_doc": "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+      "validator": "scripts/validate_zundamon_news60_template.py",
+      "priority": 1,
+      "purpose": "REUSABLE_SHORTFORM_NEWS_PROMPT_WITH_EXPLICIT_ONLY_CAPTION_EMPHASIS_AND_VOICE_SYNCED_CHARACTER_ACTING"
     }
   ],
   "canonical_ai_army_execution": {
@@ -377,7 +385,11 @@
     "media_speed_target_is_observed_10_to_15_minutes_not_a_guarantee": true,
     "media_speed_uses_at_most_three_independent_preparation_lanes": true,
     "media_speed_uses_one_pass_final_encode_for_bounded_shortform": true,
-    "jev_is_used_for_typed_media_profile_and_shape_only": true
+    "jev_is_used_for_typed_media_profile_and_shape_only": true,
+    "zundamon_news60_template": "config/zundamon_news60_template.json",
+    "zundamon_news60_prompt": "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+    "zundamon_news60_template_validator": "scripts/validate_zundamon_news60_template.py",
+    "shortform_animation_exception_policy": "config/evidence_visual_static_character_policy.json"
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
@@ -558,7 +570,9 @@
     "chat_stream_disconnect_does_not_reset_verified_media_work": true,
     "multi_agent_architecture_evidence_completeness_survives_tab_change": true,
     "dependency_dag_cycle_and_unknown_dependency_fail_closed_survives_tab_change": true,
-    "weighted_critical_path_schedule_survives_tab_change": true
+    "weighted_critical_path_schedule_survives_tab_change": true,
+    "zundamon_news60_template_survives_tab_change": true,
+    "zundamon_news60_critical_emphasis_and_character_motion_survive_tab_change": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",

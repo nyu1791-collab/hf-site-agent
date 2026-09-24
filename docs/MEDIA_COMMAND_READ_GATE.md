@@ -92,3 +92,8 @@ Longformだけ、Objectives / Reliability Policy / Playbook / Research Synthesis
 - 自動Paid fallback
 
 Machine-readableな正本は `config/media_command_read_gate.json`。各専門ルールの詳細はそれぞれのMachine Policy / Playbookを参照し、この文書へ重複コピーしない。
+
+
+### Shortform Zundamon news
+
+For a requested or continuing 55–60 second vertical news video, restore `config/zundamon_news60_template.json`, `docs/ZUNDAMON_NEWS60_TEMPLATE.md`, and `scripts/validate_zundamon_news60_template.py`. This narrowly scoped profile is the exception to the general static-character default: speaking mouth motion must follow local VOICEVOX timing, and facial expressions must change at meaningful script beats. General static turn focus remains the default for other video profiles. Yellow/red emphasis is opt-in, reasoned, and capped at three phrases for the whole short.

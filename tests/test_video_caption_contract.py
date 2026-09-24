@@ -18,6 +18,7 @@ from scripts.render_static_speaker_color_longform import (
     rendered_visual_evidence,
 )
 from scripts.synthesize_longform_voicevox import caption_text_for_line, deterministic_emphasis_terms
+from scripts.validate_video_caption_contract import validate_shortform_emphasis
 
 
 class VideoCaptionContractTests(unittest.TestCase):
@@ -102,13 +103,52 @@ class VideoCaptionContractTests(unittest.TestCase):
         self.assertIn((77, 224, 132, 255), colors)
 
     def test_warning_term_uses_red_emphasis(self):
-        terms = emphasis_terms_for_line({}, "これは生命の発見ではない")
+        terms = emphasis_terms_for_line({"emphasis_terms": ["ではない"]}, "これは生命の発見ではない")
         spans = rich_character_spans("これは生命の発見ではない", terms, (77, 224, 132, 255))
         self.assertIn(EMPHASIS_RED, {color for _, color in spans})
 
     def test_timing_manifest_persists_deterministic_emphasis_terms(self):
         terms = deterministic_emphasis_terms({}, "Jezeroの湖と地下水を調べた。")
-        self.assertEqual(terms, ["Jezero", "地下水", "湖"])
+        self.assertEqual(terms, [])
+        terms = deterministic_emphasis_terms({"emphasis_terms": ["Jezero"]}, "Jezeroの湖と地下水を調べた。")
+        self.assertEqual(terms, ["Jezero"])
+        with self.assertRaises(ValueError):
+            deterministic_emphasis_terms({"emphasis_terms": ["Jezero", "地下水"]}, "Jezeroの湖と地下水を調べた。")
+
+    def test_news60_emphasis_requires_reason_and_is_limited_per_beat_and_video(self):
+        mission = {"template_id": "zundamon_news60"}
+        lines = {
+            "L1": {"semantic_beat_id": "HOOK", "emphasis_reason": "A decisive, verified contrast."},
+            "L2": {"semantic_beat_id": "HOOK", "emphasis_reason": "Another phrase."},
+            "L3": {"semantic_beat_id": "EVIDENCE", "emphasis_reason": "A key source-backed finding."},
+        }
+        records = [
+            {"id": "L1", "caption_text": "first", "caption_emphasis_terms": ["first"]},
+            {"id": "L2", "caption_text": "ordinary", "caption_emphasis_terms": []},
+            {"id": "L3", "caption_text": "second", "caption_emphasis_terms": ["second"]},
+        ]
+        self.assertEqual(validate_shortform_emphasis(mission, records, lines), 2)
+        records[-1]["caption_emphasis_terms"] = ["second", "third"]
+        with self.assertRaises(SystemExit):
+            validate_shortform_emphasis(mission, records, lines)
+        records = [
+            {"id": "L1", "caption_text": "one", "caption_emphasis_terms": ["one"]},
+            {"id": "L2", "caption_text": "two", "caption_emphasis_terms": ["two"]},
+            {"id": "L3", "caption_text": "three", "caption_emphasis_terms": ["three"]},
+        ]
+        lines["L2"]["semantic_beat_id"] = "EVIDENCE"
+        lines["L3"]["semantic_beat_id"] = "TAKEAWAY"
+        self.assertEqual(validate_shortform_emphasis(mission, records, lines), 3)
+        records.append({"id": "L4", "caption_text": "four", "caption_emphasis_terms": ["four"]})
+        lines["L4"] = {"semantic_beat_id": "OTHER", "emphasis_reason": "Reason."}
+        with self.assertRaises(SystemExit):
+            validate_shortform_emphasis(mission, records, lines)
+
+    def test_emphasis_is_explicit_only_and_bounded_to_one_phrase(self):
+        self.assertEqual(emphasis_terms_for_line({}, "NASAが新発見を発表した。"), [])
+        self.assertEqual(emphasis_terms_for_line({"emphasis_terms": ["新発見"]}, "NASAが新発見を発表した。"), ["新発見"])
+        with self.assertRaises(RuntimeError):
+            emphasis_terms_for_line({"emphasis_terms": ["NASA", "新発見"]}, "NASAが新発見を発表した。")
 
     def test_mars_visual_registry_is_rights_provenanced(self):
         data = json.loads(Path("config/media_reusable_asset_standard.json").read_text(encoding="utf-8"))

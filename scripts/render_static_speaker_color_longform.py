@@ -146,21 +146,18 @@ def fit_caption(draw: ImageDraw.ImageDraw, text: str, maxw: int, maxh: int, star
 
 
 def emphasis_terms_for_line(line: dict, caption: str) -> list[str]:
-    """Resolve explicit emphasis first, then a small deterministic fallback set."""
+    """Color only explicitly selected critical phrases; topical keywords stay at speaker color."""
     explicit = [str(value).strip() for value in (line.get("emphasis_terms") or []) if str(value).strip()]
-    if explicit:
-        return list(dict.fromkeys(explicit))[:5]
-    candidates = (
-        "Jezero", "Perseverance", "SuperCam", "Margin Unit", "NASA", "CO2", "CO₂",
-        "火星", "新研究", "何度も", "複数回", "二酸化炭素", "地下水", "湖", "熱水", "炭酸塩", "シリカ",
-        "高い場所", "低い場所", "水と岩", "痕跡", "証拠", "重要", "複雑", "可能性", "生命", "生命探査",
-        "少なくとも3回", "第1段階", "第2段階", "第3段階",
-    )
-    return [term for term in candidates if term in caption][:5]
+    unique = list(dict.fromkeys(explicit))
+    if len(unique) > 1:
+        raise RuntimeError("at most one special caption emphasis term is allowed per semantic beat")
+    if unique and unique[0] not in caption:
+        raise RuntimeError(f"emphasis term is not present in the visible caption: {unique[0]}")
+    return unique
 
 
 def emphasis_color(term: str):
-    if any(marker in term for marker in ("生命", "注意", "誤解", "ではない")):
+    if any(marker in term for marker in ("注意", "誤解", "ではない", "訂正", "未確認", "危険")):
         return EMPHASIS_RED
     return EMPHASIS_YELLOW
 

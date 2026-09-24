@@ -1,6 +1,6 @@
 {
-  "schema_version": "media-command-read-gate-v11",
-  "effective_date_jst": "2026-09-16",
+  "schema_version": "media-command-read-gate-v12",
+  "effective_date_jst": "2026-09-24",
   "status": "ENFORCED_STANDARD",
   "decision_owner": "chatgpt-top-commander",
   "purpose": "RESTORE_ONLY_CURRENT_INTENT_RELEVANT_MEDIA_KNOW_HOW_THEN_PARALLELIZE_ONLY_WHEN_EXPECTED_WALL_CLOCK_GAIN_EXCEEDS_COORDINATION_OVERHEAD_WITH_SINGLE_WRITER_INTEGRATION",
@@ -11,7 +11,11 @@
     "compound_shop_clipping_must_expand_to_both_shop_and_clipping": true,
     "generic_shopping_or_product_selling_requires_platform_resolution": true,
     "platform_specific_rules_are_not_universal_cross_platform_law": true,
-    "supported_intents": ["VIDEO_CREATION", "CLIPPING_REPURPOSING", "TIKTOK_SHOP_COMMERCE"]
+    "supported_intents": [
+      "VIDEO_CREATION",
+      "CLIPPING_REPURPOSING",
+      "TIKTOK_SHOP_COMMERCE"
+    ]
   },
   "execution_gate": {
     "must_resolve_required_read_set_before_planning": true,
@@ -29,7 +33,12 @@
     "machine_policies_before_human_playbooks": true,
     "exact_same_head_and_blob_cache_allowed": true,
     "cache_scope": "ACTIVE_MEDIA_TASK_OR_SESSION",
-    "cache_key_fields": ["repository", "head_sha", "path", "blob_sha"],
+    "cache_key_fields": [
+      "repository",
+      "head_sha",
+      "path",
+      "blob_sha"
+    ],
     "invalidate_cache_on_head_or_blob_change": true,
     "do_not_open_same_blob_twice_in_one_gate_run": true,
     "longform_sources_only_when_longform_intent": true,
@@ -68,7 +77,10 @@
       "required": [
         "config/media_source_policy.json",
         "config/video_creation_admission_policy.json",
-        "scripts/video_creation_admission.py"
+        "scripts/video_creation_admission.py",
+        "config/zundamon_news60_template.json",
+        "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+        "scripts/validate_zundamon_news60_template.py"
       ],
       "conditional": {
         "if_longform": [
@@ -132,9 +144,19 @@
     }
   },
   "mixed_intent_expansions": {
-    "SHOP_CLIPPING": ["TIKTOK_SHOP_COMMERCE", "CLIPPING_REPURPOSING"],
-    "SHOP_VIDEO": ["TIKTOK_SHOP_COMMERCE", "VIDEO_CREATION"],
-    "SHOP_CLIPPING_VIDEO": ["TIKTOK_SHOP_COMMERCE", "CLIPPING_REPURPOSING", "VIDEO_CREATION"]
+    "SHOP_CLIPPING": [
+      "TIKTOK_SHOP_COMMERCE",
+      "CLIPPING_REPURPOSING"
+    ],
+    "SHOP_VIDEO": [
+      "TIKTOK_SHOP_COMMERCE",
+      "VIDEO_CREATION"
+    ],
+    "SHOP_CLIPPING_VIDEO": [
+      "TIKTOK_SHOP_COMMERCE",
+      "CLIPPING_REPURPOSING",
+      "VIDEO_CREATION"
+    ]
   },
   "parallel_execution_standard": {
     "independent_read_only_lanes_may_start_concurrently": true,
@@ -147,7 +169,10 @@
     "duplicate_agents_for_majority_vote_by_default": false,
     "backpressure_must_reduce_parallelism_before_quality_gates": true,
     "parallelism_requires_expected_wall_clock_gain_above_coordination_overhead": true,
-    "default_judgmental_media_pair": ["ChatGPT", "DeepSeek"],
+    "default_judgmental_media_pair": [
+      "ChatGPT",
+      "DeepSeek"
+    ],
     "research_and_script_are_one_combined_judgment_stage_by_default": true,
     "avoid_small_agent_handoffs_for_routine_script_work": true,
     "recommended_independent_lanes": [
@@ -194,7 +219,9 @@
       "every spoken turn must use the FULL_SPOKEN_TEXT caption contract; a short visual summary may not replace the spoken narration",
       "important terms marked by the script use deterministic emphasis colors while speaker identity remains encoded by green/pink caption text and border",
       "claim-bearing news scenes require a semantically matched searched or registered rights-verified visual with source page, asset locator, license state and scene/claim mapping",
-      "longform-only reliability material is loaded only for longform work"
+      "longform-only reliability material is loaded only for longform work",
+      "For requested or continuing 55-60 second Zundamon news shorts, load config/zundamon_news60_template.json and docs/ZUNDAMON_NEWS60_TEMPLATE.md; that scoped template requires voice-synchronized mouth motion plus sparse semantic facial expressions, while the general static-turn-focus default remains for other video profiles.",
+      "Special yellow/red caption emphasis is opt-in only: no automatic keyword coloring, zero by default, at most one critical phrase per semantic beat and three in a 60-second short, with an explicit importance reason."
     ],
     "clipping_repurposing": [
       "source rights and platform monetization eligibility are separate gates",
@@ -237,7 +264,7 @@
     "SEARCH_OR_DOWNLOAD_ZUNDAMON_METAN_REACTION_ASSETS_PER_VIDEO",
     "GENERATE_FACTUAL_BACKGROUND_WHEN_SEARCHABLE_EVIDENCE_VISUAL_EXISTS",
     "PRESENT_GENERATED_IMAGE_AS_FACTUAL_EVIDENCE",
-    "ANIMATE_ZUNDAMON_METAN_MOUTH_BLINK_POSE_OR_BOUNCE_BY_DEFAULT",
+    "ANIMATE_ZUNDAMON_METAN_OUTSIDE_APPROVED_TEMPLATE_OR_EXPLICIT_USER_REQUEST",
     "LEAVE_INACTIVE_LISTENER_FULLY_OPAQUE_BY_DEFAULT",
     "ANIMATE_SPEAKER_FOCUS_TRANSITION_BY_DEFAULT",
     "USE_VERTICAL_BOUNCE_AS_ONLY_CHARACTER_MOTION",
@@ -264,7 +291,9 @@
     "AUTO_PAID_FALLBACK"
   ],
   "retired_references": {
-    "forbidden_paths": ["config/shortform_edit_profile.json"],
+    "forbidden_paths": [
+      "config/shortform_edit_profile.json"
+    ],
     "reason": "SUPERSEDED_BY_MEDIA_AUDIO_MOTION_RETENTION_POLICY_AND_INTENT_SPECIFIC_PLAYBOOKS"
   },
   "new_session_behavior": {
@@ -289,6 +318,9 @@
     "jev_media_planning_contract_must_be_re_read": true,
     "commerce_clipping_precision_overlay_must_be_re_read_for_relevant_intent": true,
     "do_not_rely_on_prior_tab_summary_as_substitute": true,
-    "exact_same_head_and_blob_cache_may_satisfy_repeat_read_within_active_task": true
+    "exact_same_head_and_blob_cache_may_satisfy_repeat_read_within_active_task": true,
+    "zundamon_news60_template_must_be_re_read": true,
+    "zundamon_news60_template_human_prompt_must_be_re_read": true,
+    "zundamon_news60_template_validator_must_be_re_read": true
   }
 }

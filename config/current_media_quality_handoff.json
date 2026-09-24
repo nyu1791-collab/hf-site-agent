@@ -1,6 +1,6 @@
 {
-  "schema_version": "current-media-quality-handoff-v2",
-  "effective_date_jst": "2026-09-22",
+  "schema_version": "current-media-quality-handoff-v3",
+  "effective_date_jst": "2026-09-24",
   "status": "CURRENT_CROSS_TAB_CONTINUITY_SUMMARY",
   "authority": "INDEX_AND_CONTINUITY_SUMMARY_ONLY",
   "purpose": "Make the latest Zundamon/Shikoku Metan video-quality, retention, efficiency, compact ChatGPT+DeepSeek orchestration and character-performance decisions immediately recoverable after a chat-tab or session change without relying on conversation memory. Machine-readable policies, validators and CI remain authoritative over this summary.",
@@ -38,7 +38,10 @@
     "config/cross_domain_measurement_registry.json",
     "scripts/validate_zundamon_metan_production_quality.py",
     "scripts/validate_video_retention_efficiency.py",
-    ".github/workflows/canonical-ai-army-consistency.yml"
+    ".github/workflows/canonical-ai-army-consistency.yml",
+    "config/zundamon_news60_template.json",
+    "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+    "scripts/validate_zundamon_news60_template.py"
   ],
   "deepseek_review_checkpoint": {
     "workflow": ".github/workflows/deepseek-supervisor-research.yml",
@@ -82,7 +85,9 @@
       "make the current speaker naturally larger while speaking",
       "keep the listener visible and expressive when useful",
       "reduce agent fragmentation because coordination overhead can erase parallelism gains",
-      "information collection and script writing are primarily a joint ChatGPT plus DeepSeek responsibility"
+      "information collection and script writing are primarily a joint ChatGPT plus DeepSeek responsibility",
+      "keep yellow/red emphasis to only a few genuinely important phrases",
+      "ensure Zundamon mouth motion follows voice timing and facial expression changes follow semantic beats"
     ]
   },
   "adopted_media_decisions": [
@@ -108,7 +113,10 @@
     "CLAIM_BEARING_NEWS_USES_SEMANTICALLY_MATCHED_RIGHTS_VERIFIED_CONTEXT_VISUALS_WITH_PROVENANCE",
     "MEDIA_RESEARCH_AND_SCRIPT_DEFAULT_TO_ONE_COMBINED_CHATGPT_PLUS_DEEPSEEK_JUDGMENT_STAGE",
     "ROUTINE_MEDIA_WORK_MUST_NOT_BE_SPLIT_INTO_MANY_SMALL_AGENT_HANDOFFS_WHEN_COORDINATION_COST_EXCEEDS_EXPECTED_PARALLEL_GAIN",
-    "DETERMINISTIC_RENDERING_ENCODING_TIMING_AND_MACHINE_QA_DO_NOT_REQUIRE_EXTRA_AI_AGENTS"
+    "DETERMINISTIC_RENDERING_ENCODING_TIMING_AND_MACHINE_QA_DO_NOT_REQUIRE_EXTRA_AI_AGENTS",
+    "ZUNDAMON_NEWS60_USES_REUSABLE_55_TO_60_SECOND_PROMPT_AND_MACHINE_TEMPLATE",
+    "SHORTFORM_SPECIAL_CAPTION_COLOR_IS_EXPLICIT_ONLY_ZERO_BY_DEFAULT_AND_MAX_THREE_PER_VIDEO",
+    "SCOPED_SHORTFORM_TEMPLATE_USES_VOICE_SYNCED_MOUTH_AND_SPARSE_SEMANTIC_FACIAL_EXPRESSION"
   ],
   "explicitly_not_promoted_to_hard_law": [
     "FIXED_UNIVERSAL_CAPTION_CHARACTERS_PER_SECOND",
@@ -124,7 +132,10 @@
     "FIXED_ACTIVE_SPEAKER_SCALE_FOR_ALL_SCENES"
   ],
   "compact_media_orchestration": {
-    "default_judgmental_pair": ["ChatGPT", "DeepSeek"],
+    "default_judgmental_pair": [
+      "ChatGPT",
+      "DeepSeek"
+    ],
     "combined_stage": "RESEARCH_AND_SCRIPT",
     "chatgpt_owns": [
       "final source verification",
@@ -233,5 +244,11 @@
     "auto_top_up": false,
     "generic_paid_fallback": false,
     "paid_media_generation": false
+  },
+  "shortform_zundamon_news60_template": {
+    "machine_policy": "config/zundamon_news60_template.json",
+    "prompt_document": "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+    "validator": "scripts/validate_zundamon_news60_template.py",
+    "general_static_character_default_remains_for_other_profiles": true
   }
 }

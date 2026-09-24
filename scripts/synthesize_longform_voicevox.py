@@ -6,14 +6,6 @@ from pathlib import Path
 DEFAULT_SPEED_SCALE=1.20
 VOICEVOX_TIMEOUT_SECONDS=60
 STANDARD_CAST=("ずんだもん","四国めたん")
-DETERMINISTIC_EMPHASIS_CANDIDATES=(
-    "Jezero", "Perseverance", "SuperCam", "Margin Unit", "NASA", "CO2", "CO₂",
-    "火星", "新研究", "何度も", "複数回", "二酸化炭素", "地下水", "湖", "熱水", "炭酸塩", "シリカ",
-    "高い場所", "低い場所", "水と岩", "痕跡", "証拠", "重要", "複雑", "可能性", "生命", "生命探査",
-    "少なくとも3回", "第1段階", "第2段階", "第3段階",
-)
-
-
 def decode_mission(path:Path):
     return json.loads(gzip.decompress(base64.b64decode(path.read_text(encoding="utf-8").strip())).decode("utf-8"))
 
@@ -104,11 +96,14 @@ def normalized_caption_length(value: str) -> int:
 
 
 def deterministic_emphasis_terms(line: dict, caption: str) -> list[str]:
-    """Persist the same bounded emphasis selection that the renderer will use."""
+    """Persist only manually marked critical phrases; no keyword-based coloring."""
     explicit = [str(value).strip() for value in (line.get("emphasis_terms") or []) if str(value).strip()]
-    if explicit:
-        return list(dict.fromkeys(explicit))[:5]
-    return [term for term in DETERMINISTIC_EMPHASIS_CANDIDATES if term in caption][:5]
+    unique = list(dict.fromkeys(explicit))
+    if len(unique) > 1:
+        raise ValueError("at most one special emphasis term is allowed per semantic beat")
+    if unique and unique[0] not in caption:
+        raise ValueError(f"emphasis term is not present in the visible caption: {unique[0]}")
+    return unique
 
 
 def main():

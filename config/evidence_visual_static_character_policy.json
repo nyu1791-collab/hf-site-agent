@@ -1,6 +1,6 @@
 {
   "schema_version": "evidence-visual-static-character-v1",
-  "effective_date_jst": "2026-09-16",
+  "effective_date_jst": "2026-09-24",
   "status": "MANDATORY_MEDIA_STANDARD",
   "decision_owner": "chatgpt-top-commander",
   "purpose": "Reduce media production latency and visual awkwardness by using searched evidence-bearing real photos or primary-source visuals instead of generated background images, keeping Zundamon/Shikoku Metan visually static except for deterministic speaker-focus switching, enforcing complete readable speaker-colored captions with semantic topic headings, and keeping longform information flow continuous without deliberate padding.",
@@ -76,7 +76,7 @@
     "every_spoken_turn_must_have_visible_caption_text": true,
     "full_spoken_text_contract": "FULL_SPOKEN_TEXT",
     "summary_caption_may_not_replace_narration": true,
-    "caption_coverage_ratio_minimum": 0.70,
+    "caption_coverage_ratio_minimum": 0.7,
     "caption_text_must_not_be_truncated_by_fixed_line_count": true,
     "fit_strategy": [
       "semantic_wrap",
@@ -97,7 +97,10 @@
     "caption_text_dark_stroke_or_shadow_allowed_for_readability": true,
     "white_caption_body_as_default_for_zundamon_metan": false,
     "important_term_emphasis_required_when_marked": true,
-    "important_term_emphasis_colors": ["#FFEB3B", "#F44336"],
+    "important_term_emphasis_colors": [
+      "#FFEB3B",
+      "#F44336"
+    ],
     "important_term_emphasis_must_not_be_the_only_meaning_signal": true,
     "topic_heading_required": true,
     "topic_heading_granularity": "SEMANTIC_CONTENT_BLOCK_NOT_EVERY_UTTERANCE",
@@ -109,7 +112,17 @@
     ],
     "per_utterance_heading_forbidden_by_default": true,
     "heading_and_caption_must_be_visually_distinct": true,
-    "heading_must_summarize_current_content_block": true
+    "heading_must_summarize_current_content_block": true,
+    "special_emphasis_policy": {
+      "automatic_keyword_highlighting": false,
+      "default_special_highlights_per_video": 0,
+      "maximum_per_semantic_beat": 1,
+      "maximum_for_60_second_video": 3,
+      "importance_reason_required": true,
+      "yellow_role": "Decisive finding, number, or contrast that materially changes understanding.",
+      "red_role": "Material warning, correction, or caveat only.",
+      "speaker_identity_colors_remain_green_and_pink": true
+    }
   },
   "character_rendering": {
     "default_mode": "STATIC_TURN_FOCUS",
@@ -130,9 +143,12 @@
       "z_order": "FRONTMOST_CHARACTER"
     },
     "inactive_listener": {
-      "scale": 1.0,
+      "scale": 1,
       "opacity_percent": 55,
-      "allowed_opacity_percent_range": [50, 60],
+      "allowed_opacity_percent_range": [
+        50,
+        60
+      ],
       "z_order": "BEHIND_ACTIVE_SPEAKER"
     },
     "focus_switch": {
@@ -150,7 +166,10 @@
     }
   },
   "production_pacing": {
-    "longform_target_duration_seconds": [360, 720],
+    "longform_target_duration_seconds": [
+      360,
+      720
+    ],
     "continuous_information_flow_required": true,
     "deliberate_padding_for_duration_forbidden": true,
     "minimize_dead_air_between_turns": true,
@@ -212,5 +231,24 @@
     "LONGFORM_OUTSIDE_6_TO_12_MINUTES_WITHOUT_EXPLICIT_REASON",
     "DELIBERATE_PADDING_OR_EXCESSIVE_DEAD_AIR",
     "OLD_CHARACTER_MOTION_RULE_EXECUTED_DESPITE_THIS_POLICY_PRECEDENCE"
-  ]
+  ],
+  "template_scoped_overrides": {
+    "scope": "Only an explicitly selected, approved Zundamon news60 template activates these motion rules. The general static-turn-focus default remains active for other profiles.",
+    "template_index": "config/zundamon_news60_template.json",
+    "static_default_remains_for_unselected_templates": true,
+    "approved_profiles": [
+      {
+        "template_id": "zundamon_news60",
+        "activates_for": "A 55-60 second vertical news/explainer when requested or continued from an existing shortform video.",
+        "mouth_animation": true,
+        "voice_synchronized_lipsync": true,
+        "semantic_facial_expression_changes": true,
+        "full_face_fixture_before_full_render_when_character_geometry_changes": true,
+        "preferred_local_engine": "YMM4_WITH_LOCAL_VOICEVOX_LINK",
+        "compatible_fallback_requires": "FREE_DETERMINISTIC_COMPOSITOR_WITH_VALIDATED_PHONEME_OR_VOICE_ACTIVITY_TIMING_AND_CALIBRATED_CACHED_LAYERS",
+        "paid_or_freemium_media_services": false,
+        "static_renderer_is_invalid_for_this_profile": true
+      }
+    ]
+  }
 }
