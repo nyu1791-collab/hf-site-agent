@@ -169,6 +169,9 @@ def build_exports(document: Mapping[str, Any]) -> tuple[list[list[str]], dict[st
         "title": title,
         "line_count": len(rows),
         "special_highlight_count": highlight_count,
+        "caption_text_difference_count": sum(
+            not cue["caption_matches_voice_text"] for cue in cues
+        ),
         "ymm4_builtin_import_carries_only": ["speaker", "voice_text"],
         "notice": (
             "Emotion, visual, source, emphasis, and separate caption metadata stay "
@@ -250,6 +253,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print("YMM4 preparation: PASS")
     print(f"Dialogue lines: {len(rows)}")
+    print(f"Caption text differences to review: {cue_document['caption_text_difference_count']}")
     print(f"Script CSV: {csv_path}")
     print(f"Review cues: {cues_path}")
     print("No audio, timeline project, or video was generated.")
