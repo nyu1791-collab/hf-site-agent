@@ -2,11 +2,17 @@ import json
 import unittest
 from pathlib import Path
 
+from PIL import Image, ImageDraw
+
 from scripts.render_static_speaker_color_longform import (
     EMPHASIS_RED,
     EMPHASIS_YELLOW,
     emphasis_terms_for_line,
+    fit_rich_caption,
+    get_font,
     rich_character_spans,
+    wrap_rich,
+    ZUNDAMON_ACCENT,
     rendered_visual_evidence,
 )
 from scripts.synthesize_longform_voicevox import caption_text_for_line, deterministic_emphasis_terms
@@ -29,6 +35,32 @@ class VideoCaptionContractTests(unittest.TestCase):
         line = {"id": "L02", "voice_text": "火星のJezeroで水が何度も動いたのだ。", "full_caption_text": "火星の水"}
         with self.assertRaises(SystemExit):
             caption_text_for_line(mission, line)
+
+    def test_wrap_rich_keeps_latin_words_and_reviewed_phrases_indivisible(self):
+        draw = ImageDraw.Draw(Image.new("RGBA", (640, 240)))
+        font = get_font(24)
+        caption = "火星・JezeroクレーターのMargin Unit"
+        lines = wrap_rich(draw, caption, font, int(draw.textlength("Jezero", font)) + 2, ["Jezero", "Margin Unit"], ZUNDAMON_ACCENT)
+        rendered = ["".join(value for value, _ in line) for line in lines]
+        self.assertTrue(any("Jezero" in line for line in rendered), rendered)
+        self.assertTrue(any("Margin Unit" in line for line in rendered), rendered)
+        self.assertEqual("".join(rendered).replace(" ", ""), caption.replace(" ", ""))
+        self.assertTrue(all(not line.startswith(" ") and not line.endswith(" ") for line in rendered))
+
+    def test_fit_rich_caption_shrinks_before_splitting_an_indivisible_term(self):
+        draw = ImageDraw.Draw(Image.new("RGBA", (640, 240)))
+        min_font = get_font(30)
+        max_width = int(draw.textlength("Margin Unit", min_font)) + 2
+        font, lines, _ = fit_rich_caption(draw, "Margin Unit", ["Margin Unit"], ZUNDAMON_ACCENT, max_width, 180, start_size=54, min_size=30)
+        rendered = ["".join(value for value, _ in line) for line in lines]
+        self.assertEqual(rendered, ["Margin Unit"])
+        self.assertLess(font.size, 54)
+        self.assertLessEqual(draw.textlength(rendered[0], font), max_width)
+
+    def test_fit_rich_caption_fails_closed_if_an_indivisible_term_cannot_fit(self):
+        draw = ImageDraw.Draw(Image.new("RGBA", (640, 240)))
+        with self.assertRaises(RuntimeError):
+            fit_rich_caption(draw, "Jezero", ["Jezero"], ZUNDAMON_ACCENT, 5, 180, start_size=30, min_size=30)
 
     def test_marked_terms_keep_emphasis_color_after_split(self):
         spans = rich_character_spans("重要語Jezero", ["Jezero"], (77, 224, 132, 255))

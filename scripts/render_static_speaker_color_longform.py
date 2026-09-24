@@ -6,6 +6,7 @@ import base64
 import gzip
 import json
 import re
+import unicodedata
 import subprocess
 import wave
 from pathlib import Path
@@ -158,18 +159,150 @@ def _text_width(draw: ImageDraw.ImageDraw, value: str, fnt) -> float:
     return float(draw.textlength(value, font=fnt))
 
 
+ASCII_CAPTION_WORD = re.compile(r"[A-Za-z0-9]+(?:[-._'’/&+][A-Za-z0-9]+)*")
+OPENING_CAPTION_PUNCTUATION = set("([{「『（【〈《〔〖〘〚“‘«")
+CLOSING_CAPTION_PUNCTUATION = set(")]}」』）】〉》〕〗〙〛”’»、。，．！？：；,.!?…")
+
+
+def _ascii_caption_word_char(value: str) -> bool:
+    return bool(value) and value.isascii() and (value.isalnum() or value == "_")
+
+
+def _rich_caption_units(text: str, terms: list[str], accent) -> list[list[tuple[str, tuple[int, int, int, int]]]]:
+    """Keep Latin words and reviewed multiword terms indivisible while wrapping."""
+    colors = [
+        color
+        for value, color in rich_character_spans(text, terms, accent)
+        for _ in value
+    ]
+    protected = sorted(
+        {str(term) for term in (terms or []) if str(term).strip()},
+        key=lambda value: (-len(value), value),
+    )
+    units: list[list[tuple[str, tuple[int, int, int, int]]]] = []
+    index = 0
+    while index < len(text):
+        word_match = ASCII_CAPTION_WORD.match(text, index)
+        word_length = word_match.end() - index if word_match else 0
+        protected_length = 0
+        for term in protected:
+            if not text.startswith(term, index):
+                continue
+            before = text[index - 1] if index else ""
+            after_index = index + len(term)
+            after = text[after_index] if after_index < len(text) else ""
+            if _ascii_caption_word_char(term[0]) and _ascii_caption_word_char(before):
+                continue
+            if _ascii_caption_word_char(term[-1]) and _ascii_caption_word_char(after):
+                continue
+            protected_length = len(term)
+            break
+
+        length = max(word_length, protected_length)
+        if length == 0:
+            length = 1
+            while index + length < len(text):
+                codepoint = ord(text[index + length])
+                previous = ord(text[index + length - 1])
+                if (
+                    unicodedata.combining(text[index + length])
+                    or 0xFE00 <= codepoint <= 0xFE0F
+                    or 0xE0100 <= codepoint <= 0xE01EF
+                    or codepoint == 0x200D
+                    or previous == 0x200D
+                ):
+                    length += 1
+                else:
+                    break
+
+        units.append([
+            (text[position], colors[position])
+            for position in range(index, index + length)
+        ])
+        index += length
+    return units
+
+
+def _rich_unit_text(unit: list[tuple[str, tuple[int, int, int, int]]]) -> str:
+    return "".join(value for value, _ in unit)
+
+
+def _merge_rich_units(
+    units: list[list[tuple[str, tuple[int, int, int, int]]]]
+) -> list[tuple[str, tuple[int, int, int, int]]]:
+    merged: list[tuple[str, tuple[int, int, int, int]]] = []
+    for unit in units:
+        for value, color in unit:
+            if merged and merged[-1][1] == color:
+                merged[-1] = (merged[-1][0] + value, color)
+            else:
+                merged.append((value, color))
+    return merged
+
+
+def _rich_units_width(
+    draw: ImageDraw.ImageDraw,
+    units: list[list[tuple[str, tuple[int, int, int, int]]]],
+    fnt,
+) -> float:
+    return _text_width(draw, "".join(_rich_unit_text(unit) for unit in units), fnt)
+
+
 def wrap_rich(draw: ImageDraw.ImageDraw, text: str, fnt, maxw: int, terms: list[str], accent):
+    """Wrap at semantic units; never split a Latin word or a reviewed name."""
     lines: list[list[tuple[str, tuple[int, int, int, int]]]] = []
     for paragraph in str(text).splitlines() or [""]:
-        chars: list[tuple[str, tuple[int, int, int, int]]] = []
-        for value, color in rich_character_spans(paragraph, terms, accent):
-            for char in value:
-                trial = "".join(part for part, _ in chars) + char
-                if chars and _text_width(draw, trial, fnt) > maxw:
-                    lines.append(chars)
-                    chars = []
-                chars.append((char, color))
-        lines.append(chars)
+        if not paragraph:
+            lines.append([])
+            continue
+        paragraph_line_count = len(lines)
+        current: list[list[tuple[str, tuple[int, int, int, int]]]] = []
+        pending_spaces: list[list[tuple[str, tuple[int, int, int, int]]]] = []
+        pending_openers: list[list[tuple[str, tuple[int, int, int, int]]]] = []
+
+        for unit in _rich_caption_units(paragraph, terms, accent):
+            value = _rich_unit_text(unit)
+            if value.isspace():
+                if current or pending_openers:
+                    pending_spaces.append(unit)
+                continue
+            if value in OPENING_CAPTION_PUNCTUATION:
+                pending_openers.append(unit)
+                continue
+
+            candidate = current + pending_spaces + pending_openers + [unit]
+            if current and _rich_units_width(draw, candidate, fnt) > maxw:
+                if value and all(char in CLOSING_CAPTION_PUNCTUATION for char in value):
+                    closing = []
+                    while current and all(
+                        char in CLOSING_CAPTION_PUNCTUATION
+                        for char in _rich_unit_text(current[-1])
+                    ):
+                        closing.insert(0, current.pop())
+                    if current:
+                        previous = current.pop()
+                        if current:
+                            lines.append(_merge_rich_units(current))
+                        current = [previous] + closing + [unit]
+                    else:
+                        current = closing + [unit]
+                else:
+                    lines.append(_merge_rich_units(current))
+                    current = pending_openers + [unit]
+                pending_spaces = []
+                pending_openers = []
+                continue
+
+            current.extend(candidate[len(current):])
+            pending_spaces = []
+            pending_openers = []
+
+        if pending_openers:
+            current.extend(pending_openers)
+        if current:
+            lines.append(_merge_rich_units(current))
+        elif len(lines) == paragraph_line_count:
+            lines.append([])
     return lines
 
 
@@ -178,8 +311,9 @@ def fit_rich_caption(draw: ImageDraw.ImageDraw, text: str, terms: list[str], acc
         fnt = get_font(size)
         lines = wrap_rich(draw, text, fnt, maxw, terms, accent)
         heights = [max(1, draw.textbbox((0, 0), "あ", font=fnt)[3] - draw.textbbox((0, 0), "あ", font=fnt)[1]) for _ in lines]
+        widths = [_text_width(draw, "".join(value for value, _ in line), fnt) for line in lines]
         total = sum(heights) + max(0, len(lines) - 1) * 10
-        if total <= maxh:
+        if total <= maxh and all(width <= maxw for width in widths):
             return fnt, lines, total
     raise RuntimeError(f"full spoken caption does not fit reserved safe zone without truncation: {text[:100]}")
 
