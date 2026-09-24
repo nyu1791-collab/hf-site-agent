@@ -74,7 +74,7 @@ The helper writes two files:
 
 In YMM4, use Tools → Script Import, load ymm4_script.csv, and add the imported lines to the duplicate project timeline. The built-in CSV importer carries only speaker and spoken text. It does not carry emotion, visual cues, source claims, emphasis metadata, or a separate caption_text field; keep the sidecar beside the project and apply only the few expression changes tied to meaningful story beats. Do not assume a cue was applied just because it appears in the JSON.
 
-The exporter refuses unknown speakers/emotions, duplicate line IDs, unjustified highlights, and more than three special highlights. It does not synthesize audio, alter a YMM4 project, or render a video. Use the existing admission, VOICEVOX timing, caption, rights, and final QA gates before any later video render.
+The exporter refuses unknown speakers/emotions, duplicate line IDs, unjustified highlights, more than one special highlight per semantic beat, and more than three in the full video. It does not synthesize audio, alter a YMM4 project, or render a video. Use the existing admission, VOICEVOX timing, caption, rights, and final QA gates before any later video render.
 
 ### Jev and expression handling
 
