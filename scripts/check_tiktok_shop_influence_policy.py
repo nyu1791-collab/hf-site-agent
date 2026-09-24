@@ -58,7 +58,7 @@ def main() -> int:
 
     # Read Gate v11 keeps intent-specific trigger_sets and explicit mixed-intent
     # expansion. Shop clipping must still restore both commerce and clipping know-how.
-    assert gate["schema_version"] == "media-command-read-gate-v11"
+    assert gate["schema_version"] == "media-command-read-gate-v12"
     trigger = gate["trigger_sets"]["TIKTOK_SHOP_COMMERCE"]
     required_reads = set(trigger["required"])
     assert "config/tiktok_shop_influence_policy.json" in required_reads
