@@ -40,6 +40,7 @@ REQUIRED_FIELDS = {
 }
 MAX_DIALOGUE_LINES = 200
 MAX_SPECIAL_HIGHLIGHTS = 3
+MAX_SPECIAL_HIGHLIGHTS_PER_BEAT = 1
 CSV_NAME = "ymm4_script.csv"
 CUES_NAME = "ymm4_review_cues.json"
 
@@ -69,6 +70,7 @@ def build_exports(document: Mapping[str, Any]) -> tuple[list[list[str]], dict[st
     cues: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     highlight_count = 0
+    highlights_by_beat: dict[str, int] = {}
 
     for line_number, item in enumerate(dialogue, start=1):
         if not isinstance(item, Mapping):
@@ -122,6 +124,12 @@ def build_exports(document: Mapping[str, Any]) -> tuple[list[list[str]], dict[st
         emphasis_terms = [value.strip() for value in emphasis_terms]
         if len(set(emphasis_terms)) != len(emphasis_terms):
             raise ExportError(f"line_{line_number}: duplicate_emphasis_term")
+        highlights_by_beat[beat] = highlights_by_beat.get(beat, 0) + len(emphasis_terms)
+        if highlights_by_beat[beat] > MAX_SPECIAL_HIGHLIGHTS_PER_BEAT:
+            raise ExportError(
+                f"line_{line_number}: special_highlights_exceed_"
+                f"{MAX_SPECIAL_HIGHLIGHTS_PER_BEAT}_per_semantic_beat:{beat}"
+            )
         highlight_count += len(emphasis_terms)
         if highlight_count > MAX_SPECIAL_HIGHLIGHTS:
             raise ExportError(
