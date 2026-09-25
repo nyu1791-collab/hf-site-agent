@@ -25,6 +25,8 @@ def sample():
         "dialogue": [
             {
                 "id": "L1",
+                "chapter_id": "CH1",
+                "chapter_title": "第1章",
                 "speaker": "ずんだもん",
                 "voice_text": "結果は,\"三つ\"です。\n続き",
                 "caption_text": "結果は、三つです。\n続き",
@@ -37,6 +39,8 @@ def sample():
             },
             {
                 "id": "L2",
+                "chapter_id": "CH2",
+                "chapter_title": "第2章",
                 "speaker": "四国めたん",
                 "voice_text": "なるほど。",
                 "caption_text": "なるほど。",
@@ -122,6 +126,49 @@ class ExportYmm4ScriptTests(unittest.TestCase):
         doc["dialogue"][1]["emphasis_reason"] = "判断に必要な箇所"
         with self.assertRaisesRegex(ExportError, "exceed_1_per_semantic_beat:HOOK"):
             build_exports(doc)
+
+    def test_longform_can_use_more_than_three_manual_highlights_across_chapters(self):
+        doc = sample()
+        for index, beat in enumerate(
+            ["WHAT_CHANGED", "WHY_IT_HAPPENED", "EVIDENCE", "LIMIT_OR_CAVEAT"],
+            start=3,
+        ):
+            line = copy.deepcopy(doc["dialogue"][0])
+            line["id"] = f"L{index}"
+            line["chapter_id"] = f"CH{index}"
+            line["chapter_title"] = f"第{index}章"
+            line["semantic_beat_id"] = beat
+            line["caption_text"] = "重要語"
+            line["voice_text"] = "重要語"
+            line["emphasis_terms"] = ["重要語"]
+            line["emphasis_reason"] = "章内の結論に必要"
+            doc["dialogue"].append(line)
+        _, cues = build_exports(
+            doc,
+            max_total_highlights=None,
+            highlight_scope="chapter",
+        )
+        self.assertEqual(cues["special_highlight_count"], 5)
+        self.assertEqual(cues["cues"][2]["chapter_id"], "CH3")
+
+    def test_longform_blocks_two_highlights_in_one_chapter(self):
+        doc = sample()
+        line = copy.deepcopy(doc["dialogue"][0])
+        line["id"] = "L3"
+        line["chapter_id"] = "CH1"
+        line["chapter_title"] = "第1章"
+        line["semantic_beat_id"] = "EVIDENCE"
+        line["caption_text"] = "大切な語"
+        line["voice_text"] = "大切な語"
+        line["emphasis_terms"] = ["大切な語"]
+        line["emphasis_reason"] = "要点の識別"
+        doc["dialogue"].append(line)
+        with self.assertRaisesRegex(ExportError, "exceed_1_per_chapter:CH1"):
+            build_exports(
+                doc,
+                max_total_highlights=None,
+                highlight_scope="chapter",
+            )
 
     def test_existing_outputs_are_not_overwritten_unless_requested(self):
         rows, cues = build_exports(sample())
