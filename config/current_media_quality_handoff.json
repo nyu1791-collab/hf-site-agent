@@ -41,7 +41,11 @@
     ".github/workflows/canonical-ai-army-consistency.yml",
     "config/zundamon_news60_template.json",
     "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
-    "scripts/validate_zundamon_news60_template.py"
+    "scripts/validate_zundamon_news60_template.py",
+    "config/ymm4_news60_routine.json",
+    "docs/YMM4_NEWS60_ROUTINE.md",
+    "examples/ymm4_news60_script_template.json",
+    "scripts/prepare_ymm4_news60_routine.py"
   ],
   "deepseek_review_checkpoint": {
     "workflow": ".github/workflows/deepseek-supervisor-research.yml",
