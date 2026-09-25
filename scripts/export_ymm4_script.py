@@ -55,10 +55,21 @@ def _nonempty_string(value: Any, field: str, line_number: int) -> str:
     return value.strip()
 
 
-def build_exports(document: Mapping[str, Any]) -> tuple[list[list[str]], dict[str, Any]]:
-    """Validate the canonical shortform dialogue and build import rows plus cues."""
+def build_exports(
+    document: Mapping[str, Any],
+    *,
+    max_total_highlights: int | None = MAX_SPECIAL_HIGHLIGHTS,
+    highlight_scope: str = "semantic_beat",
+) -> tuple[list[list[str]], dict[str, Any]]:
+    """Validate dialogue and build YMM4 rows plus a review sidecar.
+
+    Defaults preserve the shortform three-highlight limit. Longform callers may
+    disable the total limit and enforce at most one highlight per chapter.
+    """
     if not isinstance(document, Mapping):
         raise ExportError("script_must_be_a_json_object")
+    if highlight_scope not in {"semantic_beat", "chapter"}:
+        raise ExportError("unsupported_highlight_scope")
     title = _nonempty_string(document.get("title"), "title", 0)
     dialogue = document.get("dialogue")
     if not isinstance(dialogue, list) or not dialogue:
@@ -70,7 +81,7 @@ def build_exports(document: Mapping[str, Any]) -> tuple[list[list[str]], dict[st
     cues: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     highlight_count = 0
-    highlights_by_beat: dict[str, int] = {}
+    highlights_by_scope: dict[str, int] = {}
 
     for line_number, item in enumerate(dialogue, start=1):
         if not isinstance(item, Mapping):
@@ -124,16 +135,28 @@ def build_exports(document: Mapping[str, Any]) -> tuple[list[list[str]], dict[st
         emphasis_terms = [value.strip() for value in emphasis_terms]
         if len(set(emphasis_terms)) != len(emphasis_terms):
             raise ExportError(f"line_{line_number}: duplicate_emphasis_term")
-        highlights_by_beat[beat] = highlights_by_beat.get(beat, 0) + len(emphasis_terms)
-        if highlights_by_beat[beat] > MAX_SPECIAL_HIGHLIGHTS_PER_BEAT:
+        scope_key = beat
+        scope_label = "semantic_beat"
+        if highlight_scope == "chapter":
+            chapter_id = item.get("chapter_id")
+            if not isinstance(chapter_id, str) or not chapter_id.strip():
+                raise ExportError(
+                    f"line_{line_number}: chapter_highlight_requires_chapter_id"
+                )
+            scope_key = chapter_id.strip()
+            scope_label = "chapter"
+        highlights_by_scope[scope_key] = (
+            highlights_by_scope.get(scope_key, 0) + len(emphasis_terms)
+        )
+        if highlights_by_scope[scope_key] > MAX_SPECIAL_HIGHLIGHTS_PER_BEAT:
             raise ExportError(
                 f"line_{line_number}: special_highlights_exceed_"
-                f"{MAX_SPECIAL_HIGHLIGHTS_PER_BEAT}_per_semantic_beat:{beat}"
+                f"{MAX_SPECIAL_HIGHLIGHTS_PER_BEAT}_per_{scope_label}:{scope_key}"
             )
         highlight_count += len(emphasis_terms)
-        if highlight_count > MAX_SPECIAL_HIGHLIGHTS:
+        if max_total_highlights is not None and highlight_count > max_total_highlights:
             raise ExportError(
-                f"special_highlights_exceed_{MAX_SPECIAL_HIGHLIGHTS}_video_limit"
+                f"special_highlights_exceed_{max_total_highlights}_video_limit"
             )
         for term in emphasis_terms:
             if term not in caption_text:
@@ -152,12 +175,15 @@ def build_exports(document: Mapping[str, Any]) -> tuple[list[list[str]], dict[st
             {
                 "line_number": line_number,
                 "id": line_id,
+                "chapter_id": item.get("chapter_id"),
+                "chapter_title": item.get("chapter_title"),
                 "speaker": speaker,
                 "emotion": emotion,
                 "semantic_beat_id": beat,
                 "visual_beat": visual_beat.strip(),
                 "caption_text": caption_text,
                 "caption_matches_voice_text": caption_text == voice_text,
+                "caption_difference_reason": str(item.get("caption_difference_reason", "")).strip(),
                 "source_claim_ids": [value.strip() for value in claim_ids],
                 "emphasis_terms": emphasis_terms,
                 "emphasis_reason": emphasis_reason.strip(),
