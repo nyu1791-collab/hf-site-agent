@@ -6,18 +6,29 @@
   "source_reference": {
     "kind": "USER_SUPPLIED_SCREEN_RECORDING",
     "displayed_player_runtime": "19:06",
+    "capture_metadata": {
+      "duration_seconds": 42.16,
+      "resolution": [
+        2732,
+        2048
+      ],
+      "video_codec": "HEVC",
+      "capture_device_context": "IPAD_SCREEN_RECORDING_WITH_BROWSER_AND_PLAYER_CHROME",
+      "is_final_video_geometry": false
+    },
     "observations_are_style_only": true,
     "reference_is_fact_source": false,
     "reuse_reference_video_assets": false,
     "style_observations": [
-      "A short two-character exchange begins the explanation before a compact chapter card.",
-      "The chapter label sits at the upper left.",
-      "The two characters frame the center visual area, with the current speaker receiving focus and the listener remaining visible.",
-      "A bright softly blurred background keeps dialogue and central evidence readable.",
-      "Short white captions sit in a compact dark rounded panel; speaker name tabs carry green and pink identity colors.",
-      "A few manually selected phrases receive a red highlight.",
-      "A narrow lower strip identifies sources relevant to the current subject."
-    ]
+      "A short exchange between the two characters begins the explanation; the first chapter label then remains in the upper-left during the chapter rather than appearing only as a transition.",
+      "Zundamon appears on the right and Shikoku Metan on the left, framing the center of the screen.",
+      "The active speaker is brighter and more prominent; the listener remains visible in a subdued state.",
+      "The sampled center is a bright soft-focus background; a source-matched figure or diagram is a proposed evidence improvement, not an observed element of the reference.",
+      "The spoken sentence is shown in full, commonly across two caption lines, in a broad rounded lower band with a white body and speaker-colored name tab.",
+      "The lower source band is warm orange; it changes with the scene and prioritizes sources relevant to the current claim.",
+      "A few selected phrases use red emphasis. Mouth movement follows speech and expressions change sparingly."
+    ],
+    "capture_is_not_output_master": true
   },
   "applies_to": "CLAIM_BEARING_LONGFORM_NEWS_OR_SCIENCE_EXPLAINERS",
   "editor": "YMM4",
@@ -61,14 +72,24 @@
     "voice_synchronized_mouth_and_sparse_semantic_expression": true,
     "this_is_a_scoped_exception_to_static_turn_focus_only": true,
     "constant_zoom_or_aimless_motion": false,
-    "one_attention_hero_per_semantic_beat": true
+    "one_attention_hero_per_semantic_beat": true,
+    "speaker_states": {
+      "active_speaker": "FULL_BRIGHTNESS_AND_SATURATION",
+      "listener": "SUBDUED_BUT_VISIBLE",
+      "starting_listener_opacity_range": [
+        0.72,
+        0.82
+      ],
+      "opacity_and_scale_values_are_provisional_until_windows_preview": true
+    },
+    "chapter_label_persists_until_next_chapter": true
   },
   "visual_style": {
     "background": "BRIGHT_LOW_DETAIL_SOFT_FOCUS_OR_RELEVANT_EVIDENCE_VISUAL",
-    "chapter_card": "COMPACT_ORANGE_LABEL_AT_UPPER_LEFT",
-    "central_visual_area": "OFFICIAL_OR_RIGHTS_VERIFIED_SOURCE_MATCHED_DIAGRAM_OR_IMAGE",
+    "chapter_card": "COMPACT_ORANGE_LABEL_AT_UPPER_LEFT_PERSISTENT_THROUGH_CHAPTER",
+    "central_visual_area": "SOURCE_MATCHED_EVIDENCE_DIAGRAM_OR_FIGURE_WHEN_USEFUL; A_GENERIC_BACKGROUND_IS_ATMOSPHERE_NOT_EVIDENCE",
     "caption_body_color": "WHITE",
-    "caption_panel": "COMPACT_TRANSLUCENT_DARK_ROUNDED_PANEL",
+    "caption_panel": "MEDIUM_NAVY_ROUNDED_LOWER_BAND_SIZED_FOR_FULL_SPOKEN_CAPTION_IN_ONE_OR_TWO_SEMANTIC_LINES",
     "avoid_oversized_near_black_caption_box": true,
     "speaker_nameplate_colors": {
       "ずんだもん": "#4DE084",
@@ -76,7 +97,12 @@
     },
     "special_highlighting": "EXPLICIT_MANUAL_AND_RARE",
     "special_highlight_reason_required": true,
-    "color_alone_never_carries_meaning": true
+    "color_alone_never_carries_meaning": true,
+    "caption_text_coverage": "FULL_SPOKEN_TEXT",
+    "caption_nameplate_carries_speaker_color": true,
+    "caption_phone_preview_required": true,
+    "meaningful_non_speech_audio_captioned_during_final_review": true,
+    "source_strip": "WARM_ORANGE_BOTTOM_BAND_SHOWING_CURRENT_SCENE_PRIMARY_SOURCE_TITLE_DATE_AND_ID"
   },
   "source_display": {
     "per_scene_source_ids_required_for_claim_bearing_visuals": true,
@@ -84,7 +110,34 @@
     "source_ledger_maps_source_to_claim_ids": true,
     "organization_names_alone_are_not_a_claim_citation": true,
     "source_strip_must_not_cover_caption_or_evidence": true,
-    "full_source_list_and_claim_mapping_retained_in_sidecar": true
+    "full_source_list_and_claim_mapping_retained_in_sidecar": true,
+    "main_source_first": true,
+    "show_exact_claim_evidence_locator_in_sidecar": true,
+    "claim_to_source_locator_and_support_summary_required_for_verified_status": true,
+    "reviewer_method_and_date_required_for_verified_or_qualified_status": true,
+    "source_published_checked_and_review_dates_cannot_exceed_research_cutoff": true
+  },
+  "claim_review_contract": {
+    "source_type_values": [
+      "PRIMARY_OFFICIAL",
+      "PRIMARY_RESEARCH",
+      "SECONDARY_REPUTABLE",
+      "DATASET_OR_METHOD",
+      "OTHER"
+    ],
+    "per_source_support_required_fields_for_verified_or_qualified_claims": [
+      "source_id",
+      "locator",
+      "support_summary"
+    ],
+    "verified_or_qualified_required_fields": [
+      "reviewed_by",
+      "review_method",
+      "reviewed_at"
+    ],
+    "qualified_claim_also_requires_qualification_note": true,
+    "builder_fetches_or_independently_verifies_sources": false,
+    "source_dates_must_not_exceed_research_cutoff": true
   },
   "chapter_outline": {
     "fixed_chapter_count": false,
@@ -116,7 +169,10 @@
     "ymm4_chapter_sheet.json",
     "ymm4_source_claim_register.json",
     "ymm4_run_sheet.md",
-    "ymm4_package_manifest.json"
+    "ymm4_package_manifest.json",
+    "ymm4_voice_credit_checklist.json",
+    "ymm4_caption_timeline.srt (optional, only with measured WAV files)",
+    "ymm4_wav_timing_manifest.json (optional, only with measured WAV files)"
   ],
   "import_contract": {
     "builtin_ymm4_csv_columns": [
@@ -135,7 +191,10 @@
     "scope": "A warm run from a locked source ledger and script, a checked Windows baseline, ready VOICEVOX settings, and rights-cleared cached assets; includes assembly, render, machine QA, and visual rereview.",
     "cold_start_research_or_new_rights_work_may_extend_time": true,
     "quality_rights_caption_audio_decode_and_visual_gates_must_not_be_shortened": true,
-    "measurement_required_before_claiming_target_met": true
+    "measurement_required_before_claiming_target_met": true,
+    "minimum_consecutive_clean_warm_runs_before_claiming_target_met": 3,
+    "stage_wall_clock_log_required": true,
+    "wall_clock_includes_render_and_final_visual_review": true
   },
   "safety": {
     "no_media_generated_by_preparation": true,
@@ -169,6 +228,80 @@
     {
       "source": "Official YouTube chapter timestamps if publishing is later authorized.",
       "url": "https://support.google.com/youtube/answer/9884579?hl=en"
+    },
+    {
+      "source": "Official YMM4 template import/export release note.",
+      "url": "https://manjubox.net/ymm4/release/4.29.0.0/"
+    },
+    {
+      "source": "Official YMM4 VOICEVOX-aware vowel mouth movement release note.",
+      "url": "https://manjubox.net/ymm4/release/4.49.0.0/"
+    },
+    {
+      "source": "Official YMM4 SRT/SUB timed text-item import instructions.",
+      "url": "https://manjubox.net/ymm4/faq/editing/item-from-subtitle-file/"
+    },
+    {
+      "source": "Official YMM4 VOICEVOX use and credit instructions.",
+      "url": "https://manjubox.net/ymm4/faq/%E3%82%86%E3%81%A3%E3%81%8F%E3%82%8A%E3%83%9C%E3%82%A4%E3%82%B9/VOICEVOX%E3%82%92%E4%BD%BF%E7%94%A8%E3%81%99%E3%82%8B/"
+    },
+    {
+      "source": "Official VOICEVOX software terms.",
+      "url": "https://voicevox.hiroshiba.jp/term/"
+    },
+    {
+      "source": "Official Zundamon/Shikoku Metan voice library terms.",
+      "url": "https://zunko.jp/con_ongen_kiyaku.html"
+    },
+    {
+      "source": "W3C captions must synchronize to speech and include meaningful non-speech audio.",
+      "url": "https://www.w3.org/WAI/media/av/captions/"
     }
-  ]
+  ],
+  "visual_asset_provenance_required_fields": [
+    "source_page",
+    "asset_locator",
+    "license_or_public_domain_state",
+    "scene_or_claim_mapping",
+    "retrieval_or_verification_timestamp"
+  ],
+  "visual_rights_clearance_required_fields": [
+    "rights_basis_locator",
+    "reuse_conditions_summary",
+    "rights_review_method",
+    "rights_reviewed_by",
+    "rights_reviewed_at"
+  ],
+  "visual_asset_rights_cleared_requires_reviewer_and_review_date": true,
+  "timed_caption_import": {
+    "format": "SRT",
+    "output_file": "ymm4_caption_timeline.srt",
+    "generated_only_when_per_line_wav_files_are_supplied": true,
+    "requires_one_unique_wav_basename_per_dialogue_line": true,
+    "uses_measured_wav_duration_not_character_count": true,
+    "srt_import_creates_text_items_only": true,
+    "csv_remains_voice_text_import": true,
+    "wav_files_are_referenced_not_copied": true,
+    "wav_sha256_and_frame_metadata_written_to_sidecar": true,
+    "windows_preview_required_before_reuse": true
+  },
+  "baseline_verification": {
+    "baseline_created_and_checked_on_windows": true,
+    "ymm4_template_bundle_export_import_roundtrip_required": true,
+    "voicevox_character_pair_preview_required": true,
+    "mouth_motion_requires_compatible_vowel_mouth_assets": true,
+    "template_import_export_feature_first_released": "4.29.0.0",
+    "voicevox_phoneme_mouth_motion_first_released": "4.49.0.0",
+    "check_installed_current_version_instead_of_pinning_exact_version": true,
+    "verified_local_baseline_and_template_exports_not_claimed_until_roundtrip_passes": true
+  },
+  "voice_and_rights": {
+    "required_credits": [
+      "VOICEVOX:ずんだもん",
+      "VOICEVOX:四国めたん"
+    ],
+    "software_and_voice_library_terms_checked_separately": true,
+    "voice_rights_and_character_image_rights_are_separate_ledgers": true,
+    "no_video_created_by_this_profile": true
+  }
 }

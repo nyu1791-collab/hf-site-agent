@@ -22,10 +22,122 @@
       "source_ids": [
         "S1"
       ],
-      "review_status": "REVIEW_REQUIRED"
+      "review_status": "REVIEW_REQUIRED",
+      "source_support": [
+        {
+          "source_id": "S1",
+          "locator": null,
+          "support_summary": null
+        }
+      ],
+      "reviewed_by": null,
+      "review_method": null,
+      "reviewed_at": null,
+      "qualification_note": null
+    },
+    {
+      "id": "C2",
+      "statement": null,
+      "source_ids": [
+        "S1"
+      ],
+      "review_status": "REVIEW_REQUIRED",
+      "source_support": [
+        {
+          "source_id": "S1",
+          "locator": null,
+          "support_summary": null
+        }
+      ],
+      "reviewed_by": null,
+      "review_method": null,
+      "reviewed_at": null,
+      "qualification_note": null
+    },
+    {
+      "id": "C3",
+      "statement": null,
+      "source_ids": [
+        "S1"
+      ],
+      "review_status": "REVIEW_REQUIRED",
+      "source_support": [
+        {
+          "source_id": "S1",
+          "locator": null,
+          "support_summary": null
+        }
+      ],
+      "reviewed_by": null,
+      "review_method": null,
+      "reviewed_at": null,
+      "qualification_note": null
+    },
+    {
+      "id": "C4",
+      "statement": null,
+      "source_ids": [
+        "S1"
+      ],
+      "review_status": "REVIEW_REQUIRED",
+      "source_support": [
+        {
+          "source_id": "S1",
+          "locator": null,
+          "support_summary": null
+        }
+      ],
+      "reviewed_by": null,
+      "review_method": null,
+      "reviewed_at": null,
+      "qualification_note": null
+    },
+    {
+      "id": "C5",
+      "statement": null,
+      "source_ids": [
+        "S1"
+      ],
+      "review_status": "REVIEW_REQUIRED",
+      "source_support": [
+        {
+          "source_id": "S1",
+          "locator": null,
+          "support_summary": null
+        }
+      ],
+      "reviewed_by": null,
+      "review_method": null,
+      "reviewed_at": null,
+      "qualification_note": null
     }
   ],
-  "visual_assets": [],
+  "visual_assets": [
+    {
+      "id": "V1",
+      "source_page": null,
+      "asset_locator": null,
+      "license_or_public_domain_state": null,
+      "rights_status": "REVIEW_REQUIRED",
+      "rights_basis_locator": null,
+      "reuse_conditions_summary": null,
+      "rights_review_method": null,
+      "rights_reviewed_by": null,
+      "rights_reviewed_at": null,
+      "retrieval_or_verification_timestamp": null,
+      "scene_or_claim_mapping": {
+        "line_ids": [
+          "CH02_01"
+        ],
+        "chapter_ids": [
+          "CH02"
+        ],
+        "claim_ids": [
+          "C1"
+        ]
+      }
+    }
+  ],
   "chapters": [
     {
       "id": "CH01",
@@ -44,7 +156,10 @@
           "claim_bearing": false,
           "semantic_beat_id": "HOOK",
           "emphasis_terms": [],
-          "emphasis_reason": ""
+          "emphasis_reason": "",
+          "visual_asset_ids": [],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
         },
         {
           "id": "CH01_02",
@@ -58,7 +173,10 @@
           "claim_bearing": false,
           "semantic_beat_id": "HOOK",
           "emphasis_terms": [],
-          "emphasis_reason": ""
+          "emphasis_reason": "",
+          "visual_asset_ids": [],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
         }
       ]
     },
@@ -81,7 +199,12 @@
           "claim_bearing": true,
           "semantic_beat_id": "WHAT_CHANGED",
           "emphasis_terms": [],
-          "emphasis_reason": ""
+          "emphasis_reason": "",
+          "visual_asset_ids": [
+            "V1"
+          ],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
         }
       ]
     },
@@ -99,12 +222,15 @@
           "emotion": "thoughtful",
           "visual_beat": "",
           "source_claim_ids": [
-            "C1"
+            "C2"
           ],
           "claim_bearing": true,
           "semantic_beat_id": "WHY_IT_HAPPENED",
           "emphasis_terms": [],
-          "emphasis_reason": ""
+          "emphasis_reason": "",
+          "visual_asset_ids": [],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
         }
       ]
     },
@@ -122,12 +248,15 @@
           "emotion": "serious",
           "visual_beat": "",
           "source_claim_ids": [
-            "C1"
+            "C3"
           ],
           "claim_bearing": true,
           "semantic_beat_id": "EVIDENCE",
           "emphasis_terms": [],
-          "emphasis_reason": ""
+          "emphasis_reason": "",
+          "visual_asset_ids": [],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
         }
       ]
     },
@@ -144,11 +273,16 @@
           "caption_difference_reason": "",
           "emotion": "serious",
           "visual_beat": "",
-          "source_claim_ids": [],
-          "claim_bearing": false,
+          "source_claim_ids": [
+            "C4"
+          ],
+          "claim_bearing": true,
           "semantic_beat_id": "LIMIT_OR_CAVEAT",
           "emphasis_terms": [],
-          "emphasis_reason": ""
+          "emphasis_reason": "",
+          "visual_asset_ids": [],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
         }
       ]
     },
@@ -165,13 +299,44 @@
           "caption_difference_reason": "",
           "emotion": "relieved",
           "visual_beat": "",
-          "source_claim_ids": [],
-          "claim_bearing": false,
+          "source_claim_ids": [
+            "C5"
+          ],
+          "claim_bearing": true,
           "semantic_beat_id": "TAKEAWAY",
           "emphasis_terms": [],
-          "emphasis_reason": ""
+          "emphasis_reason": "",
+          "visual_asset_ids": [],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
         }
       ]
+    }
+  ],
+  "pronunciation_dictionary": [
+    {
+      "surface_term": "AI",
+      "voice_reading": "エーアイ",
+      "caption_spelling": "AI",
+      "revision": "1"
+    },
+    {
+      "surface_term": "OpenAI",
+      "voice_reading": "オープンエーアイ",
+      "caption_spelling": "OpenAI",
+      "revision": "1"
+    },
+    {
+      "surface_term": "Anthropic",
+      "voice_reading": "アンスロピック",
+      "caption_spelling": "Anthropic",
+      "revision": "1"
+    },
+    {
+      "surface_term": "Hugging Face",
+      "voice_reading": "ハギングフェイス",
+      "caption_spelling": "Hugging Face",
+      "revision": "1"
     }
   ]
 }

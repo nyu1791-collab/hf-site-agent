@@ -242,7 +242,10 @@
       "script_scaffold": "examples/ymm4_research_explainer_script_template.json",
       "runtime": "scripts/prepare_ymm4_research_explainer_package.py",
       "priority": 1,
-      "purpose": "USER_REFERENCE_STYLE_LONGFORM_YMM4_RESEARCH_EXPLAINER"
+      "purpose": "USER_REFERENCE_STYLE_LONGFORM_YMM4_RESEARCH_EXPLAINER",
+      "dependencies": [
+        "scripts/export_ymm4_script.py"
+      ]
     },
     {
       "id": "authorized-clipping-and-monetization",
@@ -408,7 +411,12 @@
     "ymm4_research_explainer_profile": "config/ymm4_research_explainer_profile.json",
     "ymm4_research_explainer_doc": "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
     "ymm4_research_explainer_scaffold": "examples/ymm4_research_explainer_script_template.json",
-    "ymm4_research_explainer_preparation_command": "scripts/prepare_ymm4_research_explainer_package.py"
+    "ymm4_research_explainer_preparation_command": "scripts/prepare_ymm4_research_explainer_package.py",
+    "full_spoken_caption_coverage_requires_dictionary_substitution_or_exact_normalized_match": true,
+    "voice_credit_required_lines": [
+      "VOICEVOX:ずんだもん",
+      "VOICEVOX:四国めたん"
+    ]
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
@@ -672,3 +680,4 @@
     "recover_from_repository_and_verified_artifacts": true
   }
 }
+
