@@ -1,6 +1,6 @@
 {
   "schema_version": "current-media-quality-handoff-v3",
-  "effective_date_jst": "2026-09-24",
+  "effective_date_jst": "2026-09-25",
   "status": "CURRENT_CROSS_TAB_CONTINUITY_SUMMARY",
   "authority": "INDEX_AND_CONTINUITY_SUMMARY_ONLY",
   "purpose": "Make the latest Zundamon/Shikoku Metan video-quality, retention, efficiency, compact ChatGPT+DeepSeek orchestration and character-performance decisions immediately recoverable after a chat-tab or session change without relying on conversation memory. Machine-readable policies, validators and CI remain authoritative over this summary.",
@@ -45,7 +45,12 @@
     "config/ymm4_news60_routine.json",
     "docs/YMM4_NEWS60_ROUTINE.md",
     "examples/ymm4_news60_script_template.json",
-    "scripts/prepare_ymm4_news60_routine.py"
+    "scripts/prepare_ymm4_news60_routine.py",
+    "config/ymm4_research_explainer_profile.json",
+    "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
+    "examples/ymm4_research_explainer_script_template.json",
+    "scripts/prepare_ymm4_research_explainer_package.py",
+    "scripts/export_ymm4_script.py"
   ],
   "deepseek_review_checkpoint": {
     "workflow": ".github/workflows/deepseek-supervisor-research.yml",
@@ -120,7 +125,11 @@
     "DETERMINISTIC_RENDERING_ENCODING_TIMING_AND_MACHINE_QA_DO_NOT_REQUIRE_EXTRA_AI_AGENTS",
     "ZUNDAMON_NEWS60_USES_REUSABLE_55_TO_60_SECOND_PROMPT_AND_MACHINE_TEMPLATE",
     "SHORTFORM_SPECIAL_CAPTION_COLOR_IS_EXPLICIT_ONLY_ZERO_BY_DEFAULT_AND_MAX_THREE_PER_VIDEO",
-    "SCOPED_SHORTFORM_TEMPLATE_USES_VOICE_SYNCED_MOUTH_AND_SPARSE_SEMANTIC_FACIAL_EXPRESSION"
+    "SCOPED_SHORTFORM_TEMPLATE_USES_VOICE_SYNCED_MOUTH_AND_SPARSE_SEMANTIC_FACIAL_EXPRESSION",
+    "LONGFORM_YMM4_REFERENCE_STYLE_IS_STYLE_ONLY_AND_NOT_FACTUAL_EVIDENCE",
+    "LONGFORM_YMM4_USE_CHAPTER_SCENE_SOURCE_AND_CLAIM_SIDECARS",
+    "TEN_MINUTE_LONGFORM_GOAL_IS_CONDITIONAL_AND_UNMEASURED_UNTIL_WINDOWS_TIMING",
+    "REFERENCE_PROFILE_USES_TWO_CHARACTER_FOCUS_WITH_SPARSE_VOICE_SYNCED_ACTING"
   ],
   "explicitly_not_promoted_to_hard_law": [
     "FIXED_UNIVERSAL_CAPTION_CHARACTERS_PER_SECOND",
@@ -198,7 +207,14 @@
       "rerender everything when only one layer changed",
       "increase parallelism by weakening quality or single-writer rules",
       "split routine research and script into many agent handoffs merely to appear parallel"
-    ]
+    ],
+    "longform_ten_minute_target": {
+      "target_wall_clock_minutes": 10,
+      "status": "UNMEASURED_CONDITIONAL_TARGET",
+      "scope": "WARM_RUN_FROM_LOCKED_EVIDENCE_AND_SCRIPT_WITH_CHECKED_WINDOWS_BASELINE_AND_READY_RIGHTS_CLEARED_ASSETS",
+      "includes_final_render_and_qa": true,
+      "quality_gates_may_be_shortened": false
+    }
   },
   "measurement_and_learning": {
     "production_metrics": [
@@ -254,5 +270,16 @@
     "prompt_document": "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
     "validator": "scripts/validate_zundamon_news60_template.py",
     "general_static_character_default_remains_for_other_profiles": true
+  },
+  "longform_ymm4_reference_profile": {
+    "machine_policy": "config/ymm4_research_explainer_profile.json",
+    "human_doc": "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
+    "script_scaffold": "examples/ymm4_research_explainer_script_template.json",
+    "preparation_command": "scripts/prepare_ymm4_research_explainer_package.py",
+    "scope": "LONGFORM_8_TO_12_MINUTE_DEFAULT",
+    "reference_player_runtime": "19:06_STYLE_REFERENCE_ONLY",
+    "fact_source": "NOT_A_FACTUAL_SOURCE",
+    "ten_minute_goal_status": "UNMEASURED_CONDITIONAL_WARM_RUN",
+    "no_video_created": true
   }
 }
