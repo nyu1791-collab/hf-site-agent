@@ -1,6 +1,6 @@
 {
   "schema_version": "media-command-read-gate-v12",
-  "effective_date_jst": "2026-09-24",
+  "effective_date_jst": "2026-09-25",
   "status": "ENFORCED_STANDARD",
   "decision_owner": "chatgpt-top-commander",
   "purpose": "RESTORE_ONLY_CURRENT_INTENT_RELEVANT_MEDIA_KNOW_HOW_THEN_PARALLELIZE_ONLY_WHEN_EXPECTED_WALL_CLOCK_GAIN_EXCEEDS_COORDINATION_OVERHEAD_WITH_SINGLE_WRITER_INTEGRATION",
@@ -88,7 +88,11 @@
           "config/longform_video_reliability_policy.json",
           "docs/LONGFORM_VIDEO_OBJECTIVES.md",
           "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
-          "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md"
+          "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md",
+          "config/ymm4_research_explainer_profile.json",
+          "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
+          "examples/ymm4_research_explainer_script_template.json",
+          "scripts/prepare_ymm4_research_explainer_package.py"
         ],
         "if_claim_bearing_or_current_factual_content": [
           "config/cross_source_knowhow_evidence_matrix.json",
@@ -288,7 +292,10 @@
     "TREAT_SEARCH_RESULT_AS_LICENSE",
     "USE_SUMMARY_CAPTION_INSTEAD_OF_FULL_SPOKEN_TEXT",
     "USE_UNRELATED_OR_UNVERIFIED_NEWS_VISUAL",
-    "AUTO_PAID_FALLBACK"
+    "AUTO_PAID_FALLBACK",
+    "TREAT_STYLE_REFERENCE_AS_FACTUAL_EVIDENCE",
+    "USE_NEWS60_FIXED_WINDOWS_FOR_LONGFORM",
+    "CLAIM_TEN_MINUTE_GOAL_IS_MEASURED_WITHOUT_TIMING_EVIDENCE"
   ],
   "retired_references": {
     "forbidden_paths": [
