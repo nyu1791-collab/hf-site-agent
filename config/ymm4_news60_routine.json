@@ -1,0 +1,51 @@
+{
+  "schema_version": "ymm4-news60-routine-v1",
+  "status": "PREPRODUCTION_BLUEPRINT",
+  "applies_to_template": "config/zundamon_news60_template.json",
+  "script_scaffold": "examples/ymm4_news60_script_template.json",
+  "preparation_command": "scripts/prepare_ymm4_news60_routine.py",
+  "editor": "YMM4",
+  "local_baseline_project_name": "ZUNDAMON_NEWS60_BASE.ymmp",
+  "baseline_must_be_created_and_checked_on_windows": true,
+  "reuse": {
+    "duplicate_baseline_per_video": true,
+    "use_verified_character_and_visual_cache": true,
+    "reuse_ymm4_character_voice_and_caption_styles": true,
+    "reuse_voicevox_presets_when_using_separately_exported_wav": true,
+    "do_not_assume_voicevox_app_presets_apply_to_ymm4_direct_voice_generation": true,
+    "never_commit_third_party_character_or_audio_assets": true,
+    "never_assume_renderer_reaction_pack_is_ymm4_compatible": true
+  },
+  "item_template_names": [
+    "NEWS60/01_HOOK_TITLE",
+    "NEWS60/02_EXPLAINER",
+    "NEWS60/03_EVIDENCE_FRAME",
+    "NEWS60/04_TAKEAWAY"
+  ],
+  "baseline_components": [
+    "background_and_safe_zone_guides",
+    "zundamon_and_optional_metan_character_settings",
+    "green_and_pink_speaker_caption_styles",
+    "optional_bgm_and_effect_slots_without_unlicensed_media",
+    "voicevox_credit_and_source_attribution_placeholders",
+    "closing_layout"
+  ],
+  "per_video_bundle_files": [
+    "ymm4_script.csv",
+    "ymm4_review_cues.json",
+    "ymm4_beat_sheet.json",
+    "ymm4_run_sheet.md",
+    "ymm4_package_manifest.json"
+  ],
+  "import_carries_only_speaker_and_voice_text": true,
+  "emotion_and_caption_overrides_remain_manual_review_cues": true,
+  "target_around_ten_minutes_is_conditional_not_guaranteed": true,
+  "target_conditions": [
+    "source_and_claim_lock_already_verified",
+    "windows_baseline_project_previously_checked",
+    "compatible_character_asset_and_mouth_fixture_previously_checked",
+    "visual_and_audio_cache_hits_with_current_rights_evidence"
+  ],
+  "cold_start_or_new_evidence_exceeds_target_without_skipping_gates": true,
+  "no_network_paid_call_audio_render_or_video_from_preparation": true
+}
