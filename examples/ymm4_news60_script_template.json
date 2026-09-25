@@ -1,0 +1,77 @@
+{
+  "title": null,
+  "dialogue": [
+    {
+      "id": "HOOK_1",
+      "speaker": "ずんだもん",
+      "voice_text": null,
+      "caption_text": null,
+      "emotion": "curious",
+      "visual_beat": "",
+      "source_claim_ids": [],
+      "semantic_beat_id": "HOOK",
+      "emphasis_terms": [],
+      "emphasis_reason": ""
+    },
+    {
+      "id": "WHAT_CHANGED_1",
+      "speaker": "ずんだもん",
+      "voice_text": null,
+      "caption_text": null,
+      "emotion": "normal",
+      "visual_beat": "",
+      "source_claim_ids": [],
+      "semantic_beat_id": "WHAT_CHANGED",
+      "emphasis_terms": [],
+      "emphasis_reason": ""
+    },
+    {
+      "id": "WHY_IT_HAPPENED_1",
+      "speaker": "ずんだもん",
+      "voice_text": null,
+      "caption_text": null,
+      "emotion": "thoughtful",
+      "visual_beat": "",
+      "source_claim_ids": [],
+      "semantic_beat_id": "WHY_IT_HAPPENED",
+      "emphasis_terms": [],
+      "emphasis_reason": ""
+    },
+    {
+      "id": "EVIDENCE_1",
+      "speaker": "ずんだもん",
+      "voice_text": null,
+      "caption_text": null,
+      "emotion": "serious",
+      "visual_beat": "",
+      "source_claim_ids": [],
+      "semantic_beat_id": "EVIDENCE",
+      "emphasis_terms": [],
+      "emphasis_reason": ""
+    },
+    {
+      "id": "LIMIT_OR_CAVEAT_1",
+      "speaker": "ずんだもん",
+      "voice_text": null,
+      "caption_text": null,
+      "emotion": "serious",
+      "visual_beat": "",
+      "source_claim_ids": [],
+      "semantic_beat_id": "LIMIT_OR_CAVEAT",
+      "emphasis_terms": [],
+      "emphasis_reason": ""
+    },
+    {
+      "id": "TAKEAWAY_1",
+      "speaker": "ずんだもん",
+      "voice_text": null,
+      "caption_text": null,
+      "emotion": "relieved",
+      "visual_beat": "",
+      "source_claim_ids": [],
+      "semantic_beat_id": "TAKEAWAY",
+      "emphasis_terms": [],
+      "emphasis_reason": ""
+    }
+  ]
+}
