@@ -1,0 +1,177 @@
+{
+  "title": null,
+  "research_cutoff_date": null,
+  "target_duration_minutes": [
+    8,
+    12
+  ],
+  "source_ledger": [
+    {
+      "id": "S1",
+      "title": null,
+      "url": null,
+      "source_type": "PRIMARY_OFFICIAL",
+      "published_date": null,
+      "checked_at": null
+    }
+  ],
+  "claim_ledger": [
+    {
+      "id": "C1",
+      "statement": null,
+      "source_ids": [
+        "S1"
+      ],
+      "review_status": "REVIEW_REQUIRED"
+    }
+  ],
+  "visual_assets": [],
+  "chapters": [
+    {
+      "id": "CH01",
+      "title": null,
+      "purpose": "Hook with a truthful question or stake.",
+      "dialogue": [
+        {
+          "id": "CH01_01",
+          "speaker": "ずんだもん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "curious",
+          "visual_beat": "",
+          "source_claim_ids": [],
+          "claim_bearing": false,
+          "semantic_beat_id": "HOOK",
+          "emphasis_terms": [],
+          "emphasis_reason": ""
+        },
+        {
+          "id": "CH01_02",
+          "speaker": "四国めたん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "curious",
+          "visual_beat": "",
+          "source_claim_ids": [],
+          "claim_bearing": false,
+          "semantic_beat_id": "HOOK",
+          "emphasis_terms": [],
+          "emphasis_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "CH02",
+      "title": null,
+      "purpose": "State what the source actually reports.",
+      "dialogue": [
+        {
+          "id": "CH02_01",
+          "speaker": "ずんだもん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "surprised",
+          "visual_beat": "",
+          "source_claim_ids": [
+            "C1"
+          ],
+          "claim_bearing": true,
+          "semantic_beat_id": "WHAT_CHANGED",
+          "emphasis_terms": [],
+          "emphasis_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "CH03",
+      "title": null,
+      "purpose": "Explain the mechanism in plain Japanese.",
+      "dialogue": [
+        {
+          "id": "CH03_01",
+          "speaker": "四国めたん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "thoughtful",
+          "visual_beat": "",
+          "source_claim_ids": [
+            "C1"
+          ],
+          "claim_bearing": true,
+          "semantic_beat_id": "WHY_IT_HAPPENED",
+          "emphasis_terms": [],
+          "emphasis_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "CH04",
+      "title": null,
+      "purpose": "Separate direct evidence from interpretation.",
+      "dialogue": [
+        {
+          "id": "CH04_01",
+          "speaker": "ずんだもん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "serious",
+          "visual_beat": "",
+          "source_claim_ids": [
+            "C1"
+          ],
+          "claim_bearing": true,
+          "semantic_beat_id": "EVIDENCE",
+          "emphasis_terms": [],
+          "emphasis_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "CH05",
+      "title": null,
+      "purpose": "State material limits, uncertainty, or a counterpoint.",
+      "dialogue": [
+        {
+          "id": "CH05_01",
+          "speaker": "四国めたん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "serious",
+          "visual_beat": "",
+          "source_claim_ids": [],
+          "claim_bearing": false,
+          "semantic_beat_id": "LIMIT_OR_CAVEAT",
+          "emphasis_terms": [],
+          "emphasis_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "CH06",
+      "title": null,
+      "purpose": "Resolve the opening question and give the useful takeaway.",
+      "dialogue": [
+        {
+          "id": "CH06_01",
+          "speaker": "ずんだもん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "relieved",
+          "visual_beat": "",
+          "source_claim_ids": [],
+          "claim_bearing": false,
+          "semantic_beat_id": "TAKEAWAY",
+          "emphasis_terms": [],
+          "emphasis_reason": ""
+        }
+      ]
+    }
+  ]
+}
