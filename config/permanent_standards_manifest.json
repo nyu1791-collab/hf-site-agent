@@ -1,6 +1,6 @@
 {
   "schema_version": "permanent-standards-manifest-v21",
-  "effective_date_jst": "2026-09-24",
+  "effective_date_jst": "2026-09-25",
   "purpose": "Keep the AI Army, evidence governance, media quality, creator monetization and bounded paid supervision recoverable across new chat tabs while using one expandable manifest plus a compact master rulebook instead of duplicating every detailed rule in startup handoffs.",
   "canonical_branch": "ai-army/provider-v3",
   "startup_rule": "READ_CURRENT_COMMANDER_HANDOFF_THEN_PRIORITY_ZERO_MANIFEST_STANDARDS_AND_MASTER_RULEBOOK_BEFORE_TASK_SPECIFIC_PLANNING",
@@ -236,6 +236,15 @@
       "priority": 1
     },
     {
+      "id": "ymm4-research-explainer-profile",
+      "machine_policy": "config/ymm4_research_explainer_profile.json",
+      "human_doc": "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
+      "script_scaffold": "examples/ymm4_research_explainer_script_template.json",
+      "runtime": "scripts/prepare_ymm4_research_explainer_package.py",
+      "priority": 1,
+      "purpose": "USER_REFERENCE_STYLE_LONGFORM_YMM4_RESEARCH_EXPLAINER"
+    },
+    {
       "id": "authorized-clipping-and-monetization",
       "path": "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
       "machine_policy": "config/authorized_clipping_monetization_policy.json",
@@ -395,7 +404,11 @@
     "zundamon_news60_template": "config/zundamon_news60_template.json",
     "zundamon_news60_prompt": "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
     "zundamon_news60_template_validator": "scripts/validate_zundamon_news60_template.py",
-    "shortform_animation_exception_policy": "config/evidence_visual_static_character_policy.json"
+    "shortform_animation_exception_policy": "config/evidence_visual_static_character_policy.json",
+    "ymm4_research_explainer_profile": "config/ymm4_research_explainer_profile.json",
+    "ymm4_research_explainer_doc": "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
+    "ymm4_research_explainer_scaffold": "examples/ymm4_research_explainer_script_template.json",
+    "ymm4_research_explainer_preparation_command": "scripts/prepare_ymm4_research_explainer_package.py"
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
@@ -578,7 +591,9 @@
     "dependency_dag_cycle_and_unknown_dependency_fail_closed_survives_tab_change": true,
     "weighted_critical_path_schedule_survives_tab_change": true,
     "zundamon_news60_template_survives_tab_change": true,
-    "zundamon_news60_critical_emphasis_and_character_motion_survive_tab_change": true
+    "zundamon_news60_critical_emphasis_and_character_motion_survive_tab_change": true,
+    "ymm4_research_explainer_profile_survives_tab_change": true,
+    "ymm4_research_explainer_source_claim_contract_survives_tab_change": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",
