@@ -264,6 +264,12 @@
       "machine_policy": "config/zundamon_news60_template.json",
       "human_doc": "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
       "validator": "scripts/validate_zundamon_news60_template.py",
+      "ymm4_routine": {
+        "blueprint": "config/ymm4_news60_routine.json",
+        "human_doc": "docs/YMM4_NEWS60_ROUTINE.md",
+        "script_scaffold": "examples/ymm4_news60_script_template.json",
+        "preparation_command": "scripts/prepare_ymm4_news60_routine.py"
+      },
       "priority": 1,
       "purpose": "REUSABLE_SHORTFORM_NEWS_PROMPT_WITH_EXPLICIT_ONLY_CAPTION_EMPHASIS_AND_VOICE_SYNCED_CHARACTER_ACTING"
     }
