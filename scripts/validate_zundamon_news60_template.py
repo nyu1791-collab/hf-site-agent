@@ -14,6 +14,10 @@ ADMISSION = ROOT / "config/video_creation_admission_policy.json"
 STATIC_POLICY = ROOT / "config/evidence_visual_static_character_policy.json"
 MEDIA_HANDOFF = ROOT / "config/current_media_quality_handoff.json"
 MANIFEST = ROOT / "config/permanent_standards_manifest.json"
+YMM4_ROUTINE = ROOT / "config/ymm4_news60_routine.json"
+YMM4_DOC = ROOT / "docs/YMM4_NEWS60_ROUTINE.md"
+YMM4_SCAFFOLD = ROOT / "examples/ymm4_news60_script_template.json"
+YMM4_PREP = ROOT / "scripts/prepare_ymm4_news60_routine.py"
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -35,7 +39,10 @@ def validate() -> dict[str, Any]:
     static_policy = load(STATIC_POLICY)
     media_handoff = load(MEDIA_HANDOFF)
     manifest = load(MANIFEST)
+    routine = load(YMM4_ROUTINE)
+    scaffold = load(YMM4_SCAFFOLD)
     require(DOC.is_file(), "shortform template human prompt is missing")
+    require(YMM4_DOC.is_file() and YMM4_PREP.is_file(), "YMM4 routine documentation or preparation command is missing")
     require(template.get("schema_version") == "zundamon-news60-template-v1", "shortform template version drift")
     require(template.get("status") == "ENFORCED_DEFAULT_FOR_SCOPED_SHORTFORM", "shortform template is not enforced for its scope")
     output = template.get("output") or {}
@@ -50,6 +57,12 @@ def validate() -> dict[str, Any]:
 
     beat_ids = [str(x.get("id")) for x in (template.get("story_beats") or [])]
     require(beat_ids == ["HOOK", "WHAT_CHANGED", "WHY_IT_HAPPENED", "EVIDENCE", "LIMIT_OR_CAVEAT", "TAKEAWAY"], "shortform beat sequence drift")
+    require(routine.get("schema_version") == "ymm4-news60-routine-v1" and routine.get("status") == "PREPRODUCTION_BLUEPRINT", "YMM4 routine blueprint drift")
+    require(routine.get("baseline_must_be_created_and_checked_on_windows") is True, "unverified YMM4 baseline was promoted")
+    require(routine.get("target_around_ten_minutes_is_conditional_not_guaranteed") is True, "YMM4 target was made a guarantee")
+    require(routine.get("no_network_paid_call_audio_render_or_video_from_preparation") is True, "YMM4 preparation side-effect guard missing")
+    require([line.get("semantic_beat_id") for line in (scaffold.get("dialogue") or [])] == beat_ids, "YMM4 scaffold beat order drift")
+    require(scaffold.get("title") is None and all(line.get("voice_text") is None and line.get("caption_text") is None for line in scaffold["dialogue"]), "YMM4 scaffold no longer blocks unfilled scripts")
     script = template.get("script_contract") or {}
     require(script.get("full_spoken_text_caption_contract") == "FULL_SPOKEN_TEXT", "full-spoken caption contract missing")
     require(script.get("caption_timing_source") == "MEASURED_LOCAL_VOICEVOX_WAV", "caption timing is not tied to measured voice")
@@ -97,10 +110,18 @@ def validate() -> dict[str, Any]:
     require(standard.get("machine_policy") == "config/zundamon_news60_template.json", "manifest template policy path drift")
     require(standard.get("human_doc") == "docs/ZUNDAMON_NEWS60_TEMPLATE.md", "manifest prompt path drift")
     require(standard.get("validator") == "scripts/validate_zundamon_news60_template.py", "manifest template validator path drift")
+    routine_paths = {
+        "blueprint": "config/ymm4_news60_routine.json",
+        "human_doc": "docs/YMM4_NEWS60_ROUTINE.md",
+        "script_scaffold": "examples/ymm4_news60_script_template.json",
+        "preparation_command": "scripts/prepare_ymm4_news60_routine.py",
+    }
+    require(standard.get("ymm4_routine") == routine_paths, "manifest YMM4 routine index drift")
     cross_tab = manifest.get("cross_tab_behavior") or {}
     require(cross_tab.get("zundamon_news60_template_survives_tab_change") is True, "shortform template cross-tab persistence missing")
     media_files = set(media_handoff.get("authoritative_media_files") or [])
     require(required_paths.issubset(media_files), "media quality handoff does not restore the template files")
+    require(set(routine_paths.values()).issubset(media_files), "media quality handoff does not restore the YMM4 routine")
 
     return {
         "status": "PASS",
@@ -110,6 +131,7 @@ def validate() -> dict[str, Any]:
         "voice_synchronized_mouth_motion": True,
         "semantic_facial_expression_changes": True,
         "cross_tab_read_gate": True,
+        "ymm4_routine_indexed": True,
     }
 
 
