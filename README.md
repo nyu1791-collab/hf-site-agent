@@ -17,6 +17,7 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 - 現在の動画品質・視聴維持・時短改善をタブ跨ぎで即復元する補助Checkpoint: `config/current_media_quality_handoff.json`
 - 10〜15分目標の品質維持型メディア時短（マニフェストキャッシュ、最大3準備レーン、影響範囲修復、短尺1回エンコード、Jev typed計画）: `config/media_speed_quality_policy.json` / `scripts/media_speed_orchestrator.py`
 - 約60秒のずんだもん縦型ニュース用定型プロンプト、重要箇所だけの字幕色強調、VOICEVOX同期の口パク・意味連動の表情: `config/zundamon_news60_template.json` / `docs/ZUNDAMON_NEWS60_TEMPLATE.md` / `scripts/validate_zundamon_news60_template.py`
+- 8〜12分の横型二人掛け合いニュース/科学解説（参考動画の章札・字幕帯・出典帯を再利用する型）: `config/ymm4_research_explainer_profile.json` / `docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md` / `examples/ymm4_research_explainer_script_template.json` / `scripts/prepare_ymm4_research_explainer_package.py`
 - 2026-09-15以降の明示的な字幕配色・説明図静止・8〜12分目安のユーザー指定: `config/media_user_visual_duration_preferences.json`
 - 収益化・案件・アフィリエイト・Creator Program・AI workflow service: `config/monetization_command_read_gate.json`
 
