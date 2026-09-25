@@ -1,0 +1,226 @@
+{
+  "schema_version": "zundamon-news60-template-v1",
+  "effective_date_jst": "2026-09-24",
+  "status": "ENFORCED_DEFAULT_FOR_SCOPED_SHORTFORM",
+  "decision_owner": "chatgpt-top-commander",
+  "purpose": "Make the user's preferred fast Zundamon-led vertical news explainer repeatable, with verified claims, complete measured captions, restrained emphasis color, voice-synchronized mouth motion, and semantic facial acting.",
+  "applies_when": [
+    "USER_REQUESTS_A_SHORT_VERTICAL_NEWS_OR_EXPLAINER",
+    "CONTINUING_AN_EXISTING_APPROXIMATELY_60_SECOND_VIDEO"
+  ],
+  "does_not_override": {
+    "8_to_12_minute_default_for_unqualified_future_news_explainers": true,
+    "explicit_user_requested_duration": true,
+    "facts_rights_cost_accessibility_or_voicevox_gates": true
+  },
+  "output": {
+    "aspect_ratio": "9:16",
+    "resolution": [
+      1080,
+      1920
+    ],
+    "frame_rate": 30,
+    "target_duration_seconds": [
+      55,
+      60
+    ],
+    "duration_is_measured_from_final_voice_and_edit_not_script_estimate": true,
+    "mobile_safe_zones_required": true,
+    "fast_start_mp4": true,
+    "public_publish_requires_explicit_user_approval": true
+  },
+  "production_time": {
+    "observed_target_minutes": [
+      10,
+      15
+    ],
+    "is_goal_not_guarantee": true,
+    "quality_and_rights_gates_must_not_be_shortened": true,
+    "reuse_order": [
+      "verified_cached_assets",
+      "registered_asset_cache",
+      "new_search_only_for_uncovered_visual_needs"
+    ],
+    "max_independent_preparation_lanes": 3,
+    "lanes_after_script_and_claim_lock": [
+      "VOICE_AND_MEASURED_TIMING",
+      "RIGHTS_VERIFIED_VISUAL_ASSETS",
+      "CHARACTER_SHELL_AND_TOOLCHAIN_PREP"
+    ],
+    "single_writer_per_mutable_output": true,
+    "retry_smallest_failed_stage_and_dependents_only": true,
+    "one_final_encode": true,
+    "jev_rule": "Use the deterministic zero-question path when this template is already the clear route; use Jev's narrow typed decision only when route choice is genuinely ambiguous."
+  },
+  "story_beats": [
+    {
+      "id": "HOOK",
+      "seconds": [
+        0,
+        3
+      ],
+      "purpose": "State a truthful question, surprising finding, or real-world stake; skip a generic greeting."
+    },
+    {
+      "id": "WHAT_CHANGED",
+      "seconds": [
+        3,
+        12
+      ],
+      "purpose": "Give the verified core news early and identify the source or evidence."
+    },
+    {
+      "id": "WHY_IT_HAPPENED",
+      "seconds": [
+        12,
+        27
+      ],
+      "purpose": "Explain the mechanism or cause in plain language."
+    },
+    {
+      "id": "EVIDENCE",
+      "seconds": [
+        27,
+        42
+      ],
+      "purpose": "Show a source-matched official or rights-cleared visual and explain what it proves."
+    },
+    {
+      "id": "LIMIT_OR_CAVEAT",
+      "seconds": [
+        42,
+        51
+      ],
+      "purpose": "Name the important uncertainty, limitation, or correction when one exists."
+    },
+    {
+      "id": "TAKEAWAY",
+      "seconds": [
+        51,
+        60
+      ],
+      "purpose": "Resolve the opening question and give one concise takeaway."
+    }
+  ],
+  "script_contract": {
+    "one_canonical_script_before_timeline_or_render": true,
+    "required_dialogue_fields": [
+      "id",
+      "speaker",
+      "voice_text",
+      "caption_text",
+      "emotion",
+      "visual_beat",
+      "source_claim_ids",
+      "semantic_beat_id",
+      "emphasis_terms",
+      "emphasis_reason"
+    ],
+    "voice_text_and_caption_text_are_separate": true,
+    "full_spoken_text_caption_contract": "FULL_SPOKEN_TEXT",
+    "every_spoken_turn_has_a_caption": true,
+    "caption_timing_source": "MEASURED_LOCAL_VOICEVOX_WAV",
+    "default_lead": "ずんだもん",
+    "second_character": "四国めたん is used only when a short exchange materially improves clarity or pacing.",
+    "no_padding_to_hit_duration": true,
+    "proper_nouns_use_official_caption_spelling": true
+  },
+  "caption_color": {
+    "speaker_identity_colors": {
+      "ずんだもん": "#4DE084",
+      "四国めたん": "#FF5BB9"
+    },
+    "speaker_identity_color_remains_on_normal_caption_text": true,
+    "automatic_keyword_highlighting": false,
+    "default_special_highlights_per_video": 0,
+    "maximum_special_highlights_per_semantic_beat": 1,
+    "maximum_special_highlights_in_60_second_video": 3,
+    "reason_required_for_every_special_highlight": true,
+    "allowed_special_highlight_colors": [
+      "#FFEB3B",
+      "#F44336"
+    ],
+    "yellow_use": "One decisive finding, number, or contrast that materially changes understanding.",
+    "red_use": "A safety warning, correction, or material caveat only.",
+    "never_use_color_as_the_only_meaning_signal": true,
+    "do_not_highlight_names_or_topic_keywords_merely_because_they_are_relevant": true
+  },
+  "character_performance": {
+    "default_for_this_template": "SPEAKING_MOUTH_SYNC_PLUS_SPARSE_SEMANTIC_EXPRESSION",
+    "static_turn_focus_renderer_is_not_valid_for_this_profile": true,
+    "preferred_local_path": "YMM4_WITH_LOCAL_VOICEVOX_CHARACTER_LINK",
+    "compatible_fallback": "A free deterministic compositor with verified phoneme or voice-activity timing and calibrated cached character layers.",
+    "paid_or_freemium_media_services": false,
+    "mouth_animation_required_for_each_speaking_character": true,
+    "mouth_states": [
+      "closed",
+      "small_open",
+      "open"
+    ],
+    "mouth_timing_source": "VOICEVOX_ENGINE_LIPSYNC_OR_EXPORTED_PHONEME_TIMING; voice-activity timing only as the tested fallback",
+    "mouth_closed_during_measured_silence": true,
+    "full_face_fixture_required_for_each_visible_character": [
+      "ずんだもん",
+      "四国めたん"
+    ],
+    "fixture_checks": [
+      "mouth_inside_face_socket",
+      "no_double_mouth",
+      "no_detachment",
+      "no_eye_or_nose_overlap",
+      "alpha_edge_integrity"
+    ],
+    "semantic_expression_changes_required": true,
+    "expression_changes_follow_script_emotion_and_story_beats": true,
+    "expression_changes_every_one_or_two_sentences_when_the_beat_calls_for_it": true,
+    "expression_states": [
+      "normal",
+      "curious",
+      "surprised",
+      "thoughtful",
+      "serious",
+      "relieved"
+    ],
+    "one_primary_character_motion_or_attention_hero_per_beat": true,
+    "do_not_move_all_face_pose_scale_and_symbol_channels_at_once": true,
+    "serious_or_sensitive_news_uses_restrained_expression_and_motion": true,
+    "reuse_verified_reaction_pack_and_face_anchor_cache": true,
+    "fixture_must_pass_before_full_render_when_asset_or_anchor_identity_changes": true
+  },
+  "visual_evidence": {
+    "reuse_verified_cache_before_new_search": true,
+    "official_or_primary_source_visuals_preferred_for_claim_bearing_news": true,
+    "every_claim_bearing_visual_has_source_page_asset_locator_rights_state_and_claim_mapping": true,
+    "search_result_is_discovery_not_license": true,
+    "generated_visuals_are_not_factual_evidence": true,
+    "no_paid_or_freemium_image_or_video_generation": true,
+    "reuse_a_visual_across_beats_only_when_semantically_fit": true
+  },
+  "final_review": {
+    "caption_coverage_ratio": 1,
+    "check_speaker_colors_and_only_marked_emphasis": true,
+    "check_full_spoken_text_and_audio_alignment": true,
+    "check_mouth_open_closed_alignment_and_resting_state": true,
+    "check_at_least_two_semantic_expression_states_when_dialogue_beats_support_them": true,
+    "check_source_image_match_attribution_and_rights": true,
+    "check_safe_zones_and_face_composites": true,
+    "ffprobe_and_full_decode_required": true,
+    "visual_rereview_required_before_delivery": true
+  },
+  "prompt_template_ja": "テーマ: {{TOPIC}}\n調査基準日: {{AS_OF_DATE}}\n尺: 約60秒の縦型ニュース・解説\n一次資料または公式資料: {{SOURCE_URLS}}\n確認したい事実・主張: {{CLAIMS_OR_QUESTIONS}}\n使える既存素材・キャッシュ: {{CACHED_ASSETS}}\n\nconfig/zundamon_news60_template.json と docs/ZUNDAMON_NEWS60_TEMPLATE.md を読み、VOICEVOXのローカル音声とずんだもんを使って制作する。最初に一次資料を確認して主張を固定し、55〜60秒に収まる一つの台本を作る。調査と台本は一つの統合段階で行い、機械的な字幕・タイミング・素材処理のために細かくエージェントを分割しない。独立準備は最大3レーンで並行し、最終出力は一度だけエンコードする。\n\n全ての話し言葉を、実測した音声タイミングに合わせて字幕表示する。通常字幕には話者色（ずんだもん=緑、四国めたん=ピンク）を使う。特別な黄・赤の強調はデフォルト0個とし、本当に意味を変える発見・数字・訂正・重要な注意に限る。キーワードだからという理由で色を付けない。強調語を使う場合は、重要な理由を明示し、1意味ブロック1箇所まで、動画全体3箇所までとする。\n\n話している間は口を音声に同期させ、無音では口を閉じる。YMM4のVOICEVOX連携による口パクを優先し、利用できない場合は無料の決定論的な代替手段と検証済みの口位置素材を使う。口だけで演技を済ませず、台本の感情と意味に合わせて目・眉・口の表情を要所で切り替える。毎行動かさず、同時に多くの動きを重ねない。顔全体の口・表情プレビューを確認してから本番レンダーする。\n\nニュース画像は既存の権利確認済みキャッシュを先に使い、足りない分だけ一次・公式資料を検索する。各画像の出典・素材URL・権利・対応する主張を記録する。生成画像を事実の証拠として扱わない。有料または無料体験の外部メディアサービスへ切り替えない。品質、正確さ、権利、字幕、音声、完成動画の再確認を保ったまま最短で仕上げる。",
+  "template_id": "zundamon_news60",
+  "research_basis": [
+    {
+      "source": "Official YMM4 release notes for support of A-I-U-E-O lip sync on compatible animated/PSD character assets, using timing from supported speech engines or audio analysis.",
+      "url": "https://manjubox.net/ymm4/release/4.49.0.0/"
+    },
+    {
+      "source": "Official VOICEVOX usage guide explaining export of phoneme timing labels useful for lip sync.",
+      "url": "https://voicevox.hiroshiba.jp/how_to_use/"
+    },
+    {
+      "source": "Official YMM4 guide for local VOICEVOX integration and required speaker credit.",
+      "url": "https://manjubox.net/ymm4/faq/%E3%82%86%E3%81%A3%E3%81%8F%E3%82%8A%E3%83%9C%E3%82%A4%E3%82%B9/VOICEVOX%E3%82%92%E4%BD%BF%E7%94%A8%E3%81%99%E3%82%8B/"
+    }
+  ]
+}

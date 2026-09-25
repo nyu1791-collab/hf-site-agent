@@ -1,86 +1,77 @@
-# 階層型AI部隊ランタイム
+# 階層型AI部隊ランタイム — Compatibility Implementation Reference
 
-この文書は、現在の `hf-site-agent` における指揮系統と、効率最大化のために導入した実行基盤を固定する。ここでいう Agent は、モデルそのものではなく、命令と権限を持つ実行上の役割である。
+> **Status: LEGACY_COMPATIBILITY_IMPLEMENTATION_DOC / NOT POLICY AUTHORITY**
+>
+> この文書は `scripts/agent_runtime.py` 周辺の互換ランタイム実装・回帰検証を理解するために残す技術資料です。現在のAI Armyの指揮権、Provider選択、有料実行権限、Delegation方針を決定するSource of Truthではありません。
+>
+> 現行Policy Authorityは `config/current_commander_handoff.json` → `config/permanent_standards_manifest.json` → `docs/AI_ARMY_MASTER_RULEBOOK.md` と、Manifestが指すMachine-readable Policy / Validator / CIです。新しいPolicy-facing routingは `scripts/ai_army_routing_facade.py` を入口とし、ChatGPT / WorkがTop Commander、DeepSeekはScoped Executive Supervisor、狭い処理ではDirect SpecialistまたはDeterministic Tool bypassを使用できます。
+>
+> 以下のGoogle / NVIDIA / Groq Commander → Specialist → OpenRouter Worker構造は、既存互換ランタイムの実装モデルを説明するものです。これだけを根拠にProviderを有効化したり、現在のrouting authorityへ昇格したりしてはいけません。
 
-## 現在の指揮系統
+この互換ランタイムではAgentをモデル名ではなく、親子関係・権限・予算を持つ実行上のRoleとして扱います。指揮権は `chatgpt-work` に残し、命令は下向き、Reportは上向きにのみ流します。Peer間の委任、Swarm、多数決、失敗時の自動昇格はありません。
 
-最高司令権は ChatGPT Work／Codex に残す。GLM と DeepSeek は同じ上級指揮階級として、ChatGPT Work から独立した命令を受けて並列に動く。各々が許可された専門指揮 Agent へ Fan-Out し、ChatGPT Work が結果を Fan-In する。同格 Agent の自由な指揮権移譲や直接接続はない。
+## 互換ランタイム階層
 
-| 階級 | `agent_id` | 親 | 任務 | 子へ渡せる範囲 |
+| 階級 | `agent_id` | Provider | 親 | 主な担当 |
 |---|---|---|---|---|
-| 最高司令 | `chatgpt-work` | なし | Mission 解釈、承認、統合、最終実行判断 | `glm-general-commander` と `deepseek-engineering-commander` |
-| 上級指揮 | `glm-general-commander` | `chatgpt-work` | 需要・製品・コンテンツ側のMission分解 | research / product / content の専門指揮 |
-| 上級指揮 | `deepseek-engineering-commander` | `chatgpt-work` | 技術・品質・自動化側の独立レビュー | video / code / qa / metrics の専門指揮 |
-| 専門指揮 | `<role>-specialist` | `glm-general-commander` または `deepseek-engineering-commander` | 一つの承認済み Task を下位作業へ分解 | 同じ役割の `<role>-worker` のみ |
-| 実働 | `<role>-worker` | `<role>-specialist` | 小さな通常コード・参照処理 | 子 Agent なし |
+| 最高司令 | `chatgpt-work` | Work | なし | Mission解釈、承認、統合、最終判断 |
+| 互換Commander | `google-general-commander` | Google | `chatgpt-work` | Research、Planning、長文書、Multimodal、情報統合 |
+| 互換Commander | `nvidia-engineering-commander` | NVIDIA | `chatgpt-work` | Repository、Coding、Debug、Test、Infrastructure |
+| 互換Commander | `groq-rapid-commander` | Groq | `chatgpt-work` | 高速要約、分類、抽出、JSON、ログ一次判定 |
+| Specialist | `<role>-specialist` | 親Provider | 互換Commander | 承認済みTaskの分解・下書き |
+| Worker | `<role>-worker` | OpenRouter | Specialist | 低リスク・限定範囲の実働 |
 
-現在の全専門役割は `scripts/agent_runtime.py` の `default_agent_specs()` を唯一の登録表とする。登録表にない Agent は実行できない。
+`scripts/agent_runtime.py` の `default_agent_specs()` がこの互換ランタイムの有限登録表です。Roleの `active` / approval状態は実装と現行Registryを実行時に確認し、この文書の記述から有効状態を推測しません。Workerは子Agentを生成できず、各Agentの `max_children`、`max_parallel`、`max_depth` は有限です。
 
 ```mermaid
 flowchart TD
-  C[ChatGPT Work / Codex\n最高司令・承認] --> Q[GLM General Commander\n上級指揮]
-  C --> D[DeepSeek Engineering Commander\n上級指揮]
-  Q --> S1[専門指揮\n需要・製品・コンテンツ]
-  D --> S2[専門指揮\n技術・品質・自動化]
-  S1 --> W[実働 Worker\n通常コード・参照処理]
-  S2 --> W
+  C[ChatGPT Work] --> G[Compatibility Google Commander]
+  C --> N[Compatibility NVIDIA Commander]
+  C --> R[Compatibility Groq Commander]
+  G --> S[Provider Specialist]
+  N --> S
+  R --> S
+  S --> W[OpenRouter Worker]
+  W --> P[Python / API / Tools]
 ```
 
-命令は上から下へ、報告は下から上へ流れる。Worker は親を飛び越えず、失敗時は `blocked` / `failed` として親へ返す。YouTube 投稿、決済、課金を伴う操作、秘密値・Durable Object・既存バインディング変更はこのランタイムの権限外である。
+この図は互換実装のTopologyであり、現在のPolicy-facing routing決定図ではありません。同じTaskを3Providerへ常時送らず、独立検証が必要な場合もMachine Oracle / deterministic validatorを優先します。
 
-## 構造化された命令と報告
+## Command / Report契約
 
-`schemas/command_envelope.schema.json` と `schemas/report_envelope.schema.json` を公開形式とし、実行時には `scripts/agent_runtime.py` が JSON Schema では表現しにくい親子関係・ツール許可・予算を追加検証する。
+公開契約は [`schemas/command_envelope.schema.json`](../schemas/command_envelope.schema.json) と [`schemas/report_envelope.schema.json`](../schemas/report_envelope.schema.json) です。RuntimeはSchemaに加えて親子Edge、Tool Scope、Rank、Budget、Owner、Cancellationを検証します。
 
-Command Envelope の主な追跡項目は次の通り。
+Commandには `mission_id`、`command_id`、`parent_command_id`、`parent_agent_id`、`child_agent_id`、`owner_agent_id`、`provider_preference`、`objective`、`constraints`、`artifact_refs`、`tool_scope`、`request_budget`、`token_budget`、`deadline`、`may_spawn_children`、`idempotency_key`、`side_effect_level` を記録します。
 
-- `mission_id`, `command_id`, `parent_command_id`
-- `parent_agent_id`, `child_agent_id`, `owner_agent_id`, `rank`, `role`
-- `objective`, `constraints`, `input_refs`, `expected_output`, `done_when`
-- `token_budget`, `time_budget_ms`, `tool_scope`, `permissions`
-- `depends_on`, `parallel_group`, `priority`, `depth`, `max_depth`
-- `may_spawn_children`, `allowed_child_roles`, `idempotency_key`, `status`
+Reportは会話全文を上へコピーせず、`summary`、`result`、`artifacts`、`evidence`、`warnings`、`errors`、`children_used`、Provider/Model、usage、quota、Cache hitを返します。処理不能時は `blocked` を返し、正常成果やCheckpointを上書きしません。
 
-Report Envelope は会話全文ではなく、`summary`、`result`、`artifacts`、`evidence`、`warnings`、`errors`、`children_used`、実行時間・トークン数・Cache hit・利用 Tool だけを親へ返す。これにより上位へ上がるほど報告を圧縮できる。
+## Runtimeの決定的処理
 
-## 効率・安全の実装
+1. Queueは直接の許可された子だけを受け付け、上向き・横向きの命令を拒否します。
+2. Fan-Outは独立Taskだけを対象にし、`max_children`、`max_parallel`、MissionのProvider request budgetを送信前に予約します。
+3. Cancellationは `mission_id` または親子Commandの祖先関係で限定し、Sibling・別Mission・completed/failed Reportを変更しません。
+4. Idempotencyは `mission_id`、`command_id`、`idempotency_key`、`operation_type`、`payload_hash` を永続可能な台帳へ保存します。同じKeyでPayloadが違う場合は `IDEMPOTENCY_CONFLICT`、Timeout後は安全側で再実行しません。
+5. Artifactは内容ハッシュをIDとして渡し、CacheはGlobal / Mission / Commander / Workerの層で照合します。長時間MissionはStageごとにCheckpointを保存します。
+6. URL、重複排除、Sort、Hash、JSON/Schema検証、HTTP Status、Retry、Quota、Queue、Cache照合は通常コードで処理し、LLMには意味判断だけを渡します。
 
-`CommandRuntime` はモデル呼び出しを行わず、次の決定的処理を担当する。
+これらのCommand/Report、Cancellation、Idempotency、Checkpoint、bounded execution原則は現行Policyでも価値があるため、この文書を残す主な理由です。
 
-1. **Dispatcher / Queue** — 登録済みの直接の子だけをキューへ入れ、上向き・横向きの命令を拒否する。
-2. **Fan-Out / Fan-In** — 同じ親・同じ `parallel_group` の独立 Task を、親の `max_children`（最大5）と `max_parallel`（最大4）の範囲で並列化する。部分失敗時も成功した Report を保持し、`completed_with_warnings` で統合する。
-3. **Budget / Idempotency** — Mission 予算を予約・精算し、`command_id` を重複実行防止キーとして使う。
-4. **Artifact Store** — 長い本文を Prompt にコピーせず、内容アドレス型 `artifact_id` だけを渡す。書き込みは安全な一時ファイル置換を使う。
-5. **階層 Cache / Checkpoint** — global / mission / commander / worker の Cache と、Mission／Stage 単位の Checkpoint を用意する。
-6. **Context Projection / Compaction** — 子へは `MISSION`、`CONSTRAINTS`、`RELEVANT_STATE`、`INPUT_REFERENCES`、`OUTPUT_SCHEMA` だけを渡し、古い会話・無関係な Tool schema を除外する。
-7. **Least Privilege** — 研究、コード、QA、動画計画など役割ごとに `allowed_tools` を分離する。Worker は読み取り・成果物・Trace のみ。
-8. **Trace / Progress / Cancellation** — 命令の開始・進捗・完了・失敗・取消を通常コードで記録し、親の取消を子へ伝播する。Trace に Prompt や秘密値は保存しない。
+## Provider / Modelに関する注意
 
-単純な重複排除、ハッシュ、Status 判定、予算、再試行・タイムアウトの管理は LLM に送らない。意味判断が必要な箇所だけ既存の GLM / DeepSeek アダプタへ渡す。
+この互換ランタイムには、Google / NVIDIA / GroqをCommander Provider、OpenRouterをWorker Providerとして扱う実装・テストが残っています。それは**現在のProvider readiness、無料枠、Exact Model ID、Quota、routing authorityを証明しません**。
 
-## 段階的導入状況
+Provider / Modelの実行可否は毎回、現行Registry、exact route evidence、cost/quota evidence、Policy、Probe結果を確認してください。古い文書に記録されたModel IDやRPM/RPD/日次上限を現在値として流用してはいけません。UnknownはFail Closedです。
 
-| Phase | 内容 | 状態 |
-|---:|---|---|
-| 1 | 現行階層の可視化 | 実装済み（本書と登録表） |
-| 2 | 決定的処理の分離 | 実装済み（ランタイム基盤） |
-| 3 | Command / Report Envelope | 実装済み |
-| 4 | 親子・Tool・Budget 権限制御 | 実装済み |
-| 5 | Fan-Out / Fan-In | 実装済み（上限付き） |
-| 6 | Cache / Artifact / Checkpoint | 実装済み（永続化可能なプリミティブ） |
-| 7 | Context 階層化・Compaction | 実装済み（投影関数） |
-| 8 | Tool Scope / Preset 分離 | 実装済み（AgentSpec） |
-| 9 | Queue / Idempotency / Cancellation | 実装済み（インメモリ基盤、外部 Queue は未接続） |
-| 10 | Trace / Observability | 実装済み（安全な JSONL／メモリ Trace） |
-| 11 | 総合テスト | 本 PR の標準ライブラリテストで検証 |
-| 12 | 性能比較 | 次段階。実運用データを収集してから比較 |
+OpenRouter等について過去に使用した数値上限やHard Stopは、当時の互換実装・回帰検証条件としてコードや履歴に残る場合があります。現在の外部Provider条件を意味しないため、実Provider利用前に最新の公式・アカウントEvidenceを再確認します。
 
-外部 AI は提案・批評・下書きを担当するだけで、最終承認、GitHub 書き込み、デプロイ、公開は ChatGPT Work 側の明示許可が必要である。既存 OSS の設計知見（例: [smolagents](https://github.com/huggingface/smolagents)、[MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo)）は参考にするが、依存導入や自動公開は行わず、既存本番の契約を優先する。
+## 現行Policyとの境界
 
-## 測定項目
+- ChatGPT / Workが最終Authorityです。
+- Paid DeepSeekの実行権限は `config/deepseek_paid_supervisor_policy.json` とcanonical supervisor workflowのScoped Exceptionだけです。
+- 互換Commander定義はDeepSeek Supervisor、Direct Specialist bypass、Deterministic Tool bypassを上書きしません。
+- 旧Registryやhistorical `enabled` flagは実行権限になりません。
+- `FREE_ONLY_MODE`等の既定安全境界、Auto Top-up禁止、Generic Paid Fallback禁止を維持します。
+- Provider readiness / quota / costは古い文書から推測せず、fresh evidenceを要求します。
+- main Push、PR Merge、Deploy、Publish、Secrets操作等はHuman Approval Gateを維持します。
 
-`CommandRuntime.metrics()` は、総トークン、LLM 呼び出し数、Mission 時間、Agent 数、平均深度・子数、並列率、Cache hit 率、重複・再処理数、失敗率、部分失敗率、Checkpoint 再開率、予算と Status 集計を返す。Phase 12 では現行 Workflow のベースラインと同じ Mission を比較し、品質低下がない場合だけ次の実装段階へ進める。
-
-## モデル選択
-
-役割とモデルの対応は [`config/model_registry.json`](../config/model_registry.json) に一元化する。GLM-5.3 Flash と DeepSeek V4 Flash はカタログ上の候補として隔離登録しているが、価格がゼロでないため現在は両司令官を非アクティブに保ち、無料・同役割候補が確認できるまでモデル呼び出しを行わない。
+この文書は互換実装を削除せず安全に保守・回帰検証するための資料であり、新規セッションのBootstrap文書としては使用しません。

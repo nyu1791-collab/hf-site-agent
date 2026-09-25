@@ -1,0 +1,25 @@
+{
+  "schema":"voicevox-dialogue-mission-v3",
+  "title":"アンスロピックのクロード悪用報告",
+  "intent":"VIDEO_CREATION_CURRENT_NEWS",
+  "generated_image_ai_allowed":false,
+  "generated_video_ai_allowed":false,
+  "public_publish":false,
+  "source_refs":[
+    "https://www.anthropic.com/threat-intelligence-report-september-2026"
+  ],
+  "dialogue":[
+    {"id":1,"speaker":"ずんだもん","emotion":"curious","text":"もう一本。アンスロピックが、クロードの悪用報告を公開しました。"},
+    {"id":2,"speaker":"四国めたん","emotion":"serious","text":"9月10日の報告では、2025年12月から2026年8月までに確認し、阻止した悪用事例をまとめています。"},
+    {"id":3,"speaker":"ずんだもん","emotion":"curious","text":"どんな悪用なの？"},
+    {"id":4,"speaker":"四国めたん","emotion":"explainer","text":"サイバー攻撃、世論操作、監視、詐欺、生物分野での悪用、通常兵器開発、そしてモデルの不正蒸留。7分野です。"},
+    {"id":5,"speaker":"ずんだもん","emotion":"surprised","text":"かなり広いね。"},
+    {"id":6,"speaker":"四国めたん","emotion":"serious","text":"報告には、中国を拠点とする利用者がクロードの会話、コーディング、エージェント機能を使い、電子戦向けソフトを反復開発した事例も含まれます。"},
+    {"id":7,"speaker":"ずんだもん","emotion":"warning","text":"それ、危なくない？"},
+    {"id":8,"speaker":"四国めたん","emotion":"serious","text":"アンスロピックは関連アカウントを停止し、追加監視を導入。必要に応じて当局や業界とも情報共有したと説明しています。"},
+    {"id":9,"speaker":"ずんだもん","emotion":"curious","text":"エーアイの能力が上がるほど、悪用も増えるの？"},
+    {"id":10,"speaker":"四国めたん","emotion":"clarifying","text":"少なくとも悪用の範囲は広がっています。ただし、この報告は阻止した事例が中心で、社会全体の発生率そのものを示す統計ではありません。"},
+    {"id":11,"speaker":"ずんだもん","emotion":"serious","text":"だから安全対策も同時に必要なんだ。"},
+    {"id":12,"speaker":"四国めたん","emotion":"summary","text":"そう。性能だけでなく、検知、遮断、監視、情報共有まで一緒に進化させられるかが重要です。"}
+  ]
+}

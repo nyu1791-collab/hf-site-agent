@@ -1,0 +1,43 @@
+{
+  "schema_version": "bulk-media-worker-pool-v1",
+  "effective_date_jst": "2026-09-12",
+  "status": "ACTIVE_BOUNDED_CAPABILITY",
+  "orchestrator": "scripts/batch_media_scheduler.py",
+  "job_runner_pool": {
+    "kind": "DETERMINISTIC_JOB_RUNNER",
+    "default_size": 1,
+    "hard_max_size": 3,
+    "dynamic_below_ceiling": true,
+    "stateless_between_jobs": true,
+    "job_scoped_workspace": true,
+    "writes_require_job_lease": true,
+    "worker_to_worker_delegation": false
+  },
+  "optional_ai_analysis_pool": {
+    "enabled": true,
+    "kind": "REPLACEABLE_SPECIALIST",
+    "hard_max_logical_workers": 3,
+    "default_route_requirement": "CURRENT_VERIFIED_FREE_OR_PREAUTHORIZED_SCOPE_ONLY",
+    "allowed_tasks": ["HIGHLIGHT_CANDIDATE_RANKING", "HOOK_OR_PAYOFF_REVIEW", "CAPTION_LANGUAGE_CLEANUP", "METADATA_VARIANTS", "ANALYTICS_TRIAGE"],
+    "forbidden_tasks": ["RIGHTS_AUTHORITY", "FFPROBE_OR_DECODE_TRUTH", "MANIFEST_COMMIT", "PAYMENT", "PUBLISH", "DEPLOY", "SECRET_MUTATION", "GENERIC_PAID_FALLBACK"],
+    "max_judgmental_verifiers_per_clip": 1,
+    "no_peer_debate": true,
+    "benchmark_before_promotion": true
+  },
+  "resource_defaults": {"cpu_slots": 3, "memory_mb": 6144, "disk_mb": 12288, "provider_slots": 3},
+  "backpressure": {
+    "NORMAL": {"parallel_ceiling": 3},
+    "DEGRADED": {"parallel_ceiling": 1},
+    "PAUSED": {"parallel_ceiling": 0}
+  },
+  "safety": {
+    "auto_top_up": false,
+    "generic_paid_fallback": false,
+    "paid_media_generation": false,
+    "repository_write_by_external_ai": false,
+    "publish": false,
+    "deploy": false,
+    "merge": false,
+    "secret_mutation_or_disclosure": false
+  }
+}

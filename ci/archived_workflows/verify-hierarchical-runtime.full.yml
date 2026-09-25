@@ -1,0 +1,250 @@
+name: Verify hierarchical command runtime
+
+on:
+  pull_request:
+    paths:
+      - "scripts/agent_runtime.py"
+      - "scripts/validate_hierarchy.py"
+      - "scripts/preflight_openrouter_models.py"
+      - "tests/test_model_registry.py"
+      - "config/model_registry.json"
+      - "scripts/model_registry.py"
+      - "docs/MODEL_REGISTRY.md"
+      - "scripts/model_watch.py"
+      - "tests/test_free_quota.py"
+      - "scripts/probe_free_models.py"
+      - "scripts/free_quota.py"
+      - "scripts/agent_delegation.py"
+      - "scripts/agent_executor.py"
+      - "tests/test_agent_executor.py"
+      - "schemas/command_envelope.schema.json"
+      - "schemas/report_envelope.schema.json"
+      - "tests/test_agent_runtime.py"
+      - "tests/test_agent_delegation.py"
+      - "scripts/audit_secret_safety.py"
+      - "tests/test_secret_safety.py"
+      - "config/provider_registry.json"
+      - "scripts/provider_registry.py"
+      - "scripts/provider_adapters.py"
+      - "scripts/direct_api_validation.py"
+      - "tests/test_provider_registry.py"
+      - "tests/test_provider_adapters.py"
+      - "tests/test_direct_api_validation.py"
+      - "schemas/direct_api_report.schema.json"
+      - "docs/DIRECT_API_VALIDATION.md"
+      - "scripts/provider_controls.py"
+      - "tests/test_provider_controls.py"
+      - "scripts/worker_selection.py"
+      - "tests/test_worker_selection.py"
+      - "scripts/commander_routing.py"
+      - "tests/test_commander_routing.py"
+      - "scripts/probe_providers.py"
+      - "scripts/provider_smoke.py"
+      - "tests/test_probe_providers.py"
+      - "scripts/probe_free_workers.py"
+      - "tests/test_probe_free_workers.py"
+      - "scripts/live_probe_plan.py"
+      - "tests/test_live_probe_plan.py"
+      - "schemas/live_probe_plan.schema.json"
+      - "scripts/provider_catalog_snapshot.py"
+      - "tests/test_provider_catalog_snapshot.py"
+      - "schemas/provider_catalog_snapshot.schema.json"
+      - "scripts/live_probe_gate.py"
+      - "tests/test_live_probe_gate.py"
+      - "scripts/mission_scheduler.py"
+      - "scripts/autonomous_mission.py"
+      - "scripts/staging_mission.py"
+      - "tests/test_mission_scheduler.py"
+      - "tests/test_autonomous_mission.py"
+      - "tests/test_staging_mission.py"
+      - "schemas/mission_task.schema.json"
+      - "schemas/mission_scheduler_report.schema.json"
+      - "schemas/autonomous_mission_report.schema.json"
+      - "docs/PHASE6_MISSION_RUNTIME.md"
+      - "scripts/provider_readiness.py"
+      - "tests/test_provider_readiness.py"
+      - "scripts/free_evidence.py"
+      - "scripts/provider_evidence.py"
+      - "scripts/secure_account_evidence.py"
+      - "scripts/validate_secure_evidence.py"
+      - "scripts/classify_carrier_failure.py"
+      - "scripts/run_live_staging_from_probe.py"
+      - "scripts/execution_scope.py"
+      - "scripts/live_staging_runner.py"
+      - "tests/test_free_evidence.py"
+      - "tests/test_secure_account_evidence.py"
+      - "tests/test_classify_carrier_failure.py"
+      - "tests/test_carrier_workflow.py"
+      - "tests/test_execution_scope.py"
+      - "tests/test_live_staging_runner.py"
+      - "docs/MODEL_REGISTRY.md"
+      - "tests/test_mission_matrix.py"
+      - "tests/fixtures/command_envelope.json"
+      - "tests/fixtures/report_envelope.json"
+      - "docs/HIERARCHICAL_RUNTIME.md"
+      - ".github/workflows/verify-hierarchical-runtime.yml"
+      - ".github/workflows/secure-account-evidence.yml"
+      - ".github/workflows/probe-free-models.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/agent_delegation.py"
+      - "scripts/agent_executor.py"
+      - "tests/test_agent_executor.py"
+      - "scripts/model_registry.py"
+      - "scripts/model_watch.py"
+      - "config/model_registry.json"
+      - "tests/test_model_registry.py"
+      - "tests/test_agent_delegation.py"
+      - "docs/COMMANDER_RELIABILITY.md"
+      - "scripts/agent_runtime.py"
+      - "scripts/validate_hierarchy.py"
+      - "scripts/preflight_openrouter_models.py"
+      - "schemas/command_envelope.schema.json"
+      - "schemas/report_envelope.schema.json"
+      - "tests/test_agent_runtime.py"
+      - "tests/fixtures/command_envelope.json"
+      - "tests/fixtures/report_envelope.json"
+      - "scripts/audit_secret_safety.py"
+      - "tests/test_secret_safety.py"
+      - "config/provider_registry.json"
+      - "scripts/provider_registry.py"
+      - "scripts/provider_adapters.py"
+      - "scripts/direct_api_validation.py"
+      - "tests/test_provider_registry.py"
+      - "tests/test_provider_adapters.py"
+      - "tests/test_direct_api_validation.py"
+      - "schemas/direct_api_report.schema.json"
+      - "docs/DIRECT_API_VALIDATION.md"
+      - "scripts/provider_controls.py"
+      - "tests/test_provider_controls.py"
+      - "scripts/worker_selection.py"
+      - "tests/test_worker_selection.py"
+      - "scripts/commander_routing.py"
+      - "tests/test_commander_routing.py"
+      - "scripts/probe_providers.py"
+      - "scripts/provider_smoke.py"
+      - "tests/test_probe_providers.py"
+      - "scripts/probe_free_workers.py"
+      - "tests/test_probe_free_workers.py"
+      - "scripts/live_probe_plan.py"
+      - "tests/test_live_probe_plan.py"
+      - "schemas/live_probe_plan.schema.json"
+      - "scripts/provider_catalog_snapshot.py"
+      - "tests/test_provider_catalog_snapshot.py"
+      - "schemas/provider_catalog_snapshot.schema.json"
+      - "scripts/live_probe_gate.py"
+      - "tests/test_live_probe_gate.py"
+      - "scripts/mission_scheduler.py"
+      - "scripts/autonomous_mission.py"
+      - "scripts/staging_mission.py"
+      - "tests/test_mission_scheduler.py"
+      - "tests/test_autonomous_mission.py"
+      - "tests/test_staging_mission.py"
+      - "schemas/mission_task.schema.json"
+      - "schemas/mission_scheduler_report.schema.json"
+      - "schemas/autonomous_mission_report.schema.json"
+      - "docs/PHASE6_MISSION_RUNTIME.md"
+      - "scripts/provider_readiness.py"
+      - "tests/test_provider_readiness.py"
+      - "scripts/free_evidence.py"
+      - "scripts/provider_evidence.py"
+      - "scripts/secure_account_evidence.py"
+      - "scripts/validate_secure_evidence.py"
+      - "scripts/classify_carrier_failure.py"
+      - "scripts/run_live_staging_from_probe.py"
+      - "scripts/execution_scope.py"
+      - "scripts/live_staging_runner.py"
+      - "tests/test_free_evidence.py"
+      - "tests/test_secure_account_evidence.py"
+      - "tests/test_classify_carrier_failure.py"
+      - "tests/test_carrier_workflow.py"
+      - "tests/test_execution_scope.py"
+      - "tests/test_live_staging_runner.py"
+      - "docs/MODEL_REGISTRY.md"
+      - "tests/test_mission_matrix.py"
+      - "docs/HIERARCHICAL_RUNTIME.md"
+      - ".github/workflows/verify-hierarchical-runtime.yml"
+      - ".github/workflows/secure-account-evidence.yml"
+      - ".github/workflows/probe-free-models.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hierarchical-runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  runtime-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source without write credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install bounded OpenAI-compatible client
+        run: python -m pip install --disable-pip-version-check --no-input "openai>=1.0,<2"
+      - name: Compile deterministic runtime
+        run: python -m py_compile scripts/agent_runtime.py scripts/model_registry.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py scripts/agent_delegation.py scripts/agent_executor.py scripts/free_quota.py scripts/probe_free_models.py scripts/probe_free_workers.py scripts/model_watch.py scripts/audit_secret_safety.py scripts/provider_registry.py scripts/provider_adapters.py scripts/provider_controls.py scripts/worker_selection.py scripts/commander_routing.py scripts/probe_providers.py scripts/provider_smoke.py scripts/direct_api_validation.py scripts/free_evidence.py scripts/provider_evidence.py scripts/secure_account_evidence.py scripts/validate_secure_evidence.py scripts/classify_carrier_failure.py scripts/run_live_staging_from_probe.py scripts/execution_scope.py scripts/live_staging_runner.py scripts/compute_provider_registry.py scripts/modal_cost_guard.py scripts/modal_adapter.py scripts/modal_validation.py scripts/live_probe_plan.py scripts/provider_catalog_snapshot.py scripts/live_probe_gate.py scripts/provider_readiness.py scripts/mission_scheduler.py scripts/autonomous_mission.py scripts/staging_mission.py tests/test_free_quota.py tests/test_agent_runtime.py tests/test_agent_delegation.py tests/test_agent_executor.py tests/test_model_registry.py tests/test_secret_safety.py tests/test_provider_registry.py tests/test_provider_adapters.py tests/test_provider_controls.py tests/test_worker_selection.py tests/test_commander_routing.py tests/test_probe_providers.py tests/test_probe_free_workers.py tests/test_direct_api_validation.py tests/test_free_evidence.py tests/test_secure_account_evidence.py tests/test_classify_carrier_failure.py tests/test_carrier_workflow.py tests/test_execution_scope.py tests/test_live_staging_runner.py tests/test_mission_matrix.py tests/test_compute_provider_registry.py tests/test_modal_cost_guard.py tests/test_modal_adapter.py tests/test_modal_validation.py tests/test_live_probe_plan.py tests/test_provider_catalog_snapshot.py tests/test_live_probe_gate.py tests/test_provider_readiness.py tests/test_mission_scheduler.py tests/test_autonomous_mission.py tests/test_staging_mission.py
+      - name: Validate JSON schemas and fixtures
+        run: |
+          python -m json.tool schemas/command_envelope.schema.json >/dev/null
+          python -m json.tool schemas/report_envelope.schema.json >/dev/null
+          python -m json.tool schemas/direct_api_report.schema.json >/dev/null
+          python -m json.tool schemas/modal_validation_report.schema.json >/dev/null
+          python -m json.tool schemas/modal_cost_ledger.schema.json >/dev/null
+          python -m json.tool schemas/live_probe_plan.schema.json >/dev/null
+          python -m json.tool schemas/provider_catalog_snapshot.schema.json >/dev/null
+          python -m json.tool schemas/secure_account_evidence.schema.json >/dev/null
+          python -m json.tool schemas/mission_task.schema.json >/dev/null
+          python -m json.tool schemas/mission_scheduler_report.schema.json >/dev/null
+          python -m json.tool schemas/autonomous_mission_report.schema.json >/dev/null
+          python -m json.tool config/provider_registry.json >/dev/null
+          python -m json.tool config/compute_provider_registry.json >/dev/null
+          python - <<'PY'
+          from scripts.provider_registry import load_provider_registry
+          from scripts.compute_provider_registry import load_compute_provider_registry
+          load_provider_registry()
+          print("provider registry ok")
+          load_compute_provider_registry()
+          print("compute provider registry ok")
+          PY
+          python scripts/direct_api_validation.py --output artifacts/direct_api_report.json >/dev/null
+          python -m json.tool artifacts/direct_api_report.json >/dev/null
+          python scripts/modal_validation.py --output artifacts/modal_validation_report.json >/dev/null
+          python -m json.tool artifacts/modal_validation_report.json >/dev/null
+          python scripts/live_probe_plan.py --output artifacts/live_probe_plan.json >/dev/null
+          python -m json.tool artifacts/live_probe_plan.json >/dev/null
+          python scripts/secure_account_evidence.py --output artifacts/secure_account_evidence.json >/dev/null
+          python scripts/validate_secure_evidence.py --input artifacts/secure_account_evidence.json >/dev/null
+          python scripts/staging_mission.py --output artifacts/phase6_staging_report.json
+          python -m json.tool artifacts/phase6_staging_report.json >/dev/null
+          python scripts/validate_hierarchy.py \
+            --command tests/fixtures/command_envelope.json \
+            --report tests/fixtures/report_envelope.json
+      - name: Run runtime tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Audit repository for secret literals
+        run: python scripts/audit_secret_safety.py --root .
+      - name: Assert chain of command and least privilege
+        run: |
+          python - <<'PY'
+          from scripts.agent_runtime import AgentRegistry
+
+          registry = AgentRegistry()
+          assert registry.can_dispatch("chatgpt-work", "google-general-commander")
+          assert registry.can_dispatch("chatgpt-work", "nvidia-engineering-commander")
+          assert registry.can_dispatch("chatgpt-work", "groq-rapid-commander")
+          assert not registry.can_dispatch("google-general-commander", "nvidia-engineering-commander")
+          assert not registry.can_dispatch("content-specialist", "google-general-commander")
+          assert not registry.get("content-worker").may_spawn_children
+          assert registry.get("content-worker").provider_id == "openrouter"
+          assert "github_write" not in registry.get("research-specialist").allowed_tools
+          print(registry.tree())
+          PY

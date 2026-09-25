@@ -1,93 +1,193 @@
 name: Verify hierarchical command runtime
 
 on:
-  pull_request:
-    paths:
-      - "scripts/agent_runtime.py"
-      - "scripts/validate_hierarchy.py"
-      - "scripts/preflight_openrouter_models.py"
-      - "tests/test_model_registry.py"
-      - "config/model_registry.json"
-      - "scripts/model_registry.py"
-      - "docs/MODEL_REGISTRY.md"
-      - "scripts/model_watch.py"
-      - "tests/test_free_quota.py"
-      - "scripts/probe_free_models.py"
-      - "scripts/free_quota.py"
-      - "scripts/agent_delegation.py"
-      - "schemas/command_envelope.schema.json"
-      - "schemas/report_envelope.schema.json"
-      - "tests/test_agent_runtime.py"
-      - "tests/test_agent_delegation.py"
-      - "tests/fixtures/command_envelope.json"
-      - "tests/fixtures/report_envelope.json"
-      - "docs/HIERARCHICAL_RUNTIME.md"
-      - ".github/workflows/verify-hierarchical-runtime.yml"
   push:
-    branches: [main]
+    branches:
+      - ai-army/provider-v3
+      - main
     paths:
-      - "scripts/agent_delegation.py"
-      - "scripts/model_registry.py"
-      - "scripts/model_watch.py"
-      - "config/model_registry.json"
-      - "tests/test_model_registry.py"
-      - "tests/test_agent_delegation.py"
-      - "docs/COMMANDER_RELIABILITY.md"
-      - "scripts/agent_runtime.py"
-      - "scripts/validate_hierarchy.py"
-      - "scripts/preflight_openrouter_models.py"
-      - "schemas/command_envelope.schema.json"
-      - "schemas/report_envelope.schema.json"
-      - "tests/test_agent_runtime.py"
-      - "tests/fixtures/command_envelope.json"
-      - "tests/fixtures/report_envelope.json"
-      - "docs/HIERARCHICAL_RUNTIME.md"
-      - ".github/workflows/verify-hierarchical-runtime.yml"
+      - ".github/workflows/**"
+      - "scripts/**"
+      - "config/**"
+      - "schemas/**"
+      - "tests/**"
+      - "worker/**"
+      - "hf-space/**"
+      - "requirements*.txt"
+      - "missions/jev-trial/**"
+      - "missions/jev-benchmark/**"
+      - "missions/jev-lean/**"
+      - "missions/jev-primary-benchmark/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: hierarchical-runtime-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  group: ai-army-core-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   runtime-contracts:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+    runs-on: ubuntu-slim
+    timeout-minutes: 12
     steps:
-      - name: Checkout source without write credentials
+      - name: Checkout exact source without write credentials
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Install bounded OpenAI-compatible client
+      - name: Install bounded client dependency
         run: python -m pip install --disable-pip-version-check --no-input "openai>=1.0,<2"
-      - name: Compile deterministic runtime
-        run: python -m py_compile scripts/agent_runtime.py scripts/model_registry.py scripts/validate_hierarchy.py scripts/preflight_openrouter_models.py scripts/agent_delegation.py scripts/agent_executor.py scripts/free_quota.py scripts/probe_free_models.py scripts/model_watch.py tests/test_free_quota.py tests/test_agent_runtime.py tests/test_agent_delegation.py tests/test_model_registry.py
-      - name: Validate JSON schemas and fixtures
-        run: |
-          python -m json.tool schemas/command_envelope.schema.json >/dev/null
-          python -m json.tool schemas/report_envelope.schema.json >/dev/null
-          python scripts/validate_hierarchy.py \
-            --command tests/fixtures/command_envelope.json \
-            --report tests/fixtures/report_envelope.json
-      - name: Run runtime tests
-        run: python -m unittest discover -s tests -p 'test_*.py' -v
-      - name: Assert chain of command and least privilege
+      - name: Compile Python source without executing providers
         run: |
           python - <<'PY'
-          from scripts.agent_runtime import AgentRegistry
+          import compileall
+          assert compileall.compile_dir('scripts', quiet=1)
+          assert compileall.compile_dir('tests', quiet=1)
+          print('PYTHON_COMPILE=PASS')
+          PY
+      - name: Validate policy and schema JSON
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for root in ('config', 'schemas'):
+              for path in sorted(Path(root).rglob('*.json')):
+                  json.loads(path.read_text(encoding='utf-8'))
+          print('JSON_VALIDATION=PASS')
+          PY
+      - name: Enforce bounded CI control plane
+        run: python scripts/ci_control_plane_guard.py
+      - name: Run bounded core regression set
+        run: |
+          python -m unittest \
+            tests.test_model_registry \
+            tests.test_agent_runtime \
+            tests.test_agent_delegation \
+            tests.test_agent_executor \
+            tests.test_provider_controls \
+            tests.test_worker_selection \
+            tests.test_commander_routing \
+            tests.test_mission_scheduler \
+            tests.test_autonomous_mission \
+            tests.test_staging_mission \
+            tests.test_framework_adapter_layer \
+            tests.test_framework_parallel_governor \
+            tests.test_free_media_capability_router \
+            tests.test_failure_aware_specialist_council \
+            tests.test_adaptive_retry_and_compact_nvidia \
+            tests.test_subordinate_continuation_carrier \
+            tests.test_replace_narration_audio \
+            tests.test_media_asset_resolver \
+            -v
+      - name: Run parallel batch five-domain Jev trial
+        if: ${{ hashFiles('missions/jev-trial/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m scripts.jev_five_domain_parallel_trial --output artifacts/jev_five_domain_parallel_trial.json
 
-          registry = AgentRegistry()
-          assert registry.can_dispatch("chatgpt-work", "glm-general-commander")
-          assert registry.can_dispatch("chatgpt-work", "deepseek-engineering-commander")
-          assert not registry.can_dispatch("glm-general-commander", "deepseek-engineering-commander")
-          assert not registry.can_dispatch("content-specialist", "glm-general-commander")
-          assert not registry.get("content-worker").may_spawn_children
-          assert "github_write" not in registry.get("research-specialist").allowed_tools
-          print(registry.tree())
+      - name: Upload Jev five-domain evidence
+        if: ${{ always() && hashFiles('missions/jev-trial/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-five-domain-trial-${{ github.run_id }}
+          path: artifacts/jev_five_domain_parallel_trial.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Run Jev routing A/B benchmark
+        if: ${{ hashFiles('missions/jev-benchmark/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m scripts.jev_route_ab_benchmark --output artifacts/jev_route_ab_benchmark.json
+
+      - name: Upload Jev routing A/B evidence
+        if: ${{ always() && hashFiles('missions/jev-benchmark/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-route-ab-${{ github.run_id }}
+          path: artifacts/jev_route_ab_benchmark.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Run Jev candidate-cardinality and profile benchmark
+        if: ${{ hashFiles('missions/jev-benchmark/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m scripts.jev_cardinality_benchmark --output artifacts/jev_cardinality_benchmark.json
+
+      - name: Upload Jev cardinality evidence
+        if: ${{ always() && hashFiles('missions/jev-benchmark/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-cardinality-${{ github.run_id }}
+          path: artifacts/jev_cardinality_benchmark.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Run Jev 3-question vs 2-question benchmark
+        if: ${{ hashFiles('missions/jev-lean/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m scripts.jev_lean_route_benchmark --output artifacts/jev_lean_route_benchmark.json
+
+      - name: Upload Jev lean-route evidence
+        if: ${{ always() && hashFiles('missions/jev-lean/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-lean-route-${{ github.run_id }}
+          path: artifacts/jev_lean_route_benchmark.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Run Jev primary-one vs lean-two benchmark
+        if: ${{ hashFiles('missions/jev-primary-benchmark/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m scripts.jev_primary_route_benchmark --output artifacts/jev_primary_route_benchmark.json
+
+      - name: Upload Jev primary-route evidence
+        if: ${{ always() && hashFiles('missions/jev-primary-benchmark/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-primary-route-${{ github.run_id }}
+          path: artifacts/jev_primary_route_benchmark.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Validate JavaScript source syntax
+        run: |
+          test ! -f worker/index.js || node --check worker/index.js
+          test ! -f worker/ai-ops-audit.mjs || node --check worker/ai-ops-audit.mjs
+          test ! -f hf-space/app.js || node --check hf-space/app.js
+      - name: Audit repository for secret literals
+        run: python scripts/audit_secret_safety.py --root .
+      - name: Assert production authority remains human-gated
+        run: |
+          python - <<'PY'
+          from scripts.value_optimized_routing import load_value_config
+          p = load_value_config()
+          h = p['hard_boundaries']
+          assert h['merge_requires_human_approval'] is True
+          assert h['deploy_requires_human_approval'] is True
+          assert h['publish_requires_human_approval'] is True
+          assert h['secret_mutation_requires_human_approval'] is True
+          assert p['cost_governor']['generic_paid_fallback'] is False
+          assert p['cost_governor']['auto_top_up'] is False
+          print('AUTHORITY_BOUNDARIES=PASS')
           PY

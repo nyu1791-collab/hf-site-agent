@@ -1,0 +1,100 @@
+{
+  "schema_version": "video-creation-admission-v1",
+  "effective_date_jst": "2026-09-24",
+  "status": "ENFORCED_PERMANENT_STANDARD",
+  "purpose": "Make every VIDEO_CREATION request restore the repository media rules before rendering, including the mandatory local VOICEVOX cast.",
+  "semantic_trigger": "VIDEO_CREATION",
+  "required_read_set": [
+    "config/current_commander_handoff.json",
+    "config/permanent_standards_manifest.json",
+    "config/free_execution_guard.json",
+    "config/media_command_read_gate.json",
+    "config/media_audio_motion_retention_policy.json",
+    "docs/MEDIA_PIPELINE.md",
+    "config/session_stream_resilience_policy.json",
+    "config/zundamon_news60_template.json",
+    "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+    "scripts/validate_zundamon_news60_template.py"
+  ],
+  "voice_contract": {
+    "engine": "VOICEVOX_LOCAL",
+    "primary_voice": "ずんだもん",
+    "secondary_voice_when_dialogue_helps": "四国めたん",
+    "standard_cast": [
+      "ずんだもん",
+      "四国めたん"
+    ],
+    "runtime_speaker_discovery_required": true,
+    "actual_wav_duration_drives_timeline": true,
+    "voicevox_unavailable_action": "BLOCK_BEFORE_RENDER",
+    "silent_video_fallback": false
+  },
+  "caption_contract": {
+    "full_spoken_text_required": true,
+    "every_spoken_turn_must_have_visible_caption": true,
+    "caption_source_of_truth": "MEASURED_TIMING_MANIFEST_WITH_FULL_SPOKEN_TEXT",
+    "summary_caption_may_not_replace_narration": true,
+    "caption_coverage_ratio_minimum": 0.7,
+    "caption_contract_name": "FULL_SPOKEN_TEXT",
+    "speaker_colors": {
+      "ずんだもん": "#4DE084",
+      "四国めたん": "#FF5BB9"
+    },
+    "important_term_colors": [
+      "#FFEB3B",
+      "#F44336"
+    ],
+    "renderer": "scripts/render_static_speaker_color_longform.py",
+    "validator": "scripts/validate_video_caption_contract.py"
+  },
+  "visual_asset_contract": {
+    "claim_bearing_news_requires_related_visual_plan": true,
+    "search_or_registered_cache_before_render": true,
+    "source_page_required": true,
+    "asset_locator_required": true,
+    "license_or_public_domain_state_required": true,
+    "scene_or_claim_mapping_required": true,
+    "semantic_match_required": true,
+    "generated_factual_background_default": false,
+    "unknown_rights_action": "BLOCK_BEFORE_RENDER",
+    "visual_provenance_manifest_required": true,
+    "renderer_reads": "config/media_reusable_asset_standard.json"
+  },
+  "free_execution_contract": {
+    "local_voicevox_only": true,
+    "paid_or_freemium_tts": false,
+    "paid_media_substitution": false,
+    "external_voice_provider_probe": false
+  },
+  "cross_tab_contract": {
+    "repository_read_required_on_every_new_tab": true,
+    "video_request_reopens_this_gate": true,
+    "chat_memory_cannot_override": true,
+    "missing_or_stale_policy_blocks_render": true
+  },
+  "artifact_contract": {
+    "must_include_voice_timing_manifest": true,
+    "must_include_voicevox_credit": true,
+    "must_pass_ffprobe_and_decode": true
+  },
+  "durable_execution_contract": {
+    "session_stream_resilience_policy": "config/session_stream_resilience_policy.json",
+    "chat_stream_is_not_execution_authority": true,
+    "durable_runner_required_when_long_running_job_would_otherwise_depend_on_one_live_chat_stream": true,
+    "recover_from_repository_and_verified_artifacts_after_disconnect": true
+  },
+  "shortform_zundamon_news60_profile": {
+    "machine_template": "config/zundamon_news60_template.json",
+    "human_prompt": "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+    "validator": "scripts/validate_zundamon_news60_template.py",
+    "scope_seconds": [
+      55,
+      60
+    ],
+    "default_for_scoped_shortform": true,
+    "measured_voicevox_timing_required": true,
+    "explicit_critical_highlights_only": true,
+    "voice_synchronized_mouth_and_semantic_facial_expression_required": true,
+    "static_character_renderer_allowed": false
+  }
+}

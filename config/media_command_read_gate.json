@@ -1,0 +1,335 @@
+{
+  "schema_version": "media-command-read-gate-v12",
+  "effective_date_jst": "2026-09-25",
+  "status": "ENFORCED_STANDARD",
+  "decision_owner": "chatgpt-top-commander",
+  "purpose": "RESTORE_ONLY_CURRENT_INTENT_RELEVANT_MEDIA_KNOW_HOW_THEN_PARALLELIZE_ONLY_WHEN_EXPECTED_WALL_CLOCK_GAIN_EXCEEDS_COORDINATION_OVERHEAD_WITH_SINGLE_WRITER_INTEGRATION",
+  "source_of_truth": "CURRENT_REPOSITORY_AT_EXACT_HEAD",
+  "semantic_triggering": {
+    "classify_by_meaning_not_literal_keywords": true,
+    "mixed_intents_are_additive": true,
+    "compound_shop_clipping_must_expand_to_both_shop_and_clipping": true,
+    "generic_shopping_or_product_selling_requires_platform_resolution": true,
+    "platform_specific_rules_are_not_universal_cross_platform_law": true,
+    "supported_intents": [
+      "VIDEO_CREATION",
+      "CLIPPING_REPURPOSING",
+      "TIKTOK_SHOP_COMMERCE"
+    ]
+  },
+  "execution_gate": {
+    "must_resolve_required_read_set_before_planning": true,
+    "must_finish_required_read_set_before_external_side_effects": true,
+    "must_use_current_repository_versions": true,
+    "stale_summary_cannot_replace_repository_policy": true,
+    "machine_policy_overrides_conflicting_human_prose": true,
+    "missing_required_file": "BLOCK_RELEVANT_MEDIA_EXECUTION"
+  },
+  "knowledge_restore_execution": {
+    "resolve_required_paths_as_union": true,
+    "deduplicate_paths_before_read": true,
+    "repository_reads_may_run_in_parallel": true,
+    "max_parallel_repository_reads": 4,
+    "machine_policies_before_human_playbooks": true,
+    "exact_same_head_and_blob_cache_allowed": true,
+    "cache_scope": "ACTIVE_MEDIA_TASK_OR_SESSION",
+    "cache_key_fields": [
+      "repository",
+      "head_sha",
+      "path",
+      "blob_sha"
+    ],
+    "invalidate_cache_on_head_or_blob_change": true,
+    "do_not_open_same_blob_twice_in_one_gate_run": true,
+    "longform_sources_only_when_longform_intent": true,
+    "claim_governance_only_when_claim_bearing_or_commerce_or_current_factual": true,
+    "shop_clipping_must_union_shop_and_clipping_knowhow": true,
+    "commerce_clipping_precision_overlay_required_for_relevant_intents": true
+  },
+  "common_media_read_set": [
+    "config/current_commander_handoff.json",
+    "config/permanent_standards_manifest.json",
+    "config/free_execution_guard.json",
+    "config/video_creation_admission_policy.json",
+    "docs/AI_ARMY_MASTER_RULEBOOK.md",
+    "config/multi_agent_operating_policy.json",
+    "config/agent_efficiency_policy.json",
+    "config/evidence_visual_static_character_policy.json",
+    "docs/EVIDENCE_VISUAL_AND_STATIC_CHARACTER_STANDARD.md",
+    "config/media_audio_motion_retention_policy.json",
+    "config/media_reusable_asset_standard.json",
+    "config/media_character_reaction_cache_policy.json",
+    "config/media_character_performance_compact_orchestration_policy.json",
+    "docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md",
+    "config/zundamon_metan_production_quality_policy.json",
+    "docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md",
+    "scripts/validate_video_caption_contract.py",
+    "config/free_audio_source_registry.json",
+    "config/dova_curated_bgm_catalog.json",
+    "config/media_speed_quality_policy.json",
+    "scripts/media_speed_orchestrator.py",
+    "scripts/validate_media_speed_quality.py",
+    "scripts/seal_media_speed_checkpoint.py",
+    "docs/MEDIA_PIPELINE.md"
+  ],
+  "trigger_sets": {
+    "VIDEO_CREATION": {
+      "required": [
+        "config/media_source_policy.json",
+        "config/video_creation_admission_policy.json",
+        "scripts/video_creation_admission.py",
+        "config/zundamon_news60_template.json",
+        "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+        "scripts/validate_zundamon_news60_template.py"
+      ],
+      "conditional": {
+        "if_longform": [
+          "config/longform_video_objectives.json",
+          "config/longform_video_reliability_policy.json",
+          "docs/LONGFORM_VIDEO_OBJECTIVES.md",
+          "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+          "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md",
+          "config/ymm4_research_explainer_profile.json",
+          "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
+          "examples/ymm4_research_explainer_script_template.json",
+          "scripts/prepare_ymm4_research_explainer_package.py",
+          "scripts/export_ymm4_script.py"
+        ],
+        "if_claim_bearing_or_current_factual_content": [
+          "config/cross_source_knowhow_evidence_matrix.json",
+          "config/cross_domain_measurement_registry.json",
+          "config/cross_source_second_pass_policy.json",
+          "config/second_pass_artifact_contracts.json",
+          "docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md",
+          "docs/CROSS_SOURCE_SECOND_PASS_2026-09-13.md"
+        ]
+      }
+    },
+    "CLIPPING_REPURPOSING": {
+      "required": [
+        "config/authorized_clipping_monetization_policy.json",
+        "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
+        "config/commerce_clipping_precision_overlay.json",
+        "docs/COMMERCE_CLIPPING_PRECISION_REFRESH_2026-09-15.md",
+        "config/batch_media_orchestration_policy.json",
+        "docs/BATCH_MEDIA_ORCHESTRATION.md",
+        "docs/MEDIA_BATCH_COMMAND_CENTER.md",
+        "config/media_source_policy.json"
+      ],
+      "conditional": {
+        "if_claim_bearing_or_current_factual_content": [
+          "config/cross_source_knowhow_evidence_matrix.json",
+          "config/cross_domain_measurement_registry.json",
+          "config/cross_source_second_pass_policy.json",
+          "config/second_pass_artifact_contracts.json"
+        ]
+      }
+    },
+    "TIKTOK_SHOP_COMMERCE": {
+      "required": [
+        "config/tiktok_shop_influence_policy.json",
+        "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
+        "config/commerce_clipping_precision_overlay.json",
+        "docs/COMMERCE_CLIPPING_PRECISION_REFRESH_2026-09-15.md",
+        "config/cross_source_knowhow_evidence_matrix.json",
+        "config/cross_domain_measurement_registry.json",
+        "config/cross_source_second_pass_policy.json",
+        "config/second_pass_artifact_contracts.json",
+        "config/media_source_policy.json"
+      ],
+      "conditional": {
+        "if_existing_or_third_party_media_is_repurposed": [
+          "config/authorized_clipping_monetization_policy.json",
+          "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
+          "config/batch_media_orchestration_policy.json",
+          "docs/BATCH_MEDIA_ORCHESTRATION.md",
+          "docs/MEDIA_BATCH_COMMAND_CENTER.md"
+        ]
+      }
+    }
+  },
+  "mixed_intent_expansions": {
+    "SHOP_CLIPPING": [
+      "TIKTOK_SHOP_COMMERCE",
+      "CLIPPING_REPURPOSING"
+    ],
+    "SHOP_VIDEO": [
+      "TIKTOK_SHOP_COMMERCE",
+      "VIDEO_CREATION"
+    ],
+    "SHOP_CLIPPING_VIDEO": [
+      "TIKTOK_SHOP_COMMERCE",
+      "CLIPPING_REPURPOSING",
+      "VIDEO_CREATION"
+    ]
+  },
+  "parallel_execution_standard": {
+    "independent_read_only_lanes_may_start_concurrently": true,
+    "independent_media_jobs_may_start_concurrently_after_admission": true,
+    "max_direct_parallel_corps": 3,
+    "dependency_join_required": true,
+    "same_mutable_output_requires_single_writer": true,
+    "rights_and_claim_gates_cannot_be_skipped_for_speed": true,
+    "deterministic_mechanical_work_prefers_tools_over_agent_debate": true,
+    "duplicate_agents_for_majority_vote_by_default": false,
+    "backpressure_must_reduce_parallelism_before_quality_gates": true,
+    "parallelism_requires_expected_wall_clock_gain_above_coordination_overhead": true,
+    "default_judgmental_media_pair": [
+      "ChatGPT",
+      "DeepSeek"
+    ],
+    "research_and_script_are_one_combined_judgment_stage_by_default": true,
+    "avoid_small_agent_handoffs_for_routine_script_work": true,
+    "recommended_independent_lanes": [
+      "chatgpt_deepseek_research_and_script_pair",
+      "rights_and_claim_verification_when_independent",
+      "deterministic_automation_or_asset_preparation_when_independent"
+    ]
+  },
+  "know_how_that_must_be_recovered": {
+    "common": [
+      "ChatGPT remains final commander and integrator",
+      "for normal media research and script authoring, ChatGPT plus DeepSeek operate as the default compact judgmental pair rather than creating separate routine research, writer, rewriter and reviewer agents",
+      "parallelize only independent work when expected wall-clock savings exceed handoff and coordination overhead; join dependencies explicitly",
+      "single writer owns each mutable output",
+      "searched official or primary-source evidence visuals are the default for factual/news backgrounds; generated background images are not the default",
+      "generated visuals must never be presented as factual evidence, and public use of copied source imagery still requires verified reuse rights or another permissible basis",
+      "Zundamon and Shikoku Metan remain static by default; only turn-based speaker focus changes are required",
+      "the active speaker uses scale 1.08 and full opacity; the inactive listener uses scale 1.00 and 55 percent opacity by default within a 50-60 percent range",
+      "speaker focus switches directly at the actual voice-turn boundary without mouth animation, lip sync, blink, head tilt, pose change, body bob, speech-start bounce or continuous character zoom by default",
+      "config/evidence_visual_static_character_policy.json overrides conflicting older character motion, expression, lipsync, blink and bounce defaults",
+      "reusable registered assets are resolved cache-first before search, while rights and semantic fit remain mandatory",
+      "character reaction packs remain available only when an explicit task requires animated states; normal static-turn-focus production must not rebuild them",
+      "VOICEVOX pronunciation text is separate from on-screen caption text; English brand and technical terms use official Latin spelling in captions by default",
+      "Zundamon and Metan production starts from a reusable YMM4-or-equivalent template, script-first dialogue fields, reusable pronunciation dictionary and cached audio/visual assets rather than rebuilding common setup per video",
+      "shortform 2-3 second cadence is a meaningful visual-state-change heuristic, not a forced new-image download or fixed-cut rule",
+      "SFX and camera effects are semantic accents; sound on every cut and constant zoom remain forbidden",
+      "jet cuts remove accidental dead air while preserving deliberate silence and natural phrasing",
+      "mechanical render, timing, encoding, hashing, ffprobe and decode QA use deterministic tools instead of extra AI agents",
+      "machine validators outrank model votes"
+    ],
+    "video_creation": [
+      "search is discovery, not a license",
+      "check the reusable asset registry and verified cache before new search or download",
+      "for factual/news visuals, search official or primary-source evidence images first and retain source-page, asset-locator, claim mapping and rights state",
+      "do not generate a substitute factual background when a suitable searchable evidence visual exists",
+      "build one structured canonical dialogue script from the ChatGPT plus DeepSeek research-and-script stage before timeline assembly and batch-import when the editing path supports it",
+      "use a reusable VOICEVOX pronunciation dictionary for recurring foreign and technical terms",
+      "use rights-verified real or official visuals by default",
+      "measure actual audio duration and align captions to audio boundaries",
+      "keep katakana pronunciation in voice_text while using official English spelling in caption_text for English proper nouns and technical terms",
+      "for shortform/news explainers prefer a truthful 1-3 second hook over a generic greeting unless context or safety requires otherwise",
+      "every VIDEO_CREATION request must run scripts/video_creation_admission.py before scene rendering; missing local VOICEVOX or the ずんだもん standard cast blocks rendering and cannot silently produce a mute video",
+      "voice_text must be synthesized with local VOICEVOX, actual WAV duration must be recorded, and the output must carry the VOICEVOX credit",
+      "every spoken turn must use the FULL_SPOKEN_TEXT caption contract; a short visual summary may not replace the spoken narration",
+      "important terms marked by the script use deterministic emphasis colors while speaker identity remains encoded by green/pink caption text and border",
+      "claim-bearing news scenes require a semantically matched searched or registered rights-verified visual with source page, asset locator, license state and scene/claim mapping",
+      "longform-only reliability material is loaded only for longform work",
+      "For requested or continuing 55-60 second Zundamon news shorts, load config/zundamon_news60_template.json and docs/ZUNDAMON_NEWS60_TEMPLATE.md; that scoped template requires voice-synchronized mouth motion plus sparse semantic facial expressions, while the general static-turn-focus default remains for other video profiles.",
+      "Special yellow/red caption emphasis is opt-in only: no automatic keyword coloring, zero by default, at most one critical phrase per semantic beat and three in a 60-second short, with an explicit importance reason."
+    ],
+    "clipping_repurposing": [
+      "source rights and platform monetization eligibility are separate gates",
+      "permission does not guarantee YouTube reused-content monetization eligibility",
+      "commercial rights to all material audio and visual elements must be resolved for monetized YouTube output",
+      "context integrity is blocking: do not reverse, materially distort or overstate source meaning",
+      "publishable third-party clips retain a transformation manifest describing source range, context and original value added",
+      "channel-level mass-template and reused-content risk is reviewed rather than judging each clip in isolation",
+      "ASR/alignment, candidate scoring, duplicate suppression, sentence boundaries, reframe, captions and machine QA form the clipping pipeline",
+      "known TTS timing may bypass unnecessary ASR",
+      "mechanical trim/cut/concat/reframe/caption burn/ffprobe work is deterministic rather than multi-agent debate"
+    ],
+    "tiktok_shop_commerce": [
+      "generic shopping intent first resolves the target platform; TikTok-specific rules are not universal commerce law",
+      "ingest and verify product-page evidence before final script claims",
+      "map every material product claim to evidence",
+      "reverify volatile price, coupon, stock, shipping, return and commission claims near publish time",
+      "commercial relationship disclosure and claim truth are separate blocking checks",
+      "Japan commercial disclosure must be clear in the overall presentation when applicable and must not be hidden only in a reply or remote description",
+      "TikTok Shop exact product/listing match, current affiliate qualification and current platform policy snapshot are required",
+      "TikTok Shop paid-media/ad-use authorization is separate from organic posting and is never mass-enabled automatically",
+      "if current TikTok Shop AIGC sources conflict, retrieve both at publish time and block AIGC publish handoff until resolved",
+      "persona and purchase motive are hypotheses to test, not invented facts",
+      "hooks and creative variants are experiments with measurable outcomes"
+    ]
+  },
+  "forbidden_shortcuts": [
+    "SKIP_REQUIRED_INTENT_PLAYBOOK",
+    "SHOP_CLIP_WITHOUT_BOTH_SHOP_AND_CLIPPING_KNOWHOW",
+    "SHOP_OR_CLIP_WITHOUT_COMMERCE_CLIPPING_PRECISION_OVERLAY",
+    "TREAT_TIKTOK_SHOP_RULE_AS_UNIVERSAL_SHOPPING_RULE",
+    "ASSUME_PERMISSION_EQUALS_PLATFORM_MONETIZATION_ELIGIBILITY",
+    "CLIP_WITHOUT_CONTEXT_INTEGRITY_CHECK",
+    "DISCLOSURE_ONLY_IN_REPLY_OR_HIDDEN_DESCRIPTION_AS_DEFAULT",
+    "AUTO_ENABLE_MASS_PAID_MEDIA_AUTHORIZATION",
+    "LOAD_LONGFORM_STACK_FOR_EVERY_SHORTFORM_TASK",
+    "REOPEN_IDENTICAL_BLOB_REPEATEDLY_IN_ONE_GATE_RUN",
+    "RESEARCH_REGISTERED_REUSABLE_ASSET_AGAIN_BEFORE_CHECKING_CACHE",
+    "REDOWNLOAD_VERIFIED_CACHED_ASSET_WITHOUT_REASON",
+    "SEARCH_OR_DOWNLOAD_ZUNDAMON_METAN_REACTION_ASSETS_PER_VIDEO",
+    "GENERATE_FACTUAL_BACKGROUND_WHEN_SEARCHABLE_EVIDENCE_VISUAL_EXISTS",
+    "PRESENT_GENERATED_IMAGE_AS_FACTUAL_EVIDENCE",
+    "ANIMATE_ZUNDAMON_METAN_OUTSIDE_APPROVED_TEMPLATE_OR_EXPLICIT_USER_REQUEST",
+    "LEAVE_INACTIVE_LISTENER_FULLY_OPAQUE_BY_DEFAULT",
+    "ANIMATE_SPEAKER_FOCUS_TRANSITION_BY_DEFAULT",
+    "USE_VERTICAL_BOUNCE_AS_ONLY_CHARACTER_MOTION",
+    "USE_MOUTH_MOTION_AS_ONLY_CHARACTER_ACTING",
+    "LEAVE_ACCIDENTAL_ZUNDAMON_METAN_PERCEIVED_SIZE_MISMATCH",
+    "ACTIVE_SPEAKER_ENLARGEMENT_WITHOUT_SAFE_ZONE_CHECK",
+    "COPY_KATAKANA_TTS_READING_DIRECTLY_TO_ENGLISH_CAPTION_TERM",
+    "SKIP_ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD",
+    "FORCE_NEW_IMAGE_EVERY_TWO_OR_THREE_SECONDS",
+    "PLAY_SFX_ON_EVERY_CUT",
+    "DELETE_INTENTIONAL_SILENCE_FOR_JET_CUT",
+    "DOWNLOAD_CHARACTER_MOTION_INSTEAD_OF_USING_PRESET",
+    "REINVENT_STANDARD_CHARACTER_SIZE_OR_POSITION_EVERY_VIDEO",
+    "PARALLEL_WRITE_TO_SAME_OUTPUT",
+    "RIGHTS_GATE_BYPASS_FOR_SPEED",
+    "CLAIM_GATE_BYPASS_FOR_SPEED",
+    "MULTI_AGENT_DEBATE_FOR_DETERMINISTIC_MEDIA_STAGES",
+    "SPLIT_ROUTINE_MEDIA_RESEARCH_AND_SCRIPT_INTO_MANY_SMALL_AGENT_HANDOFFS",
+    "ADD_SPECIALIST_AGENT_WITHOUT_MATERIAL_EXPECTED_INFORMATION_GAIN",
+    "USE_RETIRED_SHORTFORM_EDIT_PROFILE",
+    "TREAT_SEARCH_RESULT_AS_LICENSE",
+    "USE_SUMMARY_CAPTION_INSTEAD_OF_FULL_SPOKEN_TEXT",
+    "USE_UNRELATED_OR_UNVERIFIED_NEWS_VISUAL",
+    "AUTO_PAID_FALLBACK",
+    "TREAT_STYLE_REFERENCE_AS_FACTUAL_EVIDENCE",
+    "USE_NEWS60_FIXED_WINDOWS_FOR_LONGFORM",
+    "CLAIM_TEN_MINUTE_GOAL_IS_MEASURED_WITHOUT_TIMING_EVIDENCE"
+  ],
+  "retired_references": {
+    "forbidden_paths": [
+      "config/shortform_edit_profile.json"
+    ],
+    "reason": "SUPERSEDED_BY_MEDIA_AUDIO_MOTION_RETENTION_POLICY_AND_INTENT_SPECIFIC_PLAYBOOKS"
+  },
+  "new_session_behavior": {
+    "permanent_manifest_must_point_to_this_policy": true,
+    "media_task_must_re_read_current_repository_versions": true,
+    "master_rulebook_must_be_re_read": true,
+    "media_pipeline_must_be_re_read": true,
+    "evidence_visual_static_character_policy_must_be_re_read": true,
+    "evidence_visual_static_character_human_standard_must_be_re_read": true,
+    "audio_motion_retention_policy_must_be_re_read": true,
+    "reusable_asset_standard_must_be_re_read": true,
+    "character_reaction_cache_policy_must_be_re_read": true,
+    "character_performance_compact_orchestration_policy_must_be_re_read": true,
+    "reaction_subtitle_human_standard_must_be_re_read": true,
+    "full_spoken_caption_contract_must_be_re_read": true,
+    "related_visual_provenance_contract_must_be_re_read": true,
+    "zundamon_metan_production_quality_policy_must_be_re_read": true,
+    "zundamon_metan_production_quality_human_standard_must_be_re_read": true,
+    "free_audio_source_registry_must_be_re_read": true,
+    "dova_curated_bgm_catalog_must_be_re_read": true,
+    "media_speed_quality_policy_must_be_re_read": true,
+    "jev_media_planning_contract_must_be_re_read": true,
+    "commerce_clipping_precision_overlay_must_be_re_read_for_relevant_intent": true,
+    "do_not_rely_on_prior_tab_summary_as_substitute": true,
+    "exact_same_head_and_blob_cache_may_satisfy_repeat_read_within_active_task": true,
+    "zundamon_news60_template_must_be_re_read": true,
+    "zundamon_news60_template_human_prompt_must_be_re_read": true,
+    "zundamon_news60_template_validator_must_be_re_read": true
+  }
+}
+

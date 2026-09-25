@@ -1,0 +1,342 @@
+{
+  "title": null,
+  "research_cutoff_date": null,
+  "target_duration_minutes": [
+    8,
+    12
+  ],
+  "source_ledger": [
+    {
+      "id": "S1",
+      "title": null,
+      "url": null,
+      "source_type": "PRIMARY_OFFICIAL",
+      "published_date": null,
+      "checked_at": null
+    }
+  ],
+  "claim_ledger": [
+    {
+      "id": "C1",
+      "statement": null,
+      "source_ids": [
+        "S1"
+      ],
+      "review_status": "REVIEW_REQUIRED",
+      "source_support": [
+        {
+          "source_id": "S1",
+          "locator": null,
+          "support_summary": null
+        }
+      ],
+      "reviewed_by": null,
+      "review_method": null,
+      "reviewed_at": null,
+      "qualification_note": null
+    },
+    {
+      "id": "C2",
+      "statement": null,
+      "source_ids": [
+        "S1"
+      ],
+      "review_status": "REVIEW_REQUIRED",
+      "source_support": [
+        {
+          "source_id": "S1",
+          "locator": null,
+          "support_summary": null
+        }
+      ],
+      "reviewed_by": null,
+      "review_method": null,
+      "reviewed_at": null,
+      "qualification_note": null
+    },
+    {
+      "id": "C3",
+      "statement": null,
+      "source_ids": [
+        "S1"
+      ],
+      "review_status": "REVIEW_REQUIRED",
+      "source_support": [
+        {
+          "source_id": "S1",
+          "locator": null,
+          "support_summary": null
+        }
+      ],
+      "reviewed_by": null,
+      "review_method": null,
+      "reviewed_at": null,
+      "qualification_note": null
+    },
+    {
+      "id": "C4",
+      "statement": null,
+      "source_ids": [
+        "S1"
+      ],
+      "review_status": "REVIEW_REQUIRED",
+      "source_support": [
+        {
+          "source_id": "S1",
+          "locator": null,
+          "support_summary": null
+        }
+      ],
+      "reviewed_by": null,
+      "review_method": null,
+      "reviewed_at": null,
+      "qualification_note": null
+    },
+    {
+      "id": "C5",
+      "statement": null,
+      "source_ids": [
+        "S1"
+      ],
+      "review_status": "REVIEW_REQUIRED",
+      "source_support": [
+        {
+          "source_id": "S1",
+          "locator": null,
+          "support_summary": null
+        }
+      ],
+      "reviewed_by": null,
+      "review_method": null,
+      "reviewed_at": null,
+      "qualification_note": null
+    }
+  ],
+  "visual_assets": [
+    {
+      "id": "V1",
+      "source_page": null,
+      "asset_locator": null,
+      "license_or_public_domain_state": null,
+      "rights_status": "REVIEW_REQUIRED",
+      "rights_basis_locator": null,
+      "reuse_conditions_summary": null,
+      "rights_review_method": null,
+      "rights_reviewed_by": null,
+      "rights_reviewed_at": null,
+      "retrieval_or_verification_timestamp": null,
+      "scene_or_claim_mapping": {
+        "line_ids": [
+          "CH02_01"
+        ],
+        "chapter_ids": [
+          "CH02"
+        ],
+        "claim_ids": [
+          "C1"
+        ]
+      }
+    }
+  ],
+  "chapters": [
+    {
+      "id": "CH01",
+      "title": null,
+      "purpose": "Hook with a truthful question or stake.",
+      "dialogue": [
+        {
+          "id": "CH01_01",
+          "speaker": "ずんだもん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "curious",
+          "visual_beat": "",
+          "source_claim_ids": [],
+          "claim_bearing": false,
+          "semantic_beat_id": "HOOK",
+          "emphasis_terms": [],
+          "emphasis_reason": "",
+          "visual_asset_ids": [],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
+        },
+        {
+          "id": "CH01_02",
+          "speaker": "四国めたん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "curious",
+          "visual_beat": "",
+          "source_claim_ids": [],
+          "claim_bearing": false,
+          "semantic_beat_id": "HOOK",
+          "emphasis_terms": [],
+          "emphasis_reason": "",
+          "visual_asset_ids": [],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
+        }
+      ]
+    },
+    {
+      "id": "CH02",
+      "title": null,
+      "purpose": "State what the source actually reports.",
+      "dialogue": [
+        {
+          "id": "CH02_01",
+          "speaker": "ずんだもん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "surprised",
+          "visual_beat": "",
+          "source_claim_ids": [
+            "C1"
+          ],
+          "claim_bearing": true,
+          "semantic_beat_id": "WHAT_CHANGED",
+          "emphasis_terms": [],
+          "emphasis_reason": "",
+          "visual_asset_ids": [
+            "V1"
+          ],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
+        }
+      ]
+    },
+    {
+      "id": "CH03",
+      "title": null,
+      "purpose": "Explain the mechanism in plain Japanese.",
+      "dialogue": [
+        {
+          "id": "CH03_01",
+          "speaker": "四国めたん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "thoughtful",
+          "visual_beat": "",
+          "source_claim_ids": [
+            "C2"
+          ],
+          "claim_bearing": true,
+          "semantic_beat_id": "WHY_IT_HAPPENED",
+          "emphasis_terms": [],
+          "emphasis_reason": "",
+          "visual_asset_ids": [],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
+        }
+      ]
+    },
+    {
+      "id": "CH04",
+      "title": null,
+      "purpose": "Separate direct evidence from interpretation.",
+      "dialogue": [
+        {
+          "id": "CH04_01",
+          "speaker": "ずんだもん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "serious",
+          "visual_beat": "",
+          "source_claim_ids": [
+            "C3"
+          ],
+          "claim_bearing": true,
+          "semantic_beat_id": "EVIDENCE",
+          "emphasis_terms": [],
+          "emphasis_reason": "",
+          "visual_asset_ids": [],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
+        }
+      ]
+    },
+    {
+      "id": "CH05",
+      "title": null,
+      "purpose": "State material limits, uncertainty, or a counterpoint.",
+      "dialogue": [
+        {
+          "id": "CH05_01",
+          "speaker": "四国めたん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "serious",
+          "visual_beat": "",
+          "source_claim_ids": [
+            "C4"
+          ],
+          "claim_bearing": true,
+          "semantic_beat_id": "LIMIT_OR_CAVEAT",
+          "emphasis_terms": [],
+          "emphasis_reason": "",
+          "visual_asset_ids": [],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
+        }
+      ]
+    },
+    {
+      "id": "CH06",
+      "title": null,
+      "purpose": "Resolve the opening question and give the useful takeaway.",
+      "dialogue": [
+        {
+          "id": "CH06_01",
+          "speaker": "ずんだもん",
+          "voice_text": null,
+          "caption_text": null,
+          "caption_difference_reason": "",
+          "emotion": "relieved",
+          "visual_beat": "",
+          "source_claim_ids": [
+            "C5"
+          ],
+          "claim_bearing": true,
+          "semantic_beat_id": "TAKEAWAY",
+          "emphasis_terms": [],
+          "emphasis_reason": "",
+          "visual_asset_ids": [],
+          "voice_audio_file": null,
+          "pause_after_ms": 180
+        }
+      ]
+    }
+  ],
+  "pronunciation_dictionary": [
+    {
+      "surface_term": "AI",
+      "voice_reading": "エーアイ",
+      "caption_spelling": "AI",
+      "revision": "1"
+    },
+    {
+      "surface_term": "OpenAI",
+      "voice_reading": "オープンエーアイ",
+      "caption_spelling": "OpenAI",
+      "revision": "1"
+    },
+    {
+      "surface_term": "Anthropic",
+      "voice_reading": "アンスロピック",
+      "caption_spelling": "Anthropic",
+      "revision": "1"
+    },
+    {
+      "surface_term": "Hugging Face",
+      "voice_reading": "ハギングフェイス",
+      "caption_spelling": "Hugging Face",
+      "revision": "1"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "schema_version": "dova-curated-bgm-catalog-v1",
+  "effective_date_jst": "2026-09-13",
+  "status": "ENFORCED_MEDIA_DEFAULT",
+  "purpose": "Make DOVA-SYNDROME / OpenTracks the preferred third-party free BGM discovery source for future video production, with a curated starting set and semantic selection rules so the user does not need to restate preferred songs.",
+  "source": {
+    "name": "DOVA-SYNDROME / OpenTracks transition",
+    "url": "https://dova-s.jp/",
+    "priority": "PRIMARY_THIRD_PARTY_FREE_BGM_SOURCE",
+    "commercial_or_monetized_background_use": true,
+    "attribution": "GENERALLY_NOT_REQUIRED_UNDER_SITE_LICENSE_BUT_CREATOR_SPECIFIC_TERMS_MUST_BE_RECHECKED",
+    "acquisition_rule": "Use the official download flow. Do not scrape or bulk-collect the site with bots/programmatic crawlers. Reverify site and creator terms before a new acquisition batch.",
+    "content_id_rule": "Never register DOVA/OpenTracks library music or a video containing it as exclusive ownership of the library track in Content ID."
+  },
+  "default_preference": {
+    "prefer_dova_for_background_music": true,
+    "prefer_cached_license_locked_dova_asset_when_mood_fit_is_good": true,
+    "do_not_force_dova_when_topic_mood_or_rights_fit_is_poor": true,
+    "rotate_tracks_across_videos": true,
+    "avoid_same_track_every_video": true,
+    "choose_by_semantic_mood_not_popularity_alone": true,
+    "shorts_prefer_loop_or_clean_edit_points_when_available": true,
+    "narration_intelligibility_over_music_energy": true
+  },
+  "curated_starting_set": [
+    {
+      "title": "野良猫は宇宙を目指した",
+      "creator": "しゃろう",
+      "official_page": "https://dova-s.jp/bgm/detail/2862",
+      "official_download_page": "https://dova-s.jp/bgm/detail/2862/download",
+      "preferred_track_for_shorts": 2,
+      "track_2_duration_seconds": 48,
+      "moods": ["bright", "refreshing", "hopeful", "slightly_emotional", "journey", "light_pop_rock"],
+      "use_cases": ["general_explainer", "positive_news", "curiosity", "outro", "light_technology_story"],
+      "notes": "DOVA describes track 2 as loopable; use as a high-priority candidate when it fits the story. Do not use for grave or tragic topics merely because it is a favorite."
+    },
+    {
+      "title": "Morning",
+      "creator": "しゃろう",
+      "official_page": "https://dova-s.jp/bgm/detail/2445",
+      "official_download_page": "https://dova-s.jp/bgm/detail/2445/download",
+      "preferred_track_for_shorts": 2,
+      "moods": ["bright", "refreshing", "hopeful", "daily", "country_pop"],
+      "use_cases": ["friendly_explainer", "daily_topic", "optimistic_intro", "casual_information"],
+      "notes": "Track 2 is described as loopable."
+    },
+    {
+      "title": "10℃",
+      "creator": "しゃろう",
+      "official_page": "https://dova-s.jp/bgm/detail/12420",
+      "official_download_page": "https://dova-s.jp/bgm/detail/12420/download",
+      "preferred_track_for_shorts": 2,
+      "moods": ["calm", "chill", "lofi", "thoughtful", "slightly_lonely"],
+      "use_cases": ["calm_explainer", "analysis", "night_topic", "reflective_section", "technology_background"],
+      "notes": "DOVA describes track 2 as loopable."
+    },
+    {
+      "title": "2:23 AM",
+      "creator": "しゃろう",
+      "official_download_page": "https://dova-s.jp/bgm/detail/13494/download",
+      "moods": ["calm", "lofi", "cool", "restrained", "night"],
+      "use_cases": ["analysis", "serious_but_not_tragic", "late_night_technology", "subdued_explainer"]
+    },
+    {
+      "title": "SUMMER TRIANGLE",
+      "creator": "しゃろう",
+      "official_page": "https://dova-s.jp/bgm/detail/12983",
+      "official_download_page": "https://dova-s.jp/bgm/detail/12983/download",
+      "moods": ["energetic", "refreshing", "emotional", "future_bass", "bright"],
+      "use_cases": ["high_energy_intro", "positive_reveal", "future_technology", "achievement", "outro"],
+      "notes": "Use sparingly under dense narration because the arrangement is energetic."
+    },
+    {
+      "title": "Parade",
+      "creator": "しゃろう",
+      "official_page": "https://dova-s.jp/bgm/detail/9638/track/2",
+      "moods": ["bright", "nostalgic", "slightly_melancholic", "daily", "folk_pop"],
+      "use_cases": ["storytelling", "human_interest", "light_explainer", "recap", "outro"],
+      "notes": "DOVA describes tracks 2 and 3 as loop-oriented; verify current track/download mapping before acquisition."
+    }
+  ],
+  "selection_logic": {
+    "steps": [
+      "Classify the video or semantic segment by mood, gravity and narration density.",
+      "Check the curated DOVA set first, then search DOVA/OpenTracks for a better semantic match if necessary.",
+      "Reverify current site license and creator-specific conditions before downloading a new asset.",
+      "Use the official download flow; never automate bulk scraping of DOVA/OpenTracks.",
+      "Store title, creator, source URL, license evidence, acquisition date, SHA-256, duration and mood tags with the local production asset.",
+      "Choose one coherent BGM per semantic section; do not swap music merely to create activity.",
+      "Duck or automate BGM around narration, major sound effects and emotionally emphasized speech.",
+      "Use intentional silence before important evidence, corrections, reveals or grave statements when it improves contrast.",
+      "Apply track cooldown/rotation so recurring videos do not sound mechanically identical."
+    ]
+  },
+  "sensitive_topic_override": {
+    "enabled": true,
+    "rule": "For deaths, disasters, serious accidents, victim harm, war casualties, medical emergencies and harmful misinformation corrections, suppress cheerful/funny BGM and prefer restrained neutral music or silence."
+  },
+  "future_execution": {
+    "user_need_not_repeat_dova_preference": true,
+    "user_need_not_repeat_noraneko_preference": true,
+    "production_still_requires_media_read_gate": true,
+    "public_publish_still_requires_human_approval": true
+  }
+}

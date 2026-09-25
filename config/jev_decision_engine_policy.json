@@ -1,0 +1,393 @@
+{
+  "schema_version": "jev-decision-engine-policy-v9",
+  "effective_date_jst": "2026-09-22",
+  "status": "ACTIVE_SCOPED_PAID_EXCEPTION",
+  "role": "FAST_SYSTEM_ONE_DECISION_PLANE",
+  "reports_to": "chatgpt-top-commander",
+  "user_authorization": {
+    "authorized": true,
+    "authorized_at_jst": "2026-09-21",
+    "persistent_across_chat_tabs": true,
+    "repeat_per_call_approval_required": false,
+    "scope": "JEV_ROUTING_CLASSIFICATION_FANOUT_PARALLELISM_VERIFICATION_AND_LIGHTWEIGHT_RESULT_TRIAGE"
+  },
+  "provider": {
+    "transport": "openrouter",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "base_url": "https://openrouter.ai/api/v1",
+    "canonical_model_alias": "~typesafe/jev-latest",
+    "last_known_good_model": "typesafe/jev-1.13",
+    "automatic_latest_migration": true,
+    "latest_alias_semantics": "OPENROUTER_ALWAYS_REDIRECTS_TO_LATEST_JEV_FAMILY_MODEL",
+    "current_observed_latest": "typesafe/jev-1.13",
+    "current_observed_release_date": "2026-09-18",
+    "minimum_context_tokens": 32000,
+    "modalities": [
+      "text_to_structured_decisions"
+    ]
+  },
+  "cost_guard": {
+    "current_observed_prompt_usd_per_million": 0.042,
+    "current_observed_completion_usd_per_million": 0,
+    "cost_is_not_primary_optimization_target_for_jev": true,
+    "soft_price_observation_prompt_usd_per_million": 0.1,
+    "hard_emergency_price_ceiling_prompt_usd_per_million": 1,
+    "hard_emergency_price_ceiling_completion_usd_per_million": 1,
+    "max_prompt_chars_per_record": 12000,
+    "max_records_per_decisions_request": 20,
+    "max_parallel_decision_batches": 5,
+    "max_calls_per_batch_including_pinned_fallback": 2,
+    "auto_top_up": false,
+    "other_paid_model_fallback": false,
+    "emergency_price_breach_action": "BYPASS_JEV_TO_DETERMINISTIC_OR_CHATGPT_ROUTING",
+    "rationale": "JEV_IS_CHEAP_AND_ROUTING_LATENCY_VALUE_DOMINATES_SMALL_COST_VARIATION; ONLY_CATASTROPHIC_PRICE_DRIFT_BLOCKS",
+    "preflight_source_order": [
+      "DECISIONS_MODEL_CATALOG_WHEN_AVAILABLE",
+      "AUTHORIZED_JEV_FAMILY_OBSERVED_PRICE_FROM_POLICY"
+    ],
+    "normal_models_catalog_is_not_authoritative_for_jev_decisions": true,
+    "post_request_usage_cost_audit": true,
+    "block_only_on_hard_emergency_price_evidence": true,
+    "missing_normal_catalog_entry_is_not_a_block_for_authorized_jev_family": true
+  },
+  "intended_uses": [
+    "TASK_CLASSIFICATION",
+    "SPECIALIST_MODEL_ASSIGNMENT",
+    "DYNAMIC_1_TO_3_FANOUT_DECISION",
+    "PARALLEL_VS_SEQUENTIAL_DECISION",
+    "NEED_FOR_INDEPENDENT_VERIFICATION",
+    "STOP_RETRY_ESCALATE_TRIAGE",
+    "LIGHTWEIGHT_POST_WORK_RESULT_TRIAGE",
+    "MEDIA_PIPELINE_PROFILE_AND_SHAPE"
+  ],
+  "prohibited_uses": [
+    "LONG_FORM_GENERATION",
+    "BULK_CODE_GENERATION",
+    "OPEN_ENDED_RESEARCH",
+    "FACTUAL_FINAL_ADJUDICATION",
+    "MEDIA_GENERATION_OR_RENDERING",
+    "MEDIA_CACHE_INVALIDATION_OR_TIMING_ARITHMETIC",
+    "PAYMENT_OR_BILLING_DECISIONS",
+    "SECRET_HANDLING",
+    "PR_MERGE",
+    "PRODUCTION_DEPLOY",
+    "PUBLICATION",
+    "PERMISSION_EXPANSION"
+  ],
+  "decision_contract": {
+    "typed_output_required": true,
+    "free_text_output_allowed": false,
+    "allowed_question_types": [
+      "choice",
+      "noul",
+      "score"
+    ],
+    "routing_question_types": [
+      "choice",
+      "noul"
+    ],
+    "python_normalizes_final_json": true,
+    "python_computes_fanout_from_selected_workers": true,
+    "python_computes_execution_mode_from_typed_flags": true,
+    "python_performs_all_counting_arithmetic_and_quota_math": true,
+    "confidence_required": true,
+    "low_confidence_threshold": 0.75,
+    "second_worker_probability_threshold": 0.55,
+    "third_worker_probability_threshold": 0.65,
+    "parallel_probability_threshold": 0.55,
+    "independent_verification_probability_threshold": 0.6,
+    "low_confidence_action": "RETURN_TO_CHATGPT_OR_DETERMINISTIC_ROUTER",
+    "final_authority": "chatgpt-top-commander",
+    "model_may_not_expand_candidate_set": true,
+    "model_may_not_expand_permissions": true,
+    "model_may_not_authorize_paid_workers": true,
+    "no_markdown_or_json_text_parsing": true,
+    "transport_and_schema_failures_fail_closed": true,
+    "media_pipeline_contract": {
+      "enabled": true,
+      "surface": "LEAN_TWO_QUESTION_PROFILE_AND_SHAPE",
+      "lane": "VISION_AND_MEDIA_UNDERSTANDING",
+      "candidate_profiles": [
+        "CACHE_INCREMENTAL",
+        "PARALLEL_PREP",
+        "FULL_REBUILD",
+        "ESCALATE_TO_CHATGPT"
+      ],
+      "profile_and_shape_are_typed_choices": true,
+      "python_owns_hashes_invalidation_parallelism_and_final_plan": true,
+      "jev_may_not_count_lanes_or_encode_passes": true,
+      "jev_may_not_write_final_plan_json": true,
+      "low_confidence_returns_to_python_or_chatgpt_by_risk": true
+    },
+    "fast_route_contract": {
+      "primary_worker": "CHOICE",
+      "route_shape": "CHOICE_SINGLE_PARALLEL_PAIR_SEQUENTIAL_PAIR_OPTIONAL_PARALLEL_TRIPLE_ESCALATE",
+      "secondary_worker": "CHOICE",
+      "tertiary_worker": "CHOICE_ONLY_WHEN_PREQUALIFIED",
+      "python_derives_fanout": true,
+      "python_derives_parallel_flag": true,
+      "python_derives_execution_mode": true,
+      "routine_question_count": 3,
+      "max_question_count": 4
+    },
+    "lean_route_contract": {
+      "primary_worker": "CHOICE",
+      "route_shape": "CHOICE_SINGLE_PARALLEL_PAIR_SEQUENTIAL_PAIR_OPTIONAL_PARALLEL_TRIPLE_ESCALATE",
+      "python_selects_secondary_and_tertiary_from_health_ranked_candidates": true,
+      "python_derives_fanout": true,
+      "python_derives_parallel_flag": true,
+      "python_derives_execution_mode": true,
+      "routine_question_count": 2
+    },
+    "shape_only_route_contract": {
+      "route_shape": "CHOICE_SINGLE_PARALLEL_PAIR_SEQUENTIAL_PAIR_OPTIONAL_PARALLEL_TRIPLE_ESCALATE",
+      "primary_worker": "PYTHON_HEALTH_RANKED_CLEAR_PRIMARY",
+      "python_selects_primary_and_complements": true,
+      "python_derives_fanout": true,
+      "python_derives_parallel_flag": true,
+      "python_derives_execution_mode": true,
+      "routine_question_count": 1
+    },
+    "deterministic_health_fast_path": {
+      "enabled": true,
+      "condition": "RECENT_DOMAIN_PRIMARY_CLEAR_AND_EXECUTION_SHAPE_CODE_CLEAR",
+      "jev_question_count": 0,
+      "python_composes_route": true,
+      "unknown_or_stale_evidence_must_not_qualify": true
+    },
+    "final_execution_admission_guard": {
+      "required_for_every_route_surface": true,
+      "runtime": "scripts/final_execution_admission_guard.py",
+      "applies_to": [
+        "DETERMINISTIC",
+        "JEV_TYPED",
+        "JEV_UNAVAILABLE_FALLBACK",
+        "LOW_CONFIDENCE_HEDGE",
+        "LATENCY_CHALLENGER",
+        "BATCH"
+      ],
+      "health_may_reorder_prevalidated_candidates_only": true,
+      "missing_or_invalid_evidence_expiry_is_not_routable_evidence": true,
+      "domain_absent_evidence_may_not_qualify_zero_or_one_question_primary": true,
+      "final_selected_workers_must_fit_reserved_free_quota": true,
+      "shared_mutable_state_forces_sequential_execution": true,
+      "independent_verification_requires_explicit_verifier_role": true,
+      "high_risk_low_confidence_requires_chatgpt_adjudication_in_single_and_batch_routes": true
+    }
+  },
+  "decision_quality": {
+    "priority_order": [
+      "VERIFIED_ROUTE_CORRECTNESS",
+      "DECISION_STABILITY_AND_EVIDENCE_SUFFICIENCY",
+      "TOTAL_TIME_TO_VERIFIED_COMPLETION",
+      "UNNECESSARY_WORKER_CALLS_AND_COORDINATION",
+      "JEV_COST",
+      "RAW_TOKENS"
+    ],
+    "routing_latency_is_not_sufficient_reason_to_reduce_question_surface": true,
+    "minimum_domain_successes_for_clear_primary": 3,
+    "minimum_success_margin_over_clean_runner_up": 1,
+    "zero_or_one_question_requires_current_domain_evidence": true,
+    "single_success_or_latency_advantage_alone_cannot_clear_primary": true,
+    "thin_or_tied_evidence_action": "KEEP_JEV_LEAN_OR_RICH_DECISION_SURFACE",
+    "accuracy_sensitive_tasks_use_rich_route": true,
+    "decision_confidence_is_not_sole_evidence": true,
+    "minimum_confidence_for_autonomous_execute": 0.75,
+    "below_minimum_confidence_action": "BOUNDED_HEDGE_FOR_LOW_RISK_OR_CHATGPT_FOR_HIGH_RISK",
+    "candidate_cards_include_domain_quality_samples_failures_and_rate_limits": true
+  },
+  "automatic_upgrade_guard": {
+    "use_latest_alias_by_default": true,
+    "accept_new_latest_only_if": [
+      "AUTHORIZED_JEV_FAMILY_ALIAS_OR_PIN",
+      "STRUCTURED_DECISION_SCHEMA_PASSES",
+      "NO_PERMISSION_OR_CANDIDATE_EXPANSION",
+      "CONFIDENCE_FIELD_VALID",
+      "POST_REQUEST_USAGE_COST_AUDIT_DOES_NOT_SHOW_HARD_EMERGENCY_BREACH"
+    ],
+    "on_contract_failure": "RETRY_ONCE_WITH_LAST_KNOWN_GOOD_PINNED_MODEL",
+    "on_pinned_failure": "FALL_BACK_TO_DETERMINISTIC_OR_CHATGPT_ROUTING",
+    "silent_upgrade_without_guards": false
+  },
+  "observability": {
+    "record_requested_alias": true,
+    "record_resolved_model": true,
+    "record_latency_ms": true,
+    "record_usage_tokens_when_returned": true,
+    "record_usage_cost_when_returned": true,
+    "record_confidence": true,
+    "record_fallback_reason": true,
+    "secret_values_logged": false,
+    "record_batch_size": true,
+    "record_batch_parallelism": true,
+    "record_heavy_model_calls_avoided": true,
+    "record_unnecessary_fanout_avoided": true,
+    "record_question_count": true,
+    "record_route_shape": true,
+    "record_route_surface_downgrade_reason": true,
+    "record_decision_evidence_tier": true,
+    "record_delayed_challenger_reserved_and_triggered": true,
+    "record_media_profile_and_shape": true,
+    "record_media_cache_invalidation_reason": true,
+    "record_media_stage_reuse_and_critical_path": true,
+    "record_media_jev_guard_admission_or_rejection": true
+  },
+  "batch_execution": {
+    "enabled": true,
+    "batch_first": true,
+    "max_records_per_request": 20,
+    "chunk_requests_may_run_in_parallel": true,
+    "max_parallel_batches": 5,
+    "record_ids_stable_and_unique": true,
+    "questions_prefixed_by_record_id": true,
+    "one_failed_batch_does_not_cancel_healthy_batches": true,
+    "failed_records_fall_back_to_deterministic_or_chatgpt_routing": true,
+    "target_100_jobs": "5_DECISION_BATCHES_IN_PARALLEL_WHEN_INDEPENDENT",
+    "production_mixed_surface_grouping": "SHAPE_SEPARATE__LEAN_PLUS_RICH",
+    "max_route_surface_requests_per_wave": 2,
+    "grouping_rationale": "Repeated live A/B showed lower and more stable tail latency than three separate surface requests; shape stays isolated while lean and rich share one heterogeneous request."
+  },
+  "state_compaction": {
+    "send_minimum_task_relevant_state": true,
+    "numeric_quota_not_sent_to_jev": true,
+    "quota_pressure_enum": [
+      "AMPLE",
+      "LIMITED",
+      "CRITICAL"
+    ],
+    "candidate_counting_done_in_python": true,
+    "full_conversation_not_sent": true,
+    "free_text_worker_output_not_sent_when_typed_summary_exists": true,
+    "candidate_cards_include_compact_domain_quality_evidence": true
+  },
+  "official_manual_alignment": {
+    "structure_over_monolithic_prompt": true,
+    "defer_rules_and_arithmetic_to_code": true,
+    "narrow_typed_questions": true,
+    "primitives": [
+      "noul",
+      "choice",
+      "score"
+    ],
+    "batch_records_per_request": 20,
+    "probabilities_and_confidence_are_machine_consumed": true,
+    "routine_route_question_budget": 2,
+    "third_worker_route_question_budget": 4,
+    "route_shape_is_typed_choice": true,
+    "lane_is_precomputed_when_task_class_is_known": true,
+    "third_worker_question_only_when_code_prequalifies_three_independent_workstreams": true,
+    "free_text_route_generation": false,
+    "selected_default_route_surface": "ZERO_ONLY_WITH_STABLE_DOMAIN_EVIDENCE_AND_CODE_CLEAR_SHAPE__SHAPE_1Q_ONLY_WITH_STABLE_PRIMARY__LEAN_2Q_FOR_THIN_OR_FUZZY_EVIDENCE__FAST_3_TO_4Q_FOR_COMPLEX_OR_ACCURACY_SENSITIVE",
+    "portfolio_one_choice_status": "EXPERIMENTAL_ECONOMY_NOT_SPEED_DEFAULT",
+    "fast_candidate_profile_chars": 240,
+    "question_criteria_reuse_state_profiles": true,
+    "latest_ab_evidence": {
+      "run_id": 35669377196,
+      "iterations_per_mode": 10,
+      "records_per_request": 5,
+      "legacy_p50_ms": 257.258,
+      "fast_three_question_p50_ms": 228.649,
+      "portfolio_one_choice_p50_ms": 237.747,
+      "fast_vs_legacy_p50_improvement_percent": 11.12,
+      "portfolio_vs_legacy_p50_improvement_percent": 7.58,
+      "fast_input_token_reduction_percent": 34.06,
+      "portfolio_input_token_reduction_percent": 61.02,
+      "all_modes_success_rate": 1
+    },
+    "fast_candidate_count": 4,
+    "cardinality_benchmark_evidence": {
+      "run_id": 35669772394,
+      "iterations_per_variant": 20,
+      "records_per_request": 5,
+      "candidate_4_p50_ms": 282.71,
+      "candidate_6_p50_ms": 307.748,
+      "candidate_8_p50_ms": 327.221,
+      "candidate_12_p50_ms": 317.994,
+      "candidate_4_primary_hit_rate": 1,
+      "recommended_candidate_count": 4,
+      "profile_120_p50_ms": 274.778,
+      "profile_240_p50_ms": 271.273,
+      "profile_360_p50_ms": 285.83,
+      "profile_240_p95_ms": 324.185,
+      "recommended_profile_char_limit": 240
+    },
+    "complex_route_question_budget": 3,
+    "lean_two_question_status": "PRODUCTION_DEFAULT_FOR_ROUTINE_TASKS",
+    "lean_ab_evidence": {
+      "run_id": 35670216972,
+      "iterations_per_mode": 30,
+      "records_per_request": 5,
+      "fast_three_question_p50_ms": 300.667,
+      "fast_three_question_p95_ms": 498.917,
+      "fast_input_tokens_mean": 3690,
+      "lean_two_question_p50_ms": 269.719,
+      "lean_two_question_p95_ms": 385.773,
+      "lean_input_tokens_mean": 2507,
+      "lean_primary_hit_rate": 1,
+      "fast_primary_hit_rate": 1,
+      "p50_improvement_percent": 10.29,
+      "input_token_reduction_percent": 32.06
+    },
+    "zero_one_two_rich_tier_status": "PRODUCTION_ROUTING_STANDARD",
+    "one_question_shape_status": "PROMOTED_WHEN_PRIMARY_IS_CLEAR_FROM_RECENT_DOMAIN_EVIDENCE",
+    "primary_one_question_tail_status": "KEEP_ONLY_WHEN_SHAPE_IS_CODE_CLEAR_AND_PRIMARY_IS_FUZZY",
+    "one_question_benchmark_evidence": {
+      "run_id": 35671082445,
+      "iterations_per_mode": 50,
+      "records_per_request": 5,
+      "lean_two_question_p50_ms": 259.622,
+      "lean_two_question_p95_ms": 337.239,
+      "lean_input_tokens_mean": 2668,
+      "shape_one_question_p50_ms": 246.764,
+      "shape_one_question_p95_ms": 325.589,
+      "shape_input_tokens_mean": 1907,
+      "shape_p50_improvement_percent": 4.95,
+      "shape_input_token_reduction_percent": 28.52,
+      "shape_primary_hit_rate": 1,
+      "shape_route_shape_hit_rate": 1,
+      "shape_success_rate": 1,
+      "primary_one_question_p50_ms": 249.511,
+      "primary_one_question_p95_ms": 906.02,
+      "primary_one_question_status": "CONDITIONAL_ONLY_DUE_TO_P95_TAIL"
+    },
+    "primary_one_question_status": "BENCHMARK_ONLY_NOT_PRODUCTION_DEFAULT_P95_TAIL",
+    "production_tiers": [
+      "ZERO_QUESTION_DETERMINISTIC_HEALTH_FAST_PATH",
+      "SHAPE_ONE_QUESTION_WHEN_PRIMARY_CLEAR",
+      "LEAN_TWO_QUESTION_WHEN_PRIMARY_FUZZY",
+      "FAST_THREE_TO_FOUR_QUESTION_WHEN_COMPLEX"
+    ],
+    "heterogeneous_questions_per_request": true,
+    "mixed_surface_grouping_status": "PROMOTED_SHAPE_SEPARATE__LEAN_PLUS_RICH",
+    "mixed_surface_grouping_evidence": {
+      "benchmark_run_id": 35692249074,
+      "confirmation_attempts": 2,
+      "iterations_per_grouping_per_attempt": 24,
+      "promoted_grouping": "SHAPE_SEPARATE__LEAN_PLUS_RICH",
+      "attempt_1": {
+        "p50_ms": 314.167,
+        "p95_ms": 392.695,
+        "success_rate": 1
+      },
+      "attempt_2": {
+        "p50_ms": 275.182,
+        "p95_ms": 396.591,
+        "success_rate": 1
+      },
+      "current_three_request_attempt_1": {
+        "p50_ms": 350.09,
+        "p95_ms": 452.017
+      },
+      "current_three_request_attempt_2": {
+        "p50_ms": 290.05,
+        "p95_ms": 655.894
+      },
+      "conclusion": "PROMOTE_TWO_REQUEST_GROUPING_FOR_MIXED_BATCH_ROUTING"
+    },
+    "batch_size_100_job_evidence": {
+      "retained_batch_size": 20,
+      "max_parallel_batches": 5,
+      "evidence": "Repeated Jev-only tests generally show 20-record batches minimizing total wall time for 100 independent records; retain 20 and do not overfit a single noisy sample."
+    }
+  }
+}

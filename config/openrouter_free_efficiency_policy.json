@@ -1,0 +1,247 @@
+{
+  "schema_version": "openrouter-free-efficiency-policy-v3",
+  "effective_date_jst": "2026-09-21",
+  "status": "PERMANENT_STANDARD",
+  "decision_owner": "chatgpt-top-commander",
+  "purpose": "Attach the full current OpenRouter exact-free catalog as standby capacity and let the Top Commander choose the smallest or broader bounded model set that maximizes total system value for each task, balancing quality, latency, coordination overhead, quota pressure, specialization and verification risk without ever silently falling back to paid inference.",
+  "user_authorization": {
+    "persistent_free_only_authorization": true,
+    "authorized_scope": "OPENROUTER_EXACT_FREE_MODELS_ONLY",
+    "repeat_per_call_approval_required": false,
+    "paid_models_authorized_by_this_policy": false,
+    "paid_fallback_authorized": false,
+    "auto_top_up_authorized": false
+  },
+  "connection": {
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "one_account_connection_serves_all_models": true,
+    "model_catalog_url": "https://openrouter.ai/api/v1/models",
+    "dynamic_attach_rule": "ALL_CURRENT_CATALOG_MODELS_WITH_EXACT_COLON_FREE_ID_AND_ZERO_PROMPT_AND_COMPLETION_PRICE",
+    "generic_free_router_allowed": false,
+    "generic_free_router_id": "openrouter/free",
+    "fixed_paid_sibling_substitution": false,
+    "provider_allow_fallbacks": false,
+    "catalog_watch_does_not_consume_model_quota": true,
+    "attach_does_not_require_model_inference": true
+  },
+  "execution": {
+    "decision_owner": "chatgpt-top-commander",
+    "strategy": "DYNAMIC_OPTIMAL_FANOUT",
+    "fixed_single_model_default": false,
+    "fixed_parallel_default": false,
+    "minimum_active_models_per_task": 1,
+    "maximum_active_models_per_task": 3,
+    "maximum_parallel_openrouter_models_per_task": 3,
+    "model_count_is_not_a_success_metric": true,
+    "one_model_is_correct_when": "ONE_MODEL_HAS_SUFFICIENT_FIT_AND_EXPECTED_PARALLEL_GAIN_DOES_NOT_EXCEED_COORDINATION_AND_QUOTA_COST",
+    "multiple_models_are_correct_when": "INDEPENDENT_PARALLEL_WORKSTREAMS_OR_COMPLEMENTARY_SPECIALIZATION_OR_MATERIAL_INDEPENDENT_VERIFICATION_IMPROVES_EXPECTED_TOTAL_SYSTEM_VALUE",
+    "commander_must_record_fanout_reason": true,
+    "fanout_decision_factors": [
+      "TASK_DECOMPOSABILITY_AND_INDEPENDENT_WORKSTREAM_COUNT",
+      "EXPECTED_QUALITY_GAIN_FROM_COMPLEMENTARY_MODELS",
+      "EXPECTED_LATENCY_REDUCTION_FROM_PARALLELISM",
+      "COORDINATION_AND_SYNTHESIS_OVERHEAD",
+      "FREE_QUOTA_AND_RPM_HEADROOM",
+      "MODEL_ROLE_FIT_AND_MODALITY_SUPPORT",
+      "PROVIDER_HEALTH_AND_RATE_LIMIT_STATE",
+      "VERIFICATION_RISK_AND_OUTPUT_IMPACT",
+      "SHARED_MUTABLE_STATE_OR_SEQUENTIAL_DEPENDENCIES",
+      "RECENT_OBSERVED_MODEL_SUCCESS_LATENCY_AND_TOKEN_EFFICIENCY"
+    ],
+    "force_single_model_when": [
+      "TASK_IS_NOT_MEANINGFULLY_PARALLELIZABLE",
+      "SHARED_MUTABLE_STATE_REQUIRES_SINGLE_WRITER",
+      "SEQUENTIAL_DEPENDENCY_DOMINATES",
+      "QUOTA_OR_RPM_HEADROOM_IS_LOW",
+      "ONE_MODEL_ALREADY_MEETS_ACCEPTANCE_CRITERIA_WITH_HIGH_CONFIDENCE"
+    ],
+    "allow_parallel_models_when": [
+      "TWO_OR_MORE_INDEPENDENT_WORKSTREAMS_EXIST",
+      "COMPLEMENTARY_SPECIALISTS_CAN_WORK_WITHOUT_DUPLICATION",
+      "HIGH_IMPACT_OUTPUT_BENEFITS_FROM_INDEPENDENT_VERIFICATION",
+      "PARALLELISM_MATERIALLY_REDUCES_LATENCY_WITH_ACCEPTABLE_COORDINATION_COST"
+    ],
+    "routine_all_model_parallel_fanout": false,
+    "parallel_duplicate_agents_for_majority_vote": false,
+    "one_model_may_serve_multiple_roles_when_it_is_best_fit": true,
+    "stop_when_marginal_expected_value_of_another_model_is_nonpositive": true,
+    "failed_same_method_retry_without_change": false,
+    "deterministic_tool_bypass_preferred_when_sufficient": true
+  },
+  "quota": {
+    "public_free_account_daily_cap_requests": 50,
+    "public_ten_dollar_credit_daily_cap_requests": 1000,
+    "public_rpm_cap_requests": 20,
+    "unverified_account_daily_hard_stop_requests": 45,
+    "verified_ten_dollar_account_daily_hard_stop_requests": 900,
+    "local_rpm_hard_stop_requests": 15,
+    "account_tier_or_credit_eligibility_must_be_verified_before_using_900_hard_stop": true,
+    "unknown_account_eligibility_uses_45_hard_stop": true,
+    "failed_requests_are_budgeted": true,
+    "request_reserved_before_send": true,
+    "http_429_opens_circuit_breaker": true,
+    "paid_fallback_on_quota_exhaustion": false,
+    "free_quota_exhaustion_action": "PAUSE_OPENROUTER_FREE_ROUTE_AND_USE_DETERMINISTIC_OR_OTHER_SEPARATELY_AUTHORIZED_ROUTE",
+    "automatic_retry_after_429": false
+  },
+  "selection_lanes": {
+    "GENERAL_REASONING": [
+      "deepseek/deepseek-v4-flash-0731:free",
+      "qwen/qwen3.8-27b:free",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "z-ai/glm-5.2:free"
+    ],
+    "CODING_ENGINEERING": [
+      "poolside/laguna-s-2.1:free",
+      "deepseek/deepseek-v4-flash-0731:free",
+      "qwen/qwen3.8-27b:free",
+      "z-ai/glm-5.2:free"
+    ],
+    "FAST_CLASSIFICATION_EXTRACTION": [
+      "nvidia/nemotron-3.5-lightning:free",
+      "inclusionai/ling-3.0-flash:free",
+      "nvidia/nemotron-3-super-120b-a12b:free"
+    ],
+    "VISION_AND_MEDIA_UNDERSTANDING": [
+      "qwen/qwen3.8-27b:free",
+      "inclusionai/ling-3.0-flash-vl:free",
+      "dots-studio/dots-3-note-preview:free"
+    ],
+    "LONG_CONTEXT_ORCHESTRATION": [
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "deepseek/deepseek-v4-flash-0731:free",
+      "qwen/qwen3.8-27b:free"
+    ],
+    "FINANCE_DATA": [
+      "inclusionai/ling-3.0-flash-fin:free",
+      "qwen/qwen3.8-27b:free",
+      "deepseek/deepseek-v4-flash-0731:free"
+    ]
+  },
+  "seed_roster": {
+    "deepseek/deepseek-v4-flash-0731:free": {
+      "preferred_for": [
+        "GENERAL_REASONING",
+        "CODING_ENGINEERING",
+        "LONG_CONTEXT_ORCHESTRATION"
+      ],
+      "release_date": "2026-07-31",
+      "current_free_evidence": "OPENROUTER_OFFICIAL_MODEL_PAGE"
+    },
+    "qwen/qwen3.8-27b:free": {
+      "preferred_for": [
+        "GENERAL_REASONING",
+        "VISION_AND_MEDIA_UNDERSTANDING",
+        "CODING_ENGINEERING"
+      ],
+      "release_date": "2026-08-14",
+      "current_free_evidence": "OPENROUTER_OFFICIAL_MODEL_PAGE"
+    },
+    "z-ai/glm-5.2:free": {
+      "preferred_for": [
+        "GENERAL_REASONING",
+        "CODING_ENGINEERING"
+      ],
+      "release_date": "2026-06-16",
+      "current_free_evidence": "OPENROUTER_OFFICIAL_MODEL_PAGE"
+    },
+    "poolside/laguna-s-2.1:free": {
+      "preferred_for": [
+        "CODING_ENGINEERING"
+      ],
+      "release_date": "2026-07-21",
+      "current_free_evidence": "OPENROUTER_OFFICIAL_MODEL_PAGE"
+    },
+    "nvidia/nemotron-3-ultra-550b-a55b:free": {
+      "preferred_for": [
+        "LONG_CONTEXT_ORCHESTRATION",
+        "GENERAL_REASONING"
+      ],
+      "release_date": "2026-06-04",
+      "current_free_evidence": "OPENROUTER_OFFICIAL_MODEL_PAGE"
+    },
+    "nvidia/nemotron-3-super-120b-a12b:free": {
+      "preferred_for": [
+        "FAST_CLASSIFICATION_EXTRACTION",
+        "GENERAL_REASONING"
+      ],
+      "release_date": "2026-03-11",
+      "current_free_evidence": "OPENROUTER_OFFICIAL_MODEL_PAGE"
+    },
+    "nvidia/nemotron-3.5-lightning:free": {
+      "preferred_for": [
+        "FAST_CLASSIFICATION_EXTRACTION"
+      ],
+      "release_date": "2026-08-11",
+      "current_free_evidence": "OPENROUTER_OFFICIAL_MODEL_PAGE"
+    },
+    "inclusionai/ling-3.0-flash:free": {
+      "preferred_for": [
+        "FAST_CLASSIFICATION_EXTRACTION"
+      ],
+      "release_date": "2026-07-23",
+      "current_free_evidence": "OPENROUTER_OFFICIAL_MODEL_PAGE"
+    },
+    "inclusionai/ling-3.0-flash-vl:free": {
+      "preferred_for": [
+        "VISION_AND_MEDIA_UNDERSTANDING"
+      ],
+      "release_date": "2026-09-10",
+      "current_free_evidence": "OPENROUTER_OFFICIAL_MODEL_PAGE"
+    },
+    "inclusionai/ling-3.0-flash-fin:free": {
+      "preferred_for": [
+        "FINANCE_DATA"
+      ],
+      "release_date": "2026-08-27",
+      "current_free_evidence": "OPENROUTER_OFFICIAL_MODEL_PAGE"
+    },
+    "dots-studio/dots-3-note-preview:free": {
+      "preferred_for": [
+        "VISION_AND_MEDIA_UNDERSTANDING",
+        "GENERAL_REASONING"
+      ],
+      "release_date": "2026-08-14",
+      "lifecycle_note": "OPENROUTER_PAGE_SAYS_GOING_AWAY_2026-09-30",
+      "current_free_evidence": "OPENROUTER_OFFICIAL_MODEL_PAGE"
+    }
+  },
+  "lifecycle": {
+    "seed_roster_is_priority_hint_not_closed_allowlist": true,
+    "newly_discovered_zero_price_colon_free_models_enter_standby_automatically": true,
+    "disappearing_or_nonzero_price_model_is_removed_from_execution_eligibility_without_substitution": true,
+    "deprecated_or_sunset_models_are_not_forced": true,
+    "current_catalog_check_required_before_each_new_mission": true,
+    "exact_model_probe_is_lazy_not_mass_fanout": true
+  },
+  "paid_models": {
+    "jev": {
+      "execution_enabled_via_separate_scoped_policy": true,
+      "policy_file": "config/jev_decision_engine_policy.json",
+      "role": "FAST_DECISION_PLANE_ONLY",
+      "may_select_only_from_prevalidated_free_candidate_pool": true,
+      "does_not_authorize_paid_worker_fallback": true
+    }
+  },
+  "privacy_and_data": {
+    "free_endpoint_provider_terms_may_differ": true,
+    "sensitive_or_proprietary_payload_requires_provider_data_policy_check": true,
+    "do_not_broadcast_full_conversation_to_all_free_models": true,
+    "send_minimum_task_relevant_context": true
+  },
+  "hard_fail_conditions": [
+    "NON_FREE_MODEL_SELECTED",
+    "MODEL_ID_DOES_NOT_END_WITH_COLON_FREE",
+    "CATALOG_PRICE_NOT_ZERO",
+    "GENERIC_OPENROUTER_FREE_ROUTER_USED",
+    "PAID_FALLBACK_ENABLED",
+    "AUTO_TOP_UP_ENABLED",
+    "UNVERIFIED_ACCOUNT_USES_900_DAILY_HARD_STOP",
+    "ROUTINE_ALL_MODEL_PARALLEL_FANOUT",
+    "FREE_DAILY_HARD_STOP_EXCEEDED",
+    "HTTP_429_RETRIED_AUTOMATICALLY",
+    "FIXED_SINGLE_MODEL_POLICY_IGNORES_CLEAR_PARALLEL_VALUE",
+    "PARALLEL_FANOUT_WITHOUT_RECORDED_EXPECTED_VALUE_JUSTIFICATION"
+  ]
+}

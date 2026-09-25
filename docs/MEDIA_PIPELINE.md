@@ -1,46 +1,110 @@
 # 日本向けメディアパイプライン仕様
 
-この文書は、将来Colab等で動かす動画制作パイプラインの境界を定める。Cloudflare Workerは企画・承認・状態管理に留め、重い動画処理やGPU処理を持ち込まない。
+この文書はメディア制作の**簡潔な入口**である。詳細Ruleをここへ重複させず、現行Machine Policyへ展開する。最終目標は「AIが作業したこと」ではなく、**ユーザーが実際に再生でき、見やすく、内容を理解できる完成MP4を受け取ること**。
 
-## パイプライン
+## 作業前に読む正本
 
-1. **Rights manifest**: 入力ごとに source_type、permission_status、attribution、取得日時、SHA-256を記録する。権利が pending または blocked の素材はレンダリング対象にしない。
-2. **Input normalization**: 利用者が所有または許諾を確認した素材だけを扱う。yt-dlp は公式に取得が許可されたURL、または利用者が権利を持つ入力に限定し、認証回避・大量取得・第三者動画の再投稿をしない。
-3. **Transcription**: Whisper等で文字起こしし、タイムスタンプ付きの中間JSONにする。音声データと文字起こしは一時領域に置き、不要になったら削除する。
-4. **Highlight scoring**: 冒頭の明確さ、課題との適合、証拠の有無、独自コメント、シリーズ継続性を別々に採点する。単純な再生数コピーや一つのスコアだけで選ばない。
-5. **Script and captions**: 日本語のフック、短文字幕、重要語の強調、SEの位置を設計する。字幕は意味の切れ目で分割し、顔・UI・端の安全領域を避ける。
-6. **Render**: 9:16・1080x1920を初期値にする。FFmpegを決定的な主経路とし、MoviePyはレイヤー配置などの補助に使う。FPS、音量、フォント、色を設定ファイルに固定する。
-7. **QA**: 映像の長さ、解像度、音声ストリーム、字幕の重なり、文字化け、無音、権利状態、類似度フラグを検査する。失敗時は成果物を「承認不可」にする。
-8. **Artifact and provenance**: 出力MP4、字幕、計画JSON、権利マニフェスト、検査結果、入力ハッシュをまとめ、司令部の確認に渡す。自動公開はしない。
+1. `config/current_media_quality_handoff.json`
+2. `config/media_user_visual_duration_preferences.json`
+3. `config/media_command_read_gate.json`
+4. Intentに応じてRead Gateが要求するMachine Policy
 
-## 初期のShorts構成
+長尺では必ず以下も読む。
 
-| 時間 | 役割 | 例 |
-| --- | --- | --- |
-| 0–2秒 | フック | 「9割が最初に間違える点」 |
-| 2–6秒 | 課題 | 誰の何が困るか |
-| 6–18秒 | 実演 | 一つの手順・比較・検証 |
-| 18–26秒 | 反転 | 失敗例、例外、意外な結果 |
-| 26–30秒 | 行動 | 保存、次回予告、質問 |
+- `config/longform_video_objectives.json`
+- `config/longform_video_reliability_policy.json`
+- `docs/LONGFORM_VIDEO_OBJECTIVES.md`
+- `docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md`
 
-数値は固定ルールではなく、利用者が入力した視聴データで更新する。人気の断定やバズの保証は行わない。
+競合時は、最新の明示的ユーザー指示と安全境界を守ったうえで現行Machine Policy / Validator / CIを優先する。
 
-## 専門AIへの委任単位
+## 標準制作経路
 
-- research: 公開情報の出典付き需要仮説。検索は無料枠を優先し、有料検索は司令部の別承認。
-- product: 業種別テンプレートと利用者の最初の成功体験。
-- content: 3案のフック、台本、字幕分割、CTA。第三者の文章を長く転載しない。
-- video: タイムライン、画角、SE、字幕スタイル、FFmpeg/MoviePyの処理案。
-- qa: 権利・類似度・字幕・音声・安全ゲートの検査項目。
-- metrics: 生成、レビュー、承認、更新再利用、完成時間の匿名指標。
+- 調査・原稿: **ChatGPT + DeepSeek** のCompact Pairを1つの判断Stageとして使う。
+- 音声: VOICEVOX local、標準castは **ずんだもん + 四国めたん**。
+- 動画生成前に `config/video_creation_admission_policy.json` を復元し、`scripts/video_creation_admission.py --runtime` を通す。ローカルVOICEVOXまたはずんだもんが利用できない場合はレンダリングを停止し、無音動画へフォールバックしない。
+- 機械制作: Python / FFmpeg / ffprobe / Pillow / OpenCV / ASS等。
+- Rendering / timing / hashing / decode QA等に不要なAgentを増やさない。
+- Runway / Fal / Descript / VEED / HeyGen / Higgsfield等のPaid/Freemium/Trial経路を標準制作にしない。Unknown costはBLOCK。
 
-すべての委任は read_only_draft で返し、司令部が採用したタスクだけを次に渡す。
+## 素材
 
-## 費用・公開ゲート
+検索結果は発見手段でありLicenseではない。Original Source、Rights、Attribution、取得日時、Content Hashを確認してからMaterializeする。外部素材はRender前に取得・Decode検証し、FFmpeg中のNetwork fetchを標準にしない。1素材の失敗で無関係なSceneを再生成しない。
 
-- 無料モデルとローカル／Colab処理を先に使う。
-- 有料モデルや検索の見積額が月間上限を超える場合、APIを呼ばずに停止する。
-- 利用者の支払情報、自動チャージ、広告出稿、YouTube投稿はこの仕様の範囲外。
-- 権利確認、内容レビュー、明示承認の3つが揃わない公開候補は出力しない。
+Generated image/video assetは現行標準経路にしない。
 
-データ形式の正本は [media_pipeline_plan.schema.json](../schemas/media_pipeline_plan.schema.json)。
+## 長尺の標準
+
+通常News/Topic Explainerは **8〜12分目安**。ただしPadding quotaではない。無関係な歴史、反復、遅い読み、低情報量Fillerは禁止。尺は事実、仕組み、影響、重要な時系列、不確実性、相反する見方、今後の注目点、必要な定義で作る。
+
+長尺全体を1回の巨大Encodeにしない。
+
+`Research+Script -> Source/Claim Lock -> Asset/Right Lock -> Voice -> Measured Timing -> Caption -> Scene Render -> Scene Validate -> Checkpoint -> Concat -> Mechanical QA -> Visual Rereview -> Handoff`
+
+Scene/Chapter単位で `Render -> Validate -> Checkpoint -> Join`。成功済みAudio/Asset/Sceneを後段失敗で破壊しない。`.partial` はVerified Sceneではない。
+
+## Timeline / Caption
+
+Timelineは文字数推測ではなく生成済みWAVのffprobe実時間を正本にする。字幕は `FULL_SPOKEN_TEXT` 契約で話し言葉を省略せず、Semantic Chunk、Rendered Width、Audio Timing、Emphasisを分けて扱い、Narration coverage 100%を維持する。短い要約字幕を音声字幕の代わりにしてはならない。
+
+字幕本文と枠は話者色で分ける。ずんだもんは明るい緑、四国めたんは明るいピンク/マゼンタ。重要語は黄色または赤で強調し、暗い内縁・話者ラベル・文言を併用する。大きな黒ベタ字幕箱を標準にせず、必要なら細い暗色内縁等でContrastを確保する。
+
+ニュースや事実説明の背景は、話題に意味的に合う検索済み／登録済みの権利確認済み画像を優先する。source page、asset locator、ライセンス／パブリックドメイン状態、scene/claim mapping、取得・確認時刻を台帳に残し、検索結果そのものを許諾とみなさない。
+
+## Character / Diagram
+
+ずんだもん・四国めたんは見た目の大きさをNormalizeし、Active Speakerを自然に大きく・前へ出す。表情は口だけではなく目、眉、顔、Pose、Head Tilt、Listener Reaction等をSemantic Beatで使う。固定の「N文ごとにExpression変更」は使わない。
+
+説明図・背景図の全体を上下に漂わせない。基本は静止。Pointer / Highlight / Reveal等、説明に意味のある局所Motionだけ使う。
+
+## 止まらないための基本
+
+詳細はLongform Reliability PolicyをAuthorityとする。
+
+- Explicit state manifest
+- Content-addressed verified checkpoints
+- Atomic scene promotion
+- Single Writer + Lease/TTL/heartbeat
+- Replay-safe idempotent stage
+- Bounded provider/process timeout
+- No-progress detection
+- Provider circuit breaker
+- Retry ownerは1 Layer
+- Retryable transientだけbounded exponential backoff + jitter
+- Permanent errorはRetryしない
+- CacheはAccelerator、Artifact/Checkpointは復旧用
+- PartialをCompleteと報告しない
+
+## Final Delivery Gate
+
+- ffprobe parse
+- Video/Audio Media Contract
+- Full decode
+- Subtitle coverage
+- Fast Start (`moov` before `mdat`)
+- Representative Visual QA
+- Character / Caption / Evidence Safe Zone
+- 意図しないBackground Diagram vertical driftなし
+- 元依頼と現行PolicyのRereview
+
+Decode PASSだけをVisual PASSとみなさない。Candidate完成直後に即納せず、一度見直してから渡す。
+
+
+## チャット配信中断への耐性
+
+ChatGPTアプリ側の応答ストリームは、長時間の動画生成Jobそのものの実行基盤として扱わない。長時間処理はRepositoryとDurable Runner上へ先に固定し、チャット表示が切れてもJob・Checkpoint・Artifactが残る設計にする。
+
+- 実行前にMission / Source Lock / Policy version / request hashをRepositoryへ永続化する。
+- Runnerはチャット接続から独立して継続し、`cancel-in-progress: false`を標準とする。
+- VOICEVOX音声など高コストStageはRender前にVerified checkpointとしてArtifact化する。
+- 各Stageはstate manifestへ `PENDING / RUNNING / VERIFIED / BLOCKED / FAILED_RETRYABLE / FAILED_PERMANENT / COMPLETE` を記録する。
+- 再接続時は会話文から再開せず、最新HEAD、PR状態、request state、workflow run、verified artifactsを読み直す。
+- 同一Root CauseをEvidenceなしで再試行せず、壊れたStageだけを再実行する。
+- 応答ストリームの中断だけを動画生成失敗と判定しない。一方、Playable artifactが無い状態を完成扱いもしない。
+
+Machine authority: `config/session_stream_resilience_policy.json`
+
+
+## Reusable one-minute Zundamon news profile
+
+For a requested or continuing 55–60 second vertical news explainer, use `config/zundamon_news60_template.json` and its ready-to-use prompt in `docs/ZUNDAMON_NEWS60_TEMPLATE.md`. The shortform exception requires VOICEVOX-synchronized mouth motion and sparse semantic facial acting; the static renderer remains valid for other profiles. Keep speaker identity colors (green/pink), but do not auto-highlight words: extra yellow/red emphasis is opt-in, justified, and limited to three phrases for the whole short. The profile keeps the 10–15 minute production-time goal, verified-source and rights gates, full measured captions, cache-first preparation, bounded parallel lanes, one final encode, and final visual review.

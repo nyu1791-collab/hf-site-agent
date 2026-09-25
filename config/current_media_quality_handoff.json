@@ -1,0 +1,301 @@
+{
+  "schema_version": "current-media-quality-handoff-v3",
+  "effective_date_jst": "2026-09-25",
+  "status": "CURRENT_CROSS_TAB_CONTINUITY_SUMMARY",
+  "authority": "INDEX_AND_CONTINUITY_SUMMARY_ONLY",
+  "purpose": "Make the latest Zundamon/Shikoku Metan video-quality, retention, efficiency, compact ChatGPT+DeepSeek orchestration and character-performance decisions immediately recoverable after a chat-tab or session change without relying on conversation memory. Machine-readable policies, validators and CI remain authoritative over this summary.",
+  "canonical_repository": "nyu1791-collab/hf-site-agent",
+  "canonical_branch": "ai-army/provider-v3",
+  "pull_request": 40,
+  "restore_rule": {
+    "read_after_bootstrap_when_media_work_is_relevant": true,
+    "bootstrap_order_remains": [
+      "README.md",
+      "config/current_commander_handoff.json",
+      "config/permanent_standards_manifest.json",
+      "docs/AI_ARMY_MASTER_RULEBOOK.md"
+    ],
+    "then_read": [
+      "config/current_media_quality_handoff.json",
+      "config/media_character_performance_compact_orchestration_policy.json",
+      "config/media_command_read_gate.json"
+    ],
+    "do_not_use_conversation_memory_as_source_of_truth": true,
+    "reconfirm_current_branch_head_and_pr_state_before_writes": true
+  },
+  "authoritative_media_files": [
+    "config/media_command_read_gate.json",
+    "config/evidence_visual_static_character_policy.json",
+    "config/media_character_performance_compact_orchestration_policy.json",
+    "config/media_audio_motion_retention_policy.json",
+    "config/media_reusable_asset_standard.json",
+    "config/media_character_reaction_cache_policy.json",
+    "config/zundamon_metan_production_quality_policy.json",
+    "config/video_creation_admission_policy.json",
+    "scripts/validate_video_caption_contract.py",
+    "docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md",
+    "config/batch_media_orchestration_policy.json",
+    "config/cross_domain_measurement_registry.json",
+    "scripts/validate_zundamon_metan_production_quality.py",
+    "scripts/validate_video_retention_efficiency.py",
+    ".github/workflows/canonical-ai-army-consistency.yml",
+    "config/zundamon_news60_template.json",
+    "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+    "scripts/validate_zundamon_news60_template.py",
+    "config/ymm4_news60_routine.json",
+    "docs/YMM4_NEWS60_ROUTINE.md",
+    "examples/ymm4_news60_script_template.json",
+    "scripts/prepare_ymm4_news60_routine.py",
+    "config/ymm4_research_explainer_profile.json",
+    "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
+    "examples/ymm4_research_explainer_script_template.json",
+    "scripts/prepare_ymm4_research_explainer_package.py",
+    "scripts/export_ymm4_script.py",
+    "tests/test_prepare_ymm4_research_explainer_package.py"
+  ],
+  "deepseek_review_checkpoint": {
+    "workflow": ".github/workflows/deepseek-supervisor-research.yml",
+    "run_id": 34827073560,
+    "run_conclusion": "success",
+    "artifact_id": 10340845588,
+    "artifact_is_evidence_not_permanent_authority": true,
+    "policy": "config/deepseek_paid_supervisor_policy.json",
+    "policy_schema": "deepseek-paid-supervisor-v4",
+    "working_manager_mode": true,
+    "durable_deepseek_roles": [
+      "research_director",
+      "evidence_triage",
+      "script_and_report_drafting",
+      "task_packaging",
+      "subordinate_dispatch_planning",
+      "subordinate_review",
+      "bounded_low_risk_clerical_support_attached_to_admitted_missions"
+    ],
+    "deepseek_is_not": [
+      "chatgpt_final_authority",
+      "repository_writer",
+      "bulk_boilerplate_coder",
+      "replacement_for_faster_deterministic_tools",
+      "permission_for_generic_paid_fallback_or_auto_top_up"
+    ]
+  },
+  "latest_user_quality_checkpoint": {
+    "reference_output": "2026-09-14 Hori Daisuke sleep explainer",
+    "user_assessment": "very_good_overall",
+    "retain": [
+      "bright explainer panels and generally brighter visual treatment",
+      "semantic caption segmentation",
+      "truthful separation of subject claims from scientific consensus",
+      "pre-delivery rereview instead of immediate handoff",
+      "iOS/in-app compatible Fast Start MP4 delivery"
+    ],
+    "improve": [
+      "stronger facial-expression acting rather than mouth-only motion",
+      "normalize perceived size of Zundamon and Shikoku Metan",
+      "make the current speaker naturally larger while speaking",
+      "keep the listener visible and expressive when useful",
+      "reduce agent fragmentation because coordination overhead can erase parallelism gains",
+      "information collection and script writing are primarily a joint ChatGPT plus DeepSeek responsibility",
+      "keep yellow/red emphasis to only a few genuinely important phrases",
+      "ensure Zundamon mouth motion follows voice timing and facial expression changes follow semantic beats"
+    ]
+  },
+  "adopted_media_decisions": [
+    "QUALITY_GATES_CANNOT_BE_TRADED_FOR_SPEED_OR_ENGAGEMENT",
+    "SHORTFORM_STORY_USES_TRUTHFUL_HOOK_THEN_EARLY_VALUE_OR_EVIDENCE_THEN_EXPLANATION_AND_PAYOFF_WHEN_THE_STORY_FITS",
+    "CURIOSITY_GAPS_MUST_RESOLVE_INSIDE_THE_VIDEO_AND_GENERIC_STAY_TUNED_CLOSES_ARE_NOT_DEFAULT",
+    "MOUTH_QA_USES_FULL_FACE_COMPOSITE_FIXTURES_FOR_BOTH_ZUNDAMON_AND_METAN_WHEN_GEOMETRY_OR_ASSETS_CHANGE",
+    "CAPTIONS_ARE_REVIEWED_ON_SEPARATE_AXES_OF_SEMANTIC_CHUNK_RENDERED_WIDTH_MEASURED_AUDIO_TIMING_AND_EMPHASIS",
+    "OFFICIAL_LATIN_OR_ENGLISH_PROPER_TERMS_STAY_INDIVISIBLE_WHERE_PRACTICAL_AND_KATAKANA_VOICE_READINGS_DO_NOT_REPLACE_CAPTION_SPELLING",
+    "ONE_PRIMARY_MOTION_OR_ATTENTION_HERO_PER_SEMANTIC_BEAT_BY_DEFAULT_WITH_STABLE_RESTING_STATES_ALLOWED",
+    "RISK_TRIGGERED_LOW_COST_PREVIEW_BLOCKS_EXPENSIVE_FULL_RENDER_WHEN_CHANGED_HIGH_RISK_VISUAL_LAYERS_FAIL",
+    "REPAIR_THE_SMALLEST_AFFECTED_STAGE_AND_TRUE_DEPENDENTS_INSTEAD_OF_RERENDERING_THE_FULL_PIPELINE_FOR_CONVENIENCE",
+    "CACHE_REUSE_REQUIRES_MATCHING_INPUT_MANIFEST_INCLUDING_POLICY_ASSET_CHARACTER_ANCHOR_CAPTION_VOICE_OUTPUT_AND_DEPENDENCY_IDENTITIES",
+    "FULL_PIPELINE_RERENDER_REQUIRES_RECORDED_DEPENDENCY_JUSTIFICATION",
+    "RETENTION_PATTERNS_ARE_PROMOTED_ONLY_AFTER_MEASURED_REPEATED_WINS_WITH_QUALITY_GUARDRAILS_HELD_CONSTANT",
+    "MISSING_PLATFORM_ANALYTICS_ARE_UNAVAILABLE_NOT_SYNTHESIZED",
+    "CHARACTER_ACTING_USES_EYES_EYEBROWS_FACE_POSE_AND_LISTENER_REACTION_NOT_MOUTH_ONLY_MOTION",
+    "ZUNDAMON_AND_METAN_BASELINE_PERCEIVED_SIZE_IS_NORMALIZED_BEFORE_SPEAKER_FOCUS",
+    "ACTIVE_SPEAKER_MAY_ENLARGE_WITH_EASE_AND_SAFE_ZONE_CHECK_WHILE_INACTIVE_SPEAKER_REMAINS_READABLE",
+    "FULL_SPOKEN_TEXT_CAPTION_CONTRACT_FOR_EVERY_SPOKEN_TURN",
+    "ZUNDAMON_GREEN_AND_METAN_PINK_CAPTION_TEXT_WITH_DARK_STROKE",
+    "MARKED_IMPORTANT_TERMS_USE_YELLOW_OR_RED_EMPHASIS_WITHOUT_COLOR_ONLY_MEANING",
+    "CLAIM_BEARING_NEWS_USES_SEMANTICALLY_MATCHED_RIGHTS_VERIFIED_CONTEXT_VISUALS_WITH_PROVENANCE",
+    "MEDIA_RESEARCH_AND_SCRIPT_DEFAULT_TO_ONE_COMBINED_CHATGPT_PLUS_DEEPSEEK_JUDGMENT_STAGE",
+    "ROUTINE_MEDIA_WORK_MUST_NOT_BE_SPLIT_INTO_MANY_SMALL_AGENT_HANDOFFS_WHEN_COORDINATION_COST_EXCEEDS_EXPECTED_PARALLEL_GAIN",
+    "DETERMINISTIC_RENDERING_ENCODING_TIMING_AND_MACHINE_QA_DO_NOT_REQUIRE_EXTRA_AI_AGENTS",
+    "ZUNDAMON_NEWS60_USES_REUSABLE_55_TO_60_SECOND_PROMPT_AND_MACHINE_TEMPLATE",
+    "SHORTFORM_SPECIAL_CAPTION_COLOR_IS_EXPLICIT_ONLY_ZERO_BY_DEFAULT_AND_MAX_THREE_PER_VIDEO",
+    "SCOPED_SHORTFORM_TEMPLATE_USES_VOICE_SYNCED_MOUTH_AND_SPARSE_SEMANTIC_FACIAL_EXPRESSION",
+    "LONGFORM_YMM4_REFERENCE_STYLE_IS_STYLE_ONLY_AND_NOT_FACTUAL_EVIDENCE",
+    "LONGFORM_YMM4_USE_CHAPTER_SCENE_SOURCE_AND_CLAIM_SIDECARS",
+    "TEN_MINUTE_LONGFORM_GOAL_IS_CONDITIONAL_AND_UNMEASURED_UNTIL_WINDOWS_TIMING",
+    "REFERENCE_PROFILE_USES_TWO_CHARACTER_FOCUS_WITH_SPARSE_VOICE_SYNCED_ACTING"
+  ],
+  "explicitly_not_promoted_to_hard_law": [
+    "FIXED_UNIVERSAL_CAPTION_CHARACTERS_PER_SECOND",
+    "FIXED_UNIVERSAL_PANEL_LUMA_OR_BRIGHTNESS_TARGET",
+    "FIXED_UNIVERSAL_CUT_OR_MOTION_INTERVAL",
+    "MANDATORY_NEW_ASSET_EVERY_TWO_OR_THREE_SECONDS",
+    "MANDATORY_SOUND_EFFECT_ON_EVERY_CUT",
+    "TIKTOK_ADVERTISING_HEURISTICS_AS_CROSS_PLATFORM_ORGANIC_LAW",
+    "SINGLE_VIRAL_OUTLIER_AS_CANONICAL_BASELINE",
+    "EXACT_STORY_TIMING_BLOCKS_AS_HARD_LAW",
+    "MORE_THAN_CURRENT_ADMITTED_PARALLEL_MEDIA_CEILING_WITHOUT_POLICY_CHANGE_AND_EVIDENCE",
+    "FIXED_EXPRESSION_CHANGE_EVERY_SENTENCE",
+    "FIXED_ACTIVE_SPEAKER_SCALE_FOR_ALL_SCENES"
+  ],
+  "compact_media_orchestration": {
+    "default_judgmental_pair": [
+      "ChatGPT",
+      "DeepSeek"
+    ],
+    "combined_stage": "RESEARCH_AND_SCRIPT",
+    "chatgpt_owns": [
+      "final source verification",
+      "final framing and structure",
+      "claim qualification",
+      "script lock",
+      "final quality and delivery adjudication"
+    ],
+    "deepseek_owns": [
+      "broad evidence collection",
+      "source comparison and chronology",
+      "contradiction discovery",
+      "hook and structure alternatives",
+      "first-pass drafting",
+      "bounded red-team review"
+    ],
+    "default_deepseek_synthesis_passes": 1,
+    "additional_agent_fanout_requires_material_expected_information_gain_or_specialist_need": true,
+    "routine_script_polish_does_not_justify_extra_agents": true,
+    "mechanical_media_stages_use_deterministic_tools": true,
+    "avoid_more_than_two_judgmental_handoffs_before_script_lock_without_reason": true
+  },
+  "production_speed_without_quality_loss": {
+    "media_speed_quality_policy": "config/media_speed_quality_policy.json",
+    "media_speed_orchestrator": "scripts/media_speed_orchestrator.py",
+    "media_speed_validator": "scripts/validate_media_speed_quality.py",
+    "media_speed_checkpoint_sealer": "scripts/seal_media_speed_checkpoint.py",
+    "target_wall_clock_minutes": [
+      10,
+      15
+    ],
+    "historical_local_baseline_minutes": 40,
+    "target_is_observed_goal_not_guarantee": true,
+    "max_independent_preparation_lanes": 3,
+    "one_pass_final_encode_for_bounded_shortform": true,
+    "jev_media_planning": true,
+    "jev_surface": "LEAN_TWO_QUESTION_PROFILE_AND_SHAPE",
+    "python_owns_cache_invalidation_parallelism_and_final_plan": true,
+    "preferred_mechanisms": [
+      "consolidated ChatGPT plus DeepSeek research-and-script stage",
+      "reusable editor or machine templates",
+      "rights-verified asset cache",
+      "reaction-pack cache",
+      "VOICEVOX pronunciation dictionary reuse",
+      "measured audio timing reuse",
+      "content-addressed stage outputs",
+      "input-manifest-keyed cache hits",
+      "parallelize only genuinely independent preparation",
+      "risk-triggered preview QA",
+      "incremental layer or stage repair"
+    ],
+    "forbidden_shortcuts": [
+      "skip fact or rights gate for speed",
+      "skip mouth caption safe-zone decode or final visual QA",
+      "reuse stale anchor caption or policy artifact without manifest match",
+      "rerender everything when only one layer changed",
+      "increase parallelism by weakening quality or single-writer rules",
+      "split routine research and script into many agent handoffs merely to appear parallel"
+    ],
+    "longform_ten_minute_target": {
+      "target_wall_clock_minutes": 10,
+      "status": "UNMEASURED_CONDITIONAL_TARGET",
+      "scope": "WARM_RUN_FROM_LOCKED_EVIDENCE_AND_SCRIPT_WITH_CHECKED_WINDOWS_BASELINE_AND_READY_RIGHTS_CLEARED_ASSETS",
+      "includes_final_render_and_qa": true,
+      "quality_gates_may_be_shortened": false
+    }
+  },
+  "measurement_and_learning": {
+    "production_metrics": [
+      "stage_wall_clock_time",
+      "revision_count_by_stage",
+      "stage_reuse_ratio",
+      "artifact_manifest_cache_hit_ratio",
+      "preview_QA_catch_count",
+      "post_render_defect_escape_count",
+      "full_rerender_count_and_justification",
+      "incremental_repair_used",
+      "judgmental_handoff_count_before_script_lock",
+      "deepseek_calls_used_for_research_and_script",
+      "coordination_time_fraction",
+      "character_expression_revision_count",
+      "speaker_scale_collision_count"
+    ],
+    "youtube_when_available": [
+      "average_view_duration",
+      "average_percentage_viewed",
+      "retention_curve",
+      "top_moments",
+      "dips",
+      "spikes",
+      "Shorts_chose_to_view_ratio",
+      "Shorts_swiped_away_ratio",
+      "Shorts_engaged_views"
+    ],
+    "promotion_rule": "Do not promote a creative pattern from intuition or a single viral outlier. Compare appropriate formats and similar durations when possible, declare the main creative variable and guardrails, and require quality gates to pass first."
+  },
+  "pre_delivery_rule": {
+    "do_not_handoff_immediately_after_candidate_completion": true,
+    "rereview_against_original_user_request": true,
+    "rereview_against_current_effective_spec": true,
+    "rereview_actual_change_set_and_final_artifacts": true,
+    "decode_pass_alone_is_not_visual_quality_pass": true,
+    "representative_final_visual_samples_required": true,
+    "check_character_size_balance_and_active_speaker_scale": true,
+    "check_representative_facial_expression_states": true
+  },
+  "safety_and_side_effects": {
+    "main_direct_push": false,
+    "pr_merge": false,
+    "production_deploy": false,
+    "public_publish": false,
+    "secret_mutation_or_disclosure": false,
+    "auto_top_up": false,
+    "generic_paid_fallback": false,
+    "paid_media_generation": false
+  },
+  "shortform_zundamon_news60_template": {
+    "machine_policy": "config/zundamon_news60_template.json",
+    "prompt_document": "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+    "validator": "scripts/validate_zundamon_news60_template.py",
+    "general_static_character_default_remains_for_other_profiles": true
+  },
+  "longform_ymm4_reference_profile": {
+    "machine_policy": "config/ymm4_research_explainer_profile.json",
+    "human_doc": "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
+    "script_scaffold": "examples/ymm4_research_explainer_script_template.json",
+    "preparation_command": "scripts/prepare_ymm4_research_explainer_package.py",
+    "scope": "LONGFORM_8_TO_12_MINUTE_DEFAULT",
+    "reference_player_runtime": "19:06_STYLE_REFERENCE_ONLY",
+    "fact_source": "NOT_A_FACTUAL_SOURCE",
+    "ten_minute_goal_status": "UNMEASURED_CONDITIONAL_WARM_RUN",
+    "no_video_created": true,
+    "visual_match_corrections": [
+      "full-spoken two-line captions in a broad dark-blue rounded lower band, with phone-size preview and no near-black default",
+      "warm orange current-source strip at the bottom; exact source title/date/ID",
+      "chapter pill persists until chapter changes",
+      "active speaker bright; listener visible but subdued; Windows-preview opacity values only"
+    ],
+  "information_traceability": [
+    "verified claims require per-source locator/support summary and reviewer/date",
+    "selected visuals require five provenance fields and exact line/claim mapping",
+    "CLEARED visuals also require license basis, reuse-condition summary, review method, reviewer, and date; restricted or unknown rights stay blocked",
+    "optional SRT uses one unique measured local WAV per line; SHA/frame/duration manifest is emitted and WAVs are not copied",
+    "timed SRT is text-only and remains pending Windows YMM4 preview; CSV remains the voice-item input",
+    "voice and image rights remain separate"
+    ],
+    "no_biosynthesis_claims_added_without_topic_sources": true
+  }
+}

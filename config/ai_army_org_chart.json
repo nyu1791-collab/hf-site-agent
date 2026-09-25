@@ -1,0 +1,370 @@
+{
+  "schema_version": "ai-army-org-chart-v7",
+  "effective_date_jst": "2026-09-22",
+  "status": "CANONICAL",
+  "design_goal": "Maximize verified task success by prioritizing route correctness and decision stability before time to verified completion, using Jev typed decisions, deterministic bypasses, a DeepSeek supervisory lane only when justified, and bounded specialist execution.",
+  "policy_entrypoint": "scripts/ai_army_routing_facade.py",
+  "hierarchy": {
+    "depth_0": {
+      "role": "TOP_COMMANDER",
+      "agent": "chatgpt-work",
+      "responsibilities": [
+        "MISSION_OWNERSHIP",
+        "FINAL_ADJUDICATION",
+        "POLICY_INTERPRETATION",
+        "CROSS_DOMAIN_INTEGRATION",
+        "USER_DELIVERY"
+      ],
+      "final_decision_authority": true
+    },
+    "decision_plane": {
+      "role": "FAST_DECISION_PLANE",
+      "agent": "jev-latest",
+      "policy": "config/jev_decision_engine_policy.json",
+      "runtime": "scripts/jev_decision_engine.py",
+      "coordinator": "scripts/jev_routing_coordinator.py",
+      "responsibilities": [
+        "TASK_CLASSIFICATION",
+        "SPECIALIST_ASSIGNMENT",
+        "DYNAMIC_1_TO_3_FANOUT",
+        "PARALLEL_VS_SEQUENTIAL",
+        "VERIFICATION_NEED",
+        "STOP_RETRY_ESCALATE_TRIAGE"
+      ],
+      "default_for": "NONTRIVIAL_ROUTE_CHOICE_WHERE_MULTIPLE_ELIGIBLE_EXECUTION_PATHS_EXIST",
+      "bypass_when": [
+        "DETERMINISTIC_MACHINE_ORACLE_IS_SUFFICIENT",
+        "ROUTE_IS_ALREADY_UNAMBIGUOUS_AND_NO_SELECTION_VALUE_EXISTS"
+      ],
+      "final_decision_authority": false,
+      "repository_write": false,
+      "permission_expansion": false,
+      "contract": "CHOICE_NOUL_SCORE_ONLY",
+      "free_text_generation": false,
+      "python_normalizes_final_route": true,
+      "batch_first": true,
+      "max_records_per_request": 20,
+      "max_parallel_batches": 5,
+      "quota_math_location": "PYTHON_ONLY",
+      "cost_priority": "SECONDARY_TO_VERIFIED_ROUTE_CORRECTNESS_DECISION_STABILITY_AND_TIME_TO_VERIFIED_COMPLETION_WITH_EMERGENCY_CEILING_ONLY",
+      "routing_priority": [
+        "VERIFIED_ROUTE_CORRECTNESS",
+        "DECISION_STABILITY_AND_EVIDENCE_SUFFICIENCY",
+        "TIME_TO_VERIFIED_COMPLETION",
+        "COORDINATION_EFFICIENCY"
+      ],
+      "thin_evidence_keeps_jev_decision_surface": true
+    },
+    "depth_1": {
+      "role": "EXECUTIVE_SUPERVISOR",
+      "agent": "paid-deepseek",
+      "policy": "config/deepseek_paid_supervisor_policy.json",
+      "responsibilities": [
+        "BROAD_RESEARCH",
+        "SOURCE_COMPARISON",
+        "EVIDENCE_TRIAGE",
+        "SYSTEM_ARCHITECTURE",
+        "PEER_REVIEW",
+        "RED_TEAM",
+        "INCIDENT_DIAGNOSIS",
+        "TASK_DECOMPOSITION",
+        "SCRIPT_AND_REPORT_DRAFTING",
+        "TASK_PACKAGING",
+        "SUBORDINATE_REVIEW",
+        "MEDIA_STRATEGY",
+        "TIKTOK_SHOP_STRATEGY",
+        "EXECUTIVE_SYNTHESIS"
+      ],
+      "activation": "ONLY_WHEN_HIGH_INFORMATION_GAIN_SUPERVISION_IS_JUSTIFIED",
+      "default_bulk_coding": false,
+      "repository_write": false,
+      "final_user_answer": false,
+      "mandatory_hop_for_every_task": false
+    },
+    "depth_2": {
+      "role": "SPECIALIST_OR_WORKER",
+      "agents": [
+        "verified-qwen",
+        "verified-nvidia",
+        "verified-groq",
+        "verified-google",
+        "verified-openrouter-free",
+        "github-coding-adapter-when-justified"
+      ],
+      "activation": "ONLY_WHEN_CURRENTLY_ELIGIBLE_AND_SELECTED_BY_COMMANDER_OR_JEV_BOUNDED_DECISION_PLANE",
+      "responsibilities": [
+        "BOUNDED_SPECIALIST_EXECUTION",
+        "TARGETED_IMPLEMENTATION",
+        "TARGETED_REVIEW",
+        "INDEPENDENT_PARALLEL_RESEARCH_WHEN_JUSTIFIED"
+      ],
+      "worker_to_worker_delegation": false
+    }
+  },
+  "direct_specialist_bypass": {
+    "allowed": true,
+    "purpose": "Avoid an unnecessary paid supervisor hop for narrow bounded execution when ChatGPT already has a clear task contract and current specialist readiness evidence.",
+    "eligible_examples": [
+      "TARGETED_CODING",
+      "TARGETED_TESTING",
+      "BOUNDED_EXTRACTION",
+      "MECHANICAL_IMPLEMENTATION_WITH_CLEAR_ACCEPTANCE_CRITERIA"
+    ],
+    "requires": [
+      "CHATGPT_MISSION_OWNERSHIP",
+      "CURRENT_PROVIDER_READINESS",
+      "BOUNDED_SCOPE",
+      "NO_GENERIC_PAID_FALLBACK",
+      "SINGLE_WRITER_FOR_MUTATION"
+    ],
+    "not_allowed_for": [
+      "BROAD_RESEARCH",
+      "ARCHITECTURE_CHOICE",
+      "RED_TEAM",
+      "INCIDENT_ROOT_CAUSE",
+      "MULTI_SOURCE_STRATEGIC_SYNTHESIS"
+    ],
+    "may_override_chatgpt_final_authority": false,
+    "may_authorize_paid_fallback": false,
+    "may_expand_its_own_scope": false
+  },
+  "deterministic_bypass": {
+    "rule": "DO_NOT_CREATE_AN_AGENT_HOP_WHEN_A_MACHINE_ORACLE_OR_DETERMINISTIC_TOOL_CAN_DO_THE_WORK_RELIABLY",
+    "preferred_tools": [
+      "PYTHON",
+      "FFMPEG",
+      "FFPROBE",
+      "SCHEMA_VALIDATOR",
+      "HASHING",
+      "STATIC_CHECKS",
+      "TEST_RUNNER",
+      "QUOTA_LEDGER",
+      "CHECKPOINT_STORE"
+    ],
+    "examples": [
+      "MEDIA_STREAM_VALIDATION",
+      "JSON_SCHEMA_VALIDATION",
+      "HASH_COMPARISON",
+      "CACHE_KEY_COMPUTATION",
+      "SORTING",
+      "QUOTA_ARITHMETIC",
+      "FILE_EXISTENCE_AND_SIZE_CHECKS"
+    ]
+  },
+  "admission": {
+    "default": "SINGLE_AGENT_OR_DETERMINISTIC_TOOL",
+    "routing_facade": "scripts/ai_army_routing_facade.py",
+    "use_deepseek_supervisor_when": [
+      "BROAD_RESEARCH",
+      "HIGH_UNCERTAINTY",
+      "MULTIPLE_EVIDENCE_SOURCES",
+      "ARCHITECTURE_CHOICE",
+      "FAILURE_DIAGNOSIS",
+      "RED_TEAM",
+      "STRATEGIC_SYNTHESIS",
+      "SCRIPT_OR_REPORT_DRAFTING_LINKED_TO_RESEARCH",
+      "EVIDENCE_PACKAGING",
+      "MULTI_STEP_WORK_WITH_RELATED_CLERICAL_SUPPORT",
+      "MEDIA_RESEARCH_AND_SCRIPT_COMBINED_STAGE"
+    ],
+    "add_depth_2_worker_when": [
+      "INDEPENDENT_PARALLEL_WORK",
+      "DISTINCT_SPECIALIST_DOMAIN",
+      "TARGETED_IMPLEMENTATION_BENEFITS_FROM_SPECIALIST",
+      "INDEPENDENT_VERIFICATION_MATERIALLY_REDUCES_HIGH_IMPACT_RISK"
+    ],
+    "avoid_multi_agent_when": [
+      "SEQUENTIAL_REASONING",
+      "TOOL_HEAVY_SHARED_STATE_WITHOUT_INDEPENDENT_BRANCHES",
+      "TRIVIAL_TRANSFORM",
+      "COORDINATION_OVERHEAD_EXCEEDS_EXPECTED_GAIN",
+      "ROUTINE_MEDIA_RESEARCH_AND_SCRIPT_ALREADY_COVERED_BY_CHATGPT_PLUS_DEEPSEEK"
+    ],
+    "production_routing_change_requires_measured_evidence": true,
+    "shadow_policy": "config/agent_efficiency_policy.json",
+    "shadow_advisor": "scripts/agent_architecture_admission.py",
+    "single_vs_multi_evaluator": "scripts/agent_efficiency_eval.py"
+  },
+  "legacy_runtime_compatibility": {
+    "agent_runtime": "scripts/agent_runtime.py",
+    "legacy_direct_router": "scripts/commander_routing.py",
+    "legacy_provider_commanders_may_appear_as_root_children_in_runtime": true,
+    "interpretation": "Compatibility execution topology only. It does not supersede this canonical policy hierarchy. Direct provider commanders are bounded execution corps, not peer policy authorities.",
+    "new_policy_decisions_must_enter_through_routing_facade": true,
+    "legacy_deepseek_engineering_role_is_not_paid_supervisor": true,
+    "legacy_registry": "config/legacy_deepseek_compatibility.json"
+  },
+  "control_plane": {
+    "single_writer": true,
+    "task_lease_for_parallel_mutation": true,
+    "dependency_join": true,
+    "idempotency": true,
+    "stale_write_guard": true,
+    "checkpoint_after_meaningful_stage": true,
+    "preserve_partial_success": true,
+    "bounded_retry": true,
+    "bounded_replan": true,
+    "circuit_break_repeated_root_cause": true,
+    "machine_oracle_over_majority_vote": true,
+    "final_execution_admission_guard": "scripts/final_execution_admission_guard.py",
+    "final_execution_admission_guard_required_for_every_route_surface": true,
+    "health_evidence_may_reorder_but_never_expand_prevalidated_eligibility": true,
+    "shared_state_is_rechecked_after_hedge_or_latency_challenger": true,
+    "independent_verifier_role_must_be_explicit": true
+  },
+  "failure_observability": {
+    "required_failure_classes": [
+      "CONSTRAINT_VIOLATION",
+      "REPETITION",
+      "CONTEXT_LOSS",
+      "DERAILMENT",
+      "IGNORED_INPUT",
+      "REASONING_ACTION_MISMATCH",
+      "PREMATURE_TERMINATION",
+      "WEAK_VERIFICATION",
+      "PROVIDER_OR_TOOL_FAILURE",
+      "STALE_STATE_OR_WRITE_CONFLICT"
+    ],
+    "termination_reason_required": true,
+    "trace_mission_task_agent_tool_checkpoint_guardrail": true,
+    "event_schema": "schemas/agent_failure_event.schema.json",
+    "same_root_cause_retry_without_new_evidence": false
+  },
+  "deepseek_supervisor_runtime": {
+    "mission_schema": "schemas/deepseek_supervisor_mission.schema.json",
+    "runner": "scripts/deepseek_supervisor_research.py",
+    "workflow": ".github/workflows/deepseek-supervisor-research.yml",
+    "trigger_scope": "ONE_MISSION_FILE_UNDER_MISSIONS_DEEPSEEK_SUPERVISOR",
+    "default_research_lanes": 6,
+    "default_parallel_calls": 3,
+    "default_call_cap": 8,
+    "expanded_hard_lanes": 8,
+    "expanded_hard_parallel_calls": 4,
+    "expanded_hard_call_cap": 12,
+    "mission_cost_cap_usd": 0.5,
+    "daily_estimated_cost_cap_usd": 3,
+    "chatgpt_final_adjudication_required": true,
+    "automatic_execution_on_unrelated_pushes": false,
+    "active_paid_deepseek_workflow_count": 1
+  },
+  "measurement": {
+    "shadow_before_multi_agent_promotion": true,
+    "compare_same_fixture_against_single_controller": true,
+    "primary_metrics": [
+      "TASK_SUCCESS_RATE",
+      "ACCEPTANCE_CRITERIA_PASS_RATE",
+      "ESCAPED_DEFECT_RATE",
+      "P50_LATENCY",
+      "P95_LATENCY",
+      "TOKEN_USAGE",
+      "REQUEST_COUNT",
+      "ESTIMATED_COST",
+      "RETRY_COUNT",
+      "COORDINATION_OVERHEAD_RATIO"
+    ],
+    "deepseek_supervisor_metrics": [
+      "ACCEPTED_RECOMMENDATION_RATE",
+      "COST_PER_ACCEPTED_DECISION",
+      "CACHE_HIT_RATE",
+      "DUPLICATE_RESEARCH_AVOIDED",
+      "DRAFT_ACCEPTANCE_RATE",
+      "HANDOFF_COMPLETENESS",
+      "COORDINATION_OVERHEAD_RATIO",
+      "REPLAN_RATE"
+    ],
+    "hard_zero_metrics": [
+      "SILENT_SUCCESS",
+      "STALE_WRITE_ACCEPT",
+      "DUPLICATE_MUTATION_LEASE",
+      "UNBOUNDED_LOOP",
+      "UNAUTHORIZED_PAID_ROUTE",
+      "HEALTHY_ARTIFACT_DESTROYED_BY_DOWNSTREAM_FAILURE"
+    ]
+  },
+  "forbidden_org_patterns": [
+    "PEER_SWARM_WITHOUT_OWNER",
+    "WORKER_TO_WORKER_UNBOUNDED_DELEGATION",
+    "MULTI_AGENT_MAJORITY_VOTE_AS_GROUND_TRUTH",
+    "PARALLEL_WRITERS_TO_SAME_MUTABLE_TARGET",
+    "AGENT_FOR_EVERY_DETERMINISTIC_STEP",
+    "DEEPSEEK_AS_BOILERPLATE_CODE_FACTORY",
+    "DEEPSEEK_AS_MANDATORY_PAID_HOP_FOR_TRIVIAL_EXECUTION",
+    "OVERFRAGMENT_ROUTINE_RESEARCH_AND_SCRIPT_INTO_SMALL_AGENT_HANDOFFS",
+    "DUPLICATE_SOURCE_PROCESSING_ALREADY_DONE_BY_CHATGPT_OR_DEEPSEEK",
+    "UNBOUNDED_RESEARCH_FANOUT",
+    "MODEL_BRAND_HARDCODED_AS_ROLE_WITHOUT_CAPABILITY_CHECK"
+  ],
+  "success_metrics": [
+    "TASK_SUCCESS_RATE",
+    "ACCEPTANCE_CRITERIA_PASS_RATE",
+    "P95_LATENCY",
+    "COST_PER_ACCEPTED_DECISION",
+    "COORDINATION_OVERHEAD_RATIO",
+    "ERROR_AMPLIFICATION_RATE",
+    "CHECKPOINT_RECOVERY_SUCCESS_RATE",
+    "RETRY_AND_REPLAN_RATE",
+    "DUPLICATE_RESEARCH_AVOIDED",
+    "DRAFT_ACCEPTANCE_RATE",
+    "JEV_ROUTING_LATENCY",
+    "JEV_ROUTE_STABILITY",
+    "TIME_TO_FIRST_VERIFIED_RESULT",
+    "CRITICAL_PATH_DURATION",
+    "JEV_COST_PER_ACCEPTED_ROUTE",
+    "HEAVY_MODEL_CALLS_AVOIDED",
+    "UNNECESSARY_FANOUT_AVOIDED",
+    "DOMAIN_SCOPED_WORKER_SUCCESS_RATE",
+    "INTER_TASK_PARALLEL_EFFICIENCY",
+    "INTRA_TASK_FANOUT_EFFICIENCY"
+  ],
+  "fast_decision_flow": {
+    "default_nontrivial_path": [
+      "CHATGPT_MISSION_ENVELOPE",
+      "DETERMINISTIC_ELIGIBILITY_FILTER",
+      "JEV_TYPED_DECISION",
+      "SELECTED_1_TO_3_SPECIALISTS",
+      "MACHINE_OR_JEV_LIGHT_TRIAGE",
+      "CHATGPT_FINAL_ADJUDICATION"
+    ],
+    "jev_not_used_for": [
+      "LONG_FORM_WRITING",
+      "BULK_CODE_GENERATION",
+      "OPEN_ENDED_RESEARCH",
+      "FINAL_FACTUAL_ADJUDICATION"
+    ],
+    "principle": "USE_JEV_FOR_EVIDENCE-SUFFICIENT_TYPED_ROUTING; NEVER REDUCE THE DECISION SURFACE FROM A SINGLE SUCCESS OR LATENCY LEAD ALONE",
+    "batch_path": [
+      "COLLECT_INDEPENDENT_ROUTING_RECORDS",
+      "PREVALIDATE_CANDIDATE_POOLS_AND_QUOTA_ENUMS",
+      "PACK_UP_TO_20_RECORDS_PER_JEV_REQUEST",
+      "RUN_UP_TO_5_JEV_BATCHES_IN_PARALLEL",
+      "PYTHON_NORMALIZE_TYPED_ANSWERS",
+      "FINAL_ADMISSION_GUARD_AND_QUOTA_RESERVATION",
+      "STREAM_DEPENDENCY_READY_TASKS_BY_CRITICAL_PATH",
+      "KEEP_PER_TASK_FANOUT_INDEPENDENT_OF_BUNDLE_SIZE",
+      "PARALLELIZE_ACROSS_INDEPENDENT_TASKS",
+      "START_ONLY_THE_SMALLEST_JUSTIFIED_WORKER_SET_PER_TASK",
+      "FALL_BACK_FAILED_RECORDS_WITHOUT_CANCELLING_HEALTHY_TASKS"
+    ],
+    "target_100_jobs": "FIVE_20_RECORD_JEV_BATCHES_IN_PARALLEL_WHEN_INDEPENDENT",
+    "worker_health_learning": {
+      "scope": "SHORT_LIVED_DOMAIN_AWARE_EVIDENCE",
+      "evidence": "config/openrouter_worker_recent_evidence.json",
+      "rank_by": [
+        "DOMAIN_QUALITY_FAILURE",
+        "DOMAIN_SUCCESS_AND_SAMPLE_SUFFICIENCY",
+        "RECENT_429",
+        "RECENT_LATENCY"
+      ],
+      "expiry_required": true,
+      "may_expand_model_eligibility": false
+    },
+    "latency_challenger": {
+      "max_optional_challengers_per_task": 1,
+      "only_for_recently_slow_primary": true,
+      "high_risk_tasks": false,
+      "purpose": "RESERVE_ONE_HEALTHY_CHALLENGER_AND_LAUNCH_ONLY_AFTER_PRIMARY_HAS_NOT_REACHED_VERIFIED_COMPLETION",
+      "winner_rule": "FIRST_VERIFIED_RESULT_WINS",
+      "reservation_requires_final_admission_guard": true
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "schema_version": "jev-primary-benchmark-mission-v1",
+  "created_at_jst": "2026-09-22",
+  "purpose": "Compare code-determined one-question Primary Jev route against two-question Lean route.",
+  "iterations_per_mode": 50,
+  "records_per_request": 5,
+  "worker_calls": 0,
+  "paid_scope": "JEV_ONLY",
+  "production_side_effects": false
+}

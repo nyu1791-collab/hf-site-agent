@@ -1,0 +1,515 @@
+name: Retired Mars Jezero route (use durable speed-quality workflow)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: mars-jezero-current-news-short-20260922
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      OUT: artifacts/mars-jezero-water-news-20260922
+      CACHE: .media-cache/assets
+      MISSION: missions/media/20260922-mars-jezero-water-history-short-v1.json
+    steps:
+      - name: Checkout exact triggering source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install deterministic free media toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig curl
+          python -m pip install --disable-pip-version-check --no-input pillow
+          mkdir -p "$OUT" "$CACHE"
+
+      - name: Static admission and permanent guard validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/video_creation_admission.py | tee "$OUT/static-admission.json"
+          python scripts/validate_free_execution_guard.py
+          python scripts/validate_commander_handoff_continuity.py
+          python scripts/validate_permanent_ai_army_state.py
+          python scripts/validate_media_command_read_gate.py
+          python -m unittest             tests.test_free_execution_guard             tests.test_media_agent_runtime             tests.test_free_media_capability_router -q
+
+      - name: Start local VOICEVOX engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          docker run -d --rm --name voicevox -p 50021:50021 voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:50021/version > "$OUT/voicevox-version.txt"; then
+              cat "$OUT/voicevox-version.txt"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs voicevox || true
+          exit 1
+
+      - name: Runtime video admission immediately before generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/video_creation_admission.py --runtime | tee "$OUT/runtime-admission.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('artifacts/mars-jezero-water-news-20260922/runtime-admission.json').read_text(encoding='utf-8'))
+          assert r['status']=='PASS', r
+          cast=(r.get('voicevox') or {}).get('cast') or {}
+          for name in ('ずんだもん','四国めたん'):
+              assert isinstance((cast.get(name) or {}).get('style_id'), int), (name, cast.get(name))
+          print('VIDEO_CREATION_RUNTIME_ADMISSION=PASS')
+          PY
+
+      - name: Lock sources and claims
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, hashlib
+          from pathlib import Path
+          mission_path=Path('missions/media/20260922-mars-jezero-water-history-short-v1.json')
+          m=json.loads(mission_path.read_text(encoding='utf-8'))
+          assert len(m.get('sources',[])) >= 2
+          assert all(str(x.get('status','')).startswith('VERIFIED') for x in m.get('claims',[]))
+          assert all(x.get('source_refs') for x in m.get('claims',[]))
+          assert m['voice']['engine']=='VOICEVOX_LOCAL'
+          assert m['voice']['primary']=='ずんだもん'
+          lock={
+            'schema':'source-claim-lock-v1',
+            'mission_id':m['mission_id'],
+            'mission_sha256':hashlib.sha256(mission_path.read_bytes()).hexdigest(),
+            'sources':m['sources'],
+            'claims':m['claims'],
+            'locked_at_git_sha':'${{ github.sha }}',
+            'public_publish':False,
+          }
+          Path('artifacts/mars-jezero-water-news-20260922/source-claim-lock.json').write_text(
+            json.dumps(lock,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print({'sources':len(lock['sources']),'claims':len(lock['claims'])})
+          PY
+
+      - name: Resolve verified cached character shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/media_asset_resolver.py             --asset-id zm_shell_20230806             --cache-root "$CACHE"             --allow-network             --max-workers 1             --manifest-out "$OUT/character-shell.json"
+          RAW=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('artifacts/mars-jezero-water-news-20260922/character-shell.json').read_text())
+          p=m['results'][0].get('extracted_path')
+          assert p and Path(p).is_dir(), p
+          print(p)
+          PY
+          )
+          python scripts/character_shell_root.py "$RAW" > "$OUT/character-source-resolved.txt"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+          root=Path(Path('artifacts/mars-jezero-water-news-20260922/character-source-resolved.txt').read_text().strip())
+          out=Path('artifacts/mars-jezero-water-news-20260922/portraits')
+          out.mkdir(parents=True,exist_ok=True)
+          records=[]
+          for source_char,target_char in [('Zundamon','zundamon'),('Metan','metan')]:
+              candidates=sorted((root/source_char).rglob('All.png'), key=lambda p:(len(p.parts),p.as_posix()))
+              assert candidates, source_char
+              src=candidates[0]
+              with Image.open(src) as im:
+                  rgba=im.convert('RGBA')
+                  alpha=rgba.getchannel('A')
+                  if alpha.getextrema()==(255,255):
+                      px=rgba.load()
+                      for y in range(rgba.height):
+                          for x in range(rgba.width):
+                              r,g,b,a=px[x,y]
+                              if r<=8 and g<=8 and b<=8:
+                                  px[x,y]=(r,g,b,0)
+                  dst=out/f'{target_char}.png'
+                  rgba.save(dst)
+              records.append({'character':target_char,'path':str(dst),'source':str(src)})
+          Path('artifacts/mars-jezero-water-news-20260922/static-portrait-inventory.json').write_text(
+              json.dumps({'schema':'static-character-inventory-v1','records':records},ensure_ascii=False,indent=2)+'\n')
+          PY
+
+      - name: Materialize rights-cleared contextual Jezero visuals
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT/evidence"
+          curl -fL --retry 2 --connect-timeout 20             -A 'hf-site-agent-media/1.0'             'https://commons.wikimedia.org/wiki/Special:Redirect/file/Jezero_Crater_Rim_Panorama_NASA_Perseverance_rover.jpg'             -o "$OUT/evidence/jezero-rim.jpg"
+          curl -fL --retry 2 --connect-timeout 20             -A 'hf-site-agent-media/1.0'             'https://commons.wikimedia.org/wiki/Special:Redirect/file/Locations_and_future_destinations_of_Perseverance_in_Jezero.jpg'             -o "$OUT/evidence/perseverance-jezero-map.jpg"
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          from PIL import Image
+          root=Path('artifacts/mars-jezero-water-news-20260922')
+          items=[
+            {
+              'id':'V1','file':root/'evidence/jezero-rim.jpg',
+              'source_page':'https://commons.wikimedia.org/wiki/File:Jezero_Crater_Rim_Panorama_NASA_Perseverance_rover.jpg',
+              'asset_locator':'https://commons.wikimedia.org/wiki/Special:Redirect/file/Jezero_Crater_Rim_Panorama_NASA_Perseverance_rover.jpg',
+              'author':'NASA/JPL-Caltech','license':'PD-USGov',
+              'claim_mapping':['Jezero Crater contextual location only'],
+              'exact_study_visual':False
+            },
+            {
+              'id':'V2','file':root/'evidence/perseverance-jezero-map.jpg',
+              'source_page':'https://commons.wikimedia.org/wiki/File:Locations_and_future_destinations_of_Perseverance_in_Jezero.jpg',
+              'asset_locator':'https://commons.wikimedia.org/wiki/Special:Redirect/file/Locations_and_future_destinations_of_Perseverance_in_Jezero.jpg',
+              'author':'NASA/JPL-Caltech/University of Arizona','license':'PD-USGov',
+              'claim_mapping':['Perseverance mission and Jezero geographic context only'],
+              'exact_study_visual':False
+            }
+          ]
+          for item in items:
+              p=item.pop('file')
+              with Image.open(p) as im:
+                  im.verify()
+              item['local_file']=str(p)
+              item['sha256']=hashlib.sha256(p.read_bytes()).hexdigest()
+              item['bytes']=p.stat().st_size
+          (root/'rights-manifest.json').write_text(json.dumps({
+              'schema':'rights-verified-visual-manifest-v1',
+              'search_is_not_license':True,
+              'public_publish':False,
+              'items':items
+          },ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print({'visuals':len(items),'rights':'PD-USGov contextual assets'})
+          PY
+
+      - name: Synthesize dynamic VOICEVOX cast and measure every WAV
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib, subprocess, urllib.parse, urllib.request
+          root=pathlib.Path('artifacts/mars-jezero-water-news-20260922')
+          mission=json.loads(pathlib.Path('missions/media/20260922-mars-jezero-water-history-short-v1.json').read_text(encoding='utf-8'))
+          speakers=json.loads(urllib.request.urlopen('http://127.0.0.1:50021/speakers',timeout=10).read().decode('utf-8'))
+
+          def choose_style(name):
+              sp=next((x for x in speakers if x.get('name')==name),None)
+              assert sp, name
+              styles=sp.get('styles') or []
+              normal=next((x for x in styles if x.get('name') in ('ノーマル','Normal','normal')),None)
+              selected=normal or (styles[0] if styles else None)
+              assert selected and isinstance(selected.get('id'),int), (name, styles)
+              return {'speaker_uuid':sp.get('speaker_uuid'),'style_name':selected.get('name'),'style_id':selected['id']}
+
+          cast={name:choose_style(name) for name in ('ずんだもん','四国めたん')}
+          voice_dir=root/'voice'; voice_dir.mkdir(parents=True,exist_ok=True)
+          records=[]; cursor=0.0
+          speed=float(mission['voice']['speed_scale'])
+          for idx,line in enumerate(mission['dialogue']):
+              sid=cast[line['speaker']]['style_id']
+              params=urllib.parse.urlencode({'text':line['voice_text'],'speaker':sid})
+              req=urllib.request.Request('http://127.0.0.1:50021/audio_query?'+params,data=b'',method='POST')
+              query=json.loads(urllib.request.urlopen(req,timeout=30).read().decode('utf-8'))
+              query['speedScale']=speed
+              query['intonationScale']=1.10
+              body=json.dumps(query,ensure_ascii=False).encode('utf-8')
+              req=urllib.request.Request(
+                  f'http://127.0.0.1:50021/synthesis?speaker={sid}',
+                  data=body,headers={'Content-Type':'application/json'},method='POST')
+              raw=voice_dir/f"{line['id']}.raw.wav"
+              wav=voice_dir/f"{line['id']}.wav"
+              raw.write_bytes(urllib.request.urlopen(req,timeout=60).read())
+              subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-i',str(raw),'-ar','48000','-ac','2','-c:a','pcm_s16le',str(wav)],check=True)
+              raw.unlink(missing_ok=True)
+              dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(wav)],text=True).strip())
+              assert dur>0
+              pause=0.18 if idx in (0,2,5,6) else 0.12
+              records.append({
+                  'id':line['id'],'speaker':line['speaker'],'style_id':sid,
+                  'voice_text':line['voice_text'],'caption_text':line['caption_text'],
+                  'wav_file':str(wav),'duration':dur,'pause_after':pause,
+                  'start':cursor,'end':cursor+dur,'claim_ids':line.get('claim_ids',[])
+              })
+              cursor += dur+pause
+          assert 48 <= cursor <= 75, f'measured narration timeline {cursor:.2f}s outside short-news guard'
+          timing={
+              'schema':'measured-voicevox-timing-v1','mission_id':mission['mission_id'],
+              'engine':'VOICEVOX_LOCAL','cast':cast,'runtime_style_discovery':True,
+              'records':records,'total_duration':cursor,
+              'audio_source':'FFPROBE_ACTUAL_GENERATED_WAV',
+              'voice_text_caption_text_separated':True,
+              'credit':mission['voice']['credit'],
+              'public_publish':False
+          }
+          (root/'voice-timing-manifest.json').write_text(json.dumps(timing,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          (root/'speakers-snapshot.json').write_text(json.dumps(speakers,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps({'cast':cast,'duration':cursor,'lines':len(records)},ensure_ascii=False))
+          PY
+
+      - name: Render static-turn-focus vertical scenes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, math, subprocess
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+
+          W,H=1080,1920
+          root=Path('artifacts/mars-jezero-water-news-20260922')
+          mission=json.loads(Path('missions/media/20260922-mars-jezero-water-history-short-v1.json').read_text(encoding='utf-8'))
+          timing=json.loads((root/'voice-timing-manifest.json').read_text(encoding='utf-8'))
+          times={x['id']:x for x in timing['records']}
+          font_path=subprocess.check_output(['fc-match','-f','%{file}','Noto Sans CJK JP'],text=True).strip()
+          if not font_path:
+              raise SystemExit('Noto Sans CJK JP font not resolved')
+          def font(size): return ImageFont.truetype(font_path,size)
+
+          z=Image.open(root/'portraits/zundamon.png').convert('RGBA')
+          m=Image.open(root/'portraits/metan.png').convert('RGBA')
+          evidence={
+              'V1':Image.open(root/'evidence/jezero-rim.jpg').convert('RGB'),
+              'V2':Image.open(root/'evidence/perseverance-jezero-map.jpg').convert('RGB'),
+          }
+          scene_dir=root/'scenes'; scene_dir.mkdir(parents=True,exist_ok=True)
+          clips_dir=root/'clips'; clips_dir.mkdir(parents=True,exist_ok=True)
+
+          Z_ACC=(92,255,138,255)
+          M_ACC=(255,106,190,255)
+          BG=(29,47,74,255)
+          PANEL=(20,35,57,235)
+          WHITE=(247,250,252,255)
+          MUTED=(194,208,224,255)
+
+          def cover(im,box):
+              x0,y0,x1,y1=box
+              tw,th=x1-x0,y1-y0
+              r=max(tw/im.width,th/im.height)
+              nw,nh=max(1,int(im.width*r)),max(1,int(im.height*r))
+              q=im.resize((nw,nh),Image.Resampling.LANCZOS)
+              left=max(0,(nw-tw)//2); top=max(0,(nh-th)//2)
+              return q.crop((left,top,left+tw,top+th))
+
+          def fit_text(draw,text,fnt,max_width):
+              out=[]
+              for para in str(text).split('\n'):
+                  if not para:
+                      out.append(''); continue
+                  line=''
+                  for ch in para:
+                      test=line+ch
+                      if draw.textbbox((0,0),test,font=fnt)[2] <= max_width or not line:
+                          line=test
+                      else:
+                          out.append(line); line=ch
+                  if line: out.append(line)
+              return out
+
+          def portrait_scaled(src,max_h,scale,opacity):
+              r=min(360/src.width,max_h/src.height)*scale
+              q=src.resize((max(1,int(src.width*r)),max(1,int(src.height*r))),Image.Resampling.LANCZOS)
+              if opacity<1:
+                  a=q.getchannel('A').point(lambda v:int(v*opacity))
+                  q.putalpha(a)
+              return q
+
+          def draw_diagram(base,kind):
+              d=ImageDraw.Draw(base,'RGBA')
+              box=(70,190,1010,990)
+              d.rounded_rectangle(box,36,fill=(44,74,112,245),outline=(115,197,255,255),width=4)
+              if kind=='DIAGRAM_WATER':
+                  labels=[('1','CO₂-rich\ngroundwater','carbonate'),('2','lake /\ngroundwater','silica')]
+                  xs=[285,765]
+                  for (n,a,b),cx in zip(labels,xs):
+                      d.ellipse((cx-95,330,cx+95,520),fill=(49,153,199,255),outline=WHITE,width=4)
+                      d.text((cx,375),n,font=font(64),fill=WHITE,anchor='mm')
+                      d.text((cx,600),a,font=font(46),fill=WHITE,anchor='mm',align='center',spacing=8)
+                      d.text((cx,800),'↓',font=font(80),fill=(133,235,255,255),anchor='mm')
+                      d.text((cx,900),b,font=font(48),fill=(255,229,140,255),anchor='mm')
+              else:
+                  d.ellipse((220,350,500,630),fill=(238,98,84,255),outline=WHITE,width=4)
+                  d.text((360,490),'HOT\nWATER',font=font(48),fill=WHITE,anchor='mm',align='center')
+                  d.line((520,490,760,490),fill=(255,201,90,255),width=22)
+                  d.polygon([(760,460),(835,490),(760,520)],fill=(255,201,90,255))
+                  d.rounded_rectangle((760,330,950,650),28,fill=(107,91,177,255),outline=WHITE,width=4)
+                  d.text((855,430),'CaSO₄',font=font(42),fill=WHITE,anchor='mm')
+                  d.text((855,525),'+ F',font=font(48),fill=(162,255,202,255),anchor='mm')
+                  d.text((540,800),'late hydrothermal alteration',font=font(50),fill=WHITE,anchor='mm')
+              return base
+
+          for line in mission['dialogue']:
+              canvas=Image.new('RGBA',(W,H),BG)
+              d=ImageDraw.Draw(canvas,'RGBA')
+              if line['visual'] in evidence:
+                  img=cover(evidence[line['visual']],(0,145,W,1050)).convert('RGBA')
+                  canvas.alpha_composite(img,(0,145))
+                  d.rectangle((0,145,W,1050),fill=(11,25,45,72))
+                  source='Context visual: NASA/JPL-Caltech via Wikimedia Commons (PD-USGov)'
+              else:
+                  draw_diagram(canvas,line['visual'])
+                  source='Explanatory diagram based on NASA/JPL + Communications Earth & Environment (2026-09-21)'
+
+              d.rectangle((0,0,W,145),fill=(22,42,67,255))
+              d.text((54,74),line['heading'],font=font(58),fill=WHITE,anchor='lm')
+              d.text((1030,74),'NEWS • 2026.09.22',font=font(25),fill=MUTED,anchor='rm')
+              d.rounded_rectangle((36,1015,1044,1138),24,fill=(16,31,52,225))
+              d.text((540,1074),source,font=font(24),fill=MUTED,anchor='mm')
+
+              active=line['speaker']
+              z_active=active=='ずんだもん'
+              zimg=portrait_scaled(z,430,1.08 if z_active else 1.0,1.0 if z_active else .55)
+              mimg=portrait_scaled(m,430,1.08 if not z_active else 1.0,1.0 if not z_active else .55)
+              zpos=(45,1500-zimg.height)
+              mpos=(W-45-mimg.width,1500-mimg.height)
+              if z_active:
+                  canvas.alpha_composite(mimg,mpos); canvas.alpha_composite(zimg,zpos)
+              else:
+                  canvas.alpha_composite(zimg,zpos); canvas.alpha_composite(mimg,mpos)
+
+              d=ImageDraw.Draw(canvas,'RGBA')
+              d.text((55,1460),'ずんだもん',font=font(30),fill=Z_ACC,anchor='ls')
+              d.text((1025,1460),'四国めたん',font=font(30),fill=M_ACC,anchor='rs')
+
+              accent=Z_ACC if z_active else M_ACC
+              d.rounded_rectangle((35,1510,1045,1880),34,fill=PANEL,outline=accent,width=6)
+              lines=fit_text(d,line['caption_text'],font(46),930)
+              total=len(lines)*62
+              y=1695-total/2
+              for txt in lines:
+                  d.text((540,y),txt,font=font(46),fill=accent,anchor='ma',stroke_width=2,stroke_fill=(4,10,17,255))
+                  y+=62
+              d.text((540,1896),'VOICEVOX:ずんだもん / VOICEVOX:四国めたん',font=font(22),fill=MUTED,anchor='mm')
+
+              path=scene_dir/f"{line['id']}.png"
+              canvas.convert('RGB').save(path,quality=95)
+
+              rec=times[line['id']]
+              total_d=float(rec['duration'])+float(rec['pause_after'])
+              clip=clips_dir/f"{line['id']}.mp4"
+              subprocess.run([
+                  'ffmpeg','-y','-hide_banner','-loglevel','error',
+                  '-loop','1','-framerate','30','-i',str(path),
+                  '-i',str(root/'voice'/f"{line['id']}.wav"),
+                  '-vf','format=yuv420p',
+                  '-af',f"apad=pad_dur={rec['pause_after']}",
+                  '-t',f"{total_d:.6f}",
+                  '-c:v','libx264','-preset','medium','-crf','21',
+                  '-c:a','aac','-b:a','160k','-ar','48000','-ac','2',
+                  '-movflags','+faststart',str(clip)
+              ],check=True)
+          print({'scenes':len(mission['dialogue']),'static_turn_focus':True,'mouth_animation':False})
+          PY
+
+      - name: Concatenate and mechanically validate final MP4
+        shell: bash
+        run: |
+          set -euo pipefail
+          FINAL="$OUT/mars-jezero-water-news-20260922.mp4"
+          python - <<'PY'
+          from pathlib import Path
+          root=Path('artifacts/mars-jezero-water-news-20260922')
+          clips=sorted((root/'clips').glob('L*.mp4'))
+          assert len(clips)==8, clips
+          (root/'concat.txt').write_text(''.join("file '"+str(p.resolve()).replace("'","'\\''")+"'\n" for p in clips),encoding='utf-8')
+          PY
+          ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i "$OUT/concat.txt" -c copy "$OUT/combined.mp4"
+          ffmpeg -y -hide_banner -loglevel error -i "$OUT/combined.mp4" -c copy -movflags +faststart "$FINAL"
+          ffprobe -v error -show_streams -show_format -of json "$FINAL" > "$OUT/ffprobe.json"
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('artifacts/mars-jezero-water-news-20260922')
+          d=json.loads((root/'ffprobe.json').read_text())
+          v=next(x for x in d['streams'] if x['codec_type']=='video')
+          a=next(x for x in d['streams'] if x['codec_type']=='audio')
+          dur=float(d['format']['duration'])
+          assert 48 <= dur <= 76, dur
+          assert (int(v['width']),int(v['height']))==(1080,1920)
+          assert v['codec_name']=='h264' and v.get('pix_fmt')=='yuv420p'
+          assert a['codec_name']=='aac' and int(a['sample_rate'])==48000
+          mp4=root/'mars-jezero-water-news-20260922.mp4'
+          completion={
+              'schema':'current-news-video-completion-v1',
+              'status':'MACHINE_GATES_PASS_VISUAL_REVIEW_PENDING',
+              'mission_id':'20260922-mars-jezero-water-history-short-v1',
+              'git_sha':'${{ github.sha }}',
+              'duration_seconds':dur,
+              'resolution':[1080,1920],
+              'video_codec':'h264/yuv420p',
+              'audio_codec':'aac/48k',
+              'voice_engine':'VOICEVOX_LOCAL',
+              'primary_voice':'ずんだもん',
+              'secondary_voice':'四国めたん',
+              'runtime_style_discovery':True,
+              'voice_timing_oracle':'FFPROBE_ACTUAL_GENERATED_WAV',
+              'public_publish':False,
+              'deploy':False,
+              'paid_media_generation':False,
+              'sha256':hashlib.sha256(mp4.read_bytes()).hexdigest(),
+              'bytes':mp4.stat().st_size
+          }
+          (root/'completion.json').write_text(json.dumps(completion,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(completion)
+          PY
+          ffmpeg -v error -i "$FINAL" -f null - 2> "$OUT/decode-errors.log"
+          test ! -s "$OUT/decode-errors.log"
+
+      - name: Extract final visual QA samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          from PIL import Image,ImageDraw,ImageFont
+          root=Path('artifacts/mars-jezero-water-news-20260922')
+          ff=json.loads((root/'ffprobe.json').read_text())
+          dur=float(ff['format']['duration'])
+          sample_dir=root/'visual-samples'; sample_dir.mkdir(exist_ok=True)
+          fractions=(.03,.18,.36,.54,.72,.90,.97)
+          for i,f in enumerate(fractions,1):
+              subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',str(dur*f),'-i',str(root/'mars-jezero-water-news-20260922.mp4'),'-frames:v','1',str(sample_dir/f'sample-{i}.jpg')],check=True)
+          files=sorted(sample_dir.glob('*.jpg'))
+          thumbs=[]
+          for p in files:
+              im=Image.open(p).convert('RGB')
+              im.thumbnail((216,384))
+              thumbs.append(im.copy())
+          sheet=Image.new('RGB',(216*len(thumbs),384),(235,240,244))
+          for i,im in enumerate(thumbs):
+              sheet.paste(im,(i*216,0))
+          sheet.save(root/'final-contact-sheet.jpg',quality=90)
+          qa={
+              'schema':'visual-qa-sampling-v1',
+              'sample_fractions':list(fractions),
+              'sample_count':len(files),
+              'checks_requested':['first_seconds','active_inactive_speaker_focus','densest_caption','diagram','rights_attribution','safe_zone'],
+              'automated_render_complete':True,
+              'human_or_commander_visual_review_required_before_final_handoff':True
+          }
+          (root/'visual-qa.json').write_text(json.dumps(qa,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+
+      - name: Upload private build artifact only
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: mars-jezero-water-news-20260922-${{ github.run_id }}
+          path: artifacts/mars-jezero-water-news-20260922
+          if-no-files-found: warn
+          retention-days: 7

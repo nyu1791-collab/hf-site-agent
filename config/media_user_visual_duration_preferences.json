@@ -1,0 +1,75 @@
+{
+  "schema_version": "media-user-visual-duration-preferences-v1",
+  "effective_date_jst": "2026-09-15",
+  "status": "CURRENT_EXPLICIT_USER_PREFERENCE",
+  "decision_owner": "user",
+  "purpose": "Persist the user's explicit visual-caption, explainer-diagram motion and default future-video duration preferences across sessions without relying on conversation memory.",
+  "applies_when": [
+    "ZUNDAMON_SHIKOKU_METAN_VIDEO",
+    "NEWS_EXPLAINER",
+    "TOPIC_EXPLAINER"
+  ],
+  "caption_visual_style": {
+    "body_text_fill": "WHITE",
+    "avoid_large_near_black_caption_box_as_default": true,
+    "frame_or_outline_should_be_bright": true,
+    "speaker_color_mapping": {
+      "ずんだもん": "GREEN",
+      "四国めたん": "METAN_PINK_OR_MAGENTA"
+    },
+    "rule": "Keep the subtitle text white and use the active speaker's bright identity color for the visible subtitle frame/outer border/accent: green for Zundamon and Metan pink/magenta for Shikoku Metan.",
+    "readability_guard": "Speaker color is an accent/border signal, not permission to reduce text/background contrast. Preserve a deterministic contrast separator such as a thin dark inner stroke or equivalent when needed for readability.",
+    "semantic_caption_segmentation_remains_required": true,
+    "do_not_use_color_as_only_semantic_information": true
+  },
+  "explainer_background_diagram_motion": {
+    "whole_diagram_vertical_drift": "FORBIDDEN_BY_DEFAULT",
+    "whole_background_figure_should_remain_stationary": true,
+    "reason": "The user observed the background/explainer diagram moving up and down and explicitly requested that it be stationary.",
+    "allowed_semantic_motion": [
+      "local pointer or highlight",
+      "brief reveal",
+      "node emphasis",
+      "intentional camera change when specifically justified by the semantic beat"
+    ],
+    "allowed_semantic_motion_must_not_create_continuous_up_down_drift": true,
+    "character_motion_is_separate_and_may_continue_under_current_character-performance policy": true
+  },
+  "future_video_duration_default": {
+    "target_minutes": [8, 12],
+    "is_guideline_not_padding_quota": true,
+    "default_for_future_news_and_topic_explainers_unless_user_requests_another_format": true,
+    "do_not_pad_with": [
+      "irrelevant background history",
+      "generic history added only to increase runtime",
+      "repetition",
+      "slow narration solely to hit duration",
+      "low-information filler",
+      "unrelated tangents"
+    ],
+    "earn_runtime_with": [
+      "more primary-source-backed facts that materially explain the topic",
+      "mechanism and causal explanation",
+      "stakeholder impact",
+      "important chronology only when it changes understanding",
+      "credible competing interpretations or uncertainty when relevant",
+      "what changes next and what remains unknown",
+      "necessary definitions and context that directly improve comprehension"
+    ],
+    "insufficient_material_rule": "Do not manufacture length. Prefer a denser, better-supported treatment or select a topic with enough substantive material; if an explicit task cannot responsibly support 8-12 minutes, surface that constraint rather than filling time.",
+    "script_quality_over_exact_runtime": true
+  },
+  "qa_requirements": {
+    "caption_sample_must_show_white_text_and_correct_speaker_color_frame": true,
+    "sample_both_zundamon_and_metan_caption_states": true,
+    "background_diagram_motion_check_required": true,
+    "verify_no_unintended_vertical_drift": true,
+    "duration_plan_must_identify_substantive_information_blocks_before_script_lock": true,
+    "final_rereview_against_original_user_request_required": true
+  },
+  "precedence": {
+    "explicit_newer_user_instruction_overrides_this_file": true,
+    "safety_factual_rights_and_accessibility_gates_cannot_be_weakened": true,
+    "machine_readable_current_policy_should_integrate_this_preference": true
+  }
+}

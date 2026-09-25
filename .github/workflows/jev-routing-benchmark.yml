@@ -1,0 +1,129 @@
+name: "Jev routing benchmark"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jev-routing-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Compile Jev benchmark
+        run: |
+          python -m py_compile scripts/jev_decision_engine.py scripts/jev_lean_router.py scripts/jev_primary_router.py scripts/jev_shape_router.py scripts/jev_route_ab_benchmark.py scripts/jev_cardinality_benchmark.py scripts/jev_lean_route_benchmark.py scripts/jev_lean_portfolio_benchmark.py scripts/jev_one_question_benchmark.py scripts/jev_mixed_batch_benchmark.py
+
+      - name: Run 9-vs-3-vs-1 Jev routing benchmark
+        if: ${{ hashFiles('missions/jev-benchmark/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python -m scripts.jev_route_ab_benchmark --output artifacts/jev_route_ab_benchmark.json
+
+      - name: Run Jev candidate-cardinality and profile benchmark
+        if: ${{ hashFiles('missions/jev-cardinality/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python -m scripts.jev_cardinality_benchmark --output artifacts/jev_cardinality_benchmark.json
+
+      - name: Upload cardinality benchmark evidence
+        if: ${{ always() && hashFiles('missions/jev-cardinality/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-cardinality-${{ github.run_id }}
+          path: artifacts/jev_cardinality_benchmark.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Run Jev 3-question vs 2-question benchmark
+        if: ${{ hashFiles('missions/jev-lean/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python -m scripts.jev_lean_route_benchmark --output artifacts/jev_lean_route_benchmark.json
+
+      - name: Upload lean-route benchmark evidence
+        if: ${{ always() && hashFiles('missions/jev-lean/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-lean-route-${{ github.run_id }}
+          path: artifacts/jev_lean_route_benchmark.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Run Jev 2-question vs 1-question benchmark
+        if: ${{ hashFiles('missions/jev-lean/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python -m scripts.jev_lean_portfolio_benchmark --output artifacts/jev_lean_portfolio_benchmark.json
+
+      - name: Upload Jev lean-vs-portfolio evidence
+        if: ${{ always() && hashFiles('missions/jev-lean/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-lean-portfolio-${{ github.run_id }}
+          path: artifacts/jev_lean_portfolio_benchmark.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload benchmark evidence
+        if: ${{ always() && hashFiles('missions/jev-benchmark/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-route-ab-${{ github.run_id }}
+          path: artifacts/jev_route_ab_benchmark.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Run Jev 2q-vs-primary1q-vs-shape1q benchmark
+        if: ${{ hashFiles('missions/jev-one-question/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python -m scripts.jev_one_question_benchmark --output artifacts/jev_one_question_benchmark.json
+
+      - name: Upload Jev one-question benchmark evidence
+        if: ${{ always() && hashFiles('missions/jev-one-question/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-one-question-${{ github.run_id }}
+          path: artifacts/jev_one_question_benchmark.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Run Jev heterogeneous and batch-size speed benchmark
+        if: ${{ hashFiles('missions/jev-speed-benchmark/active.json') != '' }}
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python -m scripts.jev_mixed_batch_benchmark --output artifacts/jev_mixed_batch_benchmark.json
+
+      - name: Upload Jev speed benchmark evidence
+        if: ${{ always() && hashFiles('missions/jev-speed-benchmark/active.json') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: jev-speed-benchmark-${{ github.run_id }}
+          path: artifacts/jev_mixed_batch_benchmark.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Assert no worker or production authority
+        run: |
+          test -f scripts/jev_route_ab_benchmark.py
+          ! grep -q 'chat/completions' scripts/jev_route_ab_benchmark.py
+          echo 'WORKER_CALLS=0'
+          echo 'PRODUCTION_SIDE_EFFECTS=0'

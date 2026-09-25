@@ -1,0 +1,68 @@
+{
+  "schema_version": "free-execution-guard-v1",
+  "effective_date_jst": "2026-09-22",
+  "status": "ENFORCED_PERMANENT_STANDARD",
+  "decision_owner": "chatgpt-top-commander",
+  "purpose": "Keep every new chat tab and every media route in the free-only execution boundary unless it matches an already documented narrow exception.",
+  "default_runtime": {
+    "free_only_mode": true,
+    "allow_paid_model": false,
+    "allow_paid_fallback": false,
+    "auto_top_up": false,
+    "unknown_cost_route": "BLOCK",
+    "trial_credit_or_freemium_route_counts_as_free": false,
+    "billing_or_upgrade_page_is_not_an_execution_step": true,
+    "paid_route_must_not_be_probed_to_discover_availability": true
+  },
+  "media_boundary": {
+    "paid_or_freemium_video_generation": false,
+    "paid_or_freemium_video_editing": false,
+    "paid_caption_or_tts_service": false,
+    "paid_media_tool_discovery": false,
+    "permitted_default": "LOCAL_OR_FRESHLY_VERIFIED_ZERO_COST_ROUTE",
+    "permitted_tools": ["Python", "Pillow", "FFmpeg", "ffprobe", "VOICEVOX_LOCAL", "YMM4_LOCAL"],
+    "blocked_tools": ["runway", "fal", "fal.ai", "descript", "veed", "heygen", "higgsfield"],
+    "free_route_unavailable_action": "BLOCK_AND_REPORT_NO_PAID_SUBSTITUTION"
+  },
+  "video_creation_admission": {
+    "policy": "config/video_creation_admission_policy.json",
+    "runtime": "scripts/video_creation_admission.py",
+    "must_restore_before_every_video_request": true,
+    "required_local_engine": "VOICEVOX_LOCAL",
+    "required_primary_voice": "ずんだもん",
+    "required_secondary_voice_when_dialogue_helps": "四国めたん",
+    "voicevox_runtime_probe_required": true,
+    "voicevox_unavailable_action": "BLOCK_BEFORE_RENDER",
+    "silent_video_fallback": false,
+    "actual_wav_duration_drives_timeline": true
+  },
+  "narrow_preauthorized_exceptions": {
+    "jev": {
+      "enabled": true,
+      "policy": "config/jev_decision_engine_policy.json",
+      "scope": "TYPED_FAST_DECISION_ONLY",
+      "media_generation": false,
+      "other_paid_provider_authorization": false
+    },
+    "deepseek": {
+      "enabled_only_when_current_policy_scope_matches": true,
+      "policy": "config/deepseek_paid_supervisor_policy.json",
+      "media_generation": false,
+      "other_paid_provider_authorization": false
+    }
+  },
+  "cross_tab_continuity": {
+    "must_be_read_from_repository_on_new_tab": true,
+    "must_be_re_read_when_media_intent_is_detected": true,
+    "chat_memory_cannot_override_this_guard": true,
+    "free_only_rule_survives_tab_change": true,
+    "paid_media_block_survives_tab_change": true,
+    "upgrade_or_billing_prompt_must_not_be_treated_as_permission": true
+  },
+  "failure_contract": {
+    "blocked_paid_route_is_not_a_failed_free_route": true,
+    "must_report_block_reason": true,
+    "must_not_retry_same_paid_route": true,
+    "must_not_silently_switch_to_paid": true
+  }
+}

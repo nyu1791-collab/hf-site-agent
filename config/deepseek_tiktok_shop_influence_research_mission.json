@@ -1,0 +1,119 @@
+{
+  "schema_version": "deepseek-tiktok-shop-influence-research-v1",
+  "mission_id": "tiktok-shop-influence-20260912",
+  "effective_date_jst": "2026-09-12",
+  "goal": "Design an evidence-based, high-conversion TikTok Shop short-video system for AI Army: product discovery, hook, subtitle, story, proof, local-review synthesis, product-page grounding, CTA, experimentation, and quality/policy gates.",
+  "decision_owner": "chatgpt-top-commander",
+  "constraints": {
+    "paid_deepseek_authorized_for_this_research": true,
+    "max_parallel_calls": 2,
+    "max_estimated_cost_usd": 0.04,
+    "production_publish_not_authorized": true,
+    "merge_deploy_secret_mutation_not_authorized": true,
+    "no_fake_reviews": true,
+    "no_fake_urgency_or_scarcity": true,
+    "no_unverified_product_claims": true,
+    "ai_generated_or_ai_modified_content_must_follow_current_tiktok_shop_aigc_labeling_rules": true,
+    "avoid_template_spam": true,
+    "prefer_product_page_and_official_manufacturer_sources_for_specs": true
+  },
+  "official_platform_evidence": [
+    {
+      "source": "TikTok Shop Japan - High-quality shoppable video checklist, 2026-07-08",
+      "url": "https://seller-jp.tiktok.com/university/essay?knowledge_id=1232479651153681&lang=ja-JP",
+      "facts": [
+        "Opening 3 seconds should present a relatable problem plus the product solution.",
+        "Product should be introduced naturally and core selling points/material/size/use should be clearly explained.",
+        "Multiple usage scenes and detailed visualization are recommended.",
+        "CTA should guide viewers smoothly to purchase.",
+        "Subtitles are recommended."
+      ]
+    },
+    {
+      "source": "TikTok Shop Japan - Shopping video conversion tips, 2026-05-20",
+      "url": "https://seller-jp.tiktok.com/university/essay?knowledge_id=1429562417137409",
+      "facts": [
+        "The first 3 seconds are treated as a high-conversion hook window.",
+        "Scene-specific interest and showing details are preferred over generic product display.",
+        "Cover selection affects how the video appears in the timeline.",
+        "Urgency tactics must still comply with misleading-content rules and therefore require real, current evidence."
+      ]
+    },
+    {
+      "source": "TikTok Shop Japan - AIGC content guideline, 2026-07-14",
+      "url": "https://seller-jp.tiktok.com/university/essay?knowledge_id=6860523157653265",
+      "facts": [
+        "AIGC is allowed when current labeling and content-policy requirements are met.",
+        "Important selling points may be emphasized in subtitles using strong visual emphasis.",
+        "Content should be distinctive and avoid repetitive template reuse.",
+        "Product appearance and claims must remain faithful to reality."
+      ]
+    },
+    {
+      "source": "TikTok Shop Japan - Product selection education, 2026-07-06",
+      "url": "https://seller-jp.tiktok.com/university/essay?knowledge_id=1086540470748945&lang=en",
+      "facts": [
+        "Product selection should consider sample access, market potential, audience fit, earning potential, user benefit, product quality, and how well it can be demonstrated on video."
+      ]
+    },
+    {
+      "source": "TikTok Shop Japan - Content policy, 2026-06-15",
+      "url": "https://seller-jp.tiktok.com/university/essay?knowledge_id=2707587427927825&lang=en",
+      "facts": [
+        "Promotional content must be accurate, useful, and verifiable.",
+        "Misleading product claims and artificial engagement are prohibited."
+      ]
+    },
+    {
+      "source": "TikTok For Business - short video best practice",
+      "url": "https://ads.tiktok.com/business/en/blog/tiktok-short-video-best-practice",
+      "facts": [
+        "First few seconds are critical.",
+        "Strong visual product presentation, engaging question/relatable statement/bold curiosity claim can be used as hooks.",
+        "After the hook, product validators and pain-point relevance should support the need for the product."
+      ]
+    }
+  ],
+  "research_evidence": [
+    {
+      "source": "Journal of Business Research 2019 meta-analysis on narrative transportation",
+      "url": "https://www.sciencedirect.com/science/article/pii/S0148296318305356",
+      "facts": [
+        "Meta-analysis of 64 articles and 138 effect sizes found narrative transportation can support persuasion in digital/commercial contexts and can be stronger for user-generated storytelling."
+      ]
+    },
+    {
+      "source": "Data and Information Management 2024 online-review meta-analysis",
+      "url": "https://www.sciencedirect.com/science/article/pii/S2543925123000323",
+      "facts": [
+        "Meta-analysis of 156 studies and 69,006 observations found online review factors significantly affect purchase intention, with review valence among the strongest relationships."
+      ]
+    },
+    {
+      "source": "Information Systems Frontiers eWOM meta-analysis",
+      "url": "https://link.springer.com/article/10.1007/s10796-019-09924-y",
+      "facts": [
+        "Credibility, usefulness, source credibility, argument quality, emotional trust and product attitude were all materially associated with intention to buy."
+      ]
+    },
+    {
+      "source": "Journal of Business Research - consumer reviews as narratives",
+      "url": "https://www.sciencedirect.com/science/article/pii/S0148296314003476",
+      "facts": [
+        "Story-like consumer reviews can increase narrative transportation and reflection, which can influence behavioral intent."
+      ]
+    }
+  ],
+  "design_questions": [
+    "What hook taxonomy should be used for food, gadgets, convenience products, novelty/import products and problem-solving items?",
+    "What exact sequence should convert curiosity into understanding, credibility, desire, objection reduction and CTA without deceptive persuasion?",
+    "How should subtitles be chunked, emphasized and positioned for mobile retention while avoiding UI collision and visual overload?",
+    "How should cover/thumbnail text and first frame differ from the spoken hook?",
+    "How should product-page claims, official manufacturer information, historical/cultural facts and local-language reviews be combined and labeled by evidence strength?",
+    "How should Chinese/local reviews be sampled, translated, deduplicated, sentiment-clustered and quoted/paraphrased without inventing consensus?",
+    "How should target personas be generated and matched to product/video angle?",
+    "How should a product discovery score rank TikTok Shop products by story potential, demonstrability, trust gap, margin/commission, audience fit and policy risk?",
+    "What should be A/B tested and what metrics should cause a hook/story/product angle to be promoted or retired?",
+    "Which persuasion tactics should be rejected because they harm trust, violate platform rules, or create unsustainable template spam?"
+  ]
+}

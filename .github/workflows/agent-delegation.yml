@@ -1,4 +1,4 @@
-name: Run role-scoped commander handoff
+name: Legacy commander handoff (disabled pending provider migration)
 
 on:
   workflow_dispatch:
@@ -17,12 +17,12 @@ on:
         default: ""
         type: string
       general_model:
-        description: Optional ROLE_GENERAL_COMMANDER model override; blank uses the registry
+        description: Legacy compatibility input; current provider commander routing does not use this value
         required: false
         default: ""
         type: string
       engineering_model:
-        description: Optional ROLE_ENGINEERING_COMMANDER model override; blank uses the registry
+        description: Legacy compatibility input; current provider commander routing does not use this value
         required: false
         default: ""
         type: string

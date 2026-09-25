@@ -12,7 +12,18 @@ import re
 import sys
 from typing import Any
 
-from openai import APIStatusError, APITimeoutError, OpenAI
+# This is an optional network-only compatibility lane.  Importing the
+# repository's deterministic tooling must not depend on the SDK being
+# installed; the live lane fails closed when it is unavailable.
+try:
+    from openai import APIStatusError, APITimeoutError, OpenAI
+except ModuleNotFoundError:  # pragma: no cover - exercised by minimal runners
+    class _OpenAISDKMissing(RuntimeError):
+        pass
+
+    APIStatusError = _OpenAISDKMissing
+    APITimeoutError = _OpenAISDKMissing
+    OpenAI = None
 
 MAX_BRIEF = 3000
 MAX_CONTEXT = 6000
@@ -81,6 +92,8 @@ def main() -> None:
     )
 
     try:
+        if OpenAI is None:
+            fail("OpenAI-compatible client dependency is unavailable; no provider request was sent.")
         client = OpenAI(api_key=api_key, base_url=base_url, timeout=15.0, max_retries=0)
         response = client.chat.completions.create(
             model=model,
