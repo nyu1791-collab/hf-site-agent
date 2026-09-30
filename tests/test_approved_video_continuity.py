@@ -15,9 +15,22 @@ class ContinuityTests(unittest.TestCase):
         pack=restore.restore(ROOT,'a'*40)
         for item in pack['files']:
             p=dest/item['path'];p.parent.mkdir(parents=True,exist_ok=True);p.write_text(item['content'])
-        for path in ['scripts/render_reusable_short.py','scripts/render_reusable_longform.py','scripts/restore_video_context.py','examples/approved_video_presentation.json']:
+        # Validator-only dependencies are copied explicitly. They are not part
+        # of the routine hot-path context pack and should not inflate it.
+        for path in [
+            'config/evidence_visual_static_character_policy.json',
+            'scripts/render_reusable_short.py',
+            'scripts/render_reusable_longform.py',
+            'scripts/render_fast_image_longform.py',
+            'scripts/restore_video_context.py',
+            'examples/approved_video_presentation.json',
+        ]:
             p=dest/path;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes((ROOT/path).read_bytes())
         return pack
+
+    def _pack_json(self,pack,path):
+        item=next(x for x in pack['files'] if x['path']==path)
+        return json.loads(item['content'])
 
     def test_fresh_tab_recovers_approved_reference_and_content(self):
         with tempfile.TemporaryDirectory() as td:
@@ -25,12 +38,15 @@ class ContinuityTests(unittest.TestCase):
             second=module('restore_video_context').restore(root,'b'*40)
             self.assertEqual(first['reference'],second['reference'])
             self.assertEqual(second['head_sha'],'b'*40)
-            self.assertEqual(second['baseline']['caption_colors']['ずんだもん'],'#B8E6C8')
-            self.assertIn('content',second['files'][0])
-            self.assertTrue(second['baseline']['editorial']['answer_first'])
-            self.assertFalse(second['baseline']['editorial']['caveats']['repeat_generic_warning_per_chapter'])
-            self.assertTrue(second['baseline']['media_region_only_required'])
-            self.assertEqual(second['baseline']['longform_renderer'],'scripts/render_reusable_longform.py')
+            profile=self._pack_json(second,'config/approved_video_template.json')
+            self.assertEqual(profile['layout']['caption_colors']['ずんだもん'],'#B8E6C8')
+            self.assertTrue(second['files'][0]['content'])
+            self.assertTrue(profile['editorial']['answer_first'])
+            self.assertFalse(profile['editorial']['caveats']['repeat_generic_warning_per_chapter'])
+            self.assertTrue(profile['execution_contract']['media_region_only_boolean_required_for_each_visual'])
+            self.assertEqual(profile['longform_renderer'],'scripts/render_reusable_longform.py')
+            self.assertTrue(second['baseline']['reuse_existing_approved_layout_and_assets'])
+            self.assertEqual(second['baseline']['optional_template'],'config/approved_video_template.json')
 
     def test_changed_policy_invalidates_content_hash(self):
         with tempfile.TemporaryDirectory() as td:
