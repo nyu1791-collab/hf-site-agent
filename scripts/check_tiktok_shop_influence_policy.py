@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config" / "tiktok_shop_influence_policy.json"
 HANDOFF = ROOT / "config" / "current_commander_handoff.json"
 MEDIA_GATE = ROOT / "config" / "media_command_read_gate.json"
+MANIFEST = ROOT / "config" / "permanent_standards_manifest.json"
 
 
 def load(path: Path) -> dict:
@@ -23,6 +24,7 @@ def main() -> int:
     p = load(POLICY)
     h = load(HANDOFF)
     gate = load(MEDIA_GATE)
+    manifest = load(MANIFEST)
 
     assert p["status"] == "PERMANENT_CONDITIONAL_STANDARD"
     assert p["platform_grounding"]["first_3_seconds_are_priority"] is True
@@ -47,14 +49,23 @@ def main() -> int:
     assert p["experimentation"]["promote_on_sales_alone"] is False
     assert p["experimentation"]["winning_pattern_may_not_relax_evidence_or_policy_gates"] is True
 
-    # Handoff v8 is intentionally compact. TikTok-specific rules must be
-    # restored through the semantic media gate, not duplicated in startup order.
+    # Handoff v17 is intentionally compact. TikTok-specific rules live in the
+    # permanent manifest and semantic media gate instead of being duplicated in
+    # the bootstrap handoff.
     continuity = h["continuity"]
     assert continuity["read_order_is_bootstrap_not_full_standard_copy"] is True
     assert continuity["task_specific_gate_resolution"]["media"] == "config/media_command_read_gate.json"
     active = h["active_standards"]
-    assert active["tiktok_shop_influence_policy"] == "config/tiktok_shop_influence_policy.json"
-    assert active["tiktok_shop_influence_playbook"] == "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md"
+    assert active["media_command_gate"] == "config/media_command_read_gate.json"
+    assert active["permanent_manifest"] == "config/permanent_standards_manifest.json"
+
+    standards = {str(x.get("id")): x for x in manifest.get("required_standards", []) if isinstance(x, dict)}
+    tiktok = standards["tiktok-shop-influence"]
+    assert tiktok["machine_policy"] == "config/tiktok_shop_influence_policy.json"
+    assert tiktok["path"] == "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md"
+    cross_tab = manifest.get("cross_tab_behavior") or {}
+    assert cross_tab["media_command_read_gate_survives_tab_change"] is True
+    assert cross_tab["monetization_command_read_gate_survives_tab_change"] is True
 
     # Read Gate v11 keeps intent-specific trigger_sets and explicit mixed-intent
     # expansion. Shop clipping must still restore both commerce and clipping know-how.
@@ -81,11 +92,6 @@ def main() -> int:
     }
     assert gate["knowledge_restore_execution"]["shop_clipping_must_union_shop_and_clipping_knowhow"] is True
     assert gate["new_session_behavior"]["do_not_rely_on_prior_tab_summary_as_substitute"] is True
-
-    assert "EVIDENCE_BASED_TIKTOK_SHOP_COMMERCE" in h["lanes"]
-    assert h["tiktok_shop_fixed_rules"]["fake_reviews"] is False
-    assert h["tiktok_shop_fixed_rules"]["fake_urgency_or_scarcity"] is False
-    assert h["tiktok_shop_fixed_rules"]["storytelling_must_not_upgrade_evidence_strength"] is True
 
     print("TIKTOK_SHOP_INFLUENCE_POLICY_CHECK=PASS")
     return 0
