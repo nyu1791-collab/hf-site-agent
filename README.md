@@ -108,6 +108,8 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 - `docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md`
 - `docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md`
 
+基準YMM4プロジェクトを一から作り直さないための複製コマンドは `scripts/reuse_ymm4_baseline.py`。実際のWindows確認台帳と素材hashを検査し、編集中のプロジェクトを保持する。手順は `docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md`。
+
 ## CI / Compatibility
 
 CIの実行権限と自動fan-outは `config/ci_execution_policy.json` を正本とし、`scripts/ci_control_plane_guard.py` で検査する。旧実験コードを保持する場合でも、それだけで現行Routing権限・有料実行権限・自動発火権限を復活させてはならない。
@@ -117,3 +119,4 @@ CIの実行権限と自動fan-outは `config/ci_execution_policy.json` を正本
 ## Hard Boundaries
 
 明示された権限がない限り、main直接Push、PR Merge、本番Deploy、公開Publish、Secrets変更・開示、Durable Object変更、Auto Top-up、Generic Paid Fallback、不可逆な外部操作を行わない。
+

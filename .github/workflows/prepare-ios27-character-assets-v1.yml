@@ -25,6 +25,16 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check pillow
 
+      - name: Restore verified character source and reaction cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .media-cache/assets
+            .media-cache/derived
+          key: character-foundation-${{ runner.os }}-v2-${{ hashFiles('scripts/prepare_character_reaction_pack.py', 'config/media_reusable_asset_standard.json') }}-${{ github.run_id }}
+          restore-keys: |
+            character-foundation-${{ runner.os }}-v2-${{ hashFiles('scripts/prepare_character_reaction_pack.py', 'config/media_reusable_asset_standard.json') }}-
+
       - name: Resolve registered character shell
         run: |
           set -euo pipefail
@@ -147,4 +157,5 @@ jobs:
         with:
           name: ios27-character-fixture-v1
           path: artifacts/ios27_character_fixture
-          retention-days: 3
+          retention-days: 30
+

@@ -72,3 +72,14 @@ Workerは現在の利用可能性・分野別品質・成功率・429・速度�
 `measure_mouth_cached()` は音声hash・解析設定・engine/style・実装版の一致を検証し、別の実行でも口イベントを再利用する。`build_plan()` の呼び出し側は `mouth_cache_dir` を明示して永続再利用を有効にする。checksum・schema・時間範囲が不正ならその派生計算だけをやり直す。途中ファイルを成功済みcacheと扱わない。表情/字幕色/強調だけの変更では音声キーも口解析キーも変えない。
 
 台本の構成、YMM4基準プロジェクト、キャラクター差分、フォント、素材、VOICEVOXエンジンは初回準備として保存し、次回は既存IDと版を確認して使う。既存完成Artifactを消して作り直す方式は禁止。冷開始と温開始を区別して実測し、まだ測っていない短縮率を宣伝しない。
+
+
+## 再利用基盤の欠損対策・基準プロジェクト複製
+
+表情パックは台帳の存在だけでは再利用しない。抽出済み元PNG全体、台帳、全登録画像のhash、両キャラの口・目・眉・本体の必要枚数を検査する。旧台帳は初回のみ再構築し、その後は一致時に透明化や画像生成を省略する。再構築の検査に失敗した場合は既存パックを保持する。
+
+素材準備Workflowは元素材と派生パックをActions cacheから復元し、最終検査後に保存する。配布Artifactは30日保持する。Actions cacheは期限や退避のある高速化用保存で、永久保管の保証ではない。素材と検証済みWindows基準プロジェクトは制作端末でも保持する。
+
+`python scripts/reuse_ymm4_baseline.py --baseline <基準.ymmp> --receipt <検証台帳.json> --destination <今回.ymmp>` は、Windows確認済みの基準を同じフォルダへ複製する。台帳には baseline_sha256、windows_preview_verified、mouth_sync_verified、semantic_expressions_verified、caption_phrase_color_verified、reviewer、verified_at と、assets（path/sha256の配列）が必要。相対素材パスを維持し、変更済み素材や未確認基準は拒否する。編集中の今回プロジェクトを上書きしない。
+
+このコマンドは基準の再利用であり、Windows確認の代行やsidecarの自動適用ではない。検証台帳のtrue値を実際のプレビューなしで設定しない。口・表情・字幕色のWindows完成映像確認は引き続き未実施。

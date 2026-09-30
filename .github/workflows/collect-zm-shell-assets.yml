@@ -47,4 +47,5 @@ jobs:
         with:
           name: zm-lipsync-shell-assets
           path: artifacts/zm_shell
-          retention-days: 3
+          retention-days: 30
+

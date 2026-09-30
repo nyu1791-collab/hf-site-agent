@@ -33,7 +33,11 @@
     "raw_third_party_assets_not_committed_to_repository": true,
     "derived_third_party_assets_not_committed_to_repository": true,
     "rights_recheck_before_publication_still_required": true,
-    "actions_cache_is_acceleration_not_rights_evidence": true
+    "actions_cache_is_acceleration_not_rights_evidence": true,
+    "inventory_checksum_required": true,
+    "all_indexed_image_checksums_required": true,
+    "extracted_source_tree_hash_required": true,
+    "failed_rebuild_preserves_previous_pack": true
   },
   "minimum_inventory": {
     "source_png_total_min": 160,
@@ -59,32 +63,120 @@
   },
   "reaction_inventory_intent": {
     "zundamon": {
-      "eyes": ["normal", "happy", "skeptical", "surprised", "closed", "upward", "strain"],
-      "brows": ["normal", "raised", "worried", "angry"],
-      "mouth": ["closed", "small_open", "open", "wide_open", "smile", "pout"],
-      "poses": ["basic", "raise_hand", "point", "think", "hand_near_mouth", "waist", "distress"],
-      "shell_symbols": ["sweat", "tears"],
-      "face_tone": ["normal", "blush", "pale", "shadow"]
+      "eyes": [
+        "normal",
+        "happy",
+        "skeptical",
+        "surprised",
+        "closed",
+        "upward",
+        "strain"
+      ],
+      "brows": [
+        "normal",
+        "raised",
+        "worried",
+        "angry"
+      ],
+      "mouth": [
+        "closed",
+        "small_open",
+        "open",
+        "wide_open",
+        "smile",
+        "pout"
+      ],
+      "poses": [
+        "basic",
+        "raise_hand",
+        "point",
+        "think",
+        "hand_near_mouth",
+        "waist",
+        "distress"
+      ],
+      "shell_symbols": [
+        "sweat",
+        "tears"
+      ],
+      "face_tone": [
+        "normal",
+        "blush",
+        "pale",
+        "shadow"
+      ]
     },
     "metan": {
-      "eyes": ["normal", "camera", "surprised", "closed", "upward", "strain", "dizzy"],
-      "brows": ["cheerful", "worried", "slightly_angry", "angry"],
-      "mouth": ["closed", "small_open", "open", "wide_open", "smile", "grin"],
-      "poses": ["basic", "raise_hand", "point", "whisper", "microphone", "hand_near_mouth", "hold"],
-      "shell_symbols": ["sweat", "tears"],
-      "face_tone": ["normal", "blush", "pale", "shadow"]
+      "eyes": [
+        "normal",
+        "camera",
+        "surprised",
+        "closed",
+        "upward",
+        "strain",
+        "dizzy"
+      ],
+      "brows": [
+        "cheerful",
+        "worried",
+        "slightly_angry",
+        "angry"
+      ],
+      "mouth": [
+        "closed",
+        "small_open",
+        "open",
+        "wide_open",
+        "smile",
+        "grin"
+      ],
+      "poses": [
+        "basic",
+        "raise_hand",
+        "point",
+        "whisper",
+        "microphone",
+        "hand_near_mouth",
+        "hold"
+      ],
+      "shell_symbols": [
+        "sweat",
+        "tears"
+      ],
+      "face_tone": [
+        "normal",
+        "blush",
+        "pale",
+        "shadow"
+      ]
     }
   },
   "mouth_alignment_contract": {
     "asset_existence_is_not_alignment_proof": true,
-    "supported_geometry_models": ["SHARED_FULL_CANVAS_COORDINATES", "EXPLICIT_ANCHOR_METADATA"],
+    "supported_geometry_models": [
+      "SHARED_FULL_CANVAS_COORDINATES",
+      "EXPLICIT_ANCHOR_METADATA"
+    ],
     "cropped_layer_requires_explicit_anchor_metadata": true,
     "anchor_profile_is_character_specific": true,
-    "anchor_profile_identity_includes": ["source_sha256", "pack_revision", "character", "output_geometry", "scale_profile"],
+    "anchor_profile_identity_includes": [
+      "source_sha256",
+      "pack_revision",
+      "character",
+      "output_geometry",
+      "scale_profile"
+    ],
     "exactly_one_active_mouth_layer_per_character": true,
     "closed_small_open_and_open_fixture_required": true,
     "fixture_must_cover_zundamon_and_metan": true,
-    "fixture_checks": ["inside_face_socket", "no_eye_or_nose_overlap", "no_face_outline_damage", "no_float_or_detach", "no_double_mouth", "alpha_edge_integrity"],
+    "fixture_checks": [
+      "inside_face_socket",
+      "no_eye_or_nose_overlap",
+      "no_face_outline_damage",
+      "no_float_or_detach",
+      "no_double_mouth",
+      "alpha_edge_integrity"
+    ],
     "fixture_required_after_source_pack_anchor_scale_or_geometry_change": true,
     "verified_fixture_reused_when_identity_is_unchanged": true,
     "per_frame_anchor_detection_forbidden": true,
@@ -124,15 +216,42 @@
     "keep_japanese_grammar_around_english_terms": true,
     "official_brand_or_product_spelling_has_priority": true,
     "examples": [
-      {"voice_text": "エーアイ", "caption_text": "AI"},
-      {"voice_text": "オープンエーアイ", "caption_text": "OpenAI"},
-      {"voice_text": "アンスロピック", "caption_text": "Anthropic"},
-      {"voice_text": "ハギングフェイス", "caption_text": "Hugging Face"},
-      {"voice_text": "ロイター", "caption_text": "Reuters"},
-      {"voice_text": "サム・アルトマン", "caption_text": "Sam Altman"},
-      {"voice_text": "ジーピーユー", "caption_text": "GPU"},
-      {"voice_text": "エーピーアイ", "caption_text": "API"},
-      {"voice_text": "シーイーオー", "caption_text": "CEO"}
+      {
+        "voice_text": "エーアイ",
+        "caption_text": "AI"
+      },
+      {
+        "voice_text": "オープンエーアイ",
+        "caption_text": "OpenAI"
+      },
+      {
+        "voice_text": "アンスロピック",
+        "caption_text": "Anthropic"
+      },
+      {
+        "voice_text": "ハギングフェイス",
+        "caption_text": "Hugging Face"
+      },
+      {
+        "voice_text": "ロイター",
+        "caption_text": "Reuters"
+      },
+      {
+        "voice_text": "サム・アルトマン",
+        "caption_text": "Sam Altman"
+      },
+      {
+        "voice_text": "ジーピーユー",
+        "caption_text": "GPU"
+      },
+      {
+        "voice_text": "エーピーアイ",
+        "caption_text": "API"
+      },
+      {
+        "voice_text": "シーイーオー",
+        "caption_text": "CEO"
+      }
     ],
     "exception": "Use Japanese official notation or a deliberate user-requested notation when that is the publication standard for the term."
   },

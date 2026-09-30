@@ -327,6 +327,11 @@ jobs:
           python scripts/validate_jev_decision_engine.py
           python -m unittest tests.test_jev_decision_engine tests.test_jev_lean_router tests.test_jev_primary_router tests.test_jev_shape_router tests.test_jev_mixed_router tests.test_jev_routing_coordinator tests.test_final_execution_admission_guard tests.test_multi_agent_execution_schedule tests.test_openrouter_worker_health tests.test_openrouter_worker_orchestrator
 
+      - name: Verify reusable character foundation and baseline preservation
+        run: |
+          python -m unittest discover -s tests -p 'test_reaction_pack_reuse.py' -v
+          python -m unittest discover -s tests -p 'test_reuse_ymm4_baseline.py' -v
+
       - name: Enforce media command read gate
         run: |
           set -euo pipefail
@@ -428,3 +433,4 @@ jobs:
           test -z "${DEEPSEEK_API_KEY:-}"
           ! grep -q 'secrets.DEEPSEEK_API_KEY' .github/workflows/canonical-ai-army-consistency.yml
           echo 'PAID_CALLS=0'
+

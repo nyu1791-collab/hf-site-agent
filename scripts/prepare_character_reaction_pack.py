@@ -49,17 +49,6 @@ def _load_pillow():
 
 
 def _source_identity(shell_root: Path, source_receipt: Path | None) -> dict[str, Any]:
-    if source_receipt and source_receipt.is_file():
-        receipt = json.loads(source_receipt.read_text(encoding="utf-8"))
-        digest = str(receipt.get("sha256") or "").strip()
-        if digest:
-            return {
-                "asset_id": receipt.get("asset_id", "zm_shell_20230806"),
-                "registry_revision": receipt.get("registry_revision", "20230806"),
-                "source_sha256": digest,
-                "identity_source": "SOURCE_RECEIPT",
-            }
-
     h = hashlib.sha256()
     files = sorted(p for p in shell_root.rglob("*.png") if p.is_file())
     for path in files:
@@ -159,28 +148,53 @@ def _draw_generated_symbols(out_dir: Path) -> list[dict[str, Any]]:
     return created
 
 
+def _validate_pack(output: Path, identity: dict[str, Any]) -> None:
+    manifest = json.loads((output / "pack_manifest.json").read_text(encoding="utf-8"))
+    if manifest.get("pack_revision") != PACK_REVISION or manifest.get("source_sha256") != identity["source_sha256"]:
+        raise ValueError("pack identity mismatch")
+    inventory_path = output / "inventory.json"
+    if sha256_file(inventory_path) != manifest.get("inventory_sha256"):
+        raise ValueError("inventory checksum mismatch")
+    inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+    if inventory.get("schema") != "zm-reaction-pack-inventory-v1":
+        raise ValueError("inventory schema mismatch")
+    records = []
+    for character, minimum in (("Zundamon", 95), ("Metan", 65)):
+        data = inventory["characters"][character]
+        categories = data["categories"]
+        for category, count in (("full_body", 1), ("mouth", 3), ("eyes", 2), ("brows", 2)):
+            if len(categories.get(category, [])) < count:
+                raise ValueError(f"missing {character}/{category}")
+        rows = [row for values in categories.values() for row in values]
+        if len(rows) < minimum or len(rows) != data["png_count"]:
+            raise ValueError("incomplete character inventory")
+        records.extend((row["normalized_path"], row["sha256"]) for row in rows)
+    if len(records) != manifest["png_count"]:
+        raise ValueError("pack count mismatch")
+    symbols = inventory["generated_symbols"]
+    if {row["name"] for row in symbols} != {"question", "surprise", "emphasis", "anger", "focus_flash"}:
+        raise ValueError("incomplete symbols")
+    records.extend(("generated_symbols/" + row["path"], row["sha256"]) for row in symbols)
+    seen = set()
+    root = output.resolve()
+    for rel, checksum in records:
+        path = (root / rel).resolve()
+        if not path.is_relative_to(root) or path in seen or not path.is_file():
+            raise ValueError("missing, duplicate or unsafe pack path")
+        seen.add(path)
+        if sha256_file(path) != checksum:
+            raise ValueError("pack image checksum mismatch")
+
+
 def _existing_hit(output: Path, identity: dict[str, Any]) -> dict[str, Any] | None:
-    manifest_path = output / "pack_manifest.json"
-    if not manifest_path.is_file():
-        return None
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        _validate_pack(output, identity)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return None
-    if manifest.get("pack_revision") != PACK_REVISION:
-        return None
-    if manifest.get("source_sha256") != identity["source_sha256"]:
-        return None
-    inventory = output / "inventory.json"
-    if not inventory.is_file():
-        return None
-    return {
-        "status": "CACHE_HIT",
-        "pack_root": str(output),
-        "manifest": str(manifest_path),
-        "inventory": str(inventory),
-        "source_sha256": identity["source_sha256"],
-    }
+    return {"status": "CACHE_HIT", "pack_root": str(output),
+            "manifest": str(output / "pack_manifest.json"),
+            "inventory": str(output / "inventory.json"),
+            "source_sha256": identity["source_sha256"]}
 
 
 def build_pack(shell_root: Path, output: Path, source_receipt: Path | None = None) -> dict[str, Any]:
@@ -247,6 +261,7 @@ def build_pack(shell_root: Path, output: Path, source_receipt: Path | None = Non
             "registry_revision": identity["registry_revision"],
             "source_sha256": identity["source_sha256"],
             "identity_source": identity["identity_source"],
+            "inventory_sha256": sha256_file(inventory_path),
             "png_count": total_png,
             "generated_symbol_count": len(inventory["generated_symbols"]),
             "network_access": False,
@@ -257,9 +272,20 @@ def build_pack(shell_root: Path, output: Path, source_receipt: Path | None = Non
         }
         (tmp / "pack_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
+        _validate_pack(tmp, identity)
+        backup = None
         if output.exists():
-            shutil.rmtree(output)
-        os.replace(tmp, output)
+            backup = Path(tempfile.mkdtemp(prefix=f".{output.name}.previous-", dir=output.parent))
+            backup.rmdir()
+            os.replace(output, backup)
+        try:
+            os.replace(tmp, output)
+        except OSError:
+            if backup is not None:
+                os.replace(backup, output)
+            raise
+        if backup is not None:
+            shutil.rmtree(backup)
         tmp = Path()
         return {
             "status": "BUILT",
@@ -288,3 +314,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

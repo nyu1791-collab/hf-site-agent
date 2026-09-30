@@ -664,5 +664,14 @@
       "full_repository_suite": "NOT_RUN",
       "current_head_actions": "NOT_RUN"
     }
+  },
+  "reusable_foundation_update": {
+    "effective_date_jst": "2026-09-30",
+    "baseline_reuse_command": "scripts/reuse_ymm4_baseline.py",
+    "reaction_pack_checks": "source tree, inventory and all indexed image checksums",
+    "source_and_derived_actions_cache": true,
+    "artifact_retention_days": 30,
+    "windows_baseline_status": "REQUIRES_ACTUAL_WINDOWS_PREVIEW_RECEIPT",
+    "reuse_preserves_edited_projects": true
   }
 }

@@ -56,7 +56,7 @@ def main() -> int:
     speed = load(SPEED)
     clipping = load(CLIPPING)
 
-    require(gate.get("schema_version") == "media-command-read-gate-v12", "media read gate must be v11")
+    require(gate.get("schema_version") == "media-command-read-gate-v12", "media read gate must be v12")
     require(gate.get("status") == "ENFORCED_STANDARD", "media read gate is not enforced")
 
     execution = gate.get("execution_gate") or {}
@@ -361,3 +361,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
