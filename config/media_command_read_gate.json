@@ -310,7 +310,8 @@
       "config/video_creation_admission_policy.json",
       "scripts/video_creation_admission.py",
       "config/approved_video_template.json",
-      "docs/VIDEO_PRODUCTION_BASELINE.md"
+      "docs/VIDEO_PRODUCTION_BASELINE.md",
+      "scripts/validate_video_content_contract.py"
     ],
     "do_not_load_optional_video_QA_and_polish_guides_for_routine_delivery": true,
     "routine_delivery_uses_override_instead_of_legacy_media_read_sets": true,
@@ -324,7 +325,10 @@
       "UNKNOWN_COST_AND_PAID_MEDIA_ROUTES_BLOCKED",
       "PUBLICATION_MERGE_DEPLOY_AND_SECRET_ACTIONS_KEEP_SEPARATE_AUTHORIZATION",
       "USE_2_TO_4_DISTINCT_RELEVANT_VISUAL_BEATS_PER_MAIN_SECTION_WHEN_AVAILABLE",
-      "PRESERVE_APPROVED_VISIBLE_CHARACTERS_NATIVE_MOUTH_MOTION_LAYOUT_AND_PALETTE"
+      "PRESERVE_APPROVED_VISIBLE_CHARACTERS_NATIVE_MOUTH_MOTION_LAYOUT_AND_PALETTE",
+      "ACTUAL_TWO_VOICE_DIALOGUE_NOT_JUST_VISIBLE_CHARACTERS",
+      "AT_LEAST_TWO_DISTINCT_RELEVANT_IMAGES_OR_DIAGRAMS_PER_MAIN_SECTION",
+      "PLAIN_LANGUAGE_TOPIC_HEADING_MAIN_POINT_AND_EXPLANATION"
     ],
     "editorial_authority": "config/media_speed_quality_policy.json#/script_clarity_contract",
     "visual_authority": "config/media_speed_quality_policy.json#/visual_density_contract"

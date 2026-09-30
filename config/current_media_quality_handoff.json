@@ -181,5 +181,14 @@
     "scope": "READ_ON_EVERY_NEW_VIDEO_TAB",
     "template": "config/approved_video_template.json",
     "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md"
+  },
+  "latest_content_feedback": {
+    "required_on_every_new_video_tab": true,
+    "dialogue": "ずんだもんと四国めたんの双方が実際に発話する。聞き役の表示だけでは不可。",
+    "clarity": "見出し→要点→平易な説明→必要な具体例。モデル名や数値を並べるだけの説明を避ける。",
+    "authority": "config/media_speed_quality_policy.json",
+    "validator": "scripts/validate_video_content_contract.py",
+    "speed": "追加査読や全編見直しは不要。台本・音声・素材の入力契約を制作時に一度確認する。",
+    "image_rich_video": "公式画像限定ではなく、関連する写真・製品画面・スクリーンショット・図解を各主要章2〜4場面使う。文字だけのカードや同一画像の水増しは不可。画像生成は使わない。"
   }
 }

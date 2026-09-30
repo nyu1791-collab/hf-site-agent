@@ -7,6 +7,7 @@ import argparse, hashlib, json, math, re, subprocess, wave
 from pathlib import Path
 from array import array
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+from validate_video_content_contract import validate_content_contract
 
 
 def layer(root, name):
@@ -71,6 +72,8 @@ def render(args):
     out=args.output;out.parent.mkdir(parents=True,exist_ok=True)
     cache=args.cache_root or out.parent/'reusable-assets';cache.mkdir(parents=True,exist_ok=True)
     timing=json.loads(args.timing.read_text())
+    content_policy=json.loads((Path(__file__).resolve().parents[1]/'config/media_speed_quality_policy.json').read_text())
+    validate_content_contract(content_policy,presentation,timing)
     records=[{**r,'start':r['start']-args.start,'end':r['end']-args.start} for r in timing['records'] if r['end']>args.start and r['start']<args.start+args.duration]
     if not records:raise ValueError('no measured dialogue records in requested range')
     for r in records:
@@ -174,3 +177,4 @@ if __name__=='__main__':
     p.add_argument('--cache-root',type=Path,help='Restored reusable-assets directory; independent of output location')
     p.add_argument('--start',type=float,required=True);p.add_argument('--duration',type=float,required=True)
     render(p.parse_args())
+

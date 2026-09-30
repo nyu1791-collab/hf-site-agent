@@ -92,7 +92,8 @@
     "whole_feed_capture_as_default": false,
     "credits_required": true,
     "source_visual_must_support_claim_or_be_labeled_illustration": true,
-    "missing_source_timestamp": "UNKNOWN_DO_NOT_INVENT"
+    "missing_source_timestamp": "UNKNOWN_DO_NOT_INVENT",
+    "image_coverage_contract": "config/media_speed_quality_policy.json#/visual_density_contract"
   },
   "reuse": {
     "audio": "reuse measured unchanged VOICEVOX narration",
@@ -159,7 +160,26 @@
       "verify_against_current_template_before_voice_generation": true,
       "optional_review_passes": 0
     },
-    "latest_feedback": "動画の見た目は良かった。前置き・細かい注意説明がくどかったため、分かりやすい要点整理を優先する。"
+    "latest_feedback": "動画の見た目は良かった。前置き・細かい注意説明がくどかったため、分かりやすい要点整理を優先する。",
+    "clarity_contract": "config/media_speed_quality_policy.json#/script_clarity_contract"
   },
-  "speed_delivery_policy": "config/media_speed_quality_policy.json#/speed_first_delivery"
+  "speed_delivery_policy": "config/media_speed_quality_policy.json#/speed_first_delivery",
+  "dialogue_contract": {
+    "required_speakers": [
+      "ずんだもん",
+      "四国めたん"
+    ],
+    "both_must_have_substantive_spoken_turns": true,
+    "visible_listener_does_not_count_as_spoken_dialogue": true,
+    "minimum_spoken_turns_per_speaker": 2,
+    "voicevox_speaker_ids_must_be_distinct_and_recorded": true,
+    "never_relabel_single_speaker_audio_as_two_speakers": true,
+    "roles": {
+      "ずんだもん": "要点を平易に説明する",
+      "四国めたん": "視聴者の疑問を質問し、具体例や短い言い換えで理解を助ける"
+    },
+    "avoid_mechanical_sentence_by_sentence_alternation": true,
+    "both_speakers_participate_in_main_sections": true
+  },
+  "content_contract_validator": "scripts/validate_video_content_contract.py"
 }

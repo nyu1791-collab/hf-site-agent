@@ -241,7 +241,9 @@
       "MISSING_AUDIO_OR_VIDEO_STREAM",
       "UNUSABLE_AUDIO_OR_CAPTIONS",
       "CONCRETE_MATERIAL_FACTUAL_ERROR",
-      "MISSING_USER_REQUIRED_CHARACTER_OR_APPROVED_BASELINE"
+      "MISSING_USER_REQUIRED_CHARACTER_OR_APPROVED_BASELINE",
+      "MISSING_REQUIRED_SECOND_SPOKEN_VOICE",
+      "MISSING_REQUIRED_IMAGE_COVERAGE"
     ],
     "automatic_completion_check": [
       "ENCODER_EXIT_SUCCESS",
@@ -279,7 +281,7 @@
   "minimum_delivery_contract": {
     "no_routine_visual_review": true,
     "no_full_decode_or_loudness_sweep": true,
-    "no_rendered_photo_minimum": true,
+    "no_rendered_photo_minimum": false,
     "no_mandatory_Jev_call": true,
     "material_claims_must_not_be_invented": true,
     "run_source_check_only_for_current_or_factual_claims": true,
@@ -287,7 +289,8 @@
     "one_output_check_then_deliver": true,
     "use_only_cleared_assets_or_original_simple_visuals": true,
     "rights_and_cost_gates_remain_mandatory": true,
-    "deliverable_duration_must_match_latest_user_request": true
+    "deliverable_duration_must_match_latest_user_request": true,
+    "relevant_image_coverage_required": true
   },
   "script_clarity_contract": {
     "applies_to": "ALL_EXPLANATORY_AND_NEWS_VIDEOS",
@@ -307,17 +310,27 @@
       "avoid_feature_catalogues_and_long_preambles": true,
       "avoid_repeating_caveats_or_availability_notes": true,
       "state_important_availability_once_where_relevant": true,
-      "end_with_one_plain_language_takeaway": true
+      "end_with_one_plain_language_takeaway": true,
+      "explain_what_it_means_for_viewer": true,
+      "avoid_unexplained_model_name_or_number_lists": true,
+      "use_question_answer_and_short_example_for_abstract_comparisons": true
     },
     "accuracy_boundary": {
       "plain_language_must_not_change_claim_meaning": true,
       "material_or_current_claims_still_need_source_check": true,
       "unknown_claims_must_be_omitted_or_labeled_uncertain": true
-    }
+    },
+    "section_plan_required_fields": [
+      "id",
+      "heading",
+      "main_point",
+      "plain_explanation"
+    ],
+    "section_plan_is_used_in_narration_not_only_saved_as_metadata": true
   },
   "visual_density_contract": {
     "applies_to": "ALL_EXPLANATORY_AND_NEWS_VIDEOS",
-    "purpose": "Use image-led storytelling with real official or rights-cleared visuals while retaining the 20/80 speed-first workflow.",
+    "purpose": "Use many relevant photos, product captures, screenshots and explanatory diagrams, with official sources preferred when useful but not required for every image.",
     "visual_beats_per_main_section": {
       "minimum": 2,
       "target_range": [
@@ -330,7 +343,10 @@
       "OFFICIAL_ANNOUNCEMENT_IMAGE",
       "OFFICIAL_PRODUCT_OR_INTERFACE_SCREENSHOT",
       "OFFICIAL_STATEMENT_OR_COMMENT_SCREENSHOT",
-      "RIGHTS_CLEARED_RELEVANT_PHOTOGRAPH"
+      "RIGHTS_CLEARED_RELEVANT_PHOTOGRAPH",
+      "RIGHTS_CLEARED_PRODUCT_SCREENSHOT",
+      "RIGHTS_CLEARED_RELEVANT_SCREENSHOT",
+      "ORIGINAL_EXPLANATORY_DIAGRAM"
     ],
     "visual_sequence": {
       "prefer_a_new_relevant_image_or_visual_each_beat": true,
@@ -346,8 +362,9 @@
       "use_simple_native_text_card_only_when_no_official_or_cleared_visual_exists": true,
       "image_generation_for_video_disabled": true,
       "reuse_verified_assets_and_capture_each_source_once": true,
-      "asset_research_is_limited_to_official_visuals_needed_for_required_coverage": true,
-      "visual_count_does_not_trigger_routine_preview_or_review": true
+      "asset_research_is_limited_to_official_visuals_needed_for_required_coverage": false,
+      "visual_count_does_not_trigger_routine_preview_or_review": true,
+      "asset_research_is_limited_to_relevant_images_needed_for_coverage": true
     },
     "rights_and_factuality": {
       "external_assets_require_source_page_locator_and_license_or_public_domain_state": true,
@@ -356,7 +373,11 @@
       "paid_or_freemium_image_video_generation_remains_blocked": true,
       "official_source_does_not_automatically_mean_public_domain_or_reuse_license": true
     },
-    "priority": "RELEVANT_IMAGE_DENSITY_WITHIN_THE_EXISTING_ONE_PASS_SPEED_FIRST_DELIVERY"
+    "priority": "RELEVANT_IMAGE_DENSITY_WITHIN_THE_EXISTING_ONE_PASS_SPEED_FIRST_DELIVERY",
+    "minimum_is_per_main_section_not_whole_video": true,
+    "text_only_cards_do_not_count_as_image_coverage": true,
+    "official_images_are_preferred_not_exclusive": true,
+    "insufficient_image_coverage_action": "ADD_RELEVANT_CLEARED_IMAGES_OR_DIAGRAMS; DO_NOT_SILENTLY_REPLACE_WITH_ALL_TEXT_CARDS"
   },
   "fast_longform_delivery": {
     "applies_to_requested_longform_up_to_seconds": 960,
@@ -413,6 +434,25 @@
     "preserve_layout_palette_and_format": true,
     "speed_20_80_does_not_authorize_baseline_removal": true,
     "static_card_renderer_requires_explicit_user_format_request": true,
-    "visual_only_repair_reuses_measured_narration": true
-  }
+    "visual_only_repair_reuses_measured_narration": true,
+    "actual_two_speaker_dialogue_required": true
+  },
+  "dialogue_contract": {
+    "required_speakers": [
+      "ずんだもん",
+      "四国めたん"
+    ],
+    "both_must_have_substantive_spoken_turns": true,
+    "visible_listener_does_not_count_as_spoken_dialogue": true,
+    "minimum_spoken_turns_per_speaker": 2,
+    "voicevox_speaker_ids_must_be_distinct_and_recorded": true,
+    "never_relabel_single_speaker_audio_as_two_speakers": true,
+    "roles": {
+      "ずんだもん": "要点を平易に説明する",
+      "四国めたん": "視聴者の疑問を質問し、具体例や短い言い換えで理解を助ける"
+    },
+    "avoid_mechanical_sentence_by_sentence_alternation": true,
+    "both_speakers_participate_in_main_sections": true
+  },
+  "content_contract_validator": "scripts/validate_video_content_contract.py"
 }

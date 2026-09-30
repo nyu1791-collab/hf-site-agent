@@ -54,6 +54,10 @@ def main() -> int:
     require(baseline.get("visible_characters") == ["ずんだもん", "四国めたん"] and baseline.get("native_character_layers_required") is True and baseline.get("mouth_motion_required") is True, "approved visible characters or native motion removed")
     require(baseline.get("static_card_renderer_requires_explicit_user_format_request") is True, "static-card format may silently override approved template")
     require(fast.get("default_profile") == baseline.get("template"), "default profile differs from approved character template")
+    require(policy.get("dialogue_contract", {}).get("both_must_have_substantive_spoken_turns") is True, "actual two-speaker dialogue missing")
+    require(policy.get("visual_density_contract", {}).get("text_only_cards_do_not_count_as_image_coverage") is True, "text-only cards may masquerade as image coverage")
+    require((ROOT / policy["content_contract_validator"]).is_file(), "content contract validator missing")
+    require("validate_content_contract(content_policy,presentation,timing)" in (ROOT / "scripts/render_reusable_short.py").read_text(), "renderer omits pre-encode content contract")
     voice = fast.get("voice_segmenting") or {}
     require(voice.get("target_max_segments_for_16_minutes") == 16 and voice.get("avoid_sentence_level_synthesis_calls") is True, "long-form voice batching rule missing")
     require((ROOT / fast["default_renderer"]).is_file(), "fast long-form renderer file missing")
@@ -224,4 +228,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 
