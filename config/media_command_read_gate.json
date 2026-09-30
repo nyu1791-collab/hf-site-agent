@@ -23,7 +23,9 @@
     "must_use_current_repository_versions": true,
     "stale_summary_cannot_replace_repository_policy": true,
     "machine_policy_overrides_conflicting_human_prose": true,
-    "missing_required_file": "BLOCK_RELEVANT_MEDIA_EXECUTION"
+    "missing_required_file": "BLOCK_RELEVANT_MEDIA_EXECUTION",
+    "latest_speed_contract_overrides_legacy_quality_review_and_polish_requirements": true,
+    "speed_delivery_authority": "config/media_speed_quality_policy.json#/speed_first_delivery"
   },
   "knowledge_restore_execution": {
     "resolve_required_paths_as_union": true,
@@ -348,6 +350,18 @@
     "zundamon_news60_template_must_be_re_read": true,
     "zundamon_news60_template_human_prompt_must_be_re_read": true,
     "zundamon_news60_template_validator_must_be_re_read": true,
-    "approved_video_template_must_be_restored": true
+    "approved_video_template_must_be_restored": true,
+    "speed_first_delivery_contract_must_be_read": true
+  },
+  "speed_first_delivery_override": {
+    "authority": "config/media_speed_quality_policy.json#/speed_first_delivery",
+    "overrides": [
+      "ROUTINE_VISUAL_QA",
+      "FULL_DECODE_PASS",
+      "EXTRA_AGENT_REVIEW",
+      "MANDATORY_POLISH",
+      "HISTORICAL_10_TO_15_MINUTE_TARGET"
+    ],
+    "apply_before_legacy_media_knowhow": true
   }
 }

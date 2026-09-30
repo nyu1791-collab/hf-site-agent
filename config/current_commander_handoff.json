@@ -74,7 +74,8 @@
     "media_performance_efficiency": "config/media_performance_efficiency_policy.json",
     "approved_video_template": "config/approved_video_template.json",
     "native_dynamic_longform_renderer": "scripts/render_reusable_longform.py",
-    "concise_video_editorial": "config/approved_video_template.json#/editorial"
+    "concise_video_editorial": "config/approved_video_template.json#/editorial",
+    "speed_first_video_delivery": "config/media_speed_quality_policy.json#/speed_first_delivery"
   },
   "peer_review_status": {
     "completed": true,
@@ -256,23 +257,24 @@
     "validator": "scripts/validate_media_speed_quality.py",
     "checkpoint_sealer": "scripts/seal_media_speed_checkpoint.py",
     "target_wall_clock_minutes": [
-      10,
-      15
+      5,
+      5
     ],
     "historical_local_baseline_minutes": 40,
-    "target_is_observed_goal_not_guarantee": true,
+    "target_is_observed_goal_not_guarantee": false,
     "cache_first_content_addressed_stage_reuse": true,
     "repair_smallest_affected_stage_and_true_dependents": true,
     "max_independent_preparation_lanes": 3,
     "single_writer_and_dependency_join": true,
-    "risk_triggered_preview_reuses_composed_stills": true,
+    "risk_triggered_preview_reuses_composed_stills": false,
     "one_pass_final_encode": true,
     "scene_video_intermediate_encodes_on_fast_path": 0,
     "jev_typed_profile_and_shape_decision": true,
     "jev_does_not_compute_hashes_invalidation_or_arithmetic": true,
     "python_constructs_final_plan_json": true,
     "full_spoken_caption_rights_voicevox_and_machine_qa_gates_unchanged": true,
-    "paid_or_freemium_media_generation": false
+    "paid_or_freemium_media_generation": false,
+    "target_is_aspirational_not_guarantee": true
   },
   "legacy_cleanup_fixed_rules": {
     "legacy_registry": "config/legacy_deepseek_compatibility.json",
@@ -549,5 +551,16 @@
     "emphasis": "semantic phrase/clause coloring without keyword boxes",
     "windows_editor_verification": "PENDING",
     "render_route_must_validate_capabilities": true
+  },
+  "speed_first_video_delivery": {
+    "authority": "config/media_speed_quality_policy.json#/speed_first_delivery",
+    "quality_weight": 0.2,
+    "speed_weight": 0.8,
+    "mandatory_read_on_new_tab": true,
+    "user_confirmation_required": false,
+    "manual_visual_review_required": false,
+    "deliver_completed_video_immediately": true,
+    "no_micro_revision": true,
+    "no_optional_quality_upgrade": true
   }
 }

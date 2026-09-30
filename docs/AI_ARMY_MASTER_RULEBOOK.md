@@ -1,5 +1,19 @@
 # AI Army Master Rulebook
 
+## 動画制作の最優先ルール：品質2・速度8（2026-09-30）
+
+正本は `config/media_speed_quality_policy.json#/speed_first_delivery`。新しいタブの動画制作・修正・型改善では必ずこの現行設定を読み、既存の品質優先・毎回の映像確認・微細な修正の指示より優先する。
+
+- 品質20％・速度80％は作業の優先配分。承認済みの型で必要最低限の動画を作り、品質向上・追加演出・見た目の追込みはしない。
+- ユーザーへの確認待ちは0回。通常のプレビュー、目視見直し、全編デコード、完成後の追加Agent査読は省く。書き出し成功・空でない出力・音声と映像streamの存在を機械的に一度確認したら、そのまま完成動画を提出する。
+- 数ミリ秒の口パク差、微細なフレーム・字幕位置・色・表情差で修正や再レンダリングしない。直すのは書き出し失敗、音声/映像欠落、利用不能、具体的な重大な事実誤りだけ。
+- 最大3つの独立した準備（音声、関連素材、既存キャラ/ツール）を並列化し、最終統合は一人が行う。並列Agentの作業は準備中に済ませ、完成後の査読待ちを追加しない。
+- 型・キャラ差分・フォント・音声キャッシュ・素材・正常な章を再利用。字幕色や提出方法だけの変更で音声や素材を再生成しない。新しい内容を依頼された時は台本と必要な音声を新規作成し、旧内容を新規制作と呼ばない。
+- 既知のTTSはASR不要。機械的な経路はPythonで決め、Jevや追加Agentを必須の待ち工程にしない。素材の再検索、比較用の複数案、A/B測定、未指定の媒体別出力を通常制作へ追加しない。
+- 制作目標は約5分。既存キャッシュ・基盤が使える場合の目標であり実測保証ではない。待ち時間・書き出し時間は必要時だけ記録し、計測自体で提出を遅らせない。
+- この即時提出は依頼者への動画納品を意味する。公開・merge・deploy・秘密情報・支払いの権限を拡張しない。
+
+
 **Status:** Permanent compact operating index  
 **Effective:** 2026-09-30 JST  
 **Authority:** This document is the concise human-readable entry point. Machine policies in `config/permanent_standards_manifest.json` and the files it references remain authoritative when details differ.
@@ -90,9 +104,9 @@ The permanent free-execution guard is `config/free_execution_guard.json`. Media 
 
 Default production is local/deterministic: scene/chapter units, the current VOICEVOX standard cast of **Zundamon + Shikoku Metan** where applicable, audio-first timing from actual generated WAV duration, pre-downloaded/decode-validated assets, rights/provenance ledger, content-addressed checkpoints, atomic partial-to-verified scene promotion and failed-unit-only retry. Preserve healthy prior work after an isolated failure. Discover the currently available VOICEVOX speaker/style IDs at runtime instead of hardcoding stale IDs. Before blocking for an unavailable engine, check the installed local runtime and start it with `scripts/with_local_voicevox.sh`; engine startup, runtime admission and the consuming job must share one execution session when the host isolates localhost per command. **ずんだもん is the primary voice; if local VOICEVOX or the standard cast is still unavailable after bootstrap, rendering is blocked. A silent-video fallback is not permitted.** See `docs/VOICEVOX_RUNTIME.md` for the verified runtime and recovery steps.
 
-For bounded shortform work, the permanent speed contract is `config/media_speed_quality_policy.json` with planner `scripts/media_speed_orchestrator.py`: restore the exact input manifest, reuse verified stages, run at most three genuinely independent preparation lanes, repair only true dependents, and use one final encode. The observed goal is 10–15 minutes from a historical local baseline of about 40 minutes; it is not a guarantee and never weakens evidence, rights, captions, VOICEVOX or QA. Jev is used as a typed lean profile/shape judge, while Python owns hashes, invalidation, arithmetic, parallelism and the final plan.
+For short and long video work, read `config/media_speed_quality_policy.json#/speed_first_delivery`. Quality 20%, speed 80%; the aspirational goal is about five minutes, not a measured guarantee. Reuse current templates and cached assets, use at most three independent preparation lanes, one final encode, and no routine visual review or cosmetic refinement. Bypass Jev when preparation routing is deterministic.
 
-A finished vertical contract is normally 1080x1920, 30 fps, H.264, yuv420p, AAC 48 kHz unless a task-specific contract says otherwise. Completion requires machine QA: ffprobe, decode integrity, stream/codec/dimension checks, caption coverage and applicable loudness/true-peak/silence/black/freeze/safe-zone checks. Do not claim completion before the machine gate passes.
+Use the approved task-specific output preset. Routine completion needs only a successful encoder, a nonempty output file, and audio/video streams. Full decode, loudness sweeps, freeze/black scans, repeated safe-zone samples and manual visual reviews are not routine delivery gates.
 
 Viewer-retention optimization uses real analytics when available: intro retention, dips, spikes, top moments, average view duration and packaging metrics mapped back to scene/edit features. CTR alone cannot promote clickbait. There is no universal cut-every-N-seconds rule. Platform safe zones and numeric heuristics are versioned and rechecked.
 
@@ -186,7 +200,7 @@ permanent manifest→本書→Media Gateの順で復元する。過去動画の�
 - 音声・タイミング・素材を先に再利用。字幕色と表情だけの修正で再合成しない。`scripts/render_reusable_short.py` と `scripts/render_reusable_longform.py` は既存音声と純正差分で短尺・長尺を描画する。RMS口パクは音量連動の近似であり音素別の厳密な口形とは区別する。
 - 字幕や静止キャラが焼き込まれた旧MP4を切るだけでは演技修正にならない。音声を保持して対象の描画層を差し替え、完成映像の口と表情が変わることを確認する。
 - YMM4は実際に確認した基準プロジェクトを複製して使用。CSV/sidecar生成を自動適用済みと呼ばない。Windows未検証の状態を今回のPython動画の成功から変更しない。
-- 修正後は代表フレーム、両キャラの口と表情、字幕、出典、再生可能な音声付きMP4を見直す。新ルールと検査を同時に更新し、古い矛盾する文章は本節へ統合する。
+- 通常の完成後見直しは省き、書き出し成功・空でない出力・音声と映像streamが揃えば即時提出する。
 
 再利用・基準複製の詳細は `docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md`。
 
@@ -201,6 +215,6 @@ permanent manifest→本書→Media Gateの順で復元する。過去動画の�
 復元パックを実際に読む。会話の自動記憶だけを前提にしない。
 旧静止キャラの通常デフォルト、濃い字幕、旧動画を最新扱いする現行記録は廃止。
 重要な旧音声・資料・計測は `config/media_reference_history.json` に残し、現行指示から分離する。
-最終的に両キャラの口と意味に沿う表情が動く動画を確認する。設定の存在だけで合格にしない。
+既存の口と表情プリセットを使用する。通常制作では追加の演技確認を行わず、完成した動画を提出する。
 
 長尺も承認済みの淡い字幕・ネイティブ口/表情・拡大した公式メディア領域を同じ実装で適用する。正本は `docs/VIDEO_PRODUCTION_BASELINE.md` の長尺入口。全ページ引用と静止顔への退行は完成判定で拒否し、既存納品物の修正は元の動画・制作パッケージを更新する。

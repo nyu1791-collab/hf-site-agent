@@ -171,8 +171,8 @@
       "runtime": "scripts/media_speed_orchestrator.py",
       "validator": "scripts/validate_media_speed_quality.py",
       "checkpoint_sealer": "scripts/seal_media_speed_checkpoint.py",
-      "priority": 1,
-      "purpose": "CACHE_FIRST_INCREMENTAL_MEDIA_PRODUCTION_WITH_MAX_THREE_INDEPENDENT_PREPARATION_LANES_ONE_PASS_SHORTFORM_ENCODE_AND_TYPED_JEV_PROFILE_SHAPE_SELECTION"
+      "priority": 0,
+      "purpose": "MANDATORY_SPEED_FIRST_VIDEO_DELIVERY_QUALITY_20_SPEED_80_NO_REVIEW_OR_POLISH"
     },
     {
       "id": "media-character-performance-compact-orchestration",
@@ -623,7 +623,8 @@
     "ymm4_research_explainer_profile_survives_tab_change": true,
     "ymm4_research_explainer_source_claim_contract_survives_tab_change": true,
     "user_approved_video_baseline_survives_tab_change": true,
-    "voicevox_runtime_bootstrap_survives_tab_change": true
+    "voicevox_runtime_bootstrap_survives_tab_change": true,
+    "speed_first_video_delivery_must_be_read_before_media_planning": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",

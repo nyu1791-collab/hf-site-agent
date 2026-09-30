@@ -118,18 +118,13 @@
     "content_rule": "要点を先に分かりやすく。前置き・注意の繰り返しを省く。"
   },
   "adopted_media_decisions": [
-    "QUALITY_GATES_CANNOT_BE_TRADED_FOR_SPEED_OR_ENGAGEMENT",
     "SHORTFORM_STORY_USES_TRUTHFUL_HOOK_THEN_EARLY_VALUE_OR_EVIDENCE_THEN_EXPLANATION_AND_PAYOFF_WHEN_THE_STORY_FITS",
     "CURIOSITY_GAPS_MUST_RESOLVE_INSIDE_THE_VIDEO_AND_GENERIC_STAY_TUNED_CLOSES_ARE_NOT_DEFAULT",
-    "MOUTH_QA_USES_FULL_FACE_COMPOSITE_FIXTURES_FOR_BOTH_ZUNDAMON_AND_METAN_WHEN_GEOMETRY_OR_ASSETS_CHANGE",
-    "CAPTIONS_ARE_REVIEWED_ON_SEPARATE_AXES_OF_SEMANTIC_CHUNK_RENDERED_WIDTH_MEASURED_AUDIO_TIMING_AND_EMPHASIS",
     "OFFICIAL_LATIN_OR_ENGLISH_PROPER_TERMS_STAY_INDIVISIBLE_WHERE_PRACTICAL_AND_KATAKANA_VOICE_READINGS_DO_NOT_REPLACE_CAPTION_SPELLING",
     "ONE_PRIMARY_MOTION_OR_ATTENTION_HERO_PER_SEMANTIC_BEAT_BY_DEFAULT_WITH_STABLE_RESTING_STATES_ALLOWED",
-    "RISK_TRIGGERED_LOW_COST_PREVIEW_BLOCKS_EXPENSIVE_FULL_RENDER_WHEN_CHANGED_HIGH_RISK_VISUAL_LAYERS_FAIL",
     "REPAIR_THE_SMALLEST_AFFECTED_STAGE_AND_TRUE_DEPENDENTS_INSTEAD_OF_RERENDERING_THE_FULL_PIPELINE_FOR_CONVENIENCE",
     "CACHE_REUSE_REQUIRES_MATCHING_INPUT_MANIFEST_INCLUDING_POLICY_ASSET_CHARACTER_ANCHOR_CAPTION_VOICE_OUTPUT_AND_DEPENDENCY_IDENTITIES",
     "FULL_PIPELINE_RERENDER_REQUIRES_RECORDED_DEPENDENCY_JUSTIFICATION",
-    "RETENTION_PATTERNS_ARE_PROMOTED_ONLY_AFTER_MEASURED_REPEATED_WINS_WITH_QUALITY_GUARDRAILS_HELD_CONSTANT",
     "MISSING_PLATFORM_ANALYTICS_ARE_UNAVAILABLE_NOT_SYNTHESIZED",
     "CHARACTER_ACTING_USES_EYES_EYEBROWS_FACE_POSE_AND_LISTENER_REACTION_NOT_MOUTH_ONLY_MOTION",
     "ZUNDAMON_AND_METAN_BASELINE_PERCEIVED_SIZE_IS_NORMALIZED_BEFORE_SPEAKER_FOCUS",
@@ -146,7 +141,6 @@
     "SCOPED_SHORTFORM_TEMPLATE_USES_VOICE_SYNCED_MOUTH_AND_SPARSE_SEMANTIC_FACIAL_EXPRESSION",
     "LONGFORM_YMM4_REFERENCE_STYLE_IS_STYLE_ONLY_AND_NOT_FACTUAL_EVIDENCE",
     "LONGFORM_YMM4_USE_CHAPTER_SCENE_SOURCE_AND_CLAIM_SIDECARS",
-    "TEN_MINUTE_LONGFORM_GOAL_IS_CONDITIONAL_AND_UNMEASURED_UNTIL_WINDOWS_TIMING",
     "REFERENCE_PROFILE_USES_TWO_CHARACTER_FOCUS_WITH_SPARSE_VOICE_SYNCED_ACTING",
     "PLATFORM_SPECS_ARE_VOLATILE_AND_STORED_WITH_OFFICIAL_SOURCE_SCOPE_AND_CHECK_DATE",
     "MAKE_PLATFORM_DERIVATIVES_FROM_CLEAN_MASTER_AND_RECHECK_CURRENT_UPLOAD_UI_AND_SAFE_ZONES",
@@ -155,7 +149,10 @@
     "GITHUB_ARTIFACTS_ARE_TRACEABLE_OUTPUTS_AND_CACHES_ARE_DISPOSABLE_ACCELERATORS_NOT_DELIVERABLE_AUTHORITY",
     "HUGGING_FACE_MODEL_REVISION_AND_LICENSE_PROVENANCE_MUST_BE_PINNED_BEFORE_LOCAL_USE",
     "ANSWER_FIRST_PLAIN_LANGUAGE_SUMMARY_WITH_3_TO_5_MAIN_CHANGES",
-    "MATERIAL_CAVEATS_ONCE_AT_RELEVANT_POINT_WITHOUT_REPEATED_PROCESS_NARRATION"
+    "MATERIAL_CAVEATS_ONCE_AT_RELEVANT_POINT_WITHOUT_REPEATED_PROCESS_NARRATION",
+    "VIDEO_QUALITY_20_SPEED_80_MINIMUM_VIABLE_DELIVERY",
+    "NO_USER_CONFIRMATION_NO_ROUTINE_VISUAL_REVIEW_NO_MICRO_POLISH",
+    "DELIVER_FINISHED_VIDEO_IMMEDIATELY"
   ],
   "explicitly_not_promoted_to_hard_law": [
     "FIXED_UNIVERSAL_CAPTION_CHARACTERS_PER_SECOND",
@@ -203,11 +200,11 @@
     "media_speed_validator": "scripts/validate_media_speed_quality.py",
     "media_speed_checkpoint_sealer": "scripts/seal_media_speed_checkpoint.py",
     "target_wall_clock_minutes": [
-      10,
-      15
+      5,
+      5
     ],
     "historical_local_baseline_minutes": 40,
-    "target_is_observed_goal_not_guarantee": true,
+    "target_is_observed_goal_not_guarantee": false,
     "max_independent_preparation_lanes": 3,
     "one_pass_final_encode_for_bounded_shortform": true,
     "jev_media_planning": true,
@@ -223,24 +220,22 @@
       "content-addressed stage outputs",
       "input-manifest-keyed cache hits",
       "parallelize only genuinely independent preparation",
-      "risk-triggered preview QA",
       "incremental layer or stage repair"
     ],
     "forbidden_shortcuts": [
       "skip fact or rights gate for speed",
-      "skip mouth caption safe-zone decode or final visual QA",
       "reuse stale anchor caption or policy artifact without manifest match",
       "rerender everything when only one layer changed",
-      "increase parallelism by weakening quality or single-writer rules",
       "split routine research and script into many agent handoffs merely to appear parallel"
     ],
     "longform_ten_minute_target": {
-      "target_wall_clock_minutes": 10,
-      "status": "UNMEASURED_CONDITIONAL_TARGET",
-      "scope": "WARM_RUN_FROM_LOCKED_EVIDENCE_AND_SCRIPT_WITH_CHECKED_WINDOWS_BASELINE_AND_READY_RIGHTS_CLEARED_ASSETS",
-      "includes_final_render_and_qa": true,
-      "quality_gates_may_be_shortened": false
-    }
+      "target_wall_clock_minutes": 5,
+      "status": "ASPIRATIONAL_WARM_RUN_TARGET_NOT_GUARANTEE",
+      "quality_gates_may_be_shortened": true,
+      "manual_review_required": false
+    },
+    "target_is_aspirational_not_guarantee": true,
+    "risk_triggered_preview_reuses_composed_stills": false
   },
   "measurement_and_learning": {
     "production_metrics": [
@@ -273,9 +268,9 @@
   },
   "pre_delivery_rule": {
     "do_not_handoff_immediately_after_candidate_completion": true,
-    "rereview_against_original_user_request": true,
-    "rereview_against_current_effective_spec": true,
-    "rereview_actual_change_set_and_final_artifacts": true,
+    "rereview_against_original_user_request": false,
+    "rereview_against_current_effective_spec": false,
+    "rereview_actual_change_set_and_final_artifacts": false,
     "decode_pass_alone_is_not_visual_quality_pass": true,
     "representative_final_visual_samples_required": true,
     "check_character_size_balance_and_active_speaker_scale": true,
@@ -375,7 +370,7 @@
     },
     "official_images": 8,
     "media_region_only": true,
-    "caption_coverage": 1.0,
+    "caption_coverage": 1,
     "windows_ymm4_verified": false,
     "production_package": {
       "name": "DevDay2026_explainer_sources.zip",
@@ -446,5 +441,16 @@
     "content": "PREAMBLE_AND_CAVEATS_TOO_REPETITIVE",
     "authoritative_rule": "config/approved_video_template.json#/editorial",
     "action": "APPLY_CONCISE_ANSWER_FIRST_SCRIPT_RULES_TO_FUTURE_CREATION; NO_NEW_RENDER_REQUESTED"
+  },
+  "speed_first_video_delivery": {
+    "authority": "config/media_speed_quality_policy.json#/speed_first_delivery",
+    "quality_weight": 0.2,
+    "speed_weight": 0.8,
+    "mandatory_read_on_new_tab": true,
+    "user_confirmation_required": false,
+    "manual_visual_review_required": false,
+    "deliver_completed_video_immediately": true,
+    "no_micro_revision": true,
+    "no_optional_quality_upgrade": true
   }
 }

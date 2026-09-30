@@ -1,3 +1,6 @@
+
+**動画制作は品質2・速度8。** `config/media_speed_quality_policy.json#/speed_first_delivery` を新しいタブの制作前に必読する。通常のプレビュー・目視確認・追加査読・微細な修正・品質向上を省き、書き出し成功・非空の出力・音声/映像streamが揃えば即時提出する。既存の型と素材を再利用し、独立準備のみ最大3レーンで並列化する。
+
 > **最新の内容方針:** 要点を先に分かりやすく。長い前置き・注意の繰り返しを省き、必要な条件だけ該当箇所で短く示す。正本は `config/approved_video_template.json` の `editorial`。見た目は淡いミント/ピンク、両キャラの音声連動口と意味に沿う表情、公式メディア部分の拡大を短尺・長尺で共通適用。
 
 > **動画制作の現行入口（2026-09-30）:** 承認済み約47秒動画の型は [`docs/VIDEO_PRODUCTION_BASELINE.md`](docs/VIDEO_PRODUCTION_BASELINE.md) と [`config/approved_video_template.json`](config/approved_video_template.json)。媒体別の最新仕様・配信変換・GitHub/Hugging Face再現ルールは [`docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md`](docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md) と [`config/video_platform_delivery_profiles.json`](config/video_platform_delivery_profiles.json) を読む。別タブでは [`AGENTS.md`](AGENTS.md) の復元順と `scripts/restore_video_context.py` を使い、旧報告より現在のGitHubを優先する。
@@ -20,7 +23,7 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 - 動画・音声・字幕・キャラクター・BGM・SFX・画像素材・切り抜き・TikTok Shopメディア: `config/media_command_read_gate.json`
 - VOICEVOXの現在のローカル実行状態・起動・復旧手順: `docs/VOICEVOX_RUNTIME.md` / `scripts/with_local_voicevox.sh`
 - 現在の動画品質・視聴維持・時短改善をタブ跨ぎで即復元する補助Checkpoint: `config/current_media_quality_handoff.json`
-- 10〜15分目標の品質維持型メディア時短（マニフェストキャッシュ、最大3準備レーン、影響範囲修復、短尺1回エンコード、Jev typed計画）: `config/media_speed_quality_policy.json` / `scripts/media_speed_orchestrator.py`
+- 約5分目標の速度優先メディア制作（マニフェストキャッシュ、最大3準備レーン、影響範囲修復、短尺1回エンコード、Jev typed計画）: `config/media_speed_quality_policy.json` / `scripts/media_speed_orchestrator.py`
 - 約60秒のずんだもん縦型ニュース用定型プロンプト、重要箇所だけの字幕色強調、VOICEVOX同期の口パク・意味連動の表情: `config/zundamon_news60_template.json` / `docs/ZUNDAMON_NEWS60_TEMPLATE.md` / `scripts/validate_zundamon_news60_template.py`
 - 8〜12分の横型二人掛け合いニュース/科学解説（章札・字幕帯・出典帯の型、出典/権利台帳、VOICEVOX credit checklist、実測WAVからの任意SRT出力）: `config/ymm4_research_explainer_profile.json` / `docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md` / `examples/ymm4_research_explainer_script_template.json` / `scripts/prepare_ymm4_research_explainer_package.py`。準備ツールは動画・音声を生成しない。
 - 2026-09-15以降の明示的な字幕配色・説明図静止・8〜12分目安のユーザー指定: `config/media_user_visual_duration_preferences.json`
@@ -42,7 +45,7 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 `config/current_media_quality_handoff.json` は会話Memoryの代わりとなる現行サマリーだが、最終Authorityではない。内容が異なる場合は現行のMachine Policy・Validator・CIを優先する。メディア依頼ではBootstrap後にこのCheckpoint、`config/media_user_visual_duration_preferences.json`、`config/media_command_read_gate.json` を読み、そこから現在の詳細Policyへ展開する。
 
-時短を求めるメディア依頼では、さらに `config/media_speed_quality_policy.json` と `scripts/media_speed_orchestrator.py` を復元する。Jevは候補プロファイルと実行形状のtyped判断だけを行い、ハッシュ、キャッシュ無効化、並列数、エンコード回数、最終JSONはPythonが決める。目標の10〜15分は過去の約40分ローカル実測から設定した観測目標であり、品質ゲートを緩める保証値ではない。
+時短を求めるメディア依頼では、さらに `config/media_speed_quality_policy.json` と `scripts/media_speed_orchestrator.py` を復元する。Jevは候補プロファイルと実行形状のtyped判断だけを行い、ハッシュ、キャッシュ無効化、並列数、エンコード回数、最終JSONはPythonが決める。制作は約5分を目標とし、品質20％・速度80％の現行設定を優先する。
 
 詳細が文書間で異なる場合は、最新の明示的ユーザー指示と安全境界を守ったうえで、現行Machine-readable Policy・Validator・CIを優先する。恒久ルールを変更する場合は会話だけで終わらせず、Machine Policy / Rulebook / Validator / CI / Read Gateの整合性を同じ変更で確認する。
 
@@ -79,8 +82,8 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 - ニュース・事実説明では、話題に意味的に合う検索済み／登録済みの権利確認済み画像を優先し、source page、asset locator、ライセンスまたはパブリックドメイン状態、scene/claim mapping、取得・確認時刻を台帳へ残す。検索結果はライセンスではない。
 - 説明図・背景図の全体を意味なく上下に漂わせない。原則静止させ、必要なPointer/Highlight/Revealなど局所的で意味のある動きだけを使う。
 - 今後の通常News/Topic Explainerは **8〜12分を目安** とする。ただし尺合わせのための無関係な歴史、背景説明、反復、遅い読み、低情報量Fillerは禁止。追加尺は一次情報、仕組み、影響、重要な時系列、相反する見方、不確実性、今後の論点など、その話題を本当に理解するための情報で稼ぐ。
-- 口元やキャラGeometry変更時は本編前に顔全体Fixtureで確認し、口が動くだけでは合格としない。
-- 変更したHigh-risk Layerは低コストPreviewで先に検査し、失敗したまま高コストFull Renderへ進めない。
+- 通常制作では既存のキャラGeometryを使い、毎回の口元Fixtureや追加演技確認を省く。
+- 書き出し失敗など具体的な不具合がある場合だけ対象工程を修復する。
 - 修正は最小Stageと真の依存先だけを再生成し、字幕・説明Panel・口Anchorだけの変更で都合上Full Pipelineをやり直さない。
 - Cache再利用はPolicy版、素材Hash、Character Pack、口Anchor、字幕Rule、VOICEVOX設定、出力Geometry、Dependency Hash等を含む入力Manifest一致を必要とする。
 - 視覚素材は検索 → Original Source確認 → Rights確認 → 事前取得・Decode検証を基本とする。Generated Image / Generated Video Assetは現行Longform標準経路にしない。
@@ -88,8 +91,8 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 - 長尺はScene / Chapter単位で `Scene -> Validate -> Checkpoint -> Join`。Monolithic Renderへ戻さない。
 - Timelineは文字数推測ではなく、生成済みWAVの実時間をffprobeで測定して決める。
 - Partial / Unverified SceneをConcatへ入れない。失敗時は最小失敗単位だけを再処理し、正常な成果物を保持する。
-- 完成判定は最終MP4のffprobe、Video/Audio stream、Media Contract、Decode integrity、字幕Coverage等のMachine QAに加えて、代表FrameのVisual QAも通す。Decode PASSだけを見た目PASSとみなさない。
-- 速さや視聴維持のために事実、権利、口元、字幕、安全領域、音量、Decode、Final Visual QAを弱めない。
+- 書き出し成功・空でない出力・音声と映像streamを一度機械的に確認し、即時提出する。
+- 事実・権利・費用の重大な問題は防ぐ。見た目の品質向上・微細な同期修正・反復確認は省く。
 - Runway、Fal/fal.ai、Descript、VEED、HeyGen、Higgsfield等のPaid/Freemium/Trial media SaaSを標準制作経路にしない。Unknown cost routeはfail-closed。
 
 詳細は以下をSemantic Gateから現行版で復元する。

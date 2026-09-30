@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail closed on the permanent quality-preserving media speed contract."""
+"""Validate the current speed-first media delivery and continuity contract."""
 from __future__ import annotations
 
 import json
@@ -40,24 +40,27 @@ def main() -> int:
     require(policy.get("schema_version") == "media-speed-quality-v1", "media speed policy schema drift")
     require(policy.get("status") == "ENFORCED_PERMANENT_STANDARD", "media speed policy is not enforced")
     target = policy.get("target_wall_clock_minutes") or []
-    require(target == [10, 15], "the 10-15 minute observed target drifted")
-    require(policy.get("target_is_observed_goal_not_guarantee") is True, "speed target must remain an observed goal, not a guarantee")
+    require(target == [5, 5], "five-minute aspirational target drifted")
+    require(policy.get("target_is_aspirational_not_guarantee") is True, "speed target must not be represented as measured or guaranteed")
     require(int(policy.get("historical_local_baseline_minutes") or 0) == 40, "historical baseline drifted")
 
     quality = policy.get("quality_first") or {}
     for key in (
-        "verified_correctness_precedes_wall_clock",
         "rights_and_claim_gates_never_relaxed",
         "full_spoken_caption_contract_never_relaxed",
         "voicevox_local_cast_never_relaxed",
-        "machine_qa_and_representative_visual_rereview_never_relaxed",
         "rendered_rights_verified_visual_evidence_never_relaxed",
     ):
         require(quality.get(key) is True, f"quality guard missing: {key}")
     require(quality.get("paid_or_freemium_media_generation") is False, "paid/freemium media generation enabled")
     require(float(quality.get("caption_coverage_ratio_must_equal") or 0) == 1.0, "full spoken caption coverage was weakened")
-    require(int(quality.get("minimum_rendered_photo_scenes") or 0) >= 2, "rendered photo floor was weakened")
-    require(float(quality.get("rendered_photo_scene_coverage_ratio_must_equal") or 0) == 1.0, "rendered photo coverage was weakened")
+    require(int(quality.get("minimum_rendered_photo_scenes") or 0) >= 1, "at least one relevant visual is required")
+    delivery = policy.get("speed_first_delivery") or {}
+    require(delivery.get("quality_weight") == 0.2 and delivery.get("speed_weight") == 0.8, "quality/speed must be 2:8")
+    require(delivery.get("mandatory_read_on_new_tab") is True, "new tabs must read speed contract")
+    require(delivery.get("deliver_completed_video_immediately") is True, "immediate delivery missing")
+    for key in ("user_confirmation_required", "manual_visual_review_required", "routine_preview_required", "optional_quality_improvement_allowed", "cosmetic_revision_allowed", "micro_timing_or_frame_revision_allowed"):
+        require(delivery.get(key) is False, f"speed delivery must disable: {key}")
 
     graph = policy.get("execution_graph") or {}
     require(graph.get("single_writer_per_run") is True, "media speed path lost single-writer rule")
@@ -164,7 +167,7 @@ def main() -> int:
     require(active.get("media_speed_orchestrator") == "scripts/media_speed_orchestrator.py", "commander handoff lost speed runtime pointer")
     require(active.get("media_speed_checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "commander handoff lost checkpoint sealer pointer")
     media_speed = handoff.get("media_speed_fixed_rules") or {}
-    require(media_speed.get("target_wall_clock_minutes") == [10, 15], "handoff target drifted")
+    require(media_speed.get("target_wall_clock_minutes") == [5, 5], "handoff target drifted")
     require(media_speed.get("max_independent_preparation_lanes") == 3, "handoff lane ceiling drifted")
     require(media_speed.get("one_pass_final_encode") is True, "handoff one-pass encode rule missing")
     require(media_speed.get("jev_typed_profile_and_shape_decision") is True, "handoff Jev media decision rule missing")

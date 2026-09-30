@@ -27,9 +27,13 @@ def restore(root=ROOT, head=None):
     gate = load('config/media_command_read_gate.json')
     handoff = load('config/current_media_quality_handoff.json')
     profile = load('config/approved_video_template.json')
+    speed = load('config/media_speed_quality_policy.json')['speed_first_delivery']
+    if speed.get('mode') != 'SPEED_FIRST_MINIMUM_VIABLE_DELIVERY' or not speed.get('mandatory_read_on_new_tab'):
+        raise ValueError('current speed-first delivery contract must be restored')
     paths = list(dict.fromkeys(BOOTSTRAP + [
         'config/current_media_quality_handoff.json', 'config/approved_video_template.json',
-        'docs/VIDEO_PRODUCTION_BASELINE.md', 'config/media_command_read_gate.json'
+        'docs/VIDEO_PRODUCTION_BASELINE.md', 'config/media_command_read_gate.json',
+        'config/media_speed_quality_policy.json'
     ] + gate['common_media_read_set'] + gate['trigger_sets']['VIDEO_CREATION']['required']))
     files = []
     for path in paths:
@@ -50,6 +54,7 @@ def restore(root=ROOT, head=None):
                          'renderer': profile['renderer'],
                          'longform_renderer': profile['longform_renderer'],
                          'editorial': profile['editorial'],
+                         'speed_first_delivery': speed,
                          'native_layers_required': profile['acting']['native_layers_required'],
                          'media_region_only_required': profile['execution_contract']['media_region_only_boolean_required_for_each_visual']}, 'files': files}
 

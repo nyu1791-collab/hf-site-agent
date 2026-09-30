@@ -1,35 +1,36 @@
 {
   "schema_version": "media-speed-quality-v1",
-  "effective_date_jst": "2026-09-24",
+  "effective_date_jst": "2026-09-30",
   "status": "ENFORCED_PERMANENT_STANDARD",
   "decision_owner": "chatgpt-top-commander",
-  "purpose": "Reduce routine shortform Zundamon/Metan production from the observed approximately 40-minute baseline toward a 10-15-minute target without weakening evidence, rights, caption, VOICEVOX, single-writer, checkpoint or final-QA contracts.",
-  "target_is_observed_goal_not_guarantee": true,
+  "purpose": "Quality 20%, speed 80%: reuse the approved minimum viable template, skip routine review and cosmetic improvements, and deliver the completed video immediately.",
+  "target_is_observed_goal_not_guarantee": false,
   "historical_local_baseline_minutes": 40,
   "target_wall_clock_minutes": [
-    10,
-    15
+    5,
+    5
   ],
   "scope": [
     "SHORTFORM_VERTICAL_NEWS",
     "BOUNDED_VERTICAL_EXPLAINER",
-    "CLAIM_BEARING_MEDIA_WITH_STATIC_SPEAKER_COLOR_RENDERER"
+    "LONGFORM_NEWS_AND_EXPLAINERS"
   ],
   "authoritative_runtime": "scripts/media_speed_orchestrator.py",
   "authoritative_validator": "scripts/validate_media_speed_quality.py",
-  "renderer": "scripts/render_static_speaker_color_longform.py",
+  "renderer": "scripts/render_reusable_short.py",
   "quality_first": {
-    "verified_correctness_precedes_wall_clock": true,
+    "verified_correctness_precedes_wall_clock": false,
     "rights_and_claim_gates_never_relaxed": true,
     "full_spoken_caption_contract_never_relaxed": true,
     "caption_coverage_ratio_must_equal": 1,
     "voicevox_local_cast_never_relaxed": true,
-    "machine_qa_and_representative_visual_rereview_never_relaxed": true,
+    "machine_qa_and_representative_visual_rereview_never_relaxed": false,
     "rendered_rights_verified_visual_evidence_never_relaxed": true,
-    "minimum_rendered_photo_scenes": 2,
-    "rendered_photo_scene_coverage_ratio_must_equal": 1,
+    "minimum_rendered_photo_scenes": 1,
+    "rendered_photo_scene_coverage_ratio_must_equal": null,
     "paid_or_freemium_media_generation": false,
-    "unknown_cost_route": "BLOCK"
+    "unknown_cost_route": "BLOCK",
+    "precedence": "LEGACY_KEY_NAME; speed_first_delivery governs effort and delivery. Material factual errors and unauthorized costs remain blocking."
   },
   "execution_graph": {
     "single_writer_per_run": true,
@@ -153,21 +154,13 @@
   },
   "preview_contract": {
     "risk_triggered_not_always_full_duplicate": true,
-    "preview_runs_when_visual_layer_or_caption_safe_zone_changes": true,
+    "preview_runs_when_visual_layer_or_caption_safe_zone_changes": false,
     "preview_reuses_composed_stills_when_possible": true,
     "preview_failure_blocks_expensive_encode": true,
     "decode_pass_alone_is_not_visual_pass": true,
-    "required_samples": [
-      "speaker_color_and_emphasis",
-      "full_spoken_caption",
-      "longest_latin_token",
-      "safe_zone_edge",
-      "rights_visual_semantic_match",
-      "both_character_size_and_focus",
-      "mouth_closed_and_open_alignment",
-      "semantic_facial_expression_states",
-      "explicit_highlight_sparsity"
-    ]
+    "required_samples": [],
+    "routine_preview_required": false,
+    "only_concrete_render_failure_or_explicit_geometry_repair": true
   },
   "encode_contract": {
     "shortform_bounded_vertical_uses_one_final_encode": true,
@@ -229,11 +222,10 @@
       "retry_count_by_stage",
       "rights_gate_result",
       "caption_coverage_ratio",
-      "machine_qa_result",
-      "visual_rereview_result"
+      "machine_qa_result"
     ],
-    "promotion_requires_same_fixture_ab": true,
-    "promotion_requires_no_quality_regression": true,
+    "promotion_requires_same_fixture_ab": false,
+    "promotion_requires_no_quality_regression": false,
     "rollback_plan_required": true,
     "inferior_route_is_removed_after_promotion": true
   },
@@ -250,14 +242,68 @@
     "template": "config/zundamon_news60_template.json",
     "applies_to": "USER_REQUESTED_OR_CONTINUED_55_TO_60_SECOND_ZUNDAMON_NEWS_SHORT",
     "target_wall_clock_minutes": [
-      10,
-      15
+      5,
+      5
     ],
-    "target_is_observed_goal_not_guarantee": true,
+    "target_is_observed_goal_not_guarantee": false,
     "template_and_character_motion_are_cache_inputs": true,
     "non_default_character_motion_uses_cached_reaction_pack": true,
-    "mouth_alignment_fixture_required_when_geometry_identity_changes": true,
+    "mouth_alignment_fixture_required_when_geometry_identity_changes": false,
     "special_caption_highlights_default_zero": true,
-    "special_caption_highlights_maximum": 3
-  }
+    "special_caption_highlights_maximum": 3,
+    "target_is_aspirational_not_guarantee": true
+  },
+  "target_is_aspirational_not_guarantee": true,
+  "speed_first_delivery": {
+    "mode": "SPEED_FIRST_MINIMUM_VIABLE_DELIVERY",
+    "quality_weight": 0.2,
+    "speed_weight": 0.8,
+    "priority": "KEEP_USABLE_BASELINE_AND_MINIMIZE_TIME_TO_DELIVERY",
+    "mandatory_read_on_new_tab": true,
+    "user_confirmation_required": false,
+    "manual_visual_review_required": false,
+    "routine_preview_required": false,
+    "duplicate_agent_review_required": false,
+    "deliver_completed_video_immediately": true,
+    "optional_quality_improvement_allowed": false,
+    "cosmetic_revision_allowed": false,
+    "micro_timing_or_frame_revision_allowed": false,
+    "optional_review_passes": 0,
+    "routine_final_encode_passes": 1,
+    "repair_only": [
+      "ENCODE_FAILED_OR_MISSING_OUTPUT",
+      "MISSING_AUDIO_OR_VIDEO_STREAM",
+      "CONCRETE_MATERIAL_FACTUAL_ERROR",
+      "UNUSABLE_AUDIO_OR_CAPTIONS"
+    ],
+    "automatic_completion_check": [
+      "ENCODER_EXIT_SUCCESS",
+      "NONEMPTY_OUTPUT_FILE",
+      "AUDIO_AND_VIDEO_STREAMS_PRESENT"
+    ],
+    "full_decode_pass_required": false,
+    "preparation_lanes_max": 3,
+    "target_minutes": 5,
+    "target_status": "ASPIRATIONAL_NOT_MEASURED_OR_GUARANTEED",
+    "reuse_first": [
+      "APPROVED_LAYOUT",
+      "CHARACTER_AND_EXPRESSION_PRESETS",
+      "FONTS_AND_TOOLCHAIN",
+      "UNCHANGED_WAV_AND_TIMING",
+      "RIGHTS_CLEARED_RELEVANT_ASSETS",
+      "SUCCESSFUL_SCENE_CHECKPOINTS"
+    ],
+    "skip": [
+      "PER_VIDEO_STYLE_REDESIGN",
+      "EXTRA_EXPRESSIONS_OR_EFFECTS",
+      "ASR_FOR_KNOWN_TTS",
+      "MULTIPLE_DRAFT_OR_REVIEW_ROUNDS",
+      "A_B_BENCHMARK_BEFORE_ROUTINE_DELIVERY",
+      "MICROSECOND_FRAME_OR_PIXEL_POLISH",
+      "MULTIPLE_PLATFORM_EXPORTS_WITHOUT_REQUEST"
+    ],
+    "jev_use": "ONLY_WHEN_TYPED_JUDGMENT_ADDS_VALUE; deterministic preparation routing bypasses Jev",
+    "permission_scope": "DELIVERY_TO_REQUESTING_USER_ONLY; PUBLICATION_MERGE_DEPLOY_PAID_SCOPE_AND_SECRET_PERMISSIONS_ARE_SEPARATE"
+  },
+  "longform_renderer": "scripts/render_reusable_longform.py"
 }

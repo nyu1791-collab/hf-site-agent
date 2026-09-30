@@ -35,7 +35,7 @@
     "longform_research_explainer_profile": "ymm4_research_explainer",
     "static_character_route_for_explicit_motion_request": false,
     "require_character_state_assets_verified_before_render": true,
-    "require_visible_expression_changes_in_final_preview": true,
+    "require_visible_expression_changes_in_final_preview": false,
     "no_claim_of_actual_animation_from_sidecar_only": true
   },
   "caption_emphasis": {
@@ -81,7 +81,9 @@
     "persistent_mouth_cache": "measure_mouth_cached; production caller supplies mouth_cache_dir",
     "voice_identity_includes_pronunciation_dictionary": true,
     "cache_hit_skips_audio_query_synthesis_and_conversion": true,
-    "reuse_before_regeneration_required": true
+    "reuse_before_regeneration_required": true,
+    "delivery_authority": "config/media_speed_quality_policy.json#/speed_first_delivery",
+    "no_cosmetic_revision_or_extra_performance_generation": true
   },
   "agents": {
     "commander": "ChatGPT",
@@ -144,7 +146,8 @@
   "precedence": {
     "overrides": "conflicting historical character defaults; current dynamic requirements apply to short and long explainers",
     "scope": "zundamon_news60 or explicit character-performance requests only",
-    "other_visual_rights_voice_and_safety_rules_unchanged": true
+    "other_visual_rights_voice_and_safety_rules_unchanged": true,
+    "latest_speed_first_user_instruction": "Quality 20% / speed 80%; default presets only, no per-video visual review or micro corrections; immediately deliver usable output."
   },
   "precedence_note": "config/approved_video_template.json is the common short/long visual and concise editorial baseline; conflicting old static-character and saturated-caption instructions are removed."
 }

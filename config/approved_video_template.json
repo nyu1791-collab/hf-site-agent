@@ -103,12 +103,13 @@
     "new_content_request": "WRITE_NEW_SCRIPT_AND_SYNTHESIZE_NEW_MEASURED_VOICE_REUSE_ONLY_TEMPLATE_AND_ASSETS"
   },
   "verification": {
-    "final_decode_required": true,
-    "representative_both_speakers_mouth_open_closed_and_expressions": true,
-    "mobile_caption_and_credit_readability": true,
+    "final_decode_required": false,
+    "representative_both_speakers_mouth_open_closed_and_expressions": false,
+    "mobile_caption_and_credit_readability": false,
     "static_old_mp4_trim_is_not_acting_repair": true,
     "windows_ymm4_verified": false,
-    "spoken_caption_equality_after_pronunciation_substitutions": true
+    "spoken_caption_equality_after_pronunciation_substitutions": true,
+    "minimum_completion_only": true
   },
   "scope": {
     "short_requested_duration_seconds": [
@@ -155,12 +156,14 @@
       "preserve_material_limits_and_factual_accuracy": true
     },
     "script_review": {
-      "read_aloud_for_comprehension": true,
+      "read_aloud_for_comprehension": false,
       "remove_repeated_preamble_warning_and_meta_process": true,
       "each_paragraph_must_add_new_takeaway_example_or_material_limit": true,
       "do_not_pad_to_duration": true,
-      "verify_against_current_template_before_voice_generation": true
+      "verify_against_current_template_before_voice_generation": true,
+      "optional_review_passes": 0
     },
     "latest_feedback": "動画の見た目は良かった。前置き・細かい注意説明がくどかったため、分かりやすい要点整理を優先する。"
-  }
+  },
+  "speed_delivery_policy": "config/media_speed_quality_policy.json#/speed_first_delivery"
 }

@@ -496,6 +496,8 @@ def plan_media_run(
     policy = policy or load_policy()
     if policy.get("status") != "ENFORCED_PERMANENT_STANDARD":
         raise MediaSpeedPlanError("media_speed_policy_not_enforced")
+    speed_delivery = policy.get("speed_first_delivery") or {}
+    skip_routine_preview = bool(speed_delivery.get("routine_preview_required") is False and not high_risk)
     manifest = build_input_manifest(inputs)
     fps = stage_fingerprints(manifest, policy)
     changed = changed_components(manifest, previous_plan)
@@ -504,6 +506,8 @@ def plan_media_run(
     artifact_root = Path(str(cache_value)) if isinstance(cache_value, (str, Path)) and str(cache_value) not in {"", "MISSING"} else None
     reuse = cache_reuse(fps, previous_plan, invalidated=invalidated, artifact_root=artifact_root)
     pending = [stage for stage in STAGES if reuse[stage] == "RUN"]
+    if skip_routine_preview:
+        pending = [stage for stage in pending if stage != "risk_triggered_visual_preview"]
     independent_count = sum(stage in pending for stage in (
         "voice_and_measured_timing",
         "rights_verified_visual_assets",
@@ -518,7 +522,7 @@ def plan_media_run(
         "surface": "LEAN_TWO_QUESTION_PROFILE_AND_SHAPE",
         "candidate_profiles": list(PROFILE_IDS),
     }
-    if use_jev:
+    if use_jev and (not speed_delivery or high_risk or jev_decider is not None):
         cards = {
             "CACHE_INCREMENTAL": "Reuse exact verified input-manifest stages; do not rebuild healthy artifacts.",
             "PARALLEL_PREP": "Run independent voice, rights-asset and character/toolchain preparation lanes, then join deterministically.",
@@ -528,7 +532,7 @@ def plan_media_run(
         jev_info = _jev_profile_decision(
             task_summary=(
                 "Choose a prevalidated media execution profile for a claim-bearing vertical video. "
-                "Prefer verified correctness and stable reuse before wall-clock speed. "
+                "Use quality 20%, speed 80%: prefer cached presets and minimum viable immediate delivery. "
                 f"Changed inputs: {', '.join(changed) or 'none'}. "
                 f"Pending stages: {', '.join(pending) or 'none'}. "
                 "Python owns hashes, dependency invalidation, lane count, arithmetic and final plan JSON."
@@ -574,7 +578,7 @@ def plan_media_run(
         shared_mutable_state=shared_mutable_state,
     )
     execution_blocked = profile == "ESCALATE_TO_CHATGPT"
-    run_stages = [] if execution_blocked else [stage for stage in STAGES if reuse[stage] == "RUN"]
+    run_stages = [] if execution_blocked else list(pending)
     waves = [] if execution_blocked else _parallel_waves(run_stages, max_lanes=planned_max_lanes)
     stage_rows = {
         stage: {
@@ -585,12 +589,18 @@ def plan_media_run(
         }
         for stage in STAGES
     }
+    if skip_routine_preview and not execution_blocked:
+        stage_rows["risk_triggered_visual_preview"]["status"] = "SKIPPED_BY_SPEED_POLICY"
+    if speed_delivery and not high_risk and jev_decider is None:
+        jev_info["reason"] = "SPEED_FIRST_DETERMINISTIC_PREPARATION_ROUTE"
     return {
+        "speed_first_delivery": dict(speed_delivery),
+        "delivery": {"user_confirmation_required": False, "deliver_immediately": True, "optional_review_passes": 0},
         "schema_version": "media-speed-plan-v1",
         "status": "READY" if not execution_blocked else "CHATGPT_ADJUDICATION_REQUIRED",
         "execution_blocked": execution_blocked,
         "policy": str(policy.get("schema_version")),
-        "target_wall_clock_minutes": list(policy.get("target_wall_clock_minutes") or [10, 15]),
+        "target_wall_clock_minutes": list(policy.get("target_wall_clock_minutes") or [5, 5]),
         "historical_local_baseline_minutes": int(policy.get("historical_local_baseline_minutes") or 40),
         "input_manifest": manifest,
         "input_manifest_fingerprint": sha256_bytes(_canonical(manifest)),
@@ -618,7 +628,7 @@ def plan_media_run(
             "scene_video_intermediate_encodes": 0,
         },
         "preview": {
-            "required": bool(not execution_blocked and any(stage in run_stages for stage in ("caption_overlay", "scene_composition", "risk_triggered_visual_preview"))),
+            "required": bool(not skip_routine_preview and not execution_blocked and any(stage in run_stages for stage in ("caption_overlay", "scene_composition", "risk_triggered_visual_preview"))),
             "risk_triggered": True,
             "failure_blocks_encode": True,
         },
@@ -634,7 +644,9 @@ def plan_media_run(
             "voicevox_local": True,
             "rights_verified_visual_provenance": True,
             "machine_qa": True,
-            "representative_visual_rereview": True,
+            "representative_visual_rereview": False if speed_delivery else True,
+            "full_decode": False if speed_delivery else True,
+            "machine_qa_scope": "ENCODER_SUCCESS_NONEMPTY_AUDIO_VIDEO_STREAMS" if speed_delivery else "LEGACY_FULL_QA",
             "paid_or_freemium_media": False,
         },
         "metrics_contract": list((policy.get("metrics_contract") or {}).get("record") or []),
@@ -674,10 +686,10 @@ def main() -> int:
         "source_claim_lock": args.source_claim_lock or "MISSING",
         "voice_and_pronunciation": args.voice_contract or {"mission": args.mission, "engine": "VOICEVOX_LOCAL", "speed_scale": "1.20"},
         "measured_audio_timing": {"producer": "VOICEVOX_FFPROBE", "contract": "MEASURED_AUDIO_TIMING_V1"},
-        "caption_and_font": {"caption_contract": "FULL_SPOKEN_TEXT", "renderer_hash": file_fingerprint(ROOT / "scripts/render_static_speaker_color_longform.py")},
+        "caption_and_font": {"caption_contract": "FULL_SPOKEN_TEXT", "renderer_hash": file_fingerprint(ROOT / "scripts/render_reusable_short.py")},
         "rights_verified_visual_assets": args.asset_request or {"manifest": args.asset_manifest or "MISSING"},
         "character_shell_and_anchor": args.character_request or {"inventory": args.static_inventory or "MISSING"},
-        "renderer_font_policy_or_output_contract": {"renderer_hash": file_fingerprint(ROOT / "scripts/render_static_speaker_color_longform.py"), "output": "1080x1920-h264-yuv420p-aac48k"},
+        "renderer_font_policy_or_output_contract": {"renderer_hash": file_fingerprint(ROOT / "scripts/render_reusable_short.py"), "output": "720x1280-h264-yuv420p-aac48k"},
         "cache_root": args.cache_root or "MISSING",
     }
     previous = _load_json(args.previous_plan)
