@@ -190,7 +190,8 @@
       "Unknown-cost and paid media routes are blocked; free-route failure never silently becomes paid.",
       "Rights and cost checks remain active even when all optional review and polish are skipped.",
       "Use deterministic tools for mechanical rendering and one writer for each output.",
-      "DeepSeek and Jev are optional; do not add an agent or model hop unless requested or it shortens a material bottleneck."
+      "DeepSeek and Jev are optional; do not add an agent or model hop unless requested or it shortens a material bottleneck.",
+      "Use several distinct, topic-matched images or diagrams in each section; reuse only cleared visuals that still fit the narration and retain rights provenance."
     ],
     "video_creation": {
       "required": [
@@ -316,9 +317,11 @@
       "SOURCE_CHECK_ONLY_FOR_CURRENT_OR_MATERIAL_CLAIMS",
       "USE_ONLY_CLEARED_ASSETS_OR_SIMPLE_ORIGINAL_VISUALS",
       "UNKNOWN_COST_AND_PAID_MEDIA_ROUTES_BLOCKED",
-      "PUBLICATION_MERGE_DEPLOY_AND_SECRET_ACTIONS_KEEP_SEPARATE_AUTHORIZATION"
+      "PUBLICATION_MERGE_DEPLOY_AND_SECRET_ACTIONS_KEEP_SEPARATE_AUTHORIZATION",
+      "USE_2_TO_4_DISTINCT_RELEVANT_VISUAL_BEATS_PER_MAIN_SECTION_WHEN_AVAILABLE"
     ],
-    "editorial_authority": "config/media_speed_quality_policy.json#/script_clarity_contract"
+    "editorial_authority": "config/media_speed_quality_policy.json#/script_clarity_contract",
+    "visual_authority": "config/media_speed_quality_policy.json#/visual_density_contract"
   },
   "default_media_research_and_script_pair_is_chatgpt_plus_deepseek": false,
   "default_video_research_and_script_owner_is_chatgpt": true,

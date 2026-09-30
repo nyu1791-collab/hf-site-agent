@@ -311,5 +311,43 @@
       "material_or_current_claims_still_need_source_check": true,
       "unknown_claims_must_be_omitted_or_labeled_uncertain": true
     }
+  },
+  "visual_density_contract": {
+    "applies_to": "ALL_EXPLANATORY_AND_NEWS_VIDEOS",
+    "purpose": "Use image-led storytelling to make the narration easier to follow while retaining the 20/80 speed-first workflow.",
+    "visual_beats_per_main_section": {
+      "minimum": 2,
+      "target_range": [
+        2,
+        4
+      ],
+      "unit": "DISTINCT_RELEVANT_VISUAL_BEATS"
+    },
+    "qualifying_visuals": [
+      "RELEVANT_PHOTOGRAPH_OR_SCREENSHOT",
+      "ORIGINAL_DIAGRAM_OR_CHART",
+      "PRODUCT_OR_INTERFACE_STILL",
+      "TOPIC_SPECIFIC_TITLE_OR_CALLOUT_CARD"
+    ],
+    "visual_sequence": {
+      "prefer_a_new_relevant_image_or_visual_each_beat": true,
+      "avoid_repeating_one_still_as_filler": true,
+      "use_visuals_to_explain_the_current_narration": true,
+      "reused_visual_must_remain_relevant_to_its_new_section": true
+    },
+    "speed_rules": {
+      "check_cleared_asset_cache_first": true,
+      "reuse_cleared_relevant_visuals": true,
+      "make_simple_original_diagrams_when_no_image_is_needed_or_cleared": true,
+      "asset_research_is_limited_to_material_claims_and_required_visual_coverage": true,
+      "visual_count_does_not_trigger_routine_preview_or_review": true
+    },
+    "rights_and_factuality": {
+      "external_assets_require_source_page_locator_and_license_or_public_domain_state": true,
+      "visual_must_not_imply_an_unsupported_claim": true,
+      "do_not_use_uncleared_or_unknown_cost_assets": true,
+      "paid_or_freemium_image_video_generation_remains_blocked": true
+    },
+    "priority": "RELEVANT_IMAGE_DENSITY_WITHIN_THE_EXISTING_ONE_PASS_SPEED_FIRST_DELIVERY"
   }
 }

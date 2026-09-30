@@ -75,7 +75,9 @@
       "NO_UNCLEARED_ASSETS"
     ],
     "targeted_user_requested_revision_allowed": true,
-    "unrequested_polish_allowed": false
+    "unrequested_polish_allowed": false,
+    "visual_density_authority": "config/media_speed_quality_policy.json#/visual_density_contract",
+    "visual_beats_per_main_section": "2_TO_4_DISTINCT_RELEVANT_IMAGES_OR_DIAGRAMS_WHEN_SUITABLE"
   },
   "approved_reference": {
     "output": "DevDay2026_corrected_47s.mp4",
@@ -146,6 +148,7 @@
     "authority": "config/media_speed_quality_policy.json#/script_clarity_contract",
     "topic_specific_headings": true,
     "plain_language_and_main_point_first": true,
-    "omit_nonessential_detail_and_repeated_caveats": true
+    "omit_nonessential_detail_and_repeated_caveats": true,
+    "image_rich_visual_storytelling": true
   }
 }
