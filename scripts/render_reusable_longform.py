@@ -34,7 +34,6 @@ def render(a):
             partial=work/(g['id']+'.partial.mp4')
             cmd=[sys.executable,str(renderer),'--audio',str(audio),'--timing',str(a.timing),'--shell',str(a.shell),'--font',str(a.font),'--visual',str(a.visual),'--presentation',str(a.presentation),'--profile',str(a.profile),'--cache-root',str(a.cache_root),'--start',str(start),'--duration',str(duration),'--output',str(partial)]
             subprocess.run(cmd,check=True,timeout=600,stdout=subprocess.DEVNULL)
-            subprocess.run(['ffmpeg','-v','error','-i',str(partial),'-f','null','-'],check=True,timeout=180)
             partial.replace(video);partial.with_suffix('.report.json').replace(video.with_suffix('.report.json'))
             manifest.write_text(json.dumps({'key':key,'sha256':digest(video),'start':start,'duration':duration},indent=2))
         reports.append(json.loads(video.with_suffix('.report.json').read_text()));chapters.append(video)
@@ -46,9 +45,8 @@ def render(a):
     partial=a.output.with_name(a.output.stem+'.partial.mp4')
     # Copy chapter video only; use one continuous narration track to avoid AAC seams.
     subprocess.run(['ffmpeg','-v','error','-y','-f','concat','-safe','0','-i',str(listing),'-i',str(a.audio),'-map','0:v:0','-map','1:a:0','-c:v','copy','-c:a','aac','-b:a','128k','-ar','48000','-t',str(total),'-movflags','+faststart',str(partial)],check=True,timeout=180)
-    subprocess.run(['ffmpeg','-v','error','-i',str(partial),'-f','null','-'],check=True,timeout=300)
     partial.replace(a.output)
-    report={'status':'RENDERED_AND_DECODED','duration_seconds':total,'mouth_states':mouths,'expressions':expressions,'caption_colors':p['layout']['caption_colors'],'media_region_only':True,'mouth_method':'RMS_APPROXIMATION','audio_reused':True,'audio_sha256':identity['audio'],'chapters':len(chapters),'sha256':digest(a.output),'chapter_checkpoint_directory':work.name,'input_identity':identity}
+    report={'status':'RENDERED','duration_seconds':total,'mouth_states':mouths,'expressions':expressions,'caption_colors':p['layout']['caption_colors'],'media_region_only':True,'mouth_method':'RMS_APPROXIMATION','audio_reused':True,'audio_sha256':identity['audio'],'chapters':len(chapters),'sha256':digest(a.output),'chapter_checkpoint_directory':work.name,'input_identity':identity}
     a.output.with_suffix('.report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print(json.dumps(report,ensure_ascii=False),flush=True)
 
 if __name__=='__main__':

@@ -79,7 +79,7 @@
     "visual_density_authority": "config/media_speed_quality_policy.json#/visual_density_contract",
     "visual_beats_per_main_section": "2_TO_4_OFFICIAL_OR_RIGHTS_CLEARED_IMAGES_PER_MAIN_SECTION; NO_IMAGE_GENERATION",
     "longform_up_to_16_minutes_is_measured_against_five_minute_work_target": true,
-    "longform_renderer": "scripts/render_fast_image_longform.py",
+    "longform_renderer": "scripts/render_reusable_short.py",
     "longform_default_canvas": "1280x720_16:9",
     "image_generation_allowed_for_video": false,
     "official_primary_visuals_preferred": true,
@@ -171,5 +171,16 @@
       12
     ],
     "active_task_wall_clock_target_minutes": 5
+  },
+  "approved_baseline_recovery": {
+    "required_on_every_new_video_tab": true,
+    "root_cause": "Speed optimization replaced the approved native character template with a static-card profile that disabled character layers.",
+    "fix": "Restore approved visible Zundamon and Metan, mouth motion, pale captions, bright background and original format. Optimize reuse and encoding only.",
+    "authority": "config/media_speed_quality_policy.json#/approved_baseline_contract",
+    "video_runtime_target_minutes": [
+      8,
+      12
+    ],
+    "wall_clock_work_target_minutes": 5
   }
 }

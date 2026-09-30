@@ -97,8 +97,9 @@ def render(args):
         with Image.open(src) as im:visual=ImageOps.contain(im.convert('RGB'),(680,390),Image.Resampling.LANCZOS)
         visual_hashes[item['id']]=hashlib.sha256(src.read_bytes()).hexdigest()
         background=Image.new('RGB',(W,H),layout['background']);draw=ImageDraw.Draw(background)
-        if title.getlength(presentation['title'])>660:raise ValueError('title exceeds reserved safe zone')
-        draw.text(tuple(layout['zones']['title']),presentation['title'],font=title,fill='#24364F')
+        heading=item.get('title',presentation['title'])
+        if title.getlength(heading)>660:raise ValueError('title exceeds reserved safe zone')
+        draw.text(tuple(layout['zones']['title']),heading,font=title,fill='#24364F')
         draw.rounded_rectangle((20,105,700,545),radius=22,fill='white')
         background.paste(visual,((W-visual.width)//2,120+(390-visual.height)//2))
         credit=item['source_credit'];url=item['source_url'].removeprefix('https://')
@@ -111,7 +112,7 @@ def render(args):
     default_visual=source_items[0]['id']
     for r in records:
         if r.get('visual_id',default_visual) not in backgrounds:raise ValueError('unknown dialogue visual_id')
-    cmd=['ffmpeg','-v','error','-y','-f','rawvideo','-pix_fmt','rgb24','-s',f'{W}x{H}','-r',str(FPS),'-i','pipe:0','-i',str(args.audio),'-c:v','libx264','-preset','veryfast','-threads','2','-crf','23','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-ar','48000','-movflags','+faststart','-shortest',str(out)]
+    cmd=['ffmpeg','-v','error','-y','-f','rawvideo','-pix_fmt','rgb24','-s',f'{W}x{H}','-r',str(FPS),'-i','pipe:0','-i',str(args.audio),'-c:v','libx264','-preset','ultrafast','-threads','2','-crf','23','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-ar','48000','-movflags','+faststart','-shortest',str(out)]
     process=subprocess.Popen(cmd,stdin=subprocess.PIPE)
     states={name:set() for name in variants};expressions_seen={name:set() for name in variants}
     resized={}

@@ -256,10 +256,11 @@
     "deliver_completed_video_immediately": true,
     "cosmetic_or_micro_revision": false,
     "longform_up_to_16_minutes_is_measured_against_five_minute_work_target": true,
-    "longform_fast_renderer": "scripts/render_fast_image_longform.py",
+    "longform_fast_renderer": "scripts/render_reusable_short.py",
     "longform_default_canvas": "1280x720_16:9",
     "video_image_generation_allowed": false,
-    "official_announcement_visuals_preferred": true
+    "official_announcement_visuals_preferred": true,
+    "speed_does_not_authorize_removing_approved_character_baseline": true
   },
   "legacy_cleanup_fixed_rules": {
     "legacy_registry": "config/legacy_deepseek_compatibility.json",

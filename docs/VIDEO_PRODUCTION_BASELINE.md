@@ -1,9 +1,9 @@
-# Video production baseline
+# Approved character video baseline
 
-The approved layout, renderer, voice, captions, character assets and already cleared visuals are reusable starting points. This file is optional reference material for a user-requested renderer edit; it is not required reading for routine delivery.
+Read this file and `config/approved_video_template.json` before video work on every new tab. The approved presentation is the default for continued video tasks, short and long alike.
 
-Current delivery policy: `config/media_speed_quality_policy.json#/speed_first_delivery`.
+Preserve visible Zundamon and Shikoku Metan, native mouth and authored expression variants, bright background, pale speaker-specific subtitles and approved canvas. Speed 80% / quality 20% means skip optional polish, not remove the approved foundation. A static-card-only or different-canvas output requires an explicit user format request.
 
-For routine work, make one export. Confirm encoder success, a nonempty output and audio/video streams, then deliver immediately. Skip preview, full decode, loudness and safe-zone sweeps, agent review, cosmetic re-rendering and optional polish. Repair only a failed or unusable output, missing required streams, a material factual error or a rights problem.
+Reuse unchanged measured narration and timing for visual repairs. Reuse native character variants, fonts, layout and cleared topic-matched visuals. `scripts/render_reusable_short.py` supports one continuous long-form encode; `scripts/render_reusable_longform.py` is available for chapter recovery. Source visuals may supply a concise per-topic `title` without changing the template geometry.
 
-Longform or YMM4 details apply only when explicitly requested. User-specified duration controls. Existing cleared assets may be reused; unknown cost routes remain blocked. Public release, paid generation, merge and deployment retain their separate permission gates.
+One successful export, nonempty output and audio/video streams are sufficient for immediate delivery. No routine preview, full decode, agent review or cosmetic rerender. Missing requested characters or baseline is a functional defect requiring repair. Keep video runtime separate from the five-minute creation target. Image generation remains disabled. Publication, paid execution, merge, deploy and secret boundaries remain unchanged.

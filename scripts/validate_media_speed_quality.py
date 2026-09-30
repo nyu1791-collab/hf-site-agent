@@ -49,7 +49,11 @@ def main() -> int:
     require(duration_contract.get("if_only_creation_deadline_is_corrected_preserve_last_explicit_video_length") is True, "cross-tab video duration continuity rule missing")
     require(fast.get("applies_to_requested_longform_up_to_seconds") == 960, "fast long-form scope must cover 16 minutes")
     require(fast.get("wall_clock_target_minutes") == 5 and fast.get("target_is_measured_for_each_run") is True, "long-form five-minute target must be measured per run")
-    require(fast.get("default_renderer") == "scripts/render_fast_image_longform.py" and fast.get("one_video_encode_only") is True, "fast long-form one-encode renderer missing")
+    require(fast.get("default_renderer") == "scripts/render_reusable_short.py" and fast.get("one_video_encode_only") is True, "fast long-form one-encode renderer missing")
+    baseline = policy.get("approved_baseline_contract") or {}
+    require(baseline.get("visible_characters") == ["ずんだもん", "四国めたん"] and baseline.get("native_character_layers_required") is True and baseline.get("mouth_motion_required") is True, "approved visible characters or native motion removed")
+    require(baseline.get("static_card_renderer_requires_explicit_user_format_request") is True, "static-card format may silently override approved template")
+    require(fast.get("default_profile") == baseline.get("template"), "default profile differs from approved character template")
     voice = fast.get("voice_segmenting") or {}
     require(voice.get("target_max_segments_for_16_minutes") == 16 and voice.get("avoid_sentence_level_synthesis_calls") is True, "long-form voice batching rule missing")
     require((ROOT / fast["default_renderer"]).is_file(), "fast long-form renderer file missing")
@@ -161,10 +165,10 @@ def main() -> int:
     require(read_set[:4] == ["README.md", "config/current_commander_handoff.json", "config/permanent_standards_manifest.json", "docs/AI_ARMY_MASTER_RULEBOOK.md"], "routine video read order drifted")
     require("config/media_speed_quality_policy.json" in read_set and "scripts/media_speed_orchestrator.py" in read_set, "routine video read set lost speed policy or runtime")
     require("config/current_media_quality_handoff.json" in read_set, "routine video read set lost cross-tab media handoff")
-    require("config/approved_video_template.json" not in read_set and "docs/VIDEO_PRODUCTION_BASELINE.md" not in read_set, "optional style references returned to mandatory speed read set")
+    require("config/approved_video_template.json" in read_set and "docs/VIDEO_PRODUCTION_BASELINE.md" in read_set, "mandatory approved baseline recall missing")
     require(gate.get("speed_first_delivery_override", {}).get("routine_delivery_uses_override_instead_of_legacy_media_read_sets") is True, "routine delivery does not bypass legacy media guides")
     longform_reads = (gate.get("trigger_sets") or {}).get("VIDEO_CREATION", {}).get("conditional", {}).get("if_user_explicitly_requests_longform", [])
-    require("config/fast_image_longform_profile.json" in longform_reads and fast.get("default_renderer") in longform_reads, "long-form read gate omits fast renderer/profile")
+    require(fast.get("default_renderer") in longform_reads, "long-form read gate omits fast renderer/profile")
     session = gate.get("new_session_behavior") or {}
     require(session.get("speed_first_delivery_contract_must_be_reread_on_every_video_tab") is True, "new tabs may skip speed policy")
     require(session.get("use_speed_first_delivery_override_read_set_for_routine_video") is True, "new tabs may load legacy media guides by default")
@@ -220,3 +224,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

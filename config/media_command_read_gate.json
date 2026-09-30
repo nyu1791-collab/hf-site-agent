@@ -62,16 +62,14 @@
         "scripts/media_speed_orchestrator.py",
         "config/media_source_policy.json",
         "config/video_creation_admission_policy.json",
-        "scripts/video_creation_admission.py"
+        "scripts/video_creation_admission.py",
+        "config/approved_video_template.json",
+        "docs/VIDEO_PRODUCTION_BASELINE.md"
       ],
       "conditional": {
         "if_user_explicitly_requests_longform": [
-          "config/longform_video_objectives.json",
-          "config/longform_video_reliability_policy.json",
-          "docs/LONGFORM_VIDEO_OBJECTIVES.md",
-          "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
-          "config/fast_image_longform_profile.json",
-          "scripts/render_fast_image_longform.py"
+          "scripts/render_reusable_short.py",
+          "scripts/render_reusable_longform.py"
         ],
         "if_user_explicitly_requests_ymm4": [
           "config/ymm4_research_explainer_profile.json",
@@ -201,7 +199,9 @@
         "scripts/media_speed_orchestrator.py",
         "config/media_source_policy.json",
         "config/video_creation_admission_policy.json",
-        "scripts/video_creation_admission.py"
+        "scripts/video_creation_admission.py",
+        "config/approved_video_template.json",
+        "docs/VIDEO_PRODUCTION_BASELINE.md"
       ],
       "conditional": {
         "if_user_explicitly_requests_longform_or_ymm4": [
@@ -289,7 +289,8 @@
     "check_sources_only_for_current_or_material_factual_claims": true,
     "rights_and_cost_gates_remain_mandatory": true,
     "do_not_rely_on_prior_tab_summary_as_substitute": true,
-    "same_head_and_blob_cache_may_satisfy_repeat_read_within_active_task": true
+    "same_head_and_blob_cache_may_satisfy_repeat_read_within_active_task": true,
+    "approved_character_baseline_must_be_reread_on_every_video_tab": true
   },
   "speed_first_delivery_override": {
     "authority": "config/media_speed_quality_policy.json#/speed_first_delivery",
@@ -307,7 +308,9 @@
       "scripts/media_speed_orchestrator.py",
       "config/media_source_policy.json",
       "config/video_creation_admission_policy.json",
-      "scripts/video_creation_admission.py"
+      "scripts/video_creation_admission.py",
+      "config/approved_video_template.json",
+      "docs/VIDEO_PRODUCTION_BASELINE.md"
     ],
     "do_not_load_optional_video_QA_and_polish_guides_for_routine_delivery": true,
     "routine_delivery_uses_override_instead_of_legacy_media_read_sets": true,
@@ -320,7 +323,8 @@
       "USE_ONLY_CLEARED_ASSETS_OR_SIMPLE_ORIGINAL_VISUALS",
       "UNKNOWN_COST_AND_PAID_MEDIA_ROUTES_BLOCKED",
       "PUBLICATION_MERGE_DEPLOY_AND_SECRET_ACTIONS_KEEP_SEPARATE_AUTHORIZATION",
-      "USE_2_TO_4_DISTINCT_RELEVANT_VISUAL_BEATS_PER_MAIN_SECTION_WHEN_AVAILABLE"
+      "USE_2_TO_4_DISTINCT_RELEVANT_VISUAL_BEATS_PER_MAIN_SECTION_WHEN_AVAILABLE",
+      "PRESERVE_APPROVED_VISIBLE_CHARACTERS_NATIVE_MOUTH_MOTION_LAYOUT_AND_PALETTE"
     ],
     "editorial_authority": "config/media_speed_quality_policy.json#/script_clarity_contract",
     "visual_authority": "config/media_speed_quality_policy.json#/visual_density_contract"

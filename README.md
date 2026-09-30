@@ -1,5 +1,5 @@
 
-**動画制作は品質2・速度8。** `config/media_speed_quality_policy.json` を新しいタブの制作前に必読する。16分以内の長尺は5分の作業時間目標で計測し、既製の公式発表画像・製品画面・発表文の引用画像を使う。画像生成は使わない。長尺は16:9の静止画中心レンダーで一括書き出しし、段落単位の音声合成と素材準備を独立並列化する。出力が使える状態ならすぐ提出し、必須の事実・権利確認は守る.
+**動画制作は品質2・速度8。** `config/media_speed_quality_policy.json` を新しいタブの制作前に必読する。16分以内の長尺は5分の作業時間目標で計測し、既製の公式発表画像・製品画面・発表文の引用画像を使う。画像生成は使わない。長尺も承認済みのずんだもん・四国めたんの型で一括書き出しし、段落単位の音声合成と素材準備を独立並列化する。出力が使える状態ならすぐ提出し、必須の事実・権利確認は守る.
 
 # hf-site-agent
 
@@ -20,7 +20,7 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 - VOICEVOXの現在のローカル実行状態・起動・復旧手順: `docs/VOICEVOX_RUNTIME.md` / `scripts/with_local_voicevox.sh`
 - 現行動画設定をタブ跨ぎで復元するCheckpoint: `config/current_media_quality_handoff.json`
 - 品質20％・速度80％、16分長尺の5分作業目標、公式画像のみ・画像生成禁止、即時提出と「話題ごとの見出し・平易な言葉・要点優先」: `config/media_speed_quality_policy.json`
-- 既存テンプレートや口パク等のスタイル詳細は、ユーザーがその形式を指定した場合だけ読む。通常動画の必須条件にはしない。
+- 承認済みの型と口パク設定は `config/approved_video_template.json` と `docs/VIDEO_PRODUCTION_BASELINE.md` を毎回の新タブで必読し、通常動画でも維持する。
 - 収益化・案件・アフィリエイト・Creator Program・AI workflow service: `config/monetization_command_read_gate.json`
 
 ### Semantic know-how recall
@@ -37,7 +37,7 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 ユーザーに「前に保存したファイル名」や同じ仕様をもう一度言わせることを前提にしない。低コストで判断できる曖昧さなら関連Read Setを少し広めに復元するが、毎回Repository全体を無差別に読むこともしない。**Semantic Recallは `保存 → 意味判定 → 現行Repository再読 → 適用` までを1セットとする。** 同一HEAD・同一Blobを同一タスク内ですでに読んでいる場合だけ、安全なRead Cache再利用を許容する。
 
-`config/current_media_quality_handoff.json` は現行の短い継続サマリーで、最終Authorityではない。動画タスクでは `config/media_command_read_gate.json#/speed_first_delivery_override/read_set` の12ファイルを通常の読込セットとして使う。長尺の制作方針は明示された尺に必要な資料だけを追加し、YMM4資料はYMM4を指定された場合だけ読む。VOICEVOXの起動・復旧、55〜60秒ニュース短尺、プラットフォーム別の書き出し、既存素材の切り抜き、商品訴求、現在の事実確認も、実際に該当するときだけ資料を追加する。通常動画はJevを必須にしない。
+`config/current_media_quality_handoff.json` は現行の短い継続サマリーで、最終Authorityではない。動画タスクでは `config/media_command_read_gate.json#/speed_first_delivery_override/read_set` の必須ファイルを通常の読込セットとして使う。長尺の制作方針は明示された尺に必要な資料だけを追加し、YMM4資料はYMM4を指定された場合だけ読む。VOICEVOXの起動・復旧、55〜60秒ニュース短尺、プラットフォーム別の書き出し、既存素材の切り抜き、商品訴求、現在の事実確認も、実際に該当するときだけ資料を追加する。通常動画はJevを必須にしない。
 
 詳細が文書間で異なる場合は、最新の明示的ユーザー指示と安全境界を守ったうえで、現行Machine-readable Policy・Validator・CIを優先する。恒久ルールを変更する場合は会話だけで終わらせず、Machine Policy / Rulebook / Validator / CI / Read Gateの整合性を同じ変更で確認する。
 
@@ -55,7 +55,7 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 ## 動画制作
 
-新しいタブでは動画作業前に `config/media_speed_quality_policy.json` と `config/media_source_policy.json` を読み、品質20％・速度80％で運用する。 尺の指定と制作時間目標を混同せず、過去の長さ指定と食い違う場合は最新の明示的な動画尺を採用する。台本・音声を尺に合わせてから書き出し、音声の早回しで合わせない。「5分で作る」は制作所要時間の目標で、動画尺ではない。動画尺は直近の明示指定を引き継ぎ、長尺は16:9横型を既定とする。この再発防止ルールは新しいタブでも同じRead Gate経由で必ず復元する。16分までの長尺は5分の作業時間目標を測定する。長尺は `scripts/render_fast_image_longform.py` で16:9静止画カードと音声を一度に書き出し、各大見出しに公式素材または権利確認済み画像を2〜4場面使う。画像生成は禁止。発表ページの必要箇所だけを切り取り、ブラウザ・再生UIを映さない。公式発表や公式コメントの画面を優先するが、公式サイト掲載だけでは再利用権があるとはみなさない。画像がない場合だけ、短い出典付き文字カードを使う。段落単位で音声を合成し、文ごとの多数の合成呼出しを避ける。見出しと平易な台本、権利記録、事実確認は維持し、任意の装飾や確認待ちは省いて提出する。
+新しいタブでは動画作業前に `config/media_speed_quality_policy.json` と `config/media_source_policy.json` を読み、品質20％・速度80％で運用する。 尺の指定と制作時間目標を混同せず、過去の長さ指定と食い違う場合は最新の明示的な動画尺を採用する。台本・音声を尺に合わせてから書き出し、音声の早回しで合わせない。「5分で作る」は制作所要時間の目標で、動画尺ではない。動画尺は直近の明示指定を引き継ぎ、縦横・背景・字幕色・キャラクターは承認済みの型を既定とする。この再発防止ルールは新しいタブでも同じRead Gate経由で必ず復元する。16分までの長尺は5分の作業時間目標を測定する。長尺は `scripts/render_reusable_short.py` で承認済みのキャラクター・口パク・字幕と音声を一度に書き出し、各大見出しに公式素材または権利確認済み画像を2〜4場面使う。画像生成は禁止。発表ページの必要箇所だけを切り取り、ブラウザ・再生UIを映さない。公式発表や公式コメントの画面を優先するが、公式サイト掲載だけでは再利用権があるとはみなさない。画像がない場合だけ、短い出典付き文字カードを使う。段落単位で音声を合成し、文ごとの多数の合成呼出しを避ける。見出しと平易な台本、権利記録、事実確認は維持し、任意の装飾や確認待ちは省いて提出する。
 
 既存テンプレート、音声、素材を再利用し、最大3つの独立した準備だけ並列化する。約5分は未計測の目安。詳しいルールの二重記載はせず、`config/media_command_read_gate.json` と上記の速度ポリシーを正本とする。
 
@@ -68,3 +68,6 @@ CIの実行権限と自動fan-outは `config/ci_execution_policy.json` を正本
 ## Hard Boundaries
 
 明示された権限がない限り、main直接Push、PR Merge、本番Deploy、公開Publish、Secrets変更・開示、Durable Object変更、Auto Top-up、Generic Paid Fallback、不可逆な外部操作を行わない。
+
+
+承認済みのキャラクター動画を通常の既定とする。品質2・速度8は追加の磨き込みを省く方針であり、ずんだもん・四国めたん、口パク、承認済み背景・字幕色・画面形式を削除する許可ではない。静止画のみの別形式への切替はユーザーが明示した場合に限る。タブ切替時も `config/approved_video_template.json` と `docs/VIDEO_PRODUCTION_BASELINE.md` を制作前に必読する。

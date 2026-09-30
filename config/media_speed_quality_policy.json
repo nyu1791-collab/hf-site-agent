@@ -240,7 +240,8 @@
       "ENCODE_FAILED_OR_MISSING_OUTPUT",
       "MISSING_AUDIO_OR_VIDEO_STREAM",
       "UNUSABLE_AUDIO_OR_CAPTIONS",
-      "CONCRETE_MATERIAL_FACTUAL_ERROR"
+      "CONCRETE_MATERIAL_FACTUAL_ERROR",
+      "MISSING_USER_REQUIRED_CHARACTER_OR_APPROVED_BASELINE"
     ],
     "automatic_completion_check": [
       "ENCODER_EXIT_SUCCESS",
@@ -274,7 +275,7 @@
     "unrequested_polish_allowed": false,
     "latest_explicit_user_duration_wins_over_prior_conflicting_duration": true
   },
-  "longform_renderer": "scripts/render_fast_image_longform.py",
+  "longform_renderer": "scripts/render_reusable_short.py",
   "minimum_delivery_contract": {
     "no_routine_visual_review": true,
     "no_full_decode_or_loudness_sweep": true,
@@ -363,9 +364,9 @@
     "target_is_measured_for_each_run": true,
     "target_is_not_a_guarantee_when_inputs_or_local_hardware_are_unready": true,
     "minimum_realtime_factor_for_encode_stage": 3.2,
-    "default_canvas": "1280x720_16:9",
-    "default_renderer": "scripts/render_fast_image_longform.py",
-    "default_profile": "config/fast_image_longform_profile.json",
+    "default_canvas": "APPROVED_TEMPLATE_720x1280",
+    "default_renderer": "scripts/render_reusable_short.py",
+    "default_profile": "config/approved_video_template.json",
     "one_video_encode_only": true,
     "full_decode_passes": 0,
     "completion_probe": "ffprobe_streams_duration_and_size_only",
@@ -378,11 +379,11 @@
       "reuse_exact_verified_audio_cache": true
     },
     "critical_path_rules": [
-      "prepare_script_voice_and_rights_cleared_official_visuals_in_parallel_when_independent",
-      "compose_supplied_stills_and_full_spoken_captions_without_per_frame_python_rendering",
-      "encode_once_at_720p_with_the_fast_still_image_profile",
-      "drop_effects_and_nonessential_assets_before_exceeding_the_five_minute_work_target",
-      "never_relax_source_rights_or_material_claim_checks_to_meet_time"
+      "reuse_unchanged_measured_audio_and_native_character_variants",
+      "prepare_independent_audio_and_cleared_visual_assets_in_parallel",
+      "encode_once_with_approved_layout_characters_and_captions",
+      "skip_optional_effects_and_reviews",
+      "never_remove_approved_characters_or_change_format_to_meet_deadline"
     ],
     "if_target_exceeded": "REPORT_ACTUAL_STAGE_TIMES_AND_DELIVER_THE_COMPLETE_VIDEO_WITHOUT_OPTIONAL_POLISH",
     "requested_video_duration_contract": {
@@ -391,11 +392,27 @@
       "do_not_treat_five_minute_work_target_as_requested_video_duration": true,
       "fit_script_and_measured_narration_before_encode": true,
       "do_not_speed_up_voice_to_force_duration_fit": true,
-      "landscape_16_9_is_default_unless_user_requests_otherwise": true,
       "source_screenshot_must_fill_media_area_without_browser_or_player_ui": true,
       "five_minute_target_is_wall_clock_creation_time_not_video_runtime": true,
       "artifact_duration_must_match_latest_explicit_video_length_request": true,
-      "if_only_creation_deadline_is_corrected_preserve_last_explicit_video_length": true
+      "if_only_creation_deadline_is_corrected_preserve_last_explicit_video_length": true,
+      "preserve_approved_format_unless_user_explicitly_changes_it": true
     }
+  },
+  "approved_baseline_contract": {
+    "mandatory_read_on_every_video_tab": true,
+    "template": "config/approved_video_template.json",
+    "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md",
+    "default_presentation": "USER_APPROVED_CHARACTER_VIDEO",
+    "visible_characters": [
+      "ずんだもん",
+      "四国めたん"
+    ],
+    "native_character_layers_required": true,
+    "mouth_motion_required": true,
+    "preserve_layout_palette_and_format": true,
+    "speed_20_80_does_not_authorize_baseline_removal": true,
+    "static_card_renderer_requires_explicit_user_format_request": true,
+    "visual_only_repair_reuses_measured_narration": true
   }
 }
