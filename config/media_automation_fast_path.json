@@ -1,0 +1,93 @@
+{
+  "schema_version": "media-automation-fast-path-v1",
+  "effective_date_jst": "2026-10-01",
+  "status": "ENFORCED_SPEED_FIRST_STANDARD",
+  "purpose": "Extract only the useful parts of a conventional multi-agent content pipeline and integrate them into the existing AI Army without adding unnecessary agent hops.",
+  "priority_order": [
+    "WALL_CLOCK_SPEED",
+    "REUSE_AND_RECOVERY",
+    "MINIMUM_FATAL_SAFETY",
+    "MINIMUM_MATERIAL_ACCURACY"
+  ],
+  "integration": {
+    "canonical_router": "scripts/ai_army_routing_facade.py",
+    "durable_runner": "scripts/durable_media_runner.py",
+    "deterministic_media_engine": "scripts/media_batch_command_center.py",
+    "jev_policy": "config/jev_decision_engine_policy.json",
+    "stream_resilience_policy": "config/session_stream_resilience_policy.json"
+  },
+  "extracted_pipeline": {
+    "source_ingress": {
+      "implementation": "DETERMINISTIC_RSS_OR_WEB_ADAPTER_OUTSIDE_AGENT_COUNT",
+      "rule": "Fetch and normalize new text, assign a stable source_id, then enqueue only typed work. Do not create a dedicated AI agent just to poll feeds.",
+      "dedupe_owner": "SQLITE_UNIQUE_DEDUPE_KEY"
+    },
+    "script_and_tone": {
+      "implementation": "ONE_COMBINED_JUDGMENT_PASS",
+      "default_owner": "CURRENT_AI_ARMY_ROUTER",
+      "rule": "Research/script/tone should stay in one compact pass unless current evidence shows decomposition materially reduces wall clock.",
+      "hardcoded_61_to_70_seconds": false,
+      "hardcoded_300_to_350_japanese_characters": false,
+      "platform_duration_and_length_rule": "RESOLVE_FROM_CURRENT_PLATFORM_PROFILE_OR_USER_REQUEST_AT_EXECUTION_TIME"
+    },
+    "fact_and_compliance": {
+      "implementation": "CONDITIONAL_GATE_NOT_ALWAYS_ON_AGENT",
+      "activate_when": [
+        "CURRENT_OR_TIME_SENSITIVE_CLAIM",
+        "MATERIAL_FACTUAL_CLAIM",
+        "RIGHTS_OR_PLATFORM_POLICY_DEPENDENCY",
+        "COMMERCE_OR_MONETIZATION_CLAIM"
+      ],
+      "routine_low_risk_behavior": "SKIP_EXTRA_AGENT_REVIEW; USE_MINIMUM_PRIMARY_SOURCE_OR_DETERMINISTIC_GATE"
+    },
+    "parallel_media_and_metadata": {
+      "implementation": "PARALLEL_WHEN_INDEPENDENT",
+      "max_media_preparation_lanes": 3,
+      "media_lane": "VOICEVOX_ASSET_PREP_RENDER_USING_EXISTING_DETERMINISTIC_PIPELINE",
+      "metadata_lane": "TITLE_DESCRIPTION_HASHTAG_DRAFT_ONLY_WHEN_REQUESTED_OR_PUBLISH_HANDOFF_EXISTS",
+      "join_rule": "JOIN_BEFORE_FINAL_READY_STATE"
+    },
+    "supervisor": {
+      "default": "MACHINE_GATE_ONLY",
+      "ai_supervisor_only_when": [
+        "MACHINE_GATE_FAILS",
+        "HIGH_RISK_AMBIGUITY",
+        "CONFLICTING_EVIDENCE",
+        "USER_EXPLICITLY_REQUESTS_REVIEW"
+      ],
+      "rule": "Do not add a routine supervisor agent to every video."
+    },
+    "analytics_and_feedback": {
+      "implementation": "ASYNCHRONOUS_POST_PUBLISH_LOOP",
+      "critical_path": false,
+      "rule": "Analytics collection must never block creation or publish readiness; feed later measurements into prompts/policy only after enough samples exist."
+    }
+  },
+  "durable_execution": {
+    "queue": "SQLITE_WAL",
+    "typed_job_kind": "MEDIA_BATCH_RUN",
+    "default_poll_seconds": 0.2,
+    "default_lease_seconds": 120,
+    "default_max_attempts": 2,
+    "checkpoint_reuse": true,
+    "resume_after_process_or_chat_disconnect": true,
+    "same_source_payload_deduped": true,
+    "public_publish_state": "READY_TO_PUBLISH"
+  },
+  "minimum_fatal_gates_that_speed_may_not_remove": [
+    "NO_ARBITRARY_COMMAND_EXECUTION",
+    "NO_SECRET_VALUES_IN_JOB_PAYLOADS",
+    "NO_WORKSPACE_PATH_ESCAPE",
+    "NO_DUPLICATE_ACTIVE_LEASE",
+    "NO_SILENT_PAID_FALLBACK",
+    "NO_PUBLIC_PUBLISH_WITHOUT_ACTIVE_AUTHORIZATION_BOUNDARY"
+  ],
+  "intentionally_not_adopted": [
+    "FIVE_ALWAYS_ON_AI_AGENTS",
+    "ROUTINE_SUPERVISOR_REVIEW",
+    "ROUTINE_SECOND_FACT_AGENT_FOR_LOW_RISK_STATIC_CONTENT",
+    "ANALYTICS_ON_CREATION_CRITICAL_PATH",
+    "FRAME_PERFECT_REVIEW_LOOPS",
+    "PLATFORM_LENGTH_RULES_HARDCODED_AS_UNIVERSAL_LAW"
+  ]
+}
