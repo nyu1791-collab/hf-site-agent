@@ -7,9 +7,6 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BOOTSTRAP = ['AGENTS.md', 'README.md', 'config/current_commander_handoff.json',
-             'config/permanent_standards_manifest.json', 'docs/AI_ARMY_MASTER_RULEBOOK.md']
-
 
 def restore(root=ROOT, head=None):
     if head is None:
@@ -26,15 +23,11 @@ def restore(root=ROOT, head=None):
         return json.loads((root/path).read_text(encoding='utf-8'))
     gate = load('config/media_command_read_gate.json')
     handoff = load('config/current_media_quality_handoff.json')
-    profile = load('config/approved_video_template.json')
     speed = load('config/media_speed_quality_policy.json')['speed_first_delivery']
+    speed_read_set = gate['speed_first_delivery_override']['read_set']
     if speed.get('mode') != 'SPEED_FIRST_MINIMUM_VIABLE_DELIVERY' or not speed.get('mandatory_read_on_new_tab'):
         raise ValueError('current speed-first delivery contract must be restored')
-    paths = list(dict.fromkeys(BOOTSTRAP + [
-        'config/current_media_quality_handoff.json', 'config/approved_video_template.json',
-        'docs/VIDEO_PRODUCTION_BASELINE.md', 'config/media_command_read_gate.json',
-        'config/media_speed_quality_policy.json'
-    ] + gate['common_media_read_set'] + gate['trigger_sets']['VIDEO_CREATION']['required']))
+    paths = list(dict.fromkeys(speed_read_set))
     files = []
     for path in paths:
         candidate = (root/path).resolve()
@@ -46,17 +39,10 @@ def restore(root=ROOT, head=None):
     return {'schema_version': 'video-context-restore-v1', 'repository': 'nyu1791-collab/hf-site-agent',
             'branch': 'ai-army/provider-v3', 'head_sha': head, 'head_source': head_source,
             'must_read_contents_before_production': True,
-            'conditional_reads_not_yet_applied': gate['trigger_sets']['VIDEO_CREATION']['conditional'],
-            'reference': handoff['latest_completed_video'],
-            'baseline': {'profile': 'config/approved_video_template.json',
-                         'caption_colors': profile['layout']['caption_colors'],
-                         'mouth_method': profile['acting']['mouth_method'],
-                         'renderer': profile['renderer'],
-                         'longform_renderer': profile['longform_renderer'],
-                         'editorial': profile['editorial'],
-                         'speed_first_delivery': speed,
-                         'native_layers_required': profile['acting']['native_layers_required'],
-                         'media_region_only_required': profile['execution_contract']['media_region_only_boolean_required_for_each_visual']}, 'files': files}
+            'reference': handoff['approved_reference'],
+            'baseline': {'reuse_existing_approved_layout_and_assets': True,
+                         'optional_template': 'config/approved_video_template.json',
+                         'speed_first_delivery': speed}, 'files': files}
 
 
 if __name__ == '__main__':

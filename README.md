@@ -1,10 +1,6 @@
 
 **動画制作は品質2・速度8。** `config/media_speed_quality_policy.json#/speed_first_delivery` を新しいタブの制作前に必読する。通常のプレビュー・目視確認・追加査読・微細な修正・品質向上を省き、書き出し成功・非空の出力・音声/映像streamが揃えば即時提出する。既存の型と素材を再利用し、独立準備のみ最大3レーンで並列化する。
 
-> **最新の内容方針:** 要点を先に分かりやすく。長い前置き・注意の繰り返しを省き、必要な条件だけ該当箇所で短く示す。正本は `config/approved_video_template.json` の `editorial`。見た目は淡いミント/ピンク、両キャラの音声連動口と意味に沿う表情、公式メディア部分の拡大を短尺・長尺で共通適用。
-
-> **動画制作の現行入口（2026-09-30）:** 承認済み約47秒動画の型は [`docs/VIDEO_PRODUCTION_BASELINE.md`](docs/VIDEO_PRODUCTION_BASELINE.md) と [`config/approved_video_template.json`](config/approved_video_template.json)。媒体別の最新仕様・配信変換・GitHub/Hugging Face再現ルールは [`docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md`](docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md) と [`config/video_platform_delivery_profiles.json`](config/video_platform_delivery_profiles.json) を読む。別タブでは [`AGENTS.md`](AGENTS.md) の復元順と `scripts/restore_video_context.py` を使い、旧報告より現在のGitHubを優先する。
-
 # hf-site-agent
 
 AI Army / Provider-v3 の実験・検証リポジトリ。
@@ -22,11 +18,9 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 
 - 動画・音声・字幕・キャラクター・BGM・SFX・画像素材・切り抜き・TikTok Shopメディア: `config/media_command_read_gate.json`
 - VOICEVOXの現在のローカル実行状態・起動・復旧手順: `docs/VOICEVOX_RUNTIME.md` / `scripts/with_local_voicevox.sh`
-- 現在の動画品質・視聴維持・時短改善をタブ跨ぎで即復元する補助Checkpoint: `config/current_media_quality_handoff.json`
-- 約5分目標の速度優先メディア制作（マニフェストキャッシュ、最大3準備レーン、影響範囲修復、短尺1回エンコード、Jev typed計画）: `config/media_speed_quality_policy.json` / `scripts/media_speed_orchestrator.py`
-- 約60秒のずんだもん縦型ニュース用定型プロンプト、重要箇所だけの字幕色強調、VOICEVOX同期の口パク・意味連動の表情: `config/zundamon_news60_template.json` / `docs/ZUNDAMON_NEWS60_TEMPLATE.md` / `scripts/validate_zundamon_news60_template.py`
-- 8〜12分の横型二人掛け合いニュース/科学解説（章札・字幕帯・出典帯の型、出典/権利台帳、VOICEVOX credit checklist、実測WAVからの任意SRT出力）: `config/ymm4_research_explainer_profile.json` / `docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md` / `examples/ymm4_research_explainer_script_template.json` / `scripts/prepare_ymm4_research_explainer_package.py`。準備ツールは動画・音声を生成しない。
-- 2026-09-15以降の明示的な字幕配色・説明図静止・8〜12分目安のユーザー指定: `config/media_user_visual_duration_preferences.json`
+- 現行動画設定をタブ跨ぎで復元するCheckpoint: `config/current_media_quality_handoff.json`
+- 品質20％・速度80％、5分は未計測目標、即時提出: `config/media_speed_quality_policy.json`
+- 既存テンプレートや口パク等のスタイル詳細は、ユーザーがその形式を指定した場合だけ読む。通常動画の必須条件にはしない。
 - 収益化・案件・アフィリエイト・Creator Program・AI workflow service: `config/monetization_command_read_gate.json`
 
 ### Semantic know-how recall
@@ -43,9 +37,7 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 ユーザーに「前に保存したファイル名」や同じ仕様をもう一度言わせることを前提にしない。低コストで判断できる曖昧さなら関連Read Setを少し広めに復元するが、毎回Repository全体を無差別に読むこともしない。**Semantic Recallは `保存 → 意味判定 → 現行Repository再読 → 適用` までを1セットとする。** 同一HEAD・同一Blobを同一タスク内ですでに読んでいる場合だけ、安全なRead Cache再利用を許容する。
 
-`config/current_media_quality_handoff.json` は会話Memoryの代わりとなる現行サマリーだが、最終Authorityではない。内容が異なる場合は現行のMachine Policy・Validator・CIを優先する。メディア依頼ではBootstrap後にこのCheckpoint、`config/media_user_visual_duration_preferences.json`、`config/media_command_read_gate.json` を読み、そこから現在の詳細Policyへ展開する。
-
-時短を求めるメディア依頼では、さらに `config/media_speed_quality_policy.json` と `scripts/media_speed_orchestrator.py` を復元する。Jevは候補プロファイルと実行形状のtyped判断だけを行い、ハッシュ、キャッシュ無効化、並列数、エンコード回数、最終JSONはPythonが決める。制作は約5分を目標とし、品質20％・速度80％の現行設定を優先する。
+`config/current_media_quality_handoff.json` は現行の短い継続サマリーで、最終Authorityではない。動画タスクでは `config/media_command_read_gate.json#/speed_first_delivery_override/read_set` の12ファイルだけを通常の読込セットとして使う。長尺・YMM4・既存素材の切り抜き・商品訴求・現在の事実確認をユーザーが依頼した場合だけ該当する追加資料を読む。通常動画はJevを呼ばない。
 
 詳細が文書間で異なる場合は、最新の明示的ユーザー指示と安全境界を守ったうえで、現行Machine-readable Policy・Validator・CIを優先する。恒久ルールを変更する場合は会話だけで終わらせず、Machine Policy / Rulebook / Validator / CI / Read Gateの整合性を同じ変更で確認する。
 
@@ -61,62 +53,11 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 - 通常Routeはfree-first。Auto Top-up、Generic Paid Fallback、Paid sibling自動置換は禁止。
 - DeepSeek例外は他の有料Provider、Repository Write、main Push、PR Merge、Deploy、Publish、Secrets操作、支払い操作へ権限を拡張しない。
 
-## メディア制作
+## 動画制作
 
-メディア作業では、計画・素材取得・音声生成・レンダリングより前に `config/current_media_quality_handoff.json`、`config/media_user_visual_duration_preferences.json`、`config/media_command_read_gate.json` の現行版を読む。READMEへ詳細ルールを重複させない。
+新しいタブでは動画作業前に `config/media_speed_quality_policy.json#/speed_first_delivery` を読み、品質20％・速度80％で運用する。確認待ち・目視レビュー・全編QA・追加査読・微細な修正を省き、非空の出力と音声/映像streamを一度確認したら即提出する。
 
-現在の恒久標準の要点:
-
-- 通常の情報収集と原稿作成は **ChatGPT + DeepSeek** を1つの判断工程として扱う。調査役、原稿役、書き直し役、通常査読役を理由なく細分化せず、追加Agentは独立並列化・専門能力・リスク低減に明確な価値がある場合だけ使う。
-- レンダリング、タイミング計測、エンコード、Hash、ffprobe、Decode QAなどの機械工程はDeterministic Toolを優先し、Agent数を増やさない。
-- 標準VOICEVOX castは **ずんだもん + 四国めたん**。Speaker / Style IDは実行時に利用可能状態を確認する。
-- ずんだもんと四国めたんは素材の生ピクセル高ではなく見た目の大きさを揃え、話者を自然に前へ・大きく見せる。拡大で字幕、説明図、安全領域を侵さない。
-- 口だけを動かしてキャラ演技完了としない。目、眉、顔つき、首傾き、ポーズ、必要な聞き手リアクションを意味と感情に合わせて使い、全要素を同時に動かす過剰演出は避ける。
-- 音声はSemantic Beat単位でPause・Speed・Pitch・Intonation・Emotionを設計し、長時間の平坦読みを標準にしない。
-- キャラクターはIdle / Speaking / Reaction / Emphasis等の状態で控えめに動かし、長時間の完全静止立ち絵へ退行させない。
-- 1 Semantic Beatにつき主役となるAttention Heroは原則1つ。Caption / Evidence / Character / SFX / Zoomを理由なく競合させない。
-- 視聴維持のための構成は釣りではなく、Truthful Hook → Early Value / Evidence → Explanation / Contrast → Payoffを基本候補とし、Curiosity Gapを使う場合は動画内で回収する。
-- 字幕は意味のまとまり、実フォント表示幅、測定済み音声タイミング、強調を別軸で扱い、文字数だけで機械分割しない。
-- 字幕は話した内容を省略しない `FULL_SPOKEN_TEXT` 契約で全話し言葉を表示する。短い要約字幕でナレーションを置き換えず、実音声のWAV境界へ同期する。
-- 字幕本文・枠は話者色を使う。ずんだもんは淡いミント、四国めたんは淡いピンク。台本が指定した重要語は淡い黄色または淡い赤で強調し、色だけに意味を依存させず暗い縁取りと話者ラベルを併用する。
-- ニュース・事実説明では、話題に意味的に合う検索済み／登録済みの権利確認済み画像を優先し、source page、asset locator、ライセンスまたはパブリックドメイン状態、scene/claim mapping、取得・確認時刻を台帳へ残す。検索結果はライセンスではない。
-- 説明図・背景図の全体を意味なく上下に漂わせない。原則静止させ、必要なPointer/Highlight/Revealなど局所的で意味のある動きだけを使う。
-- 今後の通常News/Topic Explainerは **8〜12分を目安** とする。ただし尺合わせのための無関係な歴史、背景説明、反復、遅い読み、低情報量Fillerは禁止。追加尺は一次情報、仕組み、影響、重要な時系列、相反する見方、不確実性、今後の論点など、その話題を本当に理解するための情報で稼ぐ。
-- 通常制作では既存のキャラGeometryを使い、毎回の口元Fixtureや追加演技確認を省く。
-- 書き出し失敗など具体的な不具合がある場合だけ対象工程を修復する。
-- 修正は最小Stageと真の依存先だけを再生成し、字幕・説明Panel・口Anchorだけの変更で都合上Full Pipelineをやり直さない。
-- Cache再利用はPolicy版、素材Hash、Character Pack、口Anchor、字幕Rule、VOICEVOX設定、出力Geometry、Dependency Hash等を含む入力Manifest一致を必要とする。
-- 視覚素材は検索 → Original Source確認 → Rights確認 → 事前取得・Decode検証を基本とする。Generated Image / Generated Video Assetは現行Longform標準経路にしない。
-- 第三者Free BGMはDOVA-SYNDROME / OpenTracksを優先候補とし、`config/free_audio_source_registry.json` と `config/dova_curated_bgm_catalog.json` の現行条件を守る。
-- 長尺はScene / Chapter単位で `Scene -> Validate -> Checkpoint -> Join`。Monolithic Renderへ戻さない。
-- Timelineは文字数推測ではなく、生成済みWAVの実時間をffprobeで測定して決める。
-- Partial / Unverified SceneをConcatへ入れない。失敗時は最小失敗単位だけを再処理し、正常な成果物を保持する。
-- 書き出し成功・空でない出力・音声と映像streamを一度機械的に確認し、即時提出する。
-- 事実・権利・費用の重大な問題は防ぐ。見た目の品質向上・微細な同期修正・反復確認は省く。
-- Runway、Fal/fal.ai、Descript、VEED、HeyGen、Higgsfield等のPaid/Freemium/Trial media SaaSを標準制作経路にしない。Unknown cost routeはfail-closed。
-
-詳細は以下をSemantic Gateから現行版で復元する。
-
-- `config/current_media_quality_handoff.json`
-- `config/media_user_visual_duration_preferences.json`
-- `config/media_character_performance_compact_orchestration_policy.json`
-- `config/media_audio_motion_retention_policy.json`
-- `config/media_reusable_asset_standard.json`
-- `config/media_character_reaction_cache_policy.json`
-- `config/zundamon_metan_production_quality_policy.json`
-- `docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md`
-- `config/batch_media_orchestration_policy.json`
-- `config/cross_domain_measurement_registry.json`
-- `scripts/validate_zundamon_metan_production_quality.py`
-- `scripts/validate_video_retention_efficiency.py`
-- `config/free_audio_source_registry.json`
-- `config/dova_curated_bgm_catalog.json`
-- `config/longform_video_objectives.json`
-- `config/longform_video_reliability_policy.json`
-- `docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md`
-- `docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md`
-
-基準YMM4プロジェクトを一から作り直さないための複製コマンドは `scripts/reuse_ymm4_baseline.py`。実際のWindows確認台帳と素材hashを検査し、編集中のプロジェクトを保持する。手順は `docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md`。
+既存テンプレート、音声、素材を再利用し、最大3つの独立した準備だけ並列化する。約5分は未計測の目安。詳しいルールの二重記載はせず、`config/media_command_read_gate.json` と上記の速度ポリシーを正本とする。
 
 ## CI / Compatibility
 
@@ -127,6 +68,3 @@ CIの実行権限と自動fan-outは `config/ci_execution_policy.json` を正本
 ## Hard Boundaries
 
 明示された権限がない限り、main直接Push、PR Merge、本番Deploy、公開Publish、Secrets変更・開示、Durable Object変更、Auto Top-up、Generic Paid Fallback、不可逆な外部操作を行わない。
-
-
-最新の公式素材拡大引用・淡い字幕・実口パクの統合ルールは `docs/AI_ARMY_MASTER_RULEBOOK.md` の「現行の動画制作ルール」。実描画は短尺の `scripts/render_reusable_short.py` と長尺の `scripts/render_reusable_longform.py` が同じ承認済み基盤を使う。旧MP4の切り出しだけではキャラ演技の修正完了にならない。

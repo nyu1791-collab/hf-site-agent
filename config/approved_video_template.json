@@ -103,13 +103,9 @@
     "new_content_request": "WRITE_NEW_SCRIPT_AND_SYNTHESIZE_NEW_MEASURED_VOICE_REUSE_ONLY_TEMPLATE_AND_ASSETS"
   },
   "verification": {
+    "minimum_completion_only": true,
     "final_decode_required": false,
-    "representative_both_speakers_mouth_open_closed_and_expressions": false,
-    "mobile_caption_and_credit_readability": false,
-    "static_old_mp4_trim_is_not_acting_repair": true,
-    "windows_ymm4_verified": false,
-    "spoken_caption_equality_after_pronunciation_substitutions": true,
-    "minimum_completion_only": true
+    "manual_visual_review_required": false
   },
   "scope": {
     "short_requested_duration_seconds": [

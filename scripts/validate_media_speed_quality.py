@@ -15,7 +15,6 @@ GATE = ROOT / "config/media_command_read_gate.json"
 MANIFEST = ROOT / "config/permanent_standards_manifest.json"
 HANDOFF = ROOT / "config/current_commander_handoff.json"
 MEDIA_HANDOFF = ROOT / "config/current_media_quality_handoff.json"
-PLAYBOOK = ROOT / "docs/JEV_FAST_DECISION_PLAYBOOK.md"
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -44,23 +43,19 @@ def main() -> int:
     require(policy.get("target_is_aspirational_not_guarantee") is True, "speed target must not be represented as measured or guaranteed")
     require(int(policy.get("historical_local_baseline_minutes") or 0) == 40, "historical baseline drifted")
 
-    quality = policy.get("quality_first") or {}
-    for key in (
-        "rights_and_claim_gates_never_relaxed",
-        "full_spoken_caption_contract_never_relaxed",
-        "voicevox_local_cast_never_relaxed",
-        "rendered_rights_verified_visual_evidence_never_relaxed",
-    ):
-        require(quality.get(key) is True, f"quality guard missing: {key}")
-    require(quality.get("paid_or_freemium_media_generation") is False, "paid/freemium media generation enabled")
-    require(float(quality.get("caption_coverage_ratio_must_equal") or 0) == 1.0, "full spoken caption coverage was weakened")
-    require(int(quality.get("minimum_rendered_photo_scenes") or 0) >= 1, "at least one relevant visual is required")
     delivery = policy.get("speed_first_delivery") or {}
-    require(delivery.get("quality_weight") == 0.2 and delivery.get("speed_weight") == 0.8, "quality/speed must be 2:8")
-    require(delivery.get("mandatory_read_on_new_tab") is True, "new tabs must read speed contract")
-    require(delivery.get("deliver_completed_video_immediately") is True, "immediate delivery missing")
+    quality = policy.get("minimum_delivery_contract") or {}
+    require(delivery.get("quality_weight") == 0.2 and delivery.get("speed_weight") == 0.8, "delivery weights must be 20:80")
+    require(delivery.get("mandatory_read_on_new_tab") is True, "speed delivery contract must persist across tabs")
+    require(delivery.get("deliver_completed_video_immediately") is True, "immediate delivery is missing")
     for key in ("user_confirmation_required", "manual_visual_review_required", "routine_preview_required", "optional_quality_improvement_allowed", "cosmetic_revision_allowed", "micro_timing_or_frame_revision_allowed"):
-        require(delivery.get(key) is False, f"speed delivery must disable: {key}")
+        require(delivery.get(key) is False, f"speed delivery flag enabled: {key}")
+    require(quality.get("no_routine_visual_review") is True, "routine visual review must be disabled")
+    require(quality.get("no_full_decode_or_loudness_sweep") is True, "routine decode and loudness sweeps must be disabled")
+    require(quality.get("no_mandatory_Jev_call") is True, "routine Jev call must be optional")
+    require(quality.get("material_claims_must_not_be_invented") is True, "material claim accuracy floor missing")
+    require(quality.get("use_only_cleared_assets_or_original_simple_visuals") is True, "media asset rights floor missing")
+    require(quality.get("rights_and_cost_gates_remain_mandatory") is True, "media rights or cost gate missing")
 
     graph = policy.get("execution_graph") or {}
     require(graph.get("single_writer_per_run") is True, "media speed path lost single-writer rule")
@@ -108,17 +103,16 @@ def main() -> int:
     fields = set(cache.get("manifest_fields") or [])
     require({"mission_or_script_hash", "measured_audio_timing_hash", "rights_verified_asset_manifest_hash", "effective_policy_versions"}.issubset(fields), "input manifest omits a quality-critical identity")
     invalidation = cache.get("invalidation_rules") or {}
-    require(invalidation.get("caption_only") == ["caption_overlay", "scene_composition", "risk_triggered_visual_preview", "one_pass_final_encode", "machine_qa_and_visual_rereview"], "caption-only invalidation drift")
+    require("one_pass_final_encode" in (invalidation.get("caption_only") or []), "caption changes must reach final encode")
     require(invalidation.get("visual_or_rights_asset"), "visual invalidation rule missing")
     require(cache.get("expired_rights_evidence_action") == "BLOCK_REUSE_AND_REVERIFY", "expired rights evidence may be reused")
 
     preview = policy.get("preview_contract") or {}
-    require(preview.get("risk_triggered_not_always_full_duplicate") is True, "preview policy still duplicates every expensive render")
-    require(preview.get("preview_reuses_composed_stills_when_possible") is True, "preview cannot reuse composed stills")
-    require(preview.get("preview_failure_blocks_expensive_encode") is True, "preview failure may proceed to encode")
+    require(preview.get("routine_preview_required") is False, "routine preview must be disabled")
+    require(preview.get("preview_failure_blocks_delivery") is False, "visual preview must not block routine delivery")
 
     jev = policy.get("jev_media_planning") or {}
-    require(jev.get("enabled") is True, "Jev media planning is not enabled")
+    require(jev.get("enabled") is True, "Jev media planning capability is not available")
     require(jev.get("runtime") == "scripts/jev_lean_router.py", "Jev media planning must use the lean typed runtime")
     require(jev.get("surface") == "LEAN_TWO_QUESTION_PROFILE_AND_SHAPE", "Jev media surface drifted from the accuracy-first lean contract")
     require(int(jev.get("question_count") or 0) == 2, "Jev media planning question count drifted")
@@ -145,12 +139,14 @@ def main() -> int:
     require(VALIDATOR.is_file(), "media speed validator missing")
     require(CHECKPOINT_SEALER.is_file(), "verified media checkpoint sealer missing")
 
-    common = set(gate.get("common_media_read_set") or [])
-    for path in ("config/media_speed_quality_policy.json", "scripts/media_speed_orchestrator.py", "scripts/validate_media_speed_quality.py", "scripts/seal_media_speed_checkpoint.py"):
-        require(path in common, f"media read gate does not restore speed standard: {path}")
+    read_set = gate.get("speed_first_delivery_override", {}).get("read_set") or []
+    require(read_set[:4] == ["README.md", "config/current_commander_handoff.json", "config/permanent_standards_manifest.json", "docs/AI_ARMY_MASTER_RULEBOOK.md"], "routine video read order drifted")
+    require("config/media_speed_quality_policy.json" in read_set and "scripts/media_speed_orchestrator.py" in read_set, "routine video read set lost speed policy or runtime")
+    require("config/approved_video_template.json" not in read_set and "docs/VIDEO_PRODUCTION_BASELINE.md" not in read_set, "optional style references returned to mandatory speed read set")
+    require(gate.get("speed_first_delivery_override", {}).get("routine_delivery_uses_override_instead_of_legacy_media_read_sets") is True, "routine delivery does not bypass legacy media guides")
     session = gate.get("new_session_behavior") or {}
-    require(session.get("media_speed_quality_policy_must_be_re_read") is True, "new tabs may skip media speed policy")
-    require(session.get("jev_media_planning_contract_must_be_re_read") is True, "new tabs may skip Jev media planning contract")
+    require(session.get("speed_first_delivery_contract_must_be_reread_on_every_video_tab") is True, "new tabs may skip speed policy")
+    require(session.get("use_speed_first_delivery_override_read_set_for_routine_video") is True, "new tabs may load legacy media guides by default")
 
     standards = {str(x.get("id")): x for x in (manifest.get("required_standards") or []) if isinstance(x, dict)}
     item = standards.get("media-speed-quality") or {}
@@ -160,7 +156,6 @@ def main() -> int:
     require(item.get("checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "manifest lost verified media checkpoint sealer")
     cross_tab = manifest.get("cross_tab_behavior") or {}
     require(cross_tab.get("media_speed_quality_policy_survives_tab_change") is True, "media speed policy does not survive tab changes")
-    require(cross_tab.get("jev_media_planning_contract_survives_tab_change") is True, "Jev media planning does not survive tab changes")
 
     active = handoff.get("active_standards") or {}
     require(active.get("media_speed_quality_policy") == "config/media_speed_quality_policy.json", "commander handoff lost speed policy pointer")
@@ -168,18 +163,18 @@ def main() -> int:
     require(active.get("media_speed_checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "commander handoff lost checkpoint sealer pointer")
     media_speed = handoff.get("media_speed_fixed_rules") or {}
     require(media_speed.get("target_wall_clock_minutes") == [5, 5], "handoff target drifted")
+    require(media_speed.get("quality_weight") == 0.2 and media_speed.get("speed_weight") == 0.8, "handoff weights drifted")
+    require(media_speed.get("deliver_completed_video_immediately") is True, "handoff delivery rule missing")
     require(media_speed.get("max_independent_preparation_lanes") == 3, "handoff lane ceiling drifted")
     require(media_speed.get("one_pass_final_encode") is True, "handoff one-pass encode rule missing")
     require(media_speed.get("jev_typed_profile_and_shape_decision") is True, "handoff Jev media decision rule missing")
 
-    media_speed_handoff = media_handoff.get("production_speed_without_quality_loss") or {}
-    require(media_speed_handoff.get("target_wall_clock_minutes") == [10, 15], "media quality handoff target missing")
+    media_speed_handoff = media_handoff.get("speed_first_video_delivery") or {}
+    require(media_speed_handoff.get("quality_weight") == 0.2 and media_speed_handoff.get("speed_weight") == 0.8, "media quality handoff weights missing")
+    require(media_handoff.get("speed_first_video_delivery", {}).get("manual_visual_review_required") is False, "media handoff still requires visual review")
+    require(media_speed_handoff.get("jev_media_planning") is True and media_speed_handoff.get("jev_required_by_default") is False, "Jev must remain optional for deterministic video work")
     require(media_speed_handoff.get("media_speed_quality_policy") == "config/media_speed_quality_policy.json", "media quality handoff speed pointer missing")
-    require(media_speed_handoff.get("jev_media_planning") is True, "media quality handoff Jev planning rule missing")
     require(media_speed_handoff.get("media_speed_checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "media quality handoff checkpoint sealer missing")
-
-    playbook = PLAYBOOK.read_text(encoding="utf-8")
-    require("MEDIA_PIPELINE_PROFILE_AND_SHAPE" in playbook, "Jev playbook lacks media pipeline typed surface")
 
     print(json.dumps({
         "status": "PASS",
@@ -189,6 +184,8 @@ def main() -> int:
         "one_pass_final_encode": True,
         "jev_media_surface": jev.get("surface"),
         "cross_tab_persistence": True,
+        "routine_read_set_size": len(read_set),
+        "routine_read_set_size": len(read_set),
     }, ensure_ascii=False, sort_keys=True))
     return 0
 

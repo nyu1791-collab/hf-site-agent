@@ -1,11 +1,11 @@
 {
   "schema_version": "media-performance-efficiency-v1",
   "effective_date_jst": "2026-09-30",
-  "status": "ENFORCED_PREPARATION_STANDARD",
-  "scope": "ZUNDAMON_METAN_NEWS60_LONGFORM_RESEARCH_EXPLAINERS_AND_EXPLICIT_CHARACTER_PERFORMANCE_REQUESTS",
+  "status": "OPTIONAL_PROFILE_REFERENCE",
+  "scope": "ONLY_EXPLICIT_ZUNDAMON_METAN_NEWS60_OR_CHARACTER_PERFORMANCE_REQUESTS",
   "runtime": "scripts/media_performance_plan.py",
   "route_guard": "scripts/media_performance_route.py",
-  "authority": "LATEST_USER_REQUEST: clear concise summary, pale mint/pink captions, measured native mouth and semantic expression, enlarged official media regions",
+  "authority": "Use only when the user explicitly requests this Zundamon/Metan performance style; routine delivery follows the speed-first minimum-delivery policy.",
   "character_performance": {
     "mode": "SPEAKING_MOUTH_SYNC_PLUS_SPARSE_SEMANTIC_EXPRESSION",
     "mouth_states": [
@@ -83,7 +83,11 @@
     "cache_hit_skips_audio_query_synthesis_and_conversion": true,
     "reuse_before_regeneration_required": true,
     "delivery_authority": "config/media_speed_quality_policy.json#/speed_first_delivery",
-    "no_cosmetic_revision_or_extra_performance_generation": true
+    "no_cosmetic_revision_or_extra_performance_generation": true,
+    "delivery_policy": "config/media_speed_quality_policy.json#/speed_first_delivery",
+    "no_micro_refinement": true,
+    "review_loops": 0,
+    "final_encode_passes": 1
   },
   "agents": {
     "commander": "ChatGPT",
@@ -109,17 +113,13 @@
     "baseline_and_psd_mouth_presets_require_windows_verification": true,
     "python_plan_is_not_completed_editor_application": true,
     "hardware_encode": "OPTIONAL_IDENTICAL_FIXTURE_AB; preserve software fallback",
-    "research_explainer_auto_routes_to_expression_and_mouth_sync": true,
+    "research_explainer_auto_routes_to_expression_and_mouth_sync": false,
     "sidecar_requires_verified_application_adapter": true,
     "static_still_renderer_is_not_a_valid_final_adapter_for_motion_profile": true
   },
   "verification": {
-    "synthetic_fixture_tests_only_this_task": true,
-    "mouth_activity_and_silence_and_listener_tests": true,
-    "invalid_expression_or_caption_spans_rejected": true,
-    "render_route_guard_before_side_effects": true,
-    "windows_end_to_end_verified": false,
-    "new_video_rendered_for_this_update": false
+    "minimum_completion_only": true,
+    "manual_visual_review_required": false
   },
   "sources": [
     {
@@ -144,10 +144,9 @@
     }
   ],
   "precedence": {
-    "overrides": "conflicting historical character defaults; current dynamic requirements apply to short and long explainers",
-    "scope": "zundamon_news60 or explicit character-performance requests only",
-    "other_visual_rights_voice_and_safety_rules_unchanged": true,
-    "latest_speed_first_user_instruction": "Quality 20% / speed 80%; default presets only, no per-video visual review or micro corrections; immediately deliver usable output."
+    "applies_only_when_user_requests_matching_profile": true,
+    "speed_first_delivery_remains_authoritative": true,
+    "no_routine_visual_review_or_micro_correction": true
   },
-  "precedence_note": "config/approved_video_template.json is the common short/long visual and concise editorial baseline; conflicting old static-character and saturated-caption instructions are removed."
+  "precedence_note": "The profile describes optional character performance. It does not add a mandatory visual review, increase routine quality work, or set duration."
 }

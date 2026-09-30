@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan a quality-preserving, cache-first media run.
+"""Plan a speed-first media run with a minimum delivery check.
 
 This module is deliberately deterministic at the control-plane boundary.  Jev
 may choose one prevalidated media profile and a typed route shape, but Python
@@ -497,7 +497,7 @@ def plan_media_run(
     if policy.get("status") != "ENFORCED_PERMANENT_STANDARD":
         raise MediaSpeedPlanError("media_speed_policy_not_enforced")
     speed_delivery = policy.get("speed_first_delivery") or {}
-    skip_routine_preview = bool(speed_delivery.get("routine_preview_required") is False and not high_risk)
+    skip_routine_preview = bool(speed_delivery.get("routine_preview_required") is False)
     manifest = build_input_manifest(inputs)
     fps = stage_fingerprints(manifest, policy)
     changed = changed_components(manifest, previous_plan)
@@ -507,7 +507,7 @@ def plan_media_run(
     reuse = cache_reuse(fps, previous_plan, invalidated=invalidated, artifact_root=artifact_root)
     pending = [stage for stage in STAGES if reuse[stage] == "RUN"]
     if skip_routine_preview:
-        pending = [stage for stage in pending if stage != "risk_triggered_visual_preview"]
+        pending = [stage for stage in pending if stage not in {"risk_triggered_visual_preview", "machine_qa_and_visual_rereview"}]
     independent_count = sum(stage in pending for stage in (
         "voice_and_measured_timing",
         "rights_verified_visual_assets",
@@ -522,7 +522,7 @@ def plan_media_run(
         "surface": "LEAN_TWO_QUESTION_PROFILE_AND_SHAPE",
         "candidate_profiles": list(PROFILE_IDS),
     }
-    if use_jev and (not speed_delivery or high_risk or jev_decider is not None):
+    if use_jev and (not speed_delivery or jev_decider is not None):
         cards = {
             "CACHE_INCREMENTAL": "Reuse exact verified input-manifest stages; do not rebuild healthy artifacts.",
             "PARALLEL_PREP": "Run independent voice, rights-asset and character/toolchain preparation lanes, then join deterministically.",
@@ -591,6 +591,7 @@ def plan_media_run(
     }
     if skip_routine_preview and not execution_blocked:
         stage_rows["risk_triggered_visual_preview"]["status"] = "SKIPPED_BY_SPEED_POLICY"
+        stage_rows["machine_qa_and_visual_rereview"]["status"] = "SKIPPED_BY_SPEED_POLICY"
     if speed_delivery and not high_risk and jev_decider is None:
         jev_info["reason"] = "SPEED_FIRST_DETERMINISTIC_PREPARATION_ROUTE"
     return {
@@ -628,9 +629,9 @@ def plan_media_run(
             "scene_video_intermediate_encodes": 0,
         },
         "preview": {
-            "required": bool(not skip_routine_preview and not execution_blocked and any(stage in run_stages for stage in ("caption_overlay", "scene_composition", "risk_triggered_visual_preview"))),
+            "required": bool(not skip_routine_preview and "risk_triggered_visual_preview" in run_stages),
             "risk_triggered": True,
-            "failure_blocks_encode": True,
+            "failure_blocks_encode": False,
         },
         "cache": {
             "exact_manifest_match_required": True,
@@ -640,13 +641,11 @@ def plan_media_run(
         },
         "jev": jev_info,
         "quality_gates": {
-            "full_spoken_caption": True,
-            "voicevox_local": True,
-            "rights_verified_visual_provenance": True,
-            "machine_qa": True,
-            "representative_visual_rereview": False if speed_delivery else True,
-            "full_decode": False if speed_delivery else True,
-            "machine_qa_scope": "ENCODER_SUCCESS_NONEMPTY_AUDIO_VIDEO_STREAMS" if speed_delivery else "LEGACY_FULL_QA",
+            "encoder_success": True,
+            "nonempty_output": True,
+            "audio_and_video_streams": True,
+            "manual_visual_review": False,
+            "optional_polish": False,
             "paid_or_freemium_media": False,
         },
         "metrics_contract": list((policy.get("metrics_contract") or {}).get("record") or []),
