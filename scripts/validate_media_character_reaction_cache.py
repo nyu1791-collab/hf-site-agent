@@ -137,12 +137,12 @@ def main() -> int:
     failures = policy.get("failure_contract") or {}
     require(failures.get("mouth_alignment_fixture_failure") == "BLOCK_FULL_CHARACTER_RENDER_AND_FIX_ANCHOR_OR_PREPROCESSING_WITHOUT_REGENERATING_UNCHANGED_AUDIO", "mouth fixture failure recovery drift")
 
+    # Keep the reaction stack off the routine speed-first hot path. It remains
+    # durable and recoverable through the permanent media index when a
+    # Zundamon/Metan character task actually needs it.
     common = set(gate.get("common_media_read_set") or [])
-    require("config/media_character_reaction_cache_policy.json" in common, "media read gate no longer restores reaction-cache policy")
-    require("docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md" in common, "media read gate no longer restores readable reaction/subtitle standard")
-    session = gate.get("new_session_behavior") or {}
-    require(session.get("character_reaction_cache_policy_must_be_re_read") is True, "new sessions may skip reaction-cache policy")
-    require(session.get("reaction_subtitle_human_standard_must_be_re_read") is True, "new sessions may skip readable reaction/subtitle standard")
+    require("config/media_character_reaction_cache_policy.json" not in common, "reaction-cache policy leaked into routine hot path")
+    require("docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md" not in common, "reaction/subtitle guide leaked into routine hot path")
 
     standards = manifest.get("required_standards") or []
     indexed = {str(x.get("id")): x for x in standards if isinstance(x, dict)}
@@ -154,12 +154,13 @@ def main() -> int:
     media_manifest = manifest.get("media_command_gate") or {}
     require(media_manifest.get("character_reaction_cache_policy") == "config/media_character_reaction_cache_policy.json", "manifest media gate lost reaction-cache policy")
     cross_tab = manifest.get("cross_tab_behavior") or {}
-    require(cross_tab.get("media_character_reaction_cache_survives_tab_change") is True, "reaction-cache standard no longer survives tab change")
+    require(cross_tab.get("media_command_read_gate_survives_tab_change") is True, "media read gate continuity lost")
+    require(cross_tab.get("current_media_quality_handoff_survives_tab_change") is True, "media handoff continuity lost")
 
-    forbidden = set(gate.get("forbidden_shortcuts") or [])
-    require("SEARCH_OR_DOWNLOAD_ZUNDAMON_METAN_REACTION_ASSETS_PER_VIDEO" in forbidden, "read gate permits per-video reaction search/download")
-    require("USE_VERTICAL_BOUNCE_AS_ONLY_CHARACTER_MOTION" in forbidden, "read gate permits vertical-only motion")
-    require("COPY_KATAKANA_TTS_READING_DIRECTLY_TO_ENGLISH_CAPTION_TERM" in forbidden, "read gate permits katakana TTS leakage into captions")
+    forbidden = set(policy.get("forbidden_shortcuts") or [])
+    require("SEARCH_REACTION_ASSETS_PER_VIDEO" in forbidden, "reaction policy permits per-video reaction search")
+    require("USE_VERTICAL_BOUNCE_AS_ONLY_CHARACTER_ANIMATION" in forbidden, "reaction policy permits vertical-only motion")
+    require("COPY_KATAKANA_TTS_READING_DIRECTLY_INTO_CAPTION_FOR_ENGLISH_BRAND_OR_TECH_TERM" in forbidden, "reaction policy permits katakana TTS leakage into captions")
 
     print(json.dumps({
         "status": "PASS",
@@ -170,7 +171,7 @@ def main() -> int:
         "no_per_scene_download": True,
         "vertical_only_motion_blocked": True,
         "voice_caption_separated": True,
-        "read_gate_restored": True,
+        "scoped_restore_indexed": True,
         "permanent_manifest_indexed": True
     }, ensure_ascii=False, sort_keys=True))
     return 0
