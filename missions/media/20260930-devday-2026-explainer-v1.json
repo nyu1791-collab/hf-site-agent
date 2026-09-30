@@ -1,0 +1,715 @@
+{
+  "schema": "voicevox-dialogue-mission-v2",
+  "title": "DevDay 2026を動画制作の現場から解説",
+  "output_format": "longform_research_explainer",
+  "target_duration_minutes": [
+    8,
+    12
+  ],
+  "research_cutoff_date": "2026-09-30",
+  "voices": [
+    "ずんだもん",
+    "四国めたん"
+  ],
+  "voice_preferences": {
+    "engine": "VOICEVOX_LOCAL",
+    "speed_scale": 1.2,
+    "primary": "ずんだもん",
+    "secondary": "四国めたん"
+  },
+  "generated_image_ai_allowed": false,
+  "generated_video_ai_allowed": false,
+  "public_publish": false,
+  "pronunciation_policy": {
+    "latin_terms_spoken_as_japanese": true,
+    "mappings": {
+      "OpenAI": "オープンエーアイ",
+      "Codex": "コデックス",
+      "GPT": "ジーピーティー",
+      "Sol": "ソル",
+      "Astra": "アストラ",
+      "API": "エーピーアイ",
+      "Agents": "エージェント",
+      "Ultrafast": "ウルトラファスト",
+      "Decisions": "ディシジョンズ"
+    }
+  },
+  "production_revision_notes": [
+    "既存の6章解説テンプレート、音声/表情キャッシュ、YMM4受け渡し形式を再利用する。",
+    "全台詞を字幕化し、話者色を維持する。強い色強調は章ごとに必要な一節だけに限定し、単語単位で細かく色分けしない。",
+    "話者に応じたSTATIC_TURN_FOCUSを適用する。感情ラベルは表情cueとして出力するが、Windows YMM4で確認するまで実動作済みとは記載しない。",
+    "情報画面は公式DevDay記事と@OpenAIの投稿画面を出典付きで使う。画像生成は使わない。Xの埋め込み動画から切り出す時は取得可能な静止フレームのみを使い、動画投稿そのものの再掲載はしない。",
+    "X画像の使用条件は本動画の内部確認用として記録し、公開前には権利状態を別途確認する。出典表記は各カット下部に置く。"
+  ],
+  "source_ledger": [
+    {
+      "id": "S1",
+      "title": "DevDay 2026 の振り返り",
+      "url": "https://openai.com/ja-JP/index/devday-2026-recap/",
+      "source_type": "PRIMARY_OFFICIAL",
+      "published_date": "2026-09-29",
+      "checked_at": "2026-09-30",
+      "use": "発表内容・機能説明・提供プラン"
+    },
+    {
+      "id": "S2",
+      "title": "GPT-6.1 Sol introduction",
+      "url": "https://openai.com/ja-JP/index/introducing-gpt-6-1-sol/",
+      "source_type": "PRIMARY_OFFICIAL",
+      "published_date": "2026-09-29",
+      "checked_at": "2026-09-30",
+      "use": "Solの提供場所と対象プラン"
+    },
+    {
+      "id": "S3",
+      "title": "OpenAI official X: GPT-6.1 Sol",
+      "url": "https://x.com/OpenAI/status/2104986129686741046",
+      "source_type": "PRIMARY_OFFICIAL_SOCIAL",
+      "checked_at": "2026-09-30",
+      "use": "公式投稿スクリーンショット候補。閲覧確認済み。"
+    },
+    {
+      "id": "S4",
+      "title": "OpenAI official X: dots",
+      "url": "https://x.com/OpenAI/status/2104984504133918973",
+      "source_type": "PRIMARY_OFFICIAL_SOCIAL",
+      "checked_at": "2026-09-30",
+      "use": "公式投稿スクリーンショット候補。"
+    },
+    {
+      "id": "S5",
+      "title": "OpenAI official X: Ultrafast",
+      "url": "https://x.com/OpenAI/status/2104993966043320759",
+      "source_type": "PRIMARY_OFFICIAL_SOCIAL",
+      "checked_at": "2026-09-30",
+      "use": "公式投稿スクリーンショット候補。"
+    },
+    {
+      "id": "S6",
+      "title": "OpenAI official X: Codex Security Cloud",
+      "url": "https://x.com/OpenAI/status/2104987422308335828",
+      "source_type": "PRIMARY_OFFICIAL_SOCIAL",
+      "checked_at": "2026-09-30",
+      "use": "公式投稿スクリーンショット候補。"
+    }
+  ],
+  "claim_ledger": [
+    {
+      "id": "C1",
+      "statement": "DevDay 2026の公式総括はChatGPT、Codex、モデル、協働の方法を含む20超の発表を挙げている。",
+      "source_ids": [
+        "S1"
+      ],
+      "source_locator": "lines 22-29",
+      "review_status": "VERIFIED_PRIMARY_SOURCE"
+    },
+    {
+      "id": "C2",
+      "statement": "GPT-6.1 SolはPlusを含む対象ユーザーにChatGPT WorkとCodexで提供され、通常Chatではまだ使えない。APIは別途提供される。",
+      "source_ids": [
+        "S2"
+      ],
+      "source_locator": "GPT-6.1 Sol access section",
+      "review_status": "VERIFIED_PRIMARY_SOURCE"
+    },
+    {
+      "id": "C3",
+      "statement": "Codex CloudはPlusを含む複数プラン、Codex CLIの音声操作や/agentsとCode Reviewは公式総括で全プランとされる。",
+      "source_ids": [
+        "S1"
+      ],
+      "source_locator": "Codex Cloud / CLI / Code Review sections",
+      "review_status": "VERIFIED_PRIMARY_SOURCE"
+    },
+    {
+      "id": "C4",
+      "statement": "dotsとSpace/Living Pagesは上位プランを対象とし、Plus向けとは公式総括に記載されない。",
+      "source_ids": [
+        "S1",
+        "S4"
+      ],
+      "source_locator": "dots / Space / Living Pages sections",
+      "review_status": "VERIFIED_PRIMARY_SOURCE"
+    },
+    {
+      "id": "C5",
+      "statement": "Decisions APIは9月29日に限定プレビュー、Agents APIのComputer UseはAPIと対象上位契約で提供。API利用料はChatGPT Plusとは別。",
+      "source_ids": [
+        "S1"
+      ],
+      "source_locator": "Decisions API / Agents API sections",
+      "review_status": "VERIFIED_PRIMARY_SOURCE"
+    }
+  ],
+  "visual_assets": [
+    {
+      "id": "V1",
+      "source_page": "https://openai.com/ja-JP/index/devday-2026-recap/",
+      "asset_locator": "公式記事の見出し・該当機能セクションをブラウザでスクリーンショット",
+      "rights_status": "REVIEW_REQUIRED",
+      "reuse_conditions_summary": "出典を表示。内部確認用ドラフトに限定し、公開前は権利条件を再確認。",
+      "scene_or_claim_mapping": {
+        "chapter_ids": [
+          "CH01",
+          "CH05",
+          "CH06"
+        ],
+        "claim_ids": [
+          "C1",
+          "C2",
+          "C3",
+          "C4",
+          "C5"
+        ]
+      }
+    },
+    {
+      "id": "V2",
+      "source_page": "https://x.com/OpenAI/status/2104986129686741046",
+      "asset_locator": "@OpenAI GPT-6.1 Sol投稿のスクリーンショット。2026-09-30にブラウザ表示を確認。ローカル素材としては未保存。",
+      "rights_status": "REVIEW_REQUIRED",
+      "reuse_conditions_summary": "投稿URLと@OpenAIを画面内に明記。内部確認用ドラフトに限定し、公開前は権利条件を再確認。",
+      "scene_or_claim_mapping": {
+        "chapter_ids": [
+          "CH02"
+        ],
+        "claim_ids": [
+          "C2"
+        ]
+      }
+    },
+    {
+      "id": "V3",
+      "source_page": "https://x.com/OpenAI/status/2104984504133918973",
+      "asset_locator": "@OpenAI dots投稿の静止画スクリーンショットを次回制作時に取得",
+      "rights_status": "REVIEW_REQUIRED",
+      "reuse_conditions_summary": "投稿URLと@OpenAIを画面内に明記。内部確認用ドラフトに限定し、公開前は権利条件を再確認。",
+      "scene_or_claim_mapping": {
+        "chapter_ids": [
+          "CH04"
+        ],
+        "claim_ids": [
+          "C4"
+        ]
+      }
+    },
+    {
+      "id": "V4",
+      "source_page": "https://x.com/OpenAI/status/2104993966043320759",
+      "asset_locator": "@OpenAI Ultrafast投稿の静止画スクリーンショットを次回制作時に取得",
+      "rights_status": "REVIEW_REQUIRED",
+      "reuse_conditions_summary": "投稿URLと@OpenAIを画面内に明記。内部確認用ドラフトに限定し、公開前は権利条件を再確認。",
+      "scene_or_claim_mapping": {
+        "chapter_ids": [
+          "CH03",
+          "CH06"
+        ],
+        "claim_ids": [
+          "C3"
+        ]
+      }
+    },
+    {
+      "id": "V5",
+      "source_page": "https://x.com/OpenAI/status/2104987422308335828",
+      "asset_locator": "@OpenAI Codex Security Cloud投稿の静止画スクリーンショットを次回制作時に取得",
+      "rights_status": "REVIEW_REQUIRED",
+      "reuse_conditions_summary": "投稿URLと@OpenAIを画面内に明記。内部確認用ドラフトに限定し、公開前は権利条件を再確認。",
+      "scene_or_claim_mapping": {
+        "chapter_ids": [
+          "CH03"
+        ],
+        "claim_ids": [
+          "C3"
+        ]
+      }
+    }
+  ],
+  "dialogue": [
+    {
+      "id": "CH01_01",
+      "scene": 1,
+      "speaker": "ずんだもん",
+      "emotion": "curious",
+      "text": "オープンエーアイの開発者イベント、デブデイが九月二十九日に開催されました。公式総括は、チャットボットの新モデルだけでなく、コデックス、エージェント、共同作業の仕組みまで、二十を超える発表を紹介しています。",
+      "caption_text": "オープンエーアイの開発者イベント、デブデイが九月二十九日に開催されました。公式総括は、チャットボットの新モデルだけでなく、コデックス、エージェント、共同作業の仕組みまで、二十を超える発表を紹介しています。",
+      "visual_beat": "DevDay official recap title screenshot",
+      "source_claim_ids": [
+        "C1"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH01_02",
+      "scene": 1,
+      "speaker": "四国めたん",
+      "emotion": "serious",
+      "text": "一言でまとめると、AIを質問に答える道具から、仕事を続けて進める仕組みへ広げる動きです。ただし発表されたことと、今の契約ですぐ使えることは別です。今日は機能ごとに、対象プランと、動画制作で実際に使える場所を分けて見ます。",
+      "caption_text": "一言でまとめると、AIを質問に答える道具から、仕事を続けて進める仕組みへ広げる動きです。ただし発表されたことと、今の契約ですぐ使えることは別です。今日は機能ごとに、対象プランと、動画制作で実際に使える場所を分けて見ます。",
+      "visual_beat": "Feature map: model, Codex, agents, collaboration",
+      "source_claim_ids": [
+        "C1"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH01_03",
+      "scene": 1,
+      "speaker": "ずんだもん",
+      "emotion": "surprised",
+      "text": "つまり、名前を聞いただけで全部Plusに入ったと思い込まないようにするのだ。",
+      "caption_text": "つまり、名前を聞いただけで全部Plusに入ったと思い込まないようにするのだ。",
+      "visual_beat": "Plus availability label",
+      "source_claim_ids": "",
+      "claim_bearing": false,
+      "emphasis_terms": [
+        "Plusと提供条件は別確認"
+      ],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH02_01",
+      "scene": 2,
+      "speaker": "四国めたん",
+      "emotion": "explainer",
+      "text": "まずGPT-6.1ソルです。公式案内では、Plusを含む複数プランで使えますが、提供場所はChatGPT WorkとCodexです。通常のChatで使えるとは案内されていません。APIから呼び出す方法もありますが、APIの利用料はChatGPTのサブスクリプションとは別会計です。",
+      "caption_text": "まずGPT-6.1ソルです。公式案内では、Plusを含む複数プランで使えますが、提供場所はChatGPT WorkとCodexです。通常のChatで使えるとは案内されていません。APIから呼び出す方法もありますが、APIの利用料はChatGPTのサブスクリプションとは別会計です。",
+      "visual_beat": "GPT-6.1 Sol official X screenshot with source credit",
+      "source_claim_ids": [
+        "C2"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [
+        "WorkとCodexで利用可能"
+      ],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH02_02",
+      "scene": 2,
+      "speaker": "ずんだもん",
+      "emotion": "curious",
+      "text": "動画づくりでは、ソルを台本の構成比較、公式情報の整理、長い資料の要点抽出に使うのが向いていそうなのだ。",
+      "caption_text": "動画づくりでは、ソルを台本の構成比較、公式情報の整理、長い資料の要点抽出に使うのが向いていそうなのだ。",
+      "visual_beat": "Research to script card",
+      "source_claim_ids": [
+        "C2"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH02_03",
+      "scene": 2,
+      "speaker": "四国めたん",
+      "emotion": "clarifying",
+      "text": "ただし、モデルが出した台本をそのまま事実として扱うのではなく、公式発表と照合してから使います。今回の制作環境でソルが実際に起動できたかどうかも、発表資料だけからは断定しません。",
+      "caption_text": "ただし、モデルが出した台本をそのまま事実として扱うのではなく、公式発表と照合してから使います。今回の制作環境でソルが実際に起動できたかどうかも、発表資料だけからは断定しません。",
+      "visual_beat": "Source cross-check: draft vs official",
+      "source_claim_ids": [
+        "C2"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH02_04",
+      "scene": 2,
+      "speaker": "ずんだもん",
+      "emotion": "serious",
+      "text": "また、安く使えるという紹介を理由にAPIへ自動で切り替えることはしません。Plus内で利用できるWorkやCodexに表示されている場合に活用し、API課金は別の判断として止めておくのだ。",
+      "caption_text": "また、安く使えるという紹介を理由にAPIへ自動で切り替えることはしません。Plus内で利用できるWorkやCodexに表示されている場合に活用し、API課金は別の判断として止めておくのだ。",
+      "visual_beat": "API billing separate callout",
+      "source_claim_ids": [
+        "C2"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH03_01",
+      "scene": 3,
+      "speaker": "ずんだもん",
+      "emotion": "curious",
+      "text": "開発の中心にあるのがコデックスの拡張なのだ。クラウド上で作業環境を再利用でき、パソコン以外からもタスクにアクセスできる機能が紹介されたのだ。",
+      "caption_text": "開発の中心にあるのがコデックスの拡張なのだ。クラウド上で作業環境を再利用でき、パソコン以外からもタスクにアクセスできる機能が紹介されたのだ。",
+      "visual_beat": "Codex Cloud official recap screenshot",
+      "source_claim_ids": [
+        "C3"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH03_02",
+      "scene": 3,
+      "speaker": "四国めたん",
+      "emotion": "explainer",
+      "text": "公式総括では、Codex CloudはPlusを含む対象プラン向けです。一方、新しいCLIの音声操作や、複数エージェントを一覧するスラッシュ・エージェンツ、コードレビューは、すべてのプランで使えると説明されています。別々の機能なので、対象条件も分けて見る必要があります。",
+      "caption_text": "公式総括では、Codex CloudはPlusを含む対象プラン向けです。一方、新しいCLIの音声操作や、複数エージェントを一覧するスラッシュ・エージェンツ、コードレビューは、すべてのプランで使えると説明されています。別々の機能なので、対象条件も分けて見る必要があります。",
+      "visual_beat": "Codex feature access table",
+      "source_claim_ids": [
+        "C3"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [
+        "CLIとコードレビューは全プラン"
+      ],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH03_03",
+      "scene": 3,
+      "speaker": "ずんだもん",
+      "emotion": "happy",
+      "text": "この制作では、役割が本当に分かれる調査とレビューだけを並行にして、台本や字幕の同じファイルを複数担当が同時に書き換えないようにするのだ。",
+      "caption_text": "この制作では、役割が本当に分かれる調査とレビューだけを並行にして、台本や字幕の同じファイルを複数担当が同時に書き換えないようにするのだ。",
+      "visual_beat": "Bounded parallel lanes diagram",
+      "source_claim_ids": [
+        "C3"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH03_04",
+      "scene": 3,
+      "speaker": "四国めたん",
+      "emotion": "serious",
+      "text": "作業が終わったら差分をレビューし、チェックポイントを残す。次のタブや別の実行環境に移っても、成果物と判断理由を引き継げる形が、継続作業に向いています。",
+      "caption_text": "作業が終わったら差分をレビューし、チェックポイントを残す。次のタブや別の実行環境に移っても、成果物と判断理由を引き継げる形が、継続作業に向いています。",
+      "visual_beat": "Codex review and checkpoint",
+      "source_claim_ids": [
+        "C3"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH03_05",
+      "scene": 3,
+      "speaker": "ずんだもん",
+      "emotion": "curious",
+      "text": "さらに、コデックス・セキュリティ・クラウドは、リポジトリの変更を継続的に確認し、問題候補を調べて修正案を作る機能として発表されたのだ。",
+      "caption_text": "さらに、コデックス・セキュリティ・クラウドは、リポジトリの変更を継続的に確認し、問題候補を調べて修正案を作る機能として発表されたのだ。",
+      "visual_beat": "OpenAI official Codex Security Cloud X screenshot",
+      "source_claim_ids": [
+        "C3"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH04_01",
+      "scene": 4,
+      "speaker": "四国めたん",
+      "emotion": "explainer",
+      "text": "次はエージェント関連です。dots、ドッツは、常に作業を続ける役割を持ち、専用のクラウドコンピューターと接続アプリを使って目標を進めるものとして紹介されました。",
+      "caption_text": "次はエージェント関連です。dots、ドッツは、常に作業を続ける役割を持ち、専用のクラウドコンピューターと接続アプリを使って目標を進めるものとして紹介されました。",
+      "visual_beat": "OpenAI official dots X screenshot",
+      "source_claim_ids": [
+        "C4"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH04_02",
+      "scene": 4,
+      "speaker": "ずんだもん",
+      "emotion": "surprised",
+      "text": "でもPlusには、まだ来ていないのだ？",
+      "caption_text": "でもPlusには、まだ来ていないのだ？",
+      "visual_beat": "Plan badge: Plus not listed",
+      "source_claim_ids": [
+        "C4"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH04_03",
+      "scene": 4,
+      "speaker": "四国めたん",
+      "emotion": "clarifying",
+      "text": "公式総括の対象はPro、Business Premium、Enterpriseです。地域ごとの提供状況もあり得るため、Plusで使えるとは言えません。dotsの動画内デモを見せる場合も、実際にこちらで稼働したかのような説明は避けます。",
+      "caption_text": "公式総括の対象はPro、Business Premium、Enterpriseです。地域ごとの提供状況もあり得るため、Plusで使えるとは言えません。dotsの動画内デモを見せる場合も、実際にこちらで稼働したかのような説明は避けます。",
+      "visual_beat": "Availability caveat",
+      "source_claim_ids": [
+        "C4"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH04_04",
+      "scene": 4,
+      "speaker": "ずんだもん",
+      "emotion": "explainer",
+      "text": "Decisions APIは、あらかじめ決めた候補から、分類や振り分けなどの判断を返す開発者向け機能です。たとえば、動画の区間をキープするか、外すか、重要度を高・中・低にする、といった用途に似ています。",
+      "caption_text": "Decisions APIは、あらかじめ決めた候補から、分類や振り分けなどの判断を返す開発者向け機能です。たとえば、動画の区間をキープするか、外すか、重要度を高・中・低にする、といった用途に似ています。",
+      "visual_beat": "Finite-choice decision flow",
+      "source_claim_ids": [
+        "C5"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH04_05",
+      "scene": 4,
+      "speaker": "四国めたん",
+      "emotion": "serious",
+      "text": "ただし、九月二十九日の公式説明は限定プレビューで、広い公開は数日以内の予定という段階でした。九月三十日時点で一般公開済みと確認できないため、この動画では利用済みではなく、発表内容として説明します。",
+      "caption_text": "ただし、九月二十九日の公式説明は限定プレビューで、広い公開は数日以内の予定という段階でした。九月三十日時点で一般公開済みと確認できないため、この動画では利用済みではなく、発表内容として説明します。",
+      "visual_beat": "Preview status card dated 2026-09-30",
+      "source_claim_ids": [
+        "C5"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [
+        "限定プレビュー"
+      ],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH04_06",
+      "scene": 4,
+      "speaker": "ずんだもん",
+      "emotion": "clarifying",
+      "text": "この制作で同じ判断を素早く行う役割は、今あるJevとPythonの型付き判定に残しておくのだ。Decisions APIを使うために有料APIへ切り替えることはしないのだ。",
+      "caption_text": "この制作で同じ判断を素早く行う役割は、今あるJevとPythonの型付き判定に残しておくのだ。Decisions APIを使うために有料APIへ切り替えることはしないのだ。",
+      "visual_beat": "Jev/Python route vs gated API",
+      "source_claim_ids": [
+        "C5"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH04_07",
+      "scene": 4,
+      "speaker": "四国めたん",
+      "emotion": "serious",
+      "text": "Agents APIにはコンピューター操作が追加されました。APIとして使う道と、対象となる上位プランでCodexやWorkから使う道があり、Plus向けと混同してはいけません。APIのモデル、ツール、実行環境には別途料金が発生し得ます。",
+      "caption_text": "Agents APIにはコンピューター操作が追加されました。APIとして使う道と、対象となる上位プランでCodexやWorkから使う道があり、Plus向けと混同してはいけません。APIのモデル、ツール、実行環境には別途料金が発生し得ます。",
+      "visual_beat": "Agents API plan/billing labels",
+      "source_claim_ids": [
+        "C5"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH05_01",
+      "scene": 5,
+      "speaker": "ずんだもん",
+      "emotion": "curious",
+      "text": "チームで使う機能にはSpace、Living Pages、共同編集のスライドがあります。会話だけでなく、ページや資料を共有し、AIと人が同じ作業場所で内容を育てる考え方なのだ。",
+      "caption_text": "チームで使う機能にはSpace、Living Pages、共同編集のスライドがあります。会話だけでなく、ページや資料を共有し、AIと人が同じ作業場所で内容を育てる考え方なのだ。",
+      "visual_beat": "Space/pages/slides concept panel",
+      "source_claim_ids": [
+        "C4"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH05_02",
+      "scene": 5,
+      "speaker": "四国めたん",
+      "emotion": "explainer",
+      "text": "公式総括では、SpaceとLiving Pages、スライド編集はPro、Business、Enterpriseが対象です。チームタスクの共有はBusinessとEnterpriseです。Plusで同じ機能が利用できると決めつけず、掲載された対象プランをそのまま伝えます。",
+      "caption_text": "公式総括では、SpaceとLiving Pages、スライド編集はPro、Business、Enterpriseが対象です。チームタスクの共有はBusinessとEnterpriseです。Plusで同じ機能が利用できると決めつけず、掲載された対象プランをそのまま伝えます。",
+      "visual_beat": "Plan comparison card",
+      "source_claim_ids": [
+        "C4"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH05_03",
+      "scene": 5,
+      "speaker": "ずんだもん",
+      "emotion": "happy",
+      "text": "一方、プラグイン拡張とMCP Eventsは全プラン向けとして発表されました。接続したアプリの変化をきっかけに、情報を読んだり、作業案を作ったりする入口になりそうなのだ。",
+      "caption_text": "一方、プラグイン拡張とMCP Eventsは全プラン向けとして発表されました。接続したアプリの変化をきっかけに、情報を読んだり、作業案を作ったりする入口になりそうなのだ。",
+      "visual_beat": "MCP event trigger diagram",
+      "source_claim_ids": [
+        "C1"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH05_04",
+      "scene": 5,
+      "speaker": "四国めたん",
+      "emotion": "clarifying",
+      "text": "ただし、機能が全プラン向けという説明と、私たちの動画パイプラインにつながる具体的なプラグインがあることは別です。接続先、許可、実際の動作が確認できてから使います。",
+      "caption_text": "ただし、機能が全プラン向けという説明と、私たちの動画パイプラインにつながる具体的なプラグインがあることは別です。接続先、許可、実際の動作が確認できてから使います。",
+      "visual_beat": "Plugin availability vs connected integration",
+      "source_claim_ids": [
+        "C1"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH06_01",
+      "scene": 6,
+      "speaker": "ずんだもん",
+      "emotion": "explainer",
+      "text": "では、今回の発表を一本の動画制作に当てはめます。調査と構成はWorkやCodexで利用できるモデルがあれば補助に使い、公式記事で主張を確認します。Codexの作業管理やレビューは、テンプレートや制作スクリプトの改善に使います。",
+      "caption_text": "では、今回の発表を一本の動画制作に当てはめます。調査と構成はWorkやCodexで利用できるモデルがあれば補助に使い、公式記事で主張を確認します。Codexの作業管理やレビューは、テンプレートや制作スクリプトの改善に使います。",
+      "visual_beat": "Video pipeline with verified feature points",
+      "source_claim_ids": [
+        "C2",
+        "C3"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH06_02",
+      "scene": 6,
+      "speaker": "四国めたん",
+      "emotion": "serious",
+      "text": "そして、音声はローカルのVOICEVOXで作り、WAVの実時間から字幕とシーンの長さを決めます。素材はキャッシュを優先し、話者や表情の判定には既存のJevとPythonを使います。毎回、最初から作り直さないのが速度を上げる鍵です。",
+      "caption_text": "そして、音声はローカルのVOICEVOXで作り、WAVの実時間から字幕とシーンの長さを決めます。素材はキャッシュを優先し、話者や表情の判定には既存のJevとPythonを使います。毎回、最初から作り直さないのが速度を上げる鍵です。",
+      "visual_beat": "VOICEVOX timing and reusable cache diagram",
+      "source_claim_ids": [
+        "C3"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH06_03",
+      "scene": 6,
+      "speaker": "ずんだもん",
+      "emotion": "curious",
+      "text": "映像の最後は、字幕、話者色、重要な一節だけの強調、音声と映像の同期、動画デコードを確認するのだ。YMM4で表情と口の動きが一連で動くかは、Windows実機テストを通るまでは確認済みと言わないのだ。",
+      "caption_text": "映像の最後は、字幕、話者色、重要な一節だけの強調、音声と映像の同期、動画デコードを確認するのだ。YMM4で表情と口の動きが一連で動くかは、Windows実機テストを通るまでは確認済みと言わないのだ。",
+      "visual_beat": "QA checklist and YMM4 verification",
+      "source_claim_ids": [
+        "C3"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH06_04",
+      "scene": 6,
+      "speaker": "四国めたん",
+      "emotion": "summary",
+      "text": "結論です。DevDayは、新モデルだけでなく、継続するエージェント、開発環境、共同作業をまとめて広げる発表でした。Plusで関係するのは、GPT-6.1 SolのWorkとCodexでの提供、Codex Cloud、全プランとされたCLIやレビュー機能などです。",
+      "caption_text": "結論です。DevDayは、新モデルだけでなく、継続するエージェント、開発環境、共同作業をまとめて広げる発表でした。Plusで関係するのは、GPT-6.1 SolのWorkとCodexでの提供、Codex Cloud、全プランとされたCLIやレビュー機能などです。",
+      "visual_beat": "Summary: model + Codex + agents + collaboration",
+      "source_claim_ids": [
+        "C1",
+        "C2",
+        "C3"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH06_05",
+      "scene": 6,
+      "speaker": "四国めたん",
+      "emotion": "serious",
+      "text": "dots、Space、Agents APIやDecisions APIは、対象プランやAPI料金、公開段階を確認してから扱います。動画でも、発表された機能、利用可能な契約、実際に検証できた機能を混ぜずに見せることが大切です。",
+      "caption_text": "dots、Space、Agents APIやDecisions APIは、対象プランやAPI料金、公開段階を確認してから扱います。動画でも、発表された機能、利用可能な契約、実際に検証できた機能を混ぜずに見せることが大切です。",
+      "visual_beat": "Three status labels: announced, available, verified",
+      "source_claim_ids": [
+        "C4",
+        "C5"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH06_06",
+      "scene": 6,
+      "speaker": "ずんだもん",
+      "emotion": "question",
+      "text": "あなたなら、こうしたAIの新機能を台本づくり、編集、チーム作業のどこに使いますか？ 発表内容と利用プランを確認しながら、使えるところから制作に取り入れていくのだ。",
+      "caption_text": "あなたなら、こうしたAIの新機能を台本づくり、編集、チーム作業のどこに使いますか？ 発表内容と利用プランを確認しながら、使えるところから制作に取り入れていくのだ。",
+      "visual_beat": "End card with official source links",
+      "source_claim_ids": [
+        "C1"
+      ],
+      "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    }
+  ],
+  "render_gate": {
+    "status": "BLOCKED_BEFORE_RENDER",
+    "required": [
+      "VOICEVOX_LOCAL runtime or exact validated cached WAVs",
+      "capture official X and OpenAI article screenshots to local media workspace",
+      "record scene-level source credit and rights status",
+      "derive subtitle/timeline from measured WAV duration",
+      "follow existing YMM4/FFmpeg capability gate"
+    ],
+    "reason": "Current session has FFmpeg but no VOICEVOX runtime, no validated VOICEVOX WAV cache, and no local official screenshot assets. Policy forbids silence and non-VOICEVOX TTS fallbacks."
+  }
+}
