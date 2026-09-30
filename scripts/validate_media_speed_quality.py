@@ -43,6 +43,10 @@ def main() -> int:
     require(target == [5, 5], "five-minute aspirational target drifted")
     require(policy.get("target_is_aspirational_not_guarantee") is True, "speed target must not be represented as guaranteed")
     fast = policy.get("fast_longform_delivery") or {}
+    duration_contract = fast.get("requested_video_duration_contract") or {}
+    require(duration_contract.get("artifact_duration_is_distinct_from_wall_clock_work_target") is True, "video duration and creation-time target are conflated")
+    require(duration_contract.get("five_minute_target_is_wall_clock_creation_time_not_video_runtime") is True, "five-minute work target may be mistaken for video runtime")
+    require(duration_contract.get("if_only_creation_deadline_is_corrected_preserve_last_explicit_video_length") is True, "cross-tab video duration continuity rule missing")
     require(fast.get("applies_to_requested_longform_up_to_seconds") == 960, "fast long-form scope must cover 16 minutes")
     require(fast.get("wall_clock_target_minutes") == 5 and fast.get("target_is_measured_for_each_run") is True, "long-form five-minute target must be measured per run")
     require(fast.get("default_renderer") == "scripts/render_fast_image_longform.py" and fast.get("one_video_encode_only") is True, "fast long-form one-encode renderer missing")
@@ -156,6 +160,7 @@ def main() -> int:
     read_set = gate.get("speed_first_delivery_override", {}).get("read_set") or []
     require(read_set[:4] == ["README.md", "config/current_commander_handoff.json", "config/permanent_standards_manifest.json", "docs/AI_ARMY_MASTER_RULEBOOK.md"], "routine video read order drifted")
     require("config/media_speed_quality_policy.json" in read_set and "scripts/media_speed_orchestrator.py" in read_set, "routine video read set lost speed policy or runtime")
+    require("config/current_media_quality_handoff.json" in read_set, "routine video read set lost cross-tab media handoff")
     require("config/approved_video_template.json" not in read_set and "docs/VIDEO_PRODUCTION_BASELINE.md" not in read_set, "optional style references returned to mandatory speed read set")
     require(gate.get("speed_first_delivery_override", {}).get("routine_delivery_uses_override_instead_of_legacy_media_read_sets") is True, "routine delivery does not bypass legacy media guides")
     longform_reads = (gate.get("trigger_sets") or {}).get("VIDEO_CREATION", {}).get("conditional", {}).get("if_user_explicitly_requests_longform", [])
@@ -188,6 +193,10 @@ def main() -> int:
     require(media_speed.get("jev_typed_profile_and_shape_decision") is True, "handoff Jev media decision rule missing")
 
     media_speed_handoff = media_handoff.get("speed_first_video_delivery") or {}
+    bug_recovery = media_handoff.get("cross_tab_bug_recovery") or {}
+    require(bug_recovery.get("required_on_every_new_video_tab") is True, "cross-tab video bug recovery is not mandatory")
+    require(bug_recovery.get("active_task_wall_clock_target_minutes") == 5, "cross-tab handoff lost five-minute creation target")
+    require(bug_recovery.get("active_task_video_duration_minutes") == [8, 12], "cross-tab handoff lost requested long-form range")
     require(media_speed_handoff.get("quality_weight") == 0.2 and media_speed_handoff.get("speed_weight") == 0.8, "media quality handoff weights missing")
     require(media_handoff.get("speed_first_video_delivery", {}).get("manual_visual_review_required") is False, "media handoff still requires visual review")
     require(media_speed_handoff.get("jev_media_planning") is True and media_speed_handoff.get("jev_required_by_default") is False, "Jev must remain optional for deterministic video work")

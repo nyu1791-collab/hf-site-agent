@@ -391,10 +391,11 @@
       "do_not_treat_five_minute_work_target_as_requested_video_duration": true,
       "fit_script_and_measured_narration_before_encode": true,
       "do_not_speed_up_voice_to_force_duration_fit": true,
-      "about_five_minutes_target_seconds": 300,
-      "about_five_minutes_tolerance_seconds": 30,
       "landscape_16_9_is_default_unless_user_requests_otherwise": true,
-      "source_screenshot_must_fill_media_area_without_browser_or_player_ui": true
+      "source_screenshot_must_fill_media_area_without_browser_or_player_ui": true,
+      "five_minute_target_is_wall_clock_creation_time_not_video_runtime": true,
+      "artifact_duration_must_match_latest_explicit_video_length_request": true,
+      "if_only_creation_deadline_is_corrected_preserve_last_explicit_video_length": true
     }
   }
 }

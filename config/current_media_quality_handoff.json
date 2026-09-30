@@ -161,10 +161,15 @@
   },
   "cross_tab_bug_recovery": {
     "required_on_every_new_video_tab": true,
-    "symptom_observed": "Previous comparison export was about nine minutes and portrait; user-provided screenshots showed the actual video content occupying a small, hard-to-read area.",
-    "root_cause": "Conflicting earlier duration cues were carried into the export and the portrait layout reduced useful content size.",
-    "permanent_fix": "Follow the latest explicit artifact duration, distinguish video length from a five-minute work-time target, fit narration before rendering, and use 16:9 landscape for long-form by default.",
+    "symptom_observed": "A tab handoff can lose the distinction between a five-minute creation-time target and the requested long-form video length.",
+    "root_cause": "The production-time target was mistaken for the requested artifact duration, despite the earlier 8–12 minute video request.",
+    "permanent_fix": "Store video_runtime_target_minutes separately from wall_clock_work_target_minutes. “Make it in five minutes” refers to work time; preserve the latest explicit long-form video length across tabs.",
     "authoritative_policy": "config/media_speed_quality_policy.json#/fast_longform_delivery/requested_video_duration_contract",
-    "mandatory_recall_via": "config/media_command_read_gate.json#/speed_first_delivery_override/read_set"
+    "mandatory_recall_via": "config/media_command_read_gate.json#/speed_first_delivery_override/read_set",
+    "active_task_video_duration_minutes": [
+      8,
+      12
+    ],
+    "active_task_wall_clock_target_minutes": 5
   }
 }
