@@ -335,6 +335,115 @@
     ],
     "user_trigger_required": true,
     "production_started": false,
-    "public_release_authorized": false
+    "public_release_authorized": false,
+    "story_angle": "Explain DevDay 2026 through the lifecycle of making one video: what Plus users can apply now, what is plan-gated or API-billed, and where the existing production pipeline still does the actual media work.",
+    "planned_outline": [
+      {
+        "time": "00:00-00:50",
+        "chapter": "DevDay through one video workflow",
+        "purpose": "Introduce research, script, assets, voice, edit, and QA; frame the event as persistent agents plus collaborative work."
+      },
+      {
+        "time": "00:50-02:20",
+        "chapter": "Research and script",
+        "purpose": "GPT-6.1 Sol is available to Plus users in ChatGPT Work and Codex, not regular Chat; use only if surfaced, for synthesis and draft comparison with official source citations."
+      },
+      {
+        "time": "02:20-04:10",
+        "chapter": "Build and maintain the pipeline",
+        "purpose": "Use Codex cloud, CLI, multi-agent task management and code review for bounded branch work, checkpoints, reviews, and reusable templates."
+      },
+      {
+        "time": "04:10-06:10",
+        "chapter": "Assets, VOICEVOX, and editing",
+        "purpose": "Show the existing rights-verified asset cache, local VOICEVOX, measured timing, YMM4 preparation bundle, and capability-gated renderer; do not imply DevDay models render media."
+      },
+      {
+        "time": "06:10-08:40",
+        "chapter": "What requires higher tiers or separate APIs",
+        "purpose": "Explain dots and Space/Living Pages plan gates; explain Agents API billing and Decisions API limited-preview status; use diagrams or labels rather than pretending they ran in this workflow."
+      },
+      {
+        "time": "08:40-10:00",
+        "chapter": "What actually makes it complete",
+        "purpose": "Close with measured audio, full captions, rights/provenance, decode, and visual QA; distinguish verified current features from future integration ideas."
+      }
+    ],
+    "devday_feature_application": {
+      "checked_on_jst": "2026-09-30",
+      "user_plan_context": "ChatGPT Plus",
+      "principle": "Apply newly announced features only when they are surfaced for this account and fit a specific production stage. Announced features, live account access, and this repository's verified implementation are separate facts.",
+      "usable_surfaces_when_available": [
+        {
+          "feature": "GPT-6.1 Sol in ChatGPT Work and Codex",
+          "use": "High-information synthesis, outline/script alternatives, evidence comparison and review. Plus access is in Work/Codex, not regular Chat. Do not route through the API for this workflow."
+        },
+        {
+          "feature": "Codex cloud and Codex CLI /agents",
+          "use": "Bounded repository work, resumable checkpointed tasks, and 1-3 genuinely independent research/review lanes on the canonical PR branch. One writer per mutable output; no merge, deploy, or publish."
+        },
+        {
+          "feature": "Codex code review",
+          "use": "Review actual changed scripts/policies when code is changed; keep the current exact-head CI and media validators as separate gates."
+        },
+        {
+          "feature": "Plugin extensions and MCP Events",
+          "use": "Optional later for an already-connected plugin that adds an evidence/asset panel or a source-change trigger. Do not build or assume a connector solely for this video."
+        }
+      ],
+      "not_available_or_not_authorized_for_this_plus_workflow": [
+        {
+          "feature": "dots",
+          "status": "Official recap lists Pro, Business Premium, and Enterprise; do not assume Plus access."
+        },
+        {
+          "feature": "ChatGPT Space, Living Pages, collaborative slides, and team task sharing",
+          "status": "Official recap lists higher-tier plans for these collaboration features; use the repository handoff as continuity source instead."
+        },
+        {
+          "feature": "Ultrafast tier",
+          "status": "Pro 500/Enterprise or separately billed API surface; do not enable or incur extra cost."
+        },
+        {
+          "feature": "Agents API computer use",
+          "status": "Developer API; current docs bill model usage, tools, and hosted sandbox separately. Do not call without current access, cost verification, and explicit spending authorization."
+        },
+        {
+          "feature": "Decisions API",
+          "status": "Announced as limited preview on 2026-09-29 and broad availability was described as forthcoming; no assumption of access. Do not call until current availability and separate API billing are verified and spending is authorized."
+        }
+      ],
+      "pipeline_mapping": [
+        {
+          "stage": "topic research and evidence lock",
+          "application": "Use official OpenAI sources and GPT-6.1 Sol in Work/Codex if available; retain claim IDs, citations, and availability dates; ChatGPT remains final fact adjudicator."
+        },
+        {
+          "stage": "script planning and bounded review",
+          "application": "Use Codex multi-agent capabilities for independent source cross-check/review; cap at 1-3 lanes; reuse the persisted 6-chapter outline and project handoff."
+        },
+        {
+          "stage": "typed routing and emotion decisions",
+          "application": "Keep the existing Jev/Python typed path; no paid Decisions API dependency."
+        },
+        {
+          "stage": "voice, captions, assets, and render",
+          "application": "Keep local VOICEVOX, verified voice/mouth/asset caches, measured WAV timing, existing YMM4 package and deterministic render tooling; preserve fail-closed capability gates."
+        },
+        {
+          "stage": "final validation",
+          "application": "Run existing source/rights, caption, audio, ffprobe/decode and representative visual checks; do not state Windows YMM4 E2E is verified until its fixture passes."
+        }
+      ],
+      "billing_boundary": "ChatGPT Plus and API Platform billing are separate. No new paid API, premium tier, paid fallback, or top-up is authorized by this video request.",
+      "no_pipeline_rewrite": true,
+      "official_sources": [
+        "https://openai.com/ja-JP/index/devday-2026-recap/",
+        "https://openai.com/ja-JP/index/introducing-gpt-6-1-sol/",
+        "https://developers.openai.com/api/docs/guides/agents-api/overview",
+        "https://help.openai.com/en/articles/9039756-managing-billing-for-chatgpt-and-the-api-platform"
+      ],
+      "research_outline_assisted_by": "GPT-6.1 Sol (ChatGPT subscription surface), with final source/availability review by top commander"
+    }
   }
 }
