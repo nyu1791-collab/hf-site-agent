@@ -62,7 +62,8 @@
   "retry_contract": {
     "one_retry_owner_per_failure": true,
     "retry_transient_only": true,
-    "bounded_exponential_backoff_with_jitter": true,
+    "bounded_exponential_backoff": true,
+    "jitter_required_for_current_deterministic_media_handler": false,
     "provider_or_process_timeout_required": true,
     "default_max_attempts": 2,
     "expired_lease_requeued_when_attempt_budget_remains": true
