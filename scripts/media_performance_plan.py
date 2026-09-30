@@ -25,10 +25,13 @@ SPEAKERS = ("ずんだもん", "四国めたん")
 
 class Expression(str, Enum):
     NORMAL = "NORMAL"
+    CURIOUS = "CURIOUS"
+    THOUGHTFUL = "THOUGHTFUL"
     HAPPY = "HAPPY"
     SURPRISED = "SURPRISED"
     SERIOUS = "SERIOUS"
     SAD = "SAD"
+    RELIEVED = "RELIEVED"
 
 
 class Mouth(str, Enum):
