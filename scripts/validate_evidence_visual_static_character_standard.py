@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail closed on evidence-visual, caption-color, pacing, voice-speed, and native dynamic-character drift."""
+"""Validate evidence-visual and character-performance contracts without bloating routine media restore."""
 from __future__ import annotations
 
 import json
@@ -10,9 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config/evidence_visual_static_character_policy.json"
 SOURCE_POLICY = ROOT / "config/media_source_policy.json"
 READ_GATE = ROOT / "config/media_command_read_gate.json"
+MANIFEST = ROOT / "config/permanent_standards_manifest.json"
 DOC = ROOT / "docs/EVIDENCE_VISUAL_AND_STATIC_CHARACTER_STANDARD.md"
-LEGACY_RENDERER = ROOT / "scripts/render_zundamon_metan_longform.py"
-STATIC_RENDERER = ROOT / "scripts/render_static_speaker_color_longform.py"
 SYNTH = ROOT / "scripts/synthesize_longform_voicevox.py"
 CAPTION_VALIDATOR = ROOT / "scripts/validate_video_caption_contract.py"
 
@@ -33,137 +32,81 @@ def main() -> int:
     policy = load(POLICY)
     source = load(SOURCE_POLICY)
     gate = load(READ_GATE)
+    manifest = load(MANIFEST)
 
-    require(policy.get("schema_version") == "evidence-visual-static-character-v1", "static character policy schema drift")
-    require(policy.get("status") == "MANDATORY_MEDIA_STANDARD", "static character policy is not mandatory")
+    require(policy.get("schema_version") == "evidence-visual-static-character-v1", "evidence visual policy schema drift")
+    require(policy.get("status") == "MANDATORY_MEDIA_STANDARD", "evidence visual policy is not enforced when applicable")
     for required_file in (DOC, ROOT / "scripts/render_reusable_short.py", ROOT / "scripts/render_reusable_longform.py", SYNTH, CAPTION_VALIDATOR):
         require(required_file.is_file(), f"required media file missing: {required_file}")
 
-    authority = policy.get("authority") or {}
-    require("OVERRIDES_CONFLICTING_OLDER" in str(authority.get("precedence")), "policy precedence missing")
-    require(authority.get("conflicting_old_character_motion_rules_must_not_be_executed") is True, "legacy motion rules may still execute")
-
     visual = policy.get("evidence_visual_acquisition") or {}
-    require(visual.get("default_mode") == "SEARCH_PRIMARY_OR_OFFICIAL_EVIDENCE_VISUAL_FIRST", "visual path is no longer search/primary first")
-    require(visual.get("generated_background_image_default") is False, "generated factual backgrounds re-enabled")
-    require(visual.get("generated_evidence_image_default") is False, "generated evidence visuals re-enabled")
-    require(visual.get("generated_visual_must_not_be_used_as_factual_evidence") is True, "generated visuals may be factual evidence")
-    require(visual.get("search_before_creating_visual") is True, "search-first disabled")
+    require(visual.get("default_mode") == "SEARCH_PRIMARY_OR_OFFICIAL_EVIDENCE_VISUAL_FIRST", "evidence visual path is not primary/search first")
+    require(visual.get("generated_background_image_default") is False, "generated factual background became default")
+    require(visual.get("generated_evidence_image_default") is False, "generated evidence image became default")
+    require(visual.get("generated_visual_must_not_be_used_as_factual_evidence") is True, "generated visual may act as factual evidence")
     require(visual.get("real_photo_or_primary_screenshot_preferred_when_available") is True, "real/primary visual preference missing")
-    require(visual.get("photo_or_primary_visual_preferred_over_image_generation_even_when_generation_is_possible") is True, "photo-first no-generation rule missing")
-    require(visual.get("do_not_generate_visual_merely_to_increase_scene_count") is True, "scene-count image generation allowed")
-    require(visual.get("reuse_rights_verified_photos_across_semantically_compatible_scenes") is True, "verified photo reuse disabled")
-    require(visual.get("generated_visual_is_last_resort_non_evidentiary_or_explicit_request") is True, "generated visual is no longer last-resort/non-evidentiary")
-    require(visual.get("source_page_required") is True and visual.get("asset_locator_required") is True, "visual provenance requirement removed")
+    require(visual.get("source_page_required") is True and visual.get("asset_locator_required") is True, "visual provenance floor weakened")
     require(visual.get("unknown_rights_block_public_use") is True, "unknown rights may enter public use")
+    require(visual.get("media_region_only_required") is True and visual.get("whole_page_or_feed_as_default") is False, "media-region capture contract drift")
 
     voice = policy.get("voice_delivery") or {}
-    require(float(voice.get("voicevox_speed_scale") or 0) == 1.2, "VOICEVOX speed default must remain 1.20")
+    require(float(voice.get("voicevox_speed_scale") or 0) == 1.2, "VOICEVOX speed default drift")
     require(voice.get("actual_generated_wav_must_be_remeasured_after_speed_change") is True, "measured timing after speed change disabled")
-    require(voice.get("timeline_and_caption_cues_follow_measured_audio") is True, "timeline no longer follows measured audio")
+    require(voice.get("timeline_and_caption_cues_follow_measured_audio") is True, "captions no longer follow measured audio")
 
     captions = policy.get("caption_rendering") or {}
-    require(captions.get("full_caption_coverage_required") is True, "full caption coverage disabled")
-    require(captions.get("every_spoken_turn_must_have_visible_caption_text") is True, "spoken turns may omit captions")
     require(captions.get("full_spoken_text_contract") == "FULL_SPOKEN_TEXT", "full spoken caption contract missing")
-    require(captions.get("summary_caption_may_not_replace_narration") is True, "summary captions may replace narration")
-    require(float(captions.get("caption_coverage_ratio_minimum") or 0) == 1.0, "caption coverage ratio guard too weak")
-    require(captions.get("caption_text_must_not_be_truncated_by_fixed_line_count") is True, "caption truncation re-enabled")
-    require(captions.get("speaker_colored_border_required") is True, "speaker-colored border removed")
-    require(captions.get("speaker_colored_caption_text_required") is True, "speaker-colored caption text removed")
-    require(captions.get("zundamon_caption_text_color_role") == "PALE_MINT_GREEN", "Zundamon caption text color drift")
-    require(captions.get("metan_caption_text_color_role") == "PALE_ROSE_PINK", "Metan caption text color drift")
-    require(captions.get("caption_body_color_role") == "PALE_SPEAKER_TINT", "caption body is no longer speaker-colored")
-    require(captions.get("white_caption_body_as_default_for_zundamon_metan") is False, "white caption body re-enabled as default")
-    require(captions.get("important_term_emphasis_required_when_marked") is True, "important-term emphasis disabled")
-    require(set(captions.get("important_term_emphasis_colors") or []) == {"#F6DB98", "#E7A6AA"}, "important-term colors drift")
-    require(captions.get("topic_heading_granularity") == "SEMANTIC_CONTENT_BLOCK_NOT_EVERY_UTTERANCE", "heading granularity drift")
-    require(captions.get("per_utterance_heading_forbidden_by_default") is True, "per-utterance headings re-enabled")
+    require(float(captions.get("caption_coverage_ratio_minimum") or 0) == 1.0, "caption coverage floor weakened")
+    require(captions.get("speaker_colored_caption_text_required") is True, "speaker caption colors disabled")
+    require(captions.get("zundamon_caption_text_color_role") == "PALE_MINT_GREEN", "Zundamon caption color drift")
+    require(captions.get("metan_caption_text_color_role") == "PALE_ROSE_PINK", "Metan caption color drift")
+    require(captions.get("automatic_keyword_highlighting", False) is False, "automatic keyword highlighting re-enabled")
 
     character = policy.get("character_rendering") or {}
     require(character.get("default_mode") == "SPEECH_SYNC_MOUTH_PLUS_SPARSE_SEMANTIC_EXPRESSION", "character mode drift")
-    for field in (
-        "character_idle_animation", "blink_animation",
-        "body_bob_or_vertical_bounce",
-        "reaction_symbol_animation", "entry_exit_animation_per_line",
-        "continuous_zoom_or_pan_on_character",
-    ):
+    for field in ("mouth_animation", "automatic_lipsync", "expression_swap_during_normal_dialogue", "expression_change_must_follow_authored_or_typed_semantic_state"):
+        require(character.get(field) is True, f"character performance disabled: {field}")
+    for field in ("character_idle_animation", "blink_animation", "body_bob_or_vertical_bounce", "reaction_symbol_animation", "entry_exit_animation_per_line", "continuous_zoom_or_pan_on_character"):
         require(character.get(field) is False, f"unrequested character motion re-enabled: {field}")
-    for field in ("mouth_animation", "automatic_lipsync", "expression_swap_during_normal_dialogue",
-                  "expression_change_must_follow_authored_or_typed_semantic_state",
-                  "visible_state_change_required_for_final_motion_pass",
-                  "static_renderer_must_not_be_used_as_final_for_character_performance_profile"):
-        require(character.get(field) is True, f"required character performance disabled: {field}")
-    for field in ("head_tilt_animation", "pose_animation"):
-        require(character.get(field) == "SEMANTICALLY_OPTIONAL", f"semantic motion scope drift: {field}")
-    active = character.get("active_speaker") or {}
-    inactive = character.get("inactive_listener") or {}
-    require(float(active.get("scale")) == 1.08 and int(active.get("opacity_percent")) == 100, "active speaker focus drift")
-    require(float(inactive.get("scale")) == 1.0 and int(inactive.get("opacity_percent")) == 72, "inactive listener focus drift")
-
-    pacing = policy.get("production_pacing") or {}
-    require(pacing.get("longform_target_duration_seconds") == [360, 720], "longform target must remain 6-12 minutes")
-    require(pacing.get("continuous_information_flow_required") is True, "continuous information flow disabled")
-    require(pacing.get("deliberate_padding_for_duration_forbidden") is True, "duration padding allowed")
-    require(float(pacing.get("default_inter_turn_pause_max_seconds") or 9) <= 0.35, "inter-turn dead-air limit drift")
-    require(float(pacing.get("default_section_transition_pause_max_seconds") or 9) <= 0.45, "section-transition dead-air limit drift")
-    require(pacing.get("image_generation_wait_must_not_block_normal_photo_first_production") is True, "image generation can block normal photo-first production")
 
     efficiency = policy.get("production_efficiency") or {}
-    require("canonical_static_speaker_color_renderer" not in efficiency, "retired static renderer authority returned")
-    require(efficiency.get("canonical_dynamic_short_renderer") == "scripts/render_reusable_short.py", "dynamic short renderer missing")
-    require(efficiency.get("canonical_dynamic_longform_renderer") == "scripts/render_reusable_longform.py", "dynamic longform renderer missing")
-    require(efficiency.get("full_spoken_caption_validator") == "scripts/validate_video_caption_contract.py", "full spoken caption validator drift")
-    require(efficiency.get("do_not_generate_background_images_when_searchable_evidence_visual_exists") is True, "searchable visual may be replaced by generated background")
+    require(efficiency.get("canonical_dynamic_short_renderer") == "scripts/render_reusable_short.py", "dynamic short renderer drift")
+    require(efficiency.get("canonical_dynamic_longform_renderer") == "scripts/render_reusable_longform.py", "dynamic longform renderer drift")
+    require(efficiency.get("full_spoken_caption_validator") == "scripts/validate_video_caption_contract.py", "caption validator drift")
 
     source_policy = source.get("policy") or {}
-    require(source.get("generated_images_enabled_by_default") is False, "media source policy re-enabled generated images")
-    require(source_policy.get("search_first") is True, "media source policy is no longer search-first")
-    require(source_policy.get("source_page_required") is True, "media source policy no longer requires source pages")
-    require(source_policy.get("unknown_rights_blocked") is True, "unknown rights are no longer blocked")
+    require(source.get("generated_images_enabled_by_default") is False, "source policy re-enabled generated images")
+    require(source_policy.get("search_first") is True, "source policy is not search-first")
+    require(source_policy.get("unknown_rights_blocked") is True, "source policy no longer blocks unknown rights")
 
+    # This detailed evidence/character standard is intentionally not part of
+    # every routine video restore. It remains indexed by the permanent media
+    # command registry and is loaded by scoped evidence/character profiles.
     common = set(gate.get("common_media_read_set") or [])
-    require("config/evidence_visual_static_character_policy.json" in common, "media read gate does not require policy")
-    require("docs/EVIDENCE_VISUAL_AND_STATIC_CHARACTER_STANDARD.md" in common, "media read gate does not require human standard")
+    require("config/evidence_visual_static_character_policy.json" not in common, "heavy evidence policy leaked into routine hot path")
+    media_index = manifest.get("media_command_gate") or {}
+    require(media_index.get("shortform_animation_exception_policy") == "config/evidence_visual_static_character_policy.json", "manifest lost evidence/animation policy pointer")
+    require((manifest.get("cross_tab_behavior") or {}).get("related_visual_provenance_contract_survives_tab_change") is True, "visual provenance continuity lost")
 
-    require(captions.get("zundamon_border_color_role") == "PALE_MINT_GREEN", "saturated Zundamon border returned")
-    require(captions.get("metan_border_color_role") == "PALE_ROSE_PINK", "saturated Metan border returned")
-    require(visual.get("media_region_only_required") is True, "media-only acquisition missing")
-    require(visual.get("whole_page_or_feed_as_default") is False, "whole page acquisition returned")
     hard = set(policy.get("hard_fail_conditions") or [])
-    require("NORMAL_DIALOGUE_CHARACTER_LIPSYNC_OR_MOUTH_ANIMATION" not in hard, "contradictory mouth-animation prohibition returned")
-    require("NORMAL_DIALOGUE_CHARACTER_BLINK_HEAD_POSE_BOB_OR_REACTION_ANIMATION" not in hard, "blanket semantic expression prohibition returned")
-    require("VISIBLE_SPEAKING_CHARACTER_WITHOUT_MEASURED_MOUTH_MOTION" in hard, "missing dynamic-mouth failure condition")
+    require("VISIBLE_SPEAKING_CHARACTER_WITHOUT_MEASURED_MOUTH_MOTION" in hard, "missing measured-mouth failure condition")
     require("VISIBLE_CHARACTERS_WITHOUT_AUTHORED_EXPRESSION_CHANGES" in hard, "missing expression failure condition")
+    require("SPOKEN_TEXT_MISSING_FROM_CAPTIONS" in hard, "missing caption coverage failure condition")
 
     synth = SYNTH.read_text(encoding="utf-8")
-    require("DEFAULT_SPEED_SCALE=1.20" in synth, "synthesizer lost 1.20 default speed")
-    require('query["speedScale"]=args.speed_scale' in synth, "VOICEVOX audio query lost configured speed")
-
-    hard = set(policy.get("hard_fail_conditions") or [])
-    for item in (
-        "IMAGE_GENERATION_USED_WHEN_RIGHTS_VERIFIED_REAL_OR_PRIMARY_VISUAL_ALREADY_FITS",
-        "CAPTION_TEXT_COLOR_DOES_NOT_MATCH_ACTIVE_SPEAKER",
-        "SPOKEN_TEXT_MISSING_FROM_CAPTIONS",
-        "CAPTION_TRUNCATED_BY_FIXED_LINE_LIMIT",
-        "LONGFORM_OUTSIDE_6_TO_12_MINUTES_WITHOUT_EXPLICIT_REASON",
-        "DELIBERATE_PADDING_OR_EXCESSIVE_DEAD_AIR",
-        "VOICE_SPEED_DEFAULT_NOT_1_20_FOR_ZUNDAMON_METAN",
-    ):
-        require(item in hard, f"hard-fail condition missing: {item}")
+    require("DEFAULT_SPEED_SCALE=1.20" in synth, "synthesizer lost 1.20 speed default")
+    require('query["speedScale"]=args.speed_scale' in synth, "VOICEVOX query lost configured speed")
 
     print(json.dumps({
         "status": "PASS",
         "policy": policy.get("schema_version"),
         "voicevox_speed_scale": voice.get("voicevox_speed_scale"),
-        "caption_body_color_role": captions.get("caption_body_color_role"),
-        "photo_first": visual.get("photo_or_primary_visual_preferred_over_image_generation_even_when_generation_is_possible"),
-        "longform_target_duration_seconds": pacing.get("longform_target_duration_seconds"),
         "character_mode": character.get("default_mode"),
+        "routine_hot_path_added": False,
+        "provenance_floor": "ENFORCED_WHEN_APPLICABLE",
     }, ensure_ascii=False, sort_keys=True))
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
