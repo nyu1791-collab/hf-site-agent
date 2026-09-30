@@ -1,0 +1,114 @@
+{
+  "schema_version": "approved-video-template-v1",
+  "effective_date_jst": "2026-09-30",
+  "status": "USER_APPROVED_PRODUCTION_BASELINE",
+  "approval": {
+    "reference_video": "DevDay2026_corrected_47s.mp4",
+    "user_quote": "めちゃくちゃいい出来です。これをしっかりルールブックや型に落とし込んでください。",
+    "reference_video_library_file_id": "libfile_ad76f1b9059c819192e21420da30557b",
+    "reference_video_sha256": "a7fba3d94ad314045cadb220911bfe6916233addbb1f217bfdffdc2af214b15f",
+    "approved_visual_execution_commit": "c78ad5c66f816875dfaee93eb1cb4e233b6b35cf",
+    "approval_is_presentation_acceptance_not_fact_or_publication_approval": true
+  },
+  "renderer": "scripts/render_reusable_short.py",
+  "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md",
+  "presentation_example": "examples/approved_video_presentation.json",
+  "layout": {
+    "width": 720,
+    "height": 1280,
+    "fps": 30,
+    "background": "#F1F6FC",
+    "caption_backplate": "#152134",
+    "caption_font_size": 29,
+    "title_font_size": 34,
+    "source_font_size": 18,
+    "caption_colors": {
+      "ずんだもん": "#B8E6C8",
+      "四国めたん": "#F2C4D7"
+    },
+    "zones": {
+      "title": [
+        30,
+        28
+      ],
+      "evidence": [
+        20,
+        105,
+        700,
+        545
+      ],
+      "source_credit": [
+        34,
+        518
+      ],
+      "source_url": [
+        25,
+        548
+      ],
+      "caption": [
+        20,
+        575,
+        700,
+        790
+      ],
+      "characters_bottom": 1215,
+      "voice_credit": [
+        25,
+        1227
+      ]
+    },
+    "inactive_opacity": 0.72
+  },
+  "acting": {
+    "native_layers_required": true,
+    "mouth_method": "RMS_APPROXIMATION",
+    "closed_threshold": 0.014,
+    "wide_threshold": 0.07,
+    "window_seconds": 0.03,
+    "silent_and_listener_mouth_closed": true,
+    "expressions": [
+      "NORMAL",
+      "HAPPY",
+      "SERIOUS"
+    ],
+    "expressions_from_authored_cues_not_topic_keyword_matching": true,
+    "happiness_hold_seconds": 4,
+    "no_synthetic_mouth_over_existing_mouth": true
+  },
+  "media": {
+    "official_accounts_first": [
+      "OpenAI",
+      "Anthropic"
+    ],
+    "images": "Enlarge the individual image and capture its media region.",
+    "video": "Play, seek, pause an important moment and capture the enlarged media region.",
+    "whole_feed_capture_as_default": false,
+    "credits_required": true,
+    "source_visual_must_support_claim_or_be_labeled_illustration": true,
+    "missing_source_timestamp": "UNKNOWN_DO_NOT_INVENT"
+  },
+  "reuse": {
+    "audio": "reuse measured unchanged VOICEVOX narration",
+    "characters": "native layers and content-addressed variants",
+    "layout": "reuse this preset",
+    "changed_stage_only": true,
+    "third_party_binary_assets_in_git": false
+  },
+  "verification": {
+    "final_decode_required": true,
+    "representative_both_speakers_mouth_open_closed_and_expressions": true,
+    "mobile_caption_and_credit_readability": true,
+    "static_old_mp4_trim_is_not_acting_repair": true,
+    "windows_ymm4_verified": false
+  },
+  "scope": {
+    "short_requested_duration_seconds": [
+      30,
+      60
+    ],
+    "reference_duration_seconds": 47.301334,
+    "resolution_is_fast_baseline_not_universal_maximum": true,
+    "longform_duration_policies_preserved": true,
+    "publication_and_paid_permissions_unchanged": true
+  }
+}

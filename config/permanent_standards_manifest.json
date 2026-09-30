@@ -424,7 +424,10 @@
     "voice_credit_required_lines": [
       "VOICEVOX:ずんだもん",
       "VOICEVOX:四国めたん"
-    ]
+    ],
+    "approved_video_template": "config/approved_video_template.json",
+    "approved_video_playbook": "docs/VIDEO_PRODUCTION_BASELINE.md",
+    "restore_runtime": "scripts/restore_video_context.py"
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
@@ -609,7 +612,8 @@
     "zundamon_news60_template_survives_tab_change": true,
     "zundamon_news60_critical_emphasis_and_character_motion_survive_tab_change": true,
     "ymm4_research_explainer_profile_survives_tab_change": true,
-    "ymm4_research_explainer_source_claim_contract_survives_tab_change": true
+    "ymm4_research_explainer_source_claim_contract_survives_tab_change": true,
+    "user_approved_video_baseline_survives_tab_change": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",

@@ -1,3 +1,5 @@
+> **動画制作の現行入口（2026-09-30）:** 承認済み約47秒動画の型は [`docs/VIDEO_PRODUCTION_BASELINE.md`](docs/VIDEO_PRODUCTION_BASELINE.md) と [`config/approved_video_template.json`](config/approved_video_template.json)。別タブでは [`AGENTS.md`](AGENTS.md) の復元順と `scripts/restore_video_context.py` を使い、旧報告より現在のGitHubを優先する。
+
 # hf-site-agent
 
 AI Army / Provider-v3 の実験・検証リポジトリ。

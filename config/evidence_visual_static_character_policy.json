@@ -21,9 +21,10 @@
     "rights_factual_safety_and_cost_gates_cannot_be_overridden_silently": true,
     "performance_update_precedence": {
       "policy": "config/media_performance_efficiency_policy.json",
-      "scope": "zundamon_news60 or explicit character-performance profile",
+      "scope": "ordinary Zundamon/Metan explainers, news60 and explicit acting requests",
       "scoped_mouth_and_expression_requirements_override_general_static_rules": true,
-      "general_static_rule_applies_only_outside_scope": true
+      "general_static_rule_applies_only_outside_scope": false,
+      "static_requires_explicit_static_profile": true
     }
   },
   "ci_enforcement": {

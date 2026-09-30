@@ -1,6 +1,6 @@
 {
   "schema_version": "media-command-read-gate-v12",
-  "effective_date_jst": "2026-09-25",
+  "effective_date_jst": "2026-09-30",
   "status": "ENFORCED_STANDARD",
   "decision_owner": "chatgpt-top-commander",
   "purpose": "RESTORE_ONLY_CURRENT_INTENT_RELEVANT_MEDIA_KNOW_HOW_THEN_PARALLELIZE_ONLY_WHEN_EXPECTED_WALL_CLOCK_GAIN_EXCEEDS_COORDINATION_OVERHEAD_WITH_SINGLE_WRITER_INTEGRATION",
@@ -47,6 +47,9 @@
     "commerce_clipping_precision_overlay_required_for_relevant_intents": true
   },
   "common_media_read_set": [
+    "config/current_media_quality_handoff.json",
+    "config/approved_video_template.json",
+    "docs/VIDEO_PRODUCTION_BASELINE.md",
     "config/current_commander_handoff.json",
     "config/permanent_standards_manifest.json",
     "config/free_execution_guard.json",
@@ -200,19 +203,19 @@
       "single writer owns each mutable output",
       "searched official or primary-source evidence visuals are the default for factual/news backgrounds; generated background images are not the default",
       "generated visuals must never be presented as factual evidence, and public use of copied source imagery still requires verified reuse rights or another permissible basis",
-      "Zundamon and Shikoku Metan remain static by default; only turn-based speaker focus changes are required",
-      "the active speaker uses scale 1.08 and full opacity; the inactive listener uses scale 1.00 and 55 percent opacity by default within a 50-60 percent range",
-      "speaker focus switches directly at the actual voice-turn boundary without mouth animation, lip sync, blink, head tilt, pose change, body bob, speech-start bounce or continuous character zoom by default",
       "config/evidence_visual_static_character_policy.json overrides conflicting older character motion, expression, lipsync, blink and bounce defaults",
       "reusable registered assets are resolved cache-first before search, while rights and semantic fit remain mandatory",
-      "character reaction packs remain available only when an explicit task requires animated states; normal static-turn-focus production must not rebuild them",
       "VOICEVOX pronunciation text is separate from on-screen caption text; English brand and technical terms use official Latin spelling in captions by default",
       "Zundamon and Metan production starts from a reusable YMM4-or-equivalent template, script-first dialogue fields, reusable pronunciation dictionary and cached audio/visual assets rather than rebuilding common setup per video",
       "shortform 2-3 second cadence is a meaningful visual-state-change heuristic, not a forced new-image download or fixed-cut rule",
       "SFX and camera effects are semantic accents; sound on every cut and constant zoom remain forbidden",
       "jet cuts remove accidental dead air while preserving deliberate silence and natural phrasing",
       "mechanical render, timing, encoding, hashing, ffprobe and decode QA use deterministic tools instead of extra AI agents",
-      "machine validators outrank model votes"
+      "machine validators outrank model votes",
+      "Use the user-approved config/approved_video_template.json baseline: native mouth movement synchronized to measured audio and authored sparse semantic expressions for both characters.",
+      "Use pale mint #B8E6C8 and pale pink #F2C4D7 captions; explicit static-only profiles are special-purpose alternatives.",
+      "Official OpenAI/Anthropic images use enlarged individual-media capture; video uses a played paused meaningful frame and a media-only capture with source credit.",
+      "After tab change restore current branch HEAD, handoff, approved preset and source package; old reference history never replaces current policy."
     ],
     "video_creation": [
       "search is discovery, not a license",
@@ -231,7 +234,7 @@
       "important terms marked by the script use deterministic emphasis colors while speaker identity remains encoded by green/pink caption text and border",
       "claim-bearing news scenes require a semantically matched searched or registered rights-verified visual with source page, asset locator, license state and scene/claim mapping",
       "longform-only reliability material is loaded only for longform work",
-      "For requested or continuing 55-60 second Zundamon news shorts, load config/zundamon_news60_template.json and docs/ZUNDAMON_NEWS60_TEMPLATE.md; that scoped template requires voice-synchronized mouth motion plus sparse semantic facial expressions, while the general static-turn-focus default remains for other video profiles.",
+      "For requested or continuing 55-60 second Zundamon news shorts, load config/zundamon_news60_template.json and docs/ZUNDAMON_NEWS60_TEMPLATE.md; that scoped template requires voice-synchronized mouth motion plus sparse semantic facial expressions, the approved dynamic baseline also applies to ordinary Zundamon/Metan explainers.",
       "Special yellow/red caption emphasis is opt-in only: no automatic keyword coloring, zero by default, at most one critical phrase per semantic beat and three in a 60-second short, with an explicit importance reason."
     ],
     "clipping_repurposing": [
@@ -335,6 +338,7 @@
     "exact_same_head_and_blob_cache_may_satisfy_repeat_read_within_active_task": true,
     "zundamon_news60_template_must_be_re_read": true,
     "zundamon_news60_template_human_prompt_must_be_re_read": true,
-    "zundamon_news60_template_validator_must_be_re_read": true
+    "zundamon_news60_template_validator_must_be_re_read": true,
+    "approved_video_template_must_be_restored": true
   }
 }

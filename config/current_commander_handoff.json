@@ -21,7 +21,8 @@
     },
     "restore_before_planning_or_external_calls": true,
     "if_chat_instruction_conflicts_with_repository_policy": "FOLLOW_LATEST_EXPLICIT_USER_INSTRUCTION_WITHIN_SAFETY_BOUNDARIES_AND_UPDATE_REPOSITORY_IF_IT_CHANGES_THE_PERMANENT_STANDARD",
-    "write_new_durable_operating_decisions_back_to_repository": true
+    "write_new_durable_operating_decisions_back_to_repository": true,
+    "media_restore_runtime": "scripts/restore_video_context.py"
   },
   "active_standards": {
     "permanent_manifest": "config/permanent_standards_manifest.json",
@@ -70,7 +71,8 @@
     "openrouter_worker_health": "scripts/openrouter_worker_health.py",
     "openrouter_worker_recent_evidence": "config/openrouter_worker_recent_evidence.json",
     "final_execution_admission_guard": "scripts/final_execution_admission_guard.py",
-    "media_performance_efficiency": "config/media_performance_efficiency_policy.json"
+    "media_performance_efficiency": "config/media_performance_efficiency_policy.json",
+    "approved_video_template": "config/approved_video_template.json"
   },
   "peer_review_status": {
     "completed": true,
@@ -312,12 +314,12 @@
     "full_spoken_caption_contract": "FULL_SPOKEN_TEXT",
     "summary_caption_may_not_replace_narration": true,
     "speaker_caption_colors": {
-      "ずんだもん": "#4DE084",
-      "四国めたん": "#FF5BB9"
+      "ずんだもん": "#B8E6C8",
+      "四国めたん": "#F2C4D7"
     },
     "important_caption_emphasis_colors": [
-      "#FFEB3B",
-      "#F44336"
+      "#F6DB98",
+      "#E7A6AA"
     ],
     "claim_bearing_news_related_visuals_required": true,
     "related_visuals_must_have_source_page_asset_locator_rights_state_and_claim_mapping": true
@@ -425,7 +427,7 @@
     "every video request restores config/video_creation_admission_policy.json and runs scripts/video_creation_admission.py before rendering",
     "video rendering is blocked unless local VOICEVOX and the ずんだもん standard cast are available; silent fallback is forbidden",
     "every video request uses the FULL_SPOKEN_TEXT caption contract with no summary-caption substitution",
-    "speaker caption text is green for ずんだもん and pink/magenta for 四国めたん, with marked important terms emphasized deterministically",
+    "speaker caption text is pale mint for ずんだもん and pale pink for 四国めたん, with marked important terms emphasized deterministically",
     "claim-bearing news visuals are searched or restored from a verified registry and retain source page, asset locator, rights state and claim mapping",
     "caption and related-visual rules are restored from the repository after a tab or session change",
     "paid or freemium media routes are blocked without probing and free-route failure never silently becomes paid",
@@ -539,7 +541,7 @@
   },
   "current_performance_update": {
     "policy": "config/media_performance_efficiency_policy.json",
-    "scope": "news60 and explicit acting requests",
+    "scope": "ordinary Zundamon/Metan explainers, news60 and explicit acting requests",
     "motion": "measured mouth sync and semantic expressions",
     "emphasis": "semantic phrase/clause coloring without keyword boxes",
     "windows_editor_verification": "PENDING",

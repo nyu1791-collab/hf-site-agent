@@ -5,6 +5,13 @@ on:
     branches:
       - ai-army/provider-v3
     paths:
+      - 'AGENTS.md'
+      - 'config/approved_video_template.json'
+      - 'docs/VIDEO_PRODUCTION_BASELINE.md'
+      - 'scripts/render_reusable_short.py'
+      - 'scripts/restore_video_context.py'
+      - 'scripts/validate_approved_video_baseline.py'
+      - 'tests/test_approved_video_continuity.py'
       - 'README.md'
       - 'config/ai_army_org_chart.json'
       - 'config/multi_agent_operating_policy.json'
@@ -331,6 +338,11 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_reaction_pack_reuse.py' -v
           python -m unittest discover -s tests -p 'test_reuse_ymm4_baseline.py' -v
+
+      - name: Verify approved video baseline and fresh-tab restoration
+        run: |
+          python scripts/validate_approved_video_baseline.py
+          python -m unittest discover -s tests -p 'test_approved_video_continuity.py' -v
 
       - name: Enforce media command read gate
         run: |

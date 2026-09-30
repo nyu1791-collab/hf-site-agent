@@ -1,7 +1,7 @@
 # AI Army Master Rulebook
 
 **Status:** Permanent compact operating index  
-**Effective:** 2026-09-21 JST  
+**Effective:** 2026-09-30 JST  
 **Authority:** This document is the concise human-readable entry point. Machine policies in `config/permanent_standards_manifest.json` and the files it references remain authoritative when details differ.
 
 ## 1. Restore before work
@@ -187,3 +187,14 @@ permanent manifest→本書→Media Gateの順で復元する。過去動画の�
 - 修正後は代表フレーム、両キャラの口と表情、字幕、出典、再生可能な音声付きMP4を見直す。新ルールと検査を同時に更新し、古い矛盾する文章は本節へ統合する。
 
 再利用・基準複製の詳細は `docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md`。
+
+## 承認済み動画基盤とタブ復元（2026-09-30）
+
+今回ユーザーが承認した約47秒動画を `config/approved_video_template.json` に固定し、
+制作内容と再利用手順を `docs/VIDEO_PRODUCTION_BASELINE.md` に統合する。
+動画制作・修正・型改善では current media handoff と approved template を必ず復元する。
+`AGENTS.md` と README を起動入口にし、`scripts/restore_video_context.py` の内容ハッシュ付き
+復元パックを実際に読む。会話の自動記憶だけを前提にしない。
+旧静止キャラの通常デフォルト、濃い字幕、旧動画を最新扱いする現行記録は廃止。
+重要な旧音声・資料・計測は `config/media_reference_history.json` に残し、現行指示から分離する。
+最終的に両キャラの口と意味に沿う表情が動く動画を確認する。設定の存在だけで合格にしない。

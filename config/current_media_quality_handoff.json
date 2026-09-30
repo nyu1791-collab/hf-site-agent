@@ -17,16 +17,24 @@
     ],
     "then_read": [
       "config/current_media_quality_handoff.json",
-      "config/media_character_performance_compact_orchestration_policy.json",
+      "config/approved_video_template.json",
+      "docs/VIDEO_PRODUCTION_BASELINE.md",
       "config/media_command_read_gate.json",
-      "config/media_user_visual_duration_preferences.json",
+      "config/media_user_visual_duration_preferences.json"
+    ],
+    "do_not_use_conversation_memory_as_source_of_truth": true,
+    "reconfirm_current_branch_head_and_pr_state_before_writes": true,
+    "longform_only": [
       "config/longform_video_objectives.json",
       "config/ymm4_research_explainer_profile.json"
     ],
-    "do_not_use_conversation_memory_as_source_of_truth": true,
-    "reconfirm_current_branch_head_and_pr_state_before_writes": true
+    "context_restore_command": "scripts/restore_video_context.py"
   },
   "authoritative_media_files": [
+    "config/approved_video_template.json",
+    "docs/VIDEO_PRODUCTION_BASELINE.md",
+    "scripts/render_reusable_short.py",
+    "scripts/restore_video_context.py",
     "config/media_command_read_gate.json",
     "config/evidence_visual_static_character_policy.json",
     "config/media_character_performance_compact_orchestration_policy.json",
@@ -89,23 +97,16 @@
     ]
   },
   "latest_user_quality_checkpoint": {
-    "reference_output": "DevDay 2026 internal explainer (2026-09-30)",
-    "user_assessment": "Useful material, but too technically detailed; subtitles too saturated; character expressions did not visibly change.",
+    "reference_output": "DevDay2026_corrected_47s.mp4",
+    "user_assessment": "めちゃくちゃいい出来です。",
+    "approved_on_jst": "2026-09-30",
+    "presentation_baseline": "config/approved_video_template.json",
     "retain": [
-      "bright explainer panels and generally brighter visual treatment",
-      "semantic caption segmentation",
-      "truthful separation of subject claims from scientific consensus",
-      "pre-delivery rereview instead of immediate handoff",
-      "iOS/in-app compatible Fast Start MP4 delivery",
-      "official source screenshots and visible credits",
-      "VOICEVOX 0.25.2 plus measured timing",
-      "full spoken captions and reusable production artifacts"
-    ],
-    "improve": [
-      "公式画像は拡大した画像領域、公式動画は重要時刻の拡大フレームを引用する",
-      "淡いミント・淡いピンク字幕を用い、濃い字幕へ退行しない",
-      "完成映像で両キャラの口と意味に沿う表情が実際に変わる",
-      "音声を再利用し、焼き込み旧動画の切り出しで演技修正を済ませない"
+      "淡いミント・淡いピンク字幕",
+      "公式メディア領域の拡大引用と出典",
+      "ネイティブ表情・音声同期の口・無音時閉口",
+      "測定済み音声と素材の再利用",
+      "最終動画の見直し"
     ]
   },
   "adopted_media_decisions": [
@@ -278,7 +279,7 @@
     "machine_policy": "config/zundamon_news60_template.json",
     "prompt_document": "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
     "validator": "scripts/validate_zundamon_news60_template.py",
-    "general_static_character_default_remains_for_other_profiles": true
+    "approved_fast_30_to_60_second_baseline": "config/approved_video_template.json"
   },
   "longform_ymm4_reference_profile": {
     "machine_policy": "config/ymm4_research_explainer_profile.json",
@@ -308,359 +309,44 @@
   },
   "current_performance_update": {
     "policy": "config/media_performance_efficiency_policy.json",
-    "scope": "news60 and explicit acting requests",
+    "scope": "ordinary Zundamon/Metan explainers, news60 and explicit acting requests",
     "motion": "measured mouth sync and semantic expressions",
     "emphasis": "semantic phrase/clause coloring without keyword boxes",
     "windows_editor_verification": "PENDING",
     "render_route_must_validate_capabilities": true
   },
-  "next_tab_video_task": {
-    "status": "COMPLETED_INTERNAL_DRAFT_FOUNDATION_UPDATED_NO_RERENDER",
-    "topic": "OpenAI DevDay 2026 summary and explanation",
-    "event_date": "2026-09-29",
-    "research_snapshot_jst": "2026-09-30",
-    "official_primary_source": "https://openai.com/ja-JP/index/devday-2026-recap/",
-    "source_note": "The DevDay 2026 explainer is rendered and persistently saved. The final video is 8:12.7, with 37 measured VOICEVOX turns, full burned-in captions, six official OpenAI screenshots with visible credits, and no generated imagery/video. The source package, SRT, and preview are saved alongside it.",
-    "core_framing": "DevDay's broad direction is to make ChatGPT a shared work surface for people and agents, while expanding Codex and APIs for developers; distinguish the vision and announcements from features currently available on each plan.",
-    "confirmed_topics": [
-      "dots persistent agents with dedicated cloud computers; availability is plan-specific",
-      "GPT-6.1 Sol and Ultrafast speed tier",
-      "Codex cloud, refreshed CLI with voice and multi-agent task view, code review, and Codex Security Cloud",
-      "Decisions API limited preview and Agents API computer-use capability",
-      "ChatGPT Space, Living Pages, collaborative slides, team tasks, plugins, MCP events, and business features"
-    ],
-    "next_tab_execution": [
-      "The finished DevDay MP4 is preserved; this update did not recreate or overwrite it.",
-      "On a future video request, fetch current branch HEAD, PR #40, Actions, and policies before work, then read the media handoff, media user preferences, longform objectives, YMM4 research profile, motion route, and character cache policy.",
-      "Use pale green Zundamon captions (#B8E6C8) and pale rose Metan captions (#F2C4D7), dark outline/backplate, and low-frequency semantic phrase emphasis. Verify on a phone-size preview.",
-      "For longform research explainers, select the ymm4_research_explainer profile automatically; use the sidecar's typed expression beats plus mouth cues timed to final measured WAV. Reuse unchanged VOICEVOX, assets, evidence screenshots, caption timing, and scenes.",
-      "Before final rendering, verify aligned facial/mouth state assets for both characters and that the YMM4/renderer adapter actually applies expression cues. A static portrait sequence or sidecar JSON alone does not pass.",
-      "Structure explanations around one question and three to five key points. Group related announcements; explain what changed, why it matters, one simple example, and the important limitation. Use 4-6 minutes for focused, 6-8 for compact roundups, and 8-12 for evidence-rich deep dives; never pad.",
-      "Keep PR #40 OPEN/DRAFT/UNMERGED and do not merge, deploy, upload, or publish."
-    ],
-    "user_trigger_required": false,
-    "production_started": true,
-    "public_release_authorized": false,
-    "story_angle": "Explain DevDay 2026 through the lifecycle of making one video: what Plus users can apply now, what is plan-gated or API-billed, and where the existing production pipeline still does the actual media work.",
-    "planned_outline": [
-      {
-        "time": "00:00-00:50",
-        "chapter": "DevDay through one video workflow",
-        "purpose": "Introduce research, script, assets, voice, edit, and QA; frame the event as persistent agents plus collaborative work."
-      },
-      {
-        "time": "00:50-02:20",
-        "chapter": "Research and script",
-        "purpose": "GPT-6.1 Sol is available to Plus users in ChatGPT Work and Codex, not regular Chat; use only if surfaced, for synthesis and draft comparison with official source citations."
-      },
-      {
-        "time": "02:20-04:10",
-        "chapter": "Build and maintain the pipeline",
-        "purpose": "Use Codex cloud, CLI, multi-agent task management and code review for bounded branch work, checkpoints, reviews, and reusable templates."
-      },
-      {
-        "time": "04:10-06:10",
-        "chapter": "Assets, VOICEVOX, and editing",
-        "purpose": "Show the existing rights-verified asset cache, local VOICEVOX, measured timing, YMM4 preparation bundle, and capability-gated renderer; do not imply DevDay models render media."
-      },
-      {
-        "time": "06:10-08:40",
-        "chapter": "What requires higher tiers or separate APIs",
-        "purpose": "Explain dots and Space/Living Pages plan gates; explain Agents API billing and Decisions API limited-preview status; use diagrams or labels rather than pretending they ran in this workflow."
-      },
-      {
-        "time": "08:40-10:00",
-        "chapter": "What actually makes it complete",
-        "purpose": "Close with measured audio, full captions, rights/provenance, decode, and visual QA; distinguish verified current features from future integration ideas."
-      }
-    ],
-    "devday_feature_application": {
-      "checked_on_jst": "2026-09-30",
-      "user_plan_context": "ChatGPT Plus",
-      "principle": "Apply newly announced features only when they are surfaced for this account and fit a specific production stage. Announced features, live account access, and this repository's verified implementation are separate facts.",
-      "usable_surfaces_when_available": [
-        {
-          "feature": "GPT-6.1 Sol in ChatGPT Work and Codex",
-          "use": "High-information synthesis, outline/script alternatives, evidence comparison and review. Plus access is in Work/Codex, not regular Chat. Do not route through the API for this workflow."
-        },
-        {
-          "feature": "Codex cloud and Codex CLI /agents",
-          "use": "Bounded repository work, resumable checkpointed tasks, and 1-3 genuinely independent research/review lanes on the canonical PR branch. One writer per mutable output; no merge, deploy, or publish."
-        },
-        {
-          "feature": "Codex code review",
-          "use": "Review actual changed scripts/policies when code is changed; keep the current exact-head CI and media validators as separate gates."
-        },
-        {
-          "feature": "Plugin extensions and MCP Events",
-          "use": "Optional later for an already-connected plugin that adds an evidence/asset panel or a source-change trigger. Do not build or assume a connector solely for this video."
-        }
-      ],
-      "not_available_or_not_authorized_for_this_plus_workflow": [
-        {
-          "feature": "dots",
-          "status": "Official recap lists Pro, Business Premium, and Enterprise; do not assume Plus access."
-        },
-        {
-          "feature": "ChatGPT Space, Living Pages, collaborative slides, and team task sharing",
-          "status": "Official recap lists higher-tier plans for these collaboration features; use the repository handoff as continuity source instead."
-        },
-        {
-          "feature": "Ultrafast tier",
-          "status": "Pro 500/Enterprise or separately billed API surface; do not enable or incur extra cost."
-        },
-        {
-          "feature": "Agents API computer use",
-          "status": "Developer API; current docs bill model usage, tools, and hosted sandbox separately. Do not call without current access, cost verification, and explicit spending authorization."
-        },
-        {
-          "feature": "Decisions API",
-          "status": "Announced as limited preview on 2026-09-29 and broad availability was described as forthcoming; no assumption of access. Do not call until current availability and separate API billing are verified and spending is authorized."
-        }
-      ],
-      "pipeline_mapping": [
-        {
-          "stage": "topic research and evidence lock",
-          "application": "Use official OpenAI sources and GPT-6.1 Sol in Work/Codex if available; retain claim IDs, citations, and availability dates; ChatGPT remains final fact adjudicator."
-        },
-        {
-          "stage": "script planning and bounded review",
-          "application": "Use Codex multi-agent capabilities for independent source cross-check/review; cap at 1-3 lanes; reuse the persisted 6-chapter outline and project handoff."
-        },
-        {
-          "stage": "typed routing and emotion decisions",
-          "application": "Keep the existing Jev/Python typed path; no paid Decisions API dependency."
-        },
-        {
-          "stage": "voice, captions, assets, and render",
-          "application": "Keep local VOICEVOX, verified voice/mouth/asset caches, measured WAV timing, existing YMM4 package and deterministic render tooling; preserve fail-closed capability gates."
-        },
-        {
-          "stage": "final validation",
-          "application": "Run existing source/rights, caption, audio, ffprobe/decode and representative visual checks; do not state Windows YMM4 E2E is verified until its fixture passes."
-        }
-      ],
-      "billing_boundary": "ChatGPT Plus and API Platform billing are separate. No new paid API, premium tier, paid fallback, or top-up is authorized by this video request.",
-      "no_pipeline_rewrite": true,
-      "official_sources": [
-        "https://openai.com/ja-JP/index/devday-2026-recap/",
-        "https://openai.com/ja-JP/index/introducing-gpt-6-1-sol/",
-        "https://developers.openai.com/api/docs/guides/agents-api/overview",
-        "https://help.openai.com/en/articles/9039756-managing-billing-for-chatgpt-and-the-api-platform"
-      ],
-      "research_outline_assisted_by": "GPT-6.1 Sol (ChatGPT subscription surface), with final source/availability review by top commander"
-    },
-    "production_started_on_jst": "2026-09-30",
-    "render_started": true,
-    "mission_file": "missions/media/20260930-devday-2026-explainer-v1.json",
-    "latest_user_instruction": "Keep the DevDay video as-is for now; update the production foundation. Future videos need pale captions, visibly changing semantic expressions and voice-synced mouth movement, and simpler key-point-first narration.",
-    "official_social_visual_sources": [
-      {
-        "source": "@OpenAI official X — GPT-6.1 Sol",
-        "url": "https://x.com/OpenAI/status/2104986129686741046",
-        "asset_state": "Captured and included in the persistent production source package where used; visible source credit is burned into the corresponding chapter."
-      },
-      {
-        "source": "@OpenAI official X — dots",
-        "url": "https://x.com/OpenAI/status/2104984504133918973",
-        "asset_state": "Captured and included in the persistent production source package where used; visible source credit is burned into the corresponding chapter."
-      },
-      {
-        "source": "@OpenAI official X — Ultrafast",
-        "url": "https://x.com/OpenAI/status/2104993966043320759",
-        "asset_state": "Captured and included in the persistent production source package where used; visible source credit is burned into the corresponding chapter."
-      },
-      {
-        "source": "@OpenAI official X — Codex Security Cloud",
-        "url": "https://x.com/OpenAI/status/2104987422308335828",
-        "asset_state": "Captured and included in the persistent production source package where used; visible source credit is burned into the corresponding chapter."
-      }
-    ],
-    "render_blockers": [
-      "For future motion-requested output, verified mouth/expression assets for both characters and a passing YMM4 or motion-renderer application preview are mandatory.",
-      "Official screenshot reuse rights still require review before public release.",
-      "No future video render is requested in this checkpoint."
-    ],
-    "mission_commit_sha": "53bad9768085f9c0cadccb0faaf9732d65b0868b",
-    "preproduction_package_complete": true,
-    "script_dialogue_lines": 29,
-    "script_approx_japanese_characters": 2699,
-    "source_screenshot_state": "Six official OpenAI article/X screenshots are saved in the persistent production source package and used with visible chapter credits; no generated images or video.",
-    "last_ci_scope_note": "The most recent workflow results may be tied to an earlier commit if a later mission-only commit did not trigger the path-scoped workflow; check exact current HEAD status before relying on them.",
-    "completed_artifacts": {
-      "final_video": {
-        "file_name": "devday2026_explainer_final_internal.mp4",
-        "library_file_id": "file_00000000e91c820693744abff7792e89",
-        "sha256": "df204bbdb51c4dce965c29ea25bfcb3f1e2d795dd45cc938093e8c4541eac261",
-        "duration_seconds": 492.7,
-        "dimensions": "1080x1920",
-        "video_codec": "H.264",
-        "audio_codec": "AAC"
-      },
-      "source_package": {
-        "file_name": "DevDay2026_explainer_sources.zip",
-        "library_file_id": "file_000000007ca88211af9dfaa040584b80"
-      },
-      "captions": {
-        "file_name": "DevDay2026_explainer_captions.srt",
-        "library_file_id": "file_000000009f5c8209bc64d542f572960f"
-      },
-      "preview": {
-        "file_name": "DevDay2026_explainer_preview.jpg",
-        "library_file_id": "file_0000000060788209ae79ff3bc7fcd7d1"
-      },
-      "voice_checkpoint": "devday_2026_voice_checkpoint.zip",
-      "voice_preview": "devday_narration_preview.mp3"
-    }
-  },
-  "voicevox_environment_continuity": {
-    "recorded_at_jst": "2026-09-30T10:50:00+09:00",
-    "user_clarification": "“KIDハブ” means GitHub.",
-    "prior_successful_route": {
-      "source": "Official VOICEVOX/voicevox_engine GitHub Release",
-      "release_page": "https://github.com/VOICEVOX/voicevox_engine/releases",
-      "version": "0.25.2",
-      "asset": "voicevox_engine-linux-cpu-x64-0.25.2.7z.001",
-      "sha256": "bab016a966131b89bad398e7b898f8c742617dc80a7da49bf494cd07133dbc7a",
-      "verified_in_prior_environment": true,
-      "verified_results": "Download checksum matched; archive extracted; engine started; /speakers returned 43 speakers and 127 styles; real audio synthesis succeeded for ずんだもん and 四国めたん.",
-      "persistent_binary_or_wav_cache_in_current_workspace": false
-    },
-    "current_runtime": {
-      "os": "Ubuntu 24.04.3 x86_64",
-      "available_disk_gib": 22,
-      "ffmpeg": true,
-      "ffprobe": true,
-      "docker": false,
-      "voicevox_engine": false,
-      "python_voicevox_core": false,
-      "library_search_found_engine_archive": false
-    },
-    "current_acquisition_block": {
-      "github_release_host_on_runtime_egress_allowlist": false,
-      "cloud_browser_asset_download_attempt": "Rejected by browser URL protocol policy",
-      "instruction": "Do not bypass the runtime egress or browser download policy. A user chat approval does not override these platform restrictions."
-    },
-    "recommended_resume": {
-      "pinned_source": "Official stable VOICEVOX ENGINE 0.25.2 Linux CPU x64",
-      "source_page": "https://github.com/VOICEVOX/voicevox_engine/releases",
-      "asset_sha256": "bab016a966131b89bad398e7b898f8c742617dc80a7da49bf494cd07133dbc7a",
-      "next_step": "Resume from the Library audio checkpoint and saved measured timing; keep the 29 cached turns and synthesize only changed lines. Capture official source screenshots and scene credits before render. The previous run verified and reused the official package; do not route through an alternate TTS provider or mirror.",
-      "do_not_use_preview_release": true,
-      "do_not_use_nonofficial_mirrors_or_other_tts": true,
-      "do_not_upload_engine_to_public_repo_artifact": true
-    },
-    "latest_completed_synthesis": {
-      "completed_at_jst": "2026-09-30",
-      "mission": "missions/media/20260930-devday-2026-explainer-v1.json",
-      "status": "VOICE_GENERATED_AND_MEASURED",
-      "engine_version": "0.25.2",
-      "engine_archive_sha256": "bab016a966131b89bad398e7b898f8c742617dc80a7da49bf494cd07133dbc7a",
-      "voices": "ずんだもん／四国めたん（ノーマル; runtime-discovered style IDs 3 and 2）",
-      "speed_scale": 1.2,
-      "dialogue_lines": 37,
-      "measured_duration_seconds": 492.661,
-      "wav_format": "48 kHz stereo PCM",
-      "caption_coverage_ratio": 1,
-      "cached_lines_reused": 29,
-      "newly_synthesized_lines": 8,
-      "qa": "Every line was converted to lossless FLAC and decode-checked; combined MP3 and WAV duration matched measured timeline.",
-      "library_checkpoint": "devday_2026_voice_checkpoint.zip",
-      "library_preview": "devday_narration_preview.mp3",
-      "render_status": "RENDERED_INTERNAL_DRAFT",
-      "remaining_render_blockers": [
-        "External reuse/license review before any public release; Windows YMM4 end-to-end behavior remains unverified."
-      ],
-      "final_video_library_file_id": "file_00000000e91c820693744abff7792e89",
-      "final_video_sha256": "df204bbdb51c4dce965c29ea25bfcb3f1e2d795dd45cc938093e8c4541eac261",
-      "final_video_duration_seconds": 492.7,
-      "final_caption_coverage_ratio": 1,
-      "final_caption_lines": 37,
-      "source_package_library_file_id": "file_000000007ca88211af9dfaa040584b80"
-    }
-  },
   "latest_completed_video": {
-    "mission_id": "devday-2026-explainer-v1",
-    "mission_file": "missions/media/20260930-devday-2026-explainer-v1.json",
-    "status": "RENDERED_INTERNAL_DRAFT",
+    "status": "USER_APPROVED_INTERNAL_VIDEO",
     "completed_on_jst": "2026-09-30",
     "final_video": {
-      "name": "devday2026_explainer_final_internal.mp4",
-      "library_file_id": "file_00000000e91c820693744abff7792e89",
-      "sha256": "df204bbdb51c4dce965c29ea25bfcb3f1e2d795dd45cc938093e8c4541eac261",
-      "duration_seconds": 492.7,
-      "format": "H.264 1080x1920, AAC 48 kHz stereo"
+      "reference_video": "DevDay2026_corrected_47s.mp4",
+      "user_quote": "めちゃくちゃいい出来です。これをしっかりルールブックや型に落とし込んでください。",
+      "reference_video_library_file_id": "libfile_ad76f1b9059c819192e21420da30557b",
+      "reference_video_sha256": "a7fba3d94ad314045cadb220911bfe6916233addbb1f217bfdffdc2af214b15f",
+      "approved_visual_execution_commit": "c78ad5c66f816875dfaee93eb1cb4e233b6b35cf",
+      "approval_is_presentation_acceptance_not_fact_or_publication_approval": true
     },
-    "production": {
-      "engine": "VOICEVOX 0.25.2",
-      "voices": "ずんだもん／四国めたん",
-      "speed_scale": 1.2,
-      "measured_audio_duration_seconds": 492.661335,
-      "dialogue_lines": 37,
-      "burned_caption_coverage": 1,
-      "official_source_screenshots": 6,
-      "generated_images": 0,
-      "generated_video": 0,
-      "decode": "PASS"
-    },
-    "persistent_files": [
-      {
-        "name": "DevDay2026_explainer_sources.zip",
-        "library_file_id": "file_000000007ca88211af9dfaa040584b80"
-      },
-      {
-        "name": "DevDay2026_explainer_captions.srt",
-        "library_file_id": "file_000000009f5c8209bc64d542f572960f"
-      },
-      {
-        "name": "DevDay2026_explainer_preview.jpg",
-        "library_file_id": "file_0000000060788209ae79ff3bc7fcd7d1"
-      },
-      {
-        "name": "devday_2026_voice_checkpoint.zip"
-      },
-      {
-        "name": "devday_narration_preview.mp3"
-      }
-    ],
-    "rights_and_release": "Internal draft only. Review official screenshot reuse rights before publication; no upload or public release was done.",
-    "resume": "Reuse the finished Library artifacts first. Modify only requested chapters/lines and retain the voice checkpoint, source package, measured timings, captions, and assets. Do not restart from zero.",
-    "character_performance_status": "Delivered file uses static full-body portraits; user reported expressions did not change. Next requested video must use a verified motion-capable route."
-  },
-  "latest_video_pipeline_improvement": {
-    "status": "BASELINE_UPDATED_NO_VIDEO_RENDERED",
-    "completed_on_jst": "2026-09-30",
-    "files_changed": [
-      "config/media_user_visual_duration_preferences.json",
-      "config/evidence_visual_static_character_policy.json",
-      "config/ymm4_research_explainer_profile.json",
-      "config/longform_video_objectives.json",
-      "config/media_performance_efficiency_policy.json",
-      "scripts/media_performance_route.py",
-      "scripts/media_performance_plan.py",
-      "scripts/export_ymm4_script.py",
-      "scripts/render_static_speaker_color_longform.py",
-      "tests/test_media_performance_route.py",
-      "tests/test_prepare_ymm4_research_explainer_package.py",
-      "scripts/validate_media_performance_efficiency.py",
-      "config/media_audio_motion_retention_policy.json",
-      "config/zundamon_news60_template.json",
-      "config/media_command_read_gate.json",
-      "docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md"
-    ],
-    "changes": [
-      "Pastel caption palette with phone-contrast guard",
-      "Longform research explainers automatically route to mouth-sync plus semantic-expression profile",
-      "YMM4 cue sidecar includes typed per-line expression states derived from emotion and a measured-WAV mouth driver contract",
-      "Renderer route requires verified face/mouth assets and verified cue application; the static renderer is blocked for dynamic character profiles",
-      "Editorial structure groups three to five takeaways and earns runtime with examples, impact, and limitations"
-    ],
-    "validation": {
-      "route_and_typed_cue_tests": "PASS (10 route tests plus exporter smoke test)",
-      "performance_plan_tests": "PASS (16 tests)",
-      "modified_json_syntax": "PASS",
-      "full_repository_suite": "NOT_RUN",
-      "current_head_actions": "NOT_RUN"
+    "duration_seconds": 47.301334,
+    "format": "H.264 720x1280 30fps AAC Fast Start MP4",
+    "actual_character_animation": true,
+    "mouth_method": "RMS_APPROXIMATION",
+    "windows_ymm4_verified": false,
+    "resume": "Restore approved preset and durable production source package. Reuse unchanged narration and native assets. Replace topic and sources; verify current facts again.",
+    "prior_important_references": "config/media_reference_history.json",
+    "production_package": {
+      "name": "DevDay2026_approved_production_checkpoint.zip",
+      "library_file_id": "libfile_427c2045dc548191a7ae9b094bcb4a0c",
+      "file_id": "file_000000002f0082118dab4035a58a008d",
+      "sha256": "9a5c8fc9ba2e0583cb9881ae3a3f442380dbdf8ef878bbb8d566c075716df386",
+      "contains": [
+        "trimmed measured narration",
+        "approved timing and emotion cues",
+        "official media-only frame and source receipt",
+        "font and license",
+        "native shell archive with original readme",
+        "content-addressed character variants",
+        "render report and SHA256 inventory"
+      ]
     }
   },
   "reusable_foundation_update": {
@@ -678,5 +364,17 @@
     "waveform_mouth_sync": "RMS_APPROXIMATION",
     "windows_end_to_end_verified": false,
     "canonical_rules": "docs/AI_ARMY_MASTER_RULEBOOK.md#現行の動画制作ルール2026-09-30統合"
+  },
+  "voicevox_reuse": {
+    "engine_version": "0.25.2",
+    "official_archive_sha256": "bab016a966131b89bad398e7b898f8c742617dc80a7da49bf494cd07133dbc7a",
+    "speed_scale": 1.2,
+    "unchanged_measured_voice_reuse": true,
+    "runtime_availability": "CHECK_CURRENT_RUNTIME_DO_NOT_REUSE_HISTORICAL_BLOCK_STATUS",
+    "synthesis_of_changed_lines_requires_current_local_engine": true
+  },
+  "next_tab_video_task": {
+    "status": "NO_NEW_VIDEO_REQUEST_PENDING",
+    "action": "Recover the approved template before the next relevant request; do not rerender the old longform by default."
   }
 }

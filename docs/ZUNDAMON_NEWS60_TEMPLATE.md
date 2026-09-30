@@ -47,7 +47,7 @@ These are planning windows, not a padding quota. Final timing follows the WAV me
 - Use a full-face fixture for Zundamon and Metan when their visible mouth geometry or scale identity changes. Confirm closed, small-open, and open states before the expensive render.
 - Use one attention hero per beat. When the evidence image matters, keep character movement subordinate.
 - Keep the production target at 10–15 minutes as an observed goal. Run the three independent preparation lanes only after script and claim lock, reuse valid stage checkpoints, repair the smallest failing stage, and encode once.
-- Keep this exception scoped to the 55–60 second Zundamon profile. The general static-turn-focus policy remains for other video profiles unless the user asks for character motion.
+- The news60 story structure is scoped to 55–60 seconds. Ordinary Zundamon/Metan explainers also use the approved native mouth and semantic-expression baseline in `config/approved_video_template.json`; static-only rendering requires an explicit special-purpose profile.
 
 ## YMM4 reusable project routine
 

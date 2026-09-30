@@ -8,7 +8,6 @@ from pathlib import Path
 from array import array
 from PIL import Image, ImageDraw, ImageFont
 
-PALETTE = {'ずんだもん':'#B8E6C8','四国めたん':'#F2C4D7'}
 
 def layer(root, name):
     with Image.open(root/name) as im:return im.convert('RGBA')
@@ -53,27 +52,42 @@ def wrap(text,font,width):
     return lines
 
 def render(args):
+    profile=json.loads(args.profile.read_text())
+    presentation=json.loads(args.presentation.read_text())
+    layout=profile['layout'];acting=profile['acting']
+    for field in ['title','source_credit','source_url','voice_credit']:
+        if not presentation.get(field):raise ValueError(f'missing presentation field: {field}')
+    palette=layout['caption_colors']
     out=args.output;out.parent.mkdir(parents=True,exist_ok=True)
-    cache=out.parent/'reusable-assets';cache.mkdir(exist_ok=True)
+    cache=args.cache_root or out.parent/'reusable-assets';cache.mkdir(parents=True,exist_ok=True)
     timing=json.loads(args.timing.read_text())
     records=[{**r,'start':r['start']-args.start,'end':r['end']-args.start} for r in timing['records'] if args.start<=r['start']<args.start+args.duration]
+    if not records:raise ValueError('no measured dialogue records in requested range')
+    for r in records:
+        if r['speaker'] not in palette or not r.get('caption_text'):raise ValueError('unknown speaker or missing spoken caption')
+        if r.get('emotion','NORMAL') not in acting['expressions']:raise ValueError('unsupported authored emotion')
     with wave.open(str(args.audio)) as w:
         rate=w.getframerate()
         if w.getnchannels()!=1 or w.getsampwidth()!=2:raise ValueError('mono PCM16 narration required')
         samples=array('h',w.readframes(w.getnframes()))
+    if len(samples)/rate+0.001<args.duration:raise ValueError('narration shorter than requested duration')
     variants={};keys={}
     for name,char in [('ずんだもん','Zundamon'),('四国めたん','Metan')]:
         variants[name],keys[name]=character_variants(args.shell/char,char,cache)
-    W,H,FPS=720,1280,30
-    font=ImageFont.truetype(str(args.font),29);small=ImageFont.truetype(str(args.font),18);title=ImageFont.truetype(str(args.font),34)
+    W,H,FPS=layout['width'],layout['height'],layout['fps']
+    font=ImageFont.truetype(str(args.font),layout['caption_font_size']);small=ImageFont.truetype(str(args.font),layout['source_font_size']);title=ImageFont.truetype(str(args.font),layout['title_font_size'])
     with Image.open(args.visual) as im:visual=im.convert('RGB');visual.thumbnail((680,390))
-    background=Image.new('RGB',(W,H),'#F1F6FC');draw=ImageDraw.Draw(background)
-    draw.text((30,28),'DevDay 2026｜要点まとめ',font=title,fill='#24364F')
+    background=Image.new('RGB',(W,H),layout['background']);draw=ImageDraw.Draw(background)
+    if title.getlength(presentation['title'])>660:raise ValueError('title exceeds reserved safe zone')
+    draw.text(tuple(layout['zones']['title']),presentation['title'],font=title,fill='#24364F')
     draw.rounded_rectangle((20,105,700,545),radius=22,fill='white')
     background.paste(visual,((W-visual.width)//2,120+(390-visual.height)//2))
-    draw.text((34,518),'引用：OpenAI公式X｜Ultrafastのデモ',font=small,fill='#425570')
-    draw.text((25,548),'x.com/OpenAI/status/2104993966043320759',font=ImageFont.truetype(str(args.font),14),fill='#4C5870')
-    draw.text((25,1227),'VOICEVOX：ずんだもん・四国めたん',font=small,fill='#4C5870')
+    credit=presentation['source_credit'];url=presentation['source_url'].removeprefix('https://')
+    urlfont=ImageFont.truetype(str(args.font),14)
+    if small.getlength(credit)>650 or urlfont.getlength(url)>670:raise ValueError('source attribution exceeds safe zone')
+    draw.text(tuple(layout['zones']['source_credit']),credit,font=small,fill='#425570')
+    draw.text(tuple(layout['zones']['source_url']),url,font=urlfont,fill='#4C5870')
+    draw.text(tuple(layout['zones']['voice_credit']),presentation['voice_credit'],font=small,fill='#4C5870')
     cmd=['ffmpeg','-v','error','-y','-f','rawvideo','-pix_fmt','rgb24','-s',f'{W}x{H}','-r',str(FPS),'-i','pipe:0','-i',str(args.audio),'-c:v','libx264','-preset','veryfast','-crf','21','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-movflags','+faststart','-shortest',str(out)]
     process=subprocess.Popen(cmd,stdin=subprocess.PIPE)
     states={name:set() for name in variants};expressions_seen={name:set() for name in variants}
@@ -82,20 +96,19 @@ def render(args):
         t=i/FPS;frame=background.copy();d=ImageDraw.Draw(frame)
         r=next((r for r in records if r['start']<=t<r['end']),None)
         speaker=r['speaker'] if r else None
-        chunk=samples[int(t*rate):int((t+.03)*rate)];rms=math.sqrt(sum(x*x for x in chunk)/len(chunk))/32768 if chunk else 0
-        mouth=0 if rms<.014 else (1 if rms<.07 else 2)
-        # Authored semantic states: summary => happy/normal; caveat => serious.
-        expression='SERIOUS' if r and 'dots、' in r['caption_text'] else ('HAPPY' if r and ('結論' in r['caption_text'] or 'あなたなら' in r['caption_text']) else 'NORMAL')
+        chunk=samples[int(t*rate):int((t+acting['window_seconds'])*rate)];rms=math.sqrt(sum(x*x for x in chunk)/len(chunk))/32768 if chunk else 0
+        mouth=0 if rms<acting['closed_threshold'] else (1 if rms<acting['wide_threshold'] else 2)
+        expression=r.get('emotion','NORMAL') if r else 'NORMAL'
         for name,x in [('ずんだもん',48),('四国めたん',428)]:
             active=name==speaker;state=mouth if active else 0
             expr=expression if active else ('SERIOUS' if expression=='SERIOUS' else 'NORMAL')
             # A brief eye smile reacts to the opening summary, then returns.
-            if active and expression=='HAPPY' and r and t-r['start']>4:expr='NORMAL'
+            if active and expression=='HAPPY' and r and t-r['start']>acting['happiness_hold_seconds']:expr='NORMAL'
             states[name].add(state);expressions_seen[name].add(expr)
             k=(name,expr,state,active)
             if k not in resized:
                 im=variants[name][expr,state].copy();im.thumbnail((255,410 if active else 390))
-                if not active:im.putalpha(im.getchannel('A').point(lambda a:int(a*.72)))
+                if not active:im.putalpha(im.getchannel('A').point(lambda a:int(a*layout['inactive_opacity'])))
                 resized[k]=im
             im=resized[k];frame.paste(im,(x,1215-im.height),im)
         if r:
@@ -109,18 +122,21 @@ def render(args):
             if len(lines)>5:
                 chunks=[lines[n:n+4] for n in range(0,len(lines),4)]
                 lines=chunks[min(len(chunks)-1,int((pos-(acc-len(caption)))/max(1,len(caption))*len(chunks)))]
-            d.rounded_rectangle((20,575,700,790),radius=20,fill='#152134',outline=PALETTE[speaker],width=3)
-            d.text((35,585),speaker,font=small,fill=PALETTE[speaker])
-            for j,line in enumerate(lines):d.text(((W-font.getlength(line))/2,621+j*34),line,font=font,fill=PALETTE[speaker])
+            d.rounded_rectangle(tuple(layout['zones']['caption']),radius=20,fill=layout['caption_backplate'],outline=palette[speaker],width=3)
+            d.text((35,585),speaker,font=small,fill=palette[speaker])
+            for j,line in enumerate(lines):d.text(((W-font.getlength(line))/2,621+j*34),line,font=font,fill=palette[speaker])
         process.stdin.write(frame.tobytes())
     process.stdin.close()
     if process.wait():raise RuntimeError('encode failed')
-    report={'duration':args.duration,'mouth_states':{k:sorted(v) for k,v in states.items()},'expressions':{k:sorted(v) for k,v in expressions_seen.items()},'character_keys':keys,'native_parts_no_double_mouth':True,'voice_reused':True,'mouth_method':'RMS_APPROXIMATION','source_url':'https://x.com/OpenAI/status/2104993966043320759','caption_colors':PALETTE}
-    (out.parent/'render-corrected-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+    report={'duration':args.duration,'mouth_states':{k:sorted(v) for k,v in states.items()},'expressions':{k:sorted(v) for k,v in expressions_seen.items()},'character_keys':keys,'native_parts_no_double_mouth':True,'voice_reused':True,'mouth_method':'RMS_APPROXIMATION','caption_timing_method':'MEASURED_TURN_BOUNDARIES_WITH_CHARACTER_WEIGHTED_CLAUSES','source_url':presentation['source_url'],'caption_colors':palette,'input_sha256':{name:hashlib.sha256(getattr(args,name).read_bytes()).hexdigest() for name in ['profile','presentation','audio','timing','visual','font']}}
+    out.with_suffix('.report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
     print(json.dumps(report,ensure_ascii=False))
 
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for name in ['audio','timing','shell','font','visual','output']:p.add_argument('--'+name,type=Path,required=True)
+    p.add_argument('--profile',type=Path,default=Path(__file__).resolve().parents[1]/'config/approved_video_template.json')
+    p.add_argument('--presentation',type=Path,required=True)
+    p.add_argument('--cache-root',type=Path,help='Restored reusable-assets directory; independent of output location')
     p.add_argument('--start',type=float,required=True);p.add_argument('--duration',type=float,required=True)
     render(p.parse_args())

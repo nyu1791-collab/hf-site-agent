@@ -1,0 +1,109 @@
+# 承認済み動画の制作基盤
+
+更新：2026-09-30 JST。ユーザー承認：`DevDay2026_corrected_47s.mp4`（約47.3秒）。
+現行の再利用設定は `config/approved_video_template.json`。評価は見た目・制作方法の承認であり、
+発表内容の事実確認や外部公開の承認とは分ける。
+
+## 別タブ・別環境での入口
+
+GitHub `nyu1791-collab/hf-site-agent` の `ai-army/provider-v3` を参照する。
+README / AGENTS.md から commander handoff → permanent manifest → master rulebook を読み、
+動画依頼では current media handoff → approved template → この文書 → media read gate を復元する。
+旧報告より現在の HEAD とファイル内容を優先する。HEAD が変われば内容ハッシュを取り直す。
+履歴保存と現在の制作指示を混同しない。チャット間の自動記憶移行に依存しない。
+
+チェックアウト済みなら以下で復元パックを作る。
+
+```bash
+python scripts/restore_video_context.py --output /tmp/video-context.json
+```
+
+GitHub APIで取得したファイルを使う環境は、確認した HEAD を `--head <SHA>` に指定する。
+その場合は GitHub 上の内容と一致するか呼び出し側でも確認する。
+復元パック内の `files[].content` を読み、`reference` の完成動画と制作素材パッケージを復元する。
+長尺・時事・商用などの追加意図があれば gate の conditional 読み込みも行う。
+
+リポジトリを開いていない新しいチャットに渡す短文：
+
+> GitHub nyu1791-collab/hf-site-agent の ai-army/provider-v3 を開き、AGENTS.md と README の復元順に従ってください。動画は config/approved_video_template.json と docs/VIDEO_PRODUCTION_BASELINE.md の承認済み基盤を使い、古い報告より現行GitHubを優先してください。PR #40はdraft/openを維持してください。
+
+## 固定する型と毎回変える入力
+
+| 固定して再利用 | 題材ごとに差し替え・確認 |
+|---|---|
+| 9:16、720×1280、30fpsの高速基盤 | 指定尺、必要なら解像度・媒体別の調整 |
+| 明るい背景、上段の題名・公式資料、中段字幕、下段キャラ | 台詞、意味の区切り、タイトル |
+| ずんだもん `#B8E6C8`、四国めたん `#F2C4D7` | 引用元、URL、取得日、動画時刻、主張との対応 |
+| 字幕下地 `#152134`、英語固有名詞を途中で分断しない | 発音用 voice_text と表示用 caption_text |
+| ネイティブな口・目・眉、素材ハッシュでキャッシュ | 台詞の emotion：NORMAL / HAPPY / SERIOUS |
+| 測定済みVOICEVOX音声と完全な発話字幕 | 変更台詞だけ生成・再計測 |
+| H.264 / AAC / yuv420p / Fast Start MP4 | 最終映像の文脈・読みやすさ・演技確認 |
+
+青へ変更という途中の指示は「淡い色」という訂正に置き換える。
+強調は必要な句だけ、理由を台本に残す。濃い緑・マゼンタやキーワードの自動着色へ戻さない。
+30〜60秒の依頼では今回の高速基盤を使う。55〜60秒news60の構成は適合するときに統合する。
+指示のない長尺ニュース解説の尺・章単位復旧規則は保持し、短尺の値を一律適用しない。
+
+## 公式素材の収集
+
+OpenAI・Anthropicなどの公式発表を優先する。画像は個別に拡大してメディア領域を保存する。
+動画は実際に再生し、重要な場面で停止して拡大したフレームを保存する。フィード全体、
+サイドバー、返信、ログイン画面を通常の動画素材にしない。
+メディアビューアが使えない場合は実際に表示された拡大メディア領域を取得し、その状態を記録する。
+取得できない場面や未再生フレームを作って引用しない。
+
+公式アカウント、投稿URL、公開日時（不明はUNKNOWN）、取得日、メディア番号、動画時刻、
+引用が支える主張・場面、利用条件を記録する。画面には短い出典とURLを読みやすく出す。
+デモの画像はそのデモの説明に使う。別製品や利用プランの証拠として扱わない。
+今回のUltrafast画像も他の全発表を立証する資料ではない。
+公式出典であることと外部公開の利用権があることは別。公開前の確認を保持する。
+
+## 本当に口と表情を動かす
+
+ずんだもん・四国めたんの通常の解説は、ネイティブ素材で口と意味に沿う表情を動かす。
+顔が描かれた旧立ち絵へ合成の口を重ねず、空顔の体と対応する口・目・眉を組み合わせる。
+キャッシュを先に確認し、素材変更時だけ合成し直す。説明・喜び・注意を台本の emotion に明示する。
+話し手は測定音声に連動し、聞き手と無音は閉口。表情は台詞の意味で切り替え、常時揺らさない。
+
+高速rendererの口同期は30msの波形RMSを3状態へ変換する近似。
+音素単位の厳密な口形推定ではない。字幕は測定した台詞境界に従い、台詞内の文の配分は
+文字数による近似である。必要な精度の依頼ではその段階だけ改善する。
+旧MP4の単純切り出し、設定JSONやYMM4 sidecarの出力だけで「演技が動いた」と判定しない。
+完成映像で両キャラの開口・閉口・異なる表情を確認する。Windows YMM4の実機完走は未検証。
+
+## 実行と再利用
+
+`examples/approved_video_presentation.json` が題名・出典などの入力例。
+制作素材パッケージの音声・測定タイミング・公式フレーム・フォント・元シェル・合成キャッシュを
+復元し、パッケージ内のSHA256一覧と照合する。第三者の元素材を公開GitHubへ追加しない。
+
+```bash
+python scripts/render_reusable_short.py \
+  --profile config/approved_video_template.json \
+  --presentation examples/approved_video_presentation.json \
+  --audio /path/narration.wav --timing /path/approved_timing.json \
+  --shell /path/extracted/Shikokumetan_Zundamon_Shell\(20230806\) \
+  --font /path/NotoSansCJKjp-Bold.otf \
+  --visual /path/OpenAI_official_video_frame.jpg \
+  --cache-root /path/reusable-assets \
+  --start 430.777334 --duration 47.301334 --output /path/output.mp4
+```
+
+音声は切り出し済みで、timingは元の絶対時刻。startで補正する。
+新題材で元DevDayの題名・引用URL・emotionを流用しない。
+現rendererは1本の短尺に1枚の証拠画像を使う型。複数の主張を異なる資料で説明する場合は
+資料ごとの場面に分ける能力を追加し、1枚で全主張を代替しない。
+変更のない音声は再合成せず、変更段階と依存段階だけ再処理する。
+独立した素材準備は並列化できるが、同一成果物の書き込みと最終統合は一人が担当する。
+
+## 納品前と更新後の確認
+
+ffprobeの尺・画面サイズ・codec、全編decode、完全な字幕を確認する。
+両話者の開口／閉口、聞き手の閉口、喜び／注意の表情、字幕・キャラ・出典の非重複を
+最終MP4から確認する。スマホ相当の表示で字幕とクレジットを読む。
+型の変更時は復元・矛盾検出テストと実際の短い試写を通す。
+設定上の状態一覧だけで動作確認を代替しない。
+
+旧静止デフォルト・濃い字幕・旧完成動画を最新扱いする記録は現行入口から削除。
+重要な旧音声・出典・計測・ライセンス・失敗原因は `config/media_reference_history.json` に統合。
+Git履歴には削除前の内容が残る。権利、事実、費用、復旧、公開境界は維持する。
