@@ -154,7 +154,7 @@
     {
       "id": "V1",
       "source_page": "https://openai.com/ja-JP/index/devday-2026-recap/",
-      "asset_locator": "公式記事の見出し・該当機能セクションをブラウザでスクリーンショット",
+      "asset_locator": "Saved official OpenAI DevDay recap page screenshot(s), split into chapter-relevant screenshots in production package; visible credit in video.",
       "rights_status": "REVIEW_REQUIRED",
       "reuse_conditions_summary": "出典を表示。内部確認用ドラフトに限定し、公開前は権利条件を再確認。",
       "scene_or_claim_mapping": {
@@ -175,7 +175,7 @@
     {
       "id": "V2",
       "source_page": "https://x.com/OpenAI/status/2104986129686741046",
-      "asset_locator": "@OpenAI GPT-6.1 Sol投稿のスクリーンショット。2026-09-30にブラウザ表示を確認。ローカル素材としては未保存。",
+      "asset_locator": "Saved @OpenAI GPT-6.1 Sol post screenshot for CH02; visible credit in video.",
       "rights_status": "REVIEW_REQUIRED",
       "reuse_conditions_summary": "投稿URLと@OpenAIを画面内に明記。内部確認用ドラフトに限定し、公開前は権利条件を再確認。",
       "scene_or_claim_mapping": {
@@ -189,8 +189,8 @@
     },
     {
       "id": "V3",
-      "source_page": "https://x.com/OpenAI/status/2104984504133918973",
-      "asset_locator": "@OpenAI dots投稿の静止画スクリーンショットを次回制作時に取得",
+      "source_page": "https://openai.com/ja-JP/index/devday-2026-recap/",
+      "asset_locator": "Saved official recap page dots section screenshot for CH04; visible credit in video.",
       "rights_status": "REVIEW_REQUIRED",
       "reuse_conditions_summary": "投稿URLと@OpenAIを画面内に明記。内部確認用ドラフトに限定し、公開前は権利条件を再確認。",
       "scene_or_claim_mapping": {
@@ -205,12 +205,11 @@
     {
       "id": "V4",
       "source_page": "https://x.com/OpenAI/status/2104993966043320759",
-      "asset_locator": "@OpenAI Ultrafast投稿の静止画スクリーンショットを次回制作時に取得",
+      "asset_locator": "Saved @OpenAI Ultrafast post screenshot for CH06; visible credit in video.",
       "rights_status": "REVIEW_REQUIRED",
       "reuse_conditions_summary": "投稿URLと@OpenAIを画面内に明記。内部確認用ドラフトに限定し、公開前は権利条件を再確認。",
       "scene_or_claim_mapping": {
         "chapter_ids": [
-          "CH03",
           "CH06"
         ],
         "claim_ids": [
@@ -221,7 +220,7 @@
     {
       "id": "V5",
       "source_page": "https://x.com/OpenAI/status/2104987422308335828",
-      "asset_locator": "@OpenAI Codex Security Cloud投稿の静止画スクリーンショットを次回制作時に取得",
+      "asset_locator": "Saved @OpenAI Codex Security Cloud post screenshot for CH03; visible credit in video.",
       "rights_status": "REVIEW_REQUIRED",
       "reuse_conditions_summary": "投稿URLと@OpenAIを画面内に明記。内部確認用ドラフトに限定し、公開前は権利条件を再確認。",
       "scene_or_claim_mapping": {
@@ -825,13 +824,77 @@
     }
   ],
   "render_gate": {
-    "status": "BLOCKED_BEFORE_RENDER",
-    "required": [
-      "Capture the official OpenAI article and @OpenAI X post screenshots into the local media workspace",
-      "Record scene-level source credits and rights status for captured images",
-      "Use the verified measured VOICEVOX timing for subtitles and scene lengths",
-      "Follow the existing YMM4/FFmpeg capability gate"
-    ],
-    "reason": "VOICEVOX ENGINE 0.25.2 generated and measured all 37 dialogue turns at speed 1.20 (492.661 seconds); exact line audio is preserved in the Library audio checkpoint. Rendering remains blocked until official source screenshots and scene credits are present."
+    "status": "RENDERED_INTERNAL_DRAFT",
+    "required": [],
+    "reason": "The internal draft was rendered from the existing 6-chapter template using measured VOICEVOX timing, saved official OpenAI page/X screenshots, scene-level credits, and the existing capability-gated FFmpeg renderer. Full decode passed. Public reuse review remains required; Windows YMM4 end-to-end behavior remains unverified."
+  },
+  "render_result": {
+    "status": "RENDERED_INTERNAL_DRAFT",
+    "completed_at_utc": "2026-09-30",
+    "deliverable": {
+      "file_name": "devday2026_explainer_final_internal.mp4",
+      "sha256": "df204bbdb51c4dce965c29ea25bfcb3f1e2d795dd45cc938093e8c4541eac261",
+      "size_bytes": 26541168,
+      "duration_seconds": 492.7,
+      "dimensions": "1080x1920",
+      "frame_rate": 30,
+      "video_codec": "H.264",
+      "audio_codec": "AAC",
+      "audio_sample_rate_hz": 48000,
+      "audio_channels": 2,
+      "library_file_id": "file_00000000e91c820693744abff7792e89",
+      "library_file_name": "devday2026_explainer_final_internal.mp4"
+    },
+    "voice": {
+      "engine": "VOICEVOX 0.25.2",
+      "voices": [
+        "VOICEVOX:ずんだもん",
+        "VOICEVOX:四国めたん"
+      ],
+      "speed_scale": 1.2,
+      "lines": 37,
+      "measured_source_wav_duration_seconds": 492.661335,
+      "cached_lines_reused": 29,
+      "newly_synthesized_lines": 8,
+      "library_checkpoint": "devday_2026_voice_checkpoint.zip"
+    },
+    "captions": {
+      "burned_in": true,
+      "coverage_ratio": 1,
+      "spoken_text_coverage_ratio": 1,
+      "line_count": 37,
+      "srt_file": "DevDay2026_explainer_captions.srt",
+      "srt_library_file_id": "file_000000009f5c8209bc64d542f572960f"
+    },
+    "visuals": {
+      "chapters": 6,
+      "official_source_screenshots": 6,
+      "generated_images": 0,
+      "generated_video": 0,
+      "visible_chapter_credits": true,
+      "source_credits_file": "DevDay2026_SOURCE_CREDITS.md",
+      "production_package": "DevDay2026_explainer_sources.zip",
+      "production_package_library_file_id": "file_000000007ca88211af9dfaa040584b80",
+      "official_sources": [
+        "https://openai.com/ja-JP/index/devday-2026-recap/",
+        "https://x.com/OpenAI/status/2104986129686741046",
+        "https://x.com/OpenAI/status/2104987422308335828",
+        "https://x.com/OpenAI/status/2104993966043320759"
+      ]
+    },
+    "verification": {
+      "ffprobe": "H.264 video 1080x1920 + AAC audio 48 kHz stereo",
+      "full_decode": "PASS",
+      "audio_loudness_normalized_to_target_lufs": -16,
+      "audio_true_peak_ceiling_dbtp": -1.5
+    },
+    "rights_and_release": {
+      "scope": "internal review draft only",
+      "reuse_license_review": "REQUIRED_BEFORE_PUBLICATION",
+      "external_upload": "NOT_DONE",
+      "youtube_upload": "NOT_DONE",
+      "public_publish": false
+    },
+    "workflow_note": "FFmpeg static-speaker-color renderer completed. Existing YMM4 transfer/template assets are included in the source package; Windows YMM4 end-to-end behavior is not claimed as verified."
   }
 }
