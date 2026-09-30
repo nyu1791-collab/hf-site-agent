@@ -19,7 +19,9 @@
     "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
     "scripts/validate_zundamon_news60_template.py",
     "config/video_platform_delivery_profiles.json",
-    "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md"
+    "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md",
+    "docs/VOICEVOX_RUNTIME.md",
+    "scripts/with_local_voicevox.sh"
   ],
   "voice_contract": {
     "engine": "VOICEVOX_LOCAL",
@@ -32,7 +34,16 @@
     "runtime_speaker_discovery_required": true,
     "actual_wav_duration_drives_timeline": true,
     "voicevox_unavailable_action": "BLOCK_BEFORE_RENDER",
-    "silent_video_fallback": false
+    "silent_video_fallback": false,
+    "runtime_bootstrap": {
+      "document": "docs/VOICEVOX_RUNTIME.md",
+      "launcher": "scripts/with_local_voicevox.sh",
+      "start_local_engine_before_declaring_unavailable": true,
+      "verify_version_speakers_and_real_wav_before_render": true,
+      "keep_engine_and_consumer_in_same_execution_when_localhost_isolated": true,
+      "bind_only_to_loopback": true,
+      "preserve_block_if_bootstrap_or_standard_cast_still_fails": true
+    }
   },
   "caption_contract": {
     "full_spoken_text_required": true,

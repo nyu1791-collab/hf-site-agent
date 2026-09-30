@@ -461,7 +461,8 @@
     "recent domain-aware Worker evidence may reorder only already-eligible Workers and expires automatically",
     "routine low-confidence Jev routing may use a bounded two-Worker hedge but high-risk ambiguity returns to ChatGPT",
     "every deterministic Jev fallback hedge challenger and batch route passes the same final eligibility quota shared-state approval and verification-role guard",
-    "multiple Workers are not labeled independent verification unless an explicit verifier role and verification evidence exist"
+    "multiple Workers are not labeled independent verification unless an explicit verifier role and verification evidence exist",
+    "before blocking a video because VOICEVOX is unavailable, read docs/VOICEVOX_RUNTIME.md and try scripts/with_local_voicevox.sh; only block after local startup or standard-cast verification fails"
   ],
   "delivery": {
     "intermediate_to_user": false,

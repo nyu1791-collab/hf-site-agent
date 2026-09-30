@@ -20,8 +20,23 @@
     "paid_caption_or_tts_service": false,
     "paid_media_tool_discovery": false,
     "permitted_default": "LOCAL_OR_FRESHLY_VERIFIED_ZERO_COST_ROUTE",
-    "permitted_tools": ["Python", "Pillow", "FFmpeg", "ffprobe", "VOICEVOX_LOCAL", "YMM4_LOCAL"],
-    "blocked_tools": ["runway", "fal", "fal.ai", "descript", "veed", "heygen", "higgsfield"],
+    "permitted_tools": [
+      "Python",
+      "Pillow",
+      "FFmpeg",
+      "ffprobe",
+      "VOICEVOX_LOCAL",
+      "YMM4_LOCAL"
+    ],
+    "blocked_tools": [
+      "runway",
+      "fal",
+      "fal.ai",
+      "descript",
+      "veed",
+      "heygen",
+      "higgsfield"
+    ],
     "free_route_unavailable_action": "BLOCK_AND_REPORT_NO_PAID_SUBSTITUTION"
   },
   "video_creation_admission": {
@@ -34,7 +49,11 @@
     "voicevox_runtime_probe_required": true,
     "voicevox_unavailable_action": "BLOCK_BEFORE_RENDER",
     "silent_video_fallback": false,
-    "actual_wav_duration_drives_timeline": true
+    "actual_wav_duration_drives_timeline": true,
+    "runtime_bootstrap_policy": "config/video_creation_admission_policy.json",
+    "start_local_engine_before_blocking": true,
+    "runtime_bootstrap_document": "docs/VOICEVOX_RUNTIME.md",
+    "runtime_launcher": "scripts/with_local_voicevox.sh"
   },
   "narrow_preauthorized_exceptions": {
     "jev": {

@@ -26,7 +26,9 @@
       "machine_policy": "config/video_creation_admission_policy.json",
       "runtime": "scripts/video_creation_admission.py",
       "priority": 0,
-      "purpose": "RESTORE_MEDIA_POLICY_AND_BLOCK_VIDEO_RENDERING_UNTIL_LOCAL_VOICEVOX_ZUNDAMON_ADMISSION_PASSES"
+      "purpose": "BOOTSTRAP_LOCAL_VOICEVOX_THEN_ADMIT_VIDEO_RENDERING_ONLY_WHEN_STANDARD_CAST_IS_AVAILABLE",
+      "runtime_bootstrap": "docs/VOICEVOX_RUNTIME.md",
+      "launcher": "scripts/with_local_voicevox.sh"
     },
     {
       "id": "media-command-read-gate",
@@ -617,7 +619,8 @@
     "zundamon_news60_critical_emphasis_and_character_motion_survive_tab_change": true,
     "ymm4_research_explainer_profile_survives_tab_change": true,
     "ymm4_research_explainer_source_claim_contract_survives_tab_change": true,
-    "user_approved_video_baseline_survives_tab_change": true
+    "user_approved_video_baseline_survives_tab_change": true,
+    "voicevox_runtime_bootstrap_survives_tab_change": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",

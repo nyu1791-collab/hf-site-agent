@@ -45,6 +45,8 @@ def main() -> int:
     require({"runway", "fal", "fal.ai", "descript", "veed", "heygen", "higgsfield"}.issubset(blocked), "blocked media tool list is incomplete")
 
     video = guard.get("video_creation_admission") or {}
+    video_policy = load("config/video_creation_admission_policy.json")
+    runtime_bootstrap = (video_policy.get("voice_contract") or {}).get("runtime_bootstrap") or {}
     require(video.get("policy") == "config/video_creation_admission_policy.json", "video admission policy pointer drift")
     require(video.get("runtime") == "scripts/video_creation_admission.py", "video admission runtime pointer drift")
     require(video.get("must_restore_before_every_video_request") is True, "video admission must restore on every request")
@@ -52,6 +54,13 @@ def main() -> int:
     require(video.get("required_primary_voice") == "ずんだもん", "video admission primary voice drift")
     require(video.get("voicevox_unavailable_action") == "BLOCK_BEFORE_RENDER", "missing VOICEVOX may not render")
     require(video.get("silent_video_fallback") is False, "silent video fallback was enabled")
+    require(video.get("start_local_engine_before_blocking") is True, "VOICEVOX must be started before block")
+    require(video.get("runtime_bootstrap_document") == "docs/VOICEVOX_RUNTIME.md", "free guard runtime document pointer drift")
+    require(video.get("runtime_launcher") == "scripts/with_local_voicevox.sh", "free guard runtime launcher pointer drift")
+    require(runtime_bootstrap.get("document") == "docs/VOICEVOX_RUNTIME.md", "VOICEVOX runtime recovery document missing")
+    require(runtime_bootstrap.get("launcher") == "scripts/with_local_voicevox.sh", "VOICEVOX startup launcher missing")
+    require(runtime_bootstrap.get("start_local_engine_before_declaring_unavailable") is True, "VOICEVOX is blocked before local startup is attempted")
+    require(runtime_bootstrap.get("keep_engine_and_consumer_in_same_execution_when_localhost_isolated") is True, "VOICEVOX localhost execution boundary missing")
 
     exceptions = guard.get("narrow_preauthorized_exceptions") or {}
     require((exceptions.get("jev") or {}).get("media_generation") is False, "Jev exception expanded to media generation")
@@ -70,6 +79,8 @@ def main() -> int:
     require(video_standard.get("machine_policy") == "config/video_creation_admission_policy.json", "manifest lost video admission policy")
     require(video_standard.get("runtime") == "scripts/video_creation_admission.py", "manifest lost video admission runtime")
     require(video_standard.get("priority") == 0, "video admission must be priority 0")
+    require(video_standard.get("runtime_bootstrap") == "docs/VOICEVOX_RUNTIME.md", "manifest lost VOICEVOX runtime document")
+    require(video_standard.get("launcher") == "scripts/with_local_voicevox.sh", "manifest lost VOICEVOX startup launcher")
 
     paths = ((handoff.get("active_standards") or {}).get("free_execution_guard"))
     require(paths == "config/free_execution_guard.json", "handoff lost free execution guard")
@@ -80,6 +91,8 @@ def main() -> int:
     video_required = set(video_trigger.get("required") or [])
     require("config/video_creation_admission_policy.json" in video_required, "VIDEO_CREATION does not require video admission policy")
     require("scripts/video_creation_admission.py" in video_required, "VIDEO_CREATION does not require video admission runtime")
+    require("docs/VOICEVOX_RUNTIME.md" in video_required, "VIDEO_CREATION does not restore VOICEVOX startup instructions")
+    require("scripts/with_local_voicevox.sh" in video_required, "VIDEO_CREATION does not restore VOICEVOX startup launcher")
     manifest_cross_tab = manifest.get("cross_tab_behavior") or {}
     require(manifest_cross_tab.get("free_execution_guard_survives_tab_change") is True, "manifest free guard cross-tab continuity missing")
     require(manifest_cross_tab.get("video_creation_admission_survives_tab_change") is True, "manifest video admission cross-tab continuity missing")
@@ -88,6 +101,7 @@ def main() -> int:
     require("free execution guard is restored from the repository on every new tab before media or external provider work" in checks, "handoff free guard restore check missing")
     require("every video request restores config/video_creation_admission_policy.json and runs scripts/video_creation_admission.py before rendering" in checks, "handoff video admission check missing")
     require("video rendering is blocked unless local VOICEVOX and the ずんだもん standard cast are available; silent fallback is forbidden" in checks, "handoff VOICEVOX block check missing")
+    require(any("before blocking a video because VOICEVOX is unavailable" in value for value in checks), "handoff lost VOICEVOX start-before-block rule")
     return 0
 
 

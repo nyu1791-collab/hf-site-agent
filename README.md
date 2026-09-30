@@ -16,6 +16,7 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 この4ファイルは全ルールの複製ではない。詳細は `config/permanent_standards_manifest.json` から、依頼の意味に応じたSemantic Gateを解決する。
 
 - 動画・音声・字幕・キャラクター・BGM・SFX・画像素材・切り抜き・TikTok Shopメディア: `config/media_command_read_gate.json`
+- VOICEVOXの現在のローカル実行状態・起動・復旧手順: `docs/VOICEVOX_RUNTIME.md` / `scripts/with_local_voicevox.sh`
 - 現在の動画品質・視聴維持・時短改善をタブ跨ぎで即復元する補助Checkpoint: `config/current_media_quality_handoff.json`
 - 10〜15分目標の品質維持型メディア時短（マニフェストキャッシュ、最大3準備レーン、影響範囲修復、短尺1回エンコード、Jev typed計画）: `config/media_speed_quality_policy.json` / `scripts/media_speed_orchestrator.py`
 - 約60秒のずんだもん縦型ニュース用定型プロンプト、重要箇所だけの字幕色強調、VOICEVOX同期の口パク・意味連動の表情: `config/zundamon_news60_template.json` / `docs/ZUNDAMON_NEWS60_TEMPLATE.md` / `scripts/validate_zundamon_news60_template.py`

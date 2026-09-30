@@ -77,6 +77,8 @@ OpenAI・Anthropicなどの公式発表を優先する。画像は個別に拡�
 
 ## 実行と再利用
 
+音声生成前に `docs/VOICEVOX_RUNTIME.md` と `scripts/with_local_voicevox.sh` を使い、既存のローカルEngineを確認・起動してから実行時の話者一覧と `/version` を調べる。サーバープロセスが停止しているだけなら起動して続行する。環境がコマンドごとにlocalhost通信を分離するときは、Engine起動・Admission・音声生成・レンダーを同じシェルコマンドに束ねる。そこまで試してEngineまたは標準話者が本当に利用できない場合だけ、既存の `BLOCK_BEFORE_RENDER` 契約を適用する。
+
 `examples/approved_video_presentation.json` が題名・出典などの入力例。
 制作素材パッケージの音声・測定タイミング・公式フレーム・フォント・元シェル・合成キャッシュを
 復元し、パッケージ内のSHA256一覧と照合する。第三者の元素材を公開GitHubへ追加しない。

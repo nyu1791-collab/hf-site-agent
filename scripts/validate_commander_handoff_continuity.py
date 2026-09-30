@@ -120,6 +120,14 @@ def main() -> int:
     require(video_admission.get("status") == "ENFORCED_PERMANENT_STANDARD", "video creation admission is not enforced")
     require((video_admission.get("voice_contract") or {}).get("primary_voice") == "ずんだもん", "video admission primary voice drifted")
     require((video_admission.get("voice_contract") or {}).get("silent_video_fallback") is False, "video admission allows silent fallback")
+    runtime_bootstrap = (video_admission.get("voice_contract") or {}).get("runtime_bootstrap") or {}
+    require(runtime_bootstrap.get("start_local_engine_before_declaring_unavailable") is True, "VOICEVOX bootstrap must precede an unavailable decision")
+    require(runtime_bootstrap.get("launcher") == "scripts/with_local_voicevox.sh", "VOICEVOX launcher pointer drifted")
+    require((ROOT / "docs/VOICEVOX_RUNTIME.md").is_file(), "VOICEVOX runtime recovery document missing")
+    require((ROOT / "scripts/with_local_voicevox.sh").is_file(), "VOICEVOX startup launcher missing")
+    require((manifest.get("cross_tab_behavior") or {}).get("voicevox_runtime_bootstrap_survives_tab_change") is True, "VOICEVOX bootstrap is not cross-tab durable")
+    require("docs/VOICEVOX_RUNTIME.md" in (media_gate.get("trigger_sets", {}).get("VIDEO_CREATION", {}).get("required", [])), "video gate omits VOICEVOX recovery doc")
+    require("scripts/with_local_voicevox.sh" in (media_gate.get("trigger_sets", {}).get("VIDEO_CREATION", {}).get("required", [])), "video gate omits VOICEVOX startup launcher")
     require(free_guard.get("status") == "ENFORCED_PERMANENT_STANDARD", "free execution guard is not enforced")
 
     overrides = handoff.get("temporary_user_overrides") or {}

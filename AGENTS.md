@@ -8,7 +8,7 @@
 `config/permanent_standards_manifest.json` → `docs/AI_ARMY_MASTER_RULEBOOK.md` を読む。
 動画の制作・修正・短縮・型の改善を意味する依頼では、必ず
 `config/current_media_quality_handoff.json`、`config/approved_video_template.json`、
-`docs/VIDEO_PRODUCTION_BASELINE.md` を読み、`config/media_command_read_gate.json`
+`docs/VIDEO_PRODUCTION_BASELINE.md`、`docs/VOICEVOX_RUNTIME.md` を読み、`config/media_command_read_gate.json`
 から該当する追加ルールを復元する。単語の一致だけで判断しない。
 
 `scripts/restore_video_context.py` が参照一覧・内容ハッシュ・復元パックを出す。

@@ -32,6 +32,14 @@ class FreeExecutionGuardTests(unittest.TestCase):
         self.assertEqual(report["voicevox_unavailable_action"], "BLOCK_BEFORE_RENDER")
         self.assertEqual(report["paid_or_freemium_tts"], False)
 
+    def test_video_creation_bootstraps_installed_voicevox_before_blocking(self):
+        policy = json.loads((ROOT / "config/video_creation_admission_policy.json").read_text(encoding="utf-8"))
+        bootstrap = policy["voice_contract"]["runtime_bootstrap"]
+        self.assertEqual(bootstrap["document"], "docs/VOICEVOX_RUNTIME.md")
+        self.assertEqual(bootstrap["launcher"], "scripts/with_local_voicevox.sh")
+        self.assertTrue(bootstrap["start_local_engine_before_declaring_unavailable"])
+        self.assertTrue(bootstrap["preserve_block_if_bootstrap_or_standard_cast_still_fails"])
+
     def test_video_builder_cannot_bypass_runtime_admission(self):
         source = (ROOT / "scripts/build_free_news_video.py").read_text(encoding="utf-8")
         self.assertIn("require_runtime_admission", source)

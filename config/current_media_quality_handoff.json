@@ -72,7 +72,9 @@
     "config/media_user_visual_duration_preferences.json",
     "config/longform_video_objectives.json",
     "config/video_platform_delivery_profiles.json",
-    "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md"
+    "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md",
+    "docs/VOICEVOX_RUNTIME.md",
+    "scripts/with_local_voicevox.sh"
   ],
   "deepseek_review_checkpoint": {
     "workflow": ".github/workflows/deepseek-supervisor-research.yml",
@@ -371,8 +373,18 @@
     "official_archive_sha256": "bab016a966131b89bad398e7b898f8c742617dc80a7da49bf494cd07133dbc7a",
     "speed_scale": 1.2,
     "unchanged_measured_voice_reuse": true,
-    "runtime_availability": "CHECK_CURRENT_RUNTIME_DO_NOT_REUSE_HISTORICAL_BLOCK_STATUS",
-    "synthesis_of_changed_lines_requires_current_local_engine": true
+    "runtime_availability": "LOCAL_ENGINE_PRESENT_AND_SMOKE_TESTED_2026-09-30",
+    "synthesis_of_changed_lines_requires_current_local_engine": true,
+    "verified_engine_version": "0.25.2",
+    "verified_engine_directory": "/tmp/devday-voicevox/extracted/linux-cpu-x64",
+    "verified_checks": [
+      "/version",
+      "/speakers:ずんだもん+四国めたん",
+      "real_wav_synthesis_4.02_seconds"
+    ],
+    "runtime_launcher": "scripts/with_local_voicevox.sh",
+    "runtime_document": "docs/VOICEVOX_RUNTIME.md",
+    "tool_execution_network_isolation": "START_ENGINE_AND_CONSUMER_IN_ONE_SHELL_INVOCATION"
   },
   "next_tab_video_task": {
     "status": "NO_NEW_VIDEO_REQUEST_PENDING",

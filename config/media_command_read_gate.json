@@ -78,7 +78,9 @@
     "docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md",
     "config/media_user_visual_duration_preferences.json",
     "config/video_platform_delivery_profiles.json",
-    "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md"
+    "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md",
+    "docs/VOICEVOX_RUNTIME.md",
+    "scripts/with_local_voicevox.sh"
   ],
   "trigger_sets": {
     "VIDEO_CREATION": {
@@ -90,7 +92,9 @@
         "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
         "scripts/validate_zundamon_news60_template.py",
         "config/video_platform_delivery_profiles.json",
-        "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md"
+        "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md",
+        "docs/VOICEVOX_RUNTIME.md",
+        "scripts/with_local_voicevox.sh"
       ],
       "conditional": {
         "if_longform": [
