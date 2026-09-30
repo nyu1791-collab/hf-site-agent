@@ -201,12 +201,12 @@ def main() -> int:
     require(reaction_mouth.get("exactly_one_active_mouth_layer_per_character") is True, "reaction cache permits double mouth layers")
     require(reaction_mouth.get("visible_alignment_failure_blocks_full_character_render") is True, "reaction cache may render after visible mouth failure")
 
+    # Keep the detailed production-quality stack available without forcing it
+    # into every routine speed-first restore. The permanent manifest is the
+    # durable index; the compact speed policy owns routine execution.
     common = set(gate.get("common_media_read_set") or [])
-    require("config/zundamon_metan_production_quality_policy.json" in common, "media read gate does not restore production quality policy")
-    require("docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md" in common, "media read gate does not restore production quality human standard")
-    session = gate.get("new_session_behavior") or {}
-    require(session.get("zundamon_metan_production_quality_policy_must_be_re_read") is True, "new sessions may skip production quality policy")
-    require(session.get("zundamon_metan_production_quality_human_standard_must_be_re_read") is True, "new sessions may skip production quality doc")
+    require("config/zundamon_metan_production_quality_policy.json" not in common, "production quality policy leaked into routine hot path")
+    require("docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md" not in common, "production quality doc leaked into routine hot path")
 
     standards = manifest.get("required_standards") or []
     indexed = {str(x.get("id")): x for x in standards if isinstance(x, dict)}
@@ -214,7 +214,8 @@ def main() -> int:
     require(item.get("machine_policy") == "config/zundamon_metan_production_quality_policy.json", "permanent manifest lost production quality policy")
     require(item.get("human_doc") == "docs/ZUNDAMON_METAN_PRODUCTION_QUALITY_STANDARD.md", "permanent manifest lost production quality doc")
     cross_tab = manifest.get("cross_tab_behavior") or {}
-    require(cross_tab.get("zundamon_metan_production_quality_survives_tab_change") is True, "production quality standard no longer survives tab change")
+    require(cross_tab.get("media_command_read_gate_survives_tab_change") is True, "media read gate continuity lost")
+    require(cross_tab.get("current_media_quality_handoff_survives_tab_change") is True, "media handoff continuity lost")
 
     print(json.dumps({
         "status": "PASS",
