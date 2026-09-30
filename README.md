@@ -37,7 +37,7 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 ユーザーに「前に保存したファイル名」や同じ仕様をもう一度言わせることを前提にしない。低コストで判断できる曖昧さなら関連Read Setを少し広めに復元するが、毎回Repository全体を無差別に読むこともしない。**Semantic Recallは `保存 → 意味判定 → 現行Repository再読 → 適用` までを1セットとする。** 同一HEAD・同一Blobを同一タスク内ですでに読んでいる場合だけ、安全なRead Cache再利用を許容する。
 
-`config/current_media_quality_handoff.json` は現行の短い継続サマリーで、最終Authorityではない。動画タスクでは `config/media_command_read_gate.json#/speed_first_delivery_override/read_set` の12ファイルを通常の読込セットとして使う。長尺の制作方針は明示された尺に必要な資料だけを追加し、YMM4資料はYMM4を指定された場合だけ読む。既存素材の切り抜き・商品訴求・現在の事実確認も、それぞれ該当資料だけを追加する。通常動画はJevを必須にしない。
+`config/current_media_quality_handoff.json` は現行の短い継続サマリーで、最終Authorityではない。動画タスクでは `config/media_command_read_gate.json#/speed_first_delivery_override/read_set` の12ファイルを通常の読込セットとして使う。長尺の制作方針は明示された尺に必要な資料だけを追加し、YMM4資料はYMM4を指定された場合だけ読む。VOICEVOXの起動・復旧、55〜60秒ニュース短尺、プラットフォーム別の書き出し、既存素材の切り抜き、商品訴求、現在の事実確認も、実際に該当するときだけ資料を追加する。通常動画はJevを必須にしない。
 
 詳細が文書間で異なる場合は、最新の明示的ユーザー指示と安全境界を守ったうえで、現行Machine-readable Policy・Validator・CIを優先する。恒久ルールを変更する場合は会話だけで終わらせず、Machine Policy / Rulebook / Validator / CI / Read Gateの整合性を同じ変更で確認する。
 

@@ -104,7 +104,8 @@
     "measured_voicevox_timing_required": true,
     "explicit_critical_highlights_only": true,
     "voice_synchronized_mouth_and_semantic_facial_expression_required": true,
-    "static_character_renderer_allowed": false
+    "static_character_renderer_allowed": false,
+    "applies_only_when_user_requests_or_continues_55_to_60_second_zundamon_news_short": true
   },
   "platform_delivery_contract": {
     "profile_registry": "config/video_platform_delivery_profiles.json",
@@ -113,7 +114,8 @@
     "advice_scope_must_be_preserved": true,
     "metric_definition_and_observation_date_required": true,
     "platform_limits_must_be_rechecked_before_upload": true,
-    "unknown_analytics": "UNAVAILABLE_NOT_INVENTED"
+    "unknown_analytics": "UNAVAILABLE_NOT_INVENTED",
+    "applies_only_when_user_requests_platform_specific_export_or_delivery": true
   },
   "character_output_contract": {
     "native_layers_required": true,

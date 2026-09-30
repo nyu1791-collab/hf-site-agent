@@ -118,6 +118,28 @@
       "scope": "ONLY_WHEN_USER_EXPLICITLY_REQUESTS_YMM4",
       "machine_policy": "config/ymm4_research_explainer_profile.json",
       "human_doc": "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md"
+    },
+    "voicevox_runtime": {
+      "scope": "ONLY_WHEN_ENGINE_STARTUP_OR_RECOVERY_IS_NEEDED",
+      "files": [
+        "docs/VOICEVOX_RUNTIME.md",
+        "scripts/with_local_voicevox.sh"
+      ]
+    },
+    "shortform": {
+      "scope": "ONLY_WHEN_USER_REQUESTS_55_TO_60_SECOND_ZUNDAMON_NEWS_SHORT",
+      "files": [
+        "config/zundamon_news60_template.json",
+        "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+        "scripts/validate_zundamon_news60_template.py"
+      ]
+    },
+    "platform_delivery": {
+      "scope": "ONLY_WHEN_USER_REQUESTS_PLATFORM_SPECIFIC_EXPORT_OR_DELIVERY",
+      "files": [
+        "config/video_platform_delivery_profiles.json",
+        "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md"
+      ]
     }
   },
   "editorial_defaults": {

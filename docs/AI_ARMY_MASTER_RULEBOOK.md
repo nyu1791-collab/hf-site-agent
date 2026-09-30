@@ -8,6 +8,8 @@
 
 **台本の分かりやすさ:** 話題ごとに内容が分かる見出しを付け、各章は要点から説明する。平易な言葉を使い、必要な専門語だけ一度説明する。視聴者の理解や判断に不要な機能細部、長い前置き、同じ注意の反復を省く。詳しい条件が重要なときは、その箇所で短く示す。恒久ルールは `config/media_speed_quality_policy.json#/script_clarity_contract`。
 
+ユーザーから明示された内容・見出しの改善は、その範囲に絞って実施できる。速度優先は依頼された修正を禁止するルールではなく、未依頼の磨き込みや反復レビューを省くためのルール。
+
 **Status:** Permanent compact operating index  
 **Effective:** 2026-09-30 JST  
 **Authority:** This document is the concise human-readable entry point. Machine policies in `config/permanent_standards_manifest.json` and the files it references remain authoritative when details differ.

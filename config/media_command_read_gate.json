@@ -77,6 +77,19 @@
           "examples/ymm4_research_explainer_script_template.json",
           "scripts/prepare_ymm4_research_explainer_package.py"
         ],
+        "if_voicevox_engine_startup_or_recovery_is_needed": [
+          "docs/VOICEVOX_RUNTIME.md",
+          "scripts/with_local_voicevox.sh"
+        ],
+        "if_user_requests_55_to_60_second_zundamon_news_short": [
+          "config/zundamon_news60_template.json",
+          "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+          "scripts/validate_zundamon_news60_template.py"
+        ],
+        "if_user_requests_platform_specific_export_or_delivery": [
+          "config/video_platform_delivery_profiles.json",
+          "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md"
+        ],
         "if_claim_bearing_or_current_factual_content": [
           "config/cross_source_knowhow_evidence_matrix.json",
           "config/cross_domain_measurement_registry.json",
