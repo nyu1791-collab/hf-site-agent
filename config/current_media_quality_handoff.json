@@ -309,5 +309,32 @@
     "emphasis": "semantic phrase/clause coloring without keyword boxes",
     "windows_editor_verification": "PENDING",
     "render_route_must_validate_capabilities": true
+  },
+  "next_tab_video_task": {
+    "status": "PREPARED_NOT_STARTED_WAITING_FOR_USER_VIDEO_REQUEST",
+    "topic": "OpenAI DevDay 2026 summary and explanation",
+    "event_date": "2026-09-29",
+    "research_snapshot_jst": "2026-09-30",
+    "official_primary_source": "https://openai.com/ja-JP/index/devday-2026-recap/",
+    "source_note": "OpenAI's official recap reports 20+ announcements and covers persistent agents, Codex/API, ChatGPT plugins, collaboration, and plans. Recheck the official source and current availability before scripting or rendering.",
+    "core_framing": "DevDay's broad direction is to make ChatGPT a shared work surface for people and agents, while expanding Codex and APIs for developers; distinguish the vision and announcements from features currently available on each plan.",
+    "confirmed_topics": [
+      "dots persistent agents with dedicated cloud computers; availability is plan-specific",
+      "GPT-6.1 Sol and Ultrafast speed tier",
+      "Codex cloud, refreshed CLI with voice and multi-agent task view, code review, and Codex Security Cloud",
+      "Decisions API limited preview and Agents API computer-use capability",
+      "ChatGPT Space, Living Pages, collaborative slides, team tasks, plugins, MCP events, and business features"
+    ],
+    "next_tab_execution": [
+      "When the user asks for video creation, reread the current repository handoff, admission policy, and media policies, then recheck official DevDay details and feature availability.",
+      "Use the existing media template, VOICEVOX and mouth caches, verified assets, and checkpointed pipeline; regenerate only outputs whose inputs changed.",
+      "If duration is unspecified, follow the current default explainer profile; use the 55-60 second template only when the user requests a short.",
+      "Use local VOICEVOX at the established rate and derive subtitles from measured WAV duration.",
+      "Keep renderer capability checks fail-closed; do not claim YMM4 mouth, expression, or subtitle behavior is verified until the Windows fixture passes.",
+      "Finish with the existing decode, caption, audio, and representative visual checks; do not publish or upload."
+    ],
+    "user_trigger_required": true,
+    "production_started": false,
+    "public_release_authorized": false
   }
 }
