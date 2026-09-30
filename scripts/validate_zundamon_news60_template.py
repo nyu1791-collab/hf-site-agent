@@ -70,7 +70,7 @@ def validate() -> dict[str, Any]:
     require({"speaker", "voice_text", "caption_text", "emotion", "semantic_beat_id", "visual_beat", "source_claim_ids", "emphasis_terms", "emphasis_reason"}.issubset(required_dialogue), "structured dialogue fields incomplete")
 
     colors = template.get("caption_color") or {}
-    require(colors.get("speaker_identity_colors") == {"ずんだもん": "#4DE084", "四国めたん": "#FF5BB9"}, "speaker caption color mapping drift")
+    require(colors.get("speaker_identity_colors") == {"ずんだもん": "#B8E6C8", "四国めたん": "#F2C4D7"}, "speaker caption color mapping drift")
     require(colors.get("automatic_keyword_highlighting") is False, "automatic keyword highlighting was re-enabled")
     require(colors.get("default_special_highlights_per_video") == 0, "special color is no longer opt-in")
     require(colors.get("maximum_special_highlights_per_semantic_beat") == 1, "too many special highlights per beat")
@@ -90,7 +90,7 @@ def validate() -> dict[str, Any]:
     profile = next((x for x in approved if x.get("template_id") == "zundamon_news60"), None)
     require(profile is not None, "static-character policy has no scoped shortform animation exception")
     require(profile.get("mouth_animation") is True and profile.get("semantic_facial_expression_changes") is True, "template motion exception is incomplete")
-    require((static_policy.get("character_rendering") or {}).get("default_mode") == "STATIC_TURN_FOCUS", "general static default was removed outside the selected template")
+    require((static_policy.get("character_rendering") or {}).get("default_mode") == "SPEECH_SYNC_MOUTH_PLUS_SPARSE_SEMANTIC_EXPRESSION", "current character performance default drift")
 
     required_paths = {
         "config/zundamon_news60_template.json",
@@ -142,3 +142,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

@@ -92,18 +92,18 @@ def main() -> int:
     fonts = list(caption.get("preferred_fonts_in_order") or [])
     for required_font in ("ラグランパンチ", "キルゴシック", "源ノ角ゴシック Heavy", "コーポレート・ロゴ"):
         require(required_font in fonts, f"preferred caption font missing: {required_font}")
-    require(caption.get("base_text_color") == "#FFFFFF", "base caption text must remain white")
+    require(caption.get("base_text_color") == "PALE_SPEAKER_TINT", "base caption text must use current pale speaker tint")
     require(caption.get("double_outline_required") is True, "double-outline caption style was disabled")
     inner = caption.get("inner_outline") or {}
     outer = caption.get("outer_outline") or {}
-    require(inner.get("color") == "#000000", "inner caption outline must remain black")
+    require(inner.get("color") == "#08101B", "inner caption outline must retain current dark contrast")
     require(inner.get("width_px_range") == [3, 5], "inner caption outline width drifted")
     require(outer.get("width_px_range") == [6, 10], "outer caption outline width drifted")
     require(outer.get("color_source") == "CURRENT_SPEAKER_CHARACTER_COLOR", "outer caption outline no longer follows speaker color")
     colors = caption.get("character_theme_colors") or {}
-    require(colors.get("ずんだもん") == "#8BC34A", "Zundamon caption color drifted")
-    require(colors.get("四国めたん") == "#E91E63", "Shikoku Metan caption color drifted")
-    require(set(caption.get("emphasis_word_colors") or []) == {"#FFEB3B", "#F44336"}, "emphasis word colors drifted")
+    require(colors.get("ずんだもん") == "#B8E6C8", "Zundamon caption color drifted")
+    require(colors.get("四国めたん") == "#F2C4D7", "Shikoku Metan caption color drifted")
+    require(set(caption.get("emphasis_word_colors") or []) == {"#F6DB98", "#E7A6AA"}, "emphasis word colors drifted")
     require(caption.get("emphasis_word_scale") == 1.2, "emphasis word scale must remain 1.2")
     require(caption.get("caption_backplate_required") is True, "caption backplate was disabled")
     require(caption.get("max_characters_per_line") == 15, "caption line limit must remain 15 characters")
@@ -160,3 +160,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

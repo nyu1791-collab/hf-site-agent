@@ -71,28 +71,35 @@ def main() -> int:
     require(captions.get("caption_text_must_not_be_truncated_by_fixed_line_count") is True, "caption truncation re-enabled")
     require(captions.get("speaker_colored_border_required") is True, "speaker-colored border removed")
     require(captions.get("speaker_colored_caption_text_required") is True, "speaker-colored caption text removed")
-    require(captions.get("zundamon_caption_text_color_role") == "BRIGHT_GREEN", "Zundamon caption text color drift")
-    require(captions.get("metan_caption_text_color_role") == "BRIGHT_PINK_MAGENTA", "Metan caption text color drift")
-    require(captions.get("caption_body_color_role") == "MATCH_ACTIVE_SPEAKER_ACCENT", "caption body is no longer speaker-colored")
+    require(captions.get("zundamon_caption_text_color_role") == "PALE_MINT_GREEN", "Zundamon caption text color drift")
+    require(captions.get("metan_caption_text_color_role") == "PALE_ROSE_PINK", "Metan caption text color drift")
+    require(captions.get("caption_body_color_role") == "PALE_SPEAKER_TINT", "caption body is no longer speaker-colored")
     require(captions.get("white_caption_body_as_default_for_zundamon_metan") is False, "white caption body re-enabled as default")
     require(captions.get("important_term_emphasis_required_when_marked") is True, "important-term emphasis disabled")
-    require(set(captions.get("important_term_emphasis_colors") or []) == {"#FFEB3B", "#F44336"}, "important-term colors drift")
+    require(set(captions.get("important_term_emphasis_colors") or []) == {"#F6DB98", "#E7A6AA"}, "important-term colors drift")
     require(captions.get("topic_heading_granularity") == "SEMANTIC_CONTENT_BLOCK_NOT_EVERY_UTTERANCE", "heading granularity drift")
     require(captions.get("per_utterance_heading_forbidden_by_default") is True, "per-utterance headings re-enabled")
 
     character = policy.get("character_rendering") or {}
-    require(character.get("default_mode") == "STATIC_TURN_FOCUS", "character mode drift")
+    require(character.get("default_mode") == "SPEECH_SYNC_MOUTH_PLUS_SPARSE_SEMANTIC_EXPRESSION", "character mode drift")
     for field in (
-        "character_idle_animation", "mouth_animation", "automatic_lipsync", "blink_animation",
-        "head_tilt_animation", "pose_animation", "body_bob_or_vertical_bounce",
+        "character_idle_animation", "blink_animation",
+        "body_bob_or_vertical_bounce",
         "reaction_symbol_animation", "entry_exit_animation_per_line",
-        "continuous_zoom_or_pan_on_character", "expression_swap_during_normal_dialogue",
+        "continuous_zoom_or_pan_on_character",
     ):
         require(character.get(field) is False, f"unrequested character motion re-enabled: {field}")
+    for field in ("mouth_animation", "automatic_lipsync", "expression_swap_during_normal_dialogue",
+                  "expression_change_must_follow_authored_or_typed_semantic_state",
+                  "visible_state_change_required_for_final_motion_pass",
+                  "static_renderer_must_not_be_used_as_final_for_character_performance_profile"):
+        require(character.get(field) is True, f"required character performance disabled: {field}")
+    for field in ("head_tilt_animation", "pose_animation"):
+        require(character.get(field) == "SEMANTICALLY_OPTIONAL", f"semantic motion scope drift: {field}")
     active = character.get("active_speaker") or {}
     inactive = character.get("inactive_listener") or {}
     require(float(active.get("scale")) == 1.08 and int(active.get("opacity_percent")) == 100, "active speaker focus drift")
-    require(float(inactive.get("scale")) == 1.0 and int(inactive.get("opacity_percent")) == 55, "inactive listener focus drift")
+    require(float(inactive.get("scale")) == 1.0 and int(inactive.get("opacity_percent")) == 72, "inactive listener focus drift")
 
     pacing = policy.get("production_pacing") or {}
     require(pacing.get("longform_target_duration_seconds") == [360, 720], "longform target must remain 6-12 minutes")
@@ -157,3 +164,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
