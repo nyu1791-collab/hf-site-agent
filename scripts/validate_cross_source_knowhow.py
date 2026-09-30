@@ -144,9 +144,11 @@ def main() -> int:
     require("NOT_MANDATE" in str(experiment.get("japan_five_plus_posts_per_week_guidance_status")), "posting-frequency guidance became mandate")
 
     standards = manifest.get("required_standards") or []
-    standard_ids = {str(x.get("id")) for x in standards if isinstance(x, dict)}
+    indexed = {str(x.get("id")): x for x in standards if isinstance(x, dict)}
+    standard_ids = set(indexed)
     require("cross-source-knowhow-evidence" in standard_ids, "manifest lost cross-source evidence")
     require("cross-domain-measurement-registry" in standard_ids, "manifest lost measurement registry")
+    require(indexed["cross-source-knowhow-evidence"].get("human_doc") == "docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md", "manifest lost cross-source adjudication doc")
     evidence = manifest.get("evidence_and_measurement") or {}
     require(evidence.get("do_not_synthesize_missing_platform_analytics") is True, "manifest lost synthetic analytics guard")
     require(evidence.get("optimization_claim_requires_baseline_and_guardrails") is True, "manifest lost baseline/guardrail requirement")
@@ -159,7 +161,6 @@ def main() -> int:
     claim_reads = set((video_trigger.get("conditional") or {}).get("if_claim_bearing_or_current_factual_content") or [])
     require("config/cross_source_knowhow_evidence_matrix.json" in claim_reads, "claim-bearing video gate lost evidence matrix")
     require("config/cross_domain_measurement_registry.json" in claim_reads, "claim-bearing video gate lost measurement registry")
-    require("docs/CROSS_SOURCE_KNOWHOW_ADJUDICATION_2026-09-13.md" in claim_reads, "claim-bearing video gate lost adjudication doc")
 
     shop_reads = set((trigger_sets.get("TIKTOK_SHOP_COMMERCE") or {}).get("required") or [])
     require("config/cross_source_knowhow_evidence_matrix.json" in shop_reads, "shop gate lost evidence matrix")
