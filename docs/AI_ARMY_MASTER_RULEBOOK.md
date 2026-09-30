@@ -169,18 +169,21 @@ Keep the rulebook short by moving volatile facts and long evidence lists into re
 No main direct push, PR merge, production deploy/publish, secret mutation/disclosure, Durable Object change, auto top-up or generic paid fallback without the required explicit authorization. Paid scope is limited to the separately authorized DeepSeek Executive Supervisor and Jev Fast Decision Plane; neither exception authorizes any other paid provider. External agents do not gain final authority from this rulebook.
 
 
-## 2026-09-30 表情・口同期・意味単位の強調
+## 現行の動画制作ルール（2026-09-30統合）
 
-正本は `config/media_performance_efficiency_policy.json`、詳細と一次情報は
-`docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md`。60秒用では実測音声に同期した
-口の開閉と意味に沿う表情を必須にし、静止画rendererへの無言のfallbackを拒否する。
-重要な結論・注意点の句/節を字幕原文の範囲で色変更する。単語抽出・囲み・カード化や
-全出現への自動着色はしない。音声は表情・字幕色だけの変更では再生成しない。
-CSVは二列の発話読込であり、表情/秒数/字幕色が自動反映済みと説明しない。
-YMM4の実際の適用はWindows fixture確認が必要。追加コードは準備計画であって
-完成動画のアニメーションrendererではない。今回の作業では動画を作成しない。
+正本は `config/media_user_visual_duration_preferences.json` と
+`config/media_performance_efficiency_policy.json`。次のタブでもREADME→現行handoff→
+permanent manifest→本書→Media Gateの順で復元する。過去動画の見た目を現行仕様とみなさない。
 
-再利用を制作の既定にする。WAVキャッシュは文章・engine/style・速度・発音辞書と出力形式で識別し、
-口解析キャッシュは実音声hashと解析版で識別する。同じ入力なら音声合成・口解析を繰り返さない。
-表情や字幕色の修正だけで音声を作り直さず、キャラ素材・フォント・テンプレート・取得済み素材も再利用する。
-詳細は `docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md` の再利用追加実装を参照する。
+- 公式情報はOpenAI・Anthropic/Claudeの公式発表を優先。Xは公式サイトからアカウントを照合する。
+- 画像はメディアビューアで拡大し画像部分を取得。動画は拡大プレイヤーで重要な場面を止めて引用する。フィード全体、ログイン欄、返信、サイドバーを主映像にしない。
+- 引用には公式アカウント、投稿URL、公開・取得時刻、画像番号または動画時刻、説明する主張を残す。映像内に出典を表示。再生できない動画を見たことにせず、静止画代替はその旨を明示する。
+- 字幕はずんだもんの淡いミント `#B8E6C8`、四国めたんの淡いピンク `#F2C4D7`。濃い緑・濃いピンクや青への変更指示は旧仕様。暗い細い縁と控えめな背景で読みやすくする。重要な句・節だけ淡い黄・淡い赤で強調し、単語を囲わない。
+- 両キャラは話す時に口差分を実音声へ同期し、待機と無音では閉口。意味に沿った表情を少数使い、全編同じ顔や上下揺れだけで演技完了にしない。
+- 口を含まない本体へ純正の目・眉・口レイヤーを一つずつ合成する。二重口、顔から浮く口、目鼻への重なりを拒否。素材の座標とサイズが同じ場合は表情合成をキャッシュして使う。
+- 音声・タイミング・素材を先に再利用。字幕色と表情だけの修正で再合成しない。`scripts/render_reusable_short.py` は既存音声と純正差分で短尺を描画する。RMS口パクは音量連動の近似であり音素別の厳密な口形とは区別する。
+- 字幕や静止キャラが焼き込まれた旧MP4を切るだけでは演技修正にならない。音声を保持して対象の描画層を差し替え、完成映像の口と表情が変わることを確認する。
+- YMM4は実際に確認した基準プロジェクトを複製して使用。CSV/sidecar生成を自動適用済みと呼ばない。Windows未検証の状態を今回のPython動画の成功から変更しない。
+- 修正後は代表フレーム、両キャラの口と表情、字幕、出典、再生可能な音声付きMP4を見直す。新ルールと検査を同時に更新し、古い矛盾する文章は本節へ統合する。
+
+再利用・基準複製の詳細は `docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md`。

@@ -3,7 +3,7 @@
   "effective_date_jst": "2026-09-30",
   "status": "MANDATORY_MEDIA_STANDARD",
   "decision_owner": "chatgpt-top-commander",
-  "purpose": "Reduce media production latency and visual awkwardness by using searched evidence-bearing real photos or primary-source visuals instead of generated background images, keeping Zundamon/Shikoku Metan visually static except for deterministic speaker-focus switching, enforcing complete readable speaker-colored captions with semantic topic headings, and keeping longform information flow continuous without deliberate padding.",
+  "purpose": "Use enlarged official evidence media, pale full-spoken captions, reusable native layers and actual waveform-synchronized semantic character acting. Static turn-focus is an explicit special-purpose profile, not the default for acting requests.",
   "applies_to": [
     "VIDEO_CREATION",
     "SHORTS",

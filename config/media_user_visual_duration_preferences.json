@@ -118,5 +118,45 @@
     "require_mouth_and_full_face_fixtures_for_both_characters": true,
     "preserve_incremental_reuse_of_voice_captions_evidence_and_unchanged_scenes": true,
     "no_constant_bobbing_or_unmotivated_animation": true
+  },
+  "official_source_capture": {
+    "preferred_publishers": [
+      "OpenAI official",
+      "Anthropic official / Claude"
+    ],
+    "verify_official_account_from_official_site": true,
+    "image": "OPEN_MEDIA_VIEWER_ENLARGE_THEN_CAPTURE_IMAGE_REGION",
+    "video": "ENLARGE_PLAYER_SEEK_RELEVANT_MOMENT_PAUSE_CAPTURE_FRAME",
+    "whole_feed_or_page_as_default": false,
+    "omit_login_sidebars_replies_and_unrelated_UI": true,
+    "preserve_embedded_labels_and_claim_qualifiers": true,
+    "record_fields": [
+      "official_account",
+      "post_url",
+      "published_at",
+      "captured_at",
+      "media_index",
+      "video_timestamp_seconds",
+      "claim_mapping"
+    ],
+    "caption_source_credit_required": true,
+    "do_not_invent_unplayed_video_frames": true,
+    "fallback": "CREDITED_OFFICIAL_STILL_OR_POSTER_LABELLED_AS_SUCH"
+  },
+  "character_final_output": {
+    "speaking_mouth_states": [
+      "CLOSED",
+      "HALF",
+      "OPEN"
+    ],
+    "silent_listener_mouth": "CLOSED",
+    "semantic_expression_changes_visible": true,
+    "sidecar_or_plan_is_not_finished_animation": true,
+    "reuse_native_character_layers": true,
+    "no_synthetic_mouth_or_double_mouth": true,
+    "representative_final_frames_required": true,
+    "native_renderer": "scripts/render_reusable_short.py",
+    "mouth_method": "RMS_APPROXIMATION_NOT_PHONEME_LIPSYNC",
+    "retire_baked_static_clip_for_acting_requests": true
   }
 }

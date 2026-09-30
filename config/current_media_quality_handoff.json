@@ -102,12 +102,10 @@
       "full spoken captions and reusable production artifacts"
     ],
     "improve": [
-      "use pale mint Zundamon captions (#B8E6C8) and pale rose Metan captions (#F2C4D7) with strong dark outline and mobile contrast",
-      "make voice-synchronized mouth movement and semantic expression changes visibly present in the final output",
-      "route longform two-character explainers to the dynamic YMM4/motion-capable profile; never silently accept a static portrait renderer",
-      "explain three to five key points in plain Japanese, grouping related announcements and giving each one practical example plus material limitations",
-      "use 4-6 minutes for a focused issue, 6-8 for a concise broad summary, and 8-12 only when supported depth adds understanding",
-      "retain unchanged narration, timing, screenshots, captions, and scenes; repair the smallest affected layer"
+      "公式画像は拡大した画像領域、公式動画は重要時刻の拡大フレームを引用する",
+      "淡いミント・淡いピンク字幕を用い、濃い字幕へ退行しない",
+      "完成映像で両キャラの口と意味に沿う表情が実際に変わる",
+      "音声を再利用し、焼き込み旧動画の切り出しで演技修正を済ませない"
     ]
   },
   "adopted_media_decisions": [
@@ -673,5 +671,12 @@
     "artifact_retention_days": 30,
     "windows_baseline_status": "REQUIRES_ACTUAL_WINDOWS_PREVIEW_RECEIPT",
     "reuse_preserves_edited_projects": true
+  },
+  "current_corrected_renderer": {
+    "runtime": "scripts/render_reusable_short.py",
+    "native_character_layers": true,
+    "waveform_mouth_sync": "RMS_APPROXIMATION",
+    "windows_end_to_end_verified": false,
+    "canonical_rules": "docs/AI_ARMY_MASTER_RULEBOOK.md#現行の動画制作ルール2026-09-30統合"
   }
 }
