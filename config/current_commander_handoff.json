@@ -60,7 +60,8 @@
     "openrouter_worker_recent_evidence": "config/openrouter_worker_recent_evidence.json",
     "final_execution_admission_guard": "scripts/final_execution_admission_guard.py",
     "speed_first_video_delivery": "config/media_speed_quality_policy.json#/speed_first_delivery",
-    "speed_first_delivery": "config/media_speed_quality_policy.json#/speed_first_delivery"
+    "speed_first_delivery": "config/media_speed_quality_policy.json#/speed_first_delivery",
+    "visual_rich_video_delivery": "config/media_speed_quality_policy.json#/visual_density_contract"
   },
   "peer_review_status": {
     "completed": true,

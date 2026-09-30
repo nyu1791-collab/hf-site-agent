@@ -66,7 +66,10 @@
     "whole_page_feed_login_sidebar_forbidden": true,
     "enlarge_media_without_cropping_embedded_qualifiers": true,
     "provenance_scope": "EXTERNAL_OR_REUSED_VISUAL_ASSETS_ONLY",
-    "original_simple_visuals_may_use_creator_provenance": true
+    "original_simple_visuals_may_use_creator_provenance": true,
+    "visual_density_policy": "config/media_speed_quality_policy.json#/visual_density_contract",
+    "distinct_relevant_visuals_per_main_section_minimum": 2,
+    "distinct_relevant_visuals_per_main_section_target_maximum": 4
   },
   "free_execution_contract": {
     "local_voicevox_only": true,

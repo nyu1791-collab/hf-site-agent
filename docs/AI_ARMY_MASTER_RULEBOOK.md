@@ -167,4 +167,4 @@ No main direct push, PR merge, production deploy/publish, secret mutation/disclo
 
 ## Video production details
 
-Renderer and asset-cache instructions live in `docs/VIDEO_PRODUCTION_BASELINE.md` for explicit repair or tool-specific requests. Old visual-review checklists, style corrections and long duration targets are not routine delivery requirements.
+Every video task reads `config/media_speed_quality_policy.json#/visual_density_contract`: use 2–4 distinct, relevant image or diagram beats per main section when suitable, reuse only cleared assets that still match, and preserve provenance for external visuals. This does not add a routine preview or review pass. Renderer and asset-cache instructions live in `docs/VIDEO_PRODUCTION_BASELINE.md` for explicit repair or tool-specific requests. Old visual-review checklists, style corrections and long duration targets are not routine delivery requirements.

@@ -140,6 +140,20 @@ def static_admission() -> dict[str, Any]:
     for key in ("claim_bearing_news_requires_related_visual_plan", "source_page_required", "asset_locator_required", "license_or_public_domain_state_required", "scene_or_claim_mapping_required", "semantic_match_required"):
         if visuals.get(key) is not True:
             failures.append(f"related visual provenance rule missing: {key}")
+    visual_pointer = "config/media_speed_quality_policy.json#/visual_density_contract"
+    if visuals.get("visual_density_policy") != visual_pointer:
+        failures.append("image-rich visual density policy pointer is missing")
+    if visuals.get("distinct_relevant_visuals_per_main_section_minimum") != 2:
+        failures.append("at least two distinct relevant visuals per main section must be required")
+    if visuals.get("distinct_relevant_visuals_per_main_section_target_maximum") != 4:
+        failures.append("visual density target maximum must remain four")
+    try:
+        speed_policy = load_json(ROOT / "config/media_speed_quality_policy.json")
+        density = speed_policy.get("visual_density_contract", {})
+        if density.get("visual_beats_per_main_section", {}).get("minimum") != 2 or density.get("visual_beats_per_main_section", {}).get("target_range") != [2, 4]:
+            failures.append("speed policy and admission visual density limits disagree")
+    except (OSError, ValueError) as exc:
+        failures.append(f"visual density speed policy could not be loaded: {type(exc).__name__}")
     if visuals.get("provenance_scope") != "EXTERNAL_OR_REUSED_VISUAL_ASSETS_ONLY":
         failures.append("visual provenance scope must distinguish external assets from original simple visuals")
     if visuals.get("original_simple_visuals_may_use_creator_provenance") is not True:

@@ -48,6 +48,9 @@ class VideoCreationAdmissionTests(unittest.TestCase):
                     "AUDIO_AND_VIDEO_STREAMS_PRESENT",
                 ]
             },
+            "visual_density_contract": {
+                "visual_beats_per_main_section": {"minimum": 2, "target_range": [2, 4]},
+            },
             "script_clarity_contract": {
                 "topic_headings": {
                     "use_clear_heading_for_each_main_topic": True,
@@ -89,6 +92,9 @@ class VideoCreationAdmissionTests(unittest.TestCase):
                 "license_or_public_domain_state_required": True,
                 "scene_or_claim_mapping_required": True,
                 "semantic_match_required": True,
+                "visual_density_policy": "config/media_speed_quality_policy.json#/visual_density_contract",
+                "distinct_relevant_visuals_per_main_section_minimum": 2,
+                "distinct_relevant_visuals_per_main_section_target_maximum": 4,
                 "provenance_scope": "EXTERNAL_OR_REUSED_VISUAL_ASSETS_ONLY",
                 "original_simple_visuals_may_use_creator_provenance": True,
                 "unknown_rights_action": "BLOCK_BEFORE_RENDER",
@@ -118,6 +124,15 @@ class VideoCreationAdmissionTests(unittest.TestCase):
         self.assertEqual(report["required_read_set"], self.read_set)
         self.assertEqual(len(report["routine_output_checks"]), 3)
         self.assertEqual(report["caption_renderers"]["longform"], "scripts/render_reusable_longform.py")
+
+
+    def test_visual_density_is_pinned_to_speed_policy(self):
+        policy = json.loads(admission.POLICY_PATH.read_text())
+        policy["visual_asset_contract"]["distinct_relevant_visuals_per_main_section_minimum"] = 1
+        admission.POLICY_PATH.write_text(json.dumps(policy), encoding="utf-8")
+        report = admission.static_admission()
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertTrue(any("at least two distinct relevant visuals" in failure for failure in report["failures"]))
 
     def test_renderer_must_be_declared_and_present_for_each_profile(self):
         policy = json.loads(admission.POLICY_PATH.read_text())
