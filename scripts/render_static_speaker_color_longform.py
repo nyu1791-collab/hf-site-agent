@@ -21,10 +21,10 @@ HEADING_BOX = (90, 1094, 990, 1150)
 CHARACTER_BOTTOM = 1900
 INACTIVE_CHARACTER_H = 390
 ACTIVE_CHARACTER_H = int(round(INACTIVE_CHARACTER_H * ACTIVE_SCALE))
-ZUNDAMON_ACCENT = (77, 224, 132, 255)
-METAN_ACCENT = (255, 91, 185, 255)
-EMPHASIS_YELLOW = (255, 235, 59, 255)
-EMPHASIS_RED = (244, 67, 54, 255)
+ZUNDAMON_ACCENT = (184, 230, 200, 255)  # pale mint, readable over dark stroke
+METAN_ACCENT = (242, 196, 215, 255)     # pale rose, readable over dark stroke
+EMPHASIS_YELLOW = (246, 219, 152, 255) # muted warm highlight
+EMPHASIS_RED = (231, 166, 170, 255)    # muted correction/warning highlight
 
 SCENE_ASSET = {
     "S01": "openai_hq_1515_third_street",
@@ -738,6 +738,7 @@ def main() -> int:
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--asset-registry", default="config/media_reusable_asset_standard.json")
     parser.add_argument("--preview-only", action="store_true")
+    parser.add_argument("--allow-static-final", action="store_true", help="explicitly permit a static-character final only when the selected mission does not request character motion")
     parser.add_argument(
         "--one-pass-final-encode",
         action="store_true",
@@ -747,6 +748,15 @@ def main() -> int:
 
     mission = decode_mission(Path(args.mission_b64))
     timing = json.loads(Path(args.timing).read_text(encoding="utf-8"))
+    dynamic_profile = (
+        mission.get("performance_profile") in {"zundamon_news60", "ymm4_research_explainer"}
+        or mission.get("template_id") in {"zundamon_news60", "ymm4_research_explainer"}
+        or mission.get("output_format") in {"longform_research_explainer", "LONGFORM_RESEARCH_EXPLAINER", "NEWS60"}
+    )
+    if not args.preview_only and dynamic_profile:
+        raise RuntimeError("STATIC_RENDERER_BLOCKED_FOR_DYNAMIC_CHARACTER_PROFILE: use a verified YMM4 or motion-capable renderer adapter")
+    if not args.preview_only and not args.allow_static_final:
+        raise RuntimeError("STATIC_FINAL_REQUIRES_EXPLICIT_OPT_IN; this renderer cannot animate mouths or semantic expressions")
     if len(timing.get("records", [])) != sum(len(scene["dialogue"]) for scene in mission["scenes"]):
         raise RuntimeError("mission/timing line-count mismatch")
     if float(timing.get("subtitle_narration_coverage_ratio", 0)) != 1.0:
@@ -778,6 +788,8 @@ def main() -> int:
         "speaker_colored_caption_text": True,
         "voice_speed_scale_expected": 1.2,
         "mouth_animation": False,
+        "semantic_expression": False,
+        "renderer_capability_status": "STATIC_ONLY_PREVIEW_OR_EXPLICIT_STATIC_PROFILE",
         "photo_first": True,
         "rendered_photo_scene_count": json.loads((output_dir / "rendered-visual-evidence.json").read_text(encoding="utf-8"))["rendered_photo_scene_count"],
         "timing_records": len(timing["records"]),
