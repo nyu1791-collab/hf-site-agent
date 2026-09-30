@@ -3,7 +3,7 @@
   "effective_date_jst": "2026-09-30",
   "status": "MANDATORY_MEDIA_STANDARD",
   "decision_owner": "chatgpt-top-commander",
-  "purpose": "Use enlarged official evidence media, pale full-spoken captions, reusable native layers and actual waveform-synchronized semantic character acting. Static turn-focus is an explicit special-purpose profile, not the default for acting requests.",
+  "purpose": "Use concise answer-first explanation, enlarged official media regions, pale mint/pink full-spoken captions, reusable native layers and measured speech-synchronized mouth and semantic expressions for both characters.",
   "applies_to": [
     "VIDEO_CREATION",
     "SHORTS",
@@ -68,7 +68,12 @@
     "reuse_cached_verified_asset_when_semantically_fit": true,
     "do_not_redownload_identical_verified_asset_without_reason": true,
     "generated_illustration_allowed_only_when_user_explicitly_requests_it_or_no_factual_evidence_role_exists": true,
-    "generated_illustration_must_be_labeled_non_evidentiary_when_claim_bearing_context_exists": true
+    "generated_illustration_must_be_labeled_non_evidentiary_when_claim_bearing_context_exists": true,
+    "media_region_only_required": true,
+    "whole_page_or_feed_as_default": false,
+    "enlarge_media_to_maximum_reserved_size_preserving_aspect_ratio": true,
+    "exclude_login_navigation_sidebar_replies_and_unrelated_player_chrome": true,
+    "preserve_embedded_claim_labels_and_qualifiers": true
   },
   "voice_delivery": {
     "voicevox_speed_scale": 1.2,
@@ -83,7 +88,7 @@
     "every_spoken_turn_must_have_visible_caption_text": true,
     "full_spoken_text_contract": "FULL_SPOKEN_TEXT",
     "summary_caption_may_not_replace_narration": true,
-    "caption_coverage_ratio_minimum": 0.7,
+    "caption_coverage_ratio_minimum": 1.0,
     "caption_text_must_not_be_truncated_by_fixed_line_count": true,
     "fit_strategy": [
       "semantic_wrap",
@@ -96,8 +101,8 @@
     "caption_panel_must_not_overlap_evidence_or_source_attribution": true,
     "speaker_colored_border_required": true,
     "speaker_colored_caption_text_required": true,
-    "zundamon_border_color_role": "BRIGHT_GREEN",
-    "metan_border_color_role": "BRIGHT_PINK_MAGENTA",
+    "zundamon_border_color_role": "PALE_MINT_GREEN",
+    "metan_border_color_role": "PALE_ROSE_PINK",
     "zundamon_caption_text_color_role": "PALE_MINT_GREEN",
     "metan_caption_text_color_role": "PALE_ROSE_PINK",
     "caption_body_color_role": "PALE_SPEAKER_TINT",
@@ -201,15 +206,16 @@
     "reuse_verified_photos_when_semantically_fit": true
   },
   "production_efficiency": {
-    "canonical_static_speaker_color_renderer": "scripts/render_static_speaker_color_longform.py",
     "full_spoken_caption_validator": "scripts/validate_video_caption_contract.py",
-    "do_not_build_or_regenerate_character_reaction_pack_for_normal_static_turn_focus": true,
-    "do_not_run_full_face_mouth_fixture_for_unchanged_static_portraits": true,
     "do_not_generate_background_images_when_searchable_evidence_visual_exists": true,
     "preserve_existing_voice_and_timing_when_only_visual_assets_or_focus_state_change": true,
     "repair_smallest_affected_layer": true,
     "source_search_rights_check_and_asset_materialization_may_overlap_when_independent": true,
-    "quality_rights_and_claim_gates_cannot_be_skipped_for_speed": true
+    "quality_rights_and_claim_gates_cannot_be_skipped_for_speed": true,
+    "canonical_dynamic_short_renderer": "scripts/render_reusable_short.py",
+    "canonical_dynamic_longform_renderer": "scripts/render_reusable_longform.py",
+    "reuse_verified_native_mouth_and_expression_variants": true,
+    "full_face_fixture_when_native_layers_or_geometry_change": true
   },
   "minimum_qa": {
     "representative_active_speaker_scale_checked": true,
@@ -234,13 +240,10 @@
     "IMAGE_GENERATION_USED_WHEN_RIGHTS_VERIFIED_REAL_OR_PRIMARY_VISUAL_ALREADY_FITS",
     "EVIDENCE_VISUAL_WITHOUT_SOURCE_PAGE_OR_ASSET_LOCATOR",
     "PUBLIC_USE_WITH_UNKNOWN_OR_BLOCKED_IMAGE_RIGHTS",
-    "NORMAL_DIALOGUE_CHARACTER_LIPSYNC_OR_MOUTH_ANIMATION",
-    "NORMAL_DIALOGUE_CHARACTER_BLINK_HEAD_POSE_BOB_OR_REACTION_ANIMATION",
     "SPEECH_START_VERTICAL_BOUNCE",
     "CONTINUOUS_CHARACTER_ZOOM",
     "ACTIVE_SPEAKER_NOT_VISUALLY_EMPHASIZED",
     "ACTIVE_SPEAKER_NOT_FULLY_OPAQUE",
-    "INACTIVE_LISTENER_NOT_REDUCED_TO_HALF_TRANSPARENT_RANGE",
     "FOCUS_SWITCH_NOT_ALIGNED_TO_VOICE_TURN",
     "SPOKEN_TEXT_MISSING_FROM_CAPTIONS",
     "CAPTION_TRUNCATED_BY_FIXED_LINE_LIMIT",
@@ -251,7 +254,11 @@
     "VOICE_SPEED_DEFAULT_NOT_1_20_FOR_ZUNDAMON_METAN",
     "LONGFORM_OUTSIDE_6_TO_12_MINUTES_WITHOUT_EXPLICIT_REASON",
     "DELIBERATE_PADDING_OR_EXCESSIVE_DEAD_AIR",
-    "OLD_CHARACTER_MOTION_RULE_EXECUTED_DESPITE_THIS_POLICY_PRECEDENCE"
+    "OLD_CHARACTER_MOTION_RULE_EXECUTED_DESPITE_THIS_POLICY_PRECEDENCE",
+    "VISIBLE_SPEAKING_CHARACTER_WITHOUT_MEASURED_MOUTH_MOTION",
+    "VISIBLE_CHARACTERS_WITHOUT_AUTHORED_EXPRESSION_CHANGES",
+    "SATURATED_SPEAKER_PALETTE_REPLACES_APPROVED_PALE_PALETTE",
+    "WHOLE_PAGE_OR_FEED_USED_INSTEAD_OF_OFFICIAL_MEDIA_REGION"
   ],
   "template_scoped_overrides": {
     "scope": "STATIC_TURN_FOCUS is no longer the default for videos that show the two characters speaking. Character dialogue defaults to voice-synchronized mouth movement plus sparse semantic expressions. A static route is allowed only by explicit static intent or when characters are hidden while evidence is primary.",
@@ -281,5 +288,6 @@
         "full_face_fixture_before_full_render_when_character_geometry_changes": true
       }
     ]
-  }
+  },
+  "editorial_policy_reference": "config/approved_video_template.json#/editorial"
 }

@@ -5,7 +5,7 @@
   "scope": "ZUNDAMON_METAN_NEWS60_LONGFORM_RESEARCH_EXPLAINERS_AND_EXPLICIT_CHARACTER_PERFORMANCE_REQUESTS",
   "runtime": "scripts/media_performance_plan.py",
   "route_guard": "scripts/media_performance_route.py",
-  "authority": "LATEST_USER_REQUEST: voiced mouth motion, semantic expressions, phrase-level color without keyword boxes",
+  "authority": "LATEST_USER_REQUEST: clear concise summary, pale mint/pink captions, measured native mouth and semantic expression, enlarged official media regions",
   "character_performance": {
     "mode": "SPEAKING_MOUTH_SYNC_PLUS_SPARSE_SEMANTIC_EXPRESSION",
     "mouth_states": [
@@ -142,8 +142,9 @@
     }
   ],
   "precedence": {
-    "overrides": "config/evidence_visual_static_character_policy.json general static character rules",
+    "overrides": "conflicting historical character defaults; current dynamic requirements apply to short and long explainers",
     "scope": "zundamon_news60 or explicit character-performance requests only",
     "other_visual_rights_voice_and_safety_rules_unchanged": true
-  }
+  },
+  "precedence_note": "config/approved_video_template.json is the common short/long visual and concise editorial baseline; conflicting old static-character and saturated-caption instructions are removed."
 }

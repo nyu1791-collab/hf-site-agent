@@ -47,24 +47,30 @@ class PerformanceRouteTests(unittest.TestCase):
         self.assertEqual(selected_profile(mission),'static_turn_focus')
 
     def test_unrelated_template_does_not_become_performance_profile(self):
-        self.assertEqual(selected_profile({'template_id':'longform_research','target_duration_seconds':[360,720]}),'static_turn_focus')
+        self.assertEqual(selected_profile({'template_id':'longform_research','target_duration_seconds':[360,720]}),'ymm4_research_explainer')
 
     def test_static_route_cannot_drop_semantic_emphasis_spans(self):
-        mission={'performance_profile':'static_turn_focus','scenes':[{'dialogue':[{'emphasis_spans':[{'start':0,'end':2}]}]}]}
+        mission={'static_characters_explicitly_authorized':True,'performance_profile':'static_turn_focus','scenes':[{'dialogue':[{'emphasis_spans':[{'start':0,'end':2}]}]}]}
         with self.assertRaisesRegex(ValueError,'semantic caption spans'):
             require_renderer_capabilities(mission,{})
 
     def test_static_route_cannot_drop_spans_supplied_only_in_timing(self):
         with self.assertRaisesRegex(ValueError,'semantic caption spans'):
-            require_renderer_capabilities({'performance_profile':'static_turn_focus'},{},
+            require_renderer_capabilities({'static_characters_explicitly_authorized':True,'performance_profile':'static_turn_focus'},{},
                 timing_records=[{'caption_emphasis_spans':[{'start':0,'end':2}]}])
+
+    def test_short_static_profile_name_alone_cannot_disable_acting(self):
+        for mission in [{'format':'NEWS60','performance_profile':'static_turn_focus'},
+                        {'template_id':'static_turn_focus'}, {'performance_profile':'static_turn_focus'}]:
+            with self.assertRaisesRegex(ValueError,'explicit static authorization'):
+                selected_profile(mission)
 
     def test_unknown_profile_rejected(self):
         with self.assertRaises(ValueError):
             selected_profile({'performance_profile':'typo'})
 
     def test_explicit_static_request_can_select_static(self):
-        self.assertEqual(selected_profile({'format':'NEWS60','performance_profile':'static_turn_focus'}),'static_turn_focus')
+        self.assertEqual(selected_profile({'format':'NEWS60','performance_profile':'static_turn_focus','static_characters_explicitly_authorized':True}),'static_turn_focus')
 
 
 if __name__=='__main__':

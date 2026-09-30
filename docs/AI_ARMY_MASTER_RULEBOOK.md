@@ -82,6 +82,8 @@ Factual current-event, product, numeric, offer and policy claims use claim-level
 
 ## 4. Video creation and quality
 
+動画の内容は要点を先に分かりやすく伝える。短い導入、主要な変更3〜5個、必要な具体例を基本とし、注意事項は理解や利用判断が変わる条件だけを該当箇所で短く一度示す。一般的な前置き・注意・制作工程を繰り返さない。台本確定前に冗長箇所を削除・統合する。現行正本は `config/approved_video_template.json` の `editorial` と `docs/VIDEO_PRODUCTION_BASELINE.md`。
+
 When a video command arrives, reread the current media command gate and required media standards before planning, asset fetch, voice generation, render or publish handoff. The mandatory admission contract is `config/video_creation_admission_policy.json`, enforced by `scripts/video_creation_admission.py`; it must be restored from the repository on every new tab and run before any scene render.
 
 The permanent free-execution guard is `config/free_execution_guard.json`. Media work is free-only: paid or freemium video generation, editing, captioning and TTS services are blocked, and a paid media route must not even be probed to discover availability. If a verified free route is unavailable, stop and report the block; never open an upgrade/billing flow, silently substitute a paid service, use trial credits as if they were free, or retry the same paid route. The default fallback is local Python/Pillow/FFmpeg/ffprobe and locally verified free voice/audio tooling.

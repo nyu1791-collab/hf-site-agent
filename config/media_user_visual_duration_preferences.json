@@ -162,5 +162,6 @@
     "mouth_method": "RMS_APPROXIMATION_NOT_PHONEME_LIPSYNC",
     "retire_baked_static_clip_for_acting_requests": true,
     "native_longform_renderer": "scripts/render_reusable_longform.py"
-  }
+  },
+  "editorial_policy_reference": "config/approved_video_template.json#/editorial"
 }

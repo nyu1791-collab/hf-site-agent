@@ -1,3 +1,5 @@
+> **最新の内容方針:** 要点を先に分かりやすく。長い前置き・注意の繰り返しを省き、必要な条件だけ該当箇所で短く示す。正本は `config/approved_video_template.json` の `editorial`。見た目は淡いミント/ピンク、両キャラの音声連動口と意味に沿う表情、公式メディア部分の拡大を短尺・長尺で共通適用。
+
 > **動画制作の現行入口（2026-09-30）:** 承認済み約47秒動画の型は [`docs/VIDEO_PRODUCTION_BASELINE.md`](docs/VIDEO_PRODUCTION_BASELINE.md) と [`config/approved_video_template.json`](config/approved_video_template.json)。媒体別の最新仕様・配信変換・GitHub/Hugging Face再現ルールは [`docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md`](docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md) と [`config/video_platform_delivery_profiles.json`](config/video_platform_delivery_profiles.json) を読む。別タブでは [`AGENTS.md`](AGENTS.md) の復元順と `scripts/restore_video_context.py` を使い、旧報告より現在のGitHubを優先する。
 
 # hf-site-agent

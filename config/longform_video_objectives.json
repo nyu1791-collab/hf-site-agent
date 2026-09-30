@@ -67,8 +67,12 @@
         ]
       },
       "8_to_12_minute_range_requires_substantive_depth": true,
-      "do_not_add_details_only_to_reach_duration": true
-    }
+      "do_not_add_details_only_to_reach_duration": true,
+      "answer_before_generic_caution": true,
+      "repeated_warning_or_production_process_explanation_default": false,
+      "only_material_caveats_once_at_relevant_point": true
+    },
+    "editorial_policy_reference": "config/approved_video_template.json#/editorial"
   },
   "hard_completion_gate": {
     "final_mp4_required": true,

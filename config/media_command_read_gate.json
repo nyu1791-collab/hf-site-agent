@@ -221,9 +221,10 @@
       "mechanical render, timing, encoding, hashing, ffprobe and decode QA use deterministic tools instead of extra AI agents",
       "machine validators outrank model votes",
       "Use the user-approved config/approved_video_template.json baseline: native mouth movement synchronized to measured audio and authored sparse semantic expressions for both characters.",
-      "Use pale mint #B8E6C8 and pale pink #F2C4D7 captions; explicit static-only profiles are special-purpose alternatives.",
+      "Use pale mint #B8E6C8 and pale pink #F2C4D7 captions; both caption text and speaker borders use the approved pale palette.",
       "Official OpenAI/Anthropic images use enlarged individual-media capture; video uses a played paused meaningful frame and a media-only capture with source credit.",
-      "After tab change restore current branch HEAD, handoff, approved preset and source package; old reference history never replaces current policy."
+      "After tab change restore current branch HEAD, handoff, approved preset and source package; old reference history never replaces current policy.",
+      "Restore config/approved_video_template.json editorial rules on every relevant new tab: answer first, plain Japanese, 3-5 major changes, material caveats once at the relevant point; no repeated generic preamble or production-process narration."
     ],
     "video_creation": [
       "search is discovery, not a license",

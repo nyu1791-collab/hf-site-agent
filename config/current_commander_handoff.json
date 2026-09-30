@@ -73,7 +73,8 @@
     "final_execution_admission_guard": "scripts/final_execution_admission_guard.py",
     "media_performance_efficiency": "config/media_performance_efficiency_policy.json",
     "approved_video_template": "config/approved_video_template.json",
-    "native_dynamic_longform_renderer": "scripts/render_reusable_longform.py"
+    "native_dynamic_longform_renderer": "scripts/render_reusable_longform.py",
+    "concise_video_editorial": "config/approved_video_template.json#/editorial"
   },
   "peer_review_status": {
     "completed": true,

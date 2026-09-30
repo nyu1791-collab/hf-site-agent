@@ -19,6 +19,19 @@ def validate(root=ROOT):
     assert load('config/video_creation_admission_policy.json')['character_output_contract']['longform_renderer']==profile['longform_renderer']
     assert profile['acting']['native_layers_required'] and profile['acting']['silent_and_listener_mouth_closed']
     assert profile['acting']['expressions_from_authored_cues_not_topic_keyword_matching']
+    editorial=profile['editorial']
+    assert editorial['priority']=='CLEAR_CONCISE_VIEWER_UNDERSTANDING'
+    assert editorial['answer_first'] and editorial['script_review']['remove_repeated_preamble_warning_and_meta_process']
+    assert editorial['caveats']['attach_once_to_relevant_feature']
+    assert editorial['caveats']['repeat_generic_warning_per_chapter'] is False
+    assert editorial['caveats']['preserve_material_limits_and_factual_accuracy']
+    assert 'editorial' in ' '.join(gate['know_how_that_must_be_recovered']['common']), 'editorial standard missing at restoration'
+    assert manifest['media_command_gate']['concise_editorial_policy']=='config/approved_video_template.json#/editorial'
+    evidence=load('config/evidence_visual_static_character_policy.json')
+    assert evidence['caption_rendering']['metan_border_color_role']=='PALE_ROSE_PINK'
+    assert evidence['character_rendering']['mouth_animation'] and evidence['character_rendering']['expression_swap_during_normal_dialogue']
+    assert 'NORMAL_DIALOGUE_CHARACTER_LIPSYNC_OR_MOUTH_ANIMATION' not in evidence['hard_fail_conditions']
+    assert 'canonical_static_speaker_color_renderer' not in evidence['production_efficiency']
     assert profile['verification']['windows_ymm4_verified'] is False
     assert handoff['latest_completed_video']['status'] in {'USER_APPROVED_INTERNAL_VIDEO','RENDERED_INTERNAL_VIDEO'}, 'invalid latest video state'
     assert handoff['latest_completed_video']['actual_character_animation'] is True

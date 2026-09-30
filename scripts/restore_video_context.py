@@ -47,7 +47,11 @@ def restore(root=ROOT, head=None):
             'baseline': {'profile': 'config/approved_video_template.json',
                          'caption_colors': profile['layout']['caption_colors'],
                          'mouth_method': profile['acting']['mouth_method'],
-                         'renderer': profile['renderer']}, 'files': files}
+                         'renderer': profile['renderer'],
+                         'longform_renderer': profile['longform_renderer'],
+                         'editorial': profile['editorial'],
+                         'native_layers_required': profile['acting']['native_layers_required'],
+                         'media_region_only_required': profile['execution_contract']['media_region_only_boolean_required_for_each_visual']}, 'files': files}
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail closed on evidence-visual, caption-color, pacing, voice-speed, and static-character drift."""
+"""Fail closed on evidence-visual, caption-color, pacing, voice-speed, and native dynamic-character drift."""
 from __future__ import annotations
 
 import json
@@ -36,7 +36,7 @@ def main() -> int:
 
     require(policy.get("schema_version") == "evidence-visual-static-character-v1", "static character policy schema drift")
     require(policy.get("status") == "MANDATORY_MEDIA_STANDARD", "static character policy is not mandatory")
-    for required_file in (DOC, LEGACY_RENDERER, STATIC_RENDERER, SYNTH, CAPTION_VALIDATOR):
+    for required_file in (DOC, ROOT / "scripts/render_reusable_short.py", ROOT / "scripts/render_reusable_longform.py", SYNTH, CAPTION_VALIDATOR):
         require(required_file.is_file(), f"required media file missing: {required_file}")
 
     authority = policy.get("authority") or {}
@@ -67,7 +67,7 @@ def main() -> int:
     require(captions.get("every_spoken_turn_must_have_visible_caption_text") is True, "spoken turns may omit captions")
     require(captions.get("full_spoken_text_contract") == "FULL_SPOKEN_TEXT", "full spoken caption contract missing")
     require(captions.get("summary_caption_may_not_replace_narration") is True, "summary captions may replace narration")
-    require(float(captions.get("caption_coverage_ratio_minimum") or 0) >= 0.70, "caption coverage ratio guard too weak")
+    require(float(captions.get("caption_coverage_ratio_minimum") or 0) == 1.0, "caption coverage ratio guard too weak")
     require(captions.get("caption_text_must_not_be_truncated_by_fixed_line_count") is True, "caption truncation re-enabled")
     require(captions.get("speaker_colored_border_required") is True, "speaker-colored border removed")
     require(captions.get("speaker_colored_caption_text_required") is True, "speaker-colored caption text removed")
@@ -110,7 +110,9 @@ def main() -> int:
     require(pacing.get("image_generation_wait_must_not_block_normal_photo_first_production") is True, "image generation can block normal photo-first production")
 
     efficiency = policy.get("production_efficiency") or {}
-    require(efficiency.get("canonical_static_speaker_color_renderer") == "scripts/render_static_speaker_color_longform.py", "canonical static renderer drift")
+    require("canonical_static_speaker_color_renderer" not in efficiency, "retired static renderer authority returned")
+    require(efficiency.get("canonical_dynamic_short_renderer") == "scripts/render_reusable_short.py", "dynamic short renderer missing")
+    require(efficiency.get("canonical_dynamic_longform_renderer") == "scripts/render_reusable_longform.py", "dynamic longform renderer missing")
     require(efficiency.get("full_spoken_caption_validator") == "scripts/validate_video_caption_contract.py", "full spoken caption validator drift")
     require(efficiency.get("do_not_generate_background_images_when_searchable_evidence_visual_exists") is True, "searchable visual may be replaced by generated background")
 
@@ -124,15 +126,15 @@ def main() -> int:
     require("config/evidence_visual_static_character_policy.json" in common, "media read gate does not require policy")
     require("docs/EVIDENCE_VISUAL_AND_STATIC_CHARACTER_STANDARD.md" in common, "media read gate does not require human standard")
 
-    static_renderer = STATIC_RENDERER.read_text(encoding="utf-8")
-    require("ACTIVE_SCALE = 1.08" in static_renderer, "static renderer lost 1.08 active scale")
-    require("INACTIVE_OPACITY = 0.55" in static_renderer, "static renderer lost 55% inactive opacity")
-    require("fill=accent" in static_renderer, "static renderer no longer colors caption text by speaker")
-    require("draw_rich_caption" in static_renderer and "EMPHASIS_YELLOW" in static_renderer, "static renderer lost important-term caption emphasis")
-    require("FULL_SPOKEN_TEXT" in static_renderer, "static renderer lost full-spoken caption contract")
-    require("mouth_animation" in static_renderer and '"mouth_animation": False' in static_renderer, "static renderer contract lost mouth-animation=false evidence")
-    require("SCENE_ASSET" in static_renderer and ("Image credit:" in static_renderer or "Photo:" in static_renderer) and "fit_single_line" in static_renderer, "static renderer lost bounded photo-first attribution path")
-    require("pause_after" in static_renderer and "0.45" in static_renderer, "static renderer lost dead-air gate")
+    require(captions.get("zundamon_border_color_role") == "PALE_MINT_GREEN", "saturated Zundamon border returned")
+    require(captions.get("metan_border_color_role") == "PALE_ROSE_PINK", "saturated Metan border returned")
+    require(visual.get("media_region_only_required") is True, "media-only acquisition missing")
+    require(visual.get("whole_page_or_feed_as_default") is False, "whole page acquisition returned")
+    hard = set(policy.get("hard_fail_conditions") or [])
+    require("NORMAL_DIALOGUE_CHARACTER_LIPSYNC_OR_MOUTH_ANIMATION" not in hard, "contradictory mouth-animation prohibition returned")
+    require("NORMAL_DIALOGUE_CHARACTER_BLINK_HEAD_POSE_BOB_OR_REACTION_ANIMATION" not in hard, "blanket semantic expression prohibition returned")
+    require("VISIBLE_SPEAKING_CHARACTER_WITHOUT_MEASURED_MOUTH_MOTION" in hard, "missing dynamic-mouth failure condition")
+    require("VISIBLE_CHARACTERS_WITHOUT_AUTHORED_EXPRESSION_CHANGES" in hard, "missing expression failure condition")
 
     synth = SYNTH.read_text(encoding="utf-8")
     require("DEFAULT_SPEED_SCALE=1.20" in synth, "synthesizer lost 1.20 default speed")

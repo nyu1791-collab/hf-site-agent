@@ -24,8 +24,8 @@ def selected_profile(mission: Mapping) -> str:
         or isinstance(mission.get('target_duration_minutes'), (list, tuple))
     )
     if explicit:
-        if explicit == STATIC_PROFILE and is_research_explainer and mission.get('static_characters_explicitly_authorized') is not True:
-            raise ValueError('longform research explainer cannot silently override character motion with static_turn_focus')
+        if explicit == STATIC_PROFILE and mission.get('static_characters_explicitly_authorized') is not True:
+            raise ValueError('video cannot silently override character motion with static_turn_focus; a fresh explicit static authorization is required')
         if explicit not in {EXPRESSIVE_PROFILE, RESEARCH_PROFILE, STATIC_PROFILE}:
             raise ValueError(f'unknown performance profile: {explicit}')
         return str(explicit)
@@ -41,7 +41,7 @@ def selected_profile(mission: Mapping) -> str:
         duration = max(duration)
     if isinstance(duration, (int, float)) and not isinstance(duration, bool) and 0 < duration <= 90:
         return EXPRESSIVE_PROFILE
-    return STATIC_PROFILE
+    return RESEARCH_PROFILE
 
 
 def require_renderer_capabilities(mission: Mapping, capabilities: Mapping, *, timing_records=None) -> str:

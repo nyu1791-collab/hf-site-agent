@@ -114,7 +114,8 @@
       "ネイティブ表情・音声同期の口・無音時閉口",
       "測定済み音声と素材の再利用",
       "最終動画の見直し"
-    ]
+    ],
+    "content_rule": "要点を先に分かりやすく。前置き・注意の繰り返しを省く。"
   },
   "adopted_media_decisions": [
     "QUALITY_GATES_CANNOT_BE_TRADED_FOR_SPEED_OR_ENGAGEMENT",
@@ -152,7 +153,9 @@
     "DISTINGUISH_AD_CREATIVE_ADVICE_FROM_ORGANIC_VIDEO_RULES",
     "RECORD_METRIC_DEFINITION_DATE_AND_SAMPLE;_MISSING_ANALYTICS_ARE_UNAVAILABLE_NOT_INVENTED",
     "GITHUB_ARTIFACTS_ARE_TRACEABLE_OUTPUTS_AND_CACHES_ARE_DISPOSABLE_ACCELERATORS_NOT_DELIVERABLE_AUTHORITY",
-    "HUGGING_FACE_MODEL_REVISION_AND_LICENSE_PROVENANCE_MUST_BE_PINNED_BEFORE_LOCAL_USE"
+    "HUGGING_FACE_MODEL_REVISION_AND_LICENSE_PROVENANCE_MUST_BE_PINNED_BEFORE_LOCAL_USE",
+    "ANSWER_FIRST_PLAIN_LANGUAGE_SUMMARY_WITH_3_TO_5_MAIN_CHANGES",
+    "MATERIAL_CAVEATS_ONCE_AT_RELEVANT_POINT_WITHOUT_REPEATED_PROCESS_NARRATION"
   ],
   "explicitly_not_promoted_to_hard_law": [
     "FIXED_UNIVERSAL_CAPTION_CHARACTERS_PER_SECOND",
@@ -331,7 +334,7 @@
     "media_region_validation": "REQUIRED_BEFORE_RENDER"
   },
   "latest_completed_video": {
-    "status": "RENDERED_INTERNAL_VIDEO",
+    "status": "USER_APPROVED_INTERNAL_VIDEO",
     "completed_on_jst": "2026-09-30",
     "final_video": {
       "name": "DevDay2026_まとめ_修正版_8分13秒.mp4",
@@ -380,7 +383,7 @@
       "sha256": "8f79093e6698880ec86eb175d7c144ba2a8b1fc4c0e5aa5f6da3c3b6143b6b7d"
     },
     "character_foundation_package": "libfile_427c2045dc548191a7ae9b094bcb4a0c",
-    "approval_status": "CORRECTED_VIDEO_NOT_YET_USER_REVIEWED",
+    "approval_status": "PRESENTATION_ACCEPTED_CONTENT_REQUIRES_CONCISE_EDITING_FOR_FUTURE_WORK",
     "public_publish": false
   },
   "reusable_foundation_update": {
@@ -428,6 +431,20 @@
     "reference_video_library_file_id": "libfile_ad76f1b9059c819192e21420da30557b",
     "reference_video_sha256": "a7fba3d94ad314045cadb220911bfe6916233addbb1f217bfdffdc2af214b15f",
     "approved_visual_execution_commit": "c78ad5c66f816875dfaee93eb1cb4e233b6b35cf",
-    "approval_is_presentation_acceptance_not_fact_or_publication_approval": true
+    "approval_is_presentation_acceptance_not_fact_or_publication_approval": true,
+    "longform_presentation_acceptance": {
+      "reference_video": "DevDay2026_まとめ_修正版_8分13秒.mp4",
+      "library_file_id": "libfile_8d4ffa3f683c819191395b55f9e92a0c",
+      "user_quote": "動画自体はとても良かった",
+      "acceptance_scope": "PRESENTATION_AND_ACTING_ONLY_CONTENT_REQUIRES_MORE_CONCISE_EXPLANATION",
+      "reviewed_on_jst": "2026-09-30"
+    }
+  },
+  "latest_user_editorial_feedback": {
+    "reviewed_on_jst": "2026-09-30",
+    "presentation": "USER_ACCEPTED_CORRECTED_LONGFORM",
+    "content": "PREAMBLE_AND_CAVEATS_TOO_REPETITIVE",
+    "authoritative_rule": "config/approved_video_template.json#/editorial",
+    "action": "APPLY_CONCISE_ANSWER_FIRST_SCRIPT_RULES_TO_FUTURE_CREATION; NO_NEW_RENDER_REQUESTED"
   }
 }
