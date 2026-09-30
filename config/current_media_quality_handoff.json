@@ -311,7 +311,7 @@
     "render_route_must_validate_capabilities": true
   },
   "next_tab_video_task": {
-    "status": "PREPARED_NOT_STARTED_WAITING_FOR_USER_VIDEO_REQUEST",
+    "status": "REQUESTED_PREPRODUCTION_READY_RENDER_BLOCKED",
     "topic": "OpenAI DevDay 2026 summary and explanation",
     "event_date": "2026-09-29",
     "research_snapshot_jst": "2026-09-30",
@@ -326,15 +326,15 @@
       "ChatGPT Space, Living Pages, collaborative slides, team tasks, plugins, MCP events, and business features"
     ],
     "next_tab_execution": [
-      "When the user asks for video creation, reread the current repository handoff, admission policy, and media policies, then recheck official DevDay details and feature availability.",
-      "Use the existing media template, VOICEVOX and mouth caches, verified assets, and checkpointed pipeline; regenerate only outputs whose inputs changed.",
-      "If duration is unspecified, follow the current default explainer profile; use the 55-60 second template only when the user requests a short.",
-      "Use local VOICEVOX at the established rate and derive subtitles from measured WAV duration.",
-      "Keep renderer capability checks fail-closed; do not claim YMM4 mouth, expression, or subtitle behavior is verified until the Windows fixture passes.",
-      "Finish with the existing decode, caption, audio, and representative visual checks; do not publish or upload."
+      "The user has explicitly requested the DevDay 2026 video; do not wait for another trigger or restart research.",
+      "Resume from missions/media/20260930-devday-2026-explainer-v1.json and this same 6-chapter, 29-line script; only recheck current official availability if the source date has changed.",
+      "Capture the listed @OpenAI screenshots into the media workspace with visible source credits; record retrieval time and reuse status.",
+      "Use local VOICEVOX or exact policy-valid cached WAVs; measure every WAV and derive captions/timing from the measurements. If this remains unavailable, do not render a silent/alternate-TTS substitute.",
+      "Render only through the existing capability-gated YMM4/FFmpeg route, reuse verified character/voice/assets and checkpoints, and run the existing decode/caption/audio/visual checks.",
+      "Keep PR #40 OPEN/DRAFT/UNMERGED; no merge, deploy, public publish, external upload, paid API/model, or top-up."
     ],
-    "user_trigger_required": true,
-    "production_started": false,
+    "user_trigger_required": false,
+    "production_started": true,
     "public_release_authorized": false,
     "story_angle": "Explain DevDay 2026 through the lifecycle of making one video: what Plus users can apply now, what is plan-gated or API-billed, and where the existing production pipeline still does the actual media work.",
     "planned_outline": [
@@ -444,6 +444,39 @@
         "https://help.openai.com/en/articles/9039756-managing-billing-for-chatgpt-and-the-api-platform"
       ],
       "research_outline_assisted_by": "GPT-6.1 Sol (ChatGPT subscription surface), with final source/availability review by top commander"
-    }
+    },
+    "production_started_on_jst": "2026-09-30",
+    "render_started": false,
+    "mission_file": "missions/media/20260930-devday-2026-explainer-v1.json",
+    "latest_user_instruction": "Use screenshots from official OpenAI X posts/official pages, add visible source credit, do not use generated images or generated video.",
+    "official_social_visual_sources": [
+      {
+        "source": "@OpenAI official X — GPT-6.1 Sol",
+        "url": "https://x.com/OpenAI/status/2104986129686741046",
+        "asset_state": "Browser screenshot visually confirmed in this session; image bytes not yet saved to local workspace."
+      },
+      {
+        "source": "@OpenAI official X — dots",
+        "url": "https://x.com/OpenAI/status/2104984504133918973",
+        "asset_state": "Official post identified; capture source screenshot in media workspace before render."
+      },
+      {
+        "source": "@OpenAI official X — Ultrafast",
+        "url": "https://x.com/OpenAI/status/2104993966043320759",
+        "asset_state": "Official post identified; capture source screenshot in media workspace before render."
+      },
+      {
+        "source": "@OpenAI official X — Codex Security Cloud",
+        "url": "https://x.com/OpenAI/status/2104987422308335828",
+        "asset_state": "Official post identified; capture source screenshot in media workspace before render."
+      }
+    ],
+    "render_blockers": [
+      "This execution environment has FFmpeg/ffprobe but no local VOICEVOX engine and no matching validated VOICEVOX WAV cache.",
+      "Repository admission policy requires local VOICEVOX and measured WAV duration; silent video or another TTS provider is prohibited.",
+      "The official X screenshot was visually confirmed in the browser but is not yet a local video asset; other official posts need screenshot files and scene-level source credits.",
+      "Review image reuse status and keep the video internal; no public release was authorized.",
+      "YMM4 Windows end-to-end mouth/expression/caption behavior remains unverified; retain renderer capability gate."
+    ]
   }
 }
