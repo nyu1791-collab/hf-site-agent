@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import secrets
+import signal
 import sqlite3
 import subprocess
 import sys
@@ -370,6 +371,28 @@ def _handler_command(job: ClaimedJob, workspace: Path) -> list[str]:
     return cmd
 
 
+def _terminate_process_group(process: subprocess.Popen[str], *, grace_seconds: float = 5.0) -> None:
+    """Stop the whole handler process group so FFmpeg/worker children cannot orphan."""
+    if process.poll() is not None:
+        return
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    except OSError:
+        process.terminate()
+    try:
+        process.wait(timeout=grace_seconds)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            return
+        except OSError:
+            process.kill()
+        process.wait(timeout=grace_seconds)
+
+
 def execute_claimed(
     conn: sqlite3.Connection,
     job: ClaimedJob,
@@ -402,17 +425,11 @@ def execute_claimed(
             now_mono = time.monotonic()
             if now_mono - started >= timeout_seconds:
                 timed_out = True
-                process.terminate()
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=5)
+                _terminate_process_group(process)
                 break
             if now_mono >= next_heartbeat:
                 if not heartbeat(conn, job, lease_seconds=lease_seconds):
-                    process.terminate()
-                    process.wait(timeout=5)
+                    _terminate_process_group(process)
                     raise DurableRunnerError("lease lost during execution")
                 next_heartbeat = now_mono + heartbeat_interval
             time.sleep(0.2)
