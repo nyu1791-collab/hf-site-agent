@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Fail-closed continuity checks for the compact cross-tab commander handoff."""
+"""Fail-closed continuity checks for the compact cross-tab commander handoff.
+
+The handoff is intentionally a bootstrap, not a second copy of the permanent
+manifest. Detailed media/monetization standards are reached through semantic
+gates and are validated by their dedicated validators.
+"""
 from __future__ import annotations
 
 import json
@@ -21,20 +26,23 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
+def require_file(path: str) -> None:
+    require((ROOT / path).is_file(), f"required continuity file missing: {path}")
+
+
 def main() -> int:
     handoff = load_json("config/current_commander_handoff.json")
     manifest = load_json("config/permanent_standards_manifest.json")
     media_gate = load_json("config/media_command_read_gate.json")
     free_guard = load_json("config/free_execution_guard.json")
     video_admission = load_json("config/video_creation_admission_policy.json")
-    media_creative = load_json("config/media_audio_motion_retention_policy.json")
-    longform = load_json("config/longform_video_reliability_policy.json")
 
     require(handoff.get("schema_version") == "top-commander-handoff-v17", "commander handoff schema is not current v17")
     continuity = handoff.get("continuity") or {}
     require(continuity.get("repository_is_source_of_truth") is True, "handoff lost repository source-of-truth rule")
     require(continuity.get("conversation_memory_is_not_source_of_truth") is True, "handoff made chat memory authoritative")
     require(continuity.get("read_order_is_bootstrap_not_full_standard_copy") is True, "handoff no longer treats startup list as compact bootstrap")
+    require(continuity.get("restore_before_planning_or_external_calls") is True, "handoff no longer restores authority before work")
 
     read_order = list(continuity.get("on_new_session_required_read_order") or [])
     expected_prefix = [
@@ -45,6 +53,9 @@ def main() -> int:
     ]
     require(read_order[:4] == expected_prefix, "commander handoff startup order drifted")
     require(len(read_order) <= 6, "commander handoff duplicated too many task-specific standards")
+    for path in read_order:
+        require_file(path)
+
     forbidden_bootstrap_duplicates = {
         "config/longform_video_objectives.json",
         "config/longform_video_reliability_policy.json",
@@ -59,92 +70,114 @@ def main() -> int:
     gates = continuity.get("task_specific_gate_resolution") or {}
     require(gates.get("media") == "config/media_command_read_gate.json", "handoff lost semantic media gate pointer")
     require(gates.get("monetization") == "config/monetization_command_read_gate.json", "handoff lost semantic monetization gate pointer")
+    require_file(str(gates["media"]))
+    require_file(str(gates["monetization"]))
 
     cross_tab = manifest.get("cross_tab_behavior") or {}
-    require(cross_tab.get("priority_zero_manifest_is_expandable_startup_index") is True, "manifest startup index rule drifted")
-    require(cross_tab.get("do_not_duplicate_full_required_standard_list_into_commander_handoff") is True, "manifest duplication guard drifted")
-    require(cross_tab.get("media_command_read_gate_survives_tab_change") is True, "media gate no longer survives tab changes")
-    require(cross_tab.get("free_execution_guard_survives_tab_change") is True, "free execution guard no longer survives tab changes")
-    require(cross_tab.get("paid_media_block_survives_tab_change") is True, "paid media block no longer survives tab changes")
-    require(cross_tab.get("video_creation_admission_survives_tab_change") is True, "video creation admission no longer survives tab changes")
-    require(cross_tab.get("video_requests_require_voicevox_zundamon_preflight") is True, "VOICEVOX Zundamon preflight no longer survives tab changes")
+    for key in (
+        "priority_zero_manifest_is_expandable_startup_index",
+        "do_not_duplicate_full_required_standard_list_into_commander_handoff",
+        "media_command_read_gate_survives_tab_change",
+        "free_execution_guard_survives_tab_change",
+        "paid_media_block_survives_tab_change",
+        "video_creation_admission_survives_tab_change",
+        "video_requests_require_voicevox_zundamon_preflight",
+        "session_stream_resilience_survives_tab_change",
+        "chat_stream_disconnect_does_not_reset_verified_media_work",
+    ):
+        require(cross_tab.get(key) is True, f"manifest continuity drift: {key}")
 
+    # The compact handoff carries only high-level/core pointers. Detailed media
+    # standards belong in the permanent manifest and semantic gate, not here.
     active = handoff.get("active_standards") or {}
-    for key, expected in {
+    core_pointers = {
         "permanent_manifest": "config/permanent_standards_manifest.json",
         "master_rulebook": "docs/AI_ARMY_MASTER_RULEBOOK.md",
+        "canonical_routing_facade": "scripts/ai_army_routing_facade.py",
+        "multi_agent_policy": "config/multi_agent_operating_policy.json",
         "free_execution_guard": "config/free_execution_guard.json",
         "video_creation_admission": "config/video_creation_admission_policy.json",
         "media_command_gate": "config/media_command_read_gate.json",
-        "media_audio_motion_retention": "config/media_audio_motion_retention_policy.json",
-        "free_audio_source_registry": "config/free_audio_source_registry.json",
-        "dova_curated_bgm_catalog": "config/dova_curated_bgm_catalog.json",
-        "longform_objectives": "config/longform_video_objectives.json",
-        "longform_policy": "config/longform_video_reliability_policy.json",
-    }.items():
-        require(active.get(key) == expected, f"handoff active-standard pointer drift: {key}")
-        require((ROOT / expected).is_file(), f"handoff active-standard file missing: {expected}")
-
-    handoff_longform = handoff.get("longform_fixed_rules") or {}
-    require(handoff_longform.get("voice") == "VOICEVOX_ZUNDAMON_AND_SHIKOKU_METAN_LOCAL", "handoff regressed to a single VOICEVOX cast")
-    require(handoff_longform.get("media_policy_source") == "config/media_command_read_gate.json", "handoff longform rules bypass media gate")
-    require(handoff_longform.get("task_specific_media_execution_state_is_not_a_permanent_standard") is True, "handoff made task-specific media state permanent")
-    require("video_creation_not_started_by_this_integration_mission" not in handoff_longform, "stale integration-mission media hold returned")
+        "media_speed_quality_policy": "config/media_speed_quality_policy.json",
+        "jev_decision_policy": "config/jev_decision_engine_policy.json",
+        "jev_routing_coordinator": "scripts/jev_routing_coordinator.py",
+        "final_execution_admission_guard": "scripts/final_execution_admission_guard.py",
+    }
+    for key, expected in core_pointers.items():
+        require(active.get(key) == expected, f"handoff core pointer drift: {key}")
+        require_file(expected)
 
     routing_rules = handoff.get("multi_agent_fixed_rules") or {}
-    require(routing_rules.get("jev_verified_route_correctness_and_decision_stability_precede_routing_latency") is True, "handoff lost Jev correctness priority")
-    require(routing_rules.get("single_success_or_latency_advantage_cannot_clear_zero_or_one_question_primary") is True, "handoff allows thin evidence Jev fast path")
-    require(routing_rules.get("latency_challenger_is_delayed_guarded_reservation_not_routine_immediate_parallel_fanout") is True, "handoff lost delayed challenger guard")
-    require(routing_rules.get("admitted_dependency_ready_tasks_stream_by_critical_path_without_waiting_for_unrelated_batch_tail") is True, "handoff lost streaming dispatch rule")
-    require(routing_rules.get("multi_agent_architecture_evidence_must_be_complete_before_promotion") is True, "handoff lost complete architecture evidence gate")
-    require(routing_rules.get("dependency_dag_duplicate_unknown_and_cycle_errors_fail_closed") is True, "handoff lost dependency DAG fail-closed rule")
-    require(routing_rules.get("weighted_critical_path_plans_full_dependency_release_order") is True, "handoff lost full weighted critical-path planning")
-    require(routing_rules.get("planned_dependency_waves_never_replace_verified_artifact_joins") is True, "handoff allows a planned dependency wave to bypass verified artifact joins")
+    for key in (
+        "multi_agent_architecture_evidence_must_be_complete_before_promotion",
+        "dependency_dag_duplicate_unknown_and_cycle_errors_fail_closed",
+        "weighted_critical_path_plans_full_dependency_release_order",
+        "planned_dependency_waves_never_replace_verified_artifact_joins",
+        "jev_verified_route_correctness_and_decision_stability_precede_routing_latency",
+        "single_success_or_latency_advantage_cannot_clear_zero_or_one_question_primary",
+        "latency_challenger_is_delayed_guarded_reservation_not_routine_immediate_parallel_fanout",
+        "admitted_dependency_ready_tasks_stream_by_critical_path_without_waiting_for_unrelated_batch_tail",
+    ):
+        require(routing_rules.get(key) is True, f"handoff routing continuity drift: {key}")
+    require(routing_rules.get("single_writer") is True, "handoff single-writer rule lost")
+    require(routing_rules.get("direct_worker_to_worker_delegation") is False, "handoff enabled direct worker delegation")
+    require(routing_rules.get("openrouter_free_paid_fallback") is False, "handoff enabled paid worker fallback")
+
+    media_speed = handoff.get("media_speed_fixed_rules") or {}
+    require(media_speed.get("quality_weight") == 0.2, "handoff media quality weight drift")
+    require(media_speed.get("speed_weight") == 0.8, "handoff media speed weight drift")
+    require(media_speed.get("target_wall_clock_minutes") == [5, 5], "handoff media five-minute target drift")
+    require(media_speed.get("max_independent_preparation_lanes") == 3, "handoff media lane ceiling drift")
+    require(media_speed.get("user_confirmation_required") is False, "handoff routine confirmation re-enabled")
+    require(media_speed.get("manual_visual_review_required") is False, "handoff routine manual review re-enabled")
+
+    # Machine authorities prove media continuity. The lean media common set is
+    # deliberately small and need not duplicate the bootstrap handoff/manifest.
+    common_media = set(media_gate.get("common_media_read_set") or [])
+    speed_reads = set((media_gate.get("speed_first_delivery_override") or {}).get("read_set") or [])
+    require("config/free_execution_guard.json" in common_media, "media hot path lost free execution guard")
+    require("config/video_creation_admission_policy.json" in common_media, "media hot path lost video creation admission")
+    require("config/current_commander_handoff.json" in speed_reads, "routine speed path no longer restores current handoff")
+    require("config/permanent_standards_manifest.json" in speed_reads, "routine speed path no longer restores permanent manifest")
+    require("docs/AI_ARMY_MASTER_RULEBOOK.md" in speed_reads, "routine speed path no longer restores master rulebook")
+
+    require(free_guard.get("status") == "ENFORCED_PERMANENT_STANDARD", "free execution guard is not enforced")
+    require(video_admission.get("status") == "ENFORCED_PERMANENT_STANDARD", "video creation admission is not enforced")
+    voice = video_admission.get("voice_contract") or {}
+    require(voice.get("primary_voice") == "ずんだもん", "video admission primary voice drifted")
+    require(voice.get("silent_video_fallback") is False, "video admission allows silent fallback")
+    bootstrap = voice.get("runtime_bootstrap") or {}
+    require(bootstrap.get("start_local_engine_before_declaring_unavailable") is True, "VOICEVOX startup-before-block rule lost")
+    require(bootstrap.get("launcher") == "scripts/with_local_voicevox.sh", "VOICEVOX launcher pointer drifted")
+    require_file("docs/VOICEVOX_RUNTIME.md")
+    require_file("scripts/with_local_voicevox.sh")
+
+    # VOICEVOX recovery may be conditional on the hot path; it does not need to
+    # inflate every VIDEO_CREATION required set.
+    video_conditional = ((media_gate.get("trigger_sets") or {}).get("VIDEO_CREATION") or {}).get("conditional") or {}
+    recovery = set(video_conditional.get("if_voicevox_engine_startup_or_recovery_is_needed") or [])
+    require({"docs/VOICEVOX_RUNTIME.md", "scripts/with_local_voicevox.sh"}.issubset(recovery), "VOICEVOX recovery path is not conditionally reachable")
 
     serialized_handoff = json.dumps(handoff, ensure_ascii=False)
-    require("VOICEVOX_ZUNDAMON_LOCAL" not in serialized_handoff, "stale Zundamon-only handoff token returned")
-    require("media_production_hold" not in serialized_handoff, "media production hold was reintroduced into commander handoff")
-    require("ACTIVE_UNTIL_EXPLICIT_USER_RELEASE" not in serialized_handoff, "legacy media production hold release marker was reintroduced")
-    require("HOLD_MEDIA_PRODUCTION" not in serialized_handoff, "blanket media production hold marker was reintroduced")
-
-    durable_cast = set(((media_creative.get("voice_prosody") or {}).get("durable_standard_cast") or []))
-    longform_cast = set(((longform.get("voicevox_contract") or {}).get("standard_cast") or []))
-    require(durable_cast == {"ずんだもん", "四国めたん"}, "creative policy durable cast drifted")
-    require(longform_cast == durable_cast, "longform and creative VOICEVOX cast disagree")
-
-    common_media = set(media_gate.get("common_media_read_set") or [])
-    require("config/current_commander_handoff.json" in common_media, "media gate no longer rereads commander handoff")
-    require("config/permanent_standards_manifest.json" in common_media, "media gate no longer rereads permanent manifest")
-    require("config/free_execution_guard.json" in common_media, "media gate no longer rereads free execution guard")
-    require("config/video_creation_admission_policy.json" in common_media, "media gate no longer rereads video creation admission")
-    require(video_admission.get("status") == "ENFORCED_PERMANENT_STANDARD", "video creation admission is not enforced")
-    require((video_admission.get("voice_contract") or {}).get("primary_voice") == "ずんだもん", "video admission primary voice drifted")
-    require((video_admission.get("voice_contract") or {}).get("silent_video_fallback") is False, "video admission allows silent fallback")
-    runtime_bootstrap = (video_admission.get("voice_contract") or {}).get("runtime_bootstrap") or {}
-    require(runtime_bootstrap.get("start_local_engine_before_declaring_unavailable") is True, "VOICEVOX bootstrap must precede an unavailable decision")
-    require(runtime_bootstrap.get("launcher") == "scripts/with_local_voicevox.sh", "VOICEVOX launcher pointer drifted")
-    require((ROOT / "docs/VOICEVOX_RUNTIME.md").is_file(), "VOICEVOX runtime recovery document missing")
-    require((ROOT / "scripts/with_local_voicevox.sh").is_file(), "VOICEVOX startup launcher missing")
-    require((manifest.get("cross_tab_behavior") or {}).get("voicevox_runtime_bootstrap_survives_tab_change") is True, "VOICEVOX bootstrap is not cross-tab durable")
-    require("docs/VOICEVOX_RUNTIME.md" in (media_gate.get("trigger_sets", {}).get("VIDEO_CREATION", {}).get("required", [])), "video gate omits VOICEVOX recovery doc")
-    require("scripts/with_local_voicevox.sh" in (media_gate.get("trigger_sets", {}).get("VIDEO_CREATION", {}).get("required", [])), "video gate omits VOICEVOX startup launcher")
-    require(free_guard.get("status") == "ENFORCED_PERMANENT_STANDARD", "free execution guard is not enforced")
+    for stale in (
+        "VOICEVOX_ZUNDAMON_LOCAL",
+        "media_production_hold",
+        "ACTIVE_UNTIL_EXPLICIT_USER_RELEASE",
+        "HOLD_MEDIA_PRODUCTION",
+    ):
+        require(stale not in serialized_handoff, f"stale handoff token returned: {stale}")
 
     overrides = handoff.get("temporary_user_overrides") or {}
-    require("media_production_hold" not in overrides, "media production hold must stay absent from temporary overrides")
-
-    gate_text = json.dumps(media_gate, ensure_ascii=False)
-    require("ACTIVE_UNTIL_EXPLICIT_USER_RELEASE" not in gate_text, "legacy media production hold leaked into permanent media gate")
-    require("HOLD_MEDIA_PRODUCTION" not in gate_text, "blanket media production hold leaked into permanent media gate")
+    require("media_production_hold" not in overrides, "media production hold must stay absent")
 
     print(json.dumps({
         "status": "PASS",
         "handoff_schema": "v17",
         "compact_bootstrap": True,
+        "details_delegated_to_manifest": True,
         "semantic_task_gates": True,
-        "voicevox_cast": ["ずんだもん", "四国めたん"],
+        "media_speed_ratio": "20:80",
         "media_production_hold_absent": True,
-        "stale_single_voice_token_absent": True,
     }, ensure_ascii=False, sort_keys=True))
     return 0
 
