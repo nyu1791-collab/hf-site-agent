@@ -46,6 +46,13 @@ def _verified(plan: dict) -> dict:
     return out
 
 
+def _runnable_stage_names(plan: dict) -> list[str]:
+    return [
+        name for name, row in plan["stages"].items()
+        if row["status"] != "SKIPPED_BY_SPEED_POLICY"
+    ]
+
+
 class MediaSpeedOrchestratorTests(unittest.TestCase):
     def test_initial_plan_is_bounded_and_one_pass(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -149,7 +156,9 @@ class MediaSpeedOrchestratorTests(unittest.TestCase):
             inputs["cache_root"].mkdir()
             second = plan_media_run(inputs, previous_plan=first, use_jev=False)
         self.assertIn("cache_root", second["changed_components"])
-        self.assertEqual(second["stages_to_run"], list(second["stages"]))
+        self.assertEqual(second["stages_to_run"], _runnable_stage_names(second))
+        self.assertEqual(second["stages"]["risk_triggered_visual_preview"]["status"], "SKIPPED_BY_SPEED_POLICY")
+        self.assertEqual(second["stages"]["machine_qa_and_visual_rereview"]["status"], "SKIPPED_BY_SPEED_POLICY")
 
     def test_high_risk_escalation_blocks_execution(self):
         def fake_jev(**kwargs):
@@ -207,9 +216,11 @@ class MediaSpeedOrchestratorTests(unittest.TestCase):
             inputs = _inputs(Path(raw))
             first = _verified(plan_media_run(inputs, use_jev=False))
             policy = __import__("copy").deepcopy(__import__("scripts.media_speed_orchestrator", fromlist=["load_policy"]).load_policy())
-            policy["quality_first"]["paid_or_freemium_media_generation"] = True
+            policy["speed_first_delivery"]["speed_weight"] = 0.79
             second = plan_media_run(inputs, previous_plan=first, policy=policy, use_jev=False)
-        self.assertEqual(second["stages_to_run"], list(second["stages"]))
+        self.assertEqual(second["stages_to_run"], _runnable_stage_names(second))
+        self.assertEqual(second["stages"]["risk_triggered_visual_preview"]["status"], "SKIPPED_BY_SPEED_POLICY")
+        self.assertEqual(second["stages"]["machine_qa_and_visual_rereview"]["status"], "SKIPPED_BY_SPEED_POLICY")
 
 
 if __name__ == "__main__":
