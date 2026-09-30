@@ -895,6 +895,61 @@
       "youtube_upload": "NOT_DONE",
       "public_publish": false
     },
-    "workflow_note": "FFmpeg static-speaker-color renderer completed. Existing YMM4 transfer/template assets are included in the source package; Windows YMM4 end-to-end behavior is not claimed as verified."
+    "workflow_note": "FFmpeg static-speaker-color renderer completed. Existing YMM4 transfer/template assets are included in the source package; Windows YMM4 end-to-end behavior is not claimed as verified.",
+    "character_motion_status": "STATIC_CHARACTER_FRAMES; user observed no expression change. A motion-capable render is required for the next revision.",
+    "caption_palette_user_review": "Too saturated; future output palette updated to pastel speaker colors.",
+    "re_rendered_after_feedback": false
+  },
+  "post_delivery_review": {
+    "recorded_at": "2026-09-30",
+    "user_feedback": {
+      "subtitle_palette": "Too saturated; use a softer pale speaker color while retaining phone contrast.",
+      "character_acting": "Zundamon and Shikoku Metan expressions appeared unchanged; add visibly changing semantic expressions and voice-synchronized mouth movement.",
+      "explanation": "Too much fine detail made the release difficult to understand. Summarize key points in plain language and add depth through examples, impact, and limitations rather than listing every feature."
+    },
+    "root_causes_confirmed": [
+      "The delivered longform used scripts/render_static_speaker_color_longform.py, which renders one static full-body portrait per character and reports mouth_animation=false.",
+      "Longform routing fell back to static_turn_focus; only the shortform profile required mouth/expression capabilities.",
+      "The YMM4 review sidecar carried emotion labels but did not make actual face-state application or Windows preview a mandatory final-render gate."
+    ],
+    "repair_scope": "Update reusable policies, route guards, script sidecar, palette, editorial structure, tests, and cross-tab handoff. Do not recreate or overwrite the completed MP4 in this task.",
+    "future_editorial_lock": {
+      "one_central_question": true,
+      "main_takeaways": [
+        3,
+        5
+      ],
+      "group_related_announcements": true,
+      "explain_each_with": "WHAT_CHANGED + WHY_IT_MATTERS + ONE_PLAIN_LANGUAGE_EXAMPLE + MATERIAL_LIMIT",
+      "runtime_guideline_minutes": {
+        "focused": [
+          4,
+          6
+        ],
+        "compact_roundup": [
+          6,
+          8
+        ],
+        "deep_dive": [
+          8,
+          12
+        ]
+      },
+      "no_padding": true,
+      "plain_language_first": true
+    },
+    "future_visual_lock": {
+      "caption_body_colors": {
+        "zundamon": "#B8E6C8",
+        "metan": "#F2C4D7"
+      },
+      "important_phrase_colors": {
+        "important": "#F6DB98",
+        "warning_or_correction": "#E7A6AA"
+      },
+      "mouth_sync": "FINAL_MEASURED_WAV",
+      "expressions": "TYPED_SEMANTIC_PRESETS",
+      "static_character_final_for_requested_motion": "BLOCK"
+    }
   }
 }
