@@ -311,12 +311,12 @@
     "render_route_must_validate_capabilities": true
   },
   "next_tab_video_task": {
-    "status": "PREPRODUCTION_PACKAGE_COMPLETE_RENDER_BLOCKED",
+    "status": "COMPLETED_INTERNAL_DRAFT_READY_FOR_USER_REVIEW",
     "topic": "OpenAI DevDay 2026 summary and explanation",
     "event_date": "2026-09-29",
     "research_snapshot_jst": "2026-09-30",
     "official_primary_source": "https://openai.com/ja-JP/index/devday-2026-recap/",
-    "source_note": "OpenAI's official recap reports 20+ announcements and covers persistent agents, Codex/API, ChatGPT plugins, collaboration, and plans. Recheck the official source and current availability before scripting or rendering.",
+    "source_note": "The DevDay 2026 explainer is rendered and persistently saved. The final video is 8:12.7, with 37 measured VOICEVOX turns, full burned-in captions, six official OpenAI screenshots with visible credits, and no generated imagery/video. The source package, SRT, and preview are saved alongside it.",
     "core_framing": "DevDay's broad direction is to make ChatGPT a shared work surface for people and agents, while expanding Codex and APIs for developers; distinguish the vision and announcements from features currently available on each plan.",
     "confirmed_topics": [
       "dots persistent agents with dedicated cloud computers; availability is plan-specific",
@@ -326,12 +326,11 @@
       "ChatGPT Space, Living Pages, collaborative slides, team tasks, plugins, MCP events, and business features"
     ],
     "next_tab_execution": [
-      "The user has explicitly requested the DevDay 2026 video; do not wait for another trigger or restart research.",
-      "Resume from missions/media/20260930-devday-2026-explainer-v1.json and this same 6-chapter, 29-line script; only recheck current official availability if the source date has changed.",
-      "Capture the listed @OpenAI screenshots into the media workspace with visible source credits; record retrieval time and reuse status.",
-      "Use local VOICEVOX or exact policy-valid cached WAVs; measure every WAV and derive captions/timing from the measurements. If this remains unavailable, do not render a silent/alternate-TTS substitute.",
-      "Render only through the existing capability-gated YMM4/FFmpeg route, reuse verified character/voice/assets and checkpoints, and run the existing decode/caption/audio/visual checks.",
-      "Keep PR #40 OPEN/DRAFT/UNMERGED; no merge, deploy, public publish, external upload, paid API/model, or top-up."
+      "The user has already requested and received the completed DevDay video. Do not restart production or repeat research when this task resumes.",
+      "First fetch current branch HEAD, PR #40 state, and current Actions; then read this handoff and missions/media/20260930-devday-2026-explainer-v1.json.",
+      "Find the persistent Library files by exact titles: devday2026_explainer_final_internal.mp4, DevDay2026_explainer_sources.zip, DevDay2026_explainer_captions.srt, DevDay2026_explainer_preview.jpg, devday_2026_voice_checkpoint.zip, and devday_narration_preview.mp3. Treat Library copies as durable; scratch paths are session-local.",
+      "Reuse the finished deliverable for review or requested revisions; reuse the saved production package, voice checkpoint, measured timeline, screenshots, and character assets. Regenerate only changed lines/scenes.",
+      "Keep the video internal until image reuse is cleared. Do not upload/publish or use paid API/model fallbacks. Keep PR #40 OPEN/DRAFT/UNMERGED."
     ],
     "user_trigger_required": false,
     "production_started": true,
@@ -446,44 +445,66 @@
       "research_outline_assisted_by": "GPT-6.1 Sol (ChatGPT subscription surface), with final source/availability review by top commander"
     },
     "production_started_on_jst": "2026-09-30",
-    "render_started": false,
+    "render_started": true,
     "mission_file": "missions/media/20260930-devday-2026-explainer-v1.json",
     "latest_user_instruction": "Use screenshots from official OpenAI X posts/official pages, add visible source credit, do not use generated images or generated video.",
     "official_social_visual_sources": [
       {
         "source": "@OpenAI official X — GPT-6.1 Sol",
         "url": "https://x.com/OpenAI/status/2104986129686741046",
-        "asset_state": "Browser screenshot visually confirmed in this session; image bytes not yet saved to local workspace."
+        "asset_state": "Captured and included in the persistent production source package where used; visible source credit is burned into the corresponding chapter."
       },
       {
         "source": "@OpenAI official X — dots",
         "url": "https://x.com/OpenAI/status/2104984504133918973",
-        "asset_state": "Official post identified; capture source screenshot in media workspace before render."
+        "asset_state": "Captured and included in the persistent production source package where used; visible source credit is burned into the corresponding chapter."
       },
       {
         "source": "@OpenAI official X — Ultrafast",
         "url": "https://x.com/OpenAI/status/2104993966043320759",
-        "asset_state": "Official post identified; capture source screenshot in media workspace before render."
+        "asset_state": "Captured and included in the persistent production source package where used; visible source credit is burned into the corresponding chapter."
       },
       {
         "source": "@OpenAI official X — Codex Security Cloud",
         "url": "https://x.com/OpenAI/status/2104987422308335828",
-        "asset_state": "Official post identified; capture source screenshot in media workspace before render."
+        "asset_state": "Captured and included in the persistent production source package where used; visible source credit is burned into the corresponding chapter."
       }
     ],
     "render_blockers": [
-      "This execution environment has FFmpeg/ffprobe but no local VOICEVOX engine and no matching validated VOICEVOX WAV cache.",
-      "Repository admission policy requires local VOICEVOX and measured WAV duration; silent video or another TTS provider is prohibited.",
-      "The official X screenshot was visually confirmed in the browser but is not yet a local video asset; other official posts need screenshot files and scene-level source credits.",
-      "Review image reuse status and keep the video internal; no public release was authorized.",
-      "YMM4 Windows end-to-end mouth/expression/caption behavior remains unverified; retain renderer capability gate."
+      "External reuse/license review is required before public publication.",
+      "Windows YMM4 end-to-end behavior remains unverified; the completed video used the existing deterministic FFmpeg renderer."
     ],
     "mission_commit_sha": "53bad9768085f9c0cadccb0faaf9732d65b0868b",
     "preproduction_package_complete": true,
     "script_dialogue_lines": 29,
     "script_approx_japanese_characters": 2699,
-    "source_screenshot_state": "Official OpenAI X post for GPT-6.1 Sol was visually confirmed in the browser. Screenshot bytes were not saved in the local media workspace; capture the listed official post screens before rendering.",
-    "last_ci_scope_note": "The most recent workflow results may be tied to an earlier commit if a later mission-only commit did not trigger the path-scoped workflow; check exact current HEAD status before relying on them."
+    "source_screenshot_state": "Six official OpenAI article/X screenshots are saved in the persistent production source package and used with visible chapter credits; no generated images or video.",
+    "last_ci_scope_note": "The most recent workflow results may be tied to an earlier commit if a later mission-only commit did not trigger the path-scoped workflow; check exact current HEAD status before relying on them.",
+    "completed_artifacts": {
+      "final_video": {
+        "file_name": "devday2026_explainer_final_internal.mp4",
+        "library_file_id": "file_00000000e91c820693744abff7792e89",
+        "sha256": "df204bbdb51c4dce965c29ea25bfcb3f1e2d795dd45cc938093e8c4541eac261",
+        "duration_seconds": 492.7,
+        "dimensions": "1080x1920",
+        "video_codec": "H.264",
+        "audio_codec": "AAC"
+      },
+      "source_package": {
+        "file_name": "DevDay2026_explainer_sources.zip",
+        "library_file_id": "file_000000007ca88211af9dfaa040584b80"
+      },
+      "captions": {
+        "file_name": "DevDay2026_explainer_captions.srt",
+        "library_file_id": "file_000000009f5c8209bc64d542f572960f"
+      },
+      "preview": {
+        "file_name": "DevDay2026_explainer_preview.jpg",
+        "library_file_id": "file_0000000060788209ae79ff3bc7fcd7d1"
+      },
+      "voice_checkpoint": "devday_2026_voice_checkpoint.zip",
+      "voice_preview": "devday_narration_preview.mp3"
+    }
   },
   "voicevox_environment_continuity": {
     "recorded_at_jst": "2026-09-30T10:50:00+09:00",
@@ -539,11 +560,63 @@
       "qa": "Every line was converted to lossless FLAC and decode-checked; combined MP3 and WAV duration matched measured timeline.",
       "library_checkpoint": "devday_2026_voice_checkpoint.zip",
       "library_preview": "devday_narration_preview.mp3",
-      "render_status": "NOT_RENDERED",
+      "render_status": "RENDERED_INTERNAL_DRAFT",
       "remaining_render_blockers": [
-        "Capture official OpenAI and @OpenAI X screenshot assets locally with visible source credit.",
-        "Complete YMM4/FFmpeg capability-gated assembly and final video decode check."
-      ]
+        "External reuse/license review before any public release; Windows YMM4 end-to-end behavior remains unverified."
+      ],
+      "final_video_library_file_id": "file_00000000e91c820693744abff7792e89",
+      "final_video_sha256": "df204bbdb51c4dce965c29ea25bfcb3f1e2d795dd45cc938093e8c4541eac261",
+      "final_video_duration_seconds": 492.7,
+      "final_caption_coverage_ratio": 1,
+      "final_caption_lines": 37,
+      "source_package_library_file_id": "file_000000007ca88211af9dfaa040584b80"
     }
+  },
+  "latest_completed_video": {
+    "mission_id": "devday-2026-explainer-v1",
+    "mission_file": "missions/media/20260930-devday-2026-explainer-v1.json",
+    "status": "RENDERED_INTERNAL_DRAFT",
+    "completed_on_jst": "2026-09-30",
+    "final_video": {
+      "name": "devday2026_explainer_final_internal.mp4",
+      "library_file_id": "file_00000000e91c820693744abff7792e89",
+      "sha256": "df204bbdb51c4dce965c29ea25bfcb3f1e2d795dd45cc938093e8c4541eac261",
+      "duration_seconds": 492.7,
+      "format": "H.264 1080x1920, AAC 48 kHz stereo"
+    },
+    "production": {
+      "engine": "VOICEVOX 0.25.2",
+      "voices": "ずんだもん／四国めたん",
+      "speed_scale": 1.2,
+      "measured_audio_duration_seconds": 492.661335,
+      "dialogue_lines": 37,
+      "burned_caption_coverage": 1,
+      "official_source_screenshots": 6,
+      "generated_images": 0,
+      "generated_video": 0,
+      "decode": "PASS"
+    },
+    "persistent_files": [
+      {
+        "name": "DevDay2026_explainer_sources.zip",
+        "library_file_id": "file_000000007ca88211af9dfaa040584b80"
+      },
+      {
+        "name": "DevDay2026_explainer_captions.srt",
+        "library_file_id": "file_000000009f5c8209bc64d542f572960f"
+      },
+      {
+        "name": "DevDay2026_explainer_preview.jpg",
+        "library_file_id": "file_0000000060788209ae79ff3bc7fcd7d1"
+      },
+      {
+        "name": "devday_2026_voice_checkpoint.zip"
+      },
+      {
+        "name": "devday_narration_preview.mp3"
+      }
+    ],
+    "rights_and_release": "Internal draft only. Review official screenshot reuse rights before publication; no upload or public release was done.",
+    "resume": "Reuse the finished Library artifacts first. Modify only requested chapters/lines and retain the voice checkpoint, source package, measured timings, captions, and assets. Do not restart from zero."
   }
 }
