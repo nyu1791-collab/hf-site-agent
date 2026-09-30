@@ -484,5 +484,43 @@
     "script_approx_japanese_characters": 2699,
     "source_screenshot_state": "Official OpenAI X post for GPT-6.1 Sol was visually confirmed in the browser. Screenshot bytes were not saved in the local media workspace; capture the listed official post screens before rendering.",
     "last_ci_scope_note": "The most recent workflow results may be tied to an earlier commit if a later mission-only commit did not trigger the path-scoped workflow; check exact current HEAD status before relying on them."
+  },
+  "voicevox_environment_continuity": {
+    "recorded_at_jst": "2026-09-30T10:50:00+09:00",
+    "user_clarification": "“KIDハブ” means GitHub.",
+    "prior_successful_route": {
+      "source": "Official VOICEVOX/voicevox_engine GitHub Release",
+      "release_page": "https://github.com/VOICEVOX/voicevox_engine/releases",
+      "version": "0.25.2",
+      "asset": "voicevox_engine-linux-cpu-x64-0.25.2.7z.001",
+      "sha256": "bab016a966131b89bad398e7b898f8c742617dc80a7da49bf494cd07133dbc7a",
+      "verified_in_prior_environment": true,
+      "verified_results": "Download checksum matched; archive extracted; engine started; /speakers returned 43 speakers and 127 styles; real audio synthesis succeeded for ずんだもん and 四国めたん.",
+      "persistent_binary_or_wav_cache_in_current_workspace": false
+    },
+    "current_runtime": {
+      "os": "Ubuntu 24.04.3 x86_64",
+      "available_disk_gib": 22,
+      "ffmpeg": true,
+      "ffprobe": true,
+      "docker": false,
+      "voicevox_engine": false,
+      "python_voicevox_core": false,
+      "library_search_found_engine_archive": false
+    },
+    "current_acquisition_block": {
+      "github_release_host_on_runtime_egress_allowlist": false,
+      "cloud_browser_asset_download_attempt": "Rejected by browser URL protocol policy",
+      "instruction": "Do not bypass the runtime egress or browser download policy. A user chat approval does not override these platform restrictions."
+    },
+    "recommended_resume": {
+      "pinned_source": "Official stable VOICEVOX ENGINE 0.25.2 Linux CPU x64 release",
+      "source_page": "https://github.com/VOICEVOX/voicevox_engine/releases",
+      "asset_sha256": "bab016a966131b89bad398e7b898f8c742617dc80a7da49bf494cd07133dbc7a",
+      "next_step": "When an approved delivery path places the verified asset in the runtime, extract and launch on 127.0.0.1:50021; verify /speakers and synthesize short samples for both required voices. Then resume the saved DevDay mission without repeating research.",
+      "do_not_use_preview_release": true,
+      "do_not_use_nonofficial_mirrors_or_other_tts": true,
+      "do_not_upload_engine_to_public_repo_artifact": true
+    }
   }
 }
