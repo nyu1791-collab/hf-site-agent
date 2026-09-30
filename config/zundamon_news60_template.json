@@ -1,6 +1,6 @@
 {
   "schema_version": "zundamon-news60-template-v1",
-  "effective_date_jst": "2026-09-24",
+  "effective_date_jst": "2026-09-30",
   "status": "ENFORCED_DEFAULT_FOR_SCOPED_SHORTFORM",
   "decision_owner": "chatgpt-top-commander",
   "purpose": "Make the user's preferred fast Zundamon-led vertical news explainer repeatable, with verified claims, complete measured captions, restrained emphasis color, voice-synchronized mouth motion, and semantic facial acting.",
@@ -127,8 +127,8 @@
   },
   "caption_color": {
     "speaker_identity_colors": {
-      "ずんだもん": "#4DE084",
-      "四国めたん": "#FF5BB9"
+      "ずんだもん": "#B8E6C8",
+      "四国めたん": "#F2C4D7"
     },
     "speaker_identity_color_remains_on_normal_caption_text": true,
     "automatic_keyword_highlighting": false,
@@ -137,8 +137,8 @@
     "maximum_special_highlights_in_60_second_video": 3,
     "reason_required_for_every_special_highlight": true,
     "allowed_special_highlight_colors": [
-      "#FFEB3B",
-      "#F44336"
+      "#F6DB98",
+      "#E7A6AA"
     ],
     "yellow_use": "One decisive finding, number, or contrast that materially changes understanding.",
     "red_use": "A safety warning, correction, or material caveat only.",
@@ -190,7 +190,10 @@
     "reuse_verified_reaction_pack_and_face_anchor_cache": true,
     "fixture_must_pass_before_full_render_when_asset_or_anchor_identity_changes": true,
     "preparation_runtime": "scripts/media_performance_plan.py",
-    "renderer_capability_guard": "scripts/media_performance_route.py"
+    "renderer_capability_guard": "scripts/media_performance_route.py",
+    "requires_verified_character_state_assets_before_render": true,
+    "requires_verified_expression_cue_application_before_render": true,
+    "static_character_route_for_explicit_motion_request": false
   },
   "visual_evidence": {
     "reuse_verified_cache_before_new_search": true,
