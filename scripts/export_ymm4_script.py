@@ -12,11 +12,21 @@ from typing import Any, Mapping
 ALLOWED_SPEAKERS = {"ずんだもん", "四国めたん"}
 ALLOWED_EMOTIONS = {
     "normal",
+    "neutral",
     "curious",
     "surprised",
     "thoughtful",
     "serious",
     "relieved",
+    "explainer",
+    "clarifying",
+    "happy",
+    "summary",
+    "question",
+    "warning",
+    "excited",
+    "skeptical",
+    "sad_or_grave",
 }
 ALLOWED_BEATS = {
     "HOOK",
@@ -39,15 +49,23 @@ REQUIRED_FIELDS = {
     "emphasis_reason",
 }
 try:
-    from .media_performance_plan import validate_emphasis
+    from .media_performance_plan import Expression, validate_emphasis
     from .media_performance_route import selected_profile
 except ImportError:
-    from media_performance_plan import validate_emphasis
+    from media_performance_plan import Expression, validate_emphasis
     from media_performance_route import selected_profile
 
 MAX_DIALOGUE_LINES = 200
 MAX_SPECIAL_HIGHLIGHTS = 3
 MAX_SPECIAL_HIGHLIGHTS_PER_BEAT = 1
+EMOTION_TO_EXPRESSION = {
+    "normal": "NORMAL", "neutral": "NORMAL", "explainer": "NORMAL", "summary": "NORMAL",
+    "curious": "CURIOUS", "question": "CURIOUS",
+    "surprised": "SURPRISED", "thoughtful": "THOUGHTFUL",
+    "clarifying": "THOUGHTFUL", "serious": "SERIOUS",
+    "happy": "HAPPY", "excited": "HAPPY", "relieved": "RELIEVED",
+    "warning": "SERIOUS", "skeptical": "THOUGHTFUL", "sad_or_grave": "SAD",
+}
 CSV_NAME = "ymm4_script.csv"
 CUES_NAME = "ymm4_review_cues.json"
 
@@ -186,6 +204,32 @@ def build_exports(
         if emphasis_terms and not emphasis_reason.strip():
             raise ExportError(f"line_{line_number}: highlighted_term_requires_reason")
 
+        expression_state = item.get("expression_state") or EMOTION_TO_EXPRESSION.get(emotion)
+        if expression_state not in {state.value for state in Expression}:
+            raise ExportError(f"line_{line_number}: unsupported_expression_state:{expression_state}")
+        expression_reason = item.get("expression_reason")
+        if not isinstance(expression_reason, str) or not expression_reason.strip():
+            expression_reason = f"Script emotion cue: {emotion}"
+        expression_beats = item.get("expression_beats")
+        if expression_beats is None:
+            expression_beats = [{"at_s": 0.0, "expression": expression_state, "reason": expression_reason}]
+        if not isinstance(expression_beats, list) or not expression_beats:
+            raise ExportError(f"line_{line_number}: expression_beats_must_be_a_nonempty_list")
+        normalized_expression_beats = []
+        for beat_index, beat_item in enumerate(expression_beats, start=1):
+            if not isinstance(beat_item, Mapping):
+                raise ExportError(f"line_{line_number}: expression_beat_{beat_index}_must_be_an_object")
+            at_s = beat_item.get("at_s")
+            if type(at_s) not in (int, float) or at_s < 0:
+                raise ExportError(f"line_{line_number}: expression_beat_{beat_index}_invalid_time")
+            try:
+                beat_expression = Expression(beat_item.get("expression")).value
+            except (TypeError, ValueError) as exc:
+                raise ExportError(f"line_{line_number}: expression_beat_{beat_index}_invalid_state") from exc
+            reason = beat_item.get("reason")
+            if not isinstance(reason, str) or not reason.strip():
+                raise ExportError(f"line_{line_number}: expression_beat_{beat_index}_reason_required")
+            normalized_expression_beats.append({"at_s": float(at_s), "expression": beat_expression, "reason": reason.strip()})
         rows.append([speaker, voice_text])
         cues.append(
             {
@@ -195,6 +239,15 @@ def build_exports(
                 "chapter_title": item.get("chapter_title"),
                 "speaker": speaker,
                 "emotion": emotion,
+                "character_performance": {
+                    "expression_state": expression_state,
+                    "expression_reason": expression_reason.strip(),
+                    "expression_beats": normalized_expression_beats,
+                    "mouth_driver": "VOICE_ACTIVITY_FROM_FINAL_MEASURED_WAV",
+                    "mouth_closed_during_measured_silence": True,
+                    "listener_mouth_state": "CLOSED",
+                    "verified_face_and_mouth_assets_required": True,
+                },
                 "semantic_beat_id": beat,
                 "visual_beat": visual_beat.strip(),
                 "caption_text": caption_text,
@@ -215,6 +268,13 @@ def build_exports(
         "caption_text_difference_count": sum(
             not cue["caption_matches_voice_text"] for cue in cues
         ),
+        "character_performance_contract": {
+            "profile": "ymm4_research_explainer" if selected_profile(document) == "ymm4_research_explainer" else selected_profile(document),
+            "expression_cues_are_typed": True,
+            "mouth_timing_uses_final_measured_wav": True,
+            "sidecar_must_be_applied_by_verified_ymm4_or_renderer_adapter": True,
+            "sidecar_metadata_alone_is_not_evidence_of_visible_animation": True,
+        },
         "ymm4_builtin_import_carries_only": ["speaker", "voice_text"],
         "notice": (
             "Emotion, visual, source, emphasis, and separate caption metadata stay "
