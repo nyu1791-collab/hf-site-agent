@@ -163,6 +163,7 @@ def main() -> int:
     require(len(second) == 1, "manifest must contain exactly one second-pass standard")
     require(second[0].get("priority") == 0, "second-pass standard must remain priority 0")
     require(second[0].get("machine_policy") == "config/cross_source_second_pass_policy.json", "manifest second-pass path drift")
+    require(second[0].get("human_doc") == "docs/CROSS_SOURCE_SECOND_PASS_2026-09-13.md", "manifest second-pass human doc drift")
     contracts_entries = [x for x in standards if isinstance(x, dict) and x.get("id") == "second-pass-artifact-contracts"]
     require(len(contracts_entries) == 1, "manifest must contain second-pass artifact contracts")
     require(contracts_entries[0].get("priority") == 0, "artifact contracts must remain priority 0")
@@ -185,7 +186,6 @@ def main() -> int:
     claim_reads = set((video_trigger.get("conditional") or {}).get("if_claim_bearing_or_current_factual_content") or [])
     require("config/cross_source_second_pass_policy.json" in claim_reads, "claim-bearing video gate lost second-pass policy")
     require("config/second_pass_artifact_contracts.json" in claim_reads, "claim-bearing video gate lost second-pass artifact contracts")
-    require("docs/CROSS_SOURCE_SECOND_PASS_2026-09-13.md" in claim_reads, "claim-bearing video gate lost second-pass doc")
 
     shop_reads = set((trigger_sets.get("TIKTOK_SHOP_COMMERCE") or {}).get("required") or [])
     require("config/cross_source_second_pass_policy.json" in shop_reads, "shop gate lost second-pass policy")
