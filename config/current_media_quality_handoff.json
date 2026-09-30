@@ -311,7 +311,7 @@
     "render_route_must_validate_capabilities": true
   },
   "next_tab_video_task": {
-    "status": "REQUESTED_PREPRODUCTION_READY_RENDER_BLOCKED",
+    "status": "PREPRODUCTION_PACKAGE_COMPLETE_RENDER_BLOCKED",
     "topic": "OpenAI DevDay 2026 summary and explanation",
     "event_date": "2026-09-29",
     "research_snapshot_jst": "2026-09-30",
@@ -477,6 +477,12 @@
       "The official X screenshot was visually confirmed in the browser but is not yet a local video asset; other official posts need screenshot files and scene-level source credits.",
       "Review image reuse status and keep the video internal; no public release was authorized.",
       "YMM4 Windows end-to-end mouth/expression/caption behavior remains unverified; retain renderer capability gate."
-    ]
+    ],
+    "mission_commit_sha": "53bad9768085f9c0cadccb0faaf9732d65b0868b",
+    "preproduction_package_complete": true,
+    "script_dialogue_lines": 29,
+    "script_approx_japanese_characters": 2699,
+    "source_screenshot_state": "Official OpenAI X post for GPT-6.1 Sol was visually confirmed in the browser. Screenshot bytes were not saved in the local media workspace; capture the listed official post screens before rendering.",
+    "last_ci_scope_note": "The most recent workflow results may be tied to an earlier commit if a later mission-only commit did not trigger the path-scoped workflow; check exact current HEAD status before relying on them."
   }
 }
