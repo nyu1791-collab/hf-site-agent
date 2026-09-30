@@ -514,13 +514,36 @@
       "instruction": "Do not bypass the runtime egress or browser download policy. A user chat approval does not override these platform restrictions."
     },
     "recommended_resume": {
-      "pinned_source": "Official stable VOICEVOX ENGINE 0.25.2 Linux CPU x64 release",
+      "pinned_source": "Official stable VOICEVOX ENGINE 0.25.2 Linux CPU x64",
       "source_page": "https://github.com/VOICEVOX/voicevox_engine/releases",
       "asset_sha256": "bab016a966131b89bad398e7b898f8c742617dc80a7da49bf494cd07133dbc7a",
-      "next_step": "When an approved delivery path places the verified asset in the runtime, extract and launch on 127.0.0.1:50021; verify /speakers and synthesize short samples for both required voices. Then resume the saved DevDay mission without repeating research.",
+      "next_step": "Resume from the Library audio checkpoint and saved measured timing; keep the 29 cached turns and synthesize only changed lines. Capture official source screenshots and scene credits before render. The previous run verified and reused the official package; do not route through an alternate TTS provider or mirror.",
       "do_not_use_preview_release": true,
       "do_not_use_nonofficial_mirrors_or_other_tts": true,
       "do_not_upload_engine_to_public_repo_artifact": true
+    },
+    "latest_completed_synthesis": {
+      "completed_at_jst": "2026-09-30",
+      "mission": "missions/media/20260930-devday-2026-explainer-v1.json",
+      "status": "VOICE_GENERATED_AND_MEASURED",
+      "engine_version": "0.25.2",
+      "engine_archive_sha256": "bab016a966131b89bad398e7b898f8c742617dc80a7da49bf494cd07133dbc7a",
+      "voices": "ずんだもん／四国めたん（ノーマル; runtime-discovered style IDs 3 and 2）",
+      "speed_scale": 1.2,
+      "dialogue_lines": 37,
+      "measured_duration_seconds": 492.661,
+      "wav_format": "48 kHz stereo PCM",
+      "caption_coverage_ratio": 1,
+      "cached_lines_reused": 29,
+      "newly_synthesized_lines": 8,
+      "qa": "Every line was converted to lossless FLAC and decode-checked; combined MP3 and WAV duration matched measured timeline.",
+      "library_checkpoint": "devday_2026_voice_checkpoint.zip",
+      "library_preview": "devday_narration_preview.mp3",
+      "render_status": "NOT_RENDERED",
+      "remaining_render_blockers": [
+        "Capture official OpenAI and @OpenAI X screenshot assets locally with visible source credit.",
+        "Complete YMM4/FFmpeg capability-gated assembly and final video decode check."
+      ]
     }
   }
 }
