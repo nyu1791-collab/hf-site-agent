@@ -2,7 +2,7 @@
   "schema_version": "media-performance-efficiency-v1",
   "effective_date_jst": "2026-09-30",
   "status": "ENFORCED_PREPARATION_STANDARD",
-  "scope": "ZUNDAMON_METAN_NEWS60_AND_EXPLICIT_CHARACTER_PERFORMANCE_REQUESTS",
+  "scope": "ZUNDAMON_METAN_NEWS60_LONGFORM_RESEARCH_EXPLAINERS_AND_EXPLICIT_CHARACTER_PERFORMANCE_REQUESTS",
   "runtime": "scripts/media_performance_plan.py",
   "route_guard": "scripts/media_performance_route.py",
   "authority": "LATEST_USER_REQUEST: voiced mouth motion, semantic expressions, phrase-level color without keyword boxes",
@@ -18,7 +18,10 @@
       "HAPPY",
       "SURPRISED",
       "SERIOUS",
-      "SAD"
+      "SAD",
+      "CURIOUS",
+      "THOUGHTFUL",
+      "RELIEVED"
     ],
     "idle_listener_mouth": "CLOSED",
     "measured_silence_mouth": "CLOSED",
@@ -28,7 +31,12 @@
     "rms_fallback_is_approximate_not_phoneme_lipsync": true,
     "mouth_and_expression_layers_are_separate": true,
     "aligned_assets_required_before_actual_render": true,
-    "no_reaction_asset_regeneration_per_video": true
+    "no_reaction_asset_regeneration_per_video": true,
+    "longform_research_explainer_profile": "ymm4_research_explainer",
+    "static_character_route_for_explicit_motion_request": false,
+    "require_character_state_assets_verified_before_render": true,
+    "require_visible_expression_changes_in_final_preview": true,
+    "no_claim_of_actual_animation_from_sidecar_only": true
   },
   "caption_emphasis": {
     "unit": "SEMANTIC_PHRASE_OR_CLAUSE",
@@ -98,7 +106,10 @@
     "color_tag_channel": "CAPTION_TEXT_ONLY_AFTER_WINDOWS_FIXTURE",
     "baseline_and_psd_mouth_presets_require_windows_verification": true,
     "python_plan_is_not_completed_editor_application": true,
-    "hardware_encode": "OPTIONAL_IDENTICAL_FIXTURE_AB; preserve software fallback"
+    "hardware_encode": "OPTIONAL_IDENTICAL_FIXTURE_AB; preserve software fallback",
+    "research_explainer_auto_routes_to_expression_and_mouth_sync": true,
+    "sidecar_requires_verified_application_adapter": true,
+    "static_still_renderer_is_not_a_valid_final_adapter_for_motion_profile": true
   },
   "verification": {
     "synthetic_fixture_tests_only_this_task": true,
