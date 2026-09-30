@@ -44,8 +44,6 @@ def validate(root=ROOT):
     assert verification.get('manual_visual_review_required') is False, 'routine manual visual review re-enabled'
     assert 'windows_ymm4_verified' not in verification, 'retired platform-specific verification key returned'
 
-    # Durable approval evidence belongs to the approved template. The current
-    # media handoff is intentionally only a compact pointer/continuity summary.
     approval = profile.get('approval') or {}
     assert approval.get('reference_video'), 'approved reference video missing'
     assert approval.get('reference_video_library_file_id'), 'approved reference library id missing'
@@ -62,8 +60,11 @@ def validate(root=ROOT):
     assert handoff.get('authority') == 'POINTERS_AND_BRIEF_CONTINUITY_ONLY; MACHINE_POLICY_IS_AUTHORITATIVE', 'media handoff gained machine-policy authority'
     assert handoff_reference.get('output') == approval.get('reference_video'), 'handoff approved output pointer drift'
     assert handoff_reference.get('baseline') == 'config/approved_video_template.json', 'handoff approved baseline pointer drift'
-    assert admission['caption_contract']['renderer'] == profile['renderer']
-    assert admission['caption_contract']['speaker_colors'] == profile['layout']['caption_colors']
+    caption_contract = admission.get('caption_contract') or {}
+    caption_renderers = caption_contract.get('renderers') or {}
+    assert caption_renderers.get('shortform') == profile['renderer'], 'approved shortform renderer drift'
+    assert isinstance(caption_renderers.get('longform'), str) and (root / caption_renderers['longform']).is_file(), 'admitted longform renderer missing'
+    assert caption_contract['speaker_colors'] == profile['layout']['caption_colors']
 
     speed_reads = set((gate.get('speed_first_delivery_override') or {}).get('read_set') or [])
     video_required = set((((gate.get('trigger_sets') or {}).get('VIDEO_CREATION') or {}).get('required') or []))
@@ -93,6 +94,7 @@ def validate(root=ROOT):
         'restore_path': 'SPEED_OVERRIDE_OR_VIDEO_CREATION_GATE',
         'minimum_completion_only': True,
         'approval_evidence': 'TEMPLATE_DURABLE_REFERENCE',
+        'caption_renderer_contract': 'SHORTFORM_LONGFORM_SPLIT',
     }
 
 
