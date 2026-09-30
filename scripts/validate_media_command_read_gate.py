@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -135,7 +136,10 @@ def main() -> int:
         require(platform_path in set(video.get("required") or []), f"platform delivery knowledge missing from video read gate: {platform_path}")
     profile_registry = load(ROOT / "config/video_platform_delivery_profiles.json")
     require(profile_registry.get("status") == "ACTIVE_SCOPED_PLATFORM_ADAPTERS", "platform delivery registry is not active")
-    require(profile_registry.get("maintenance", {}).get("last_reviewed_jst") == "2026-09-30", "platform source review date is stale")
+    maintenance = profile_registry.get("maintenance", {})
+    reviewed = date.fromisoformat(str(maintenance.get("last_reviewed_jst", "")))
+    require(reviewed <= date.today(), "platform source review date is in the future")
+    require((date.today() - reviewed).days <= int(profile_registry.get("review_interval_days", 0)), "platform source review date is stale")
     platforms = profile_registry.get("platforms") or {}
     require({"youtube", "instagram_reels", "x_organic", "x_ads"}.issubset(platforms), "platform delivery profiles are incomplete")
     require((platforms.get("x_ads") or {}).get("scope") == "PAID_AD_CREATIVE_ONLY; never apply as organic performance law", "X ad guidance scope leaked")
