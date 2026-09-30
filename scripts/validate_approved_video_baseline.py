@@ -44,12 +44,26 @@ def validate(root=ROOT):
     assert verification.get('manual_visual_review_required') is False, 'routine manual visual review re-enabled'
     assert 'windows_ymm4_verified' not in verification, 'retired platform-specific verification key returned'
 
-    assert handoff['latest_completed_video']['status'] in {'USER_APPROVED_INTERNAL_VIDEO', 'RENDERED_INTERNAL_VIDEO'}, 'invalid latest video state'
-    assert handoff['latest_completed_video']['actual_character_animation'] is True
-    assert handoff.get('approved_reference_video', handoff['latest_completed_video']['final_video']) == profile['approval']
+    # Durable approval evidence belongs to the approved template. The current
+    # media handoff is intentionally only a compact pointer/continuity summary.
+    approval = profile.get('approval') or {}
+    assert approval.get('reference_video'), 'approved reference video missing'
+    assert approval.get('reference_video_library_file_id'), 'approved reference library id missing'
+    digest = str(approval.get('reference_video_sha256') or '')
+    assert len(digest) == 64 and all(ch in '0123456789abcdef' for ch in digest), 'approved reference sha256 missing or invalid'
+    assert approval.get('approved_visual_execution_commit'), 'approved visual execution commit missing'
+    assert approval.get('approval_is_presentation_acceptance_not_fact_or_publication_approval') is True, 'approval scope widened beyond presentation acceptance'
+    longform_approval = approval.get('longform_presentation_acceptance') or {}
+    assert longform_approval.get('library_file_id'), 'longform accepted reference library id missing'
+    assert longform_approval.get('acceptance_scope') == 'PRESENTATION_AND_ACTING_ONLY_CONTENT_REQUIRES_MORE_CONCISE_EXPLANATION', 'longform approval scope drift'
+
+    handoff_reference = handoff.get('approved_reference') or {}
+    assert handoff.get('status') == 'CURRENT_CROSS_TAB_CONTINUITY_SUMMARY', 'media handoff is not the compact continuity summary'
+    assert handoff.get('authority') == 'POINTERS_AND_BRIEF_CONTINUITY_ONLY; MACHINE_POLICY_IS_AUTHORITATIVE', 'media handoff gained machine-policy authority'
+    assert handoff_reference.get('output') == approval.get('reference_video'), 'handoff approved output pointer drift'
+    assert handoff_reference.get('baseline') == 'config/approved_video_template.json', 'handoff approved baseline pointer drift'
     assert admission['caption_contract']['renderer'] == profile['renderer']
     assert admission['caption_contract']['speaker_colors'] == profile['layout']['caption_colors']
-    assert handoff['latest_completed_video']['production_package']['library_file_id'], 'missing durable source package'
 
     speed_reads = set((gate.get('speed_first_delivery_override') or {}).get('read_set') or [])
     video_required = set((((gate.get('trigger_sets') or {}).get('VIDEO_CREATION') or {}).get('required') or []))
@@ -78,6 +92,7 @@ def validate(root=ROOT):
         'cross_tab_entry': 'AGENTS.md',
         'restore_path': 'SPEED_OVERRIDE_OR_VIDEO_CREATION_GATE',
         'minimum_completion_only': True,
+        'approval_evidence': 'TEMPLATE_DURABLE_REFERENCE',
     }
 
 
