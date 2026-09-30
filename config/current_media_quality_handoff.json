@@ -18,7 +18,10 @@
     "then_read": [
       "config/current_media_quality_handoff.json",
       "config/media_character_performance_compact_orchestration_policy.json",
-      "config/media_command_read_gate.json"
+      "config/media_command_read_gate.json",
+      "config/media_user_visual_duration_preferences.json",
+      "config/longform_video_objectives.json",
+      "config/ymm4_research_explainer_profile.json"
     ],
     "do_not_use_conversation_memory_as_source_of_truth": true,
     "reconfirm_current_branch_head_and_pr_state_before_writes": true
@@ -55,7 +58,9 @@
     "config/media_performance_efficiency_policy.json",
     "docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md",
     "scripts/media_performance_plan.py",
-    "scripts/media_performance_route.py"
+    "scripts/media_performance_route.py",
+    "config/media_user_visual_duration_preferences.json",
+    "config/longform_video_objectives.json"
   ],
   "deepseek_review_checkpoint": {
     "workflow": ".github/workflows/deepseek-supervisor-research.yml",
@@ -84,24 +89,25 @@
     ]
   },
   "latest_user_quality_checkpoint": {
-    "reference_output": "2026-09-14 Hori Daisuke sleep explainer",
-    "user_assessment": "very_good_overall",
+    "reference_output": "DevDay 2026 internal explainer (2026-09-30)",
+    "user_assessment": "Useful material, but too technically detailed; subtitles too saturated; character expressions did not visibly change.",
     "retain": [
       "bright explainer panels and generally brighter visual treatment",
       "semantic caption segmentation",
       "truthful separation of subject claims from scientific consensus",
       "pre-delivery rereview instead of immediate handoff",
-      "iOS/in-app compatible Fast Start MP4 delivery"
+      "iOS/in-app compatible Fast Start MP4 delivery",
+      "official source screenshots and visible credits",
+      "VOICEVOX 0.25.2 plus measured timing",
+      "full spoken captions and reusable production artifacts"
     ],
     "improve": [
-      "stronger facial-expression acting rather than mouth-only motion",
-      "normalize perceived size of Zundamon and Shikoku Metan",
-      "make the current speaker naturally larger while speaking",
-      "keep the listener visible and expressive when useful",
-      "reduce agent fragmentation because coordination overhead can erase parallelism gains",
-      "information collection and script writing are primarily a joint ChatGPT plus DeepSeek responsibility",
-      "keep yellow/red emphasis to only a few genuinely important phrases",
-      "ensure Zundamon mouth motion follows voice timing and facial expression changes follow semantic beats"
+      "use pale mint Zundamon captions (#B8E6C8) and pale rose Metan captions (#F2C4D7) with strong dark outline and mobile contrast",
+      "make voice-synchronized mouth movement and semantic expression changes visibly present in the final output",
+      "route longform two-character explainers to the dynamic YMM4/motion-capable profile; never silently accept a static portrait renderer",
+      "explain three to five key points in plain Japanese, grouping related announcements and giving each one practical example plus material limitations",
+      "use 4-6 minutes for a focused issue, 6-8 for a concise broad summary, and 8-12 only when supported depth adds understanding",
+      "retain unchanged narration, timing, screenshots, captions, and scenes; repair the smallest affected layer"
     ]
   },
   "adopted_media_decisions": [
@@ -311,7 +317,7 @@
     "render_route_must_validate_capabilities": true
   },
   "next_tab_video_task": {
-    "status": "COMPLETED_INTERNAL_DRAFT_READY_FOR_USER_REVIEW",
+    "status": "COMPLETED_INTERNAL_DRAFT_FOUNDATION_UPDATED_NO_RERENDER",
     "topic": "OpenAI DevDay 2026 summary and explanation",
     "event_date": "2026-09-29",
     "research_snapshot_jst": "2026-09-30",
@@ -326,11 +332,13 @@
       "ChatGPT Space, Living Pages, collaborative slides, team tasks, plugins, MCP events, and business features"
     ],
     "next_tab_execution": [
-      "The user has already requested and received the completed DevDay video. Do not restart production or repeat research when this task resumes.",
-      "First fetch current branch HEAD, PR #40 state, and current Actions; then read this handoff and missions/media/20260930-devday-2026-explainer-v1.json.",
-      "Find the persistent Library files by exact titles: devday2026_explainer_final_internal.mp4, DevDay2026_explainer_sources.zip, DevDay2026_explainer_captions.srt, DevDay2026_explainer_preview.jpg, devday_2026_voice_checkpoint.zip, and devday_narration_preview.mp3. Treat Library copies as durable; scratch paths are session-local.",
-      "Reuse the finished deliverable for review or requested revisions; reuse the saved production package, voice checkpoint, measured timeline, screenshots, and character assets. Regenerate only changed lines/scenes.",
-      "Keep the video internal until image reuse is cleared. Do not upload/publish or use paid API/model fallbacks. Keep PR #40 OPEN/DRAFT/UNMERGED."
+      "The finished DevDay MP4 is preserved; this update did not recreate or overwrite it.",
+      "On a future video request, fetch current branch HEAD, PR #40, Actions, and policies before work, then read the media handoff, media user preferences, longform objectives, YMM4 research profile, motion route, and character cache policy.",
+      "Use pale green Zundamon captions (#B8E6C8) and pale rose Metan captions (#F2C4D7), dark outline/backplate, and low-frequency semantic phrase emphasis. Verify on a phone-size preview.",
+      "For longform research explainers, select the ymm4_research_explainer profile automatically; use the sidecar's typed expression beats plus mouth cues timed to final measured WAV. Reuse unchanged VOICEVOX, assets, evidence screenshots, caption timing, and scenes.",
+      "Before final rendering, verify aligned facial/mouth state assets for both characters and that the YMM4/renderer adapter actually applies expression cues. A static portrait sequence or sidecar JSON alone does not pass.",
+      "Structure explanations around one question and three to five key points. Group related announcements; explain what changed, why it matters, one simple example, and the important limitation. Use 4-6 minutes for focused, 6-8 for compact roundups, and 8-12 for evidence-rich deep dives; never pad.",
+      "Keep PR #40 OPEN/DRAFT/UNMERGED and do not merge, deploy, upload, or publish."
     ],
     "user_trigger_required": false,
     "production_started": true,
@@ -447,7 +455,7 @@
     "production_started_on_jst": "2026-09-30",
     "render_started": true,
     "mission_file": "missions/media/20260930-devday-2026-explainer-v1.json",
-    "latest_user_instruction": "Use screenshots from official OpenAI X posts/official pages, add visible source credit, do not use generated images or generated video.",
+    "latest_user_instruction": "Keep the DevDay video as-is for now; update the production foundation. Future videos need pale captions, visibly changing semantic expressions and voice-synced mouth movement, and simpler key-point-first narration.",
     "official_social_visual_sources": [
       {
         "source": "@OpenAI official X — GPT-6.1 Sol",
@@ -471,8 +479,9 @@
       }
     ],
     "render_blockers": [
-      "External reuse/license review is required before public publication.",
-      "Windows YMM4 end-to-end behavior remains unverified; the completed video used the existing deterministic FFmpeg renderer."
+      "For future motion-requested output, verified mouth/expression assets for both characters and a passing YMM4 or motion-renderer application preview are mandatory.",
+      "Official screenshot reuse rights still require review before public release.",
+      "No future video render is requested in this checkpoint."
     ],
     "mission_commit_sha": "53bad9768085f9c0cadccb0faaf9732d65b0868b",
     "preproduction_package_complete": true,
@@ -617,6 +626,43 @@
       }
     ],
     "rights_and_release": "Internal draft only. Review official screenshot reuse rights before publication; no upload or public release was done.",
-    "resume": "Reuse the finished Library artifacts first. Modify only requested chapters/lines and retain the voice checkpoint, source package, measured timings, captions, and assets. Do not restart from zero."
+    "resume": "Reuse the finished Library artifacts first. Modify only requested chapters/lines and retain the voice checkpoint, source package, measured timings, captions, and assets. Do not restart from zero.",
+    "character_performance_status": "Delivered file uses static full-body portraits; user reported expressions did not change. Next requested video must use a verified motion-capable route."
+  },
+  "latest_video_pipeline_improvement": {
+    "status": "BASELINE_UPDATED_NO_VIDEO_RENDERED",
+    "completed_on_jst": "2026-09-30",
+    "files_changed": [
+      "config/media_user_visual_duration_preferences.json",
+      "config/evidence_visual_static_character_policy.json",
+      "config/ymm4_research_explainer_profile.json",
+      "config/longform_video_objectives.json",
+      "config/media_performance_efficiency_policy.json",
+      "scripts/media_performance_route.py",
+      "scripts/media_performance_plan.py",
+      "scripts/export_ymm4_script.py",
+      "scripts/render_static_speaker_color_longform.py",
+      "tests/test_media_performance_route.py",
+      "tests/test_prepare_ymm4_research_explainer_package.py",
+      "scripts/validate_media_performance_efficiency.py",
+      "config/media_audio_motion_retention_policy.json",
+      "config/zundamon_news60_template.json",
+      "config/media_command_read_gate.json",
+      "docs/ZUNDAMON_METAN_REACTION_AND_SUBTITLE_STANDARD.md"
+    ],
+    "changes": [
+      "Pastel caption palette with phone-contrast guard",
+      "Longform research explainers automatically route to mouth-sync plus semantic-expression profile",
+      "YMM4 cue sidecar includes typed per-line expression states derived from emotion and a measured-WAV mouth driver contract",
+      "Renderer route requires verified face/mouth assets and verified cue application; the static renderer is blocked for dynamic character profiles",
+      "Editorial structure groups three to five takeaways and earns runtime with examples, impact, and limitations"
+    ],
+    "validation": {
+      "route_and_typed_cue_tests": "PASS (10 route tests plus exporter smoke test)",
+      "performance_plan_tests": "PASS (16 tests)",
+      "modified_json_syntax": "PASS",
+      "full_repository_suite": "NOT_RUN",
+      "current_head_actions": "NOT_RUN"
+    }
   }
 }
