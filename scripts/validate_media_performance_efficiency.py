@@ -7,6 +7,9 @@ def validate():
     path='config/media_performance_efficiency_policy.json'
     p=json.loads((ROOT/path).read_text())
     assert p['character_performance']['mouth_states']==['CLOSED','HALF','OPEN']
+    assert p['character_performance']['longform_research_explainer_profile']=='ymm4_research_explainer'
+    assert p['character_performance']['require_character_state_assets_verified_before_render'] is True
+    assert p['character_performance']['require_visible_expression_changes_in_final_preview'] is True
     assert p['caption_emphasis']['unit']=='SEMANTIC_PHRASE_OR_CLAUSE'
     for key in ['single_keyword_selection','keyword_box_card_or_brackets','automatic_keyword_highlighting','paint_every_occurrence']:
         assert p['caption_emphasis'][key] is False
