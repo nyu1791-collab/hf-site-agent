@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import signal
+import subprocess
 import tempfile
 import time
 import unittest
@@ -10,6 +12,7 @@ from unittest import mock
 from scripts.durable_media_runner import (
     DurableRunnerError,
     _safe_env,
+    _terminate_process_group,
     claim_job,
     connect,
     enqueue_job,
@@ -108,6 +111,37 @@ class DurableMediaRunnerTests(unittest.TestCase):
         self.assertEqual(env.get("PATH"), "/bin")
         self.assertNotIn("OPENROUTER_API_KEY", env)
         self.assertNotIn("DEEPSEEK_API_KEY", env)
+
+    def test_process_group_is_killed_if_graceful_stop_times_out(self):
+        class FakeProcess:
+            pid = 4321
+
+            def __init__(self):
+                self.waits = 0
+
+            def poll(self):
+                return None
+
+            def wait(self, timeout=None):
+                self.waits += 1
+                if self.waits == 1:
+                    raise subprocess.TimeoutExpired(cmd="handler", timeout=timeout)
+                return 0
+
+            def terminate(self):
+                raise AssertionError("direct terminate should not be used when killpg works")
+
+            def kill(self):
+                raise AssertionError("direct kill should not be used when killpg works")
+
+        process = FakeProcess()
+        with mock.patch("scripts.durable_media_runner.os.killpg") as killpg:
+            _terminate_process_group(process, grace_seconds=0.01)
+        self.assertEqual(
+            killpg.call_args_list,
+            [mock.call(4321, signal.SIGTERM), mock.call(4321, signal.SIGKILL)],
+        )
+        self.assertEqual(process.waits, 2)
 
     def test_speed_policy_keeps_only_fatal_gates_and_no_five_agent_chain(self):
         root = Path(__file__).resolve().parents[1]
