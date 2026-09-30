@@ -460,7 +460,12 @@ def validate_document(
             raise RoutineError(f"cleared_visual_{visual_id}_is_not_used")
 
     rows, cues_document = build_exports(
-        {"title": title, "dialogue": flattened},
+        {
+            "title": title,
+            "dialogue": flattened,
+            "target_duration_minutes": list(duration),
+            "template_id": "ymm4_research_explainer",
+        },
         max_total_highlights=None,
         highlight_scope="chapter",
     )
