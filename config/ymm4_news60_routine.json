@@ -47,5 +47,7 @@
     "visual_and_audio_cache_hits_with_current_rights_evidence"
   ],
   "cold_start_or_new_evidence_exceeds_target_without_skipping_gates": true,
-  "no_network_paid_call_audio_render_or_video_from_preparation": true
+  "no_network_paid_call_audio_render_or_video_from_preparation": true,
+  "performance_preparation_policy": "config/media_performance_efficiency_policy.json",
+  "plain_srt_for_measured_external_wav": "Use text items without >> character prefix; Windows fixture required"
 }

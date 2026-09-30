@@ -98,3 +98,15 @@ Official references:
 ## Why this lip-sync route
 
 YMM4's official release notes describe A-I-U-E-O lip sync for compatible animated-standing-picture or PSD assets, using generated timing from supported engines such as VOICEVOX; other engines may use audio analysis. VOICEVOX's official guide also documents exporting a .lab file containing phoneme timing that is useful for lip sync. Use a character asset that actually contains compatible mouth/eye states, and check the full-face fixture before rendering. See https://manjubox.net/ymm4/release/4.49.0.0/, https://voicevox.hiroshiba.jp/how_to_use/, and https://manjubox.net/ymm4/faq/%E3%82%86%E3%81%A3%E3%81%8F%E3%82%8A%E3%83%9C%E3%82%A4%E3%82%B9/VOICEVOX%E3%82%92%E4%BD%BF%E7%94%A8%E3%81%99%E3%82%8B/.
+
+
+## 2026-09-30 表情・口同期・意味単位の強調
+
+正本は `config/media_performance_efficiency_policy.json`、詳細と一次情報は
+`docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md`。60秒用では実測音声に同期した
+口の開閉と意味に沿う表情を必須にし、静止画rendererへの無言のfallbackを拒否する。
+重要な結論・注意点の句/節を字幕原文の範囲で色変更する。単語抽出・囲み・カード化や
+全出現への自動着色はしない。音声は表情・字幕色だけの変更では再生成しない。
+CSVは二列の発話読込であり、表情/秒数/字幕色が自動反映済みと説明しない。
+YMM4の実際の適用はWindows fixture確認が必要。追加コードは準備計画であって
+完成動画のアニメーションrendererではない。今回の作業では動画を作成しない。

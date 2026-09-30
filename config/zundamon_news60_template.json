@@ -143,7 +143,10 @@
     "yellow_use": "One decisive finding, number, or contrast that materially changes understanding.",
     "red_use": "A safety warning, correction, or material caveat only.",
     "never_use_color_as_the_only_meaning_signal": true,
-    "do_not_highlight_names_or_topic_keywords_merely_because_they_are_relevant": true
+    "do_not_highlight_names_or_topic_keywords_merely_because_they_are_relevant": true,
+    "highlight_unit": "SEMANTIC_PHRASE_OR_CLAUSE",
+    "keyword_boxes_or_cards": false,
+    "offset_based_single_occurrence": true
   },
   "character_performance": {
     "default_for_this_template": "SPEAKING_MOUTH_SYNC_PLUS_SPARSE_SEMANTIC_EXPRESSION",
@@ -185,7 +188,9 @@
     "do_not_move_all_face_pose_scale_and_symbol_channels_at_once": true,
     "serious_or_sensitive_news_uses_restrained_expression_and_motion": true,
     "reuse_verified_reaction_pack_and_face_anchor_cache": true,
-    "fixture_must_pass_before_full_render_when_asset_or_anchor_identity_changes": true
+    "fixture_must_pass_before_full_render_when_asset_or_anchor_identity_changes": true,
+    "preparation_runtime": "scripts/media_performance_plan.py",
+    "renderer_capability_guard": "scripts/media_performance_route.py"
   },
   "visual_evidence": {
     "reuse_verified_cache_before_new_search": true,

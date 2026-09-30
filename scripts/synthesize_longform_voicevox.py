@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, base64, gzip, json, subprocess, urllib.parse, urllib.request
+import argparse, base64, gzip, hashlib, json, subprocess, urllib.parse, urllib.request
 from pathlib import Path
+
+try:
+    from .media_performance_plan import validate_emphasis
+    from .media_voice_cache import voice_cache_key, restore_voice, store_voice
+except ImportError:
+    from media_performance_plan import validate_emphasis
+    from media_voice_cache import voice_cache_key, restore_voice, store_voice
 
 DEFAULT_SPEED_SCALE=1.20
 VOICEVOX_TIMEOUT_SECONDS=60
@@ -106,12 +113,41 @@ def deterministic_emphasis_terms(line: dict, caption: str) -> list[str]:
     return unique
 
 
+
+def preflight_caption_metadata(mission: dict) -> dict:
+    """Validate all caption spans before engine discovery, writes or synthesis."""
+    try:
+        from .validate_video_caption_contract import validate_shortform_emphasis
+    except ImportError:
+        from validate_video_caption_contract import validate_shortform_emphasis
+    metadata = {}
+    lines = {}
+    records = []
+    for scene in mission["scenes"]:
+        for line in scene["dialogue"]:
+            line_id = str(line["id"])
+            if line_id in lines:
+                raise ValueError("duplicate dialogue id")
+            caption, source = caption_text_for_line(mission, line)
+            spans = validate_emphasis(caption, line.get("emphasis_spans", []))
+            terms = deterministic_emphasis_terms(line, caption)
+            if spans and terms:
+                raise ValueError("use semantic spans or legacy terms, not both")
+            lines[line_id] = line
+            metadata[line_id] = (caption, source, spans, terms)
+            records.append({"id":line_id, "caption_text":caption,
+                            "caption_emphasis_spans":spans, "caption_emphasis_terms":terms})
+    validate_shortform_emphasis(mission, records, lines)
+    return metadata
+
+
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--mission-b64",type=Path,required=True)
     ap.add_argument("--output-dir",type=Path,required=True)
     ap.add_argument("--timing-out",type=Path,required=True)
     ap.add_argument("--engine",default="http://127.0.0.1:50021")
+    ap.add_argument("--voice-cache-dir",type=Path,default=Path(__file__).resolve().parents[1]/".media-cache/voicevox-wav")
     ap.add_argument("--min-seconds",type=float,default=480)
     ap.add_argument("--max-seconds",type=float,default=720)
     ap.add_argument("--speed-scale",type=float,default=DEFAULT_SPEED_SCALE)
@@ -121,7 +157,11 @@ def main():
 
     engine=args.engine.rstrip("/")
     mission=decode_mission(args.mission_b64)
+    caption_metadata=preflight_caption_metadata(mission)
     cast=discover_cast(engine)
+    engine_version=str(get_json(f"{engine}/version"))
+    dictionary_revision=hashlib.sha256(json.dumps(get_json(f"{engine}/user_dict"),sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+    cache_hits=0
     args.output_dir.mkdir(parents=True,exist_ok=True)
     pronunciations={x["surface_term"]:x["voice_reading"] for x in mission.get("pronunciation_dictionary",[])}
     records=[]; t=0.0
@@ -134,17 +174,26 @@ def main():
             for surface,reading in pronunciations.items():
                 text=text.replace(surface,reading)
             style_id=int(cast[speaker]["style_id"])
-            qs=urllib.parse.urlencode({"text":text,"speaker":style_id})
-            query=json.loads(post_json(f"{engine}/audio_query?{qs}").decode("utf-8"))
-            query["speedScale"]=args.speed_scale
-            query["intonationScale"]=1.0
-            wav=post_json(f"{engine}/synthesis?speaker={style_id}",query)
-            raw=args.output_dir/f"{lid}.raw.wav"; final=args.output_dir/f"{lid}.wav"
-            raw.write_bytes(wav)
-            subprocess.run(["ffmpeg","-y","-hide_banner","-loglevel","error","-i",str(raw),"-ar","48000","-ac","2","-c:a","pcm_s16le",str(final)],check=True)
-            raw.unlink(missing_ok=True)
+            cache_key=voice_cache_key(text=text,engine_version=engine_version,
+                                      style_id=style_id,speed_scale=args.speed_scale,dictionary_revision=dictionary_revision,
+                                      speaker_uuid=cast[speaker]["speaker_uuid"])
+            final=args.output_dir/f"{lid}.wav"
+            cached=restore_voice(args.voice_cache_dir,cache_key,final)
+            if cached:
+                cache_hits+=1
+            else:
+                qs=urllib.parse.urlencode({"text":text,"speaker":style_id})
+                query=json.loads(post_json(f"{engine}/audio_query?{qs}").decode("utf-8"))
+                query["speedScale"]=args.speed_scale
+                query["intonationScale"]=1.0
+                wav=post_json(f"{engine}/synthesis?speaker={style_id}",query)
+                raw=args.output_dir/f"{lid}.raw.wav"
+                raw.write_bytes(wav)
+                subprocess.run(["ffmpeg","-y","-hide_banner","-loglevel","error","-i",str(raw),"-ar","48000","-ac","2","-c:a","pcm_s16le",str(final)],check=True)
+                raw.unlink(missing_ok=True)
+                store_voice(args.voice_cache_dir,cache_key,final)
             d=duration(final)
-            caption_text, caption_source = caption_text_for_line(mission, line)
+            caption_text, caption_source, caption_spans, caption_terms = caption_metadata[str(lid)]
             coverage = 1.0
             is_last=idx==len(scene["dialogue"])-1
             pause=0.34 if is_last else 0.12
@@ -155,6 +204,8 @@ def main():
                 "style_id":style_id,
                 "style_name":cast[speaker].get("style_name"),
                 "wav_file":final.name,
+                "voice_cache_key":cache_key,
+                "voice_cache_hit":bool(cached),
                 "duration":d,
                 "pause_after":pause,
                 "start":t,
@@ -162,7 +213,8 @@ def main():
                 "speed_scale":args.speed_scale,
                 "caption_text":caption_text,
                 "caption_source":caption_source,
-                "caption_emphasis_terms":deterministic_emphasis_terms(line, caption_text),
+                "caption_emphasis_terms":caption_terms,
+                "caption_emphasis_spans":caption_spans,
                 "caption_coverage_ratio":round(coverage, 4),
             })
             t += d+pause
@@ -178,12 +230,18 @@ def main():
         "caption_contract": "FULL_SPOKEN_TEXT",
         "caption_coverage_ratio": min((float(record["caption_coverage_ratio"]) for record in records), default=1.0),
         "voicevox_speed_scale":args.speed_scale,
+        "engine_version":engine_version,
+        "voice_cache_hits":cache_hits,
+        "voice_cache_misses":len(records)-cache_hits,
         "runtime_discovered_cast":cast,
         "voicevox_credit":["VOICEVOX:ずんだもん","VOICEVOX:四国めたん"],
     }
     args.timing_out.parent.mkdir(parents=True,exist_ok=True)
     args.timing_out.write_text(json.dumps(timing,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
-    print(json.dumps({"line_count":len(records),"total_duration":t,"speed_scale":args.speed_scale,"runtime_discovered_cast":cast},ensure_ascii=False))
+    print(json.dumps({"line_count":len(records),"total_duration":t,"speed_scale":args.speed_scale,
+        "voice_cache_hits":cache_hits,
+        "voice_cache_misses":len(records)-cache_hits,
+        "engine_version":engine_version,"runtime_discovered_cast":cast},ensure_ascii=False))
     if not (args.min_seconds <= t <= args.max_seconds):
         raise SystemExit(f"measured narration duration {t:.2f}s is outside requested {args.min_seconds:.0f}-{args.max_seconds:.0f}s; revise information density/script instead of padding")
     return 0

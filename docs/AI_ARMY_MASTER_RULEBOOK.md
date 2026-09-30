@@ -167,3 +167,20 @@ Keep the rulebook short by moving volatile facts and long evidence lists into re
 ## 10. Hard boundaries
 
 No main direct push, PR merge, production deploy/publish, secret mutation/disclosure, Durable Object change, auto top-up or generic paid fallback without the required explicit authorization. Paid scope is limited to the separately authorized DeepSeek Executive Supervisor and Jev Fast Decision Plane; neither exception authorizes any other paid provider. External agents do not gain final authority from this rulebook.
+
+
+## 2026-09-30 表情・口同期・意味単位の強調
+
+正本は `config/media_performance_efficiency_policy.json`、詳細と一次情報は
+`docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md`。60秒用では実測音声に同期した
+口の開閉と意味に沿う表情を必須にし、静止画rendererへの無言のfallbackを拒否する。
+重要な結論・注意点の句/節を字幕原文の範囲で色変更する。単語抽出・囲み・カード化や
+全出現への自動着色はしない。音声は表情・字幕色だけの変更では再生成しない。
+CSVは二列の発話読込であり、表情/秒数/字幕色が自動反映済みと説明しない。
+YMM4の実際の適用はWindows fixture確認が必要。追加コードは準備計画であって
+完成動画のアニメーションrendererではない。今回の作業では動画を作成しない。
+
+再利用を制作の既定にする。WAVキャッシュは文章・engine/style・速度・発音辞書と出力形式で識別し、
+口解析キャッシュは実音声hashと解析版で識別する。同じ入力なら音声合成・口解析を繰り返さない。
+表情や字幕色の修正だけで音声を作り直さず、キャラ素材・フォント・テンプレート・取得済み素材も再利用する。
+詳細は `docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md` の再利用追加実装を参照する。

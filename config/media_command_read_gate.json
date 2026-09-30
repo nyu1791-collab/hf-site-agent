@@ -70,7 +70,9 @@
     "scripts/media_speed_orchestrator.py",
     "scripts/validate_media_speed_quality.py",
     "scripts/seal_media_speed_checkpoint.py",
-    "docs/MEDIA_PIPELINE.md"
+    "docs/MEDIA_PIPELINE.md",
+    "config/media_performance_efficiency_policy.json",
+    "docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md"
   ],
   "trigger_sets": {
     "VIDEO_CREATION": {
@@ -332,4 +334,3 @@
     "zundamon_news60_template_validator_must_be_re_read": true
   }
 }
-

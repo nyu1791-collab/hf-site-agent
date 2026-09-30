@@ -133,6 +133,7 @@ def build_beat_sheet(
                 "caption_difference_line_ids": [
                     cue["id"] for cue in lines if not cue["caption_matches_voice_text"]
                 ],
+                "highlight_spans": [span for cue in lines for span in cue.get("emphasis_spans", [])],
                 "highlight_terms": [
                     term for cue in lines for term in cue["emphasis_terms"]
                 ],
@@ -209,7 +210,7 @@ def prepare_package(
     validate_contracts(shortform, routine)
     script_sha256 = _file_sha256(script_path)
     document = load_script(script_path)
-    rows, cues = build_exports(document)
+    rows, cues = build_exports({**document, "performance_profile":"zundamon_news60"})
     if _file_sha256(script_path) != script_sha256:
         raise RoutineError("script_changed_during_preparation")
     sheet = build_beat_sheet(cues, shortform, routine)

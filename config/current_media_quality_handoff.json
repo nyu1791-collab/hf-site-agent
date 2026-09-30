@@ -1,6 +1,6 @@
 {
   "schema_version": "current-media-quality-handoff-v3",
-  "effective_date_jst": "2026-09-25",
+  "effective_date_jst": "2026-09-30",
   "status": "CURRENT_CROSS_TAB_CONTINUITY_SUMMARY",
   "authority": "INDEX_AND_CONTINUITY_SUMMARY_ONLY",
   "purpose": "Make the latest Zundamon/Shikoku Metan video-quality, retention, efficiency, compact ChatGPT+DeepSeek orchestration and character-performance decisions immediately recoverable after a chat-tab or session change without relying on conversation memory. Machine-readable policies, validators and CI remain authoritative over this summary.",
@@ -51,7 +51,11 @@
     "examples/ymm4_research_explainer_script_template.json",
     "scripts/prepare_ymm4_research_explainer_package.py",
     "scripts/export_ymm4_script.py",
-    "tests/test_prepare_ymm4_research_explainer_package.py"
+    "tests/test_prepare_ymm4_research_explainer_package.py",
+    "config/media_performance_efficiency_policy.json",
+    "docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md",
+    "scripts/media_performance_plan.py",
+    "scripts/media_performance_route.py"
   ],
   "deepseek_review_checkpoint": {
     "workflow": ".github/workflows/deepseek-supervisor-research.yml",
@@ -288,14 +292,22 @@
       "chapter pill persists until chapter changes",
       "active speaker bright; listener visible but subdued; Windows-preview opacity values only"
     ],
-  "information_traceability": [
-    "verified claims require per-source locator/support summary and reviewer/date",
-    "selected visuals require five provenance fields and exact line/claim mapping",
-    "CLEARED visuals also require license basis, reuse-condition summary, review method, reviewer, and date; restricted or unknown rights stay blocked",
-    "optional SRT uses one unique measured local WAV per line; SHA/frame/duration manifest is emitted and WAVs are not copied",
-    "timed SRT is text-only and remains pending Windows YMM4 preview; CSV remains the voice-item input",
-    "voice and image rights remain separate"
+    "information_traceability": [
+      "verified claims require per-source locator/support summary and reviewer/date",
+      "selected visuals require five provenance fields and exact line/claim mapping",
+      "CLEARED visuals also require license basis, reuse-condition summary, review method, reviewer, and date; restricted or unknown rights stay blocked",
+      "optional SRT uses one unique measured local WAV per line; SHA/frame/duration manifest is emitted and WAVs are not copied",
+      "timed SRT is text-only and remains pending Windows YMM4 preview; CSV remains the voice-item input",
+      "voice and image rights remain separate"
     ],
     "no_biosynthesis_claims_added_without_topic_sources": true
+  },
+  "current_performance_update": {
+    "policy": "config/media_performance_efficiency_policy.json",
+    "scope": "news60 and explicit acting requests",
+    "motion": "measured mouth sync and semantic expressions",
+    "emphasis": "semantic phrase/clause coloring without keyword boxes",
+    "windows_editor_verification": "PENDING",
+    "render_route_must_validate_capabilities": true
   }
 }

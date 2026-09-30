@@ -116,7 +116,7 @@ class VideoCaptionContractTests(unittest.TestCase):
             deterministic_emphasis_terms({"emphasis_terms": ["Jezero", "地下水"]}, "Jezeroの湖と地下水を調べた。")
 
     def test_news60_emphasis_requires_reason_and_is_limited_per_beat_and_video(self):
-        mission = {"template_id": "zundamon_news60"}
+        mission = {"template_id": "zundamon_news60", "allow_legacy_emphasis_replay": True}
         lines = {
             "L1": {"semantic_beat_id": "HOOK", "emphasis_reason": "A decisive, verified contrast."},
             "L2": {"semantic_beat_id": "HOOK", "emphasis_reason": "Another phrase."},

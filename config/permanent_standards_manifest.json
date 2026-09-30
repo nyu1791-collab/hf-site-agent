@@ -284,6 +284,14 @@
       },
       "priority": 1,
       "purpose": "REUSABLE_SHORTFORM_NEWS_PROMPT_WITH_EXPLICIT_ONLY_CAPTION_EMPHASIS_AND_VOICE_SYNCED_CHARACTER_ACTING"
+    },
+    {
+      "id": "media-performance-efficiency",
+      "machine_policy": "config/media_performance_efficiency_policy.json",
+      "human_doc": "docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md",
+      "runtime": "scripts/media_performance_plan.py",
+      "route_guard": "scripts/media_performance_route.py",
+      "validator": "scripts/validate_media_performance_efficiency.py"
     }
   ],
   "canonical_ai_army_execution": {
@@ -680,4 +688,3 @@
     "recover_from_repository_and_verified_artifacts": true
   }
 }
-

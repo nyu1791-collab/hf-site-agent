@@ -18,7 +18,13 @@
     "conflicting_old_character_motion_rules_must_not_be_executed": true,
     "machine_policy_over_conflicting_human_prose": true,
     "user_explicit_future_override_allowed": true,
-    "rights_factual_safety_and_cost_gates_cannot_be_overridden_silently": true
+    "rights_factual_safety_and_cost_gates_cannot_be_overridden_silently": true,
+    "performance_update_precedence": {
+      "policy": "config/media_performance_efficiency_policy.json",
+      "scope": "zundamon_news60 or explicit character-performance profile",
+      "scoped_mouth_and_expression_requirements_override_general_static_rules": true,
+      "general_static_rule_applies_only_outside_scope": true
+    }
   },
   "ci_enforcement": {
     "workflow": ".github/workflows/canonical-ai-army-consistency.yml",
@@ -233,7 +239,7 @@
     "OLD_CHARACTER_MOTION_RULE_EXECUTED_DESPITE_THIS_POLICY_PRECEDENCE"
   ],
   "template_scoped_overrides": {
-    "scope": "Only an explicitly selected, approved Zundamon news60 template activates these motion rules. The general static-turn-focus default remains active for other profiles.",
+    "scope": "The current scripts/media_performance_route.py selects zundamon_news60 explicitly or from recognized shortform format/duration. Scoped mouth/expression requirements override the general static default; other profiles retain their own defaults.",
     "template_index": "config/zundamon_news60_template.json",
     "static_default_remains_for_unselected_templates": true,
     "approved_profiles": [

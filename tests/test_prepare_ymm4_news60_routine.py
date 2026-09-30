@@ -46,7 +46,8 @@ def script():
                 "visual_beat": "資料の図を確認",
                 "source_claim_ids": ["C1"],
                 "semantic_beat_id": "EVIDENCE",
-                "emphasis_terms": ["資料"],
+                "emphasis_terms": [],
+                "emphasis_spans": [{"start":0,"end":7,"text":"AIの資料です","unit":"CLAUSE","reason":"核心となる資料"}],
                 "emphasis_reason": "核心となる資料",
             },
             {

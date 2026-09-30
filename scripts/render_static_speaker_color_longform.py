@@ -631,6 +631,11 @@ def render(
     preview_only: bool,
     one_pass_final_encode: bool = False,
 ) -> None:
+    try:
+        from .media_performance_route import require_renderer_capabilities
+    except ImportError:
+        from media_performance_route import require_renderer_capabilities
+    require_renderer_capabilities(mission, {"mouth_sync": False, "semantic_expression": False}, timing_records=timing["records"])
     by_id = {record["id"]: record for record in timing["records"]}
     representative: list[Path] = []
     scene_videos: list[Path] = []

@@ -84,6 +84,10 @@ jobs:
             tests.test_subordinate_continuation_carrier \
             tests.test_replace_narration_audio \
             tests.test_media_asset_resolver \
+            tests.test_media_performance_plan \
+            tests.test_media_performance_route \
+            tests.test_media_performance_integration \
+            tests.test_media_voice_cache \
             -v
       - name: Run parallel batch five-domain Jev trial
         if: ${{ hashFiles('missions/jev-trial/active.json') != '' }}

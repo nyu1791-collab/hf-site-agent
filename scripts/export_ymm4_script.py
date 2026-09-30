@@ -38,6 +38,13 @@ REQUIRED_FIELDS = {
     "emphasis_terms",
     "emphasis_reason",
 }
+try:
+    from .media_performance_plan import validate_emphasis
+    from .media_performance_route import selected_profile
+except ImportError:
+    from media_performance_plan import validate_emphasis
+    from media_performance_route import selected_profile
+
 MAX_DIALOGUE_LINES = 200
 MAX_SPECIAL_HIGHLIGHTS = 3
 MAX_SPECIAL_HIGHLIGHTS_PER_BEAT = 1
@@ -135,6 +142,15 @@ def build_exports(
         emphasis_terms = [value.strip() for value in emphasis_terms]
         if len(set(emphasis_terms)) != len(emphasis_terms):
             raise ExportError(f"line_{line_number}: duplicate_emphasis_term")
+        try:
+            emphasis_spans = validate_emphasis(caption_text, item.get("emphasis_spans", []))
+        except ValueError as exc:
+            raise ExportError(f"line_{line_number}: {exc}") from exc
+        if emphasis_terms and selected_profile(document)=="zundamon_news60" and document.get("allow_legacy_emphasis_replay") is not True:
+            raise ExportError(f"line_{line_number}: new shortform requires semantic spans; legacy terms are replay-only")
+        if emphasis_spans and emphasis_terms:
+            raise ExportError(f"line_{line_number}: use semantic spans or legacy terms, not both")
+        highlight_amount = len(emphasis_spans) + len(emphasis_terms)
         scope_key = beat
         scope_label = "semantic_beat"
         if highlight_scope == "chapter":
@@ -146,14 +162,14 @@ def build_exports(
             scope_key = chapter_id.strip()
             scope_label = "chapter"
         highlights_by_scope[scope_key] = (
-            highlights_by_scope.get(scope_key, 0) + len(emphasis_terms)
+            highlights_by_scope.get(scope_key, 0) + highlight_amount
         )
         if highlights_by_scope[scope_key] > MAX_SPECIAL_HIGHLIGHTS_PER_BEAT:
             raise ExportError(
                 f"line_{line_number}: special_highlights_exceed_"
                 f"{MAX_SPECIAL_HIGHLIGHTS_PER_BEAT}_per_{scope_label}:{scope_key}"
             )
-        highlight_count += len(emphasis_terms)
+        highlight_count += highlight_amount
         if max_total_highlights is not None and highlight_count > max_total_highlights:
             raise ExportError(
                 f"special_highlights_exceed_{max_total_highlights}_video_limit"
@@ -186,6 +202,7 @@ def build_exports(
                 "caption_difference_reason": str(item.get("caption_difference_reason", "")).strip(),
                 "source_claim_ids": [value.strip() for value in claim_ids],
                 "emphasis_terms": emphasis_terms,
+                "emphasis_spans": emphasis_spans,
                 "emphasis_reason": emphasis_reason.strip(),
             }
         )

@@ -50,3 +50,15 @@ These intervals are a hypothesis, not measured performance or a deadline. New ev
 - VOICEVOX presets and phoneme timing: https://voicevox.hiroshiba.jp/how_to_use/
 - YMM4 compatible VOICEVOX lip sync: https://manjubox.net/ymm4/release/4.49.0.0/
 - YMM4 subtitle separation: https://manjubox.net/ymm4/release/4.16.0.0/
+
+
+## 2026-09-30 表情・口同期・意味単位の強調
+
+正本は `config/media_performance_efficiency_policy.json`、詳細と一次情報は
+`docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md`。60秒用では実測音声に同期した
+口の開閉と意味に沿う表情を必須にし、静止画rendererへの無言のfallbackを拒否する。
+重要な結論・注意点の句/節を字幕原文の範囲で色変更する。単語抽出・囲み・カード化や
+全出現への自動着色はしない。音声は表情・字幕色だけの変更では再生成しない。
+CSVは二列の発話読込であり、表情/秒数/字幕色が自動反映済みと説明しない。
+YMM4の実際の適用はWindows fixture確認が必要。追加コードは準備計画であって
+完成動画のアニメーションrendererではない。今回の作業では動画を作成しない。

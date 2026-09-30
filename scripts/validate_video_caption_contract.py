@@ -9,6 +9,13 @@ import json
 from pathlib import Path
 
 
+try:
+    from .media_performance_plan import validate_emphasis
+    from .media_performance_route import selected_profile
+except ImportError:
+    from media_performance_plan import validate_emphasis
+    from media_performance_route import selected_profile
+
 def decode_mission(path: Path) -> dict:
     raw = base64.b64decode(path.read_text(encoding="utf-8").strip())
     value = json.loads(gzip.decompress(raw).decode("utf-8"))
@@ -41,27 +48,36 @@ def full_caption_text(mission: dict, line: dict) -> str:
 
 def validate_shortform_emphasis(mission: dict, records: list[dict], lines_by_id: dict[str, dict]) -> int:
     """Enforce sparse, reasoned emphasis only for the one-minute Zundamon profile."""
-    if mission.get("template_id") != "zundamon_news60":
+    if selected_profile(mission) != "zundamon_news60":
         return sum(len(record.get("caption_emphasis_terms") or []) for record in records)
     total = 0
     per_beat: dict[str, int] = {}
     for record in records:
         terms = record.get("caption_emphasis_terms") or []
-        if len(terms) > 1:
+        try:
+            spans = validate_emphasis(str(record.get("caption_text") or ""), record.get("caption_emphasis_spans", []))
+        except ValueError as exc:
+            raise SystemExit(f"invalid caption emphasis spans: {exc}") from exc
+        if terms and mission.get("allow_legacy_emphasis_replay") is not True:
+            raise SystemExit("new shortform captions require semantic spans; legacy terms are replay-only")
+        if spans and terms:
+            raise SystemExit("semantic spans and legacy terms cannot be mixed")
+        amount = len(terms) + len(spans)
+        if amount > 1:
             raise SystemExit(f"more than one emphasis phrase in a turn: {record.get('id')}")
-        if terms:
-            total += len(terms)
+        if amount:
+            total += amount
             line = lines_by_id.get(str(record.get("id"))) or {}
             reason = str(line.get("emphasis_reason") or "").strip()
             beat = str(line.get("semantic_beat_id") or "").strip()
             caption = str(record.get("caption_text") or "")
             if any(term not in caption for term in terms):
                 raise SystemExit(f"special emphasis term is not present in caption: {record.get('id')}")
-            if not reason:
+            if not reason and not spans:
                 raise SystemExit(f"emphasis_reason is required for {record.get('id')}")
             if not beat:
                 raise SystemExit(f"semantic_beat_id is required for {record.get('id')}")
-            per_beat[beat] = per_beat.get(beat, 0) + len(terms)
+            per_beat[beat] = per_beat.get(beat, 0) + amount
             if per_beat[beat] > 1:
                 raise SystemExit(f"more than one special highlight in semantic beat: {beat}")
     if total > 3:

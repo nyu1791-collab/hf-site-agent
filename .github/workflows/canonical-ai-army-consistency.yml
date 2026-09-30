@@ -21,6 +21,16 @@ on:
       - 'config/media_command_read_gate.json'
       - 'config/media_speed_quality_policy.json'
       - 'config/zundamon_news60_template.json'
+      - 'config/media_performance_efficiency_policy.json'
+      - 'scripts/media_performance_plan.py'
+      - 'scripts/media_performance_route.py'
+      - 'scripts/media_voice_cache.py'
+      - 'tests/test_media_voice_cache.py'
+      - 'scripts/validate_media_performance_efficiency.py'
+      - 'docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md'
+      - 'tests/test_media_performance_integration.py'
+      - 'tests/test_media_performance_plan.py'
+      - 'tests/test_media_performance_route.py'
       - 'config/evidence_visual_static_character_policy.json'
       - 'config/media_source_policy.json'
       - 'config/media_audio_motion_retention_policy.json'
@@ -332,6 +342,7 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_zundamon_news60_template.py
+          python scripts/validate_media_performance_efficiency.py
           python -m unittest tests.test_zundamon_news60_template
 
       - name: Enforce semantic recall and commerce clipping precision
