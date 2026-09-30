@@ -280,8 +280,36 @@
       ],
       "claim_bearing": true,
       "emphasis_terms": [
-        "Plusと提供条件は別確認"
+        "全部Plus"
       ],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH01_04",
+      "scene": 1,
+      "speaker": "四国めたん",
+      "emotion": "curious",
+      "text": "発表を整理するときは、機能名だけで並べず、対象プラン、使える場所、提供開始の時期を分けます。この三点で、発表済みと自分が使える状態の混同を減らせます。",
+      "caption_text": "発表を整理するときは、機能名だけで並べず、対象プラン、使える場所、提供開始の時期を分けます。この三点で、発表済みと自分が使える状態の混同を減らせます。",
+      "visual_beat": "Plus availability label",
+      "source_claim_ids": [],
+      "claim_bearing": false,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH01_05",
+      "scene": 1,
+      "speaker": "ずんだもん",
+      "emotion": "serious",
+      "text": "公開情報が更新されたら、説明と出典も日付付きで見直します。古い案内を現在の条件として伝えないためです。",
+      "caption_text": "公開情報が更新されたら、説明と出典も日付付きで見直します。古い案内を現在の条件として伝えないためです。",
+      "visual_beat": "Plus availability label",
+      "source_claim_ids": [],
+      "claim_bearing": false,
+      "emphasis_terms": [],
       "voice_audio_file": null,
       "pause_after_ms": 180
     },
@@ -298,7 +326,7 @@
       ],
       "claim_bearing": true,
       "emphasis_terms": [
-        "WorkとCodexで利用可能"
+        "ChatGPT WorkとCodex"
       ],
       "voice_audio_file": null,
       "pause_after_ms": 180
@@ -352,6 +380,34 @@
       "pause_after_ms": 180
     },
     {
+      "id": "CH02_05",
+      "scene": 2,
+      "speaker": "四国めたん",
+      "emotion": "curious",
+      "text": "モデルを使える環境なら、同じ資料から要点、台本の構成、説明の分かりやすさを出し比べます。答えが違った時は、多数決ではなく、元の公式記事と提供条件に戻って判断します。",
+      "caption_text": "モデルを使える環境なら、同じ資料から要点、台本の構成、説明の分かりやすさを出し比べます。答えが違った時は、多数決ではなく、元の公式記事と提供条件に戻って判断します。",
+      "visual_beat": "API billing separate callout",
+      "source_claim_ids": [],
+      "claim_bearing": false,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH02_06",
+      "scene": 2,
+      "speaker": "ずんだもん",
+      "emotion": "serious",
+      "text": "モデルの評価は、速さに加えて、根拠の正確さ、形式の安定性、修正回数も同じ条件で比べると、制作工程に合った使い分けができます。",
+      "caption_text": "モデルの評価は、速さに加えて、根拠の正確さ、形式の安定性、修正回数も同じ条件で比べると、制作工程に合った使い分けができます。",
+      "visual_beat": "API billing separate callout",
+      "source_claim_ids": [],
+      "claim_bearing": false,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
       "id": "CH03_01",
       "scene": 3,
       "speaker": "ずんだもん",
@@ -380,7 +436,7 @@
       ],
       "claim_bearing": true,
       "emphasis_terms": [
-        "CLIとコードレビューは全プラン"
+        "すべてのプランで使える"
       ],
       "voice_audio_file": null,
       "pause_after_ms": 180
@@ -429,6 +485,20 @@
         "C3"
       ],
       "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH03_06",
+      "scene": 3,
+      "speaker": "四国めたん",
+      "emotion": "serious",
+      "text": "クラウドで作業を続けられる場合も、状態を保存できるか、差分を追えるか、レビュー結果を戻せるかを見ます。そこが整えば、毎回の環境準備を減らし、前にできた工程を次の動画で使いやすくできます。",
+      "caption_text": "クラウドで作業を続けられる場合も、状態を保存できるか、差分を追えるか、レビュー結果を戻せるかを見ます。そこが整えば、毎回の環境準備を減らし、前にできた工程を次の動画で使いやすくできます。",
+      "visual_beat": "OpenAI official Codex Security Cloud X screenshot",
+      "source_claim_ids": [],
+      "claim_bearing": false,
       "emphasis_terms": [],
       "voice_audio_file": null,
       "pause_after_ms": 180
@@ -548,6 +618,20 @@
       "pause_after_ms": 180
     },
     {
+      "id": "CH04_08",
+      "scene": 4,
+      "speaker": "ずんだもん",
+      "emotion": "serious",
+      "text": "似た言葉でも役割は異なります。dotsは目標を継続する製品、Decisions APIはアプリ向けの選択肢判定、Agents APIのComputer Useは画面操作を組み込む開発機能です。契約、公開時期、料金は個別に確認します。",
+      "caption_text": "似た言葉でも役割は異なります。dotsは目標を継続する製品、Decisions APIはアプリ向けの選択肢判定、Agents APIのComputer Useは画面操作を組み込む開発機能です。契約、公開時期、料金は個別に確認します。",
+      "visual_beat": "Agents API plan/billing labels",
+      "source_claim_ids": [],
+      "claim_bearing": false,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
       "id": "CH05_01",
       "scene": 5,
       "speaker": "ずんだもん",
@@ -607,6 +691,20 @@
         "C1"
       ],
       "claim_bearing": true,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
+    },
+    {
+      "id": "CH05_05",
+      "scene": 5,
+      "speaker": "ずんだもん",
+      "emotion": "serious",
+      "text": "共有スペースを使えない契約では、Repositoryの引き継ぎ文とファイルを正本にします。皆が同じ画面を見られると決めつけず、台本、出典、字幕、音声のどこまで共有したかを記録するのが、継続制作に役立ちます。",
+      "caption_text": "共有スペースを使えない契約では、Repositoryの引き継ぎ文とファイルを正本にします。皆が同じ画面を見られると決めつけず、台本、出典、字幕、音声のどこまで共有したかを記録するのが、継続制作に役立ちます。",
+      "visual_beat": "Plugin availability vs connected integration",
+      "source_claim_ids": [],
+      "claim_bearing": false,
       "emphasis_terms": [],
       "voice_audio_file": null,
       "pause_after_ms": 180
@@ -710,17 +808,30 @@
       "emphasis_terms": [],
       "voice_audio_file": null,
       "pause_after_ms": 180
+    },
+    {
+      "id": "CH06_07",
+      "scene": 6,
+      "speaker": "四国めたん",
+      "emotion": "serious",
+      "text": "視聴者に持ち帰ってほしい点は三つです。新機能は対象プランと提供場所を確かめて使う。公式発表と、この動画で実装を確認した機能を分ける。制作では利用できるものだけ既存テンプレートに入れ、成果物を次回へ引き継ぐ。",
+      "caption_text": "視聴者に持ち帰ってほしい点は三つです。新機能は対象プランと提供場所を確かめて使う。公式発表と、この動画で実装を確認した機能を分ける。制作では利用できるものだけ既存テンプレートに入れ、成果物を次回へ引き継ぐ。",
+      "visual_beat": "End card with official source links",
+      "source_claim_ids": [],
+      "claim_bearing": false,
+      "emphasis_terms": [],
+      "voice_audio_file": null,
+      "pause_after_ms": 180
     }
   ],
   "render_gate": {
     "status": "BLOCKED_BEFORE_RENDER",
     "required": [
-      "VOICEVOX_LOCAL runtime or exact validated cached WAVs",
-      "capture official X and OpenAI article screenshots to local media workspace",
-      "record scene-level source credit and rights status",
-      "derive subtitle/timeline from measured WAV duration",
-      "follow existing YMM4/FFmpeg capability gate"
+      "Capture the official OpenAI article and @OpenAI X post screenshots into the local media workspace",
+      "Record scene-level source credits and rights status for captured images",
+      "Use the verified measured VOICEVOX timing for subtitles and scene lengths",
+      "Follow the existing YMM4/FFmpeg capability gate"
     ],
-    "reason": "Current session has FFmpeg but no VOICEVOX runtime, no validated VOICEVOX WAV cache, and no local official screenshot assets. Policy forbids silence and non-VOICEVOX TTS fallbacks."
+    "reason": "VOICEVOX ENGINE 0.25.2 generated and measured all 37 dialogue turns at speed 1.20 (492.661 seconds); exact line audio is preserved in the Library audio checkpoint. Rendering remains blocked until official source screenshots and scene credits are present."
   }
 }
