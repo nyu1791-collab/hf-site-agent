@@ -30,8 +30,6 @@ def validate(root=ROOT):
     assert editorial['caveats']['attach_once_to_relevant_feature']
     assert editorial['caveats']['repeat_generic_warning_per_chapter'] is False
     assert editorial['caveats']['preserve_material_limits_and_factual_accuracy']
-    # Editorial authority is a machine pointer; do not require a prose keyword
-    # to be duplicated into the lean common hot path.
     assert manifest['media_command_gate']['concise_editorial_policy'] == 'config/approved_video_template.json#/editorial'
 
     evidence = load('config/evidence_visual_static_character_policy.json')
@@ -40,7 +38,12 @@ def validate(root=ROOT):
     assert 'NORMAL_DIALOGUE_CHARACTER_LIPSYNC_OR_MOUTH_ANIMATION' not in evidence['hard_fail_conditions']
     assert 'canonical_static_speaker_color_renderer' not in evidence['production_efficiency']
 
-    assert profile['verification']['windows_ymm4_verified'] is False
+    verification = profile.get('verification') or {}
+    assert verification.get('minimum_completion_only') is True, 'minimum completion contract drift'
+    assert verification.get('final_decode_required') is False, 'routine final decode re-enabled'
+    assert verification.get('manual_visual_review_required') is False, 'routine manual visual review re-enabled'
+    assert 'windows_ymm4_verified' not in verification, 'retired platform-specific verification key returned'
+
     assert handoff['latest_completed_video']['status'] in {'USER_APPROVED_INTERNAL_VIDEO', 'RENDERED_INTERNAL_VIDEO'}, 'invalid latest video state'
     assert handoff['latest_completed_video']['actual_character_animation'] is True
     assert handoff.get('approved_reference_video', handoff['latest_completed_video']['final_video']) == profile['approval']
@@ -48,8 +51,6 @@ def validate(root=ROOT):
     assert admission['caption_contract']['speaker_colors'] == profile['layout']['caption_colors']
     assert handoff['latest_completed_video']['production_package']['library_file_id'], 'missing durable source package'
 
-    # Fresh-tab reachability follows the current speed override and the
-    # VIDEO_CREATION semantic gate, not the retired giant common set.
     speed_reads = set((gate.get('speed_first_delivery_override') or {}).get('read_set') or [])
     video_required = set((((gate.get('trigger_sets') or {}).get('VIDEO_CREATION') or {}).get('required') or []))
     reachable = speed_reads | video_required
@@ -76,6 +77,7 @@ def validate(root=ROOT):
         'baseline': profile['schema_version'],
         'cross_tab_entry': 'AGENTS.md',
         'restore_path': 'SPEED_OVERRIDE_OR_VIDEO_CREATION_GATE',
+        'minimum_completion_only': True,
     }
 
 
