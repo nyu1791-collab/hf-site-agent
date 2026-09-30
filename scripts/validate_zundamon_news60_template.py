@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Validate the permanent shortform Zundamon template and its cross-tab wiring."""
+"""Validate the scoped shortform Zundamon template and its cross-tab wiring.
+
+News60 is intentionally conditional. Routine VIDEO_CREATION must not pay the
+restore/coordination cost unless the user requests the 55–60 second Zundamon
+news-short profile.
+"""
 from __future__ import annotations
 
 import json
@@ -41,28 +46,35 @@ def validate() -> dict[str, Any]:
     manifest = load(MANIFEST)
     routine = load(YMM4_ROUTINE)
     scaffold = load(YMM4_SCAFFOLD)
+
     require(DOC.is_file(), "shortform template human prompt is missing")
     require(YMM4_DOC.is_file() and YMM4_PREP.is_file(), "YMM4 routine documentation or preparation command is missing")
     require(template.get("schema_version") == "zundamon-news60-template-v1", "shortform template version drift")
     require(template.get("status") == "ENFORCED_DEFAULT_FOR_SCOPED_SHORTFORM", "shortform template is not enforced for its scope")
+
     output = template.get("output") or {}
     require(output.get("target_duration_seconds") == [55, 60], "shortform duration scope drift")
     require(output.get("aspect_ratio") == "9:16" and output.get("resolution") == [1080, 1920], "shortform output geometry drift")
     require(output.get("public_publish_requires_explicit_user_approval") is True, "public publish approval guard missing")
 
     production = template.get("production_time") or {}
-    require(production.get("observed_target_minutes") == [10, 15] and production.get("is_goal_not_guarantee") is True, "observed speed target drift")
+    # Template-local historical observation may remain 10–15 minutes; the
+    # current global speed policy owns the five-minute work target. Do not let
+    # this scoped template override the active speed authority.
+    require(production.get("is_goal_not_guarantee") is True, "template production target became a guarantee")
     require(production.get("max_independent_preparation_lanes") == 3, "shortform preparation lane ceiling drift")
     require(production.get("one_final_encode") is True, "one-pass final encode requirement missing")
 
     beat_ids = [str(x.get("id")) for x in (template.get("story_beats") or [])]
     require(beat_ids == ["HOOK", "WHAT_CHANGED", "WHY_IT_HAPPENED", "EVIDENCE", "LIMIT_OR_CAVEAT", "TAKEAWAY"], "shortform beat sequence drift")
+
     require(routine.get("schema_version") == "ymm4-news60-routine-v1" and routine.get("status") == "PREPRODUCTION_BLUEPRINT", "YMM4 routine blueprint drift")
     require(routine.get("baseline_must_be_created_and_checked_on_windows") is True, "unverified YMM4 baseline was promoted")
     require(routine.get("target_around_ten_minutes_is_conditional_not_guaranteed") is True, "YMM4 target was made a guarantee")
     require(routine.get("no_network_paid_call_audio_render_or_video_from_preparation") is True, "YMM4 preparation side-effect guard missing")
     require([line.get("semantic_beat_id") for line in (scaffold.get("dialogue") or [])] == beat_ids, "YMM4 scaffold beat order drift")
     require(scaffold.get("title") is None and all(line.get("voice_text") is None and line.get("caption_text") is None for line in scaffold["dialogue"]), "YMM4 scaffold no longer blocks unfilled scripts")
+
     script = template.get("script_contract") or {}
     require(script.get("full_spoken_text_caption_contract") == "FULL_SPOKEN_TEXT", "full-spoken caption contract missing")
     require(script.get("caption_timing_source") == "MEASURED_LOCAL_VOICEVOX_WAV", "caption timing is not tied to measured voice")
@@ -97,19 +109,25 @@ def validate() -> dict[str, Any]:
         "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
         "scripts/validate_zundamon_news60_template.py",
     }
-    video_required = set((((gate.get("trigger_sets") or {}).get("VIDEO_CREATION") or {}).get("required") or []))
-    admission_required = set(admission.get("required_read_set") or [])
-    require(required_paths.issubset(video_required), "video read gate does not load the shortform template contract")
-    session = gate.get("new_session_behavior") or {}
-    require(session.get("zundamon_news60_template_must_be_re_read") is True, "media read gate does not restore the shortform template")
-    require(session.get("zundamon_news60_template_human_prompt_must_be_re_read") is True, "media read gate does not restore the shortform prompt")
-    require(required_paths.issubset(admission_required), "video admission does not restore the shortform template contract")
+    video = ((gate.get("trigger_sets") or {}).get("VIDEO_CREATION") or {})
+    video_required = set(video.get("required") or [])
+    conditional = video.get("conditional") or {}
+    scoped_shortform = set(conditional.get("if_user_requests_55_to_60_second_zundamon_news_short") or [])
+    require(required_paths.issubset(scoped_shortform), "scoped News60 intent cannot restore the template contract")
+    require(not required_paths.intersection(video_required), "News60 template leaked into every VIDEO_CREATION request")
+
+    # Generic admission restores the speed-first foundation. News60 is layered
+    # only after semantic intent resolution, so it must not inflate the generic
+    # admission read set.
+    admission_ref = admission.get("required_read_set_ref")
+    require(admission_ref == "config/media_command_read_gate.json#/speed_first_delivery_override/read_set", "video admission no longer points at the canonical speed-first read set")
 
     standard = next((x for x in (manifest.get("required_standards") or []) if x.get("id") == "zundamon-news60-template"), None)
     require(standard is not None, "permanent manifest does not index the shortform template")
     require(standard.get("machine_policy") == "config/zundamon_news60_template.json", "manifest template policy path drift")
     require(standard.get("human_doc") == "docs/ZUNDAMON_NEWS60_TEMPLATE.md", "manifest prompt path drift")
     require(standard.get("validator") == "scripts/validate_zundamon_news60_template.py", "manifest template validator path drift")
+
     routine_paths = {
         "blueprint": "config/ymm4_news60_routine.json",
         "human_doc": "docs/YMM4_NEWS60_ROUTINE.md",
@@ -119,9 +137,14 @@ def validate() -> dict[str, Any]:
     require(standard.get("ymm4_routine") == routine_paths, "manifest YMM4 routine index drift")
     cross_tab = manifest.get("cross_tab_behavior") or {}
     require(cross_tab.get("zundamon_news60_template_survives_tab_change") is True, "shortform template cross-tab persistence missing")
-    media_files = set(media_handoff.get("authoritative_media_files") or [])
-    require(required_paths.issubset(media_files), "media quality handoff does not restore the template files")
-    require(set(routine_paths.values()).issubset(media_files), "media quality handoff does not restore the YMM4 routine")
+
+    # The media handoff is a compact pointer summary. It should expose News60
+    # through conditional references instead of carrying a duplicated global
+    # authoritative file list.
+    require(media_handoff.get("status") == "CURRENT_CROSS_TAB_CONTINUITY_SUMMARY", "media handoff is not compact continuity summary")
+    shortform_ref = ((media_handoff.get("conditional_references") or {}).get("shortform") or {})
+    require(shortform_ref.get("scope") == "ONLY_WHEN_USER_REQUESTS_55_TO_60_SECOND_ZUNDAMON_NEWS_SHORT", "media handoff shortform scope drift")
+    require(required_paths.issubset(set(shortform_ref.get("files") or [])), "media handoff cannot restore scoped News60 files")
 
     return {
         "status": "PASS",
@@ -130,8 +153,9 @@ def validate() -> dict[str, Any]:
         "highlight_policy": "EXPLICIT_ONLY_MAX_3",
         "voice_synchronized_mouth_motion": True,
         "semantic_facial_expression_changes": True,
-        "cross_tab_read_gate": True,
+        "cross_tab_read_gate": "CONDITIONAL_SHORTFORM_SCOPE",
         "ymm4_routine_indexed": True,
+        "routine_video_overhead_added": False,
     }
 
 
@@ -142,4 +166,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
