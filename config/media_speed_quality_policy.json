@@ -271,7 +271,8 @@
     "jev_use": "ONLY_WHEN_USER_REQUESTS_IT_OR_TYPED_JUDGMENT_CHANGES_THE_ROUTE; SKIP_FOR_DETERMINISTIC_PREPARATION",
     "permission_scope": "DELIVERY_TO_REQUESTING_USER_ONLY; PUBLICATION_MERGE_DEPLOY_PAID_SCOPE_AND_SECRET_PERMISSIONS_ARE_SEPARATE",
     "targeted_user_requested_revision_allowed": true,
-    "unrequested_polish_allowed": false
+    "unrequested_polish_allowed": false,
+    "latest_explicit_user_duration_wins_over_prior_conflicting_duration": true
   },
   "longform_renderer": "scripts/render_fast_image_longform.py",
   "minimum_delivery_contract": {
@@ -284,7 +285,8 @@
     "use_existing_voice_or_caption_preset_without_expansion": true,
     "one_output_check_then_deliver": true,
     "use_only_cleared_assets_or_original_simple_visuals": true,
-    "rights_and_cost_gates_remain_mandatory": true
+    "rights_and_cost_gates_remain_mandatory": true,
+    "deliverable_duration_must_match_latest_user_request": true
   },
   "script_clarity_contract": {
     "applies_to": "ALL_EXPLANATORY_AND_NEWS_VIDEOS",
@@ -382,6 +384,17 @@
       "drop_effects_and_nonessential_assets_before_exceeding_the_five_minute_work_target",
       "never_relax_source_rights_or_material_claim_checks_to_meet_time"
     ],
-    "if_target_exceeded": "REPORT_ACTUAL_STAGE_TIMES_AND_DELIVER_THE_COMPLETE_VIDEO_WITHOUT_OPTIONAL_POLISH"
+    "if_target_exceeded": "REPORT_ACTUAL_STAGE_TIMES_AND_DELIVER_THE_COMPLETE_VIDEO_WITHOUT_OPTIONAL_POLISH",
+    "requested_video_duration_contract": {
+      "artifact_duration_is_distinct_from_wall_clock_work_target": true,
+      "conflicting_prior_duration_cues_resolve_to_latest_explicit_user_correction": true,
+      "do_not_treat_five_minute_work_target_as_requested_video_duration": true,
+      "fit_script_and_measured_narration_before_encode": true,
+      "do_not_speed_up_voice_to_force_duration_fit": true,
+      "about_five_minutes_target_seconds": 300,
+      "about_five_minutes_tolerance_seconds": 30,
+      "landscape_16_9_is_default_unless_user_requests_otherwise": true,
+      "source_screenshot_must_fill_media_area_without_browser_or_player_ui": true
+    }
   }
 }

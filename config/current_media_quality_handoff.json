@@ -82,7 +82,8 @@
     "longform_renderer": "scripts/render_fast_image_longform.py",
     "longform_default_canvas": "1280x720_16:9",
     "image_generation_allowed_for_video": false,
-    "official_primary_visuals_preferred": true
+    "official_primary_visuals_preferred": true,
+    "duration_contract": "config/media_speed_quality_policy.json#/fast_longform_delivery/requested_video_duration_contract"
   },
   "approved_reference": {
     "output": "DevDay2026_corrected_47s.mp4",
@@ -157,5 +158,13 @@
     "plain_language_and_main_point_first": true,
     "omit_nonessential_detail_and_repeated_caveats": true,
     "image_rich_visual_storytelling": true
+  },
+  "cross_tab_bug_recovery": {
+    "required_on_every_new_video_tab": true,
+    "symptom_observed": "Previous comparison export was about nine minutes and portrait; user-provided screenshots showed the actual video content occupying a small, hard-to-read area.",
+    "root_cause": "Conflicting earlier duration cues were carried into the export and the portrait layout reduced useful content size.",
+    "permanent_fix": "Follow the latest explicit artifact duration, distinguish video length from a five-minute work-time target, fit narration before rendering, and use 16:9 landscape for long-form by default.",
+    "authoritative_policy": "config/media_speed_quality_policy.json#/fast_longform_delivery/requested_video_duration_contract",
+    "mandatory_recall_via": "config/media_command_read_gate.json#/speed_first_delivery_override/read_set"
   }
 }
