@@ -9,7 +9,6 @@ import unittest
 from pathlib import Path
 
 from scripts.batch_media_scheduler import BatchPolicy, FileLeaseManager, LeaseBusyError, MediaJob, MediaJobFailure, ResourceVector, StaleWriteError, admit_wave, atomic_compare_and_swap_json, effective_parallelism, file_sha256_or_empty, run_batch, run_batch_with_leases
-from tests.test_durable_media_runner import DurableMediaRunnerTests
 
 
 def job(n: int, *, rights: bool = True, demand: ResourceVector | None = None) -> MediaJob:
