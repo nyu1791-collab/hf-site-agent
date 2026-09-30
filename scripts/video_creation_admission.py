@@ -2,7 +2,7 @@
 """Fail-closed admission for every repository VIDEO_CREATION route.
 
 The command restores the current media policies from the repository and,
-when requested, probes only the local VOICEVOX engine.  It never contacts a
+when requested, probes only the local VOICEVOX engine. It never contacts a
 paid/freemium provider and never treats a missing voice engine as permission
 to render a silent video.
 """
@@ -92,12 +92,12 @@ def static_admission() -> dict[str, Any]:
     missing = [path for path in required if not (ROOT / path).exists()]
     if missing:
         failures.append(f"required media policy files missing: {missing}")
-    voice = policy.get("voice_contract") if isinstance(policy.get("voice_contract"), Mapping) else {}
-    if voice.get("engine") != "VOICEVOX_LOCAL":
+    voice_contract = policy.get("voice_contract") if isinstance(policy.get("voice_contract"), Mapping) else {}
+    if voice_contract.get("engine") != "VOICEVOX_LOCAL":
         failures.append("VOICEVOX_LOCAL is not the required engine")
-    if voice.get("primary_voice") != "ずんだもん":
+    if voice_contract.get("primary_voice") != "ずんだもん":
         failures.append("ずんだもん is not the required primary voice")
-    if voice.get("silent_video_fallback") is not False:
+    if voice_contract.get("silent_video_fallback") is not False:
         failures.append("silent video fallback must remain disabled")
     free = policy.get("free_execution_contract") if isinstance(policy.get("free_execution_contract"), Mapping) else {}
     if free.get("paid_or_freemium_tts") is not False or free.get("paid_media_substitution") is not False:
@@ -153,17 +153,20 @@ def static_admission() -> dict[str, Any]:
     if visuals.get("distinct_relevant_visuals_per_main_section_target_maximum") != 4:
         failures.append("visual density target maximum must remain four")
     try:
-        speed_policy = load_json(ROOT / "config/media_speed_quality_policy.json")
+        speed_policy = load_json(SPEED_POLICY_PATH)
         density = speed_policy.get("visual_density_contract", {})
         if density.get("visual_beats_per_main_section", {}).get("minimum") != 2 or density.get("visual_beats_per_main_section", {}).get("target_range") != [2, 4]:
             failures.append("speed policy and admission visual density limits disagree")
         fast = speed_policy.get("fast_longform_delivery", {})
         if fast.get("wall_clock_target_minutes") != 5 or fast.get("applies_to_requested_longform_up_to_seconds") != 960:
             failures.append("fast long-form target must cover up to 16 minutes with a five-minute work target")
-        if fast.get("default_renderer") != "scripts/render_fast_image_longform.py" or fast.get("one_video_encode_only") is not True:
-            failures.append("fast long-form route must use its one-encode renderer")
-        voice = fast.get("voice_segmenting", {})
-        if voice.get("target_max_segments_for_16_minutes") != 16 or voice.get("avoid_sentence_level_synthesis_calls") is not True:
+        current_fast_renderer = fast.get("default_renderer")
+        if current_fast_renderer != speed_policy.get("longform_renderer") or fast.get("one_video_encode_only") is not True:
+            failures.append("fast long-form renderer must match the current speed policy and remain one-encode")
+        if not isinstance(current_fast_renderer, str) or not (ROOT / current_fast_renderer).is_file():
+            failures.append("fast long-form renderer file is missing")
+        fast_voice = fast.get("voice_segmenting", {})
+        if fast_voice.get("target_max_segments_for_16_minutes") != 16 or fast_voice.get("avoid_sentence_level_synthesis_calls") is not True:
             failures.append("long-form voice synthesis must batch by section, not sentence")
         source_policy = load_json(ROOT / "config/media_source_policy.json")
         if source_policy.get("generated_images_enabled_for_video") is not False:
@@ -188,9 +191,9 @@ def static_admission() -> dict[str, Any]:
         "required_read_set": required,
         "missing_read_set": missing,
         "failures": failures,
-        "primary_voice": voice.get("primary_voice"),
-        "standard_cast": voice.get("standard_cast"),
-        "voicevox_unavailable_action": voice.get("voicevox_unavailable_action"),
+        "primary_voice": voice_contract.get("primary_voice"),
+        "standard_cast": voice_contract.get("standard_cast"),
+        "voicevox_unavailable_action": voice_contract.get("voicevox_unavailable_action"),
         "paid_or_freemium_tts": free.get("paid_or_freemium_tts"),
         "caption_contract": captions.get("caption_contract_name"),
         "caption_renderers": dict(renderers),
