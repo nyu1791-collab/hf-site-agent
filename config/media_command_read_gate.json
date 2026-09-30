@@ -1,6 +1,6 @@
 {
   "schema_version": "media-command-read-gate-v12",
-  "effective_date_jst": "2026-09-30",
+  "effective_date_jst": "2026-10-01",
   "status": "ENFORCED_STANDARD",
   "decision_owner": "chatgpt-top-commander",
   "purpose": "RESTORE_ONLY_CURRENT_INTENT_RELEVANT_MEDIA_KNOW_HOW_THEN_PARALLELIZE_ONLY_WHEN_EXPECTED_WALL_CLOCK_GAIN_EXCEEDS_COORDINATION_OVERHEAD_WITH_SINGLE_WRITER_INTEGRATION",
@@ -49,6 +49,7 @@
     "commerce_clipping_precision_overlay_required_for_relevant_intents": true
   },
   "common_media_read_set": [
+    "config/free_execution_guard.json",
     "config/media_speed_quality_policy.json",
     "scripts/media_speed_orchestrator.py",
     "config/media_source_policy.json",
@@ -300,6 +301,7 @@
       "README.md",
       "config/current_commander_handoff.json",
       "config/permanent_standards_manifest.json",
+      "config/free_execution_guard.json",
       "docs/AI_ARMY_MASTER_RULEBOOK.md",
       "AGENTS.md",
       "config/media_command_read_gate.json",
