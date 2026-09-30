@@ -72,7 +72,7 @@ def main() -> int:
     require(video_admission.get("status") == "ENFORCED_PERMANENT_STANDARD", "video creation admission is not enforced")
     require(media_speed.get("schema_version") == "media-speed-quality-v1", "media speed quality policy schema drift")
     require(media_speed.get("status") == "ENFORCED_PERMANENT_STANDARD", "media speed quality policy is not enforced")
-    require(media_speed.get("target_wall_clock_minutes") == [10, 15], "media speed target drift")
+    require(media_speed.get("target_wall_clock_minutes") == [5, 5], "media speed target drift")
     require((media_speed.get("quality_first") or {}).get("verified_correctness_precedes_wall_clock") is True, "media speed quality-first rule drift")
     require(int((media_speed.get("execution_graph") or {}).get("max_independent_preparation_lanes") or 0) == 3, "media speed lane ceiling drift")
     require((media_speed.get("encode_contract") or {}).get("no_per_scene_video_encode_on_fast_path") is True, "media speed per-scene encode regression")
