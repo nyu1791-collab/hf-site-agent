@@ -141,7 +141,10 @@
     ],
     "caption_source_credit_required": true,
     "do_not_invent_unplayed_video_frames": true,
-    "fallback": "CREDITED_OFFICIAL_STILL_OR_POSTER_LABELLED_AS_SUCH"
+    "fallback": "CREDITED_OFFICIAL_STILL_OR_POSTER_LABELLED_AS_SUCH",
+    "renderer_rejects_unverified_media_region": true,
+    "existing_capture_repair": "CROP_EXACT_MEDIA_RECTANGLE_AND_ENLARGE_WITH_PROVENANCE",
+    "remove_external_player_chrome_when_it_obscures_media": true
   },
   "character_final_output": {
     "speaking_mouth_states": [
@@ -157,6 +160,7 @@
     "representative_final_frames_required": true,
     "native_renderer": "scripts/render_reusable_short.py",
     "mouth_method": "RMS_APPROXIMATION_NOT_PHONEME_LIPSYNC",
-    "retire_baked_static_clip_for_acting_requests": true
+    "retire_baked_static_clip_for_acting_requests": true,
+    "native_longform_renderer": "scripts/render_reusable_longform.py"
   }
 }

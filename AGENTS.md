@@ -18,7 +18,7 @@
 承認された約47秒動画が現行の見た目と演技の基準。
 淡い字幕、拡大した公式メディア引用、両キャラのネイティブ表情と音声同期の口、
 無音・聞き手の閉口、音声・素材の再利用を維持する。
-旧静止キャラ動画と濃い字幕の設定へ戻さない。
+旧静止キャラ動画と濃い字幕の設定へ戻さない。長尺も `scripts/render_reusable_longform.py` で同じ描画処理を使い、media_region_only がない素材を拒否する。
 重要な過去音声・資料は `config/media_reference_history.json` にあるが現行指示ではない。
 
 PR は draft/open のまま。main push、merge、deploy、public publish、秘密情報変更、

@@ -1,4 +1,4 @@
-"""Render a corrected short from existing narration and native character layers.
+"""Render short or long explainers from measured narration and native layers.
 
 This adapter uses waveform energy, not phoneme inference, for mouth states.
 All character variants are precomposed once; narration is never synthesized.
@@ -6,7 +6,7 @@ All character variants are precomposed once; narration is never synthesized.
 import argparse, hashlib, json, math, re, subprocess, wave
 from pathlib import Path
 from array import array
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 
 def layer(root, name):
@@ -51,9 +51,19 @@ def wrap(text,font,width):
     if line:lines.append(line)
     return lines
 
+def validate_visual_inputs(profile, presentation):
+    if profile['layout']['caption_colors'] != {'ずんだもん':'#B8E6C8','四国めたん':'#F2C4D7'}:
+        raise ValueError('approved pale caption palette required')
+    visuals=presentation.get('visuals') or [presentation]
+    for item in visuals:
+        if item.get('media_region_only',presentation.get('media_region_only')) is not True:
+            raise ValueError('verified media-only visual required; whole-page capture forbidden')
+
+
 def render(args):
     profile=json.loads(args.profile.read_text())
     presentation=json.loads(args.presentation.read_text())
+    validate_visual_inputs(profile,presentation)
     layout=profile['layout'];acting=profile['acting']
     for field in ['title','source_credit','source_url','voice_credit']:
         if not presentation.get(field):raise ValueError(f'missing presentation field: {field}')
@@ -61,7 +71,7 @@ def render(args):
     out=args.output;out.parent.mkdir(parents=True,exist_ok=True)
     cache=args.cache_root or out.parent/'reusable-assets';cache.mkdir(parents=True,exist_ok=True)
     timing=json.loads(args.timing.read_text())
-    records=[{**r,'start':r['start']-args.start,'end':r['end']-args.start} for r in timing['records'] if args.start<=r['start']<args.start+args.duration]
+    records=[{**r,'start':r['start']-args.start,'end':r['end']-args.start} for r in timing['records'] if r['end']>args.start and r['start']<args.start+args.duration]
     if not records:raise ValueError('no measured dialogue records in requested range')
     for r in records:
         if r['speaker'] not in palette or not r.get('caption_text'):raise ValueError('unknown speaker or missing spoken caption')
@@ -76,25 +86,41 @@ def render(args):
         variants[name],keys[name]=character_variants(args.shell/char,char,cache)
     W,H,FPS=layout['width'],layout['height'],layout['fps']
     font=ImageFont.truetype(str(args.font),layout['caption_font_size']);small=ImageFont.truetype(str(args.font),layout['source_font_size']);title=ImageFont.truetype(str(args.font),layout['title_font_size'])
-    with Image.open(args.visual) as im:visual=im.convert('RGB');visual.thumbnail((680,390))
-    background=Image.new('RGB',(W,H),layout['background']);draw=ImageDraw.Draw(background)
-    if title.getlength(presentation['title'])>660:raise ValueError('title exceeds reserved safe zone')
-    draw.text(tuple(layout['zones']['title']),presentation['title'],font=title,fill='#24364F')
-    draw.rounded_rectangle((20,105,700,545),radius=22,fill='white')
-    background.paste(visual,((W-visual.width)//2,120+(390-visual.height)//2))
-    credit=presentation['source_credit'];url=presentation['source_url'].removeprefix('https://')
-    urlfont=ImageFont.truetype(str(args.font),14)
-    if small.getlength(credit)>650 or urlfont.getlength(url)>670:raise ValueError('source attribution exceeds safe zone')
-    draw.text(tuple(layout['zones']['source_credit']),credit,font=small,fill='#425570')
-    draw.text(tuple(layout['zones']['source_url']),url,font=urlfont,fill='#4C5870')
-    draw.text(tuple(layout['zones']['voice_credit']),presentation['voice_credit'],font=small,fill='#4C5870')
-    cmd=['ffmpeg','-v','error','-y','-f','rawvideo','-pix_fmt','rgb24','-s',f'{W}x{H}','-r',str(FPS),'-i','pipe:0','-i',str(args.audio),'-c:v','libx264','-preset','veryfast','-crf','21','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-movflags','+faststart','-shortest',str(out)]
+    backgrounds={}
+    source_items=presentation.get('visuals') or [{'id':'default','file':str(args.visual),'source_credit':presentation['source_credit'],'source_url':presentation['source_url']}]
+    visual_hashes={}
+    for item in source_items:
+        src=Path(item['file'])
+        if not src.is_absolute():src=args.presentation.parent/src
+        if item.get('media_region_only',presentation.get('media_region_only')) is not True:
+            raise ValueError('verified media-only visual required; whole-page capture forbidden')
+        with Image.open(src) as im:visual=ImageOps.contain(im.convert('RGB'),(680,390),Image.Resampling.LANCZOS)
+        visual_hashes[item['id']]=hashlib.sha256(src.read_bytes()).hexdigest()
+        background=Image.new('RGB',(W,H),layout['background']);draw=ImageDraw.Draw(background)
+        if title.getlength(presentation['title'])>660:raise ValueError('title exceeds reserved safe zone')
+        draw.text(tuple(layout['zones']['title']),presentation['title'],font=title,fill='#24364F')
+        draw.rounded_rectangle((20,105,700,545),radius=22,fill='white')
+        background.paste(visual,((W-visual.width)//2,120+(390-visual.height)//2))
+        credit=item['source_credit'];url=item['source_url'].removeprefix('https://')
+        urlfont=ImageFont.truetype(str(args.font),14)
+        if small.getlength(credit)>650 or urlfont.getlength(url)>670:raise ValueError('source attribution exceeds safe zone')
+        draw.text(tuple(layout['zones']['source_credit']),credit,font=small,fill='#425570')
+        draw.text(tuple(layout['zones']['source_url']),url,font=urlfont,fill='#4C5870')
+        draw.text(tuple(layout['zones']['voice_credit']),presentation['voice_credit'],font=small,fill='#4C5870')
+        backgrounds[item['id']]=background
+    default_visual=source_items[0]['id']
+    for r in records:
+        if r.get('visual_id',default_visual) not in backgrounds:raise ValueError('unknown dialogue visual_id')
+    cmd=['ffmpeg','-v','error','-y','-f','rawvideo','-pix_fmt','rgb24','-s',f'{W}x{H}','-r',str(FPS),'-i','pipe:0','-i',str(args.audio),'-c:v','libx264','-preset','veryfast','-threads','2','-crf','23','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-ar','48000','-movflags','+faststart','-shortest',str(out)]
     process=subprocess.Popen(cmd,stdin=subprocess.PIPE)
     states={name:set() for name in variants};expressions_seen={name:set() for name in variants}
     resized={}
     for i in range(math.ceil(args.duration*FPS)):
-        t=i/FPS;frame=background.copy();d=ImageDraw.Draw(frame)
+        t=i/FPS
         r=next((r for r in records if r['start']<=t<r['end']),None)
+        if r:current_visual=r.get('visual_id',default_visual)
+        elif i==0:current_visual=default_visual
+        frame=backgrounds[current_visual].copy();d=ImageDraw.Draw(frame)
         speaker=r['speaker'] if r else None
         chunk=samples[int(t*rate):int((t+acting['window_seconds'])*rate)];rms=math.sqrt(sum(x*x for x in chunk)/len(chunk))/32768 if chunk else 0
         mouth=0 if rms<acting['closed_threshold'] else (1 if rms<acting['wide_threshold'] else 2)
@@ -128,7 +154,14 @@ def render(args):
         process.stdin.write(frame.tobytes())
     process.stdin.close()
     if process.wait():raise RuntimeError('encode failed')
-    report={'duration':args.duration,'mouth_states':{k:sorted(v) for k,v in states.items()},'expressions':{k:sorted(v) for k,v in expressions_seen.items()},'character_keys':keys,'native_parts_no_double_mouth':True,'voice_reused':True,'mouth_method':'RMS_APPROXIMATION','caption_timing_method':'MEASURED_TURN_BOUNDARIES_WITH_CHARACTER_WEIGHTED_CLAUSES','source_url':presentation['source_url'],'caption_colors':palette,'input_sha256':{name:hashlib.sha256(getattr(args,name).read_bytes()).hexdigest() for name in ['profile','presentation','audio','timing','visual','font']}}
+    for name in {r['speaker'] for r in records}:
+        if len(states[name]) < 2:
+            raise RuntimeError(f'{name}: no measured mouth change rendered')
+    if args.duration >= 90:
+        for name in {r['speaker'] for r in records}:
+            if len(expressions_seen[name]) < 2:
+                raise RuntimeError(f'{name}: longform missing authored expression changes')
+    report={'duration':args.duration,'mouth_states':{k:sorted(v) for k,v in states.items()},'expressions':{k:sorted(v) for k,v in expressions_seen.items()},'character_keys':keys,'native_parts_no_double_mouth':True,'voice_reused':True,'media_region_only':True,'whole_page_visuals':False,'mouth_method':'RMS_APPROXIMATION','caption_timing_method':'MEASURED_TURN_BOUNDARIES_WITH_CHARACTER_WEIGHTED_CLAUSES','source_url':presentation['source_url'],'caption_colors':palette,'visual_sha256':visual_hashes,'input_sha256':{name:hashlib.sha256(getattr(args,name).read_bytes()).hexdigest() for name in ['profile','presentation','audio','timing','visual','font']}}
     out.with_suffix('.report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
     print(json.dumps(report,ensure_ascii=False))
 

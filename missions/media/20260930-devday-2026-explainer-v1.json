@@ -824,26 +824,28 @@
     }
   ],
   "render_gate": {
-    "status": "RENDERED_INTERNAL_DRAFT",
+    "status": "CORRECTED_DYNAMIC_INTERNAL_DRAFT",
     "required": [],
-    "reason": "The internal draft was rendered from the existing 6-chapter template using measured VOICEVOX timing, saved official OpenAI page/X screenshots, scene-level credits, and the existing capability-gated FFmpeg renderer. Full decode passed. Public reuse review remains required; Windows YMM4 end-to-end behavior remains unverified."
+    "reason": "Native mouth and expressions, pale captions, media-only enlarged assets, complete narration captions, chapter decode and final decode verified."
   },
   "render_result": {
-    "status": "RENDERED_INTERNAL_DRAFT",
+    "status": "CORRECTED_DYNAMIC_INTERNAL_DRAFT",
     "completed_at_utc": "2026-09-30",
     "deliverable": {
-      "file_name": "devday2026_explainer_final_internal.mp4",
-      "sha256": "df204bbdb51c4dce965c29ea25bfcb3f1e2d795dd45cc938093e8c4541eac261",
-      "size_bytes": 26541168,
-      "duration_seconds": 492.7,
-      "dimensions": "1080x1920",
+      "file_name": "DevDay2026_まとめ_修正版_8分13秒.mp4",
+      "sha256": "02d7339d4c8aa1ec926a30fa78457dbafeddda3cb7d1ef4f38bff579e9b877fc",
+      "size_bytes": 14510618,
+      "duration_seconds": 492.687696,
+      "dimensions": "720x1280",
       "frame_rate": 30,
       "video_codec": "H.264",
       "audio_codec": "AAC",
       "audio_sample_rate_hz": 48000,
-      "audio_channels": 2,
-      "library_file_id": "file_00000000e91c820693744abff7792e89",
-      "library_file_name": "devday2026_explainer_final_internal.mp4"
+      "audio_channels": 1,
+      "library_file_id": "libfile_8d4ffa3f683c819191395b55f9e92a0c",
+      "library_file_name": "DevDay2026_まとめ_修正版_8分13秒.mp4",
+      "library_version": 1,
+      "file_id": "file_000000009aa881f58e204c784d6b9136"
     },
     "voice": {
       "engine": "VOICEVOX 0.25.2",
@@ -868,25 +870,29 @@
     },
     "visuals": {
       "chapters": 6,
-      "official_source_screenshots": 6,
+      "official_source_screenshots": 0,
       "generated_images": 0,
       "generated_video": 0,
       "visible_chapter_credits": true,
       "source_credits_file": "DevDay2026_SOURCE_CREDITS.md",
       "production_package": "DevDay2026_explainer_sources.zip",
-      "production_package_library_file_id": "file_000000007ca88211af9dfaa040584b80",
+      "production_package_library_file_id": "libfile_dd2a1a468df081918ebf6a7f600cf4dc",
       "official_sources": [
         "https://openai.com/ja-JP/index/devday-2026-recap/",
         "https://x.com/OpenAI/status/2104986129686741046",
         "https://x.com/OpenAI/status/2104987422308335828",
         "https://x.com/OpenAI/status/2104993966043320759"
-      ]
+      ],
+      "official_media_region_assets": 8,
+      "whole_page_capture_used": false
     },
     "verification": {
-      "ffprobe": "H.264 video 1080x1920 + AAC audio 48 kHz stereo",
+      "ffprobe": "H.264 720x1280 30fps + AAC 48kHz mono",
       "full_decode": "PASS",
-      "audio_loudness_normalized_to_target_lufs": -16,
-      "audio_true_peak_ceiling_dbtp": -1.5
+      "final_mp4_representative_frames": "BOTH_SPEAKERS_OPEN_CLOSED_HAPPY_SERIOUS_AND_SOURCE_CROPS_CHECKED",
+      "frame_count": 14780,
+      "audio_video_duration_difference_ms": 5.667,
+      "visual_qa_samples": 13
     },
     "rights_and_release": {
       "scope": "internal review draft only",
@@ -895,10 +901,12 @@
       "youtube_upload": "NOT_DONE",
       "public_publish": false
     },
-    "workflow_note": "FFmpeg static-speaker-color renderer completed. Existing YMM4 transfer/template assets are included in the source package; Windows YMM4 end-to-end behavior is not claimed as verified.",
-    "character_motion_status": "STATIC_CHARACTER_FRAMES; user observed no expression change. A motion-capable render is required for the next revision.",
-    "caption_palette_user_review": "Too saturated; future output palette updated to pastel speaker colors.",
-    "re_rendered_after_feedback": false
+    "workflow_note": "Approved native-layer dynamic renderer used for all six chapter checkpoints. Existing narration reused. Final continuous audio replaces chapter audio to avoid AAC seams. Windows YMM4 remains unverified.",
+    "character_motion_status": "NATIVE_RMS_MOUTH_3_STATES_AND_NORMAL_HAPPY_SERIOUS_FOR_BOTH_SPEAKERS",
+    "caption_palette_user_review": "CORRECTED_TO_PALE_MINT_B8E6C8_AND_PALE_PINK_F2C4D7",
+    "re_rendered_after_feedback": true,
+    "renderer": "scripts/render_reusable_longform.py",
+    "render_profile": "config/approved_video_template.json"
   },
   "post_delivery_review": {
     "recorded_at": "2026-09-30",
@@ -912,7 +920,7 @@
       "Longform routing fell back to static_turn_focus; only the shortform profile required mouth/expression capabilities.",
       "The YMM4 review sidecar carried emotion labels but did not make actual face-state application or Windows preview a mandatory final-render gate."
     ],
-    "repair_scope": "Update reusable policies, route guards, script sidecar, palette, editorial structure, tests, and cross-tab handoff. Do not recreate or overwrite the completed MP4 in this task.",
+    "repair_scope": "Latest explicit user request supersedes the historical policy-only scope. Correct the existing MP4 and source package; preserve unchanged audio, remove whole-page visuals, apply native acting and pale palette, and update the current rulebook and template.",
     "future_editorial_lock": {
       "one_central_question": true,
       "main_takeaways": [
@@ -950,6 +958,7 @@
       "mouth_sync": "FINAL_MEASURED_WAV",
       "expressions": "TYPED_SEMANTIC_PRESETS",
       "static_character_final_for_requested_motion": "BLOCK"
-    }
+    },
+    "repair_completed": true
   }
 }

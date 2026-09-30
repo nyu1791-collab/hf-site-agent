@@ -88,7 +88,10 @@
     "subtitle_full_narration_coverage_ratio": 1,
     "decode_error_count_target": 0,
     "fast_start_required": true,
-    "representative_visual_rereview_required": true
+    "representative_visual_rereview_required": true,
+    "explicit_registered_profile_override_allowed": true,
+    "fast_registered_profile": "config/approved_video_template.json",
+    "profile_override_does_not_waive_motion_captions_decode_audio_or_sources": true
   },
   "recovery_objectives": {
     "healthy_prior_scene_regeneration_after_later_scene_failure": 0,
@@ -126,7 +129,10 @@
     "default_scene_encode_parallelism": 1,
     "maximum_scene_encode_parallelism_without_benchmark_evidence": 2,
     "proxy_preview_default": false,
-    "selective_proxy_or_preview_when_resource_or_visual_risk_justifies": true
+    "selective_proxy_or_preview_when_resource_or_visual_risk_justifies": true,
+    "native_dynamic_renderer": "scripts/render_reusable_longform.py",
+    "approved_visual_template": "config/approved_video_template.json",
+    "same_acting_palette_media_crop_as_shortform": true
   },
   "retry_and_hang_objectives": {
     "infinite_retry": false,

@@ -72,7 +72,8 @@
     "openrouter_worker_recent_evidence": "config/openrouter_worker_recent_evidence.json",
     "final_execution_admission_guard": "scripts/final_execution_admission_guard.py",
     "media_performance_efficiency": "config/media_performance_efficiency_policy.json",
-    "approved_video_template": "config/approved_video_template.json"
+    "approved_video_template": "config/approved_video_template.json",
+    "native_dynamic_longform_renderer": "scripts/render_reusable_longform.py"
   },
   "peer_review_status": {
     "completed": true,

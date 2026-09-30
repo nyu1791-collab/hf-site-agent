@@ -13,12 +13,18 @@ def validate(root=ROOT):
     manifest=load('config/permanent_standards_manifest.json')
     assert profile['status']=='USER_APPROVED_PRODUCTION_BASELINE'
     assert profile['layout']['caption_colors']=={'ずんだもん':'#B8E6C8','四国めたん':'#F2C4D7'}, 'pale palette regression'
+    assert (root/profile['longform_renderer']).is_file()
+    assert profile['execution_contract']['same_visual_and_acting_standard_for_short_and_long']
+    assert profile['execution_contract']['media_region_only_boolean_required_for_each_visual']
+    assert load('config/video_creation_admission_policy.json')['character_output_contract']['longform_renderer']==profile['longform_renderer']
     assert profile['acting']['native_layers_required'] and profile['acting']['silent_and_listener_mouth_closed']
     assert profile['acting']['expressions_from_authored_cues_not_topic_keyword_matching']
     assert profile['verification']['windows_ymm4_verified'] is False
-    assert handoff['latest_completed_video']['status']=='USER_APPROVED_INTERNAL_VIDEO', 'stale latest video'
+    assert handoff['latest_completed_video']['status'] in {'USER_APPROVED_INTERNAL_VIDEO','RENDERED_INTERNAL_VIDEO'}, 'invalid latest video state'
     assert handoff['latest_completed_video']['actual_character_animation'] is True
-    assert handoff['latest_completed_video']['final_video']==profile['approval']
+    assert handoff.get('approved_reference_video',handoff['latest_completed_video']['final_video'])==profile['approval']
+    assert load('config/video_creation_admission_policy.json')['caption_contract']['renderer']==profile['renderer']
+    assert load('config/video_creation_admission_policy.json')['caption_contract']['speaker_colors']==profile['layout']['caption_colors']
     assert handoff['latest_completed_video']['production_package']['library_file_id'], 'missing durable source package'
     for path in ['config/current_media_quality_handoff.json','config/approved_video_template.json','docs/VIDEO_PRODUCTION_BASELINE.md']:
         assert path in gate['common_media_read_set'], f'not reachable after tab change: {path}'

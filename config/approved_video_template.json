@@ -119,5 +119,13 @@
     "master_then_platform_derivatives": true,
     "approved_visual_template_remains_rendering_source_of_truth": true,
     "recheck_platform_limits_and_safe_areas_before_upload": true
+  },
+  "longform_renderer": "scripts/render_reusable_longform.py",
+  "execution_contract": {
+    "same_visual_and_acting_standard_for_short_and_long": true,
+    "media_region_only_boolean_required_for_each_visual": true,
+    "native_motion_must_be_present_in_output": true,
+    "longform_chapter_checkpoints": true,
+    "audio_regeneration_for_visual_only_repair": false
   }
 }

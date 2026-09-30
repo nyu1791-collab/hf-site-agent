@@ -62,7 +62,8 @@
     ],
     "renderer": "scripts/render_reusable_short.py",
     "validator": "scripts/validate_video_caption_contract.py",
-    "presentation_baseline": "config/approved_video_template.json"
+    "presentation_baseline": "config/approved_video_template.json",
+    "longform_renderer": "scripts/render_reusable_longform.py"
   },
   "visual_asset_contract": {
     "claim_bearing_news_requires_related_visual_plan": true,
@@ -75,7 +76,10 @@
     "generated_factual_background_default": false,
     "unknown_rights_action": "BLOCK_BEFORE_RENDER",
     "visual_provenance_manifest_required": true,
-    "renderer_reads": "config/media_reusable_asset_standard.json"
+    "renderer_reads": "config/media_reusable_asset_standard.json",
+    "media_region_only_required": true,
+    "whole_page_feed_login_sidebar_forbidden": true,
+    "enlarge_media_without_cropping_embedded_qualifiers": true
   },
   "free_execution_contract": {
     "local_voicevox_only": true,
@@ -122,5 +126,14 @@
     "metric_definition_and_observation_date_required": true,
     "platform_limits_must_be_rechecked_before_upload": true,
     "unknown_analytics": "UNAVAILABLE_NOT_INVENTED"
+  },
+  "character_output_contract": {
+    "native_layers_required": true,
+    "measured_waveform_mouth_required": true,
+    "silent_listener_mouth_closed": true,
+    "authored_expression_changes_for_both_speakers": true,
+    "longform_static_fallback_allowed": false,
+    "final_mp4_samples_required": true,
+    "longform_renderer": "scripts/render_reusable_longform.py"
   }
 }

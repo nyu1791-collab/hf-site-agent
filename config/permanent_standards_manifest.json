@@ -433,7 +433,8 @@
     "video_platform_delivery_profiles": "config/video_platform_delivery_profiles.json",
     "video_platform_delivery_playbook": "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md",
     "platform_profiles_must_preserve_ad_vs_organic_scope": true,
-    "volatile_platform_specs_must_be_checked_before_upload": true
+    "volatile_platform_specs_must_be_checked_before_upload": true,
+    "native_dynamic_longform_renderer": "scripts/render_reusable_longform.py"
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",

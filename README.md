@@ -124,4 +124,4 @@ CIの実行権限と自動fan-outは `config/ci_execution_policy.json` を正本
 明示された権限がない限り、main直接Push、PR Merge、本番Deploy、公開Publish、Secrets変更・開示、Durable Object変更、Auto Top-up、Generic Paid Fallback、不可逆な外部操作を行わない。
 
 
-最新の公式素材拡大引用・淡い字幕・実口パクの統合ルールは `docs/AI_ARMY_MASTER_RULEBOOK.md` の「現行の動画制作ルール」。実描画アダプターは `scripts/render_reusable_short.py`。旧MP4の切り出しだけではキャラ演技の修正完了にならない。
+最新の公式素材拡大引用・淡い字幕・実口パクの統合ルールは `docs/AI_ARMY_MASTER_RULEBOOK.md` の「現行の動画制作ルール」。実描画は短尺の `scripts/render_reusable_short.py` と長尺の `scripts/render_reusable_longform.py` が同じ承認済み基盤を使う。旧MP4の切り出しだけではキャラ演技の修正完了にならない。
