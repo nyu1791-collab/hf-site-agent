@@ -86,7 +86,9 @@ def main() -> int:
     require("config/evidence_visual_static_character_policy.json" not in common, "heavy evidence policy leaked into routine hot path")
     media_index = manifest.get("media_command_gate") or {}
     require(media_index.get("shortform_animation_exception_policy") == "config/evidence_visual_static_character_policy.json", "manifest lost evidence/animation policy pointer")
-    require((manifest.get("cross_tab_behavior") or {}).get("related_visual_provenance_contract_survives_tab_change") is True, "visual provenance continuity lost")
+    cross_tab = manifest.get("cross_tab_behavior") or {}
+    require(cross_tab.get("media_command_read_gate_survives_tab_change") is True, "media read gate continuity lost")
+    require(cross_tab.get("current_media_quality_handoff_survives_tab_change") is True, "media handoff continuity lost")
 
     hard = set(policy.get("hard_fail_conditions") or [])
     require("VISIBLE_SPEAKING_CHARACTER_WITHOUT_MEASURED_MOUTH_MOTION" in hard, "missing measured-mouth failure condition")
