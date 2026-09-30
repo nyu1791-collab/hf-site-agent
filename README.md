@@ -19,7 +19,7 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 - 動画・音声・字幕・キャラクター・BGM・SFX・画像素材・切り抜き・TikTok Shopメディア: `config/media_command_read_gate.json`
 - VOICEVOXの現在のローカル実行状態・起動・復旧手順: `docs/VOICEVOX_RUNTIME.md` / `scripts/with_local_voicevox.sh`
 - 現行動画設定をタブ跨ぎで復元するCheckpoint: `config/current_media_quality_handoff.json`
-- 品質20％・速度80％、5分は未計測目標、即時提出: `config/media_speed_quality_policy.json`
+- 品質20％・速度80％、5分は未計測目標、即時提出と「話題ごとの見出し・平易な言葉・要点優先」: `config/media_speed_quality_policy.json`
 - 既存テンプレートや口パク等のスタイル詳細は、ユーザーがその形式を指定した場合だけ読む。通常動画の必須条件にはしない。
 - 収益化・案件・アフィリエイト・Creator Program・AI workflow service: `config/monetization_command_read_gate.json`
 
@@ -37,7 +37,7 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 ユーザーに「前に保存したファイル名」や同じ仕様をもう一度言わせることを前提にしない。低コストで判断できる曖昧さなら関連Read Setを少し広めに復元するが、毎回Repository全体を無差別に読むこともしない。**Semantic Recallは `保存 → 意味判定 → 現行Repository再読 → 適用` までを1セットとする。** 同一HEAD・同一Blobを同一タスク内ですでに読んでいる場合だけ、安全なRead Cache再利用を許容する。
 
-`config/current_media_quality_handoff.json` は現行の短い継続サマリーで、最終Authorityではない。動画タスクでは `config/media_command_read_gate.json#/speed_first_delivery_override/read_set` の12ファイルだけを通常の読込セットとして使う。長尺・YMM4・既存素材の切り抜き・商品訴求・現在の事実確認をユーザーが依頼した場合だけ該当する追加資料を読む。通常動画はJevを呼ばない。
+`config/current_media_quality_handoff.json` は現行の短い継続サマリーで、最終Authorityではない。動画タスクでは `config/media_command_read_gate.json#/speed_first_delivery_override/read_set` の12ファイルを通常の読込セットとして使う。長尺の制作方針は明示された尺に必要な資料だけを追加し、YMM4資料はYMM4を指定された場合だけ読む。既存素材の切り抜き・商品訴求・現在の事実確認も、それぞれ該当資料だけを追加する。通常動画はJevを必須にしない。
 
 詳細が文書間で異なる場合は、最新の明示的ユーザー指示と安全境界を守ったうえで、現行Machine-readable Policy・Validator・CIを優先する。恒久ルールを変更する場合は会話だけで終わらせず、Machine Policy / Rulebook / Validator / CI / Read Gateの整合性を同じ変更で確認する。
 
@@ -55,7 +55,7 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 ## 動画制作
 
-新しいタブでは動画作業前に `config/media_speed_quality_policy.json#/speed_first_delivery` を読み、品質20％・速度80％で運用する。確認待ち・目視レビュー・全編QA・追加査読・微細な修正を省き、非空の出力と音声/映像streamを一度確認したら即提出する。
+新しいタブでは動画作業前に `config/media_speed_quality_policy.json#/speed_first_delivery` と `#/script_clarity_contract` を読み、品質20％・速度80％で運用する。見出しは話題ごとに分けて内容が一目で分かる言葉にし、台本は要点から始める。一般的な言葉を使い、専門語は必要な場合だけ一度説明する。理解や判断に影響しない細部、長い前置き、同じ注意の繰り返しは省く。確認待ち・通常の目視レビュー・追加査読・微細な修正を省き、非空の出力と音声/映像streamを一度確認したら即提出する。
 
 既存テンプレート、音声、素材を再利用し、最大3つの独立した準備だけ並列化する。約5分は未計測の目安。詳しいルールの二重記載はせず、`config/media_command_read_gate.json` と上記の速度ポリシーを正本とする。
 

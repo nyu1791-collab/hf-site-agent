@@ -17,6 +17,10 @@ from typing import Any, Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "config" / "video_creation_admission_policy.json"
+READ_GATE_PATH = ROOT / "config" / "media_command_read_gate.json"
+SPEED_POLICY_PATH = ROOT / "config" / "media_speed_quality_policy.json"
+ROUTINE_READ_SET_REF = "config/media_command_read_gate.json#/speed_first_delivery_override/read_set"
+ROUTINE_OUTPUT_CHECKS_REF = "config/media_speed_quality_policy.json#/speed_first_delivery/automatic_completion_check"
 DEFAULT_VOICEVOX_URL = "http://127.0.0.1:50021"
 VOICEVOX_TIMEOUT_SECONDS = 10
 
@@ -74,7 +78,17 @@ def static_admission() -> dict[str, Any]:
     failures: list[str] = []
     if policy.get("status") != "ENFORCED_PERMANENT_STANDARD":
         failures.append("video creation admission policy is not enforced")
-    required = [str(x) for x in policy.get("required_read_set", [])]
+    if policy.get("required_read_set_ref") != ROUTINE_READ_SET_REF:
+        failures.append("routine media read set must reference the canonical speed-first gate")
+    try:
+        gate = load_json(READ_GATE_PATH)
+        raw_required = gate.get("speed_first_delivery_override", {}).get("read_set")
+        required = [str(x) for x in raw_required] if isinstance(raw_required, list) else []
+        if not required:
+            failures.append("canonical speed-first read set is missing or invalid")
+    except Exception as exc:
+        required = []
+        failures.append(f"canonical media read gate unavailable: {type(exc).__name__}: {exc}")
     missing = [path for path in required if not (ROOT / path).exists()]
     if missing:
         failures.append(f"required media policy files missing: {missing}")
@@ -95,12 +109,46 @@ def static_admission() -> dict[str, Any]:
         failures.append("summary captions may replace narration")
     if captions.get("caption_contract_name") != "FULL_SPOKEN_TEXT":
         failures.append("FULL_SPOKEN_TEXT caption contract is missing")
-    if captions.get("renderer") != "scripts/render_static_speaker_color_longform.py":
-        failures.append("canonical speaker-color caption renderer drift")
+    renderers = captions.get("renderers") if isinstance(captions.get("renderers"), Mapping) else {}
+    for profile in ("shortform", "longform"):
+        renderer = renderers.get(profile)
+        if not isinstance(renderer, str) or not renderer.startswith("scripts/") or not renderer.endswith(".py"):
+            failures.append(f"caption renderer missing for {profile} profile")
+        elif not (ROOT / renderer).is_file():
+            failures.append(f"caption renderer file missing for {profile} profile: {renderer}")
+    try:
+        speed_policy = load_json(SPEED_POLICY_PATH)
+        routine_checks = speed_policy.get("speed_first_delivery", {}).get("automatic_completion_check")
+        artifact_contract = policy.get("artifact_contract") if isinstance(policy.get("artifact_contract"), Mapping) else {}
+        if artifact_contract.get("routine_output_checks_ref") != ROUTINE_OUTPUT_CHECKS_REF:
+            failures.append("routine output checks must reference the speed-first policy")
+        if not isinstance(routine_checks, list) or not routine_checks:
+            failures.append("speed-first routine output checks are missing or invalid")
+        clarity = speed_policy.get("script_clarity_contract") if isinstance(speed_policy.get("script_clarity_contract"), Mapping) else {}
+        headings = clarity.get("topic_headings") if isinstance(clarity.get("topic_headings"), Mapping) else {}
+        narration = clarity.get("narration") if isinstance(clarity.get("narration"), Mapping) else {}
+        for key in ("use_clear_heading_for_each_main_topic", "heading_names_the_topic_in_plain_words"):
+            if headings.get(key) is not True:
+                failures.append(f"script clarity rule missing: topic_headings.{key}")
+        for key in ("state_main_point_before_details", "prefer_common_words", "keep_only_details_that_change_understanding_or_action", "avoid_repeating_caveats_or_availability_notes"):
+            if narration.get(key) is not True:
+                failures.append(f"script clarity rule missing: narration.{key}")
+    except Exception as exc:
+        routine_checks = []
+        failures.append(f"speed-first output policy unavailable: {type(exc).__name__}: {exc}")
     visuals = policy.get("visual_asset_contract") if isinstance(policy.get("visual_asset_contract"), Mapping) else {}
     for key in ("claim_bearing_news_requires_related_visual_plan", "source_page_required", "asset_locator_required", "license_or_public_domain_state_required", "scene_or_claim_mapping_required", "semantic_match_required"):
         if visuals.get(key) is not True:
             failures.append(f"related visual provenance rule missing: {key}")
+    if visuals.get("provenance_scope") != "EXTERNAL_OR_REUSED_VISUAL_ASSETS_ONLY":
+        failures.append("visual provenance scope must distinguish external assets from original simple visuals")
+    if visuals.get("original_simple_visuals_may_use_creator_provenance") is not True:
+        failures.append("original simple visuals must remain available on the speed-first route")
+    if visuals.get("unknown_rights_action") != "BLOCK_BEFORE_RENDER":
+        failures.append("unknown visual rights must remain blocked")
+    character = policy.get("character_output_contract") if isinstance(policy.get("character_output_contract"), Mapping) else {}
+    if character.get("applies_only_when_character_led_profile_is_selected_or_user_requests_it") is not True:
+        failures.append("character motion requirements must be scoped to a selected/requested character-led profile")
     return {
         "schema_version": policy.get("schema_version"),
         "status": "PASS" if not failures else "BLOCKED",
@@ -112,6 +160,8 @@ def static_admission() -> dict[str, Any]:
         "voicevox_unavailable_action": voice.get("voicevox_unavailable_action"),
         "paid_or_freemium_tts": free.get("paid_or_freemium_tts"),
         "caption_contract": captions.get("caption_contract_name"),
+        "caption_renderers": dict(renderers),
+        "routine_output_checks": routine_checks,
         "related_visual_plan_required": visuals.get("claim_bearing_news_requires_related_visual_plan"),
     }
 

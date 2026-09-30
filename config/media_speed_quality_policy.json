@@ -166,7 +166,9 @@
     "latest_alias": "~typesafe/jev-latest",
     "last_known_good": "typesafe/jev-1.13",
     "no_other_paid_model_fallback": true,
-    "auto_top_up": false
+    "auto_top_up": false,
+    "required_by_default": false,
+    "enabled_means": "AVAILABLE_ONLY_WHEN_USER_REQUESTS_JEV_OR_A_TYPED_DECISION_CAN_CHANGE_A_NONDETERMINISTIC_ROUTE"
   },
   "decision_quality": {
     "minimum_confidence_for_autonomous_execute": 0.75,
@@ -267,7 +269,9 @@
       "UNREQUESTED_PLATFORM_EXPORTS"
     ],
     "jev_use": "ONLY_WHEN_USER_REQUESTS_IT_OR_TYPED_JUDGMENT_CHANGES_THE_ROUTE; SKIP_FOR_DETERMINISTIC_PREPARATION",
-    "permission_scope": "DELIVERY_TO_REQUESTING_USER_ONLY; PUBLICATION_MERGE_DEPLOY_PAID_SCOPE_AND_SECRET_PERMISSIONS_ARE_SEPARATE"
+    "permission_scope": "DELIVERY_TO_REQUESTING_USER_ONLY; PUBLICATION_MERGE_DEPLOY_PAID_SCOPE_AND_SECRET_PERMISSIONS_ARE_SEPARATE",
+    "targeted_user_requested_revision_allowed": true,
+    "unrequested_polish_allowed": false
   },
   "longform_renderer": "scripts/render_reusable_longform.py",
   "minimum_delivery_contract": {
@@ -281,5 +285,31 @@
     "one_output_check_then_deliver": true,
     "use_only_cleared_assets_or_original_simple_visuals": true,
     "rights_and_cost_gates_remain_mandatory": true
+  },
+  "script_clarity_contract": {
+    "applies_to": "ALL_EXPLANATORY_AND_NEWS_VIDEOS",
+    "topic_headings": {
+      "use_clear_heading_for_each_main_topic": true,
+      "heading_names_the_topic_in_plain_words": true,
+      "avoid_generic_or_vague_heading_labels": true,
+      "combine_related_announcements_under_one_topic": true
+    },
+    "narration": {
+      "state_main_point_before_details": true,
+      "prefer_common_words": true,
+      "explain_necessary_jargon_once": true,
+      "one_main_idea_per_section": true,
+      "keep_only_details_that_change_understanding_or_action": true,
+      "use_an_example_only_when_it_clarifies": true,
+      "avoid_feature_catalogues_and_long_preambles": true,
+      "avoid_repeating_caveats_or_availability_notes": true,
+      "state_important_availability_once_where_relevant": true,
+      "end_with_one_plain_language_takeaway": true
+    },
+    "accuracy_boundary": {
+      "plain_language_must_not_change_claim_meaning": true,
+      "material_or_current_claims_still_need_source_check": true,
+      "unknown_claims_must_be_omitted_or_labeled_uncertain": true
+    }
   }
 }

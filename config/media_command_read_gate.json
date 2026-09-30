@@ -65,11 +65,13 @@
         "scripts/video_creation_admission.py"
       ],
       "conditional": {
-        "if_user_explicitly_requests_longform_or_ymm4": [
+        "if_user_explicitly_requests_longform": [
           "config/longform_video_objectives.json",
           "config/longform_video_reliability_policy.json",
           "docs/LONGFORM_VIDEO_OBJECTIVES.md",
-          "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+          "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md"
+        ],
+        "if_user_explicitly_requests_ymm4": [
           "config/ymm4_research_explainer_profile.json",
           "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
           "examples/ymm4_research_explainer_script_template.json",
@@ -302,7 +304,8 @@
       "USE_ONLY_CLEARED_ASSETS_OR_SIMPLE_ORIGINAL_VISUALS",
       "UNKNOWN_COST_AND_PAID_MEDIA_ROUTES_BLOCKED",
       "PUBLICATION_MERGE_DEPLOY_AND_SECRET_ACTIONS_KEEP_SEPARATE_AUTHORIZATION"
-    ]
+    ],
+    "editorial_authority": "config/media_speed_quality_policy.json#/script_clarity_contract"
   },
   "default_media_research_and_script_pair_is_chatgpt_plus_deepseek": false,
   "default_video_research_and_script_owner_is_chatgpt": true,

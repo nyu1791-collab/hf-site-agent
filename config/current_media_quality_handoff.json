@@ -13,13 +13,6 @@
     "reconfirm remote branch head and PR state before repository writes"
   ],
   "mandatory_routine_read_set": "config/media_command_read_gate.json#/speed_first_delivery_override/read_set",
-  "optional_longform_reference": {
-    "scope": "ONLY_IF_USER_EXPLICITLY_REQUESTS_YMM4_OR_LONGFORM",
-    "machine_policy": "config/ymm4_research_explainer_profile.json",
-    "human_doc": "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
-    "duration": "USER_SPECIFIED",
-    "default_visual_review_required": false
-  },
   "speed_first_video_delivery": {
     "mode": "SPEED_FIRST_MINIMUM_VIABLE_DELIVERY",
     "quality_weight": 0.2,
@@ -80,7 +73,9 @@
       "AUDIO_AND_VIDEO_STREAMS_PRESENT",
       "NO_INVENTED_MATERIAL_CLAIMS",
       "NO_UNCLEARED_ASSETS"
-    ]
+    ],
+    "targeted_user_requested_revision_allowed": true,
+    "unrequested_polish_allowed": false
   },
   "approved_reference": {
     "output": "DevDay2026_corrected_47s.mp4",
@@ -104,5 +99,31 @@
     "approved_template": "config/approved_video_template.json",
     "renderer_reference": "docs/VIDEO_PRODUCTION_BASELINE.md",
     "scope": "LOAD_ONLY_WHEN_A_SPECIFIC_EXISTING_TEMPLATE_OR_RENDERER_EDIT_IS_NEEDED"
+  },
+  "conditional_references": {
+    "longform": {
+      "scope": "ONLY_WHEN_USER_REQUESTS_LONGFORM_DURATION_OR_LONGFORM_FORMAT",
+      "machine_policy": [
+        "config/longform_video_objectives.json",
+        "config/longform_video_reliability_policy.json"
+      ],
+      "human_docs": [
+        "docs/LONGFORM_VIDEO_OBJECTIVES.md",
+        "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md"
+      ],
+      "duration": "USER_SPECIFIED",
+      "YMM4_guides_are_not_implied": true
+    },
+    "ymm4": {
+      "scope": "ONLY_WHEN_USER_EXPLICITLY_REQUESTS_YMM4",
+      "machine_policy": "config/ymm4_research_explainer_profile.json",
+      "human_doc": "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md"
+    }
+  },
+  "editorial_defaults": {
+    "authority": "config/media_speed_quality_policy.json#/script_clarity_contract",
+    "topic_specific_headings": true,
+    "plain_language_and_main_point_first": true,
+    "omit_nonessential_detail_and_repeated_caveats": true
   }
 }

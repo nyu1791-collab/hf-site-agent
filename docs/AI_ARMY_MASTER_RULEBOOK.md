@@ -6,6 +6,8 @@
 
 品質20％・速度80％。承認済みの型・既存素材・キャッシュを使い、1回で作る。確認待ち、通常の目視確認、全編decode、追加Agent査読、微細な修正、任意の品質向上をしない。書き出し成功・非空の出力・音声/映像streamの存在だけ確認し、すぐ提出する。直すのは出力失敗、必須stream欠落、利用不能、実質的な誤情報または権利問題だけ。約5分は未計測の目安。独立準備は最大3レーンで並列化し、完成後の査読待ちは置かない。
 
+**台本の分かりやすさ:** 話題ごとに内容が分かる見出しを付け、各章は要点から説明する。平易な言葉を使い、必要な専門語だけ一度説明する。視聴者の理解や判断に不要な機能細部、長い前置き、同じ注意の反復を省く。詳しい条件が重要なときは、その箇所で短く示す。恒久ルールは `config/media_speed_quality_policy.json#/script_clarity_contract`。
+
 **Status:** Permanent compact operating index  
 **Effective:** 2026-09-30 JST  
 **Authority:** This document is the concise human-readable entry point. Machine policies in `config/permanent_standards_manifest.json` and the files it references remain authoritative when details differ.

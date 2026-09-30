@@ -4,25 +4,6 @@
   "status": "ENFORCED_PERMANENT_STANDARD",
   "purpose": "Make every VIDEO_CREATION request restore the repository media rules before rendering, including the mandatory local VOICEVOX cast.",
   "semantic_trigger": "VIDEO_CREATION",
-  "required_read_set": [
-    "config/current_media_quality_handoff.json",
-    "config/approved_video_template.json",
-    "docs/VIDEO_PRODUCTION_BASELINE.md",
-    "config/current_commander_handoff.json",
-    "config/permanent_standards_manifest.json",
-    "config/free_execution_guard.json",
-    "config/media_command_read_gate.json",
-    "config/media_audio_motion_retention_policy.json",
-    "docs/MEDIA_PIPELINE.md",
-    "config/session_stream_resilience_policy.json",
-    "config/zundamon_news60_template.json",
-    "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
-    "scripts/validate_zundamon_news60_template.py",
-    "config/video_platform_delivery_profiles.json",
-    "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md",
-    "docs/VOICEVOX_RUNTIME.md",
-    "scripts/with_local_voicevox.sh"
-  ],
   "voice_contract": {
     "engine": "VOICEVOX_LOCAL",
     "primary_voice": "ずんだもん",
@@ -42,7 +23,8 @@
       "verify_version_speakers_and_real_wav_before_render": true,
       "keep_engine_and_consumer_in_same_execution_when_localhost_isolated": true,
       "bind_only_to_loopback": true,
-      "preserve_block_if_bootstrap_or_standard_cast_still_fails": true
+      "preserve_block_if_bootstrap_or_standard_cast_still_fails": true,
+      "read_runtime_guide_when_starting_or_recovering_engine": true
     }
   },
   "caption_contract": {
@@ -60,10 +42,13 @@
       "#F6DB98",
       "#E7A6AA"
     ],
-    "renderer": "scripts/render_reusable_short.py",
     "validator": "scripts/validate_video_caption_contract.py",
     "presentation_baseline": "config/approved_video_template.json",
-    "longform_renderer": "scripts/render_reusable_longform.py"
+    "longform_renderer": "scripts/render_reusable_longform.py",
+    "renderers": {
+      "shortform": "scripts/render_reusable_short.py",
+      "longform": "scripts/render_reusable_longform.py"
+    }
   },
   "visual_asset_contract": {
     "claim_bearing_news_requires_related_visual_plan": true,
@@ -79,7 +64,9 @@
     "renderer_reads": "config/media_reusable_asset_standard.json",
     "media_region_only_required": true,
     "whole_page_feed_login_sidebar_forbidden": true,
-    "enlarge_media_without_cropping_embedded_qualifiers": true
+    "enlarge_media_without_cropping_embedded_qualifiers": true,
+    "provenance_scope": "EXTERNAL_OR_REUSED_VISUAL_ASSETS_ONLY",
+    "original_simple_visuals_may_use_creator_provenance": true
   },
   "free_execution_contract": {
     "local_voicevox_only": true,
@@ -96,7 +83,8 @@
   "artifact_contract": {
     "must_include_voice_timing_manifest": true,
     "must_include_voicevox_credit": true,
-    "must_pass_ffprobe_and_decode": true
+    "routine_output_checks_ref": "config/media_speed_quality_policy.json#/speed_first_delivery/automatic_completion_check",
+    "full_decode_or_frame_sampling": "ONLY_IF_EXPORT_FAILS_OR_A_CONCRETE_USABILITY_OR_SAFETY_SIGNAL_EXISTS"
   },
   "durable_execution_contract": {
     "session_stream_resilience_policy": "config/session_stream_resilience_policy.json",
@@ -134,6 +122,9 @@
     "authored_expression_changes_for_both_speakers": true,
     "longform_static_fallback_allowed": false,
     "final_mp4_samples_required": true,
-    "longform_renderer": "scripts/render_reusable_longform.py"
-  }
+    "longform_renderer": "scripts/render_reusable_longform.py",
+    "applies_only_when_character_led_profile_is_selected_or_user_requests_it": true,
+    "plain_narration_or_simple_card_video_may_omit_native_character_layers": true
+  },
+  "required_read_set_ref": "config/media_command_read_gate.json#/speed_first_delivery_override/read_set"
 }
