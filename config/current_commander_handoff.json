@@ -254,7 +254,12 @@
     "user_confirmation_required": false,
     "manual_visual_review_required": false,
     "deliver_completed_video_immediately": true,
-    "cosmetic_or_micro_revision": false
+    "cosmetic_or_micro_revision": false,
+    "longform_up_to_16_minutes_is_measured_against_five_minute_work_target": true,
+    "longform_fast_renderer": "scripts/render_fast_image_longform.py",
+    "longform_default_canvas": "1280x720_16:9",
+    "video_image_generation_allowed": false,
+    "official_announcement_visuals_preferred": true
   },
   "legacy_cleanup_fixed_rules": {
     "legacy_registry": "config/legacy_deepseek_compatibility.json",
@@ -274,7 +279,8 @@
     "external_video_service_requires_verified_completely_free_route": true,
     "unknown_cost_route": "BLOCK",
     "paid_or_freemium_media_generation_is_permanently_disabled": true,
-    "free_route_unavailable_blocks_without_paid_substitution": true
+    "free_route_unavailable_blocks_without_paid_substitution": true,
+    "fast_image_longform_renderer": "scripts/render_fast_image_longform.py"
   },
   "clipping_fixed_rules": {
     "authorized_creator_repurposing_and_official_clipping_adopted": true,

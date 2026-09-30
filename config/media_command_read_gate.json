@@ -69,7 +69,9 @@
           "config/longform_video_objectives.json",
           "config/longform_video_reliability_policy.json",
           "docs/LONGFORM_VIDEO_OBJECTIVES.md",
-          "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md"
+          "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+          "config/fast_image_longform_profile.json",
+          "scripts/render_fast_image_longform.py"
         ],
         "if_user_explicitly_requests_ymm4": [
           "config/ymm4_research_explainer_profile.json",

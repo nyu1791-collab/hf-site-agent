@@ -34,7 +34,7 @@ class VideoCreationAdmissionTests(unittest.TestCase):
             target = self.root / path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.touch()
-        for path in ("scripts/render_reusable_short.py", "scripts/render_reusable_longform.py"):
+        for path in ("scripts/render_reusable_short.py", "scripts/render_fast_image_longform.py"):
             target = self.root / path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.touch()
@@ -50,6 +50,13 @@ class VideoCreationAdmissionTests(unittest.TestCase):
             },
             "visual_density_contract": {
                 "visual_beats_per_main_section": {"minimum": 2, "target_range": [2, 4]},
+            },
+            "fast_longform_delivery": {
+                "wall_clock_target_minutes": 5,
+                "applies_to_requested_longform_up_to_seconds": 960,
+                "default_renderer": "scripts/render_fast_image_longform.py",
+                "one_video_encode_only": True,
+                "voice_segmenting": {"target_max_segments_for_16_minutes": 16, "avoid_sentence_level_synthesis_calls": True},
             },
             "script_clarity_contract": {
                 "topic_headings": {
@@ -82,7 +89,7 @@ class VideoCreationAdmissionTests(unittest.TestCase):
                 "caption_contract_name": "FULL_SPOKEN_TEXT",
                 "renderers": {
                     "shortform": "scripts/render_reusable_short.py",
-                    "longform": "scripts/render_reusable_longform.py",
+                    "longform": "scripts/render_fast_image_longform.py",
                 },
             },
             "visual_asset_contract": {
@@ -95,6 +102,10 @@ class VideoCreationAdmissionTests(unittest.TestCase):
                 "visual_density_policy": "config/media_speed_quality_policy.json#/visual_density_contract",
                 "distinct_relevant_visuals_per_main_section_minimum": 2,
                 "distinct_relevant_visuals_per_main_section_target_maximum": 4,
+                "official_primary_visuals_preferred": True,
+                "image_generation_allowed": False,
+                "screenshots_must_exclude_browser_and_player_ui": True,
+                "official_source_alone_does_not_clear_reuse_rights": True,
                 "provenance_scope": "EXTERNAL_OR_REUSED_VISUAL_ASSETS_ONLY",
                 "original_simple_visuals_may_use_creator_provenance": True,
                 "unknown_rights_action": "BLOCK_BEFORE_RENDER",
@@ -113,6 +124,10 @@ class VideoCreationAdmissionTests(unittest.TestCase):
         ):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(data), encoding="utf-8")
+        (self.root / "config/media_source_policy.json").write_text(json.dumps({
+            "generated_images_enabled_for_video": False,
+            "factual_video_visual_rules": {"prefer_official_primary_source_visuals": True, "capture_only_media_region_no_browser_or_player_chrome": True},
+        }), encoding="utf-8")
 
     def tearDown(self):
         admission.ROOT, admission.POLICY_PATH, admission.READ_GATE_PATH, admission.SPEED_POLICY_PATH = self.old_paths
@@ -123,7 +138,7 @@ class VideoCreationAdmissionTests(unittest.TestCase):
         self.assertEqual(report["status"], "PASS", report["failures"])
         self.assertEqual(report["required_read_set"], self.read_set)
         self.assertEqual(len(report["routine_output_checks"]), 3)
-        self.assertEqual(report["caption_renderers"]["longform"], "scripts/render_reusable_longform.py")
+        self.assertEqual(report["caption_renderers"]["longform"], "scripts/render_fast_image_longform.py")
 
 
     def test_visual_density_is_pinned_to_speed_policy(self):
@@ -141,6 +156,23 @@ class VideoCreationAdmissionTests(unittest.TestCase):
         report = admission.static_admission()
         self.assertEqual(report["status"], "BLOCKED")
         self.assertTrue(any("longform profile" in failure for failure in report["failures"]))
+
+
+    def test_generated_video_visuals_are_blocked(self):
+        policy = json.loads(admission.POLICY_PATH.read_text())
+        policy["visual_asset_contract"]["image_generation_allowed"] = True
+        admission.POLICY_PATH.write_text(json.dumps(policy), encoding="utf-8")
+        report = admission.static_admission()
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertTrue(any("image generation" in failure for failure in report["failures"]))
+
+    def test_fast_longform_contract_is_enforced(self):
+        speed = json.loads(admission.SPEED_POLICY_PATH.read_text())
+        speed["fast_longform_delivery"]["wall_clock_target_minutes"] = 16
+        admission.SPEED_POLICY_PATH.write_text(json.dumps(speed), encoding="utf-8")
+        report = admission.static_admission()
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertTrue(any("five-minute work target" in failure for failure in report["failures"]))
 
 
 if __name__ == "__main__":

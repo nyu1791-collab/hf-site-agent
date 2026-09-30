@@ -1,5 +1,5 @@
 
-**動画制作は品質2・速度8。** `config/media_speed_quality_policy.json#/speed_first_delivery` と `#/visual_density_contract` を新しいタブの制作前に必読する。各話題の節で関連する別々の画像・図を2〜4場面使い、適切な既存素材を優先する。通常のプレビュー・目視確認・追加査読・微細な修正・品質向上を省き、書き出し成功・非空の出力・音声/映像streamが揃えば即時提出する。既存の型と素材を再利用し、独立準備のみ最大3レーンで並列化する。
+**動画制作は品質2・速度8。** `config/media_speed_quality_policy.json` を新しいタブの制作前に必読する。16分以内の長尺は5分の作業時間目標で計測し、既製の公式発表画像・製品画面・発表文の引用画像を使う。画像生成は使わない。長尺は16:9の静止画中心レンダーで一括書き出しし、段落単位の音声合成と素材準備を独立並列化する。出力が使える状態ならすぐ提出し、必須の事実・権利確認は守る.
 
 # hf-site-agent
 
@@ -19,7 +19,7 @@ AI Army / Provider-v3 の実験・検証リポジトリ。
 - 動画・音声・字幕・キャラクター・BGM・SFX・画像素材・切り抜き・TikTok Shopメディア: `config/media_command_read_gate.json`
 - VOICEVOXの現在のローカル実行状態・起動・復旧手順: `docs/VOICEVOX_RUNTIME.md` / `scripts/with_local_voicevox.sh`
 - 現行動画設定をタブ跨ぎで復元するCheckpoint: `config/current_media_quality_handoff.json`
-- 品質20％・速度80％、5分は未計測目標、即時提出と「話題ごとの見出し・平易な言葉・要点優先」: `config/media_speed_quality_policy.json`
+- 品質20％・速度80％、16分長尺の5分作業目標、公式画像のみ・画像生成禁止、即時提出と「話題ごとの見出し・平易な言葉・要点優先」: `config/media_speed_quality_policy.json`
 - 既存テンプレートや口パク等のスタイル詳細は、ユーザーがその形式を指定した場合だけ読む。通常動画の必須条件にはしない。
 - 収益化・案件・アフィリエイト・Creator Program・AI workflow service: `config/monetization_command_read_gate.json`
 
@@ -55,7 +55,7 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 ## 動画制作
 
-新しいタブでは動画作業前に `config/media_speed_quality_policy.json#/speed_first_delivery`、`#/script_clarity_contract`、`#/visual_density_contract` を読み、品質20％・速度80％で運用する。各大見出しにつき関連画像や図を2〜4種類の視覚場面で示す。既存の許諾済み素材を先に使い、同じ画像の繰り返しで数を稼がず、画像の権利・出典・主張との対応は素材ポリシーに従う。適切な画像がない場合は簡潔な自作図を使う。見出しは話題ごとに分けて内容が一目で分かる言葉にし、台本は要点から始める。一般的な言葉を使い、専門語は必要な場合だけ一度説明する。理解や判断に影響しない細部、長い前置き、同じ注意の繰り返しは省く。確認待ち・通常の目視レビュー・追加査読・微細な修正を省き、非空の出力と音声/映像streamを一度確認したら即提出する。
+新しいタブでは動画作業前に `config/media_speed_quality_policy.json` と `config/media_source_policy.json` を読み、品質20％・速度80％で運用する。16分までの長尺は5分の作業時間目標を測定する。長尺は `scripts/render_fast_image_longform.py` で16:9静止画カードと音声を一度に書き出し、各大見出しに公式素材または権利確認済み画像を2〜4場面使う。画像生成は禁止。発表ページの必要箇所だけを切り取り、ブラウザ・再生UIを映さない。公式発表や公式コメントの画面を優先するが、公式サイト掲載だけでは再利用権があるとはみなさない。画像がない場合だけ、短い出典付き文字カードを使う。段落単位で音声を合成し、文ごとの多数の合成呼出しを避ける。見出しと平易な台本、権利記録、事実確認は維持し、任意の装飾や確認待ちは省いて提出する。
 
 既存テンプレート、音声、素材を再利用し、最大3つの独立した準備だけ並列化する。約5分は未計測の目安。詳しいルールの二重記載はせず、`config/media_command_read_gate.json` と上記の速度ポリシーを正本とする。
 

@@ -250,7 +250,7 @@
     "full_decode_pass_required": false,
     "preparation_lanes_max": 3,
     "target_minutes": 5,
-    "target_status": "ASPIRATIONAL_NOT_MEASURED_OR_GUARANTEED",
+    "target_status": "MEASURE_EACH_RUN; BEST_EFFORT_NOT_GUARANTEED",
     "reuse_first": [
       "APPROVED_LAYOUT",
       "CHARACTER_PRESETS",
@@ -273,7 +273,7 @@
     "targeted_user_requested_revision_allowed": true,
     "unrequested_polish_allowed": false
   },
-  "longform_renderer": "scripts/render_reusable_longform.py",
+  "longform_renderer": "scripts/render_fast_image_longform.py",
   "minimum_delivery_contract": {
     "no_routine_visual_review": true,
     "no_full_decode_or_loudness_sweep": true,
@@ -314,7 +314,7 @@
   },
   "visual_density_contract": {
     "applies_to": "ALL_EXPLANATORY_AND_NEWS_VIDEOS",
-    "purpose": "Use image-led storytelling to make the narration easier to follow while retaining the 20/80 speed-first workflow.",
+    "purpose": "Use image-led storytelling with real official or rights-cleared visuals while retaining the 20/80 speed-first workflow.",
     "visual_beats_per_main_section": {
       "minimum": 2,
       "target_range": [
@@ -324,10 +324,10 @@
       "unit": "DISTINCT_RELEVANT_VISUAL_BEATS"
     },
     "qualifying_visuals": [
-      "RELEVANT_PHOTOGRAPH_OR_SCREENSHOT",
-      "ORIGINAL_DIAGRAM_OR_CHART",
-      "PRODUCT_OR_INTERFACE_STILL",
-      "TOPIC_SPECIFIC_TITLE_OR_CALLOUT_CARD"
+      "OFFICIAL_ANNOUNCEMENT_IMAGE",
+      "OFFICIAL_PRODUCT_OR_INTERFACE_SCREENSHOT",
+      "OFFICIAL_STATEMENT_OR_COMMENT_SCREENSHOT",
+      "RIGHTS_CLEARED_RELEVANT_PHOTOGRAPH"
     ],
     "visual_sequence": {
       "prefer_a_new_relevant_image_or_visual_each_beat": true,
@@ -336,18 +336,52 @@
       "reused_visual_must_remain_relevant_to_its_new_section": true
     },
     "speed_rules": {
-      "check_cleared_asset_cache_first": true,
-      "reuse_cleared_relevant_visuals": true,
-      "make_simple_original_diagrams_when_no_image_is_needed_or_cleared": true,
-      "asset_research_is_limited_to_material_claims_and_required_visual_coverage": true,
+      "check_official_visual_cache_first": true,
+      "prefer_original_official_source_media_and_cropped_source_page_screenshots": true,
+      "prepare_screenshots_by_cropping_to_the_media_region_only": true,
+      "include_official_quotes_or_comments_only_when_relevant_and_attributed": true,
+      "use_simple_native_text_card_only_when_no_official_or_cleared_visual_exists": true,
+      "image_generation_for_video_disabled": true,
+      "reuse_verified_assets_and_capture_each_source_once": true,
+      "asset_research_is_limited_to_official_visuals_needed_for_required_coverage": true,
       "visual_count_does_not_trigger_routine_preview_or_review": true
     },
     "rights_and_factuality": {
       "external_assets_require_source_page_locator_and_license_or_public_domain_state": true,
       "visual_must_not_imply_an_unsupported_claim": true,
       "do_not_use_uncleared_or_unknown_cost_assets": true,
-      "paid_or_freemium_image_video_generation_remains_blocked": true
+      "paid_or_freemium_image_video_generation_remains_blocked": true,
+      "official_source_does_not_automatically_mean_public_domain_or_reuse_license": true
     },
     "priority": "RELEVANT_IMAGE_DENSITY_WITHIN_THE_EXISTING_ONE_PASS_SPEED_FIRST_DELIVERY"
+  },
+  "fast_longform_delivery": {
+    "applies_to_requested_longform_up_to_seconds": 960,
+    "wall_clock_target_minutes": 5,
+    "target_is_measured_for_each_run": true,
+    "target_is_not_a_guarantee_when_inputs_or_local_hardware_are_unready": true,
+    "minimum_realtime_factor_for_encode_stage": 3.2,
+    "default_canvas": "1280x720_16:9",
+    "default_renderer": "scripts/render_fast_image_longform.py",
+    "default_profile": "config/fast_image_longform_profile.json",
+    "one_video_encode_only": true,
+    "full_decode_passes": 0,
+    "completion_probe": "ffprobe_streams_duration_and_size_only",
+    "record_wall_clock_and_realtime_factor": true,
+    "voice_segmenting": {
+      "unit": "PARAGRAPH_OR_TOPIC_SECTION",
+      "target_max_segments_for_16_minutes": 16,
+      "split_only_at_voicevox_input_limit_or_speaker_change": true,
+      "avoid_sentence_level_synthesis_calls": true,
+      "reuse_exact_verified_audio_cache": true
+    },
+    "critical_path_rules": [
+      "prepare_script_voice_and_rights_cleared_official_visuals_in_parallel_when_independent",
+      "compose_supplied_stills_and_full_spoken_captions_without_per_frame_python_rendering",
+      "encode_once_at_720p_with_the_fast_still_image_profile",
+      "drop_effects_and_nonessential_assets_before_exceeding_the_five_minute_work_target",
+      "never_relax_source_rights_or_material_claim_checks_to_meet_time"
+    ],
+    "if_target_exceeded": "REPORT_ACTUAL_STAGE_TIMES_AND_DELIVER_THE_COMPLETE_VIDEO_WITHOUT_OPTIONAL_POLISH"
   }
 }

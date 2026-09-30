@@ -43,7 +43,7 @@
     "full_decode_pass_required": false,
     "preparation_lanes_max": 3,
     "target_minutes": 5,
-    "target_status": "ASPIRATIONAL_NOT_MEASURED_OR_GUARANTEED",
+    "target_status": "MEASURE_EACH_RUN; BEST_EFFORT_NOT_GUARANTEED",
     "reuse_first": [
       "APPROVED_LAYOUT",
       "CHARACTER_PRESETS",
@@ -77,7 +77,12 @@
     "targeted_user_requested_revision_allowed": true,
     "unrequested_polish_allowed": false,
     "visual_density_authority": "config/media_speed_quality_policy.json#/visual_density_contract",
-    "visual_beats_per_main_section": "2_TO_4_DISTINCT_RELEVANT_IMAGES_OR_DIAGRAMS_WHEN_SUITABLE"
+    "visual_beats_per_main_section": "2_TO_4_OFFICIAL_OR_RIGHTS_CLEARED_IMAGES_PER_MAIN_SECTION; NO_IMAGE_GENERATION",
+    "longform_up_to_16_minutes_is_measured_against_five_minute_work_target": true,
+    "longform_renderer": "scripts/render_fast_image_longform.py",
+    "longform_default_canvas": "1280x720_16:9",
+    "image_generation_allowed_for_video": false,
+    "official_primary_visuals_preferred": true
   },
   "approved_reference": {
     "output": "DevDay2026_corrected_47s.mp4",
@@ -107,11 +112,13 @@
       "scope": "ONLY_WHEN_USER_REQUESTS_LONGFORM_DURATION_OR_LONGFORM_FORMAT",
       "machine_policy": [
         "config/longform_video_objectives.json",
-        "config/longform_video_reliability_policy.json"
+        "config/longform_video_reliability_policy.json",
+        "config/fast_image_longform_profile.json"
       ],
       "human_docs": [
         "docs/LONGFORM_VIDEO_OBJECTIVES.md",
-        "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md"
+        "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+        "scripts/render_fast_image_longform.py"
       ],
       "duration": "USER_SPECIFIED",
       "YMM4_guides_are_not_implied": true

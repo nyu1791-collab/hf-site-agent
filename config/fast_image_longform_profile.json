@@ -1,0 +1,22 @@
+{
+  "schema_version": "fast-image-longform-profile-v1",
+  "purpose": "One-pass, image-led long-form video using supplied official or rights-cleared media.",
+  "layout": {
+    "width": 1280,
+    "height": 720,
+    "fps": 24,
+    "background": "#101820",
+    "caption_font_size": 28,
+    "source_font_size": 17,
+    "title_font_size": 34
+  },
+  "encode": {
+    "video_codec": "libx264",
+    "preset": "ultrafast",
+    "crf": 27,
+    "audio_bitrate": "96k",
+    "single_video_encode": true
+  },
+  "character_layers": false,
+  "image_generation": false
+}

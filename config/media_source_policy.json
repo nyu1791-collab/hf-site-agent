@@ -9,6 +9,10 @@
     "source_page_required": true,
     "asset_locator_required": true,
     "allowed_asset_hosts": [
+      "openai.com",
+      "cdn.openai.com",
+      "anthropic.com",
+      "assets.anthropic.com",
       "commons.wikimedia.org",
       "upload.wikimedia.org"
     ],
@@ -24,6 +28,9 @@
     "auto_purchase_stock": false
   },
   "preferred_sources": [
+    "OFFICIAL_ANNOUNCEMENT_MEDIA",
+    "OFFICIAL_PRODUCT_SCREENSHOTS",
+    "OFFICIAL_STATEMENT_OR_COMMENT_SCREENSHOTS",
     "WIKIMEDIA_COMMONS",
     "UNSPLASH_VERIFIED_TERMS",
     "PEXELS_VERIFIED_TERMS"
@@ -59,7 +66,11 @@
       "license": "CC-BY-2.0",
       "attribution_required": true,
       "editorial_context": true,
-      "recommended_use": ["HOOK", "PERSON_REFERENCE", "CEO_CONTEXT"]
+      "recommended_use": [
+        "HOOK",
+        "PERSON_REFERENCE",
+        "CEO_CONTEXT"
+      ]
     },
     {
       "asset_id": "sam-altman-2022",
@@ -73,7 +84,10 @@
       "license": "CC-BY-2.0",
       "attribution_required": true,
       "editorial_context": true,
-      "recommended_use": ["PERSON_REFERENCE", "SECONDARY_CUTAWAY"]
+      "recommended_use": [
+        "PERSON_REFERENCE",
+        "SECONDARY_CUTAWAY"
+      ]
     },
     {
       "asset_id": "openai-1515-third-street",
@@ -87,7 +101,10 @@
       "license": "CC-BY-4.0",
       "attribution_required": true,
       "editorial_context": true,
-      "recommended_use": ["COMPANY_CONTEXT", "LOCATION_CUTAWAY"]
+      "recommended_use": [
+        "COMPANY_CONTEXT",
+        "LOCATION_CUTAWAY"
+      ]
     },
     {
       "asset_id": "datacenter-server-racks",
@@ -101,7 +118,11 @@
       "license": "CC-BY-2.0",
       "attribution_required": true,
       "editorial_context": false,
-      "recommended_use": ["AI_INFRASTRUCTURE", "COMPUTE_CONTEXT", "BACKGROUND_CUTAWAY"]
+      "recommended_use": [
+        "AI_INFRASTRUCTURE",
+        "COMPUTE_CONTEXT",
+        "BACKGROUND_CUTAWAY"
+      ]
     },
     {
       "asset_id": "csiro-server-racks",
@@ -115,7 +136,20 @@
       "license": "CC-BY-3.0",
       "attribution_required": true,
       "editorial_context": false,
-      "recommended_use": ["AI_INFRASTRUCTURE", "COMPUTE_CONTEXT", "SECONDARY_CUTAWAY"]
+      "recommended_use": [
+        "AI_INFRASTRUCTURE",
+        "COMPUTE_CONTEXT",
+        "SECONDARY_CUTAWAY"
+      ]
     }
-  ]
+  ],
+  "generated_images_enabled_for_video": false,
+  "factual_video_visual_rules": {
+    "prefer_official_primary_source_visuals": true,
+    "official_source_is_not_automatically_public_domain": true,
+    "capture_only_media_region_no_browser_or_player_chrome": true,
+    "store_source_page_asset_locator_credit_license_and_claim_mapping": true,
+    "generated_image_or_video_tools_allowed": false,
+    "fallback_when_no_suitable_visual": "NATIVE_TEXT_CARD_WITH_ATTRIBUTED_QUOTE_OR_KEY_FACT"
+  }
 }

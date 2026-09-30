@@ -15,6 +15,7 @@ GATE = ROOT / "config/media_command_read_gate.json"
 MANIFEST = ROOT / "config/permanent_standards_manifest.json"
 HANDOFF = ROOT / "config/current_commander_handoff.json"
 MEDIA_HANDOFF = ROOT / "config/current_media_quality_handoff.json"
+SOURCE_POLICY = ROOT / "config/media_source_policy.json"
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -40,7 +41,20 @@ def main() -> int:
     require(policy.get("status") == "ENFORCED_PERMANENT_STANDARD", "media speed policy is not enforced")
     target = policy.get("target_wall_clock_minutes") or []
     require(target == [5, 5], "five-minute aspirational target drifted")
-    require(policy.get("target_is_aspirational_not_guarantee") is True, "speed target must not be represented as measured or guaranteed")
+    require(policy.get("target_is_aspirational_not_guarantee") is True, "speed target must not be represented as guaranteed")
+    fast = policy.get("fast_longform_delivery") or {}
+    require(fast.get("applies_to_requested_longform_up_to_seconds") == 960, "fast long-form scope must cover 16 minutes")
+    require(fast.get("wall_clock_target_minutes") == 5 and fast.get("target_is_measured_for_each_run") is True, "long-form five-minute target must be measured per run")
+    require(fast.get("default_renderer") == "scripts/render_fast_image_longform.py" and fast.get("one_video_encode_only") is True, "fast long-form one-encode renderer missing")
+    voice = fast.get("voice_segmenting") or {}
+    require(voice.get("target_max_segments_for_16_minutes") == 16 and voice.get("avoid_sentence_level_synthesis_calls") is True, "long-form voice batching rule missing")
+    require((ROOT / fast["default_renderer"]).is_file(), "fast long-form renderer file missing")
+    require((ROOT / fast["default_profile"]).is_file(), "fast long-form profile missing")
+    source_policy = load(SOURCE_POLICY)
+    require(source_policy.get("generated_images_enabled_for_video") is False, "image generation is enabled for video")
+    source_rules = source_policy.get("factual_video_visual_rules") or {}
+    require(source_rules.get("prefer_official_primary_source_visuals") is True, "official primary-source visuals are not preferred")
+    require(source_rules.get("generated_image_or_video_tools_allowed") is False, "generated media tools are allowed for video")
     require(int(policy.get("historical_local_baseline_minutes") or 0) == 40, "historical baseline drifted")
 
     delivery = policy.get("speed_first_delivery") or {}
@@ -144,6 +158,8 @@ def main() -> int:
     require("config/media_speed_quality_policy.json" in read_set and "scripts/media_speed_orchestrator.py" in read_set, "routine video read set lost speed policy or runtime")
     require("config/approved_video_template.json" not in read_set and "docs/VIDEO_PRODUCTION_BASELINE.md" not in read_set, "optional style references returned to mandatory speed read set")
     require(gate.get("speed_first_delivery_override", {}).get("routine_delivery_uses_override_instead_of_legacy_media_read_sets") is True, "routine delivery does not bypass legacy media guides")
+    longform_reads = (gate.get("trigger_sets") or {}).get("VIDEO_CREATION", {}).get("conditional", {}).get("if_user_explicitly_requests_longform", [])
+    require("config/fast_image_longform_profile.json" in longform_reads and fast.get("default_renderer") in longform_reads, "long-form read gate omits fast renderer/profile")
     session = gate.get("new_session_behavior") or {}
     require(session.get("speed_first_delivery_contract_must_be_reread_on_every_video_tab") is True, "new tabs may skip speed policy")
     require(session.get("use_speed_first_delivery_override_read_set_for_routine_video") is True, "new tabs may load legacy media guides by default")
@@ -163,6 +179,8 @@ def main() -> int:
     require(active.get("media_speed_checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "commander handoff lost checkpoint sealer pointer")
     media_speed = handoff.get("media_speed_fixed_rules") or {}
     require(media_speed.get("target_wall_clock_minutes") == [5, 5], "handoff target drifted")
+    require(media_speed.get("longform_up_to_16_minutes_is_measured_against_five_minute_work_target") is True, "handoff lost the measured long-form target")
+    require(media_speed.get("longform_fast_renderer") == fast.get("default_renderer"), "handoff fast long-form renderer pointer drifted")
     require(media_speed.get("quality_weight") == 0.2 and media_speed.get("speed_weight") == 0.8, "handoff weights drifted")
     require(media_speed.get("deliver_completed_video_immediately") is True, "handoff delivery rule missing")
     require(media_speed.get("max_independent_preparation_lanes") == 3, "handoff lane ceiling drifted")
@@ -175,6 +193,7 @@ def main() -> int:
     require(media_speed_handoff.get("jev_media_planning") is True and media_speed_handoff.get("jev_required_by_default") is False, "Jev must remain optional for deterministic video work")
     require(media_speed_handoff.get("media_speed_quality_policy") == "config/media_speed_quality_policy.json", "media quality handoff speed pointer missing")
     require(media_speed_handoff.get("media_speed_checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "media quality handoff checkpoint sealer missing")
+    require(media_speed_handoff.get("longform_renderer") == fast.get("default_renderer"), "media handoff fast long-form renderer pointer drifted")
 
     print(json.dumps({
         "status": "PASS",

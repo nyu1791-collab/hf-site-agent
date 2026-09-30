@@ -4,7 +4,7 @@
 
 現行ルールは `config/media_speed_quality_policy.json#/speed_first_delivery`。動画タスクの別タブではREADME → commander handoff → standards manifest → 本書 → media read gate → speed policyの順に読み、他の古い動画ルールより本方針を適用する。
 
-品質20％・速度80％。承認済みの型・既存素材・キャッシュを使い、1回で作る。確認待ち、通常の目視確認、全編decode、追加Agent査読、微細な修正、任意の品質向上をしない。書き出し成功・非空の出力・音声/映像streamの存在だけ確認し、すぐ提出する。直すのは出力失敗、必須stream欠落、利用不能、実質的な誤情報または権利問題だけ。約5分は未計測の目安。独立準備は最大3レーンで並列化し、完成後の査読待ちは置かない。
+品質20％・速度80％。承認済みの型・素材・キャッシュを使い、16分以内の長尺は5分を作業時間の計測目標にする。入力やローカル処理速度で超過した場合は実測時間を記録し、完成動画を任意の磨き込みなしで提出する。長尺の既定は16:9・720pの静止画中心レンダーを一回だけ行い、Pythonで全フレームを描かない。音声は文単位に細切れにせず、段落または話題ごとに合成する。準備だけ独立最大3レーンで並列化する。確認待ち、全編decode、追加Agent査読、微細な修正はしない。書き出し成功・非空・音声/映像streamを一度確認し提出する。直すのは出力失敗、stream欠落、利用不能、重大な誤情報または権利問題だけ。
 
 **台本の分かりやすさ:** 話題ごとに内容が分かる見出しを付け、各章は要点から説明する。平易な言葉を使い、必要な専門語だけ一度説明する。視聴者の理解や判断に不要な機能細部、長い前置き、同じ注意の反復を省く。詳しい条件が重要なときは、その箇所で短く示す。恒久ルールは `config/media_speed_quality_policy.json#/script_clarity_contract`。
 
@@ -167,4 +167,4 @@ No main direct push, PR merge, production deploy/publish, secret mutation/disclo
 
 ## Video production details
 
-Every video task reads `config/media_speed_quality_policy.json#/visual_density_contract`: use 2–4 distinct, relevant image or diagram beats per main section when suitable, reuse only cleared assets that still match, and preserve provenance for external visuals. This does not add a routine preview or review pass. Renderer and asset-cache instructions live in `docs/VIDEO_PRODUCTION_BASELINE.md` for explicit repair or tool-specific requests. Old visual-review checklists, style corrections and long duration targets are not routine delivery requirements.
+Every video task reads `config/media_speed_quality_policy.json#/visual_density_contract` and `config/media_source_policy.json`. Use 2–4 relevant image beats per main section, preferring official announcement media, official product screenshots and attributed official statements/comments. Do not use image generation. Crop source captures to the content area so browser and player controls do not cover the video. An official page is not by itself a reuse license; record source, asset location, credit, rights basis and claim mapping. Use a short native text card only where no suitable cleared image exists. The 16-minute fast path is `scripts/render_fast_image_longform.py` with `config/fast_image_longform_profile.json`: one 720p landscape encode from supplied stills plus narration, with measured wall-clock and real-time factor. It does not add routine preview or review passes.

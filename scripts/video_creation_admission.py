@@ -140,6 +140,11 @@ def static_admission() -> dict[str, Any]:
     for key in ("claim_bearing_news_requires_related_visual_plan", "source_page_required", "asset_locator_required", "license_or_public_domain_state_required", "scene_or_claim_mapping_required", "semantic_match_required"):
         if visuals.get(key) is not True:
             failures.append(f"related visual provenance rule missing: {key}")
+    for key in ("official_primary_visuals_preferred", "screenshots_must_exclude_browser_and_player_ui", "official_source_alone_does_not_clear_reuse_rights"):
+        if visuals.get(key) is not True:
+            failures.append(f"official visual source rule missing: {key}")
+    if visuals.get("image_generation_allowed") is not False:
+        failures.append("video image generation must remain disabled")
     visual_pointer = "config/media_speed_quality_policy.json#/visual_density_contract"
     if visuals.get("visual_density_policy") != visual_pointer:
         failures.append("image-rich visual density policy pointer is missing")
@@ -152,6 +157,20 @@ def static_admission() -> dict[str, Any]:
         density = speed_policy.get("visual_density_contract", {})
         if density.get("visual_beats_per_main_section", {}).get("minimum") != 2 or density.get("visual_beats_per_main_section", {}).get("target_range") != [2, 4]:
             failures.append("speed policy and admission visual density limits disagree")
+        fast = speed_policy.get("fast_longform_delivery", {})
+        if fast.get("wall_clock_target_minutes") != 5 or fast.get("applies_to_requested_longform_up_to_seconds") != 960:
+            failures.append("fast long-form target must cover up to 16 minutes with a five-minute work target")
+        if fast.get("default_renderer") != "scripts/render_fast_image_longform.py" or fast.get("one_video_encode_only") is not True:
+            failures.append("fast long-form route must use its one-encode renderer")
+        voice = fast.get("voice_segmenting", {})
+        if voice.get("target_max_segments_for_16_minutes") != 16 or voice.get("avoid_sentence_level_synthesis_calls") is not True:
+            failures.append("long-form voice synthesis must batch by section, not sentence")
+        source_policy = load_json(ROOT / "config/media_source_policy.json")
+        if source_policy.get("generated_images_enabled_for_video") is not False:
+            failures.append("media source policy permits generated images in video")
+        visual_rules = source_policy.get("factual_video_visual_rules", {})
+        if visual_rules.get("prefer_official_primary_source_visuals") is not True or visual_rules.get("capture_only_media_region_no_browser_or_player_chrome") is not True:
+            failures.append("media source policy must prefer official sources and cropped content")
     except (OSError, ValueError) as exc:
         failures.append(f"visual density speed policy could not be loaded: {type(exc).__name__}")
     if visuals.get("provenance_scope") != "EXTERNAL_OR_REUSED_VISUAL_ASSETS_ONLY":
