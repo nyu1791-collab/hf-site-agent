@@ -2,8 +2,8 @@
 """Fail closed if the permanent free-execution boundary drifts.
 
 The current media stack has a deliberately lean routine read-set. This validator
-checks that the free guard remains reachable on every current authority path
-without forcing retired large read-sets back onto the speed-first hot path.
+checks current machine authority and executable paths instead of requiring old
+handoff prose to contain specific literal phrases.
 """
 from __future__ import annotations
 
@@ -96,18 +96,15 @@ def main() -> int:
     require(video_standard.get("runtime_bootstrap") == "docs/VOICEVOX_RUNTIME.md", "manifest lost VOICEVOX runtime document")
     require(video_standard.get("launcher") == "scripts/with_local_voicevox.sh", "manifest lost VOICEVOX startup launcher")
 
-    require(((handoff.get("active_standards") or {}).get("free_execution_guard")) == "config/free_execution_guard.json", "handoff lost free execution guard")
+    active = handoff.get("active_standards") or {}
+    require(active.get("free_execution_guard") == "config/free_execution_guard.json", "handoff lost free execution guard pointer")
+    # Video admission continuity is machine-checked through the priority-0
+    # manifest entry plus the current media gate; literal handoff prose is not authority.
 
-    # The lean hot path may keep the free guard out of common_media_read_set,
-    # but the priority-0 startup authority and routine speed override must both
-    # retain it. This preserves safety without restoring a large legacy read set.
     common = set(media_gate.get("common_media_read_set") or [])
     speed_override = media_gate.get("speed_first_delivery_override") or {}
     speed_reads = set(speed_override.get("read_set") or [])
-    require(
-        "config/free_execution_guard.json" in common or "config/free_execution_guard.json" in speed_reads,
-        "no active media restore path includes free execution guard",
-    )
+    require("config/free_execution_guard.json" in common, "common media path lost free execution guard")
     require("config/free_execution_guard.json" in speed_reads, "routine speed-first path lost free execution guard")
     require("config/video_creation_admission_policy.json" in common or "config/video_creation_admission_policy.json" in speed_reads, "media path lost video admission policy")
 
@@ -131,17 +128,13 @@ def main() -> int:
     require(cross_tab.get("video_creation_admission_survives_tab_change") is True, "manifest video admission continuity missing")
     require(cross_tab.get("video_requests_require_voicevox_zundamon_preflight") is True, "manifest VOICEVOX preflight continuity missing")
 
-    checks = set(handoff.get("specific_checks") or [])
-    require(any("free execution guard" in value for value in checks), "handoff free guard restore check missing")
-    require(any("video_creation_admission" in value for value in checks), "handoff video admission restore check missing")
-    require(any("VOICEVOX" in value and "silent" in value.lower() for value in checks), "handoff VOICEVOX/silent fallback check missing")
-
     print(json.dumps({
         "status": "PASS",
         "free_only": True,
         "paid_fallback": False,
         "auto_top_up": False,
         "speed_path_guarded": True,
+        "handoff_literal_dependency": False,
     }, sort_keys=True))
     return 0
 
