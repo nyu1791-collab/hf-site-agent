@@ -188,6 +188,8 @@ permanent manifest→本書→Media Gateの順で復元する。過去動画の�
 
 再利用・基準複製の詳細は `docs/MEDIA_PERFORMANCE_EFFICIENCY_20260930.md`。
 
+動画配信先ごとの変動仕様・公式出典・確認日は `config/video_platform_delivery_profiles.json` に置き、制作手順は `docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md` に統合する。クリーンマスターから媒体別に書き出し、広告向け助言と通常投稿を混同しない。仕様変更と矛盾する旧数値は現行指示から削除し、品質が確認された制作型は維持する。
+
 ## 承認済み動画基盤とタブ復元（2026-09-30）
 
 今回ユーザーが承認した約47秒動画を `config/approved_video_template.json` に固定し、

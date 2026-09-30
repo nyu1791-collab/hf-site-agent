@@ -1,10 +1,13 @@
 {
   "schema_version": "video-creation-admission-v1",
-  "effective_date_jst": "2026-09-24",
+  "effective_date_jst": "2026-09-30",
   "status": "ENFORCED_PERMANENT_STANDARD",
   "purpose": "Make every VIDEO_CREATION request restore the repository media rules before rendering, including the mandatory local VOICEVOX cast.",
   "semantic_trigger": "VIDEO_CREATION",
   "required_read_set": [
+    "config/current_media_quality_handoff.json",
+    "config/approved_video_template.json",
+    "docs/VIDEO_PRODUCTION_BASELINE.md",
     "config/current_commander_handoff.json",
     "config/permanent_standards_manifest.json",
     "config/free_execution_guard.json",
@@ -14,7 +17,9 @@
     "config/session_stream_resilience_policy.json",
     "config/zundamon_news60_template.json",
     "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
-    "scripts/validate_zundamon_news60_template.py"
+    "scripts/validate_zundamon_news60_template.py",
+    "config/video_platform_delivery_profiles.json",
+    "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md"
   ],
   "voice_contract": {
     "engine": "VOICEVOX_LOCAL",
@@ -34,18 +39,19 @@
     "every_spoken_turn_must_have_visible_caption": true,
     "caption_source_of_truth": "MEASURED_TIMING_MANIFEST_WITH_FULL_SPOKEN_TEXT",
     "summary_caption_may_not_replace_narration": true,
-    "caption_coverage_ratio_minimum": 0.7,
+    "caption_coverage_ratio_minimum": 1.0,
     "caption_contract_name": "FULL_SPOKEN_TEXT",
     "speaker_colors": {
-      "ずんだもん": "#4DE084",
-      "四国めたん": "#FF5BB9"
+      "ずんだもん": "#B8E6C8",
+      "四国めたん": "#F2C4D7"
     },
     "important_term_colors": [
-      "#FFEB3B",
-      "#F44336"
+      "#F6DB98",
+      "#E7A6AA"
     ],
-    "renderer": "scripts/render_static_speaker_color_longform.py",
-    "validator": "scripts/validate_video_caption_contract.py"
+    "renderer": "scripts/render_reusable_short.py",
+    "validator": "scripts/validate_video_caption_contract.py",
+    "presentation_baseline": "config/approved_video_template.json"
   },
   "visual_asset_contract": {
     "claim_bearing_news_requires_related_visual_plan": true,
@@ -96,5 +102,14 @@
     "explicit_critical_highlights_only": true,
     "voice_synchronized_mouth_and_semantic_facial_expression_required": true,
     "static_character_renderer_allowed": false
+  },
+  "platform_delivery_contract": {
+    "profile_registry": "config/video_platform_delivery_profiles.json",
+    "human_playbook": "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md",
+    "platform_derivatives_from_clean_master_required": true,
+    "advice_scope_must_be_preserved": true,
+    "metric_definition_and_observation_date_required": true,
+    "platform_limits_must_be_rechecked_before_upload": true,
+    "unknown_analytics": "UNAVAILABLE_NOT_INVENTED"
   }
 }

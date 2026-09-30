@@ -102,6 +102,8 @@ def main() -> int:
         "scripts/media_speed_orchestrator.py",
         "scripts/validate_media_speed_quality.py",
         "docs/MEDIA_PIPELINE.md",
+        "config/video_platform_delivery_profiles.json",
+        "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md",
     }
     require(required_common.issubset(set(common)), "lean common media restore set lost a required current standard")
     require(len(common) == len(set(common)), "common media read set contains duplicates")
@@ -129,6 +131,15 @@ def main() -> int:
         "scripts/validate_zundamon_news60_template.py",
     ):
         require(shortform_path in set(video.get("required") or []), f"shortform Zundamon template file missing from video read gate: {shortform_path}")
+    for platform_path in ("config/video_platform_delivery_profiles.json", "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md"):
+        require(platform_path in set(video.get("required") or []), f"platform delivery knowledge missing from video read gate: {platform_path}")
+    profile_registry = load(ROOT / "config/video_platform_delivery_profiles.json")
+    require(profile_registry.get("status") == "ACTIVE_SCOPED_PLATFORM_ADAPTERS", "platform delivery registry is not active")
+    require(profile_registry.get("maintenance", {}).get("last_reviewed_jst") == "2026-09-30", "platform source review date is stale")
+    platforms = profile_registry.get("platforms") or {}
+    require({"youtube", "instagram_reels", "x_organic", "x_ads"}.issubset(platforms), "platform delivery profiles are incomplete")
+    require((platforms.get("x_ads") or {}).get("scope") == "PAID_AD_CREATIVE_ONLY; never apply as organic performance law", "X ad guidance scope leaked")
+    require("video_platform_delivery_profiles.json" in (manifest.get("media_command_gate") or {}).get("video_platform_delivery_profiles", ""), "manifest does not route to platform registry")
     longform = ((video.get("conditional") or {}).get("if_longform") or [])
     require("config/longform_video_objectives.json" in longform, "longform objectives are not restored for longform work")
     require("config/longform_video_reliability_policy.json" in longform, "longform reliability policy is not restored for longform work")

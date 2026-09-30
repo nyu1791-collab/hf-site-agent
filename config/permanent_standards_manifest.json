@@ -1,6 +1,6 @@
 {
   "schema_version": "permanent-standards-manifest-v21",
-  "effective_date_jst": "2026-09-25",
+  "effective_date_jst": "2026-09-30",
   "purpose": "Keep the AI Army, evidence governance, media quality, creator monetization and bounded paid supervision recoverable across new chat tabs while using one expandable manifest plus a compact master rulebook instead of duplicating every detailed rule in startup handoffs.",
   "canonical_branch": "ai-army/provider-v3",
   "startup_rule": "READ_CURRENT_COMMANDER_HANDOFF_THEN_PRIORITY_ZERO_MANIFEST_STANDARDS_AND_MASTER_RULEBOOK_BEFORE_TASK_SPECIFIC_PLANNING",
@@ -427,7 +427,11 @@
     ],
     "approved_video_template": "config/approved_video_template.json",
     "approved_video_playbook": "docs/VIDEO_PRODUCTION_BASELINE.md",
-    "restore_runtime": "scripts/restore_video_context.py"
+    "restore_runtime": "scripts/restore_video_context.py",
+    "video_platform_delivery_profiles": "config/video_platform_delivery_profiles.json",
+    "video_platform_delivery_playbook": "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md",
+    "platform_profiles_must_preserve_ad_vs_organic_scope": true,
+    "volatile_platform_specs_must_be_checked_before_upload": true
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",

@@ -1,0 +1,121 @@
+{
+  "schema_version": "video-platform-delivery-profiles-v1",
+  "effective_date_jst": "2026-09-30",
+  "review_interval_days": 90,
+  "status": "ACTIVE_SCOPED_PLATFORM_ADAPTERS",
+  "authority": "Official platform docs for volatile limits; approved_video_template.json remains the visual/rendering master.",
+  "rule": "Never promote an ad-only recommendation, one account tier limit, or a dated metric definition into a universal organic-video rule.",
+  "common_delivery_contract": {
+    "master_is_clean_and_reusable": true,
+    "master_profile": "config/approved_video_template.json",
+    "canonical_shortform": "9:16; 720x1280; 30fps; H.264/AAC/yuv420p/faststart when accepted by the target platform and existing renderer",
+    "platform_derivative_required": true,
+    "derivative_checks": [
+      "current upload acceptance",
+      "crop and safe-zone preview",
+      "caption and source-credit readability",
+      "audio and caption parity",
+      "container/codec/size/duration constraints",
+      "rights and attribution"
+    ],
+    "render_from_master_not_previous_social_export": true,
+    "no_platform_watermark_in_cross_posts": true,
+    "captions": {
+      "burned_in_full_spoken_text": true,
+      "keep_timed_sidecar_when_supported": true,
+      "never_claim_sidecar_uploaded_until_confirmed": true
+    },
+    "accessibility": {
+      "meaningful_sound_information_captioned": true,
+      "visual_information_needed_to_follow_story_described": true,
+      "contrast_and_mobile_legibility_checked": true
+    },
+    "claims": {
+      "claim_to_source_and_visual_mapping_required": true,
+      "public_media_rights_are_separate_from_official_source_status": true,
+      "uncertain_or_unavailable_values": "label UNKNOWN; do not invent"
+    },
+    "analytics": {
+      "record_platform_format_duration_publish_date_metric_name_metric_definition_sample_size": true,
+      "missing_metrics": "UNAVAILABLE; never estimate or fabricate",
+      "compare_like_with_like": true,
+      "organic_and_paid_results_separate": true,
+      "change_one_major_variable_per_experiment": true,
+      "promote_patterns_only_after_repeated_measured_wins_with_quality_and_rights_guardrails_held": true
+    }
+  },
+  "platforms": {
+    "youtube": {
+      "scope": "ORGANIC_AND_CREATOR_ANALYTICS; paid traffic must be segmented",
+      "profile": "vertical shortform is eligible for Shorts; current project baseline remains 30-60s unless task intent requires otherwise",
+      "volatile_facts": [
+        "YouTube Help currently allows Shorts up to 3 minutes; verify upload UI before export when duration matters.",
+        "Since 2026-08-24, a view counts when a video starts playing across formats; YPP eligibility/earnings use engaged/qualified metrics as applicable. Never compare pre/post-change raw views as if definition were unchanged."
+      ],
+      "review_loop": "After enough processing time, inspect video-level audience retention dips, spikes, and opening expectation match; YouTube says retention processing typically takes 1-2 days. Use results as diagnosis, not a guaranteed algorithm recipe.",
+      "sources": [
+        "https://support.google.com/youtube/answer/12921536",
+        "https://support.google.com/youtube/answer/12220281?hl=en",
+        "https://support.google.com/youtube/answer/9314415?hl=en"
+      ]
+    },
+    "instagram_reels": {
+      "scope": "ORGANIC_CREATOR_GUIDANCE; account features and availability can vary",
+      "profile": "Do not hard-code a universal duration, resolution, ranking factor, or safe-area number here. Check current in-app upload preview and the Professional Dashboard Best Practices for the account.",
+      "experiments": "If Trial Reels is visible for the account, it may be used to test a topic/format with non-followers first; availability and auto-share behavior must be rechecked in product UI. Never promise a reach outcome.",
+      "sources": [
+        "https://about.fb.com/news/2024/10/best-practices-education-hub-creators-instagram/",
+        "https://about.fb.com/news/2024/12/trial-reels-try-content-non-followers-first-see-what-perfoms-best/"
+      ]
+    },
+    "x_organic": {
+      "scope": "ORGANIC_POSTS; account-tier limits vary",
+      "profile": "Use a platform-specific preview and check account's current upload limits. X Help currently documents up to 140 seconds/512MB for non-Premium web uploads and higher tier-specific Premium limits; treat these as volatile, not a production master setting.",
+      "accessibility": "X supports adding an SRT caption file on posts. Keep a timed SRT sidecar when available; verify the uploaded language/caption state in the compose UI. Burned-in captions remain part of this project's visual baseline.",
+      "sources": [
+        "https://help.x.com/en/using-x/x-videos",
+        "https://help.x.com/en/using-x/upload-caption-srt-file"
+      ]
+    },
+    "x_ads": {
+      "scope": "PAID_AD_CREATIVE_ONLY; never apply as organic performance law",
+      "profile": "X Business vertical-video guidance is an ad-format reference only. Use it only when a task explicitly requests ad creative and after checking current campaign placement specs.",
+      "sources": [
+        "https://business.x.com/en/products/vertical-video-ads",
+        "https://help.x.com/en/business-and-advertising/creative-ad-specifications"
+      ]
+    }
+  },
+  "reproducible_media_pipeline": {
+    "github": {
+      "principles": [
+        "Keep source script, claim/source map, edit manifest, and deterministic validators versioned; keep large transient media and third-party binary assets out of git unless required by explicit repo policy.",
+        "CI artifacts are traceable outputs, not canonical source; caches are disposable accelerators, never the only copy of a deliverable.",
+        "Record repository commit, policy/template identities, input hashes, tool versions, and output SHA-256 in a sidecar manifest.",
+        "For future publishing workflows, use least-privilege workflow permissions and pin third-party Actions to full commit SHAs; current PR boundaries remain in force."
+      ],
+      "sources": [
+        "https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts",
+        "https://docs.github.com/en/actions/reference/security/secure-use"
+      ]
+    },
+    "hugging_face": {
+      "principles": [
+        "For any locally run Hub model used in a video workflow, record repository ID, immutable commit revision, selected file hashes, runtime version, model-card/license URL, and intended use in the run manifest.",
+        "Pin revision to a commit SHA for repeatability; a cache is revision-aware storage, not evidence that model inputs or licenses were checked.",
+        "Inspect model-card license and intended-use metadata before use. A model-card declaration does not itself grant rights to input media or every generated output.",
+        "Use local/free paths only under the existing free-execution guard; do not turn Hub/Spaces/Jobs into an unapproved paid fallback."
+      ],
+      "sources": [
+        "https://huggingface.co/docs/huggingface_hub/main/en/guides/manage-cache",
+        "https://huggingface.co/docs/hub/model-cards",
+        "https://huggingface.co/docs/huggingface_hub/guides/download"
+      ]
+    }
+  },
+  "maintenance": {
+    "last_reviewed_jst": "2026-09-30",
+    "refresh_before_use_when": "A platform limit, monetization condition, feature availability, upload format, or metric definition matters; or after 90 days.",
+    "on_conflict": "Keep approved presentation baseline and proven pipeline behavior. Replace only stale/conflicting platform facts at this registry, leave historical records marked historical, and remove duplicated active prose."
+  }
+}

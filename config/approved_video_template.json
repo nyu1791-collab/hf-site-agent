@@ -92,14 +92,16 @@
     "characters": "native layers and content-addressed variants",
     "layout": "reuse this preset",
     "changed_stage_only": true,
-    "third_party_binary_assets_in_git": false
+    "third_party_binary_assets_in_git": false,
+    "new_content_request": "WRITE_NEW_SCRIPT_AND_SYNTHESIZE_NEW_MEASURED_VOICE_REUSE_ONLY_TEMPLATE_AND_ASSETS"
   },
   "verification": {
     "final_decode_required": true,
     "representative_both_speakers_mouth_open_closed_and_expressions": true,
     "mobile_caption_and_credit_readability": true,
     "static_old_mp4_trim_is_not_acting_repair": true,
-    "windows_ymm4_verified": false
+    "windows_ymm4_verified": false,
+    "spoken_caption_equality_after_pronunciation_substitutions": true
   },
   "scope": {
     "short_requested_duration_seconds": [
@@ -110,5 +112,12 @@
     "resolution_is_fast_baseline_not_universal_maximum": true,
     "longform_duration_policies_preserved": true,
     "publication_and_paid_permissions_unchanged": true
+  },
+  "platform_delivery": {
+    "profile_registry": "config/video_platform_delivery_profiles.json",
+    "playbook": "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md",
+    "master_then_platform_derivatives": true,
+    "approved_visual_template_remains_rendering_source_of_truth": true,
+    "recheck_platform_limits_and_safe_areas_before_upload": true
   }
 }

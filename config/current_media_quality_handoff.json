@@ -20,7 +20,9 @@
       "config/approved_video_template.json",
       "docs/VIDEO_PRODUCTION_BASELINE.md",
       "config/media_command_read_gate.json",
-      "config/media_user_visual_duration_preferences.json"
+      "config/media_user_visual_duration_preferences.json",
+      "config/video_platform_delivery_profiles.json",
+      "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md"
     ],
     "do_not_use_conversation_memory_as_source_of_truth": true,
     "reconfirm_current_branch_head_and_pr_state_before_writes": true,
@@ -68,7 +70,9 @@
     "scripts/media_performance_plan.py",
     "scripts/media_performance_route.py",
     "config/media_user_visual_duration_preferences.json",
-    "config/longform_video_objectives.json"
+    "config/longform_video_objectives.json",
+    "config/video_platform_delivery_profiles.json",
+    "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md"
   ],
   "deepseek_review_checkpoint": {
     "workflow": ".github/workflows/deepseek-supervisor-research.yml",
@@ -139,7 +143,13 @@
     "LONGFORM_YMM4_REFERENCE_STYLE_IS_STYLE_ONLY_AND_NOT_FACTUAL_EVIDENCE",
     "LONGFORM_YMM4_USE_CHAPTER_SCENE_SOURCE_AND_CLAIM_SIDECARS",
     "TEN_MINUTE_LONGFORM_GOAL_IS_CONDITIONAL_AND_UNMEASURED_UNTIL_WINDOWS_TIMING",
-    "REFERENCE_PROFILE_USES_TWO_CHARACTER_FOCUS_WITH_SPARSE_VOICE_SYNCED_ACTING"
+    "REFERENCE_PROFILE_USES_TWO_CHARACTER_FOCUS_WITH_SPARSE_VOICE_SYNCED_ACTING",
+    "PLATFORM_SPECS_ARE_VOLATILE_AND_STORED_WITH_OFFICIAL_SOURCE_SCOPE_AND_CHECK_DATE",
+    "MAKE_PLATFORM_DERIVATIVES_FROM_CLEAN_MASTER_AND_RECHECK_CURRENT_UPLOAD_UI_AND_SAFE_ZONES",
+    "DISTINGUISH_AD_CREATIVE_ADVICE_FROM_ORGANIC_VIDEO_RULES",
+    "RECORD_METRIC_DEFINITION_DATE_AND_SAMPLE;_MISSING_ANALYTICS_ARE_UNAVAILABLE_NOT_INVENTED",
+    "GITHUB_ARTIFACTS_ARE_TRACEABLE_OUTPUTS_AND_CACHES_ARE_DISPOSABLE_ACCELERATORS_NOT_DELIVERABLE_AUTHORITY",
+    "HUGGING_FACE_MODEL_REVISION_AND_LICENSE_PROVENANCE_MUST_BE_PINNED_BEFORE_LOCAL_USE"
   ],
   "explicitly_not_promoted_to_hard_law": [
     "FIXED_UNIVERSAL_CAPTION_CHARACTERS_PER_SECOND",
@@ -316,38 +326,29 @@
     "render_route_must_validate_capabilities": true
   },
   "latest_completed_video": {
-    "status": "USER_APPROVED_INTERNAL_VIDEO",
+    "status": "RENDERED_INTERNAL_VIDEO",
     "completed_on_jst": "2026-09-30",
     "final_video": {
-      "reference_video": "DevDay2026_corrected_47s.mp4",
-      "user_quote": "めちゃくちゃいい出来です。これをしっかりルールブックや型に落とし込んでください。",
-      "reference_video_library_file_id": "libfile_ad76f1b9059c819192e21420da30557b",
-      "reference_video_sha256": "a7fba3d94ad314045cadb220911bfe6916233addbb1f217bfdffdc2af214b15f",
-      "approved_visual_execution_commit": "c78ad5c66f816875dfaee93eb1cb4e233b6b35cf",
-      "approval_is_presentation_acceptance_not_fact_or_publication_approval": true
+      "name": "DevDay2026_fresh_overview_41s.mp4",
+      "library_file_id": "libfile_c63e7ca082448191b57daee2db1484cb",
+      "sha256": "f4ed96629636c3b0cefe99dea2d5ef9eac91aecd5ed1e0d6b89c5c63cbcc6f73"
     },
-    "duration_seconds": 47.301334,
-    "format": "H.264 720x1280 30fps AAC Fast Start MP4",
+    "duration_seconds": 41.324,
     "actual_character_animation": true,
+    "new_script_and_voice": true,
+    "template_reused": "config/approved_video_template.json",
     "mouth_method": "RMS_APPROXIMATION",
+    "official_images": 3,
+    "caption_coverage": 1.0,
     "windows_ymm4_verified": false,
-    "resume": "Restore approved preset and durable production source package. Reuse unchanged narration and native assets. Replace topic and sources; verify current facts again.",
-    "prior_important_references": "config/media_reference_history.json",
     "production_package": {
-      "name": "DevDay2026_approved_production_checkpoint.zip",
-      "library_file_id": "libfile_427c2045dc548191a7ae9b094bcb4a0c",
-      "file_id": "file_000000002f0082118dab4035a58a008d",
-      "sha256": "9a5c8fc9ba2e0583cb9881ae3a3f442380dbdf8ef878bbb8d566c075716df386",
-      "contains": [
-        "trimmed measured narration",
-        "approved timing and emotion cues",
-        "official media-only frame and source receipt",
-        "font and license",
-        "native shell archive with original readme",
-        "content-addressed character variants",
-        "render report and SHA256 inventory"
-      ]
-    }
+      "name": "DevDay2026_fresh_overview_sources.zip",
+      "library_file_id": "libfile_ffa4aca6b1a88191831b8f0694118bdb",
+      "sha256": "bfea4e13d5f37a0c7aedaaf26575f0aa73f881a5331400a72502cc5e3606b384"
+    },
+    "character_foundation_package": "libfile_427c2045dc548191a7ae9b094bcb4a0c",
+    "approval_status": "NEW_VIDEO_NOT_YET_USER_REVIEWED",
+    "public_publish": false
   },
   "reusable_foundation_update": {
     "effective_date_jst": "2026-09-30",
@@ -376,5 +377,13 @@
   "next_tab_video_task": {
     "status": "NO_NEW_VIDEO_REQUEST_PENDING",
     "action": "Recover the approved template before the next relevant request; do not rerender the old longform by default."
+  },
+  "approved_reference_video": {
+    "reference_video": "DevDay2026_corrected_47s.mp4",
+    "user_quote": "めちゃくちゃいい出来です。これをしっかりルールブックや型に落とし込んでください。",
+    "reference_video_library_file_id": "libfile_ad76f1b9059c819192e21420da30557b",
+    "reference_video_sha256": "a7fba3d94ad314045cadb220911bfe6916233addbb1f217bfdffdc2af214b15f",
+    "approved_visual_execution_commit": "c78ad5c66f816875dfaee93eb1cb4e233b6b35cf",
+    "approval_is_presentation_acceptance_not_fact_or_publication_approval": true
   }
 }
