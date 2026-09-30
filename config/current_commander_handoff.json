@@ -257,7 +257,7 @@
     "cosmetic_or_micro_revision": false,
     "longform_up_to_16_minutes_is_measured_against_five_minute_work_target": true,
     "longform_fast_renderer": "scripts/render_reusable_short.py",
-    "longform_default_canvas": "1280x720_16:9",
+    "longform_default_canvas": "APPROVED_TEMPLATE_720x1280",
     "video_image_generation_allowed": false,
     "official_announcement_visuals_preferred": true,
     "speed_does_not_authorize_removing_approved_character_baseline": true
@@ -281,7 +281,7 @@
     "unknown_cost_route": "BLOCK",
     "paid_or_freemium_media_generation_is_permanently_disabled": true,
     "free_route_unavailable_blocks_without_paid_substitution": true,
-    "fast_image_longform_renderer": "scripts/render_fast_image_longform.py"
+    "fast_image_longform_renderer": "scripts/render_reusable_short.py"
   },
   "clipping_fixed_rules": {
     "authorized_creator_repurposing_and_official_clipping_adopted": true,
@@ -504,9 +504,13 @@
     "tiktok_shop_influence_playbook": "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
     "research_synthesis": "docs/AI_ARMY_LONGFORM_RESEARCH_SYNTHESIS_2026-09-12.md",
     "media_performance_efficiency": "config/media_performance_efficiency_policy.json",
-    "approved_video_template": "config/approved_video_template.json",
     "native_dynamic_longform_renderer": "scripts/render_reusable_longform.py",
     "concise_video_editorial": "config/approved_video_template.json#/editorial",
     "scope": "LOAD_ONLY_FOR_EXPLICIT_MATCHING_STYLE_OR_TASK; ROUTINE_VIDEO_USES_SPEED_FIRST_OVERRIDE"
+  },
+  "mandatory_approved_video_references": {
+    "scope": "READ_ON_EVERY_NEW_VIDEO_TAB",
+    "template": "config/approved_video_template.json",
+    "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md"
   }
 }

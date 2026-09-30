@@ -80,7 +80,7 @@
     "visual_beats_per_main_section": "2_TO_4_OFFICIAL_OR_RIGHTS_CLEARED_IMAGES_PER_MAIN_SECTION; NO_IMAGE_GENERATION",
     "longform_up_to_16_minutes_is_measured_against_five_minute_work_target": true,
     "longform_renderer": "scripts/render_reusable_short.py",
-    "longform_default_canvas": "1280x720_16:9",
+    "longform_default_canvas": "APPROVED_TEMPLATE_720x1280",
     "image_generation_allowed_for_video": false,
     "official_primary_visuals_preferred": true,
     "duration_contract": "config/media_speed_quality_policy.json#/fast_longform_delivery/requested_video_duration_contract"
@@ -103,23 +103,17 @@
     "public_publish_requires_separate_authorization": true,
     "merge_deploy_secret_mutation_or_disclosure_auto_top_up": false
   },
-  "optional_references": {
-    "approved_template": "config/approved_video_template.json",
-    "renderer_reference": "docs/VIDEO_PRODUCTION_BASELINE.md",
-    "scope": "LOAD_ONLY_WHEN_A_SPECIFIC_EXISTING_TEMPLATE_OR_RENDERER_EDIT_IS_NEEDED"
-  },
   "conditional_references": {
     "longform": {
       "scope": "ONLY_WHEN_USER_REQUESTS_LONGFORM_DURATION_OR_LONGFORM_FORMAT",
       "machine_policy": [
         "config/longform_video_objectives.json",
-        "config/longform_video_reliability_policy.json",
-        "config/fast_image_longform_profile.json"
+        "config/longform_video_reliability_policy.json"
       ],
       "human_docs": [
         "docs/LONGFORM_VIDEO_OBJECTIVES.md",
         "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
-        "scripts/render_fast_image_longform.py"
+        "scripts/render_reusable_short.py"
       ],
       "duration": "USER_SPECIFIED",
       "YMM4_guides_are_not_implied": true
@@ -182,5 +176,10 @@
       12
     ],
     "wall_clock_work_target_minutes": 5
+  },
+  "mandatory_approved_video_references": {
+    "scope": "READ_ON_EVERY_NEW_VIDEO_TAB",
+    "template": "config/approved_video_template.json",
+    "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md"
   }
 }
