@@ -67,6 +67,7 @@ class MediaJob:
     rights_verified: bool
     demand: ResourceVector = field(default_factory=ResourceVector)
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    lease_key: str | None = None
 
     def validate(self) -> "MediaJob":
         if not self.job_id or any(ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-" for ch in self.job_id):
@@ -263,7 +264,8 @@ def run_batch_with_leases(
 
     def leased_handler(job: MediaJob) -> Any:
         owner = f"{owner_prefix}:{invocation_id}:{job.job_id}"
-        token = lease_manager.acquire(job.job_id, owner)
+        lease_key = job.lease_key or job.job_id
+        token = lease_manager.acquire(lease_key, owner)
         handler_failed = False
         try:
             return handler(job)
@@ -271,7 +273,7 @@ def run_batch_with_leases(
             handler_failed = True
             raise
         finally:
-            released = lease_manager.release(job.job_id, token)
+            released = lease_manager.release(lease_key, token)
             if not released and not handler_failed:
                 raise StaleWriteError("lease disappeared or token mismatched before successful handler return")
 

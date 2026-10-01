@@ -1,6 +1,6 @@
 # Durable Media Automation — Speed-First Foundation
 
-This layer makes the existing media stack recoverable without turning the project into a five-agent chain.
+This layer makes the existing media stack recoverable without turning the project into a five-agent chain. The repository implementation is a staging/runtime foundation; it does not mean an RSS poller or VPS daemon is already running.
 
 ## What is added
 
@@ -8,7 +8,14 @@ This layer makes the existing media stack recoverable without turning the projec
 - `config/media_automation_fast_path.json`: maps source monitoring, script/tone, fact/compliance, render/metadata, supervision and analytics into the existing AI Army with the minimum number of agent hops.
 - Existing `scripts/media_batch_command_center.py` remains the deterministic renderer. The durable runner does not duplicate FFmpeg logic.
 
-## Fast path
+## Current runtime boundary
+
+- The runner currently executes a prepared `MEDIA_BATCH_RUN`; it is not yet an end-to-end news video producer.
+- No live RSS/Web polling adapter or production VPS service is connected by this document.
+- The production sequence still needs source intake, importance/dedupe, script and tone, VOICEVOX, rights-cleared assets, and render integration.
+- Public posting is outside this runner. Success means only `READY_TO_PUBLISH`.
+
+## Fast path (target architecture)
 
 `RSS/Web adapter -> stable source_id -> queue -> current AI Army judgment only when needed -> existing media command center -> minimum machine gate -> READY_TO_PUBLISH`
 
@@ -45,6 +52,20 @@ python scripts/durable_media_runner.py --db runtime/media-queue.sqlite3 --worksp
 python scripts/durable_media_runner.py --db runtime/media-queue.sqlite3 --workspace . run --poll-seconds 0.2
 ```
 
+## Queue and recovery details
+
+Newly enqueued work receives a content-addressed, workspace-contained manifest snapshot. Relative paths are resolved using the same base as the renderer, then frozen to resolved paths. Input file hashes remain checked by the media command center. Existing queued jobs from earlier runner versions are pinned on their first claim, so a code update does not discard the queue. One runner lock is held per workspace; use one durable runner process for a workspace until a shared resource governor is added.
+
+The runner's `health` command reports queue counts, expired leases and oldest pending age. It does not prove that an external VPS supervisor, VOICEVOX, RSS polling or platform credentials are healthy.
+
+## Implementation status and next stages
+
+Implemented in the repository path: immutable manifest snapshots, renderer-consistent workspace path checks, input-hash verification by the renderer, lease-expiry fencing, one runner lock per workspace, bounded retries, legacy queued-job pinning, child environment isolation, and a stop at `READY_TO_PUBLISH`.
+
+Not connected or not proven in a production environment: scheduled RSS/Web polling, novelty/importance selection, script/tone API execution, VOICEVOX daemon operation, end-to-end asset acquisition and video creation, VPS/systemd installation, reboot recovery on a persistent host, and SNS publishing. The first rollout target is a staging workspace with a persistent database; live production credentials and external publishing remain outside this queue.
+
+Before enabling a long-running service, validate it with a synthetic local source through enqueue, render and `ffprobe`, then restart the runner at each boundary and confirm it resumes from the saved input/checkpoint. Add output-path keyed exclusion and renewable render leases before allowing concurrent render processes to share an output workspace.
+
 ## Security boundary kept even in maximum-speed mode
 
-The queue never accepts a shell command, executable, argv or provider secret. Job and manifest paths are resolved under the configured workspace. Lease tokens are stored only as SHA-256 hashes. Child media processes inherit only a minimal environment and do not receive API keys. Public publishing is not performed by this runner; successful jobs stop at `READY_TO_PUBLISH` under the current repository authorization boundary.
+The queue never accepts a shell command, executable, argv or provider secret. Job and manifest paths are resolved under the configured workspace. Lease tokens are stored in the SQLite queue only as SHA-256 hashes. A separate short-lived media-render lease is filesystem-backed and is local to the output workspace. Child media processes inherit only a minimal environment and do not receive API keys. Public publishing is not performed by this runner; successful jobs stop at `READY_TO_PUBLISH` under the current repository authorization boundary.

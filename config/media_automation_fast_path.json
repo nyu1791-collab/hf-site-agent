@@ -20,7 +20,9 @@
     "source_ingress": {
       "implementation": "DETERMINISTIC_RSS_OR_WEB_ADAPTER_OUTSIDE_AGENT_COUNT",
       "rule": "Fetch and normalize new text, assign a stable source_id, then enqueue only typed work. Do not create a dedicated AI agent just to poll feeds.",
-      "dedupe_owner": "SQLITE_UNIQUE_DEDUPE_KEY"
+      "dedupe_owner": "SQLITE_UNIQUE_DEDUPE_KEY",
+      "runtime_status": "POLICY_DEFINED_ADAPTER_NOT_CONNECTED",
+      "must_stop_at": "PREPARATION_REQUIRED_UNTIL_SCRIPT_VOICE_ASSETS_AND_RIGHTS_ARE_READY"
     },
     "script_and_tone": {
       "implementation": "ONE_COMBINED_JUDGMENT_PASS",
@@ -72,7 +74,14 @@
     "checkpoint_reuse": true,
     "resume_after_process_or_chat_disconnect": true,
     "same_source_payload_deduped": true,
-    "public_publish_state": "READY_TO_PUBLISH"
+    "public_publish_state": "READY_TO_PUBLISH",
+    "workspace_single_runner_lock": true,
+    "manifest_snapshot_before_execution": true,
+    "manifest_and_input_hash_bound": true,
+    "lease_expiry_fences_heartbeat_and_terminal_writes": true,
+    "successful_handler_module_launch": true,
+    "live_rss_polling_connected": false,
+    "vps_daemon_deployed": false
   },
   "minimum_fatal_gates_that_speed_may_not_remove": [
     "NO_ARBITRARY_COMMAND_EXECUTION",

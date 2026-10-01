@@ -674,5 +674,14 @@
     "chat_response_stream_is_not_execution_authority": true,
     "durable_media_runner_survives_tab_or_response_disconnect": true,
     "recover_from_repository_and_verified_artifacts": true
+  },
+  "durable_media_automation": {
+    "policy": "config/media_automation_fast_path.json",
+    "runner": "scripts/durable_media_runner.py",
+    "operations_doc": "docs/DURABLE_MEDIA_AUTOMATION.md",
+    "status": "REPOSITORY_STAGING_FOUNDATION_ONLY",
+    "live_rss_polling_connected": false,
+    "vps_daemon_deployed": false,
+    "public_publish_authorized": false
   }
 }

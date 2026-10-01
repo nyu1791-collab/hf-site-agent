@@ -512,5 +512,16 @@
     "scope": "READ_ON_EVERY_NEW_VIDEO_TAB",
     "template": "config/approved_video_template.json",
     "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md"
+  },
+  "durable_media_runtime_reality": {
+    "status": "REPOSITORY_STAGING_FOUNDATION_ONLY",
+    "operations_doc": "docs/DURABLE_MEDIA_AUTOMATION.md",
+    "runner": "scripts/durable_media_runner.py",
+    "prepared_media_batch_handler_exists": true,
+    "live_rss_polling_connected": false,
+    "script_voice_asset_end_to_end_connected": false,
+    "vps_daemon_deployed": false,
+    "public_publish_enabled": false,
+    "rule": "Never infer live operation from repository code or CI pass."
   }
 }

@@ -163,6 +163,7 @@ on:
       - 'tests/test_deepseek_json_guard.py'
       - 'tests/test_batch_media_scheduler.py'
       - 'tests/test_durable_media_runner.py'
+      - 'docs/DURABLE_MEDIA_AUTOMATION.md'
       - 'tests/test_media_batch_command_center.py'
       - 'tests/test_media_batch_command_center_ffmpeg.py'
       - 'tests/test_media_parallel_framework_mission.py'

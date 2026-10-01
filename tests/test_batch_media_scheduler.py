@@ -105,6 +105,24 @@ class BatchMediaSchedulerTests(unittest.TestCase):
             self.assertTrue(mgr.release("job-1", token))
             self.assertTrue(mgr.acquire("job-1", "runner-b"))
 
+    def test_same_output_lease_key_serializes_distinct_jobs(self):
+        with tempfile.TemporaryDirectory() as td:
+            mgr = FileLeaseManager(Path(td), ttl_seconds=60)
+            calls = []
+            lock = threading.Lock()
+            def handler(current):
+                with lock:
+                    calls.append(current.job_id)
+                time.sleep(0.05)
+                return {"ready": True}
+            jobs = [
+                MediaJob("job-a", "a", "a" * 64, True, metadata={}, lease_key="output-same"),
+                MediaJob("job-b", "b", "b" * 64, True, metadata={}, lease_key="output-same"),
+            ]
+            result = run_batch_with_leases(jobs, handler, lease_manager=mgr, policy=self.policy, capacity=self.capacity)
+            self.assertEqual(sum(row.status == "READY" for row in result), 1)
+            self.assertEqual(len(calls), 1)
+
     def test_mutating_path_acquires_and_releases_lease(self):
         with tempfile.TemporaryDirectory() as td:
             mgr = FileLeaseManager(Path(td), ttl_seconds=60)

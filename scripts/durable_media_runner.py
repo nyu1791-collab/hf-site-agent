@@ -8,6 +8,8 @@ at READY_TO_PUBLISH. It never accepts shell commands and never publishes.
 from __future__ import annotations
 
 import argparse
+import fcntl
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -18,7 +20,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -121,10 +123,60 @@ def _validate_manifest_paths(workspace: Path, manifest_path: Path) -> None:
     for index, row in enumerate(jobs):
         if not isinstance(row, dict):
             raise DurableRunnerError(f"manifest.jobs[{index}] must be an object")
-        _workspace_path(workspace, row.get("input_path"), must_exist=True)
+        _workspace_path(workspace, manifest_path.parent / str(row.get("input_path") or ""), must_exist=True)
     output_dir = manifest.get("output_dir")
     if output_dir:
-        _workspace_path(workspace, output_dir)
+        _workspace_path(workspace, manifest_path.parent / str(output_dir))
+
+
+
+def _snapshot_manifest(workspace: Path, manifest_path: Path, output_override: Any = None) -> tuple[Path, str, Path]:
+    """Freeze the exact manifest and workspace paths consumed by the renderer."""
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise DurableRunnerError("cannot snapshot invalid media manifest") from exc
+    if not isinstance(manifest, dict):
+        raise DurableRunnerError("media manifest must be a JSON object")
+    jobs = manifest.get("jobs")
+    if not isinstance(jobs, list) or not jobs or len(jobs) > 10:
+        raise DurableRunnerError("media manifest jobs must contain 1..10 entries")
+    for index, row in enumerate(jobs):
+        if not isinstance(row, dict):
+            raise DurableRunnerError(f"manifest.jobs[{index}] must be an object")
+        source = _workspace_path(workspace, manifest_path.parent / str(row.get("input_path") or ""), must_exist=True)
+        row["input_path"] = str(source)
+        name = str(row.get("output_name") or "")
+        if not name or Path(name).name != name or not name.lower().endswith(".mp4"):
+            raise DurableRunnerError(f"manifest.jobs[{index}].output_name is invalid")
+    raw_output = output_override or manifest.get("output_dir") or "artifacts/media-batch-command-center"
+    output = _workspace_path(workspace, manifest_path.parent / str(raw_output))
+    manifest["output_dir"] = str(output)
+    encoded = (_canonical_json(manifest) + "\n").encode("utf-8")
+    digest = hashlib.sha256(encoded).hexdigest()
+    cache = _workspace_path(workspace, ".durable-manifests")
+    cache.mkdir(mode=0o700, parents=True, exist_ok=True)
+    snapshot = _workspace_path(workspace, cache / f"{digest}.json")
+    if snapshot.exists():
+        if hashlib.sha256(snapshot.read_bytes()).hexdigest() != digest:
+            raise DurableRunnerError("manifest snapshot cache integrity failure")
+    else:
+        fd, temp_name = tempfile.mkstemp(prefix=".manifest-", dir=cache)
+        temp = Path(temp_name)
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(encoded)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.chmod(temp, 0o600)
+            try:
+                os.link(temp, snapshot)
+            except FileExistsError:
+                if hashlib.sha256(snapshot.read_bytes()).hexdigest() != digest:
+                    raise DurableRunnerError("manifest snapshot cache integrity failure")
+        finally:
+            temp.unlink(missing_ok=True)
+    return snapshot, digest, output
 
 
 def validate_payload(kind: str, payload: Mapping[str, Any], workspace: Path) -> dict[str, Any]:
@@ -135,11 +187,14 @@ def validate_payload(kind: str, payload: Mapping[str, Any], workspace: Path) -> 
     data = dict(payload)
     _reject_unsafe_keys(data)
     if kind == JOB_KIND_MEDIA_BATCH:
-        allowed = {"manifest_path", "output_dir", "max_parallel", "state"}
+        allowed = {"manifest_path", "output_dir", "max_parallel", "state", "manifest_sha256"}
         extra = sorted(set(data) - allowed)
         if extra:
             raise DurableRunnerError(f"unsupported payload keys: {extra}")
         manifest = _workspace_path(workspace, data.get("manifest_path"), must_exist=True)
+        digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
+        if data.get("manifest_sha256") and data["manifest_sha256"] != digest:
+            raise DurableRunnerError("manifest changed after enqueue")
         _validate_manifest_paths(workspace, manifest)
         max_parallel = int(data.get("max_parallel", 3))
         if not 1 <= max_parallel <= 3:
@@ -149,6 +204,7 @@ def validate_payload(kind: str, payload: Mapping[str, Any], workspace: Path) -> 
             raise DurableRunnerError("state must be NORMAL or DEGRADED")
         normalized: dict[str, Any] = {
             "manifest_path": str(manifest.relative_to(workspace.resolve())),
+            "manifest_sha256": digest,
             "max_parallel": max_parallel,
             "state": state,
         }
@@ -217,6 +273,14 @@ def enqueue_job(
     max_attempts: int = 2,
 ) -> dict[str, Any]:
     normalized = validate_payload(kind, payload, workspace)
+    if kind == JOB_KIND_MEDIA_BATCH:
+        original = _workspace_path(workspace, normalized["manifest_path"], must_exist=True)
+        snapshot, digest, output = _snapshot_manifest(
+            workspace, original, _workspace_path(workspace, normalized["output_dir"]) if normalized.get("output_dir") else None
+        )
+        normalized["manifest_path"] = str(snapshot.relative_to(workspace.resolve()))
+        normalized["manifest_sha256"] = digest
+        normalized["output_dir"] = str(output.relative_to(workspace.resolve()))
     source_id = str(source_id or "").strip()
     if not source_id or len(source_id) > 240:
         raise DurableRunnerError("source_id must be 1..240 characters")
@@ -314,8 +378,8 @@ def heartbeat(conn: sqlite3.Connection, job: ClaimedJob, *, lease_seconds: int) 
     now = _now()
     cur = conn.execute(
         """UPDATE jobs SET lease_expires_at=?,last_heartbeat_at=?,updated_at=?
-        WHERE id=? AND state='RUNNING' AND lease_token_hash=?""",
-        (now + max(30, int(lease_seconds)), now, now, job.job_id, _token_hash(job.lease_token)),
+        WHERE id=? AND state='RUNNING' AND lease_token_hash=? AND lease_expires_at>?""",
+        (now + max(30, int(lease_seconds)), now, now, job.job_id, _token_hash(job.lease_token), now),
     )
     return cur.rowcount == 1
 
@@ -325,21 +389,21 @@ def _complete(conn: sqlite3.Connection, job: ClaimedJob, result: Mapping[str, An
     cur = conn.execute(
         """UPDATE jobs SET state='READY_TO_PUBLISH',result_json=?,lease_token_hash=NULL,
         lease_expires_at=NULL,last_heartbeat_at=NULL,updated_at=?
-        WHERE id=? AND state='RUNNING' AND lease_token_hash=?""",
-        (_canonical_json(dict(result)), now, job.job_id, _token_hash(job.lease_token)),
+        WHERE id=? AND state='RUNNING' AND lease_token_hash=? AND lease_expires_at>?""",
+        (_canonical_json(dict(result)), now, job.job_id, _token_hash(job.lease_token), now),
     )
     if cur.rowcount != 1:
         raise DurableRunnerError("lease lost before completion commit")
 
 
-def _fail(conn: sqlite3.Connection, job: ClaimedJob, message: str, *, retryable: bool) -> None:
+def _fail(conn: sqlite3.Connection, job: ClaimedJob, message: str, *, retryable: bool) -> str:
     now = _now()
     retry = bool(retryable and job.attempts < job.max_attempts)
     backoff = min(30.0, 0.5 * (2 ** max(0, job.attempts - 1)))
     cur = conn.execute(
         """UPDATE jobs SET state=?,available_at=?,last_error=?,lease_token_hash=NULL,
         lease_expires_at=NULL,last_heartbeat_at=NULL,updated_at=?
-        WHERE id=? AND state='RUNNING' AND lease_token_hash=?""",
+        WHERE id=? AND state='RUNNING' AND lease_token_hash=? AND lease_expires_at>?""",
         (
             "PENDING" if retry else "FAILED_PERMANENT",
             now + backoff if retry else now,
@@ -347,10 +411,12 @@ def _fail(conn: sqlite3.Connection, job: ClaimedJob, message: str, *, retryable:
             now,
             job.job_id,
             _token_hash(job.lease_token),
+            now,
         ),
     )
     if cur.rowcount != 1:
         raise DurableRunnerError("lease lost before failure commit")
+    return "PENDING" if retry else "FAILED_PERMANENT"
 
 
 def _handler_command(job: ClaimedJob, workspace: Path) -> list[str]:
@@ -360,7 +426,7 @@ def _handler_command(job: ClaimedJob, workspace: Path) -> list[str]:
     manifest = _workspace_path(workspace, payload["manifest_path"], must_exist=True)
     cmd = [
         sys.executable,
-        str(ROOT / "scripts" / "media_batch_command_center.py"),
+        "-m", "scripts.media_batch_command_center",
         "run",
         "--manifest", str(manifest),
         "--max-parallel", str(int(payload["max_parallel"])),
@@ -372,25 +438,54 @@ def _handler_command(job: ClaimedJob, workspace: Path) -> list[str]:
 
 
 def _terminate_process_group(process: subprocess.Popen[str], *, grace_seconds: float = 5.0) -> None:
-    """Stop the whole handler process group so FFmpeg/worker children cannot orphan."""
-    if process.poll() is not None:
-        return
+    """Clean children even when their session leader has already exited."""
     try:
         os.killpg(process.pid, signal.SIGTERM)
     except ProcessLookupError:
+        process.wait(timeout=grace_seconds)
         return
     except OSError:
-        process.terminate()
+        if process.poll() is None:
+            process.terminate()
     try:
         process.wait(timeout=grace_seconds)
     except subprocess.TimeoutExpired:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            return
-        except OSError:
+        pass
+    # wait() only reaps the leader; a child may ignore SIGTERM.
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    except OSError:
+        if process.poll() is None:
             process.kill()
-        process.wait(timeout=grace_seconds)
+    process.wait(timeout=grace_seconds)
+
+
+@contextmanager
+def runner_lock(workspace: Path):
+    """One runner per workspace, even if callers use different queue DBs."""
+    path = _workspace_path(workspace, ".durable-runner.lock")
+    with path.open("a", encoding="utf-8") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise DurableRunnerError("runner already active for workspace") from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def health_summary(conn: sqlite3.Connection) -> dict[str, Any]:
+    counts = {row["state"]: row["n"] for row in conn.execute(
+        "SELECT state,COUNT(*) n FROM jobs GROUP BY state")}
+    oldest = conn.execute("SELECT MIN(created_at) FROM jobs WHERE state='PENDING'").fetchone()[0]
+    expired = conn.execute("SELECT COUNT(*) FROM jobs WHERE state='RUNNING' AND lease_expires_at<=?", (_now(),)).fetchone()[0]
+    return {"status": "DEGRADED" if expired else "OK", "counts": counts,
+            "expired_leases": expired,
+            "oldest_pending_seconds": round(max(0, _now() - oldest), 3) if oldest else 0,
+            "publish_enabled": False}
 
 
 def execute_claimed(
@@ -401,7 +496,33 @@ def execute_claimed(
     lease_seconds: int,
     timeout_seconds: int,
 ) -> dict[str, Any]:
-    cmd = _handler_command(job, workspace)
+    try:
+        if not job.payload.get("manifest_sha256"):
+            # Pin work already queued by an earlier runner version without discarding it.
+            legacy = validate_payload(job.kind, job.payload, workspace)
+            manifest = _workspace_path(workspace, legacy["manifest_path"], must_exist=True)
+            snapshot, digest, output = _snapshot_manifest(
+                workspace, manifest,
+                _workspace_path(workspace, legacy["output_dir"]) if legacy.get("output_dir") else None,
+            )
+            pinned = dict(legacy)
+            pinned.update({"manifest_path": str(snapshot.relative_to(workspace.resolve())),
+                           "manifest_sha256": digest,
+                           "output_dir": str(output.relative_to(workspace.resolve()))})
+            cur = conn.execute(
+                "UPDATE jobs SET payload_json=?,updated_at=? WHERE id=? AND state='RUNNING' AND lease_token_hash=? AND lease_expires_at>?",
+                (_canonical_json(pinned), _now(), job.job_id, _token_hash(job.lease_token), _now()),
+            )
+            if cur.rowcount != 1:
+                return {"status": "LEASE_LOST", "job_id": job.job_id}
+            job = replace(job, payload=pinned)
+        cmd = _handler_command(job, workspace)
+    except (DurableRunnerError, OSError, ValueError) as exc:
+        try:
+            state = _fail(conn, job, f"INVALID_INPUT:{type(exc).__name__}", retryable=False)
+        except DurableRunnerError:
+            return {"status": "LEASE_LOST", "job_id": job.job_id}
+        return {"status": state, "job_id": job.job_id}
     started = time.monotonic()
     with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as output:
         try:
@@ -416,39 +537,58 @@ def execute_claimed(
                 start_new_session=True,
             )
         except OSError as exc:
-            _fail(conn, job, f"PROCESS_START:{type(exc).__name__}:{exc}", retryable=True)
-            return {"status": "FAILED_RETRYABLE", "job_id": job.job_id}
+            state = _fail(conn, job, f"PROCESS_START:{type(exc).__name__}", retryable=True)
+            return {"status": state, "job_id": job.job_id}
         heartbeat_interval = max(5.0, min(30.0, lease_seconds / 3.0))
         next_heartbeat = time.monotonic() + heartbeat_interval
         timed_out = False
-        while process.poll() is None:
-            now_mono = time.monotonic()
-            if now_mono - started >= timeout_seconds:
-                timed_out = True
-                _terminate_process_group(process)
-                break
-            if now_mono >= next_heartbeat:
-                if not heartbeat(conn, job, lease_seconds=lease_seconds):
+        try:
+            while process.poll() is None:
+                now_mono = time.monotonic()
+                if now_mono - started >= timeout_seconds:
+                    timed_out = True
                     _terminate_process_group(process)
-                    raise DurableRunnerError("lease lost during execution")
-                next_heartbeat = now_mono + heartbeat_interval
-            time.sleep(0.2)
+                    break
+                if now_mono >= next_heartbeat:
+                    if not heartbeat(conn, job, lease_seconds=lease_seconds):
+                        _terminate_process_group(process)
+                        raise DurableRunnerError("lease lost during execution")
+                    next_heartbeat = now_mono + heartbeat_interval
+                time.sleep(0.2)
+        except DurableRunnerError as exc:
+            _terminate_process_group(process)
+            if "lease lost" in str(exc):
+                return {"status": "LEASE_LOST", "job_id": job.job_id}
+            try:
+                _fail(conn, job, "EXECUTION_INTERRUPTED", retryable=True)
+            except DurableRunnerError:
+                pass
+            raise
+        except BaseException:
+            _terminate_process_group(process)
+            try:
+                _fail(conn, job, "EXECUTION_INTERRUPTED", retryable=True)
+            except DurableRunnerError:
+                pass
+            raise
+        output.seek(0, os.SEEK_END)
+        length = output.tell()
         output.seek(0)
-        text = output.read().strip()
+        text = output.read(1024 * 1024).strip() if length <= 1024 * 1024 else ""
     if timed_out:
-        _fail(conn, job, "PROCESS_TIMEOUT", retryable=True)
-        return {"status": "FAILED_RETRYABLE", "job_id": job.job_id}
+        state = _fail(conn, job, "PROCESS_TIMEOUT", retryable=True)
+        return {"status": state, "job_id": job.job_id}
     if process.returncode != 0:
         retryable = process.returncode in {75, 111}
-        _fail(conn, job, f"HANDLER_EXIT_{process.returncode}:{text[-1600:]}", retryable=retryable)
-        return {"status": "FAILED_RETRYABLE" if retryable else "FAILED_PERMANENT", "job_id": job.job_id}
+        state = _fail(conn, job, f"HANDLER_EXIT_{process.returncode}", retryable=retryable)
+        return {"status": state, "job_id": job.job_id}
     try:
         result = json.loads(text)
     except json.JSONDecodeError:
-        _fail(conn, job, f"HANDLER_NON_JSON:{text[-1600:]}", retryable=False)
+        _fail(conn, job, "HANDLER_NON_JSON_OR_OVERSIZE", retryable=False)
         return {"status": "FAILED_PERMANENT", "job_id": job.job_id}
     if not isinstance(result, dict) or result.get("status") != "PASS":
-        _fail(conn, job, f"HANDLER_NOT_PASS:{text[-1600:]}", retryable=False)
+        _fail(conn, job, "HANDLER_NOT_PASS", retryable=False)
         return {"status": "FAILED_PERMANENT", "job_id": job.job_id}
     _complete(conn, job, result)
     return {"status": "READY_TO_PUBLISH", "job_id": job.job_id, "elapsed_seconds": round(time.monotonic() - started, 3)}
@@ -489,6 +629,7 @@ def parse_args() -> argparse.Namespace:
     status = sub.add_parser("status")
     status.add_argument("--limit", type=int, default=50)
     sub.add_parser("recover")
+    sub.add_parser("health")
     return parser.parse_args()
 
 
@@ -518,6 +659,10 @@ def main() -> int:
     if args.command == "status":
         print(json.dumps({"status": "OK", "jobs": status_rows(conn, args.limit)}, ensure_ascii=False, indent=2))
         return 0
+    if args.command == "health":
+        report = health_summary(conn)
+        print(json.dumps(report, sort_keys=True))
+        return 0 if report["status"] == "OK" else 2
     if args.command == "recover":
         print(json.dumps({"status": "OK", "recovered": recover_expired(conn)}))
         return 0
@@ -527,25 +672,36 @@ def main() -> int:
         raise SystemExit("--lease-seconds must be 30..3600")
     if not 10 <= args.timeout_seconds <= 21600:
         raise SystemExit("--timeout-seconds must be 10..21600")
-    while True:
-        claimed = claim_job(conn, lease_seconds=args.lease_seconds)
-        if claimed is None:
-            if args.once:
-                print(json.dumps({"status": "IDLE"}))
-                return 0
-            time.sleep(args.poll_seconds)
-            continue
-        result = execute_claimed(
-            conn,
-            claimed,
-            workspace=workspace,
-            lease_seconds=args.lease_seconds,
-            timeout_seconds=args.timeout_seconds,
-        )
-        print(json.dumps(result, ensure_ascii=False, sort_keys=True), flush=True)
-        if args.once:
-            return 0 if result["status"] == "READY_TO_PUBLISH" else 2
+    def stop(signum, frame):
+        raise KeyboardInterrupt
+    previous = signal.signal(signal.SIGTERM, stop)
+    try:
+        with runner_lock(workspace):
+            while True:
+                claimed = claim_job(conn, lease_seconds=args.lease_seconds)
+                if claimed is None:
+                    if args.once:
+                        print(json.dumps({"status": "IDLE"}))
+                        return 0
+                    time.sleep(args.poll_seconds)
+                    continue
+                result = execute_claimed(
+                    conn,
+                    claimed,
+                    workspace=workspace,
+                    lease_seconds=args.lease_seconds,
+                    timeout_seconds=args.timeout_seconds,
+                )
+                print(json.dumps(result, ensure_ascii=False, sort_keys=True), flush=True)
+                if args.once:
+                    return 0 if result["status"] == "READY_TO_PUBLISH" else 2
+    except KeyboardInterrupt:
+        return 0
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+        conn.close()
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

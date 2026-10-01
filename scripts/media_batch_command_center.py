@@ -197,6 +197,9 @@ def _build_jobs(manifest_path: Path, manifest: Mapping[str, Any], output_dir: Pa
             rights_verified=rights_verified,
             demand=demand,
             metadata=metadata,
+            lease_key="output-" + hashlib.sha256(
+                str((output_dir / output_name).resolve()).encode("utf-8")
+            ).hexdigest(),
         ).validate())
     return jobs
 
@@ -465,7 +468,8 @@ def execute(manifest_path: Path, manifest: Mapping[str, Any], output_dir: Path, 
     jobs = _build_jobs(manifest_path, manifest, output_dir)
     policy = BatchPolicy(max_parallel_jobs=max_parallel, degraded_parallel_jobs=1, max_transient_retries=2)
     capacity = _capacity(max_parallel)
-    lease_manager = FileLeaseManager(output_dir / ".leases", ttl_seconds=300)
+    # A bounded 10-job batch may run sequentially when backpressure is active.
+    lease_manager = FileLeaseManager(output_dir / ".leases", ttl_seconds=18_000)
     started = time.monotonic()
     results = run_batch_with_leases(
         jobs,
