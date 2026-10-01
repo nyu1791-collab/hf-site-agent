@@ -1,6 +1,6 @@
 {
   "schema_version": "multi-agent-operating-policy-v11",
-  "effective_date_jst": "2026-09-22",
+  "effective_date_jst": "2026-10-02",
   "status": "PERMANENT_STANDARD",
   "architecture": {
     "root_controller": "chatgpt-work",
@@ -466,9 +466,9 @@
   },
   "free_only_policy": {
     "permanent_guard": "config/free_execution_guard.json",
-    "free_only_mode": true,
-    "scope": "DEFAULT_FOR_ALL_ROUTES_EXCEPT_EXPLICIT_PREAUTHORIZED_PAID_EXCEPTIONS",
-    "allow_paid_model": false,
+    "free_only_mode": false,
+    "scope": "PAID_API_MODEL_CANDIDATES_MAY_RUN_ONLY_AFTER_THE_SHARED_EVIDENCE_GATE; free OpenRouter pool and paid-media prohibitions remain separately scoped",
+    "allow_paid_model": true,
     "allow_paid_fallback": false,
     "auto_top_up": false,
     "fresh_exact_model_evidence_required": true,
@@ -487,7 +487,9 @@
     "openrouter_free_dynamic_fanout_range": [
       1,
       3
-    ]
+    ],
+    "paid_route_eligibility_policy": "config/paid_agent_route_eligibility_policy.json",
+    "paid_route_requires_verified_lower_total_cost_and_materially_better_task_performance": true
   },
   "paid_model_exceptions": {
     "deepseek_supervisor": {

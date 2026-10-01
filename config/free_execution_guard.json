@@ -1,18 +1,20 @@
 {
   "schema_version": "free-execution-guard-v1",
-  "effective_date_jst": "2026-09-22",
+  "effective_date_jst": "2026-10-02",
   "status": "ENFORCED_PERMANENT_STANDARD",
   "decision_owner": "chatgpt-top-commander",
-  "purpose": "Keep every new chat tab and every media route in the free-only execution boundary unless it matches an already documented narrow exception.",
+  "purpose": "Keep paid API model selection bounded by the DeepSeek V4.1 Flash evidence gate while preserving strict no-paid-media, no-fallback, no-top-up and secret boundaries.",
   "default_runtime": {
-    "free_only_mode": true,
-    "allow_paid_model": false,
+    "free_only_mode": false,
+    "allow_paid_model": true,
     "allow_paid_fallback": false,
     "auto_top_up": false,
     "unknown_cost_route": "BLOCK",
     "trial_credit_or_freemium_route_counts_as_free": false,
     "billing_or_upgrade_page_is_not_an_execution_step": true,
-    "paid_route_must_not_be_probed_to_discover_availability": true
+    "paid_route_must_not_be_probed_to_discover_availability": true,
+    "paid_route_eligibility_policy": "config/paid_agent_route_eligibility_policy.json",
+    "paid_route_requires_verified_lower_total_cost_and_materially_better_task_performance": true
   },
   "media_boundary": {
     "paid_or_freemium_video_generation": false,
@@ -74,14 +76,24 @@
     "must_be_read_from_repository_on_new_tab": true,
     "must_be_re_read_when_media_intent_is_detected": true,
     "chat_memory_cannot_override_this_guard": true,
-    "free_only_rule_survives_tab_change": true,
+    "free_only_rule_survives_tab_change": false,
     "paid_media_block_survives_tab_change": true,
-    "upgrade_or_billing_prompt_must_not_be_treated_as_permission": true
+    "upgrade_or_billing_prompt_must_not_be_treated_as_permission": true,
+    "paid_api_route_gate_survives_tab_change": true
   },
   "failure_contract": {
     "blocked_paid_route_is_not_a_failed_free_route": true,
     "must_report_block_reason": true,
     "must_not_retry_same_paid_route": true,
     "must_not_silently_switch_to_paid": true
+  },
+  "gated_paid_api_model_routes": {
+    "enabled": true,
+    "policy": "config/paid_agent_route_eligibility_policy.json",
+    "runtime": "scripts/paid_agent_route_policy.py",
+    "eligible_as_primary_only_after_evidence_gate": true,
+    "all_unknown_evidence_blocks": true,
+    "paid_fallback": false,
+    "auto_top_up": false
   }
 }

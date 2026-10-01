@@ -1,8 +1,8 @@
 {
   "schema_version": "top-commander-handoff-v17",
-  "effective_date_jst": "2026-10-01",
+  "effective_date_jst": "2026-10-02",
   "mission_id": "ai-army-canonical-supervisor-routing-20260912",
-  "objective": "Preserve a hierarchical AI Army with ChatGPT as final commander, Jev Latest as the official-manual-aligned typed decision plane that prioritizes verified route correctness and decision stability over raw routing latency, DeepSeek as bounded executive supervisor for high-information-gain work, deterministic bypasses for mechanical work, and domain-aware specialist routing backed by expiring live evidence.",
+  "objective": "Preserve the hierarchical AI Army with ChatGPT as final commander, Jev as the typed fast decision plane, DeepSeek V4.1 Flash as the bounded executive supervisor, and additional paid API-agent candidates admitted only when current official pricing, task-matched evidence, budget, and account status prove they are cheaper overall and materially more capable for the task.",
   "continuity": {
     "portable_across_chat_tabs": true,
     "conversation_memory_is_not_source_of_truth": true,
@@ -17,7 +17,12 @@
     "task_specific_gate_resolution": {
       "media": "config/media_command_read_gate.json",
       "monetization": "config/monetization_command_read_gate.json",
-      "rule": "Resolve detailed task-specific standards from the current permanent manifest and semantic gate instead of duplicating their full lists inside this handoff."
+      "rule": "Resolve detailed task-specific standards from the current permanent manifest and semantic gate instead of duplicating their full lists inside this handoff.",
+      "paid_api_agents": {
+        "policy": "config/paid_agent_route_eligibility_policy.json",
+        "runtime": "scripts/paid_agent_route_policy.py",
+        "rule": "A paid candidate is eligible only when fresh price, task benchmark, required features, account state and shared-budget evidence pass; paid fallback and top-up stay disabled."
+      }
     },
     "restore_before_planning_or_external_calls": true,
     "if_chat_instruction_conflicts_with_repository_policy": "FOLLOW_LATEST_EXPLICIT_USER_INSTRUCTION_WITHIN_SAFETY_BOUNDARIES_AND_UPDATE_REPOSITORY_IF_IT_CHANGES_THE_PERMANENT_STANDARD",
@@ -61,7 +66,13 @@
     "final_execution_admission_guard": "scripts/final_execution_admission_guard.py",
     "speed_first_video_delivery": "config/media_speed_quality_policy.json#/speed_first_delivery",
     "speed_first_delivery": "config/media_speed_quality_policy.json#/speed_first_delivery",
-    "visual_rich_video_delivery": "config/media_speed_quality_policy.json#/visual_density_contract"
+    "visual_rich_video_delivery": "config/media_speed_quality_policy.json#/visual_density_contract",
+    "paid_agent_route_eligibility": "config/paid_agent_route_eligibility_policy.json",
+    "paid_agent_route_runtime": "scripts/paid_agent_route_policy.py",
+    "project_rule_precedence": "config/project_rule_precedence_policy.json",
+    "media_small_host_policy": "config/media_small_host_policy.json",
+    "media_small_host_activation": "scripts/install_gcp_small_host_services.py",
+    "media_small_host_runbook": "docs/GCP_SMALL_HOST_DEPLOYMENT.md"
   },
   "peer_review_status": {
     "completed": true,

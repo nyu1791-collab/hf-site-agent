@@ -33,10 +33,12 @@ class ProviderRegistryTests(unittest.TestCase):
             self.assertEqual(provider["probe_status"], "NOT_RUN")
             self.assertFalse(provider["activation_approved"])
 
-    def test_paid_and_generic_router_policy_is_off(self):
+    def test_paid_api_requires_shared_evidence_gate_and_generic_router_stays_off(self):
         policy = self.registry["policy"]
-        self.assertTrue(policy["free_only_mode"])
-        self.assertFalse(policy["allow_paid_model"])
+        self.assertFalse(policy["free_only_mode"])
+        self.assertTrue(policy["allow_paid_model"])
+        self.assertEqual(policy["paid_route_eligibility_policy"], "config/paid_agent_route_eligibility_policy.json")
+        self.assertTrue(policy["paid_model_admission_requires_policy_gate"])
         self.assertFalse(policy["allow_paid_fallback"])
         self.assertFalse(policy["generic_free_router_allowed_for_commanders"])
 

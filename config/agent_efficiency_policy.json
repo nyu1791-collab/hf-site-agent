@@ -1,16 +1,17 @@
 {
   "schema_version": "agent-efficiency-policy-v4",
-  "effective_date_jst": "2026-09-21",
+  "effective_date_jst": "2026-10-02",
   "status": "SHADOW_MEASURE_THEN_PROMOTE",
   "decision_owner": "chatgpt-work",
   "free_execution_guard": {
     "policy": "config/free_execution_guard.json",
-    "free_only_default": true,
+    "free_only_default": false,
     "paid_media_generation": false,
     "paid_fallback": false,
     "auto_top_up": false,
     "unknown_cost_action": "BLOCK",
-    "must_survive_chat_tab_change": true
+    "must_survive_chat_tab_change": true,
+    "paid_api_route_policy": "config/paid_agent_route_eligibility_policy.json"
   },
   "research_basis": {
     "google_research_agent_scaling_2026": {

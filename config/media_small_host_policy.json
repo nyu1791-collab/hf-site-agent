@@ -1,13 +1,14 @@
 {
   "schema_version": "media-small-host-policy-v1",
-  "status": "REPOSITORY_CONFIGURED_NOT_DEPLOYED",
+  "status": "REPOSITORY_CONFIGURED_AWAITING_EXISTING_VM_PREFLIGHT",
   "target": {
     "provider": "GOOGLE_CLOUD_COMPUTE_ENGINE",
     "machine_type": "e2-small",
     "memory_gib": 2,
     "sustained_vcpu": 0.5,
     "gpu_required": false,
-    "region": "KEEP_CURRENT_VM_REGION"
+    "region": "KEEP_CURRENT_VM_REGION",
+    "expected_instance_name": "instance-20261001-071545"
   },
   "runtime_layout": {
     "repository": "~/hf-site-agent",
@@ -28,7 +29,11 @@
     "database_single_writer_lock_required": true,
     "render_timer_enabled_by_default": false,
     "preparation_timer_enabled_by_default": false,
-    "public_publish_enabled": false
+    "public_publish_enabled": false,
+    "preparation_timer_activation": "AUTHORIZED_AFTER_READ_ONLY_PREFLIGHT",
+    "activation_script": "scripts/install_gcp_small_host_services.py",
+    "public_publish_requires_destination_and_account_scope": true,
+    "preserve_existing_rss_cron_and_sqlite_queue": true
   },
   "resource_controls": {
     "service_memory_high_mib": 1300,
@@ -54,6 +59,26 @@
     "approved_shell_and_font_required_before_render": true,
     "rights_evidence_and_credit_required_before_render": true,
     "ffprobe_output_check_required": true,
-    "live_vm_status": "NOT_VERIFIED"
+    "live_vm_status": "NOT_VERIFIED",
+    "service_enablement": "NOT_RUN_FROM_VM"
+  },
+  "billing_preflight": {
+    "authorized_project_credit_ceiling_jpy": 47000,
+    "billing_evidence_file": "~/.config/hf-site-agent/cloud-budget.json",
+    "must_be_verified_within_hours": 24,
+    "required_fields": [
+      "project_id",
+      "billing_status",
+      "remaining_credit_jpy",
+      "credit_expires_at",
+      "forecast_next_30d_jpy",
+      "verified_at",
+      "source",
+      "auto_top_up_enabled"
+    ],
+    "required_billing_status": "ACTIVE",
+    "source": "GOOGLE_CLOUD_BILLING_CONSOLE",
+    "auto_top_up_enabled": false,
+    "unknown_or_stale_action": "BLOCK_TIMER_ACTIVATION"
   }
 }

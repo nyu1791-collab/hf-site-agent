@@ -40,6 +40,7 @@ def main() -> int:
     ci_policy = load_json("config/ci_execution_policy.json")
     free_guard = load_json("config/free_execution_guard.json")
     video_admission = load_json("config/video_creation_admission_policy.json")
+    small_host = load_json("config/media_small_host_policy.json")
     media_speed = load_json("config/media_speed_quality_policy.json")
     stream = load_json("config/session_stream_resilience_policy.json")
     automation = load_json("config/media_automation_fast_path.json")

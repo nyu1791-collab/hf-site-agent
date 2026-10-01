@@ -34,10 +34,10 @@
       "last_verified"
     ]
   },
-  "last_policy_reviewed": "2026-09-09",
+  "last_policy_reviewed": "2026-10-02",
   "policy": {
     "production_model_swap_requires": "chatgpt-work",
-    "allow_paid_models": false,
+    "allow_paid_models": true,
     "allow_generic_free_router": false,
     "automatic_cross_role_fallback": false,
     "provider_order": [
@@ -47,7 +47,7 @@
     "catalog_url": "https://openrouter.ai/api/v1/models",
     "catalog_timeout_seconds": 8,
     "model_watch_is_read_only": true,
-    "free_only_mode": true,
+    "free_only_mode": false,
     "allow_paid_fallback": false,
     "allow_paid_web_search": false,
     "auto_top_up": false,
@@ -56,7 +56,9 @@
     "max_free_rpm": 15,
     "quota_reset_timezone": "UTC",
     "free_probe_on_utc_reset": true,
-    "catalog_inconsistency_logged": true
+    "catalog_inconsistency_logged": true,
+    "paid_route_eligibility_policy": "config/paid_agent_route_eligibility_policy.json",
+    "paid_route_requires_comparator_evidence": true
   },
   "roles": {
     "ROLE_GOOGLE_GENERAL_COMMANDER": {
@@ -459,8 +461,8 @@
         "structured_output"
       ],
       "price": {
-        "prompt_per_token": 7.5E-8,
-        "completion_per_token": 2.5E-7
+        "prompt_per_token": 7.5e-8,
+        "completion_per_token": 2.5e-7
       },
       "free_available": false,
       "rate_limit": "catalog-dependent",
@@ -501,8 +503,8 @@
         "structured_output"
       ],
       "price": {
-        "prompt_per_token": 7.125E-8,
-        "completion_per_token": 2.375E-7
+        "prompt_per_token": 7.125e-8,
+        "completion_per_token": 2.375e-7
       },
       "free_available": false,
       "rate_limit": "catalog-dependent",
@@ -581,8 +583,8 @@
         "structured_output"
       ],
       "price": {
-        "prompt_per_token": 6.5E-8,
-        "completion_per_token": 1.8E-7
+        "prompt_per_token": 6.5e-8,
+        "completion_per_token": 1.8e-7
       },
       "free_available": false,
       "rate_limit": "catalog-dependent",
@@ -623,8 +625,8 @@
         "structured_output"
       ],
       "price": {
-        "prompt_per_token": 5E-8,
-        "completion_per_token": 1.6E-7
+        "prompt_per_token": 5e-8,
+        "completion_per_token": 1.6e-7
       },
       "free_available": false,
       "rate_limit": "catalog-dependent",
@@ -819,7 +821,7 @@
         "long_context"
       ],
       "price": {
-        "prompt_per_token": 7.5E-7,
+        "prompt_per_token": 7.5e-7,
         "completion_per_token": 0.00000375
       },
       "free_available": false,
@@ -1193,7 +1195,13 @@
         "CONTEXT_MAPPING",
         "INFORMATION_SYNTHESIS"
       ],
-      "capabilities": ["reasoning", "long_context", "multimodal", "structured_output", "tool_calling"],
+      "capabilities": [
+        "reasoning",
+        "long_context",
+        "multimodal",
+        "structured_output",
+        "tool_calling"
+      ],
       "status": "EXPECTED_UNVERIFIED",
       "lifecycle": "UNKNOWN",
       "discovered_at": null,
@@ -1217,7 +1225,12 @@
         "TOOL_USE",
         "FAST_REASONING"
       ],
-      "capabilities": ["fast_reasoning", "coding", "structured_output", "tool_calling"],
+      "capabilities": [
+        "fast_reasoning",
+        "coding",
+        "structured_output",
+        "tool_calling"
+      ],
       "status": "EXPECTED_UNVERIFIED",
       "lifecycle": "UNKNOWN",
       "discovered_at": null,
@@ -1240,7 +1253,12 @@
         "SECURITY_REVIEW",
         "SECOND_OPINION"
       ],
-      "capabilities": ["reasoning", "technical_review", "security_review", "structured_output"],
+      "capabilities": [
+        "reasoning",
+        "technical_review",
+        "security_review",
+        "structured_output"
+      ],
       "status": "EXPECTED_UNVERIFIED",
       "lifecycle": "UNKNOWN",
       "discovered_at": null,
@@ -1262,7 +1280,13 @@
         "MULTI_STEP_WORK",
         "CHECKPOINTABLE_TASK"
       ],
-      "capabilities": ["long_running", "repository_analysis", "multi_step", "checkpointable", "structured_output"],
+      "capabilities": [
+        "long_running",
+        "repository_analysis",
+        "multi_step",
+        "checkpointable",
+        "structured_output"
+      ],
       "status": "EXPECTED_UNVERIFIED",
       "lifecycle": "UNKNOWN",
       "discovered_at": null,
@@ -1284,7 +1308,13 @@
         "ALTERNATE_IMPLEMENTATION",
         "OVERFLOW_WORKER"
       ],
-      "capabilities": ["long_context", "coding", "multimodal", "worker", "structured_output"],
+      "capabilities": [
+        "long_context",
+        "coding",
+        "multimodal",
+        "worker",
+        "structured_output"
+      ],
       "status": "EXPECTED_UNVERIFIED",
       "lifecycle": "UNKNOWN",
       "discovered_at": null,

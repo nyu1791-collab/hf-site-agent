@@ -11,9 +11,13 @@
   "automatic_trigger_allowlist_is_exhaustive": true,
   "unregistered_push_pull_request_or_schedule_trigger": "FORBIDDEN",
   "max_bounded_internal_carriers": 1,
-  "bounded_internal_carrier_workflows": ["subordinate-continuation.yml"],
+  "bounded_internal_carrier_workflows": [
+    "subordinate-continuation.yml"
+  ],
   "max_bounded_paid_supervisor_workflows": 1,
-  "bounded_paid_supervisor_workflows": ["deepseek-supervisor-research.yml"],
+  "bounded_paid_supervisor_workflows": [
+    "deepseek-supervisor-research.yml"
+  ],
   "paid_supervisor_trigger_contract": {
     "push_path": "missions/deepseek-supervisor/*.json",
     "exactly_one_changed_mission_required": true,
@@ -91,12 +95,21 @@
     "expansion_hard_max_calls": 12,
     "expansion_hard_max_parallel_calls": 4,
     "max_estimated_cost_usd_per_mission": 0.5,
-    "max_estimated_cost_usd_per_day": 3.0,
+    "max_estimated_cost_usd_per_day": 3,
     "expansion_requires_reason": true,
     "successful_lane_reuse_required": true,
     "same_root_cause_retry": false,
     "generic_paid_fallback": false,
     "auto_top_up": false,
     "other_paid_providers_authorized": false
+  },
+  "paid_api_route_eligibility_policy": {
+    "policy": "config/paid_agent_route_eligibility_policy.json",
+    "runtime": "scripts/paid_agent_route_policy.py",
+    "no_api_calls_in_consistency_ci": true,
+    "admission_requires_verified_deepseek_price_benchmark_features_and_shared_budget": true,
+    "paid_fallback": false,
+    "auto_top_up": false,
+    "vertex_ai_required": false
   }
 }

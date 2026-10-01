@@ -8,35 +8,29 @@ Use one 2 GiB VM as the coordinator and local worker. Calls to the configured la
 
 The initial target is `e2-small`: 2 GiB RAM with a shared-core sustained allowance of 0.5 vCPU. That is enough to try the sequential workflow, but it is CPU-limited and the five-minute creation target is not certified until actual job time and peak memory are measured. The user units cap each media job at 1,700 MiB so a failed job is stopped before it can consume the whole VM; a failed preparation/render remains recoverable from its saved checkpoint and does not publish. Preparation also pauses when one item is waiting for human rights review, and pauses below 2 GiB of free disk. It never deletes output automatically.
 
-## Change the current VM when ready
+## Verify the existing VM before activation
 
-In Google Cloud Console, open **Compute Engine → VM instances** and inspect the existing `instance-20261001-071545` VM before stopping it. Record its zone, boot disk, service account, network settings, and whether its external IP is static or ephemeral. An ephemeral external IP can be released when the VM stops and a different one assigned when it starts; this workflow uses outbound API calls and browser-based SSH, so reconnect through the VM instances page after it starts. If another service or DNS record depends on the current external IP, do not stop the VM until that dependency is addressed. Do not reserve a static IP solely for this workflow.
+The user identified instance-20261001-071545 as the existing Compute Engine VM; the supplied console screenshot showed it running as e2-small (2 GiB RAM). That screenshot is not live proof of current state. Re-open Compute Engine → VM instances and check the current project, VM name, zone, machine type, boot disk, service account, network, and power state. This deployment targets only that existing VM. Do not create a duplicate, stop or resize it, modify its disk, or reserve a static IP.
 
-After confirming the project's billing-account status and remaining-credit expiry, stop the same VM, then edit only its machine type to `e2-small` (2 GiB RAM, 0.5 sustained shared-core vCPU). Keep its existing boot disk, zone, service account, and network configuration. Save and start the same VM. Do not create a second VM or resize/reinitialize the disk during this change. The screenshot available for this setup still showed the Free Trial banner and an Upgrade button, so the paid-upgrade state is not yet verified.
+The user authorized approximately JPY 47,000 of Google Cloud credit as a hard ceiling. Before enabling the persistent timer, verify the live billing account, eligible remaining credit, expiry, project, region/SKU, and forecast in Google Cloud Console. Record a fresh, secret-free snapshot in ~/.config/hf-site-agent/cloud-budget.json with mode 0600; the activation preflight blocks if that evidence is missing, stale, belongs to another project, shows auto top-up, or forecasts more than the remaining credit. Google Cloud credit does not cover OpenRouter or any other third-party API bill. Vertex AI is not required or preferred.
 
-If the measured render is too slow or reaches the 1,700 MiB job cap, the next measured option is `e2-medium` (4 GiB RAM, 1 sustained shared-core vCPU), which costs more. Do not select it based only on the five-minute target; first record one preparation and one render's elapsed time and peak memory.
+Keep the current e2-small size unless live measurements justify an upgrade. The existing VM is already running; this process does not stop or resize it.
 
 ## Existing host bootstrap
 
-The unit files under `deploy/systemd/user/` are tailored to the existing `n_yu1791` home layout without changing the database. They are not installed or enabled by this repository change. After the repository update reaches the VM, install the files as that Linux user:
+The unit files under deploy/systemd/user/ target the existing n_yu1791 home layout and preserve the existing database. After the canonical branch reaches that VM, run the read-only preflight and then the authorized activation command as that Linux user:
 
 ```bash
 cd ~/hf-site-agent
-mkdir -p ~/.config/systemd/user ~/.config/hf-site-agent
-install -m 0644 deploy/systemd/user/hf-site-agent-media-news.service ~/.config/systemd/user/
-install -m 0644 deploy/systemd/user/hf-site-agent-media-news.timer ~/.config/systemd/user/
-install -m 0644 deploy/systemd/user/hf-site-agent-media-render@.service ~/.config/systemd/user/
-systemctl --user daemon-reload
+python3 -m scripts.install_gcp_small_host_services
+python3 -m scripts.install_gcp_small_host_services --activate
 ```
 
-The existing RSS cron remains its own five-minute poller. The preparation timer is deliberately not enabled by installation: enabling it processes at most one inbox item per five-minute run and can make up to five exact-free script calls per UTC day. It does not use Google Cloud credits for OpenRouter, and it will not fall back to a paid route. Enable it only after a protected `media.env` contains the intended API key and the Engine has passed the local check:
+The existing RSS cron remains the only source poller; this activation does not install a second poller. After every preflight passes, the preparation timer processes at most one inbox item per five-minute run and makes at most five exact-free script calls per UTC day. It does not use Google Cloud credits for OpenRouter and cannot fall back to a paid route. If a prerequisite fails, the timer stays disabled.
 
-```bash
-sudo loginctl enable-linger "$USER"
-systemctl --user enable --now hf-site-agent-media-news.timer
-```
+media.env is read from ~/.config/hf-site-agent/media.env; keep it mode 0600 and never paste its secret into chat or command arguments. Store a separate cloud-budget.json snapshot at ~/.config/hf-site-agent/cloud-budget.json with mode 0600; it contains billing facts only and no credentials. The activation script checks the protected media env, local VOICEVOX installation/version, free disk, existing queue integrity, canonical branch, GCP metadata identity, and recent billing evidence. It prints only blocker codes and service state. It never initializes the queue database, runs a paid API call, enables a render timer, or publishes.
 
-`media.env` is read from `~/.config/hf-site-agent/media.env`; keep it mode `0600`, never paste its secret into chat or command arguments. Set the expected VOICEVOX version after verifying `/version`. Install the official Linux CPU Engine at `~/.local/share/voicevox_engine/linux-cpu-x64`, or edit the unit's `VOICEVOX_ENGINE_DIR` to its verified location. The wrapper binds only to `127.0.0.1:50021`, uses one CPU thread, and stops only an Engine process it started itself.
+Set the expected VOICEVOX version after verifying /version. Install the official Linux CPU Engine at ~/.local/share/voicevox_engine/linux-cpu-x64, or set VOICEVOX_ENGINE_DIR in the protected env file. The wrapper binds only to 127.0.0.1:50021, uses one CPU thread, and stops only an Engine process it started itself.
 
 ## One reviewed render
 
@@ -64,4 +58,4 @@ After one permitted preparation and one reviewed render, record wall time and pe
 
 ## Billing note
 
-Google's published `e2-small` compute price for `us-central1` is USD $0.016752855 per hour before disk, network, external IP, tax, and currency conversion. At 730 hours that is about USD $12.23 for VM compute alone. Check the selected VM's actual region and billing SKU before changing it. A Cloud Billing budget alert is a notification, not a general hard stop. The free-trial credit remains time-limited after upgrade; confirm the billing account's current status and credit expiry before leaving resources running.
+Google's published `e2-small` compute price for `us-central1` is USD $0.016752855 per hour before disk, network, external IP, tax, and currency conversion. At 730 hours that is about USD $12.23 for VM compute alone. Check the selected VM's actual region and billing SKU before changing it. A Cloud Billing budget alert is a notification, not a general hard stop. Confirm the authorized project credit's current status and expiry before leaving the existing VM or timer running.

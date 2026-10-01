@@ -128,7 +128,7 @@ A2Aそのものを今すぐ必須化しない。Native AI Army contractを壊さ
 - Director / Manager / Workerの階層分離は、現在のTop Commander / Commander / Specialist-Worker構造と整合する。
 - Orchestratorは一番大きいModelである必要はなく、Routing品質・Cost・Latencyを含む全体最適が重要。
 - clear routeではsingle-pass routerが有効。
-- Model routingはProviderから分離し、Task fit / 成功確率 / Cost / Latencyを評価する。ただし本プロジェクトはFree-only Gateを最優先する。
+- Model routingはProviderから分離し、Task fit / 成功確率 / Cost / Latencyを評価する。ただし有料APIモデルは有料という理由だけで排除せず、DeepSeek V4.1 Flashより同一タスク総費用が安く、必要機能と実測性能の優位を証拠ゲートが確認した場合だけ採用する。無料OpenRouter worker poolと有料API model gateは別々に扱う。
 
 ---
 

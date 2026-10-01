@@ -70,3 +70,8 @@ Provider classification、RPM/TPM/RPD/TPD、daily cap、Hard Stop、credits、ra
 Provider/Role/ModelのActive化は、少なくともcurrent evidence、必要Capability、Cost/Quota safety、bounded Probe、Routing contract、Human Approval Gate等の現行Policy条件を満たした場合だけ候補になります。
 
 Registry、Probe、Benchmark、文書のいずれか1つだけでProduction activation、Paid fallback、Deploy、Publish、Secrets操作を許可することはありません。ChatGPT / Workが最終Authorityを保持します。
+
+
+## Paid API agent admission
+
+Paid models are not categorically prohibited. scripts/model_registry.py calls scripts/paid_agent_route_policy.py before admitting a paid role candidate. The gate requires fresh official prices below DeepSeek V4.1 Flash, lower paired-workload total cost, materially higher task quality, required documented features, ready account status, and budget headroom. It does not make provider calls, activate inactive roles, permit fallback, or expose credentials.

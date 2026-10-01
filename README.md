@@ -56,8 +56,9 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 - Single Writerを維持し、同一mutable targetの並列変更にはTask Leaseを要求する。
 - 最大Delegation Depthは2、1ユーザー依頼あたり最大10 Tasks。無限Swarm・無限Reflection・無限Replanは禁止。
 - Machine Oracle / Schema / Test / Hash / ffprobe等をAI多数決より優先する。
-- 通常Routeはfree-first。Auto Top-up、Generic Paid Fallback、Paid sibling自動置換は禁止。
-- DeepSeek例外は他の有料Provider、Repository Write、main Push、PR Merge、Deploy、Publish、Secrets操作、支払い操作へ権限を拡張しない。
+- APIモデルは有料という理由だけで一律禁止しない。追加候補は config/paid_agent_route_eligibility_policy.json に基づき、DeepSeek V4.1 Flashより低い実タスク総費用と、必要機能を満たしたうえでの実測優位が確認できた場合だけ選択する。
+- Auto Top-up、Generic Paid Fallback、Paid sibling自動置換、Paid Mediaは引き続き禁止。Vertex AIは現在不要・無効。
+- VPSの永続稼働状態はライブホスト確認が必要で、リポジトリの設定だけを根拠に稼働中と報告しない。Publish先・認証・対象範囲の証拠が揃うまで公開処理を停止する。
 
 ## 動画制作
 

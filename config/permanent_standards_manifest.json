@@ -1,6 +1,6 @@
 {
   "schema_version": "permanent-standards-manifest-v21",
-  "effective_date_jst": "2026-10-01",
+  "effective_date_jst": "2026-10-02",
   "purpose": "Keep the AI Army, evidence governance, media quality, creator monetization and bounded paid supervision recoverable across new chat tabs while using one expandable manifest plus a compact master rulebook instead of duplicating every detailed rule in startup handoffs.",
   "canonical_branch": "ai-army/provider-v3",
   "startup_rule": "READ_CURRENT_COMMANDER_HANDOFF_THEN_PRIORITY_ZERO_MANIFEST_STANDARDS_AND_MASTER_RULEBOOK_BEFORE_TASK_SPECIFIC_PLANNING",
@@ -294,6 +294,28 @@
       "runtime": "scripts/media_performance_plan.py",
       "route_guard": "scripts/media_performance_route.py",
       "validator": "scripts/validate_media_performance_efficiency.py"
+    },
+    {
+      "id": "paid-agent-route-eligibility",
+      "machine_policy": "config/paid_agent_route_eligibility_policy.json",
+      "runtime": "scripts/paid_agent_route_policy.py",
+      "validator": "scripts/validate_paid_agent_route_policy.py",
+      "priority": 0,
+      "purpose": "ADMIT_ONLY_PAID_API_MODELS_PROVEN_CHEAPER_AND_MATERIALLY_BETTER_THAN_DEEPSEEK_V4_1_FLASH_WITHIN_VERIFIED_BUDGET"
+    },
+    {
+      "id": "project-rule-precedence",
+      "machine_policy": "config/project_rule_precedence_policy.json",
+      "priority": 0,
+      "purpose": "ALLOW_LATER_EXPLICIT_USER_INSTRUCTIONS_TO_UPDATE_PRIOR_USER_AUTHORED_PROJECT_RULES_WITHIN_SCOPE"
+    },
+    {
+      "id": "existing-gcp-small-host-activation",
+      "machine_policy": "config/media_small_host_policy.json",
+      "runtime": "scripts/install_gcp_small_host_services.py",
+      "human_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
+      "priority": 0,
+      "purpose": "ACTIVATE_ONLY_THE_EXISTING_GCP_VM_AFTER_LIVE_BILLING_IDENTITY_SECRET_PERMISSION_DISK_QUEUE_AND_ENGINE_PREFLIGHTS_PASS"
     }
   ],
   "canonical_ai_army_execution": {
@@ -579,7 +601,7 @@
     "second_pass_artifact_contracts_survive_tab_change": true,
     "deepseek_supervisor_preauthorization_survives_tab_change": true,
     "deepseek_working_manager_drafting_scope_survives_tab_change": true,
-    "deepseek_exception_does_not_expand_to_other_paid_providers": "TRUE_EXCEPT_SEPARATELY_AUTHORIZED_JEV_FAST_DECISION_PLANE",
+    "deepseek_exception_does_not_expand_to_other_paid_providers": "TRUE; SEPARATE_PAID_API_ROUTE_POLICY_APPLIES_ONLY_AFTER_ITS_EVIDENCE_GATE",
     "canonical_router_survives_tab_change": true,
     "ci_execution_contract_survives_tab_change": true,
     "historical_deepseek_artifacts_do_not_become_authoritative_on_tab_change": true,
@@ -607,7 +629,12 @@
     "user_approved_video_baseline_survives_tab_change": true,
     "voicevox_runtime_bootstrap_survives_tab_change": true,
     "speed_first_video_delivery_must_be_read_before_media_planning": true,
-    "speed_first_delivery_must_be_read_before_media_planning": true
+    "speed_first_delivery_must_be_read_before_media_planning": true,
+    "paid_api_agent_route_gate_survives_tab_change": true,
+    "project_rule_precedence_survives_tab_change": true,
+    "public_publish_remains_blocked_until_destination_and_scope_are_present": true,
+    "existing_gcp_small_host_preflight_survives_tab_change": true,
+    "live_billing_credit_must_be_rechecked_before_persistent_activation": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",

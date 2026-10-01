@@ -31,7 +31,7 @@ class ModelRegistryTests(unittest.TestCase):
         validate_registry(self.registry)
         for role_name in self.registry["roles"]:
             self.assertNotIn("openrouter/free", role_candidates(self.registry, role_name))
-        self.assertFalse(self.registry["policy"]["allow_paid_models"])
+        self.assertTrue(self.registry["policy"]["allow_paid_models"])
         self.assertFalse(self.registry["policy"]["allow_generic_free_router"])
         self.assertIn("openrouter/free", GENERIC_FREE_IDS)
 
@@ -75,7 +75,7 @@ class ModelRegistryTests(unittest.TestCase):
             "ROLE_GOOGLE_GENERAL_COMMANDER",
         )
         self.assertEqual(result["status"], "blocked")
-        self.assertEqual(result["reason"], "no_current_zero_priced_role_candidate")
+        self.assertEqual(result["reason"], "no_current_eligible_role_candidate")
 
     def test_expected_phase6_candidates_are_unverified_and_not_routable(self):
         candidates = self.registry["expected_candidates"]
@@ -211,7 +211,7 @@ class ModelRegistryTests(unittest.TestCase):
                 "ROLE_GENERAL_COMMANDER",
             )
             self.assertEqual(result["status"], "blocked")
-            self.assertEqual(result["reason"], "no_current_zero_priced_role_candidate")
+            self.assertEqual(result["reason"], "no_current_eligible_role_candidate")
 
     def test_discovery_watch_never_activates_a_new_model(self):
         before = copy.deepcopy(self.registry)

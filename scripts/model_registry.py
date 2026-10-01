@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Role-based model registry and read-only catalog watcher.
 
-Model selection is deterministic and role-scoped.  This module never calls a
-model and never enables a paid route.  A caller must explicitly opt into a
-role and then pass a live catalog to resolve_role_model().
+Model selection is deterministic and role-scoped. This module never calls a
+model. Paid candidates require current price, matched benchmark, feature and
+budget evidence through the paid-agent route policy before route admission.
 """
 
 from __future__ import annotations
@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+
+from scripts.paid_agent_route_policy import evaluate_paid_candidate
 
 DEFAULT_REGISTRY_PATH = Path(__file__).resolve().parents[1] / "config" / "model_registry.json"
 ZERO_PRICES = {"0", "0.0", "0.00"}
@@ -79,8 +81,14 @@ def validate_registry(registry: Mapping[str, Any]) -> None:
         raise RegistryError("model record schema is missing")
     if set(record_schema.get("required_fields") or []) != set(MODEL_RECORD_FIELDS):
         raise RegistryError("model record schema fields are incomplete")
-    if policy.get("allow_paid_models") is not False:
-        raise RegistryError("paid models must remain disabled by default")
+    if policy.get("allow_paid_models") is not True:
+        raise RegistryError("paid model eligibility policy must be enabled")
+    if policy.get("free_only_mode") is not False:
+        raise RegistryError("global free-only mode conflicts with paid route eligibility")
+    if policy.get("paid_route_eligibility_policy") != "config/paid_agent_route_eligibility_policy.json":
+        raise RegistryError("paid route eligibility policy pointer is missing")
+    if policy.get("automatic_cross_role_fallback") is not False or policy.get("allow_paid_fallback") is not False or policy.get("auto_top_up") is not False:
+        raise RegistryError("fallback and auto top-up must remain disabled")
     if policy.get("allow_generic_free_router") is not False:
         raise RegistryError("generic free router is not allowed for commanders")
     roles = registry.get("roles")
@@ -374,14 +382,17 @@ def resolve_role_model(
     role_name: str,
     requested_model: str | None = None,
     *,
-    allow_paid: bool = False,
+    allow_paid: bool | None = None,
+    paid_evidence: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Resolve only an explicitly allowed candidate for one role.
+    """Resolve a registered role candidate; paid routes need complete evidence.
 
-    Paid entries, generic routers, missing entries, and cross-role IDs are
-    rejected.  The returned structure is safe to put in a non-secret packet.
+    This function makes no provider calls and never activates an inactive role.
+    allow_paid=False can narrow policy. Setting it True cannot bypass evidence.
     """
     role = role_config(registry, role_name)
+    policy = registry.get("policy", {})
+    paid_enabled = policy.get("allow_paid_models") is True and allow_paid is not False
     models = registry.get("models", {})
     listed = _listed_model_map(entries)
     if role.get("active") is not True:
@@ -405,6 +416,7 @@ def resolve_role_model(
             "candidates": [],
             "model": "",
             "paid_fallback": False,
+            "execution_allowed": False,
         }
     for model_id in candidates:
         if model_id in GENERIC_FREE_IDS or model_id not in listed:
@@ -417,49 +429,101 @@ def resolve_role_model(
         model_provider = metadata.get("provider_id", metadata.get("provider"))
         if expected_provider is not None and model_provider != expected_provider:
             continue
-        if not allow_paid and not _zero_priced(catalog_entry):
-            continue
-        if metadata.get("free_available") is not True and not allow_paid:
-            continue
-        if metadata.get("status") in {
-            "deprecated",
-            "disabled",
-            "candidate_paid_requires_approval",
-            "FREE_CATALOG_ONLY",
-            "FREE_ENDPOINT_UNAVAILABLE",
-            "FREE_AUTHENTICATION_FAILED",
-            "FREE_RATE_LIMITED",
-            "MODEL_NOT_FOUND",
-        } and not allow_paid:
-            continue
         lifecycle = str(metadata.get("lifecycle") or "UNKNOWN").upper()
-        if lifecycle not in PRIMARY_LIFECYCLES:
-            continue
-        if metadata.get("deprecated") is True:
+        if lifecycle not in PRIMARY_LIFECYCLES or metadata.get("deprecated") is True:
             continue
         if not _supports_required_features(role, catalog_entry, metadata):
+            continue
+        if _zero_priced(catalog_entry):
+            if metadata.get("free_available") is not True:
+                continue
+            if metadata.get("status") in {
+                "deprecated", "disabled", "candidate_paid_requires_approval",
+                "FREE_CATALOG_ONLY", "FREE_ENDPOINT_UNAVAILABLE",
+                "FREE_AUTHENTICATION_FAILED", "FREE_RATE_LIMITED", "MODEL_NOT_FOUND",
+            }:
+                continue
+            return {
+                "role": role_name,
+                "status": "ready",
+                "reason": "role_candidate_zero_priced",
+                "requested_model": requested_model or "",
+                "candidates": candidates,
+                "model": model_id,
+                "provider": metadata.get("provider", "unknown"),
+                "model_generation": metadata.get("model_generation", "unknown"),
+                "paid": False,
+                "paid_fallback": False,
+                "execution_allowed": True,
+            }
+        if not paid_enabled or not isinstance(paid_evidence, Mapping):
+            continue
+        decision = evaluate_paid_candidate(paid_evidence)
+        evidence_candidate = paid_evidence.get("candidate")
+        if not isinstance(evidence_candidate, Mapping):
+            continue
+        evidence_provider = evidence_candidate.get("provider_id")
+        if (
+            decision.get("allowed") is not True
+            or decision.get("model_id") != model_id
+            or evidence_provider != model_provider
+        ):
             continue
         return {
             "role": role_name,
             "status": "ready",
-            "reason": "role_candidate_zero_priced",
+            "reason": "paid_candidate_passed_deepseek_comparison_and_budget_gate",
             "requested_model": requested_model or "",
             "candidates": candidates,
             "model": model_id,
             "provider": metadata.get("provider", "unknown"),
             "model_generation": metadata.get("model_generation", "unknown"),
+            "paid": True,
             "paid_fallback": False,
+            "execution_allowed": True,
+            "eligibility": {
+                "policy": policy.get("paid_route_eligibility_policy"),
+                "price_profile": decision.get("price_profile"),
+                "workload_id": decision.get("workload_id"),
+                "candidate_total_cost_usd": decision.get("candidate_total_cost_usd"),
+                "baseline_total_cost_usd": decision.get("baseline_total_cost_usd"),
+                "quality_score_delta": decision.get("quality_score_delta"),
+            },
         }
     return {
         "role": role_name,
         "status": "blocked",
-        "reason": "no_current_zero_priced_role_candidate",
+        "reason": "no_current_eligible_role_candidate",
         "requested_model": requested_model or "",
         "candidates": candidates,
         "model": "",
         "paid_fallback": False,
+        "execution_allowed": False,
     }
-
+def lifecycle_guard(
+    registry: Mapping[str, Any],
+    model_id: str,
+    *,
+    for_primary: bool = False,
+) -> dict[str, Any]:
+    """Return a fail-closed lifecycle decision without changing the registry."""
+    models = registry.get("models", {})
+    metadata = models.get(model_id) if isinstance(models, Mapping) else None
+    if not isinstance(metadata, Mapping):
+        legacy_ids = {
+            item.get("id") for item in (registry.get("legacy") or [])
+            if isinstance(item, Mapping)
+        }
+        lifecycle = "DEPRECATED" if model_id in legacy_ids else "UNKNOWN"
+        return {"model_id": model_id, "lifecycle": lifecycle, "allowed": False, "reason": "model_not_registered"}
+    lifecycle = str(metadata.get("lifecycle") or "UNKNOWN").upper()
+    allowed = lifecycle in PRIMARY_LIFECYCLES if for_primary else lifecycle not in ROUTING_BLOCKED_LIFECYCLES
+    return {
+        "model_id": model_id,
+        "lifecycle": lifecycle,
+        "allowed": allowed,
+        "reason": "primary_lifecycle_allowed" if allowed else "lifecycle_fail_closed",
+    }
 
 def watch_catalog(registry: Mapping[str, Any], entries: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Produce a read-only drift report; it never changes active roles."""

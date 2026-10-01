@@ -58,7 +58,7 @@ def _supervisor_policy_ready(policy: Mapping[str, Any]) -> bool:
         and auth.get("authorized") is True
         and auth.get("persistent_for_allowed_scope") is True
         and precedence.get("scope") == "DEEPSEEK_PAID_SUPERVISORY_PATH_ONLY"
-        and provider.get("canonical_request_model") == "deepseek-v4-flash"
+        and provider.get("canonical_request_model") == "deepseek-flash"
         and safety.get("generic_paid_fallback") is False
         and safety.get("repository_write_by_deepseek") is False
         and safety.get("deploy") is False

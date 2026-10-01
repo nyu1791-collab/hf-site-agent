@@ -74,12 +74,15 @@ def validate_provider_registry(registry: Mapping[str, Any]) -> None:
     if not isinstance(policy, Mapping) or not isinstance(providers, Mapping):
         raise ProviderRegistryError("provider policy or providers are missing")
     for key, expected in (
-        ("free_only_mode", True), ("allow_paid_model", False),
+        ("free_only_mode", False), ("allow_paid_model", True),
         ("allow_paid_fallback", False), ("auto_top_up", False),
         ("generic_free_router_allowed_for_commanders", False),
+        ("paid_model_admission_requires_policy_gate", True),
     ):
         if policy.get(key) is not expected:
             raise ProviderRegistryError(f"unsafe provider policy: {key}")
+    if policy.get("paid_route_eligibility_policy") != "config/paid_agent_route_eligibility_policy.json":
+        raise ProviderRegistryError("paid route eligibility policy pointer is missing")
     if set(policy.get("commander_providers") or []) != COMMANDER_PROVIDER_IDS:
         raise ProviderRegistryError("commander provider boundary is invalid")
     if set(policy.get("worker_providers") or []) != WORKER_PROVIDER_IDS:
