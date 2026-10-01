@@ -682,6 +682,11 @@
     "status": "REPOSITORY_STAGING_FOUNDATION_ONLY",
     "live_rss_polling_connected": false,
     "vps_daemon_deployed": false,
-    "public_publish_authorized": false
+    "public_publish_authorized": false,
+    "source_ingress_policy": "config/media_source_ingress_policy.json",
+    "source_ingress_runtime": "scripts/media_source_ingress.py",
+    "one_shot_rss_to_preparation_inbox": true,
+    "scheduled_polling_deployed": false,
+    "script_voice_asset_e2e_connected": false
   }
 }

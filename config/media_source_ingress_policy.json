@@ -1,0 +1,23 @@
+{
+  "schema_version": "media-source-ingress-v1",
+  "status": "BOUNDED_RSS_INBOX_IMPLEMENTED",
+  "live_daemon_enabled": false,
+  "purpose": "Poll fixed official feeds into a deduplicated preparation inbox; never start rendering directly from a feed item.",
+  "max_response_bytes": 2097152,
+  "max_items_per_feed": 100,
+  "request_timeout_seconds": 8,
+  "feeds": [
+    {
+      "feed_id": "openai-news",
+      "url": "https://openai.com/news/rss.xml",
+      "allowed_hosts": ["openai.com"],
+      "enabled": true,
+      "purpose": "Official OpenAI newsroom updates"
+    }
+  ],
+  "inbox_state_before_preparation": "PREPARATION_REQUIRED",
+  "external_feed_text_is_untrusted": true,
+  "enqueue_only_after_prepared_media_manifest": true,
+  "stable_source_id": "SHA256_FEED_ID_AND_GUID_OR_CANONICAL_LINK",
+  "publisher_enabled": false
+}

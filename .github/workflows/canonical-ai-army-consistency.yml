@@ -29,6 +29,9 @@ on:
       - 'config/media_speed_quality_policy.json'
       - 'config/session_stream_resilience_policy.json'
       - 'config/media_automation_fast_path.json'
+      - 'config/media_source_ingress_policy.json'
+      - 'scripts/media_source_ingress.py'
+      - 'tests/test_media_source_ingress.py'
       - 'config/zundamon_news60_template.json'
       - 'config/media_performance_efficiency_policy.json'
       - 'scripts/media_performance_plan.py'
@@ -253,6 +256,7 @@ jobs:
             scripts/batch_media_scheduler.py \
             scripts/media_batch_command_center.py \
             scripts/durable_media_runner.py \
+            scripts/media_source_ingress.py \
             scripts/media_parallel_framework_mission.py \
             scripts/media_asset_resolver.py \
             scripts/parallel_framework_batch.py \
@@ -277,6 +281,7 @@ jobs:
           python -m json.tool config/media_speed_quality_policy.json >/dev/null
           python -m json.tool config/session_stream_resilience_policy.json >/dev/null
           python -m json.tool config/media_automation_fast_path.json >/dev/null
+          python -m json.tool config/media_source_ingress_policy.json >/dev/null
           python -m json.tool config/zundamon_news60_template.json >/dev/null
           python -m json.tool config/evidence_visual_static_character_policy.json >/dev/null
           python -m json.tool config/media_source_policy.json >/dev/null
@@ -442,6 +447,7 @@ jobs:
             tests.test_deepseek_json_guard \
             tests.test_batch_media_scheduler \
             tests.test_durable_media_runner \
+            tests.test_media_source_ingress \
             tests.test_media_batch_command_center \
             tests.test_media_batch_command_center_ffmpeg \
             tests.test_media_parallel_framework_mission \
@@ -455,4 +461,3 @@ jobs:
           test -z "${DEEPSEEK_API_KEY:-}"
           ! grep -q 'secrets.DEEPSEEK_API_KEY' .github/workflows/canonical-ai-army-consistency.yml
           echo 'PAID_CALLS=0'
-

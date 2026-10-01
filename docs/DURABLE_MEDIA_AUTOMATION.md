@@ -11,8 +11,9 @@ This layer makes the existing media stack recoverable without turning the projec
 ## Current runtime boundary
 
 - The runner currently executes a prepared `MEDIA_BATCH_RUN`; it is not yet an end-to-end news video producer.
-- No live RSS/Web polling adapter or production VPS service is connected by this document.
-- The production sequence still needs source intake, importance/dedupe, script and tone, VOICEVOX, rights-cleared assets, and render integration.
+- `scripts/media_source_ingress.py poll` performs a bounded one-shot poll of the fixed official OpenAI RSS feed and stores new items in SQLite as `PREPARATION_REQUIRED`.
+- Polling is not scheduled as a daemon. Production VPS service, script/tone generation, VOICEVOX, and rights-cleared news visual acquisition are still unconnected.
+- The production sequence still needs scheduled source selection, script and tone, VOICEVOX, rights-cleared news assets, and render integration.
 - Public posting is outside this runner. Success means only `READY_TO_PUBLISH`.
 
 ## Fast path (target architecture)
@@ -57,6 +58,24 @@ python scripts/durable_media_runner.py --db runtime/media-queue.sqlite3 --worksp
 Newly enqueued work receives a content-addressed, workspace-contained manifest snapshot. Relative paths are resolved using the same base as the renderer, then frozen to resolved paths. Input file hashes remain checked by the media command center. Existing queued jobs from earlier runner versions are pinned on their first claim, so a code update does not discard the queue. One runner lock is held per workspace; use one durable runner process for a workspace until a shared resource governor is added.
 
 The runner's `health` command reports queue counts, expired leases and oldest pending age. It does not prove that an external VPS supervisor, VOICEVOX, RSS polling or platform credentials are healthy.
+
+## One-shot RSS intake
+
+Initialize the durable database, then poll the fixed feed. Repeating the poll does not duplicate inbox rows:
+
+```bash
+python scripts/durable_media_runner.py --db runtime/media-queue.sqlite3 --workspace . init
+python -m scripts.media_source_ingress --db runtime/media-queue.sqlite3 poll --feed-id openai-news
+python -m scripts.media_source_ingress --db runtime/media-queue.sqlite3 status
+```
+
+New records stay in `PREPARATION_REQUIRED`; polling never creates render jobs. After a rights-verified media manifest and its input files are ready, create a typed job spec whose `source_id` matches the inbox row, then promote it:
+
+```bash
+python -m scripts.media_source_ingress --db runtime/media-queue.sqlite3 prepare --source-id <stable-source-id> --job runtime/prepared-job.json --workspace work
+```
+
+The first source adapter is deliberately limited to one fixed official feed. Feed failures are reported per source; no arbitrary URL is accepted from a job. A scheduled daemon and automated script/voice/asset preparation remain future work.
 
 ## Implementation status and next stages
 

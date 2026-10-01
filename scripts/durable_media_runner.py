@@ -144,6 +144,8 @@ def _snapshot_manifest(workspace: Path, manifest_path: Path, output_override: An
     for index, row in enumerate(jobs):
         if not isinstance(row, dict):
             raise DurableRunnerError(f"manifest.jobs[{index}] must be an object")
+        if row.get("rights_verified") is not True:
+            raise DurableRunnerError(f"manifest.jobs[{index}] rights must be verified before enqueue")
         source = _workspace_path(workspace, manifest_path.parent / str(row.get("input_path") or ""), must_exist=True)
         row["input_path"] = str(source)
         name = str(row.get("output_name") or "")
@@ -704,4 +706,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

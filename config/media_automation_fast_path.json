@@ -20,8 +20,11 @@
     "source_ingress": {
       "implementation": "DETERMINISTIC_RSS_OR_WEB_ADAPTER_OUTSIDE_AGENT_COUNT",
       "rule": "Fetch and normalize new text, assign a stable source_id, then enqueue only typed work. Do not create a dedicated AI agent just to poll feeds.",
-      "dedupe_owner": "SQLITE_UNIQUE_DEDUPE_KEY",
-      "runtime_status": "POLICY_DEFINED_ADAPTER_NOT_CONNECTED",
+      "dedupe_owner": "SQLITE_UNIQUE_SOURCE_INBOX_AND_JOB_KEY",
+      "runtime": "scripts/media_source_ingress.py",
+      "runtime_policy": "config/media_source_ingress_policy.json",
+      "runtime_status": "ONE_SHOT_OFFICIAL_RSS_TO_PREPARATION_INBOX_IMPLEMENTED",
+      "live_scheduler_or_vps_daemon": false,
       "must_stop_at": "PREPARATION_REQUIRED_UNTIL_SCRIPT_VOICE_ASSETS_AND_RIGHTS_ARE_READY"
     },
     "script_and_tone": {
@@ -81,6 +84,8 @@
     "lease_expiry_fences_heartbeat_and_terminal_writes": true,
     "successful_handler_module_launch": true,
     "live_rss_polling_connected": false,
+    "one_shot_rss_ingress_to_preparation_inbox": true,
+    "automatic_script_voice_asset_stages_connected": false,
     "vps_daemon_deployed": false
   },
   "minimum_fatal_gates_that_speed_may_not_remove": [
