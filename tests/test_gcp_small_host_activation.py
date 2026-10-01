@@ -2,11 +2,12 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import subprocess
 import tempfile
 from datetime import datetime, timedelta, timezone
 import unittest
 
-from scripts.install_gcp_small_host_services import preflight
+from scripts.install_gcp_small_host_services import preflight, _worktree_has_unapproved_changes
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +51,72 @@ class GcpSmallHostActivationTests(unittest.TestCase):
         engine = home / ".local/share/voicevox_engine/linux-cpu-x64"
         engine.mkdir(parents=True, exist_ok=True)
         return host["target"]["expected_instance_name"]
+
+    def _git_worktree(self, root: Path):
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "config").mkdir(parents=True, exist_ok=True)
+        policy = json.loads((ROOT / "config/media_small_host_policy.json").read_text(encoding="utf-8"))
+        (root / "config/media_small_host_policy.json").write_text(json.dumps(policy), encoding="utf-8")
+        subprocess.run(["git", "-C", str(root), "init", "--quiet"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["git", "-C", str(root), "config", "user.email", "test@example.invalid"], check=True)
+        subprocess.run(["git", "-C", str(root), "config", "user.name", "Preflight Test"], check=True)
+        subprocess.run(["git", "-C", str(root), "add", "config/media_small_host_policy.json"], check=True)
+        subprocess.run(["git", "-C", str(root), "commit", "--quiet", "-m", "test policy"], check=True)
+
+    def test_worktree_allows_only_known_untracked_runtime_artifacts(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            self._git_worktree(root)
+            artifacts = (
+                "runtime/media-queue.sqlite3",
+                "runtime/voice-cache/audio.wav",
+                ".media-cache/assets/image.bin",
+                "scripts/__pycache__/installer.pyc",
+                "tests/__pycache__/test_installer.pyc",
+            )
+            for relative in artifacts:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"preserve-this-artifact")
+            queue = root / "runtime/media-queue.sqlite3"
+            before = queue.read_bytes()
+            self.assertFalse(_worktree_has_unapproved_changes(root))
+            self.assertEqual(queue.read_bytes(), before)
+
+    def test_worktree_still_blocks_unknown_untracked_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            self._git_worktree(root)
+            (root / "operator-notes.txt").write_text("unreviewed", encoding="utf-8")
+            self.assertTrue(_worktree_has_unapproved_changes(root))
+
+    def test_worktree_blocks_symlinked_allowed_roots(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            root = base / "repo"
+            self._git_worktree(root)
+            external = base / "external-runtime"
+            external.mkdir()
+            (external / "media-queue.sqlite3").write_bytes(b"preserve")
+            (root / "runtime").symlink_to(external, target_is_directory=True)
+            self.assertTrue(_worktree_has_unapproved_changes(root))
+
+    def test_worktree_does_not_normalize_backslash_into_allowed_path(self):
+        if os.name != "posix":
+            self.skipTest("The production host is Linux and supports literal backslashes in filenames.")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            self._git_worktree(root)
+            (root / r"runtime\escaped-file").write_text("unreviewed", encoding="utf-8")
+            self.assertTrue(_worktree_has_unapproved_changes(root))
+
+    def test_worktree_still_blocks_tracked_modifications(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            self._git_worktree(root)
+            policy = root / "config/media_small_host_policy.json"
+            policy.write_text(policy.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+            self.assertTrue(_worktree_has_unapproved_changes(root))
 
     def test_preflight_accepts_only_existing_vm_and_ready_local_prerequisites(self):
         with tempfile.TemporaryDirectory() as temp:

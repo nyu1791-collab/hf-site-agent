@@ -19,6 +19,16 @@
     "create_duplicate_source_poller": false,
     "move_or_reinitialize_existing_database": false
   },
+  "worktree_preflight": {
+    "allowed_untracked_roots": [
+      ".media-cache/",
+      "runtime/",
+      "scripts/__pycache__/",
+      "tests/__pycache__/"
+    ],
+    "tracked_changes_block": true,
+    "unknown_untracked_block": true
+  },
   "execution": {
     "coordinator_and_local_renderer_share_one_vm": true,
     "external_llm_calls_are_remote": true,

@@ -175,6 +175,68 @@ def preflight(
     return sorted(set(blockers))
 
 
+def _allowed_untracked_artifact(root: Path, path: str, allowed_roots: list[str]) -> bool:
+    # Git reports POSIX separators on this Linux host. A backslash is a
+    # literal filename character here, so reject it instead of normalizing it
+    # into a potentially allowlisted directory.
+    if "\\" in path:
+        return False
+    normalized = path
+    parts = normalized.split("/")
+    if not normalized or normalized.startswith("/") or any(part in {"", ".", ".."} for part in parts):
+        return False
+    for allowed_root in allowed_roots:
+        allowed = allowed_root.rstrip("/")
+        if (
+            not allowed or "\\" in allowed or allowed.startswith("/")
+            or any(part in {"", ".", ".."} for part in allowed.split("/"))
+        ):
+            continue
+        if normalized == allowed or normalized.startswith(allowed + "/"):
+            candidate = root
+            for part in parts:
+                candidate = candidate / part
+                if candidate.is_symlink():
+                    return False
+            return True
+    return False
+
+
+def _worktree_has_unapproved_changes(root: Path = ROOT) -> bool:
+    """Block tracked edits and unknown untracked paths, but preserve runtime/cache artifacts."""
+    try:
+        policy = _read_json(root / "config/media_small_host_policy.json")
+        controls = policy.get("worktree_preflight", {})
+        allowed_roots = controls.get("allowed_untracked_roots")
+        if (
+            controls.get("tracked_changes_block") is not True
+            or controls.get("unknown_untracked_block") is not True
+            or not isinstance(allowed_roots, list)
+            or not allowed_roots
+            or any(not isinstance(path, str) for path in allowed_roots)
+        ):
+            return True
+        result = subprocess.run(
+            ["git", "-C", str(root), "status", "--porcelain=v1", "-z", "--untracked-files=all"],
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            timeout=5, check=False,
+        )
+        if result.returncode != 0:
+            return True
+        for record in result.stdout.split(b"\0"):
+            if not record:
+                continue
+            if len(record) < 4 or record[2:3] != b" ":
+                return True
+            status = os.fsdecode(record[:2])
+            path = os.fsdecode(record[3:])
+            if status != "??" or not _allowed_untracked_artifact(root, path, allowed_roots):
+                return True
+        return False
+    except Exception:
+        return True
+
+
 def _run(argv: list[str]) -> bool:
     completed = subprocess.run(
         argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
@@ -221,12 +283,8 @@ def main() -> int:
             ["git", "-C", str(root), "branch", "--show-current"],
             stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=5, check=False,
         )
-        dirty_result = subprocess.run(
-            ["git", "-C", str(root), "status", "--porcelain"],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=5, check=False,
-        )
         branch = branch_result.stdout.strip() if branch_result.returncode == 0 else ""
-        dirty = dirty_result.returncode != 0 or bool(dirty_result.stdout.strip())
+        dirty = _worktree_has_unapproved_changes(root)
         metadata = _metadata_values()
         blockers = preflight(instance_name=metadata.get("instance_name"), project_id=metadata.get("project_id"), branch=branch, dirty=dirty)
     except Exception:
