@@ -105,6 +105,22 @@
       "voice_audio_and_timing_checkpoint_reuse": true,
       "persistent_voice_cache_environment": "VOICEVOX_CACHE_DIR",
       "remote_voicevox_transport": "SSH_REVERSE_TUNNEL_TO_LOOPBACK_ONLY",
+      "small_host_profile": "config/media_small_host_policy.json",
+      "small_host_operations_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
+      "small_host_target": "E2_SMALL_2_GIB_SHARED_CORE",
+      "existing_vps_rss_cron_is_preserved": true,
+      "single_host_user_services": [
+        "deploy/systemd/user/hf-site-agent-media-news.service",
+        "deploy/systemd/user/hf-site-agent-media-news.timer",
+        "deploy/systemd/user/hf-site-agent-media-render@.service"
+      ],
+      "local_voicevox_process_is_job_scoped": true,
+      "local_render_is_one_shot_after_rights_review": true,
+      "small_host_timer_enabled_by_default": false,
+      "resource_backpressure_policy": "config/media_news_pipeline_policy.json#/resource_backpressure",
+      "one_unresolved_package_at_human_gate": true,
+      "minimum_free_disk_bytes": 2147483648,
+      "automatic_artifact_deletion": false,
       "optional_remote_render_handoff": {
         "policy": "config/media_render_worker_policy.json",
         "coordinator_transport": "scripts/media_render_transport.py",

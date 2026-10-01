@@ -4,7 +4,7 @@ The Engine is an HTTP service. Each host must verify its own Engine binary, vers
 
 ## Local mode
 
-By default, `scripts/with_local_voicevox.sh` starts the configured Engine from `VOICEVOX_ENGINE_DIR` on `127.0.0.1:50021`, reuses it if already healthy, checks `/version` and `/speakers`, and keeps it alive for the child command. The wrapper does not bind the Engine to a public network interface.
+By default, `scripts/with_local_voicevox.sh` starts the configured Engine from `VOICEVOX_ENGINE_DIR` on `127.0.0.1:50021`, reuses it if already healthy, checks `/version` and `/speakers`, and keeps it alive for the child command. An Engine started by the wrapper is stopped when that command exits or is interrupted; a healthy Engine that was already running is borrowed and left untouched. The default CPU thread count is one for small shared-core VMs. The wrapper does not bind the Engine to a public network interface.
 
 ```bash
 bash scripts/with_local_voicevox.sh -- python scripts/video_creation_admission.py --runtime

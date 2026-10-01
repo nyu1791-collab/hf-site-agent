@@ -21,6 +21,17 @@
     "remote_voicevox_environment": "VOICEVOX_REMOTE_TUNNEL=1",
     "remote_url_must_be_loopback_http": true
   },
+  "resource_backpressure": {
+    "maximum_unresolved_packages_per_queue": 1,
+    "pause_states": [
+      "VOICE_BLOCKED",
+      "ASSET_REVIEW_REQUIRED",
+      "NO_CLEARED_IMAGES"
+    ],
+    "minimum_workspace_free_bytes": 2147483648,
+    "automatic_artifact_deletion": false,
+    "pause_before_new_api_or_voice_work": true
+  },
   "daily_openrouter_media_call_cap": 5,
   "at_daily_cap": "LEAVE_ITEM_QUEUED_FOR_NEXT_UTC_DAY",
   "require_current_exact_free_model_catalog": true,

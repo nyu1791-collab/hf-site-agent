@@ -5,6 +5,7 @@ import os
 import subprocess
 import tempfile
 import threading
+from types import SimpleNamespace
 import unittest
 import wave
 import array
@@ -106,11 +107,15 @@ class MediaNewsAutomationTests(unittest.TestCase):
         pipeline_policy=json.loads((root/"config/media_news_pipeline_policy.json").read_text())
         fast_path=json.loads((root/"config/media_automation_fast_path.json").read_text())
         read_gate=json.loads((root/"config/media_command_read_gate.json").read_text())
+        small_host=json.loads((root/"config/media_small_host_policy.json").read_text())
         self.assertEqual(source_policy["poll_interval_seconds"],300)
         self.assertEqual(source_policy["stale_after_seconds"],600)
         self.assertEqual(pipeline_policy["poll_interval_seconds"],300)
         self.assertEqual(pipeline_policy["voice_retry"]["maximum_attempts"],3)
         self.assertEqual(pipeline_policy["voice_retry"]["retry_delays_seconds"],[60,300])
+        self.assertEqual(pipeline_policy["resource_backpressure"]["minimum_workspace_free_bytes"],2*1024**3)
+        self.assertEqual(pipeline_policy["resource_backpressure"]["maximum_unresolved_packages_per_queue"],1)
+        self.assertFalse(pipeline_policy["resource_backpressure"]["automatic_artifact_deletion"])
         self.assertEqual(pipeline_policy["voice_checkpoint"]["persistent_wav_cache_environment"],"VOICEVOX_CACHE_DIR")
         self.assertIn("--interval-seconds 300",(root/"deploy/systemd/hf-site-agent-media-source.service").read_text())
         self.assertIn("OnUnitInactiveSec=5min",(root/"deploy/systemd/hf-site-agent-media-news.timer").read_text())
@@ -122,10 +127,52 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertFalse(remote["automatic_retry"])
         self.assertFalse(remote["automatic_local_fallback"])
         self.assertFalse(remote["publishing_enabled"])
+        self.assertEqual(small_host["target"]["machine_type"],"e2-small")
+        self.assertEqual(small_host["target"]["memory_gib"],2)
+        self.assertFalse(small_host["execution"]["preparation_timer_enabled_by_default"])
+        self.assertFalse(small_host["execution"]["render_timer_enabled_by_default"])
         news_read_set=set(read_gate["trigger_sets"]["VIDEO_CREATION"]["conditional"]["if_user_requests_article_rss_or_resident_news_video_automation"])
         self.assertTrue({"config/media_render_worker_policy.json","scripts/media_render_transport.py",
             "scripts/media_render_worker.py","deploy/systemd/hf-render-worker-tunnel.service",
-            "deploy/systemd/hf-site-agent-media-render@.service"}.issubset(news_read_set))
+            "deploy/systemd/hf-site-agent-media-render@.service",
+            "config/media_small_host_policy.json","docs/GCP_SMALL_HOST_DEPLOYMENT.md",
+            "deploy/systemd/user/hf-site-agent-media-news.service",
+            "deploy/systemd/user/hf-site-agent-media-news.timer",
+            "deploy/systemd/user/hf-site-agent-media-render@.service",
+            "tests/test_media_small_host_deployment.py","tests/test_voicevox_lifecycle.py"}.issubset(news_read_set))
+
+    def test_human_review_state_pauses_new_preparation(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            ids=["1"*64,"2"*64]
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":f"https://openai.com/news/{index}","summary":"","published":""}
+                for index,source_id in enumerate(ids)])
+            conn.execute("UPDATE source_inbox SET state='ASSET_REVIEW_REQUIRED' WHERE source_id=?",(ids[0],))
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.process_source",side_effect=AssertionError("must wait for review")
+            ):
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"BLOCKED_PENDING_HUMAN_ACTION")
+            self.assertEqual(result["source_id"],ids[0])
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox WHERE source_id=?",(ids[1],)).fetchone()["state"],"PREPARATION_REQUIRED")
+            conn.close()
+
+    def test_low_disk_pauses_before_api_or_voice_work_without_mutating_queue(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            source_id="3"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":"https://openai.com/news/x","summary":"","published":""}])
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",return_value=SimpleNamespace(free=1024**3)
+            ), patch("scripts.media_news_pipeline.process_source",side_effect=AssertionError("must wait for space")):
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"BLOCKED_LOW_DISK_SPACE")
+            self.assertEqual(result["minimum_free_bytes"],2*1024**3)
+            self.assertFalse(result["automatic_deletion"])
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()["state"],"PREPARATION_REQUIRED")
+            conn.close()
 
     def test_render_assets_require_selection_rights_basis_and_credit(self):
         with tempfile.TemporaryDirectory() as td:
@@ -313,7 +360,7 @@ class MediaNewsAutomationTests(unittest.TestCase):
                 self.assertEqual(first["attempts"],1)
                 self.assertGreaterEqual(first["retry_after_seconds"],58)
                 self.assertLessEqual(first["retry_after_seconds"],60)
-                self.assertEqual(_process_next(conn,workspace,min_seconds=60,max_seconds=300)["status"],"IDLE")
+                self.assertEqual(_process_next(conn,workspace,min_seconds=60,max_seconds=300)["status"],"VOICE_RETRY_WAIT")
                 conn.execute("UPDATE media_news_stage_retry SET next_attempt_at=0 WHERE source_id=?",(source_id,))
                 second=_process_next(conn,workspace,min_seconds=60,max_seconds=300)
                 self.assertEqual(second["attempts"],2)

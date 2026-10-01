@@ -5,7 +5,7 @@ set -euo pipefail
 # tool runners isolate the network namespace for each command invocation.
 ENGINE_DIR="${VOICEVOX_ENGINE_DIR:-/tmp/devday-voicevox/extracted/linux-cpu-x64}"
 BASE_URL="${VOICEVOX_URL:-http://127.0.0.1:50021}"
-THREADS="${VV_CPU_NUM_THREADS:-4}"
+THREADS="${VV_CPU_NUM_THREADS:-1}"
 REMOTE_TUNNEL="${VOICEVOX_REMOTE_TUNNEL:-0}"
 ENGINE_PID=""
 ENGINE_LOG=""
@@ -13,13 +13,21 @@ ENGINE_LOG=""
 cleanup() {
   if [[ -n "$ENGINE_PID" ]]; then
     kill "$ENGINE_PID" 2>/dev/null || true
+    # Do not leave an owned engine behind if the wrapper is interrupted.
+    for _ in {1..20}; do
+      if ! kill -0 "$ENGINE_PID" 2>/dev/null; then break; fi
+      sleep 0.1
+    done
+    kill -KILL "$ENGINE_PID" 2>/dev/null || true
     wait "$ENGINE_PID" 2>/dev/null || true
   fi
   if [[ -n "$ENGINE_LOG" ]]; then
     rm -f "$ENGINE_LOG"
   fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [[ "${1:-}" == "--" ]]; then
   shift

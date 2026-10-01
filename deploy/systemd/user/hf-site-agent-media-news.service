@@ -1,0 +1,26 @@
+[Unit]
+Description=Prepare one queued article with remote script API and on-demand local VOICEVOX
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/hf-site-agent
+Environment=PYTHONUNBUFFERED=1
+Environment=VV_CPU_NUM_THREADS=1
+Environment=VOICEVOX_ENGINE_DIR=%h/.local/share/voicevox_engine/linux-cpu-x64
+Environment=VOICEVOX_CACHE_DIR=%h/hf-site-agent/runtime/voice-cache
+Environment=TMPDIR=/tmp
+EnvironmentFile=-%h/.config/hf-site-agent/media.env
+ExecStartPre=/usr/bin/mkdir -p %h/hf-site-agent/runtime/voice-cache
+ExecStart=/usr/bin/python3 -m scripts.media_news_pipeline --db %h/hf-site-agent/runtime/media-queue.sqlite3 --workspace %h/hf-site-agent/runtime process-next --min-seconds 60 --max-seconds 300
+MemoryHigh=1300M
+MemoryMax=1700M
+OOMPolicy=stop
+Nice=5
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+TimeoutStartSec=1800
+TimeoutStopSec=45
+KillMode=control-group

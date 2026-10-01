@@ -1,0 +1,59 @@
+{
+  "schema_version": "media-small-host-policy-v1",
+  "status": "REPOSITORY_CONFIGURED_NOT_DEPLOYED",
+  "target": {
+    "provider": "GOOGLE_CLOUD_COMPUTE_ENGINE",
+    "machine_type": "e2-small",
+    "memory_gib": 2,
+    "sustained_vcpu": 0.5,
+    "gpu_required": false,
+    "region": "KEEP_CURRENT_VM_REGION"
+  },
+  "runtime_layout": {
+    "repository": "~/hf-site-agent",
+    "database": "~/hf-site-agent/runtime/media-queue.sqlite3",
+    "workspace": "~/hf-site-agent/runtime",
+    "voice_cache": "~/hf-site-agent/runtime/voice-cache",
+    "existing_rss_cron_is_authoritative": true,
+    "create_duplicate_source_poller": false,
+    "move_or_reinitialize_existing_database": false
+  },
+  "execution": {
+    "coordinator_and_local_renderer_share_one_vm": true,
+    "external_llm_calls_are_remote": true,
+    "voicevox_lifecycle": "START_ONLY_DURING_VOICE_SYNTHESIS_AND_STOP_IF_WRAPPER_OWNS_PROCESS",
+    "voicevox_cpu_threads": 1,
+    "render_lifecycle": "ONE_LOCAL_ONESHOT_AFTER_HUMAN_RIGHTS_REVIEW",
+    "media_jobs_per_vm_at_a_time": 1,
+    "database_single_writer_lock_required": true,
+    "render_timer_enabled_by_default": false,
+    "preparation_timer_enabled_by_default": false,
+    "public_publish_enabled": false
+  },
+  "resource_controls": {
+    "service_memory_high_mib": 1300,
+    "service_memory_max_mib": 1700,
+    "minimum_workspace_free_bytes": 2147483648,
+    "maximum_unresolved_packages_per_queue": 1,
+    "automatic_artifact_deletion": false,
+    "stop_service_on_oom": true,
+    "allow_parallel_voice_and_render": false,
+    "performance_measurement_required_before_claiming_five_minute_sla": true
+  },
+  "provider_and_cost_gates": {
+    "openrouter_exact_free_route_only": true,
+    "daily_model_call_cap": 5,
+    "paid_fallback_allowed": false,
+    "automatic_top_up": false,
+    "image_generation_allowed": false,
+    "gcp_credits_must_not_be_treated_as_openrouter_credit": true,
+    "gpu_vm_needed_for_initial_configuration": false
+  },
+  "verification": {
+    "engine_health_required_before_synthesis": true,
+    "approved_shell_and_font_required_before_render": true,
+    "rights_evidence_and_credit_required_before_render": true,
+    "ffprobe_output_check_required": true,
+    "live_vm_status": "NOT_VERIFIED"
+  }
+}

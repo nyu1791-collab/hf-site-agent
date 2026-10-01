@@ -105,6 +105,7 @@
           "config/media_automation_fast_path.json",
           "config/media_news_pipeline_policy.json",
           "config/media_render_worker_policy.json",
+          "config/media_small_host_policy.json",
           "config/media_source_ingress_policy.json",
           "scripts/media_source_ingress.py",
           "scripts/media_source_daemon.py",
@@ -113,6 +114,7 @@
           "scripts/media_render_worker.py",
           "scripts/durable_media_runner.py",
           "docs/DURABLE_MEDIA_AUTOMATION.md",
+          "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
           "deploy/systemd/hf-site-agent-media-source.service",
           "deploy/systemd/hf-site-agent-media-news.service",
           "deploy/systemd/hf-site-agent-media-news.timer",
@@ -121,10 +123,15 @@
           "deploy/systemd/hf-render-worker-tunnel.service",
           "deploy/systemd/hf-site-agent-media-render@.service",
           "deploy/systemd/hf-site-agent-media-render-check.service",
+          "deploy/systemd/user/hf-site-agent-media-news.service",
+          "deploy/systemd/user/hf-site-agent-media-news.timer",
+          "deploy/systemd/user/hf-site-agent-media-render@.service",
           "docs/VOICEVOX_RUNTIME.md",
           "scripts/with_local_voicevox.sh",
           "scripts/synthesize_longform_voicevox.py",
-          "tests/test_media_news_automation.py"
+          "tests/test_media_news_automation.py",
+          "tests/test_media_small_host_deployment.py",
+          "tests/test_voicevox_lifecycle.py"
         ]
       }
     },

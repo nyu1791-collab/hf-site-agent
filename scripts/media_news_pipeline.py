@@ -25,6 +25,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import array
+import shutil
 import wave
 from contextlib import contextmanager
 from html.parser import HTMLParser
@@ -693,13 +694,35 @@ def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int
         next_attempt_at REAL NOT NULL, last_error_type TEXT NOT NULL,
         PRIMARY KEY(source_id,stage))""")
     now = time.time()
-    row = conn.execute("""SELECT s.source_id,s.state FROM source_inbox s
-        LEFT JOIN media_news_stage_retry r ON r.source_id=s.source_id AND r.stage='VOICE'
-        WHERE s.state IN ('PREPARATION_REQUIRED','VOICE_PENDING')
-        AND (s.state='PREPARATION_REQUIRED' OR r.next_attempt_at IS NULL OR r.next_attempt_at<=?)
-        ORDER BY s.created_at LIMIT 1""", (now,)).fetchone()
+    pause_states = tuple(PIPELINE_POLICY["resource_backpressure"]["pause_states"])
+    placeholders = ",".join("?" for _ in pause_states)
+    blocker = conn.execute(
+        f"SELECT source_id,state FROM source_inbox WHERE state IN ({placeholders}) ORDER BY created_at LIMIT 1",
+        pause_states,
+    ).fetchone()
+    if blocker is not None:
+        return {"status":"BLOCKED_PENDING_HUMAN_ACTION", "source_id":blocker["source_id"],
+            "state":blocker["state"], "preparation_paused":True, "public_publish_enabled":False}
+    pending_voice = conn.execute("SELECT source_id,state FROM source_inbox WHERE state='VOICE_PENDING' ORDER BY created_at LIMIT 1").fetchone()
+    if pending_voice is not None:
+        retry = conn.execute("SELECT next_attempt_at FROM media_news_stage_retry WHERE source_id=? AND stage='VOICE'",
+            (pending_voice["source_id"],)).fetchone()
+        if retry is not None and float(retry["next_attempt_at"]) > now:
+            return {"status":"VOICE_RETRY_WAIT", "source_id":pending_voice["source_id"],
+                "retry_after_seconds":int(float(retry["next_attempt_at"])-now),
+                "preparation_paused":True, "public_publish_enabled":False}
+        row = pending_voice
+    else:
+        row = conn.execute("SELECT source_id,state FROM source_inbox WHERE state='PREPARATION_REQUIRED' ORDER BY created_at LIMIT 1").fetchone()
     if row is None:
         return {"status":"IDLE"}
+    disk_anchor = workspace if workspace.exists() else workspace.parent
+    free_bytes = shutil.disk_usage(disk_anchor).free
+    minimum_free_bytes = int(PIPELINE_POLICY["resource_backpressure"]["minimum_workspace_free_bytes"])
+    if free_bytes < minimum_free_bytes:
+        return {"status":"BLOCKED_LOW_DISK_SPACE", "source_id":row["source_id"],
+            "free_bytes":free_bytes, "minimum_free_bytes":minimum_free_bytes,
+            "preparation_paused":True, "automatic_deletion":False, "public_publish_enabled":False}
     if not os.environ.get("OPENROUTER_API_KEY") and row["state"] == "PREPARATION_REQUIRED":
         return {"status":"BLOCKED_CREDENTIAL_NOT_CONFIGURED"}
     if row["state"] == "PREPARATION_REQUIRED" and _media_calls_used_today(conn) >= int(PIPELINE_POLICY["daily_openrouter_media_call_cap"]):
@@ -761,6 +784,11 @@ def _requeue_voice(conn: sqlite3.Connection, workspace: Path, source_id: str) ->
     return {"status":"VOICE_REQUEUED", "source_id":source_id, "public_publish_enabled":False}
 
 
+def _render_asset_from_env(name: str) -> Path | None:
+    value = os.environ.get(name, "").strip()
+    return Path(value).expanduser() if value else None
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--db", type=Path, required=True)
@@ -776,7 +804,8 @@ def main() -> int:
     retry_voice = sub.add_parser("retry-voice", help="requeue a VOICE_BLOCKED package after repairing its VOICEVOX connection")
     retry_voice.add_argument("--source-id", required=True)
     render = sub.add_parser("render"); render.add_argument("--package",type=Path,required=True)
-    render.add_argument("--shell",type=Path); render.add_argument("--font",type=Path)
+    render.add_argument("--shell",type=Path,default=_render_asset_from_env("MEDIA_RENDER_SHELL"))
+    render.add_argument("--font",type=Path,default=_render_asset_from_env("MEDIA_RENDER_FONT"))
     render.add_argument("--remote-render",action="store_true",help="send this reviewed package once through the loopback SSH render tunnel")
     render.add_argument("--worker-url",help="loopback endpoint; defaults to MEDIA_RENDER_WORKER_URL or 127.0.0.1:18765")
     args = p.parse_args()

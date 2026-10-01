@@ -562,6 +562,21 @@
       300
     ],
     "voice_block_recovery_command": "retry-voice",
+    "small_host_profile": "config/media_small_host_policy.json",
+    "small_host_operations_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
+    "small_host_target_machine_type": "e2-small",
+    "small_host_target_memory_gib": 2,
+    "existing_rss_cron_preserved": true,
+    "local_news_user_service_template": "deploy/systemd/user/hf-site-agent-media-news.service",
+    "local_news_user_timer_template": "deploy/systemd/user/hf-site-agent-media-news.timer",
+    "local_render_user_service_template": "deploy/systemd/user/hf-site-agent-media-render@.service",
+    "local_voicevox_starts_only_for_synthesis": true,
+    "local_renderer_is_on_demand": true,
+    "queue_backpressure": "config/media_news_pipeline_policy.json#/resource_backpressure",
+    "one_unresolved_package_per_queue": true,
+    "minimum_free_disk_bytes": 2147483648,
+    "automatic_artifact_deletion": false,
+    "local_small_host_live_status": "IMPLEMENTED_NOT_DEPLOYED",
     "final_ffmpeg_render_offloaded": false,
     "external_renderer_worker_connected": false
   }

@@ -1,11 +1,14 @@
 # Durable Media Automation — Small Coordinator, External Media Worker
 
+For the single-VM 2 GiB layout that preserves the existing `runtime/media-queue.sqlite3`, see [GCP_SMALL_HOST_DEPLOYMENT.md](GCP_SMALL_HOST_DEPLOYMENT.md). That local setup is the primary fit when no separate Linux worker is available; the remote renderer below is optional.
+
 ## What this branch implements
 
 - `scripts/media_source_daemon.py` polls the configured official RSS feed every 5 minutes using conditional requests, normalizes entries and deduplicates them into SQLite/WAL. Polling only creates inbox records; it does not start a render or publish.
 - `scripts/media_news_pipeline.py process-next` handles at most one queued article per run: fetch the allowlisted article, make one exact-`:free` script request, synthesize narration, and download image candidates. The daily model-call cap, zero-cost response check, and no-paid-fallback rule remain active.
 - VOICEVOX runs locally by default. An optional SSH reverse tunnel can move VOICEVOX inference to an already available computer while the coordinator calls only a loopback URL. The tunnel is optional and has not been connected to a live host in this change.
 - Audio and timing are hash-checked and reused when their inputs are unchanged. A VOICEVOX failure retries after 60 seconds and 5 minutes, then moves the item to `VOICE_BLOCKED`. Once the connection is repaired, requeue that item with the `retry-voice` subcommand.
+- Queue preparation pauses at the first voice failure or human rights-review boundary, and when workspace free disk falls below 2 GiB. It does not delete packages to recover space.
 - The systemd preparation service stores per-line WAV cache data under `/var/lib/hf-site-agent/voice-cache`, outside the read-only repository checkout. Local deployments can set `VOICEVOX_CACHE_DIR` to another persistent writable directory.
 - Downloaded images stay `REVIEW_REQUIRED`. A human must record the reuse basis, evidence URL and credit before render. A successful local render ends at `READY_TO_PUBLISH`; posting is not implemented.
 - `scripts/media_render_worker.py` and `scripts/media_render_transport.py` implement a bounded render handoff. `render --remote-render` sends one reviewed package through a loopback-only SSH reverse tunnel, checks pinned code/shell/font hashes, and verifies the returned MP4 before advancing the queue.
