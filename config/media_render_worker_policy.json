@@ -1,0 +1,69 @@
+{
+  "schema_version": "media-render-worker-policy-v1",
+  "status": "IMPLEMENTED_NOT_CONNECTED",
+  "purpose": "Run one previously reviewed render package on a separate Linux worker without exposing a public media service or sharing coordinator state.",
+  "protocol": "media-render-handoff-v1",
+  "transport": {
+    "outer_channel": "SSH_REVERSE_TUNNEL",
+    "coordinator_bind_host": "127.0.0.1",
+    "worker_bind_host": "127.0.0.1",
+    "port": 18765,
+    "worker_work_dir": "/var/lib/hf-render-worker",
+    "worker_work_dir_environment": "MEDIA_RENDER_WORK_DIR",
+    "http_paths": ["/healthz", "/v1/render"],
+    "shared_bearer_token_required": true,
+    "shared_token_environment": "MEDIA_RENDER_SHARED_TOKEN",
+    "public_listener_allowed": false,
+    "public_artifact_service_allowed": false,
+    "network_filesystem_allowed": false
+  },
+  "package": {
+    "only_selected_rights_cleared_images": true,
+    "required_asset_fields": ["rights_verified", "rights_basis", "rights_evidence_url", "credit", "sha256"],
+    "include_database_or_provider_credentials": false,
+    "max_input_bytes": 268435456,
+    "max_output_bytes": 536870912,
+    "max_audio_bytes": 67108864,
+    "max_metadata_bytes": 1048576,
+    "max_image_bytes": 5242880,
+    "max_manifest_bytes": 32768,
+    "response_archive_overhead_bytes": 1048576,
+    "max_duration_seconds": 300,
+    "max_selected_images": 8,
+    "accepted_image_extensions": [".jpg", ".jpeg", ".png", ".webp"],
+    "archive_path_traversal_allowed": false,
+    "symbolic_or_hard_links_allowed": false
+  },
+  "verification": {
+    "chunk_bytes": 65536,
+    "max_report_bytes": 1048576,
+    "coordinator_shell_hash_environment": "MEDIA_RENDER_EXPECTED_SHELL_SHA256",
+    "coordinator_font_hash_environment": "MEDIA_RENDER_EXPECTED_FONT_SHA256",
+    "worker_shell_hash_environment": "MEDIA_RENDER_SHELL_SHA256",
+    "worker_font_hash_environment": "MEDIA_RENDER_FONT_SHA256",
+    "pin_renderer_profile_and_media_policy_hashes": true,
+    "pin_worker_transport_and_handler_hashes": true,
+    "pin_approved_character_shell_and_font_hashes": true,
+    "verify_request_and_response_sha256": true,
+    "verify_output_with_ffprobe_on_both_hosts": true,
+    "one_job_at_a_time": true,
+    "automatic_retries": false,
+    "automatic_local_fallback": false,
+    "database_state_advances_only_after_verified_result": true
+  },
+  "worker_authority": {
+    "provider_api_calls": false,
+    "paid_operations": false,
+    "repository_write": false,
+    "secret_access": false,
+    "publish_or_deploy": false,
+    "merge_or_push": false,
+    "public_publish_enabled": false
+  },
+  "live_connection": {
+    "external_renderer_worker_connected": false,
+    "ssh_tunnel_configured": false,
+    "worker_host_verified": false,
+    "connection_requires_separately_provisioned_worker_and_restricted_ssh_account": true
+  }
+}

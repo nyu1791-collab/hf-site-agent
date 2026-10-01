@@ -1,4 +1,4 @@
-# Durable Media Automation — Small Coordinator, External Voice Worker
+# Durable Media Automation — Small Coordinator, External Media Worker
 
 ## What this branch implements
 
@@ -8,15 +8,16 @@
 - Audio and timing are hash-checked and reused when their inputs are unchanged. A VOICEVOX failure retries after 60 seconds and 5 minutes, then moves the item to `VOICE_BLOCKED`. Once the connection is repaired, requeue that item with the `retry-voice` subcommand.
 - The systemd preparation service stores per-line WAV cache data under `/var/lib/hf-site-agent/voice-cache`, outside the read-only repository checkout. Local deployments can set `VOICEVOX_CACHE_DIR` to another persistent writable directory.
 - Downloaded images stay `REVIEW_REQUIRED`. A human must record the reuse basis, evidence URL and credit before render. A successful local render ends at `READY_TO_PUBLISH`; posting is not implemented.
-- The source poller and preparation timer templates both use a 5-minute interval. They are repository files only. No VPS, daemon, credentials, external worker or continuous uptime is configured or verified by this change.
+- `scripts/media_render_worker.py` and `scripts/media_render_transport.py` implement a bounded render handoff. `render --remote-render` sends one reviewed package through a loopback-only SSH reverse tunnel, checks pinned code/shell/font hashes, and verifies the returned MP4 before advancing the queue.
+- The source poller and preparation timer templates both use a 5-minute interval. The worker and tunnel systemd files are templates only. No VPS, worker credentials, SSH account, external worker or continuous uptime is configured or verified by this change; live status remains `IMPLEMENTED_NOT_CONNECTED`.
 
 ## Which work happens on which machine
 
-The VPS is the coordinator: it owns the queue and source inbox, calls the configured model API, downloads article/images, runs the VOICEVOX client and assembles audio. With remote voice enabled, only the VOICEVOX HTTP inference runs on the worker computer. Audio transfer, FFmpeg conversion and final rendering still use the VPS. This is a useful small-host split, not a complete remote-render system.
+The coordinator is the source of truth: it owns the SQLite/WAL queue, calls the configured model API, downloads article images, and prepares narration and timing. The external worker receives only that narration, timing, presentation data and selected rights-cleared images. It has no queue/database, provider credentials, repository write access, or publishing function. SQLite/WAL never crosses the network.
 
-The repository has not measured peak memory or render time on a VPS, so it cannot yet certify the cheapest instance size. Run one authorized local render and measure peak RAM and disk use before choosing the smallest plan.
+The render API binds only to `127.0.0.1:18765` on both machines. The worker opens an SSH reverse tunnel to the coordinator's same loopback port; a shared random bearer token adds an application-level gate inside SSH. The coordinator transfers files over that tunnel, not through GitHub Actions, a public bucket or a public HTTP endpoint. Input/output size, duration and time are bounded. The coordinator and worker verify the renderer, profile, media policy, approved character shell and font fingerprints.
 
-Do not share the SQLite/WAL database over a network filesystem. A future full render worker needs an authenticated job/artifact handoff, content hashes and bounded result transfer; that transport is not part of this implementation.
+There is no automatic render retry or local fallback. If the worker is unreachable or any hash/probe fails, the command stops and the source stays at `ASSET_REVIEW_REQUIRED`. A verified MP4 and report are written locally; publishing is still disabled. The worker must be an already available Linux machine with the approved shell/font, FFmpeg/ffprobe and Pillow. Measure its peak RAM, disk use and render duration before choosing any host size.
 
 ## Optional remote VOICEVOX setup
 
@@ -50,6 +51,78 @@ python -m scripts.media_news_pipeline \
 
 The command only returns the saved item to `VOICE_PENDING`; it does not call an AI API or publish anything.
 
+## Optional remote render worker
+
+Install the same approved repository revision on an already available worker, along with FFmpeg/ffprobe and Pillow. Put the approved character shell outside the repository (for example, `/srv/hf-render-assets/approved-shell`) and the approved font at a stable, read-only path. The worker check reports shell, font, renderer, profile and handler SHA-256 values, even before asset hashes are pinned, and lists missing dependencies. It exits with status 2 while required pins are absent. Set the shell and font hashes in both protected environment files; the coordinator also compares all code hashes against its own checkout before accepting a job.
+
+On the worker, configure `/etc/hf-render-worker/worker.env` with restrictive permissions (`root:root`, mode `0600`):
+
+```text
+MEDIA_RENDER_SHARED_TOKEN=<same random 32-byte token on both hosts>
+MEDIA_RENDER_SHELL=/srv/hf-render-assets/approved-shell
+MEDIA_RENDER_SHELL_SHA256=
+MEDIA_RENDER_FONT=/srv/hf-render-assets/approved-font.ttf
+MEDIA_RENDER_FONT_SHA256=
+MEDIA_RENDER_WORK_DIR=/var/lib/hf-render-worker
+```
+
+Initially leave both hash values empty. After installing the worker units below, run the check and inspect its redacted JSON output. Copy the reported shell/font hashes into `worker.env`; rerun the check and require `"status":"READY"` before starting the listener. The check does not accept jobs or print the token.
+
+On the coordinator, create `/etc/hf-site-agent/media-render.env` (`root:root`, mode `0600`) with the same token and approved asset hashes:
+
+```text
+MEDIA_RENDER_SHARED_TOKEN=<same random 32-byte token on both hosts>
+MEDIA_RENDER_EXPECTED_SHELL_SHA256=<approved tree SHA-256>
+MEDIA_RENDER_EXPECTED_FONT_SHA256=<approved font SHA-256>
+MEDIA_RENDER_WORKER_URL=http://127.0.0.1:18765/v1/render
+```
+
+Generate the bearer token once with a cryptographically secure random generator and transfer it to the two root-protected environment files through an approved secret channel. Do not put it in this repository, command history, terminal output, or logs. Keep the SSH private key on the worker and provision the matching public key only for the restricted `hf-render-tunnel` account on the coordinator.
+
+Restrict the coordinator SSH account to remote forwarding on `127.0.0.1:18765` only. For its `authorized_keys` entry, use `no-agent-forwarding,no-X11-forwarding,no-pty,no-user-rc,permitlisten="127.0.0.1:18765"`. In `sshd_config`, apply a `Match User hf-render-tunnel` block with `AllowTcpForwarding remote`, `AllowStreamLocalForwarding no`, `PermitListen 127.0.0.1:18765`, `GatewayPorts no`, `AllowAgentForwarding no`, `X11Forwarding no`, `PermitTTY no`, `PermitTunnel no`, and `MaxSessions 0`. Give the account no repository or service-management permissions. Verify the effective sshd configuration before connecting. Do not use the coordinator's normal login account.
+
+Install the worker and tunnel unit templates from `deploy/systemd/` after preparing the protected environment and SSH host-key files. Create `/var/lib/hf-render-worker` and its `home` and `tmp` directories owned by `hf-render-worker`; install the pinned shell and font read-only under `/srv/hf-render-assets`. Set `/etc/hf-render-worker` to `root:hf-render-worker`, mode `0750`; keep `worker.env` and `tunnel.env` owned by root, mode `0600`; give `id_ed25519` to `hf-render-worker`, mode `0600`; and make the verified `known_hosts` file readable by that account. Create `tunnel.env` with `COORDINATOR_HOST=<verified coordinator hostname>`. Strict host-key checking is enabled; do not populate `known_hosts` from an unverified scan.
+
+On the worker host, install and check the worker units:
+
+```bash
+sudo install -m 0644 deploy/systemd/hf-render-worker.service /etc/systemd/system/
+sudo install -m 0644 deploy/systemd/hf-render-worker-check.service /etc/systemd/system/
+sudo install -m 0644 deploy/systemd/hf-render-worker-tunnel.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start hf-render-worker-check.service
+sudo journalctl -u hf-render-worker-check.service --no-pager -n 30
+```
+
+After copying the reported shell/font hashes into `worker.env`, require the next check to report `READY`, then start the listener and reverse tunnel:
+
+```bash
+sudo systemctl start hf-render-worker-check.service
+sudo systemctl enable --now hf-render-worker.service hf-render-worker-tunnel.service
+sudo systemctl is-active hf-render-worker.service hf-render-worker-tunnel.service
+```
+
+On the coordinator host, install its units and verify the authenticated tunnel health check:
+
+```bash
+sudo install -m 0644 deploy/systemd/hf-site-agent-media-render@.service /etc/systemd/system/
+sudo install -m 0644 deploy/systemd/hf-site-agent-media-render-check.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start hf-site-agent-media-render-check.service
+sudo journalctl -u hf-site-agent-media-render-check.service --no-pager -n 30
+```
+
+The coordinator health check does not render or touch the queue. Keep the render template disabled until a human has reviewed a specific package and explicitly starts it.
+
+After manual rights review, start one render for that package from the coordinator:
+
+```bash
+sudo systemctl start 'hf-site-agent-media-render@<source_id>.service'
+sudo journalctl -u 'hf-site-agent-media-render@<source_id>.service' --no-pager -n 50
+```
+
+Replace `<source_id>` with the package's 64-character lowercase SHA-256 ID. This command does not call an AI API. It sends the already prepared assets once, validates the returned MP4 with `ffprobe`, records `remote-render-report.json`, and stops at `READY_TO_PUBLISH`. If an attempt fails, diagnose it before manually running another attempt. Public posting remains out of scope.
+
 ## Staging commands
 
 Run from the repository root with Python and FFmpeg installed:
@@ -77,7 +150,7 @@ The output is local and remains at `READY_TO_PUBLISH`.
 
 ## Host installation (not performed)
 
-The systemd examples assume a dedicated Linux account `hf-site-agent`, a checkout at `/opt/hf-site-agent`, and persistent storage at `/var/lib/hf-site-agent`. Install the service and timer files, set restrictive permissions on `/etc/hf-site-agent/media.env`, then verify the feed poller, queue, model API, VOICEVOX, one staged render and reboot recovery before unattended use. Do not enable public posting, automatic top-up or paid fallback.
+The coordinator systemd examples assume a dedicated Linux account `hf-site-agent`, a checkout at `/opt/hf-site-agent`, and persistent storage at `/var/lib/hf-site-agent`. The remote worker template assumes a separate unprivileged account `hf-render-worker`. Install units only on the corresponding hosts and set restrictive permissions on all protected environment and SSH files. Do not enable public posting, automatic top-up or paid fallback.
 
 ```bash
 sudo install -m 0644 deploy/systemd/hf-site-agent-media-source.service /etc/systemd/system/

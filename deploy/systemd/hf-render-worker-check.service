@@ -1,0 +1,25 @@
+[Unit]
+Description=Check media render worker dependencies and pinned assets
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=hf-render-worker
+Group=hf-render-worker
+WorkingDirectory=/opt/hf-site-agent
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=HOME=/var/lib/hf-render-worker/home
+Environment=TMPDIR=/var/lib/hf-render-worker/tmp
+EnvironmentFile=/etc/hf-render-worker/worker.env
+ExecStartPre=/usr/bin/mkdir -p /var/lib/hf-render-worker/home /var/lib/hf-render-worker/tmp
+ExecStart=/usr/bin/python3 -m scripts.media_render_worker --check --work-dir /var/lib/hf-render-worker
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hf-render-worker
+ReadOnlyPaths=/srv/hf-render-assets
+UMask=0077
+TimeoutStartSec=30

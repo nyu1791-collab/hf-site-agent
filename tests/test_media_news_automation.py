@@ -104,6 +104,8 @@ class MediaNewsAutomationTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]
         source_policy=json.loads((root/"config/media_source_ingress_policy.json").read_text())
         pipeline_policy=json.loads((root/"config/media_news_pipeline_policy.json").read_text())
+        fast_path=json.loads((root/"config/media_automation_fast_path.json").read_text())
+        read_gate=json.loads((root/"config/media_command_read_gate.json").read_text())
         self.assertEqual(source_policy["poll_interval_seconds"],300)
         self.assertEqual(source_policy["stale_after_seconds"],600)
         self.assertEqual(pipeline_policy["poll_interval_seconds"],300)
@@ -115,13 +117,22 @@ class MediaNewsAutomationTests(unittest.TestCase):
         service=(root/"deploy/systemd/hf-site-agent-media-news.service").read_text()
         self.assertIn("VOICEVOX_CACHE_DIR=/var/lib/hf-site-agent/voice-cache",service)
         self.assertIn("/var/lib/hf-site-agent/voice-cache",service.split("ExecStartPre=",1)[1])
+        remote=fast_path["extracted_pipeline"]["article_to_media_staging"]["optional_remote_render_handoff"]
+        self.assertEqual(remote["status"],"IMPLEMENTED_NOT_CONNECTED")
+        self.assertFalse(remote["automatic_retry"])
+        self.assertFalse(remote["automatic_local_fallback"])
+        self.assertFalse(remote["publishing_enabled"])
+        news_read_set=set(read_gate["trigger_sets"]["VIDEO_CREATION"]["conditional"]["if_user_requests_article_rss_or_resident_news_video_automation"])
+        self.assertTrue({"config/media_render_worker_policy.json","scripts/media_render_transport.py",
+            "scripts/media_render_worker.py","deploy/systemd/hf-render-worker-tunnel.service",
+            "deploy/systemd/hf-site-agent-media-render@.service"}.issubset(news_read_set))
 
     def test_render_assets_require_selection_rights_basis_and_credit(self):
         with tempfile.TemporaryDirectory() as td:
             package=Path(td);images=package/"images";images.mkdir()
             assets=[]
             for i in range(6):
-                data=f"image-{i}".encode();path=images/f"{i}.bin";path.write_bytes(data)
+                data=f"image-{i}".encode();path=images/f"{i}.png";path.write_bytes(data)
                 import hashlib
                 assets.append({"id":str(i),"downloaded":True,"selected_for_render":True,
                     "rights_verified":True,"rights_basis":"CC BY 4.0","rights_evidence_url":"https://example.org/license",
@@ -132,10 +143,15 @@ class MediaNewsAutomationTests(unittest.TestCase):
                 broken=[dict(x) for x in assets];broken[0][field]=value
                 with self.assertRaises(RuntimeError): select_render_assets({"assets":broken},3,package)
             with self.assertRaises(RuntimeError): select_render_assets({"assets":assets[:5]},3,package)
+            with self.assertRaises(RuntimeError): select_render_assets({"assets":assets+[dict(assets[0],id="extra")]},3,package)
             duplicated=[dict(x) for x in assets];duplicated[1]["sha256"]=duplicated[0]["sha256"]
             with self.assertRaises(RuntimeError): select_render_assets({"assets":duplicated},3,package)
             escaped=[dict(x) for x in assets];escaped[0]["file"]="/etc/passwd"
             with self.assertRaises(RuntimeError): select_render_assets({"assets":escaped},3,package)
+            linked=images/"linked.png";linked.symlink_to(images/"0.png")
+            symlinked=[dict(x) for x in assets];symlinked[0]["file"]=str(linked)
+            with self.assertRaisesRegex(RuntimeError,"symbolic link"):
+                select_render_assets({"assets":symlinked},3,package)
 
     def test_article_parser_extracts_text_and_only_allowlisted_image_urls(self):
         body = (TEXT + " ") * 3

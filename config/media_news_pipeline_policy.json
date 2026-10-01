@@ -48,6 +48,9 @@
   "distinct_rights_cleared_images_per_scene": 2,
   "downloaded_image_rights_default": "REVIEW_REQUIRED",
   "render_requires_rights_basis_credit_and_https_evidence_url": true,
+  "remote_render_policy": "config/media_render_worker_policy.json",
+  "remote_render_requires_explicit_command_flag": true,
+  "remote_render_auto_fallback_or_retry": false,
   "default_voice_cast": [
     "ずんだもん",
     "四国めたん"
