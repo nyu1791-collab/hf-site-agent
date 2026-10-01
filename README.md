@@ -41,6 +41,12 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 詳細が文書間で異なる場合は、最新の明示的ユーザー指示と安全境界を守ったうえで、現行Machine-readable Policy・Validator・CIを優先する。恒久ルールを変更する場合は会話だけで終わらせず、Machine Policy / Rulebook / Validator / CI / Read Gateの整合性を同じ変更で確認する。
 
+## 常駐監視・ニュース動画の自動準備
+
+`docs/DURABLE_MEDIA_AUTOMATION.md` を実作業手順の正本とする。`scripts/media_source_daemon.py` とsystemd service/timerの例で公式RSSをSQLite inboxへ定期取得し、`scripts/media_news_pipeline.py` で公式記事から台本・VOICEVOX音声・画像候補を準備できる。これはRepository上の実装であり、VPSへ配置済み・24時間稼働中という意味ではない。
+
+ニュース動画では新タブ開始時に `config/media_news_pipeline_policy.json` と `docs/DURABLE_MEDIA_AUTOMATION.md` も読む。画像は自動取得後も権利未確認で停止し、選択した全画像に利用根拠・クレジットが揃うまでレンダーしない。公開投稿は実装・許可ともに別境界で扱い、成功状態は `READY_TO_PUBLISH` で止める。
+
 ## AI Army の固定境界
 
 - ChatGPT / Work がTop Commanderかつ最終判断者。

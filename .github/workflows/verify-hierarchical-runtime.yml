@@ -90,6 +90,7 @@ jobs:
             tests.test_media_voice_cache \
             tests.test_durable_media_runner \
             tests.test_media_source_ingress \
+            tests.test_media_news_automation \
             -v
       - name: Run parallel batch five-domain Jev trial
         if: ${{ hashFiles('missions/jev-trial/active.json') != '' }}

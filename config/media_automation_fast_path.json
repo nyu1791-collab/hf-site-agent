@@ -21,11 +21,14 @@
       "implementation": "DETERMINISTIC_RSS_OR_WEB_ADAPTER_OUTSIDE_AGENT_COUNT",
       "rule": "Fetch and normalize new text, assign a stable source_id, then enqueue only typed work. Do not create a dedicated AI agent just to poll feeds.",
       "dedupe_owner": "SQLITE_UNIQUE_SOURCE_INBOX_AND_JOB_KEY",
-      "runtime": "scripts/media_source_ingress.py",
+      "runtime": "scripts/media_source_daemon.py",
       "runtime_policy": "config/media_source_ingress_policy.json",
-      "runtime_status": "ONE_SHOT_OFFICIAL_RSS_TO_PREPARATION_INBOX_IMPLEMENTED",
+      "runtime_status": "BOUNDED_POLL_DAEMON_AND_SYSTEMD_TEMPLATES_IMPLEMENTED_NOT_DEPLOYED",
       "live_scheduler_or_vps_daemon": false,
-      "must_stop_at": "PREPARATION_REQUIRED_UNTIL_SCRIPT_VOICE_ASSETS_AND_RIGHTS_ARE_READY"
+      "must_stop_at": "ASSET_REVIEW_REQUIRED_UNTIL_SELECTED_IMAGES_HAVE_VERIFIED_RIGHTS_AND_CREDIT",
+      "one_shot_runtime": "scripts/media_source_ingress.py",
+      "service_template": "deploy/systemd/hf-site-agent-media-source.service",
+      "scheduled_preparation_timer": "deploy/systemd/hf-site-agent-media-news.timer"
     },
     "script_and_tone": {
       "implementation": "ONE_COMBINED_JUDGMENT_PASS",
@@ -66,6 +69,24 @@
       "implementation": "ASYNCHRONOUS_POST_PUBLISH_LOOP",
       "critical_path": false,
       "rule": "Analytics collection must never block creation or publish readiness; feed later measurements into prompts/policy only after enough samples exist."
+    },
+    "article_to_media_staging": {
+      "implementation": "scripts/media_news_pipeline.py",
+      "policy": "config/media_news_pipeline_policy.json",
+      "stages": [
+        "OFFICIAL_ARTICLE_FETCH",
+        "ONE_EXACT_FREE_SCRIPT_DRAFT",
+        "LOCAL_VOICEVOX",
+        "ARTICLE_IMAGE_CANDIDATES"
+      ],
+      "daily_model_call_cap": 5,
+      "provider_fallback_allowed": false,
+      "auto_top_up": false,
+      "image_generation_allowed": false,
+      "image_rights_review_required": true,
+      "automated_publish": false,
+      "service_template": "deploy/systemd/hf-site-agent-media-news.service",
+      "status": "REPOSITORY_IMPLEMENTED_STAGING_ONLY"
     }
   },
   "durable_execution": {
@@ -86,7 +107,11 @@
     "live_rss_polling_connected": false,
     "one_shot_rss_ingress_to_preparation_inbox": true,
     "automatic_script_voice_asset_stages_connected": false,
-    "vps_daemon_deployed": false
+    "vps_daemon_deployed": false,
+    "scheduled_polling_implemented_as_repository_template": true,
+    "article_script_voice_image_candidate_stages_implemented": true,
+    "article_script_voice_asset_e2e_connected": false,
+    "rights_review_required_before_render": true
   },
   "minimum_fatal_gates_that_speed_may_not_remove": [
     "NO_ARBITRARY_COMMAND_EXECUTION",

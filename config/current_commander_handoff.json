@@ -514,7 +514,7 @@
     "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md"
   },
   "durable_media_runtime_reality": {
-    "status": "REPOSITORY_STAGING_FOUNDATION_ONLY",
+    "status": "REPOSITORY_STAGING_FOUNDATION_WITH_NEWS_PREPARATION_AND_SYSTEMD_TEMPLATES",
     "operations_doc": "docs/DURABLE_MEDIA_AUTOMATION.md",
     "runner": "scripts/durable_media_runner.py",
     "prepared_media_batch_handler_exists": true,
@@ -522,11 +522,19 @@
     "script_voice_asset_end_to_end_connected": false,
     "vps_daemon_deployed": false,
     "public_publish_enabled": false,
-    "rule": "Never infer live operation from repository code or CI pass.",
+    "rule": "Repository templates and passing CI do not prove VPS installation, credentials, live polling, VOICEVOX operation, a generated MP4 or production uptime.",
     "source_ingress_policy": "config/media_source_ingress_policy.json",
     "source_ingress_runtime": "scripts/media_source_ingress.py",
     "one_shot_official_rss_to_preparation_inbox": true,
     "scheduled_polling_deployed": false,
-    "script_voice_asset_e2e_connected": false
+    "script_voice_asset_e2e_connected": false,
+    "source_daemon": "scripts/media_source_daemon.py",
+    "source_daemon_service_template": "deploy/systemd/hf-site-agent-media-source.service",
+    "article_pipeline": "scripts/media_news_pipeline.py",
+    "article_pipeline_policy": "config/media_news_pipeline_policy.json",
+    "news_preparation_timer_template": "deploy/systemd/hf-site-agent-media-news.timer",
+    "scheduled_polling_implemented_in_repository": true,
+    "automatic_article_script_voice_and_image_candidate_stages_implemented": true,
+    "rights_review_required_before_render": true
   }
 }

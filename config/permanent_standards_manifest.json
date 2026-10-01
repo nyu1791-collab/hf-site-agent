@@ -687,6 +687,15 @@
     "source_ingress_runtime": "scripts/media_source_ingress.py",
     "one_shot_rss_to_preparation_inbox": true,
     "scheduled_polling_deployed": false,
-    "script_voice_asset_e2e_connected": false
+    "script_voice_asset_e2e_connected": false,
+    "article_pipeline_policy": "config/media_news_pipeline_policy.json",
+    "article_pipeline_runtime": "scripts/media_news_pipeline.py",
+    "source_daemon_runtime": "scripts/media_source_daemon.py",
+    "source_daemon_service_template": "deploy/systemd/hf-site-agent-media-source.service",
+    "preparation_service_template": "deploy/systemd/hf-site-agent-media-news.service",
+    "preparation_timer_template": "deploy/systemd/hf-site-agent-media-news.timer",
+    "scheduled_polling_template_implemented": true,
+    "automatic_article_script_voice_image_candidate_stages_implemented": true,
+    "rights_review_required_before_render": true
   }
 }

@@ -13,6 +13,7 @@ on:
       - 'scripts/validate_approved_video_baseline.py'
       - 'tests/test_approved_video_continuity.py'
       - 'README.md'
+      - 'docs/DURABLE_MEDIA_AUTOMATION.md'
       - 'config/ai_army_org_chart.json'
       - 'config/multi_agent_operating_policy.json'
       - 'config/openrouter_free_efficiency_policy.json'
@@ -30,8 +31,15 @@ on:
       - 'config/session_stream_resilience_policy.json'
       - 'config/media_automation_fast_path.json'
       - 'config/media_source_ingress_policy.json'
+      - 'config/media_news_pipeline_policy.json'
       - 'scripts/media_source_ingress.py'
+      - 'scripts/media_source_daemon.py'
+      - 'scripts/media_news_pipeline.py'
       - 'tests/test_media_source_ingress.py'
+      - 'tests/test_media_news_automation.py'
+      - 'deploy/systemd/hf-site-agent-media-source.service'
+      - 'deploy/systemd/hf-site-agent-media-news.service'
+      - 'deploy/systemd/hf-site-agent-media-news.timer'
       - 'config/zundamon_news60_template.json'
       - 'config/media_performance_efficiency_policy.json'
       - 'scripts/media_performance_plan.py'
@@ -257,6 +265,8 @@ jobs:
             scripts/media_batch_command_center.py \
             scripts/durable_media_runner.py \
             scripts/media_source_ingress.py \
+            scripts/media_source_daemon.py \
+            scripts/media_news_pipeline.py \
             scripts/media_parallel_framework_mission.py \
             scripts/media_asset_resolver.py \
             scripts/parallel_framework_batch.py \
@@ -282,6 +292,7 @@ jobs:
           python -m json.tool config/session_stream_resilience_policy.json >/dev/null
           python -m json.tool config/media_automation_fast_path.json >/dev/null
           python -m json.tool config/media_source_ingress_policy.json >/dev/null
+          python -m json.tool config/media_news_pipeline_policy.json >/dev/null
           python -m json.tool config/zundamon_news60_template.json >/dev/null
           python -m json.tool config/evidence_visual_static_character_policy.json >/dev/null
           python -m json.tool config/media_source_policy.json >/dev/null
@@ -448,6 +459,7 @@ jobs:
             tests.test_batch_media_scheduler \
             tests.test_durable_media_runner \
             tests.test_media_source_ingress \
+            tests.test_media_news_automation \
             tests.test_media_batch_command_center \
             tests.test_media_batch_command_center_ffmpeg \
             tests.test_media_parallel_framework_mission \
