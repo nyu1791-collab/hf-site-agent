@@ -39,6 +39,8 @@ def main() -> int:
     jev = load_json("config/jev_decision_engine_policy.json")
     ci_policy = load_json("config/ci_execution_policy.json")
     free_guard = load_json("config/free_execution_guard.json")
+    paid_route = load_json("config/paid_agent_route_eligibility_policy.json")
+    precedence = load_json("config/project_rule_precedence_policy.json")
     video_admission = load_json("config/video_creation_admission_policy.json")
     small_host = load_json("config/media_small_host_policy.json")
     media_speed = load_json("config/media_speed_quality_policy.json")
@@ -54,8 +56,28 @@ def main() -> int:
 
     guard = free_guard.get("default_runtime") or {}
     require(free_guard.get("status") == "ENFORCED_PERMANENT_STANDARD", "free guard not enforced")
-    require(guard.get("free_only_mode") is True, "free-only default disabled")
-    require(guard.get("allow_paid_model") is False, "unscoped paid model enabled")
+    require(guard.get("free_only_mode") is False, "obsolete global free-only mode is active")
+    require(guard.get("allow_paid_model") is True, "paid API routes remain globally disabled")
+    require(guard.get("paid_route_eligibility_policy") == "config/paid_agent_route_eligibility_policy.json", "paid route evidence gate pointer drift")
+    require(guard.get("paid_route_requires_verified_lower_total_cost_and_materially_better_task_performance") is True, "paid route evidence gate disabled")
+    require(paid_route.get("schema_version") == "paid-agent-route-eligibility-v1", "paid route policy schema drift")
+    require(paid_route.get("status") == "AUTHORIZED_ONLY_THROUGH_EVIDENCE_GATE", "paid route policy is not evidence-gated")
+    paid_routing = paid_route.get("routing") or {}
+    require(paid_routing.get("paid_candidate_may_be_selected_as_primary_after_gate") is True, "eligible paid model cannot serve as primary")
+    permissions = multi.get("security_and_permissions") or {}
+    paid_exceptions = permissions.get("preauthorized_paid_execution_exceptions") or []
+    require(any(isinstance(item, dict) and item.get("policy_file") == "config/paid_agent_route_eligibility_policy.json" for item in paid_exceptions), "paid API route preauthorization missing from multi-agent permissions")
+    manifest_paid_routes = manifest.get("preauthorized_paid_exceptions") or []
+    require(any(isinstance(item, dict) and item.get("policy") == "config/paid_agent_route_eligibility_policy.json" for item in manifest_paid_routes), "paid API route preauthorization missing from permanent manifest")
+    require(paid_routing.get("automatic_paid_fallback") is False, "automatic paid fallback enabled")
+    require(paid_routing.get("automatic_paid_sibling_substitution") is False, "paid sibling substitution enabled")
+    require(precedence.get("schema_version") == "project-rule-precedence-v1", "rule precedence policy schema drift")
+    require(precedence.get("status") == "CANONICAL", "rule precedence policy is not canonical")
+    explicit_boundaries = precedence.get("current_explicit_boundaries") or {}
+    require(explicit_boundaries.get("pr_40_open_draft_unmerged") is True, "PR #40 state boundary drift")
+    require(explicit_boundaries.get("push_main") is False and explicit_boundaries.get("merge") is False, "main push or merge boundary weakened")
+    require(explicit_boundaries.get("production_deploy") is False and explicit_boundaries.get("public_publish") is False, "production boundary weakened")
+    require(explicit_boundaries.get("secret_mutation_or_display") is False and explicit_boundaries.get("auto_top_up") is False, "secret or auto top-up boundary weakened")
     require(guard.get("allow_paid_fallback") is False, "generic paid fallback enabled")
     require(guard.get("auto_top_up") is False, "auto top-up enabled")
     require(guard.get("unknown_cost_route") == "BLOCK", "unknown-cost route not blocked")
@@ -123,6 +145,8 @@ def main() -> int:
         "current-commander-handoff",
         "master-rulebook",
         "free-execution-guard",
+        "paid-agent-route-eligibility",
+        "project-rule-precedence",
         "video-creation-admission",
         "media-command-read-gate",
         "media-speed-quality",
@@ -131,6 +155,11 @@ def main() -> int:
         "permanent-ai-army-consistency-gate",
     ):
         require(standard_id in by_id, f"manifest lost standard: {standard_id}")
+    paid_standard = by_id.get("paid-agent-route-eligibility") or {}
+    require(paid_standard.get("machine_policy") == "config/paid_agent_route_eligibility_policy.json", "manifest lost paid route policy")
+    require(paid_standard.get("runtime") == "scripts/paid_agent_route_policy.py", "manifest lost paid route runtime")
+    precedence_standard = by_id.get("project-rule-precedence") or {}
+    require(precedence_standard.get("machine_policy") == "config/project_rule_precedence_policy.json", "manifest lost project rule precedence policy")
     require((manifest.get("session_stream_resilience") or {}).get("policy") == "config/session_stream_resilience_policy.json", "manifest lost stream resilience policy")
     cross_tab = manifest.get("cross_tab_behavior") or {}
     require(cross_tab.get("session_stream_resilience_survives_tab_change") is True, "durable execution does not survive tab change")
@@ -157,6 +186,12 @@ def main() -> int:
     # Current handoff must still restore the expandable manifest.
     read_order = list(((handoff.get("continuity") or {}).get("on_new_session_required_read_order") or []))
     require("config/permanent_standards_manifest.json" in read_order, "handoff no longer restores permanent manifest")
+    handoff_standards = handoff.get("active_standards") or {}
+    require(handoff_standards.get("paid_agent_route_eligibility") == "config/paid_agent_route_eligibility_policy.json", "handoff lost paid API route policy")
+    require(handoff_standards.get("paid_agent_route_runtime") == "scripts/paid_agent_route_policy.py", "handoff lost paid API route runtime")
+    task_gates = ((handoff.get("continuity") or {}).get("task_specific_gate_resolution") or {})
+    paid_gate = task_gates.get("paid_api_agents") or {}
+    require(paid_gate.get("policy") == "config/paid_agent_route_eligibility_policy.json", "new-session gate resolution lost paid API policy")
 
     for path in (
         "docs/AI_ARMY_MASTER_RULEBOOK.md",
@@ -181,6 +216,8 @@ def main() -> int:
         "durable_media_runner": "ENFORCED",
         "media_speed_ratio": "20:80",
         "media_target_minutes": 5,
+        "global_free_only_mode": False,
+        "paid_api_route_requires_evidence_gate": True,
         "generic_paid_fallback": False,
         "auto_top_up": False,
         "public_publish": False,

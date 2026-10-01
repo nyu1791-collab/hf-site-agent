@@ -313,7 +313,7 @@
       "IRREVERSIBLE_EXTERNAL_ACTION",
       "DURABLE_OBJECT_CHANGE"
     ],
-    "human_approval_rule_interpretation": "PAID_EXECUTION_REQUIRES_APPROVAL_UNLESS_MATCHING_AN_ACTIVE_PREAUTHORIZED_PAID_EXECUTION_EXCEPTION",
+    "human_approval_rule_interpretation": "PAID_API_MODEL_EXECUTION_IS_PREAUTHORIZED_ONLY_FOR_EXACT_ROUTES_PASSING_CONFIG_PAID_AGENT_ROUTE_ELIGIBILITY_POLICY_AND_ITS_SHARED_BUDGET; all other paid actions, all fallbacks, secrets, deployment, publishing, merge and irreversible external changes retain their separate authorization gates",
     "preauthorized_paid_execution_exceptions": [
       {
         "provider": "deepseek",
@@ -349,6 +349,23 @@
         "secret_mutation_or_disclosure": false,
         "auto_top_up": false,
         "generic_paid_fallback": false
+      },
+      {
+        "provider": "ANY_PROVIDER_WITH_AN_EXACT_REGISTERED_MODEL_ROUTE",
+        "role": "TASK_SCOPED_PAID_API_MODEL",
+        "policy_file": "config/paid_agent_route_eligibility_policy.json",
+        "canonical_runtime": "scripts/model_registry.py::resolve_role_model",
+        "repeat_per_call_approval_required": false,
+        "exact_model_price_feature_benchmark_account_and_budget_evidence_required": true,
+        "may_be_selected_as_primary_after_gate": true,
+        "generic_paid_fallback": false,
+        "paid_sibling_substitution": false,
+        "auto_top_up": false,
+        "repository_write": false,
+        "deploy": false,
+        "publish": false,
+        "merge": false,
+        "secret_mutation_or_disclosure": false
       }
     ],
     "historical_deepseek_configs_do_not_authorize_paid_execution": true,
@@ -460,9 +477,9 @@
     "do_not_keep_redundant_framework_layers_without_measured_value": true,
     "do_not_keep_duplicate_agent_roles_without_distinct_failure_domain": true,
     "do_not_add_agent_when_deterministic_tool_or_single_agent_is_better": true,
-    "retire_active_workflows_that_bypass_the_canonical_paid_supervisor_contract": true,
     "historical_regression_files_may_remain_if_marked_non_authoritative": true,
-    "uncertain_complexity_reduction_requires_ablation_test_before_deletion": true
+    "uncertain_complexity_reduction_requires_ablation_test_before_deletion": true,
+    "retire_active_paid_supervisor_workflows_that_bypass_the_canonical_paid_supervisor_contract": true
   },
   "free_only_policy": {
     "permanent_guard": "config/free_execution_guard.json",
@@ -517,6 +534,19 @@
       "bulk_coding_worker": false,
       "final_authority": false,
       "other_paid_provider_authorization": false
+    },
+    "evidence_gated_paid_api_routes": {
+      "enabled": true,
+      "preauthorized_by_latest_explicit_user_instruction": true,
+      "persistent_across_chat_tabs": true,
+      "policy_file": "config/paid_agent_route_eligibility_policy.json",
+      "runtime": "scripts/model_registry.py::resolve_role_model",
+      "automatic_route_admission_after_all_evidence_gates": true,
+      "repeat_per_call_approval_required": false,
+      "may_activate_only_exact_eligible_task_route": true,
+      "paid_fallback": false,
+      "paid_sibling_substitution": false,
+      "auto_top_up": false
     }
   }
 }

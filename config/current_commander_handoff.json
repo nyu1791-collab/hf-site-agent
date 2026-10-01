@@ -156,7 +156,6 @@
     "failed_lane_retry_requires_method_change": true,
     "only_active_paid_deepseek_execution_workflow": ".github/workflows/deepseek-supervisor-research.yml",
     "historical_deepseek_configs_authorize_execution": false,
-    "other_paid_providers_remain_disallowed_without_explicit_user_authorization": "TRUE_EXCEPT_SEPARATELY_AUTHORIZED_JEV_FAST_DECISION_PLANE",
     "auto_top_up": false,
     "generic_paid_fallback": false,
     "repository_write_by_deepseek": false,
@@ -165,7 +164,10 @@
     "deploy": false,
     "publish": false,
     "secret_mutation_or_disclosure": false,
-    "paid_media_generation": false
+    "paid_media_generation": false,
+    "other_paid_providers_are_not_covered_by_deepseek_supervisor_exception": true,
+    "evidence_gated_paid_api_candidates_authorized": true,
+    "separate_paid_api_route_policy": "config/paid_agent_route_eligibility_policy.json"
   },
   "ci_control_plane_fixed_rules": {
     "policy": "config/ci_execution_policy.json",
@@ -179,8 +181,11 @@
     "legacy_paid_deepseek_workflows_active": false,
     "auto_top_up": false,
     "generic_paid_fallback": false,
-    "other_paid_providers_authorized": false,
-    "jev_paid_decision_exception_policy": "config/jev_decision_engine_policy.json"
+    "jev_paid_decision_exception_policy": "config/jev_decision_engine_policy.json",
+    "other_paid_api_github_actions_workflows_authorized": false,
+    "evidence_gated_paid_api_routes_authorized": true,
+    "evidence_gated_paid_api_policy": "config/paid_agent_route_eligibility_policy.json",
+    "evidence_gated_paid_api_runtime": "scripts/model_registry.py::resolve_role_model"
   },
   "multi_agent_fixed_rules": {
     "root_controller": "chatgpt-work",

@@ -492,11 +492,13 @@
     "platform_program_eligibility_payouts_and_temporary_incentives_are_versioned_evidence": true
   },
   "default_runtime_flags": {
-    "FREE_ONLY_MODE": true,
-    "ALLOW_PAID_MODEL": false,
+    "FREE_ONLY_MODE": false,
+    "ALLOW_PAID_MODEL": true,
     "ALLOW_PAID_FALLBACK": false,
     "AUTO_TOP_UP": false,
-    "scope": "DEFAULT_FOR_ALL_ROUTES_EXCEPT_EXPLICIT_PREAUTHORIZED_PAID_EXCEPTIONS"
+    "paid_api_model_routes_require_evidence_gate": true,
+    "paid_route_eligibility_policy": "config/paid_agent_route_eligibility_policy.json",
+    "scope": "ALL_PAID_API_MODEL_ROUTES_REQUIRE_PROVIDER_SPECIFIC_EVIDENCE_AND_SHARED_BUDGET_GATES"
   },
   "preauthorized_paid_exceptions": [
     {
@@ -560,10 +562,28 @@
       "merge": false,
       "secret_mutation_or_disclosure": false,
       "other_paid_provider_authorization": false
+    },
+    {
+      "provider": "ANY_PROVIDER_WITH_AN_EXACT_REGISTERED_MODEL_ROUTE",
+      "role": "TASK_SCOPED_PAID_API_MODEL",
+      "policy": "config/paid_agent_route_eligibility_policy.json",
+      "runtime": "scripts/model_registry.py::resolve_role_model",
+      "persistent_authorization": true,
+      "repeat_per_call_approval_required": false,
+      "admission": "EXACT_CURRENT_PRICE_AND_FEATURE_EVIDENCE_PLUS_PAIRED_BENCHMARK_AND_READY_ACCOUNT_AND_SHARED_BUDGET",
+      "may_be_selected_as_primary_after_gate": true,
+      "automatic_paid_fallback": false,
+      "paid_sibling_substitution": false,
+      "auto_top_up": false,
+      "repository_write": false,
+      "deploy": false,
+      "publish": false,
+      "merge": false,
+      "secret_mutation_or_disclosure": false
     }
   ],
   "human_approval_actions": [
-    "PAID_EXECUTION_NOT_MATCHING_ACTIVE_PREAUTHORIZED_EXCEPTION",
+    "PAID_EXECUTION_WITHOUT_MATCHING_PREAUTHORIZED_MODEL_POLICY_AND_VERIFIED_BUDGET",
     "PAID_FALLBACK",
     "SECRET_MUTATION_OR_DISCLOSURE",
     "MAIN_DIRECT_PUSH",
@@ -600,6 +620,7 @@
     "second_pass_security_provenance_and_experiment_standard_survives_tab_change": true,
     "second_pass_artifact_contracts_survive_tab_change": true,
     "deepseek_supervisor_preauthorization_survives_tab_change": true,
+    "paid_api_route_eligibility_survives_tab_change": true,
     "deepseek_working_manager_drafting_scope_survives_tab_change": true,
     "deepseek_exception_does_not_expand_to_other_paid_providers": "TRUE; SEPARATE_PAID_API_ROUTE_POLICY_APPLIES_ONLY_AFTER_ITS_EVIDENCE_GATE",
     "canonical_router_survives_tab_change": true,

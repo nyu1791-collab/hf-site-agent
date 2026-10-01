@@ -32,12 +32,24 @@ def main() -> int:
     manifest = load("config/permanent_standards_manifest.json")
     media_gate = load("config/media_command_read_gate.json")
     video_policy = load("config/video_creation_admission_policy.json")
+    paid_route = load("config/paid_agent_route_eligibility_policy.json")
 
     require(guard.get("schema_version") == "free-execution-guard-v1", "free execution guard schema drift")
     require(guard.get("status") == "ENFORCED_PERMANENT_STANDARD", "free execution guard is not enforced")
     default = guard.get("default_runtime") or {}
-    require(default.get("free_only_mode") is True, "free-only default disabled")
-    require(default.get("allow_paid_model") is False, "unscoped paid model enabled")
+    require(default.get("free_only_mode") is False, "obsolete global free-only mode is active")
+    require(default.get("allow_paid_model") is True, "paid API routes remain globally disabled")
+    require(default.get("paid_route_eligibility_policy") == "config/paid_agent_route_eligibility_policy.json", "paid route evidence gate pointer drift")
+    require(default.get("paid_route_requires_verified_lower_total_cost_and_materially_better_task_performance") is True, "paid route evidence gate disabled")
+    require(paid_route.get("schema_version") == "paid-agent-route-eligibility-v1", "paid route policy schema drift")
+    require(paid_route.get("status") == "AUTHORIZED_ONLY_THROUGH_EVIDENCE_GATE", "paid route policy is not evidence-gated")
+    routing = paid_route.get("routing") or {}
+    require(routing.get("paid_candidate_may_be_selected_as_primary_after_gate") is True, "eligible paid route cannot be selected as primary")
+    precedence = load("config/project_rule_precedence_policy.json")
+    require(precedence.get("schema_version") == "project-rule-precedence-v1", "rule precedence policy schema drift")
+    require(precedence.get("status") == "CANONICAL", "rule precedence policy is not canonical")
+    require(routing.get("automatic_paid_fallback") is False, "paid fallback enabled")
+    require(routing.get("automatic_paid_sibling_substitution") is False, "paid sibling substitution enabled")
     require(default.get("allow_paid_fallback") is False, "paid fallback enabled")
     require(default.get("auto_top_up") is False, "auto top-up enabled")
     require(default.get("unknown_cost_route") == "BLOCK", "unknown cost must block")
@@ -79,7 +91,7 @@ def main() -> int:
         "must_be_read_from_repository_on_new_tab",
         "must_be_re_read_when_media_intent_is_detected",
         "chat_memory_cannot_override_this_guard",
-        "free_only_rule_survives_tab_change",
+        "paid_api_route_eligibility_survives_tab_change",
         "paid_media_block_survives_tab_change",
     ):
         require(continuity.get(key) is True, f"free guard continuity drift: {key}")
@@ -125,12 +137,14 @@ def main() -> int:
 
     cross_tab = manifest.get("cross_tab_behavior") or {}
     require(cross_tab.get("free_execution_guard_survives_tab_change") is True, "manifest free guard continuity missing")
+    require(cross_tab.get("paid_api_route_eligibility_survives_tab_change") is True, "manifest paid route continuity missing")
     require(cross_tab.get("video_creation_admission_survives_tab_change") is True, "manifest video admission continuity missing")
     require(cross_tab.get("video_requests_require_voicevox_zundamon_preflight") is True, "manifest VOICEVOX preflight continuity missing")
 
     print(json.dumps({
         "status": "PASS",
-        "free_only": True,
+        "free_only": False,
+        "paid_api_route_evidence_gate": True,
         "paid_fallback": False,
         "auto_top_up": False,
         "speed_path_guarded": True,

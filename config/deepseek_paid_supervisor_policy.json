@@ -11,7 +11,6 @@
   },
   "precedence": {
     "scope": "DEEPSEEK_PAID_SUPERVISORY_PATH_ONLY",
-    "overrides_global_free_only_for_this_scope": true,
     "does_not_override": [
       "NO_AUTO_TOP_UP",
       "NO_SECRET_DISCLOSURE_OR_MUTATION",
@@ -22,7 +21,8 @@
       "NO_DURABLE_OBJECT_CHANGE",
       "NO_THIRD_PARTY_FREEMIUM_MEDIA_SAAS"
     ],
-    "other_paid_providers_remain_disallowed_without_explicit_user_authorization": true
+    "paid_execution_pre_authorized_for_this_scope": true,
+    "does_not_pre_authorize_other_paid_providers": true
   },
   "provider": {
     "id": "deepseek",

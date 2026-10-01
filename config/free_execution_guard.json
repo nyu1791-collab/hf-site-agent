@@ -77,6 +77,7 @@
     "must_be_re_read_when_media_intent_is_detected": true,
     "chat_memory_cannot_override_this_guard": true,
     "free_only_rule_survives_tab_change": false,
+    "paid_api_route_eligibility_survives_tab_change": true,
     "paid_media_block_survives_tab_change": true,
     "upgrade_or_billing_prompt_must_not_be_treated_as_permission": true,
     "paid_api_route_gate_survives_tab_change": true
