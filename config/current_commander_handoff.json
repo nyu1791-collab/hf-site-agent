@@ -1,6 +1,6 @@
 {
   "schema_version": "top-commander-handoff-v17",
-  "effective_date_jst": "2026-09-30",
+  "effective_date_jst": "2026-10-01",
   "mission_id": "ai-army-canonical-supervisor-routing-20260912",
   "objective": "Preserve a hierarchical AI Army with ChatGPT as final commander, Jev Latest as the official-manual-aligned typed decision plane that prioritizes verified route correctness and decision stability over raw routing latency, DeepSeek as bounded executive supervisor for high-information-gain work, deterministic bypasses for mechanical work, and domain-aware specialist routing backed by expiring live evidence.",
   "continuity": {
@@ -532,6 +532,7 @@
     "source_daemon_service_template": "deploy/systemd/hf-site-agent-media-source.service",
     "article_pipeline": "scripts/media_news_pipeline.py",
     "article_pipeline_policy": "config/media_news_pipeline_policy.json",
+    "voice_runtime_doc": "docs/VOICEVOX_RUNTIME.md",
     "news_preparation_timer_template": "deploy/systemd/hf-site-agent-media-news.timer",
     "scheduled_polling_implemented_in_repository": true,
     "automatic_article_script_voice_and_image_candidate_stages_implemented": true,
@@ -542,6 +543,21 @@
     "atomic_stage_checkpoints": true,
     "unchanged_article_and_rights_review_reused": true,
     "render_rechecks_workspace_path_and_image_sha256": true,
-    "render_requires_rights_evidence_url": true
+    "render_requires_rights_evidence_url": true,
+    "source_poll_interval_seconds": 300,
+    "news_preparation_timer_interval_seconds": 300,
+    "remote_voicevox_optional_transport": "SSH_REVERSE_TUNNEL_LOOPBACK_ONLY",
+    "remote_voicevox_connection_implemented": true,
+    "remote_voicevox_runtime_verified": false,
+    "voice_audio_timing_checkpoint_reuse": true,
+    "persistent_voice_cache_environment": "VOICEVOX_CACHE_DIR",
+    "voice_retry_limit": 3,
+    "voice_retry_delays_seconds": [
+      60,
+      300
+    ],
+    "voice_block_recovery_command": "retry-voice",
+    "final_ffmpeg_render_offloaded": false,
+    "external_renderer_worker_connected": false
   }
 }

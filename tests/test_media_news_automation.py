@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import tempfile
+import threading
 import unittest
 import wave
 import array
 from pathlib import Path
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import _pipeline_lock, _process_next, _resolve_news_package, _reserve_call, _validate_existing_package, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story
+from scripts.media_news_pipeline import _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _validate_existing_package, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
 
@@ -92,9 +96,25 @@ class MediaNewsAutomationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             db=Path(td)/"queue.sqlite3"
             with patch("scripts.media_source_daemon.poll_once",return_value={"feeds":[]} ) as poll:
-                self.assertEqual(run_source_daemon(db,interval=900,once=True),0)
-                self.assertEqual(run_source_daemon(db,interval=900,once=True),0)
+                self.assertEqual(run_source_daemon(db,interval=300,once=True),0)
+                self.assertEqual(run_source_daemon(db,interval=300,once=True),0)
             self.assertEqual(poll.call_count,2)
+
+    def test_news_automation_uses_five_minute_poll_and_bounded_voice_retries(self):
+        root=Path(__file__).resolve().parents[1]
+        source_policy=json.loads((root/"config/media_source_ingress_policy.json").read_text())
+        pipeline_policy=json.loads((root/"config/media_news_pipeline_policy.json").read_text())
+        self.assertEqual(source_policy["poll_interval_seconds"],300)
+        self.assertEqual(source_policy["stale_after_seconds"],600)
+        self.assertEqual(pipeline_policy["poll_interval_seconds"],300)
+        self.assertEqual(pipeline_policy["voice_retry"]["maximum_attempts"],3)
+        self.assertEqual(pipeline_policy["voice_retry"]["retry_delays_seconds"],[60,300])
+        self.assertEqual(pipeline_policy["voice_checkpoint"]["persistent_wav_cache_environment"],"VOICEVOX_CACHE_DIR")
+        self.assertIn("--interval-seconds 300",(root/"deploy/systemd/hf-site-agent-media-source.service").read_text())
+        self.assertIn("OnUnitInactiveSec=5min",(root/"deploy/systemd/hf-site-agent-media-news.timer").read_text())
+        service=(root/"deploy/systemd/hf-site-agent-media-news.service").read_text()
+        self.assertIn("VOICEVOX_CACHE_DIR=/var/lib/hf-site-agent/voice-cache",service)
+        self.assertIn("/var/lib/hf-site-agent/voice-cache",service.split("ExecStartPre=",1)[1])
 
     def test_render_assets_require_selection_rights_basis_and_credit(self):
         with tempfile.TemporaryDirectory() as td:
@@ -142,6 +162,8 @@ class MediaNewsAutomationTests(unittest.TestCase):
         bad=story();bad["scenes"][1]["scene_id"]=bad["scenes"][0]["scene_id"]
         with self.assertRaises(ValueError): validate_story(bad,TEXT)
         bad=story();bad["scenes"][0]["title"]=""
+        with self.assertRaises(ValueError): validate_story(bad,TEXT)
+        bad=story();bad["scenes"][0]["dialogue"][0]["id"]="../escape"
         with self.assertRaises(ValueError): validate_story(bad,TEXT)
 
     def test_story_call_uses_exact_free_model_no_fallback_and_zero_cost(self):
@@ -215,20 +237,116 @@ class MediaNewsAutomationTests(unittest.TestCase):
     def test_voice_parts_are_joined_into_renderer_mono_pcm(self):
         with tempfile.TemporaryDirectory() as td:
             package=Path(td)/"media-news"/("a"*64);package.mkdir(parents=True)
-            (package/"mission.json").write_text(json.dumps({"source_id":"a"*64,"source_sha256":"b"*64,"scenes":[]}))
+            mission={"source_id":"a"*64,"source_sha256":"b"*64,
+                "scenes":[{"dialogue":[{"id":"a"},{"id":"b"}]}]}
+            (package/"mission.json").write_text(json.dumps(mission))
             def fake_run(command,**kwargs):
                 out=package/"voice-parts";out.mkdir(exist_ok=True)
                 for name in ("a.wav","b.wav"):
                     with wave.open(str(out/name),"wb") as w:
                         w.setnchannels(2);w.setsampwidth(2);w.setframerate(48000);w.writeframes(array.array("h",[100,-100]*2400).tobytes())
                 (package/"timing.json").write_text(json.dumps({"total_duration":0.2,"voicevox_credit":["VOICEVOX:ずんだもん","VOICEVOX:四国めたん"],"voice_cache_hits":0,
-                  "records":[{"wav_file":"a.wav","pause_after":0.01},{"wav_file":"b.wav","pause_after":0.01}]}))
-            with patch("scripts.media_news_pipeline.subprocess.run",side_effect=fake_run):
+                  "engine_version":"fixture-1","records":[{"id":"a","wav_file":"a.wav","pause_after":0.01},
+                    {"id":"b","wav_file":"b.wav","pause_after":0.01}]}))
+            with patch.dict("os.environ",{"VOICEVOX_CACHE_DIR":"/persistent/cache"}), patch(
+                "scripts.media_news_pipeline.subprocess.run",side_effect=fake_run) as runner:
                 result=synthesize_voice(package,min_seconds=0,max_seconds=1)
+                self.assertFalse(result["reused"])
+                self.assertEqual(runner.call_args.kwargs["env"]["VOICEVOX_CACHE_DIR"],"/persistent/cache")
+                reused=synthesize_voice(package,min_seconds=0,max_seconds=1)
+                self.assertTrue(reused["reused"])
+                runner.assert_called_once()
+                (package/"audio.wav").write_bytes(b"corrupt cached audio")
+                regenerated=synthesize_voice(package,min_seconds=0,max_seconds=1)
+                self.assertFalse(regenerated["reused"])
+                self.assertEqual(runner.call_count,2)
             self.assertTrue((package/"mission.json.gz.b64").is_file())
             with wave.open(result["audio"],"rb") as wav:
                 self.assertEqual((wav.getnchannels(),wav.getsampwidth(),wav.getframerate()),(1,2,48000))
                 self.assertEqual(wav.getnframes(),2400+480+2400+480)
+
+    def test_voice_stage_rejects_unsafe_dialogue_ids_and_symlinked_parts(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);source_id="e"*64
+            package=root/"media-news"/source_id;package.mkdir(parents=True)
+            mission={"source_id":source_id,"source_sha256":"f"*64,
+                "scenes":[{"dialogue":[{"id":"../escape"}]}]}
+            (package/"mission.json").write_text(json.dumps(mission))
+            with self.assertRaisesRegex(ValueError,"path-safe"):
+                synthesize_voice(package,min_seconds=0,max_seconds=1)
+            mission["scenes"][0]["dialogue"][0]["id"]="safe-id"
+            (package/"mission.json").write_text(json.dumps(mission))
+            outside=root/"outside";outside.mkdir()
+            (package/"voice-parts").symlink_to(outside,target_is_directory=True)
+            with self.assertRaisesRegex(ValueError,"regular package-local paths"):
+                synthesize_voice(package,min_seconds=0,max_seconds=1)
+
+    def test_voice_failures_back_off_then_block_and_allow_manual_requeue(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);workspace=root/"workspace";workspace.mkdir()
+            conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            source_id="c"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":"https://openai.com/news/x","summary":"","published":""}])
+            conn.execute("UPDATE source_inbox SET state='VOICE_PENDING' WHERE source_id=?",(source_id,))
+            package=_resolve_news_package(workspace,source_id,create=True)
+            (package/"mission.json").write_text(json.dumps({"source_id":source_id,"source_sha256":"d"*64}))
+            with patch("scripts.media_news_pipeline.synthesize_voice",side_effect=OSError("unavailable")):
+                first=_process_next(conn,workspace,min_seconds=60,max_seconds=300)
+                self.assertEqual(first["status"],"VOICE_RETRY_SCHEDULED")
+                self.assertEqual(first["attempts"],1)
+                self.assertGreaterEqual(first["retry_after_seconds"],58)
+                self.assertLessEqual(first["retry_after_seconds"],60)
+                self.assertEqual(_process_next(conn,workspace,min_seconds=60,max_seconds=300)["status"],"IDLE")
+                conn.execute("UPDATE media_news_stage_retry SET next_attempt_at=0 WHERE source_id=?",(source_id,))
+                second=_process_next(conn,workspace,min_seconds=60,max_seconds=300)
+                self.assertEqual(second["attempts"],2)
+                self.assertGreaterEqual(second["retry_after_seconds"],298)
+                self.assertLessEqual(second["retry_after_seconds"],300)
+                conn.execute("UPDATE media_news_stage_retry SET next_attempt_at=0 WHERE source_id=?",(source_id,))
+                third=_process_next(conn,workspace,min_seconds=60,max_seconds=300)
+            self.assertEqual(third["status"],"VOICE_BLOCKED")
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()["state"],"VOICE_BLOCKED")
+            requeued=_requeue_voice(conn,workspace,source_id)
+            self.assertEqual(requeued["status"],"VOICE_REQUEUED")
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()["state"],"VOICE_PENDING")
+            conn.close()
+
+    def test_remote_voicevox_tunnel_accepts_loopback_and_rejects_public_hosts(self):
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == "/version":
+                    payload=b'"fixture-1"'
+                elif self.path == "/speakers":
+                    payload=json.dumps([
+                        {"name":"ずんだもん","styles":[{"name":"ノーマル","id":1}]},
+                        {"name":"四国めたん","styles":[{"name":"ノーマル","id":2}]},
+                    ],ensure_ascii=False).encode()
+                else:
+                    self.send_error(404);return
+                self.send_response(200);self.send_header("Content-Type","application/json")
+                self.send_header("Content-Length",str(len(payload)));self.end_headers();self.wfile.write(payload)
+            def log_message(self,*_args): pass
+
+        server=HTTPServer(("127.0.0.1",0),Handler)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                env={"PATH":os.environ.get("PATH","/usr/bin:/bin"),"VOICEVOX_REMOTE_TUNNEL":"1",
+                    "VOICEVOX_URL":f"http://127.0.0.1:{server.server_port}","VOICEVOX_ENGINE_DIR":str(Path(td)/"absent")}
+                ok=subprocess.run(["bash","scripts/with_local_voicevox.sh","--","true"],cwd=Path(__file__).resolve().parents[1],env=env,capture_output=True,text=True,timeout=10)
+                self.assertEqual(ok.returncode,0,ok.stderr)
+                env["VOICEVOX_URL"]="http://192.0.2.1:50021"
+                rejected=subprocess.run(["bash","scripts/with_local_voicevox.sh","--","true"],cwd=Path(__file__).resolve().parents[1],env=env,capture_output=True,text=True,timeout=10)
+                self.assertEqual(rejected.returncode,2)
+                self.assertIn("loopback-only",rejected.stderr)
+                env["VOICEVOX_URL"] = f"http://127.0.0.1:{server.server_port}"
+                env["VOICEVOX_EXPECTED_VERSION"] = "different-version"
+                mismatch=subprocess.run(["bash","scripts/with_local_voicevox.sh","--","true"],cwd=Path(__file__).resolve().parents[1],env=env,capture_output=True,text=True,timeout=10)
+                self.assertNotEqual(mismatch.returncode,0)
+                self.assertIn("expected version",mismatch.stderr)
+        finally:
+            server.shutdown();thread.join(timeout=2);server.server_close()
 
 
 if __name__=="__main__":

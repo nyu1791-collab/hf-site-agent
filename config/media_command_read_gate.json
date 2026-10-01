@@ -102,6 +102,7 @@
           "docs/VIDEO_PRODUCTION_BASELINE.md"
         ],
         "if_user_requests_article_rss_or_resident_news_video_automation": [
+          "config/media_automation_fast_path.json",
           "config/media_news_pipeline_policy.json",
           "config/media_source_ingress_policy.json",
           "scripts/media_source_ingress.py",
@@ -111,7 +112,11 @@
           "docs/DURABLE_MEDIA_AUTOMATION.md",
           "deploy/systemd/hf-site-agent-media-source.service",
           "deploy/systemd/hf-site-agent-media-news.service",
-          "deploy/systemd/hf-site-agent-media-news.timer"
+          "deploy/systemd/hf-site-agent-media-news.timer",
+          "docs/VOICEVOX_RUNTIME.md",
+          "scripts/with_local_voicevox.sh",
+          "scripts/synthesize_longform_voicevox.py",
+          "tests/test_media_news_automation.py"
         ]
       }
     },

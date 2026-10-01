@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, base64, gzip, hashlib, json, subprocess, urllib.parse, urllib.request
+import argparse, base64, gzip, hashlib, json, os, re, subprocess, urllib.parse, urllib.request
 from pathlib import Path
 
 try:
@@ -126,6 +126,8 @@ def preflight_caption_metadata(mission: dict) -> dict:
     for scene in mission["scenes"]:
         for line in scene["dialogue"]:
             line_id = str(line["id"])
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", line_id):
+                raise ValueError("dialogue id must be path-safe")
             if line_id in lines:
                 raise ValueError("duplicate dialogue id")
             caption, source = caption_text_for_line(mission, line)
@@ -146,8 +148,8 @@ def main():
     ap.add_argument("--mission-b64",type=Path,required=True)
     ap.add_argument("--output-dir",type=Path,required=True)
     ap.add_argument("--timing-out",type=Path,required=True)
-    ap.add_argument("--engine",default="http://127.0.0.1:50021")
-    ap.add_argument("--voice-cache-dir",type=Path,default=Path(__file__).resolve().parents[1]/".media-cache/voicevox-wav")
+    ap.add_argument("--engine",default=os.environ.get("VOICEVOX_URL", "http://127.0.0.1:50021"))
+    ap.add_argument("--voice-cache-dir",type=Path,default=Path(os.environ.get("VOICEVOX_CACHE_DIR") or str(Path(__file__).resolve().parents[1]/".media-cache/voicevox-wav")))
     ap.add_argument("--min-seconds",type=float,default=480)
     ap.add_argument("--max-seconds",type=float,default=720)
     ap.add_argument("--speed-scale",type=float,default=DEFAULT_SPEED_SCALE)
@@ -162,7 +164,10 @@ def main():
     engine_version=str(get_json(f"{engine}/version"))
     dictionary_revision=hashlib.sha256(json.dumps(get_json(f"{engine}/user_dict"),sort_keys=True,ensure_ascii=False).encode()).hexdigest()
     cache_hits=0
+    if args.output_dir.is_symlink():
+        raise SystemExit("VOICEVOX output directory must not be a symlink")
     args.output_dir.mkdir(parents=True,exist_ok=True)
+    output_root=args.output_dir.resolve()
     pronunciations={x["surface_term"]:x["voice_reading"] for x in mission.get("pronunciation_dictionary",[])}
     records=[]; t=0.0
 
@@ -177,7 +182,11 @@ def main():
             cache_key=voice_cache_key(text=text,engine_version=engine_version,
                                       style_id=style_id,speed_scale=args.speed_scale,dictionary_revision=dictionary_revision,
                                       speaker_uuid=cast[speaker]["speaker_uuid"])
-            final=args.output_dir/f"{lid}.wav"
+            final=output_root/f"{lid}.wav"
+            raw=output_root/f"{lid}.raw.wav"
+            if (final.is_symlink() or raw.is_symlink()
+                    or final.parent.resolve()!=output_root or raw.parent.resolve()!=output_root):
+                raise SystemExit("VOICEVOX output files must remain regular files inside the output directory")
             cached=restore_voice(args.voice_cache_dir,cache_key,final)
             if cached:
                 cache_hits+=1
@@ -187,7 +196,6 @@ def main():
                 query["speedScale"]=args.speed_scale
                 query["intonationScale"]=1.0
                 wav=post_json(f"{engine}/synthesis?speaker={style_id}",query)
-                raw=args.output_dir/f"{lid}.raw.wav"
                 raw.write_bytes(wav)
                 subprocess.run(["ffmpeg","-y","-hide_banner","-loglevel","error","-i",str(raw),"-ar","48000","-ac","2","-c:a","pcm_s16le",str(final)],check=True)
                 raw.unlink(missing_ok=True)

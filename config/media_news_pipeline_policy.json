@@ -7,7 +7,20 @@
     "openai.com",
     "www.openai.com"
   ],
-  "poll_interval_seconds": 900,
+  "poll_interval_seconds": 300,
+  "voice_retry": {
+    "maximum_attempts": 3,
+    "retry_delays_seconds": [60, 300],
+    "state_after_exhaustion": "VOICE_BLOCKED",
+    "manual_requeue_command": "python -m scripts.media_news_pipeline --db <queue.db> --workspace <workspace> retry-voice --source-id <source_id>"
+  },
+  "voice_checkpoint": {
+    "reuse_audio_and_timing_when_hashes_match": true,
+    "optional_expected_engine_version_environment": "VOICEVOX_EXPECTED_VERSION",
+    "persistent_wav_cache_environment": "VOICEVOX_CACHE_DIR",
+    "remote_voicevox_environment": "VOICEVOX_REMOTE_TUNNEL=1",
+    "remote_url_must_be_loopback_http": true
+  },
   "daily_openrouter_media_call_cap": 5,
   "at_daily_cap": "LEAVE_ITEM_QUEUED_FOR_NEXT_UTC_DAY",
   "require_current_exact_free_model_catalog": true,

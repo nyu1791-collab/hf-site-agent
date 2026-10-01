@@ -100,6 +100,25 @@ def main() -> int:
     require("docs/VOICEVOX_RUNTIME.md" in set(video_conditional.get("if_voicevox_engine_startup_or_recovery_is_needed") or []), "VOICEVOX recovery doc not conditionally reachable")
     require("config/zundamon_news60_template.json" in set(video_conditional.get("if_user_requests_55_to_60_second_zundamon_news_short") or []), "news60 template not conditionally reachable")
     require("config/video_platform_delivery_profiles.json" in set(video_conditional.get("if_user_requests_platform_specific_export_or_delivery") or []), "platform profiles not conditionally reachable")
+    news_automation = set(video_conditional.get("if_user_requests_article_rss_or_resident_news_video_automation") or [])
+    require({
+        "config/media_automation_fast_path.json",
+        "config/media_news_pipeline_policy.json",
+        "config/media_source_ingress_policy.json",
+        "scripts/media_source_ingress.py",
+        "scripts/media_source_daemon.py",
+        "scripts/media_news_pipeline.py",
+        "scripts/durable_media_runner.py",
+        "docs/DURABLE_MEDIA_AUTOMATION.md",
+        "docs/VOICEVOX_RUNTIME.md",
+        "scripts/with_local_voicevox.sh",
+        "scripts/synthesize_longform_voicevox.py",
+        "deploy/systemd/hf-site-agent-media-source.service",
+        "deploy/systemd/hf-site-agent-media-news.service",
+        "deploy/systemd/hf-site-agent-media-news.timer",
+        "tests/test_media_news_automation.py",
+    }.issubset(news_automation), "news automation lost its implementation, worker or recovery references")
+    require_paths(news_automation, "news automation reference missing")
     claim_conditional = set(video_conditional.get("if_claim_bearing_or_current_factual_content") or [])
     require({
         "config/cross_source_knowhow_evidence_matrix.json",

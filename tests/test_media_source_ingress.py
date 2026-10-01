@@ -34,6 +34,16 @@ class MediaSourceIngressTests(unittest.TestCase):
             self.assertEqual(stale["feed_freshness"][0]["last_status"],"FEED_ERROR")
             conn.close()
 
+    def test_configured_five_minute_poll_marks_feed_stale_after_ten_minutes(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"queue.sqlite3");init_inbox(conn)
+            now=2_000_000_000
+            conn.execute("INSERT INTO source_feed_state VALUES(?,?,?,?,?)",("openai-news",None,None,now-601,"OK"))
+            state=inbox_status(conn,now=now)
+            self.assertTrue(state["any_feed_stale"])
+            self.assertEqual(state["feed_freshness"][0]["age_seconds"],601)
+            conn.close()
+
     def test_parse_and_dedupe_feed_item_into_preparation_inbox(self):
         item = parse_feed(RSS, "openai-news")[0]
         self.assertEqual(item["title"], "New model & tools")

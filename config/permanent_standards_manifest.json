@@ -1,6 +1,6 @@
 {
   "schema_version": "permanent-standards-manifest-v21",
-  "effective_date_jst": "2026-09-30",
+  "effective_date_jst": "2026-10-01",
   "purpose": "Keep the AI Army, evidence governance, media quality, creator monetization and bounded paid supervision recoverable across new chat tabs while using one expandable manifest plus a compact master rulebook instead of duplicating every detailed rule in startup handoffs.",
   "canonical_branch": "ai-army/provider-v3",
   "startup_rule": "READ_CURRENT_COMMANDER_HANDOFF_THEN_PRIORITY_ZERO_MANIFEST_STANDARDS_AND_MASTER_RULEBOOK_BEFORE_TASK_SPECIFIC_PLANNING",
@@ -690,6 +690,7 @@
     "script_voice_asset_e2e_connected": false,
     "article_pipeline_policy": "config/media_news_pipeline_policy.json",
     "article_pipeline_runtime": "scripts/media_news_pipeline.py",
+    "voice_runtime_doc": "docs/VOICEVOX_RUNTIME.md",
     "source_daemon_runtime": "scripts/media_source_daemon.py",
     "source_daemon_service_template": "deploy/systemd/hf-site-agent-media-source.service",
     "preparation_service_template": "deploy/systemd/hf-site-agent-media-news.service",
@@ -703,6 +704,21 @@
     "atomic_stage_checkpoints": true,
     "unchanged_article_and_rights_review_reused": true,
     "render_rechecks_workspace_path_and_image_sha256": true,
-    "render_requires_rights_evidence_url": true
+    "render_requires_rights_evidence_url": true,
+    "source_poll_interval_seconds": 300,
+    "news_preparation_timer_interval_seconds": 300,
+    "remote_voicevox_optional_transport": "SSH_REVERSE_TUNNEL_LOOPBACK_ONLY",
+    "remote_voicevox_connection_implemented": true,
+    "remote_voicevox_runtime_verified": false,
+    "voice_audio_timing_checkpoint_reuse": true,
+    "persistent_voice_cache_environment": "VOICEVOX_CACHE_DIR",
+    "voice_retry_limit": 3,
+    "voice_retry_delays_seconds": [
+      60,
+      300
+    ],
+    "voice_block_recovery_command": "retry-voice",
+    "final_ffmpeg_render_offloaded": false,
+    "external_renderer_worker_connected": false
   }
 }

@@ -6,6 +6,7 @@ set -euo pipefail
 ENGINE_DIR="${VOICEVOX_ENGINE_DIR:-/tmp/devday-voicevox/extracted/linux-cpu-x64}"
 BASE_URL="${VOICEVOX_URL:-http://127.0.0.1:50021}"
 THREADS="${VV_CPU_NUM_THREADS:-4}"
+REMOTE_TUNNEL="${VOICEVOX_REMOTE_TUNNEL:-0}"
 ENGINE_PID=""
 ENGINE_LOG=""
 
@@ -24,17 +25,32 @@ if [[ "${1:-}" == "--" ]]; then
   shift
 fi
 
-if [[ "$BASE_URL" != "http://127.0.0.1:50021" ]]; then
-  echo "VOICEVOX_URL must remain http://127.0.0.1:50021" >&2
+if [[ "$REMOTE_TUNNEL" == "1" ]]; then
+  if [[ ! "$BASE_URL" =~ ^http://127\.0\.0\.1:([0-9]{1,5})$ ]]; then
+    echo "Remote VOICEVOX must use a loopback-only HTTP tunnel URL." >&2
+    exit 2
+  fi
+  TUNNEL_PORT="${BASH_REMATCH[1]}"
+  if ((10#$TUNNEL_PORT < 1 || 10#$TUNNEL_PORT > 65535)); then
+    echo "Remote VOICEVOX tunnel port is out of range." >&2
+    exit 2
+  fi
+elif [[ "$BASE_URL" != "http://127.0.0.1:50021" ]]; then
+  echo "Local VOICEVOX_URL must remain http://127.0.0.1:50021" >&2
   exit 2
 fi
-if [[ ! -x "$ENGINE_DIR/run" ]]; then
+
+if [[ "$REMOTE_TUNNEL" != "1" && ! -x "$ENGINE_DIR/run" ]]; then
   echo "Local VOICEVOX Engine executable not found at $ENGINE_DIR/run" >&2
-  echo "Set VOICEVOX_ENGINE_DIR to an already installed official Linux engine directory." >&2
+  echo "Set VOICEVOX_ENGINE_DIR, or configure an SSH loopback tunnel." >&2
   exit 2
 fi
 
 if ! curl --silent --show-error --fail --max-time 2 "$BASE_URL/version" >/dev/null 2>&1; then
+  if [[ "$REMOTE_TUNNEL" == "1" ]]; then
+    echo "Remote VOICEVOX tunnel is unavailable; leaving the job queued for retry." >&2
+    exit 2
+  fi
   ENGINE_LOG="${TMPDIR:-/tmp}/voicevox-engine-$$.log"
   VV_CPU_NUM_THREADS="$THREADS" "$ENGINE_DIR/run" \
     --host 127.0.0.1 \
@@ -64,6 +80,7 @@ fi
 
 python3 - "$BASE_URL" <<'PY'
 import json
+import os
 import sys
 import urllib.request
 
@@ -74,6 +91,9 @@ def get(path):
 
 version = get("/version")
 speakers = get("/speakers")
+expected_version = os.environ.get("VOICEVOX_EXPECTED_VERSION")
+if expected_version and str(version) != expected_version:
+    raise SystemExit("VOICEVOX Engine version does not match the configured expected version.")
 for expected in ("ずんだもん", "四国めたん"):
     speaker = next((item for item in speakers if item.get("name") == expected), None)
     styles = (speaker or {}).get("styles", [])

@@ -136,13 +136,16 @@ def ingest_items(conn: sqlite3.Connection, items: list[Mapping[str, str]]) -> di
 
 
 def inbox_status(conn: sqlite3.Connection, *, now: float | None = None,
-                 poll_interval_seconds: int | None = None) -> dict[str, Any]:
+                 poll_interval_seconds: int | None = None,
+                 stale_after_seconds: int | None = None) -> dict[str, Any]:
     now = time.time() if now is None else float(now)
-    interval = int(poll_interval_seconds or load_policy().get("poll_interval_seconds", 900))
+    policy = load_policy()
+    interval = int(poll_interval_seconds or policy.get("poll_interval_seconds", 300))
+    stale_after = int(stale_after_seconds or policy.get("stale_after_seconds", interval * 2))
     feeds = []
     for row in conn.execute("SELECT feed_id,last_checked_at,last_status FROM source_feed_state ORDER BY feed_id"):
         age = max(0, int(now - float(row["last_checked_at"])))
-        stale = row["last_status"] not in {"OK", "NOT_MODIFIED"} or age > interval * 2
+        stale = row["last_status"] not in {"OK", "NOT_MODIFIED"} or age > stale_after
         feeds.append({"feed_id":row["feed_id"], "last_status":row["last_status"],
             "age_seconds":age, "stale":stale})
     counts = {row[0]:row[1] for row in conn.execute("SELECT state,COUNT(*) FROM source_inbox GROUP BY state")}

@@ -65,7 +65,7 @@ def run(db: Path, *, interval: int, once: bool) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, required=True, help="persistent SQLite/WAL queue database")
-    parser.add_argument("--interval-seconds", type=int, default=900)
+    parser.add_argument("--interval-seconds", type=int, default=int(load_policy().get("poll_interval_seconds", 300)))
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
     signal.signal(signal.SIGTERM, _stop)

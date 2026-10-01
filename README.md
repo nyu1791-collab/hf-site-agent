@@ -43,7 +43,7 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 ## 常駐監視・ニュース動画の自動準備
 
-`docs/DURABLE_MEDIA_AUTOMATION.md` を実作業手順の正本とする。`scripts/media_source_daemon.py` とsystemd service/timerの例で公式RSSをSQLite inboxへ定期取得し、`scripts/media_news_pipeline.py` で公式記事から台本・VOICEVOX音声・画像候補を準備できる。これはRepository上の実装であり、VPSへ配置済み・24時間稼働中という意味ではない。
+`docs/DURABLE_MEDIA_AUTOMATION.md` を実作業手順の正本とする。`scripts/media_source_daemon.py` とsystemd service/timerの例で公式RSSを5分ごとにSQLite inboxへ取得し、`scripts/media_news_pipeline.py` で公式記事から台本・VOICEVOX音声・画像候補を準備できる。VOICEVOX音声合成はローカル実行を既定とし、既存PCへSSH loopback reverse tunnelで任意に逃がせる。これはRepository上の実装であり、VPSへの配置・24時間稼働・実PCへの接続済みという意味ではない。最終FFmpegレンダーは引き続きVPS側で行う。
 
 記事RSS監視・ニュース動画自動化では新タブ開始時に `config/media_command_read_gate.json` の `if_user_requests_article_rss_or_resident_news_video_automation` を解決し、列挙された現行Policy・Runner・systemd設定を読む。画像は自動取得後も権利未確認で停止し、選択した全画像に利用根拠・根拠URL・クレジットが揃うまでレンダーしない。ステータス確認ではfeedの鮮度と未処理キューの滞留時間を表示する。公開投稿は別境界で扱い、成功状態は `READY_TO_PUBLISH` で止める。
 

@@ -1,47 +1,83 @@
-# Durable Media Automation — Speed-First Staging
+# Durable Media Automation — Small Coordinator, External Voice Worker
 
-## What runs in this repository
+## What this branch implements
 
-- `scripts/media_source_daemon.py` polls only configured official RSS feeds and deduplicates items into the SQLite/WAL preparation inbox. It never calls an AI model, renders or publishes.
-- `python -m scripts.media_source_ingress --db <queue.db> status` reports feed freshness, stale/error state, inbox counts and age of the oldest unprepared item. It reports the supervisor as unobserved because a database cannot prove the daemon process is alive.
-- `scripts/media_news_pipeline.py` fetches an allowlisted official article, drafts a short Japanese Zundamon/Metan script in one current exact-`:free` OpenRouter call, synthesizes local VOICEVOX, and downloads article image candidates. A transactional daily cap is enforced; when reached, work stays queued for the next UTC day. Unknown/nonzero cost, malformed output or provider failure blocks that item; there is no paid fallback or automatic model retry.
-- Images remain `REVIEW_REQUIRED`. Every image selected for render must have documented reuse rights and an attribution credit. Official-site presence alone is not a license. The renderer requires two distinct cleared images for every scene.
-- The existing renderer writes `READY_TO_PUBLISH`. There is no public-posting code path here.
-- systemd service and timer templates are under `deploy/systemd/`. They are examples committed to the branch; no VPS has been provisioned or enabled by this change.
+- `scripts/media_source_daemon.py` polls the configured official RSS feed every 5 minutes using conditional requests, normalizes entries and deduplicates them into SQLite/WAL. Polling only creates inbox records; it does not start a render or publish.
+- `scripts/media_news_pipeline.py process-next` handles at most one queued article per run: fetch the allowlisted article, make one exact-`:free` script request, synthesize narration, and download image candidates. The daily model-call cap, zero-cost response check, and no-paid-fallback rule remain active.
+- VOICEVOX runs locally by default. An optional SSH reverse tunnel can move VOICEVOX inference to an already available computer while the coordinator calls only a loopback URL. The tunnel is optional and has not been connected to a live host in this change.
+- Audio and timing are hash-checked and reused when their inputs are unchanged. A VOICEVOX failure retries after 60 seconds and 5 minutes, then moves the item to `VOICE_BLOCKED`. Once the connection is repaired, requeue that item with the `retry-voice` subcommand.
+- The systemd preparation service stores per-line WAV cache data under `/var/lib/hf-site-agent/voice-cache`, outside the read-only repository checkout. Local deployments can set `VOICEVOX_CACHE_DIR` to another persistent writable directory.
+- Downloaded images stay `REVIEW_REQUIRED`. A human must record the reuse basis, evidence URL and credit before render. A successful local render ends at `READY_TO_PUBLISH`; posting is not implemented.
+- The source poller and preparation timer templates both use a 5-minute interval. They are repository files only. No VPS, daemon, credentials, external worker or continuous uptime is configured or verified by this change.
 
-## State boundary
+## Which work happens on which machine
 
-`PREPARATION_REQUIRED` → `VOICE_PENDING` → `ASSET_REVIEW_REQUIRED` → (after rights review and manual render) `READY_TO_PUBLISH`
+The VPS is the coordinator: it owns the queue and source inbox, calls the configured model API, downloads article/images, runs the VOICEVOX client and assembles audio. With remote voice enabled, only the VOICEVOX HTTP inference runs on the worker computer. Audio transfer, FFmpeg conversion and final rendering still use the VPS. This is a useful small-host split, not a complete remote-render system.
 
-RSS scheduling and the script/voice/image-candidate implementation are present. Live 24-hour operation, VOICEVOX health on a host, actual provider credentials, an actual MP4 render, and production recovery have not been verified. The timer processes at most one inbox item per interval. Rights review and rendering are intentionally not automated.
+The repository has not measured peak memory or render time on a VPS, so it cannot yet certify the cheapest instance size. Run one authorized local render and measure peak RAM and disk use before choosing the smallest plan.
+
+Do not share the SQLite/WAL database over a network filesystem. A future full render worker needs an authenticated job/artifact handoff, content hashes and bounded result transfer; that transport is not part of this implementation.
+
+## Optional remote VOICEVOX setup
+
+The worker computer must already be running a VOICEVOX Engine HTTP server on its own loopback interface, normally `127.0.0.1:50021`. From that computer, open an SSH reverse tunnel to the VPS:
+
+```bash
+ssh -NT \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  -R 127.0.0.1:50021:127.0.0.1:50021 \
+  <dedicated-ssh-user>@<vps-host>
+```
+
+Configure the preparation service's protected environment file with:
+
+```text
+VOICEVOX_REMOTE_TUNNEL=1
+VOICEVOX_URL=http://127.0.0.1:50021
+```
+
+The tunnel listens only on the VPS loopback interface. The wrapper rejects non-loopback remote URLs, checks `/version` and requires both standard speakers before starting synthesis. Do not expose port 50021 publicly. Use a dedicated SSH account/key with remote forwarding limited to this loopback port. If the tunnel is down, the job stays queued and uses the bounded retry schedule.
+
+If voice retries are exhausted, repair/reconnect the engine and run:
+
+```bash
+python -m scripts.media_news_pipeline \
+  --db <queue.db> --workspace <workspace> \
+  retry-voice --source-id <source_id>
+```
+
+The command only returns the saved item to `VOICE_PENDING`; it does not call an AI API or publish anything.
 
 ## Staging commands
 
-Run from the repository root with Python, FFmpeg/Pillow, and the existing VOICEVOX runtime installed:
+Run from the repository root with Python and FFmpeg installed:
 
 ```bash
 python -m scripts.durable_media_runner --db runtime/media-queue.sqlite3 --workspace . init
 python -m scripts.media_source_daemon --db runtime/media-queue.sqlite3 --once
+python -m scripts.media_source_ingress --db runtime/media-queue.sqlite3 status
 ```
 
-To process one queued official article, configure `OPENROUTER_API_KEY` in the host's protected environment (never paste it into chat or commit it), set `VOICEVOX_ENGINE_DIR` for the local Engine, and run:
+To process one article, configure `OPENROUTER_API_KEY` in the host's protected environment and either configure local VOICEVOX or keep the remote tunnel connected:
 
 ```bash
 python -m scripts.media_news_pipeline --db runtime/media-queue.sqlite3 --workspace runtime process-next
 ```
 
-This produces `runtime/media-news/<source_id>/mission.json`, `audio.wav`, `timing.json`, downloaded image candidates and VOICEVOX attribution. It stops for rights review. Edit `image-candidates.json` only after verifying reuse terms; set `selected_for_render: true`, `rights_verified: true`, a concise `rights_basis`, the HTTPS `rights_evidence_url`, and `credit` on the selected assets. The renderer rechecks the package-local image path and SHA-256, and rejects duplicate image contents. Select at least two distinct eligible images per scene. Then invoke:
+This produces a saved mission, narration audio/timing and article image candidates, then stops for image-rights review. After each selected image has a verified reuse basis, HTTPS evidence URL and credit, render with the approved character shell and font:
 
 ```bash
 python -m scripts.media_news_pipeline --db runtime/media-queue.sqlite3 --workspace runtime render \
   --package runtime/media-news/<source_id> --shell <approved-character-shell> --font <approved-font>
 ```
 
-The render step uses the existing approved character and caption renderer. Its output remains local at `READY_TO_PUBLISH`.
+The output is local and remains at `READY_TO_PUBLISH`.
 
-## Host installation (not performed here)
+## Host installation (not performed)
 
-The templates assume a dedicated Linux account `hf-site-agent`, a checkout at `/opt/hf-site-agent`, and persistent writable storage at `/var/lib/hf-site-agent`. Create `/etc/hf-site-agent/media.env` with restrictive permissions and the required provider/runtime variables, install the unit files, then enable the poller service and preparation timer. Keep the API key out of command-line arguments and logs. The preparation unit creates writable HOME/TMPDIR directories under `/var/lib/hf-site-agent`. First run in a staging directory and verify feed intake, one preparation item, local voice output, rights stop, render, and reboot recovery before considering unattended use.
+The systemd examples assume a dedicated Linux account `hf-site-agent`, a checkout at `/opt/hf-site-agent`, and persistent storage at `/var/lib/hf-site-agent`. Install the service and timer files, set restrictive permissions on `/etc/hf-site-agent/media.env`, then verify the feed poller, queue, model API, VOICEVOX, one staged render and reboot recovery before unattended use. Do not enable public posting, automatic top-up or paid fallback.
 
 ```bash
 sudo install -m 0644 deploy/systemd/hf-site-agent-media-source.service /etc/systemd/system/
@@ -51,8 +87,4 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now hf-site-agent-media-source.service hf-site-agent-media-news.timer
 ```
 
-Do not enable public posting, auto top-up, or paid fallback. A successful render is not a publish authorization.
-
-## Existing durable runner
-
-`scripts/durable_media_runner.py` remains the typed `MEDIA_BATCH_RUN` control plane: SQLite/WAL queue, dedupe, leases, heartbeat, bounded retry, crash recovery, path validation, child secret isolation and process-group cleanup. It does not claim the news pipeline is deployed or that a host is running continuously.
+`durable_media_runner.py` remains the separate typed batch control plane with SQLite/WAL, dedupe, leases, bounded retry, path checks, child secret isolation and process-group cleanup. Passing CI proves repository behavior only; it does not prove a VPS has been provisioned or that any production workflow is running.

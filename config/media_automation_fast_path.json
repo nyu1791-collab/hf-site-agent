@@ -28,7 +28,9 @@
       "must_stop_at": "ASSET_REVIEW_REQUIRED_UNTIL_SELECTED_IMAGES_HAVE_VERIFIED_RIGHTS_AND_CREDIT",
       "one_shot_runtime": "scripts/media_source_ingress.py",
       "service_template": "deploy/systemd/hf-site-agent-media-source.service",
-      "scheduled_preparation_timer": "deploy/systemd/hf-site-agent-media-news.timer"
+      "scheduled_preparation_timer": "deploy/systemd/hf-site-agent-media-news.timer",
+      "poll_interval_seconds": 300,
+      "stale_after_seconds": 600
     },
     "script_and_tone": {
       "implementation": "ONE_COMBINED_JUDGMENT_PASS",
@@ -76,7 +78,7 @@
       "stages": [
         "OFFICIAL_ARTICLE_FETCH",
         "ONE_EXACT_FREE_SCRIPT_DRAFT",
-        "LOCAL_VOICEVOX",
+        "LOCAL_OR_SSH_LOOPBACK_TUNNEL_VOICEVOX",
         "ARTICLE_IMAGE_CANDIDATES"
       ],
       "daily_model_call_cap": 5,
@@ -93,7 +95,17 @@
       "source_and_package_paths_workspace_bound": true,
       "render_revalidates_source_image_hash": true,
       "rights_evidence_url_required": true,
-      "queue_health_command": "python -m scripts.media_source_ingress --db <queue.db> status"
+      "queue_health_command": "python -m scripts.media_source_ingress --db <queue.db> status",
+      "source_poll_interval_seconds": 300,
+      "voice_retry_limit": 3,
+      "voice_retry_delays_seconds": [
+        60,
+        300
+      ],
+      "voice_audio_and_timing_checkpoint_reuse": true,
+      "persistent_voice_cache_environment": "VOICEVOX_CACHE_DIR",
+      "remote_voicevox_transport": "SSH_REVERSE_TUNNEL_TO_LOOPBACK_ONLY",
+      "final_ffmpeg_render_offloaded": false
     }
   },
   "durable_execution": {
@@ -118,7 +130,15 @@
     "scheduled_polling_implemented_as_repository_template": true,
     "article_script_voice_image_candidate_stages_implemented": true,
     "article_script_voice_asset_e2e_connected": false,
-    "rights_review_required_before_render": true
+    "rights_review_required_before_render": true,
+    "rss_poll_interval_seconds": 300,
+    "news_preparation_timer_interval_seconds": 300,
+    "voice_checkpoint_reuse": true,
+    "voice_retry_limit": 3,
+    "voice_retry_delays_seconds": [
+      60,
+      300
+    ]
   },
   "minimum_fatal_gates_that_speed_may_not_remove": [
     "NO_ARBITRARY_COMMAND_EXECUTION",
