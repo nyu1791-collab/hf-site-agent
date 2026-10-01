@@ -45,7 +45,7 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 `docs/DURABLE_MEDIA_AUTOMATION.md` を実作業手順の正本とする。`scripts/media_source_daemon.py` とsystemd service/timerの例で公式RSSをSQLite inboxへ定期取得し、`scripts/media_news_pipeline.py` で公式記事から台本・VOICEVOX音声・画像候補を準備できる。これはRepository上の実装であり、VPSへ配置済み・24時間稼働中という意味ではない。
 
-ニュース動画では新タブ開始時に `config/media_news_pipeline_policy.json` と `docs/DURABLE_MEDIA_AUTOMATION.md` も読む。画像は自動取得後も権利未確認で停止し、選択した全画像に利用根拠・クレジットが揃うまでレンダーしない。公開投稿は実装・許可ともに別境界で扱い、成功状態は `READY_TO_PUBLISH` で止める。
+記事RSS監視・ニュース動画自動化では新タブ開始時に `config/media_command_read_gate.json` の `if_user_requests_article_rss_or_resident_news_video_automation` を解決し、列挙された現行Policy・Runner・systemd設定を読む。画像は自動取得後も権利未確認で停止し、選択した全画像に利用根拠・根拠URL・クレジットが揃うまでレンダーしない。ステータス確認ではfeedの鮮度と未処理キューの滞留時間を表示する。公開投稿は別境界で扱い、成功状態は `READY_TO_PUBLISH` で止める。
 
 ## AI Army の固定境界
 

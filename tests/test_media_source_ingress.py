@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
 from scripts.durable_media_runner import connect, init_db
-from scripts.media_source_ingress import init_inbox, ingest_items, parse_feed, promote_prepared_job
+from scripts.media_source_ingress import inbox_status, init_inbox, ingest_items, parse_feed, promote_prepared_job
 
 
 RSS = b"""<?xml version="1.0"?>
@@ -18,6 +19,21 @@ RSS = b"""<?xml version="1.0"?>
 
 
 class MediaSourceIngressTests(unittest.TestCase):
+    def test_status_exposes_feed_staleness_and_oldest_queue_age(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"queue.sqlite3");init_inbox(conn)
+            item=parse_feed(RSS,"openai-news")[0];ingest_items(conn,[item])
+            now=time.time()+1000
+            conn.execute("INSERT INTO source_feed_state VALUES(?,?,?,?,?)",("openai-news",None,None,now-200,"OK"))
+            fresh=inbox_status(conn,now=now,poll_interval_seconds=900)
+            self.assertFalse(fresh["any_feed_stale"])
+            self.assertIsNotNone(fresh["oldest_unprepared_age_seconds"])
+            conn.execute("UPDATE source_feed_state SET last_checked_at=?,last_status='FEED_ERROR'",(now-2000,))
+            stale=inbox_status(conn,now=now,poll_interval_seconds=900)
+            self.assertTrue(stale["any_feed_stale"])
+            self.assertEqual(stale["feed_freshness"][0]["last_status"],"FEED_ERROR")
+            conn.close()
+
     def test_parse_and_dedupe_feed_item_into_preparation_inbox(self):
         item = parse_feed(RSS, "openai-news")[0]
         self.assertEqual(item["title"], "New model & tools")

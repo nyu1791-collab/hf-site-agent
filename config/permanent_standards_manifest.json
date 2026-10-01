@@ -696,6 +696,13 @@
     "preparation_timer_template": "deploy/systemd/hf-site-agent-media-news.timer",
     "scheduled_polling_template_implemented": true,
     "automatic_article_script_voice_image_candidate_stages_implemented": true,
-    "rights_review_required_before_render": true
+    "rights_review_required_before_render": true,
+    "queue_health_command": "python -m scripts.media_source_ingress --db <queue.db> status",
+    "queue_status_reports_feed_freshness_and_oldest_unprepared_age": true,
+    "pipeline_single_writer_lock": true,
+    "atomic_stage_checkpoints": true,
+    "unchanged_article_and_rights_review_reused": true,
+    "render_rechecks_workspace_path_and_image_sha256": true,
+    "render_requires_rights_evidence_url": true
   }
 }

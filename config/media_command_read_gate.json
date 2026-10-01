@@ -100,6 +100,18 @@
         "if_user_requests_approved_template": [
           "config/approved_video_template.json",
           "docs/VIDEO_PRODUCTION_BASELINE.md"
+        ],
+        "if_user_requests_article_rss_or_resident_news_video_automation": [
+          "config/media_news_pipeline_policy.json",
+          "config/media_source_ingress_policy.json",
+          "scripts/media_source_ingress.py",
+          "scripts/media_source_daemon.py",
+          "scripts/media_news_pipeline.py",
+          "scripts/durable_media_runner.py",
+          "docs/DURABLE_MEDIA_AUTOMATION.md",
+          "deploy/systemd/hf-site-agent-media-source.service",
+          "deploy/systemd/hf-site-agent-media-news.service",
+          "deploy/systemd/hf-site-agent-media-news.timer"
         ]
       }
     },

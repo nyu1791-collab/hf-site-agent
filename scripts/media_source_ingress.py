@@ -135,6 +135,23 @@ def ingest_items(conn: sqlite3.Connection, items: list[Mapping[str, str]]) -> di
     return {"added": added, "deduped": len(items) - added, "render_jobs_created": 0}
 
 
+def inbox_status(conn: sqlite3.Connection, *, now: float | None = None,
+                 poll_interval_seconds: int | None = None) -> dict[str, Any]:
+    now = time.time() if now is None else float(now)
+    interval = int(poll_interval_seconds or load_policy().get("poll_interval_seconds", 900))
+    feeds = []
+    for row in conn.execute("SELECT feed_id,last_checked_at,last_status FROM source_feed_state ORDER BY feed_id"):
+        age = max(0, int(now - float(row["last_checked_at"])))
+        stale = row["last_status"] not in {"OK", "NOT_MODIFIED"} or age > interval * 2
+        feeds.append({"feed_id":row["feed_id"], "last_status":row["last_status"],
+            "age_seconds":age, "stale":stale})
+    counts = {row[0]:row[1] for row in conn.execute("SELECT state,COUNT(*) FROM source_inbox GROUP BY state")}
+    pending = conn.execute("SELECT MIN(created_at) FROM source_inbox WHERE state IN ('PREPARATION_REQUIRED','VOICE_PENDING')").fetchone()[0]
+    return {"feed_freshness":feeds, "any_feed_stale":any(x["stale"] for x in feeds) or not feeds,
+        "inbox_counts":counts, "oldest_unprepared_age_seconds":None if pending is None else max(0,int(now-float(pending))),
+        "process_supervisor_status":"NOT_OBSERVED", "public_publish_enabled":False}
+
+
 def poll_feed(conn: sqlite3.Connection, feed: Mapping[str, Any]) -> dict[str, Any]:
     feed_id, url = str(feed.get("feed_id") or ""), str(feed.get("url") or "")
     parts = urlsplit(url)
@@ -227,8 +244,7 @@ def main() -> int:
             result = promote_prepared_job(conn, source_id=args.source_id,
                 job_spec=_load_job_spec(args.job), workspace=args.workspace.resolve())
         else:
-            result = {"counts": {row[0]: row[1] for row in conn.execute("SELECT state,COUNT(*) FROM source_inbox GROUP BY state")},
-                      "daemon_enabled": False, "publish_enabled": False}
+            result = inbox_status(conn)
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         return 0
     finally:

@@ -86,7 +86,14 @@
       "image_rights_review_required": true,
       "automated_publish": false,
       "service_template": "deploy/systemd/hf-site-agent-media-news.service",
-      "status": "REPOSITORY_IMPLEMENTED_STAGING_ONLY"
+      "status": "REPOSITORY_IMPLEMENTED_STAGING_ONLY",
+      "per_queue_single_writer_lock": true,
+      "atomic_stage_checkpoints": true,
+      "unchanged_article_script_and_rights_annotation_reuse": true,
+      "source_and_package_paths_workspace_bound": true,
+      "render_revalidates_source_image_hash": true,
+      "rights_evidence_url_required": true,
+      "queue_health_command": "python -m scripts.media_source_ingress --db <queue.db> status"
     }
   },
   "durable_execution": {

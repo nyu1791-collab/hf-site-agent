@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import fcntl
 import gzip
 import hashlib
 import html
@@ -18,10 +19,12 @@ import re
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from contextlib import contextmanager
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Mapping
@@ -36,6 +39,78 @@ MAX_ARTICLE_CHARS = int(PIPELINE_POLICY["max_article_characters"])
 MAX_IMAGE_BYTES = int(PIPELINE_POLICY["max_article_image_bytes"])
 MAX_IMAGES = int(PIPELINE_POLICY["max_article_images"])
 OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+
+class DailyMediaCapReached(RuntimeError):
+    """A retryable daily free-call ceiling; keep the article in the inbox."""
+
+
+@contextmanager
+def _pipeline_lock(db_path: Path):
+    db_path = db_path.resolve()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = db_path.with_name(db_path.name + ".media-news.lock")
+    with lock_path.open("a+") as lock:
+        try:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise RuntimeError("another media-news pipeline command owns this queue") from exc
+        yield
+
+
+def _atomic_write(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=path.parent, prefix=path.name + ".", suffix=".tmp", delete=False) as tmp:
+        tmp.write(data)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+        temp_path = Path(tmp.name)
+    try:
+        os.replace(temp_path, path)
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+def _write_text_atomic(path: Path, value: str, *, encoding: str = "utf-8") -> None:
+    _atomic_write(path, value.encode(encoding))
+
+
+def _article_fingerprint(article: Mapping[str, Any]) -> str:
+    stable = {key:article.get(key) for key in ("url", "title", "text", "images")}
+    encoded = json.dumps(stable, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _resolve_news_package(workspace: Path, source_id: str, *, create: bool = False) -> Path:
+    if not re.fullmatch(r"[0-9a-f]{64}", str(source_id)):
+        raise ValueError("source id must be a canonical SHA-256 hex digest")
+    root = workspace.resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    news = root / "media-news"
+    if news.exists() and not news.resolve().is_relative_to(root):
+        raise ValueError("media-news directory escapes the configured workspace")
+    if create:
+        news.mkdir(exist_ok=True)
+    package = news / source_id
+    if package.exists() and not package.resolve().is_relative_to(news.resolve()):
+        raise ValueError("source package escapes the configured media-news directory")
+    if create:
+        package.mkdir(parents=True, exist_ok=True)
+    resolved = package.resolve()
+    if not resolved.is_relative_to(news.resolve()):
+        raise ValueError("source package escapes the configured media-news directory")
+    return resolved
+
+
+def _validate_existing_package(workspace: Path, package: Path) -> Path:
+    root = workspace.resolve()
+    news = root / "media-news"
+    if not news.is_dir() or not news.resolve().is_relative_to(root):
+        raise ValueError("media-news directory is missing or escapes the configured workspace")
+    resolved = package.resolve()
+    if not resolved.is_dir() or not resolved.is_relative_to(news.resolve()) or not re.fullmatch(r"[0-9a-f]{64}", resolved.name):
+        raise ValueError("media package must be a SHA-256-named directory inside this workspace")
+    return resolved
 
 
 class _AllowHostsRedirect(urllib.request.HTTPRedirectHandler):
@@ -97,7 +172,7 @@ def _allowed_https(url: str, hosts: set[str]) -> str:
     p = urllib.parse.urlsplit(url.strip())
     if p.scheme != "https" or not p.hostname or p.username or p.password or p.port not in (None, 443):
         raise ValueError("HTTPS source URL required")
-    if p.hostname.lower() not in hosts:
+    if p.hostname.lower() not in {host.lower() for host in hosts}:
         raise ValueError("source host is outside the configured allow-list")
     return urllib.parse.urlunsplit(("https", p.netloc.lower(), p.path or "/", p.query, ""))
 
@@ -139,22 +214,32 @@ def extract_article(url: str, *, allowed_hosts: set[str], opener=None) -> dict[s
 
 
 def validate_story(story: Mapping[str, Any], article_text: str) -> dict[str, Any]:
+    title = str(story.get("title") or "").strip()[:120]
+    if not title:
+        raise ValueError("draft title is required")
     scenes = story.get("scenes")
     if not isinstance(scenes, list) or not 3 <= len(scenes) <= 4:
         raise ValueError("draft must contain 3..4 scenes so each can receive distinct images")
     speakers: set[str] = set()
     normalized = []
     all_ids: set[str] = set()
+    scene_ids: set[str] = set()
     for si, scene in enumerate(scenes):
         if not isinstance(scene, Mapping):
             raise ValueError("scene must be an object")
         scene_id = str(scene.get("scene_id") or f"scene-{si+1:02d}")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,39}", scene_id) or scene_id in scene_ids:
+            raise ValueError("scene ids must be unique, short, and path-safe")
+        scene_ids.add(scene_id)
+        scene_title = str(scene.get("title") or "").strip()[:90]
+        if not scene_title:
+            raise ValueError("every scene needs a clear heading")
         excerpt = str(scene.get("source_excerpt") or "").strip()
         if len(excerpt) < 24 or excerpt not in article_text:
             raise ValueError("each scene needs an exact source excerpt from the official article")
         lines = scene.get("dialogue")
-        if not isinstance(lines, list) or not 2 <= len(lines) <= 8:
-            raise ValueError("each scene needs 2..8 dialogue turns")
+        if not isinstance(lines, list) or not 2 <= len(lines) <= 4:
+            raise ValueError("each scene needs 2..4 dialogue turns")
         clean_lines = []
         for li, line in enumerate(lines):
             if not isinstance(line, Mapping):
@@ -172,12 +257,19 @@ def validate_story(story: Mapping[str, Any], article_text: str) -> dict[str, Any
                 "caption_text_mode": "VOICE_TEXT_FULL", "emotion": str(line.get("emotion") or "NORMAL"),
                 "emphasis_spans": []})
         normalized.append({"scene_id": scene_id, "source_excerpt": excerpt,
-            "title": str(scene.get("title") or story.get("title") or "").strip()[:90],
+            "title": scene_title,
             "image_search_hint": str(scene.get("image_search_hint") or "").strip()[:180],
             "dialogue": clean_lines})
     if speakers != {"ずんだもん", "四国めたん"}:
         raise ValueError("both Zundamon and Shikoku Metan must speak")
-    return {"title": str(story.get("title") or "").strip()[:120], "scenes": normalized}
+    return {"title": title, "scenes": normalized}
+
+
+def _media_calls_used_today(conn: sqlite3.Connection) -> int:
+    conn.execute("""CREATE TABLE IF NOT EXISTS media_news_model_calls(
+      reserved_at REAL NOT NULL, call_date_utc TEXT NOT NULL, state TEXT NOT NULL)""")
+    day = time.strftime("%Y-%m-%d", time.gmtime())
+    return int(conn.execute("SELECT COUNT(*) FROM media_news_model_calls WHERE call_date_utc=?", (day,)).fetchone()[0])
 
 
 def _reserve_call(conn: sqlite3.Connection) -> None:
@@ -188,7 +280,7 @@ def _reserve_call(conn: sqlite3.Connection) -> None:
     try:
         used = int(conn.execute("SELECT COUNT(*) FROM media_news_model_calls WHERE call_date_utc=?", (day,)).fetchone()[0])
         if used >= int(PIPELINE_POLICY["daily_openrouter_media_call_cap"]):
-            raise RuntimeError("media-specific free-model daily cap reached")
+            raise DailyMediaCapReached("media-specific free-model daily cap reached")
         conn.execute("INSERT INTO media_news_model_calls VALUES(?,?,'RESERVED')", (time.time(), day))
         conn.commit()
     except BaseException:
@@ -285,75 +377,132 @@ def download_article_image(url: str, dest_dir: Path, *, allowed_hosts: set[str])
     dest_dir.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(data).hexdigest()
     path = dest_dir / (digest + spec[1])
-    if not path.exists():
-        path.write_bytes(data)
+    if not path.is_file() or path.stat().st_size != len(data) or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+        _atomic_write(path, data)
     return {"url":final_url,"file":str(path),"sha256":digest,"bytes":len(data)}
 
 
-def select_render_assets(manifest: Mapping[str, Any], scene_count: int) -> list[dict[str, Any]]:
+def select_render_assets(manifest: Mapping[str, Any], scene_count: int, package_dir: Path) -> list[dict[str, Any]]:
     assets = [x for x in manifest.get("assets", [])
               if x.get("downloaded") is True and x.get("selected_for_render") is True]
     ids = [str(x.get("id") or "") for x in assets]
     if len(assets) < 2 * scene_count or len(set(ids)) != len(ids) or "" in ids:
         raise RuntimeError("render blocked: select two distinct images per scene")
-    if any(x.get("rights_verified") is not True or not x.get("rights_basis") or not x.get("credit") for x in assets):
-        raise RuntimeError("render blocked: every selected image needs verified rights, a documented rights basis, and attribution credit")
+    images_root = (package_dir / "images").resolve()
+    hashes: set[str] = set()
+    allowed_hosts = set(PIPELINE_POLICY["image_hosts"])
+    for asset in assets:
+        if asset.get("rights_verified") is not True or not asset.get("rights_basis") or not asset.get("credit") or not asset.get("rights_evidence_url"):
+            raise RuntimeError("render blocked: each selected image needs verified rights, evidence, and attribution")
+        evidence = urllib.parse.urlsplit(str(asset["rights_evidence_url"]))
+        if evidence.scheme != "https" or not evidence.hostname or evidence.username or evidence.password or evidence.port not in (None, 443):
+            raise RuntimeError("render blocked: rights evidence must be a credential-free HTTPS URL")
+        _allowed_https(str(asset.get("url") or ""), allowed_hosts)
+        image_path = Path(str(asset.get("file") or "")).resolve()
+        if not image_path.is_file() or not image_path.is_relative_to(images_root):
+            raise RuntimeError("render blocked: selected image must be an existing file inside this package")
+        if image_path.stat().st_size > MAX_IMAGE_BYTES:
+            raise RuntimeError("render blocked: selected image exceeds the configured size limit")
+        digest = hashlib.sha256(image_path.read_bytes()).hexdigest()
+        if digest != asset.get("sha256") or digest in hashes:
+            raise RuntimeError("render blocked: image content hash mismatch or duplicate visual")
+        hashes.add(digest)
     return assets
 
 
 def process_source(conn: sqlite3.Connection, source_id: str, workspace: Path, *, image_hosts: set[str], catalog=None, request_fn=None, planner_fn=None) -> Path:
+    if not re.fullmatch(r"[0-9a-f]{64}", str(source_id)):
+        raise ValueError("source id must be a canonical SHA-256 hex digest")
     row = conn.execute("SELECT * FROM source_inbox WHERE source_id=?", (source_id,)).fetchone()
     if row is None:
         raise ValueError("source id not found in preparation inbox")
     if row["state"] not in {"PREPARATION_REQUIRED", "SCRIPT_BLOCKED", "VOICE_PENDING"}:
         raise ValueError("source is not in a processable state")
+    package = _resolve_news_package(workspace, source_id, create=True)
     if not os.environ.get("OPENROUTER_API_KEY"):
         raise RuntimeError("OPENROUTER_API_KEY is not configured")
-    package = workspace.resolve() / "media-news" / source_id
-    package.mkdir(parents=True, exist_ok=True)
     source = extract_article(row["url"], allowed_hosts=set(PIPELINE_POLICY["article_hosts"]))
+    source["source_sha256"] = _article_fingerprint(source)
     article_path = package / "article.json"
-    article_path.write_text(json.dumps(source, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    images = []
-    for index, item in enumerate(source["images"]):
-        asset = {"id": f"article-image-{index+1:02d}", "url": item["url"], "alt": item["alt"],
-                 "downloaded": False, "rights_verified": False, "rights_state": "REVIEW_REQUIRED",
-                 "rights_basis": "", "media_region_only": True}
-        try:
-            asset.update(download_article_image(item["url"], package / "images", allowed_hosts=image_hosts))
-            asset["downloaded"] = True
-        except (OSError, ValueError, urllib.error.URLError) as exc:
-            asset["download_error_type"] = type(exc).__name__
-        images.append(asset)
-    images = [x for x in images if x["downloaded"]]
     image_path = package / "image-candidates.json"
-    image_path.write_text(json.dumps({"source_url": source["url"], "assets": images,
-      "rights_review_required": True,
-      "render_blocked_until_each_used_asset_has_verified_rights": True}, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
+    try:
+        previous = json.loads(article_path.read_text(encoding="utf-8"))
+        previous_images = json.loads(image_path.read_text(encoding="utf-8"))
+        same_source = (previous.get("source_sha256") == source["source_sha256"]
+            and previous_images.get("source_sha256") == source["source_sha256"]
+            and isinstance(previous_images.get("assets"), list))
+    except (OSError, ValueError, AttributeError):
+        same_source = False
+    mission_path = package / "mission.json"
+    packed_path = package / "mission.json.gz.b64"
+    if same_source and mission_path.is_file():
+        try:
+            cached_mission = json.loads(mission_path.read_text(encoding="utf-8"))
+            if cached_mission.get("source_id") == source_id and cached_mission.get("source_sha256") == source["source_sha256"]:
+                conn.execute("UPDATE source_inbox SET state='VOICE_PENDING',updated_at=? WHERE source_id=?", (time.time(),source_id))
+                return mission_path
+        except (OSError, ValueError):
+            pass
+    if not same_source:
+        _write_text_atomic(article_path, json.dumps(source, ensure_ascii=False, indent=2) + "\n")
+        image_dir = package / "images"
+        if image_dir.exists() and not image_dir.resolve().is_relative_to(package):
+            raise ValueError("image cache directory escapes the source package")
+        image_dir.mkdir(exist_ok=True)
+        if not image_dir.resolve().is_relative_to(package):
+            raise ValueError("image cache directory escapes the source package")
+        images = []
+        for index, item in enumerate(source["images"]):
+            asset = {"id": f"article-image-{index+1:02d}", "url": item["url"], "alt": item["alt"],
+                     "downloaded": False, "rights_verified": False, "rights_state": "REVIEW_REQUIRED",
+                     "selected_for_render": False, "rights_basis": "", "rights_evidence_url": "",
+                     "credit": "", "media_region_only": True}
+            try:
+                asset.update(download_article_image(item["url"], image_dir, allowed_hosts=image_hosts))
+                asset["downloaded"] = True
+            except (OSError, ValueError, urllib.error.URLError) as exc:
+                asset["download_error_type"] = type(exc).__name__
+            images.append(asset)
+        images = [x for x in images if x["downloaded"]]
+        _write_text_atomic(image_path, json.dumps({"source_url":source["url"],
+            "source_sha256":source["source_sha256"], "assets":images, "rights_review_required":True,
+            "render_blocked_until_each_used_asset_has_verified_rights_and_evidence":True}, ensure_ascii=False, indent=2)+"\n")
     try:
         story, model = draft_story(conn, source, catalog=catalog, request_fn=request_fn, planner_fn=planner_fn)
         mission = {"mission_id": "news-" + source_id[:20], "source_id": source_id,
+          "source_sha256":source["source_sha256"],
           "title": story["title"], "source_url": source["url"],
           "scenes": [{"scene_id": scene["scene_id"], "title": scene["title"],
             "source_excerpt": scene["source_excerpt"], "image_search_hint": scene["image_search_hint"],
             "dialogue": scene["dialogue"]} for scene in story["scenes"]],
           "pronunciation_dictionary": []}
-        mission_path = package / "mission.json"
-        mission_path.write_text(json.dumps(mission, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
+        _write_text_atomic(mission_path, json.dumps(mission, ensure_ascii=False, indent=2)+"\n")
         packed = base64.b64encode(gzip.compress(json.dumps(mission, ensure_ascii=False).encode())).decode()
-        (package / "mission.json.gz.b64").write_text(packed+"\n", encoding="ascii")
+        _write_text_atomic(packed_path, packed+"\n", encoding="ascii")
         conn.execute("UPDATE source_inbox SET state='VOICE_PENDING',updated_at=? WHERE source_id=?", (time.time(), source_id))
         return mission_path
+    except DailyMediaCapReached:
+        conn.execute("UPDATE source_inbox SET state='PREPARATION_REQUIRED',updated_at=? WHERE source_id=?", (time.time(),source_id))
+        _write_text_atomic(package / "blocked.json", json.dumps({"error_type":"DailyMediaCapReached"},indent=2)+"\n")
+        raise
     except Exception as exc:
         conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?", (time.time(), source_id))
-        (package / "blocked.json").write_text(json.dumps({"error_type":type(exc).__name__},indent=2)+"\n")
+        _write_text_atomic(package / "blocked.json", json.dumps({"error_type":type(exc).__name__},indent=2)+"\n")
         raise
 
 
 def synthesize_voice(package: Path, *, min_seconds: int = 60, max_seconds: int = 300) -> dict[str, Any]:
-    mission = package / "mission.json.gz.b64"
-    if not mission.is_file():
+    mission_json = package / "mission.json"
+    if not mission_json.is_file():
         raise ValueError("generated mission package is missing")
+    mission_value = json.loads(mission_json.read_text(encoding="utf-8"))
+    if not re.fullmatch(r"[0-9a-f]{64}", str(mission_value.get("source_id") or "")) or not re.fullmatch(r"[0-9a-f]{64}", str(mission_value.get("source_sha256") or "")):
+        raise ValueError("generated mission source identity is invalid")
+    if package.resolve().name != mission_value["source_id"]:
+        raise ValueError("generated mission source id does not match its package directory")
+    mission = package / "mission.json.gz.b64"
+    packed = base64.b64encode(gzip.compress(json.dumps(mission_value,ensure_ascii=False).encode("utf-8"),mtime=0)).decode("ascii")
+    _write_text_atomic(mission, packed+"\n", encoding="ascii")
     command = ["bash", "scripts/with_local_voicevox.sh", "--", sys.executable,
         "scripts/synthesize_longform_voicevox.py", "--mission-b64", str(mission.resolve()),
         "--output-dir", str((package / "voice-parts").resolve()),
@@ -379,71 +528,104 @@ def synthesize_voice(package: Path, *, min_seconds: int = 60, max_seconds: int =
       "voicevox_credit":timing["voicevox_credit"],"cache_hits":timing["voice_cache_hits"]}
 
 
+def _render_package(args, conn: sqlite3.Connection) -> dict[str, Any]:
+    package = _validate_existing_package(args.workspace, args.package)
+    image_manifest = json.loads((package / "image-candidates.json").read_text(encoding="utf-8"))
+    mission = json.loads((package / "mission.json").read_text(encoding="utf-8"))
+    if mission.get("source_id") != package.name:
+        raise RuntimeError("render blocked: mission source id does not match package")
+    inbox_row = conn.execute("SELECT state FROM source_inbox WHERE source_id=?", (mission["source_id"],)).fetchone()
+    if inbox_row is None or inbox_row["state"] != "ASSET_REVIEW_REQUIRED":
+        raise RuntimeError("render blocked: source inbox is not at the rights-review boundary")
+    assets = select_render_assets(image_manifest, len(mission["scenes"]), package)
+    timing = json.loads((package / "timing.json").read_text(encoding="utf-8"))
+    voice_credit = ", ".join(timing.get("voicevox_credit", ["VOICEVOX:ずんだもん", "VOICEVOX:四国めたん"]))
+    visuals = [{"id":asset["id"], "file":asset["file"], "title":asset.get("alt") or mission["title"],
+        "source_credit":asset["credit"], "source_url":asset["url"], "media_region_only":True} for asset in assets]
+    scene_indices = {scene["scene_id"]:i for i,scene in enumerate(mission["scenes"])}
+    if len(scene_indices) != len(mission["scenes"]):
+        raise RuntimeError("render blocked: duplicate scene ids")
+    line_counts = {key:0 for key in scene_indices}
+    for row in timing["records"]:
+        scene_id = row.get("scene_id")
+        if scene_id not in scene_indices:
+            raise RuntimeError("render blocked: timing references an unknown scene")
+        scene_index = scene_indices[scene_id]
+        row["visual_id"] = visuals[scene_index * 2 + line_counts[scene_id] % 2]["id"]
+        line_counts[scene_id] += 1
+    if any(count == 0 for count in line_counts.values()):
+        raise RuntimeError("render blocked: timing data must cover every scene")
+    _write_text_atomic(package / "timing.json", json.dumps(timing, ensure_ascii=False, indent=2) + "\n")
+    presentation = {"title":mission["title"], "source_credit":"Official article images; see per-image credits",
+        "source_url":mission["source_url"], "voice_credit":voice_credit, "media_region_only":True, "visuals":visuals}
+    presentation_path = package / "presentation.json"
+    _write_text_atomic(presentation_path, json.dumps(presentation, ensure_ascii=False, indent=2) + "\n")
+    audio = package / "audio.wav"
+    visual = Path(visuals[0]["file"])
+    duration = float(timing["total_duration"])
+    cmd = [sys.executable,"-m","scripts.render_reusable_short","--audio",str(audio),"--timing",str(package/"timing.json"),
+        "--shell",str(args.shell.resolve()),"--font",str(args.font.resolve()),"--visual",str(visual),
+        "--output",str(package/"final.mp4"),"--presentation",str(presentation_path),"--start","0","--duration",str(duration)]
+    subprocess.run(cmd, cwd=ROOT, check=True, timeout=1800)
+    conn.execute("UPDATE source_inbox SET state='READY_TO_PUBLISH',updated_at=? WHERE source_id=?", (time.time(), mission["source_id"]))
+    return {"status":"READY_TO_PUBLISH", "video":str(package/"final.mp4"), "duration_seconds":duration,
+        "public_publish_enabled":False}
+
+
+def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int, max_seconds: int) -> dict[str, Any]:
+    row = conn.execute("SELECT source_id,state FROM source_inbox WHERE state IN ('PREPARATION_REQUIRED','VOICE_PENDING') ORDER BY created_at LIMIT 1").fetchone()
+    if row is None:
+        return {"status":"IDLE"}
+    if not os.environ.get("OPENROUTER_API_KEY") and row["state"] == "PREPARATION_REQUIRED":
+        return {"status":"BLOCKED_CREDENTIAL_NOT_CONFIGURED"}
+    if row["state"] == "PREPARATION_REQUIRED" and _media_calls_used_today(conn) >= int(PIPELINE_POLICY["daily_openrouter_media_call_cap"]):
+        return {"status":"BLOCKED_DAILY_MEDIA_CALL_CAP","source_id":row["source_id"],"will_retry_next_utc_day":True}
+    package = _resolve_news_package(workspace, row["source_id"])
+    if row["state"] == "VOICE_PENDING" and (package / "mission.json").is_file():
+        mission = package / "mission.json"
+    else:
+        mission = process_source(conn, row["source_id"], workspace, image_hosts=set(PIPELINE_POLICY["image_hosts"]))
+    voice = synthesize_voice(mission.parent, min_seconds=min_seconds, max_seconds=max_seconds)
+    image_manifest = json.loads((mission.parent / "image-candidates.json").read_text(encoding="utf-8"))
+    state = "ASSET_REVIEW_REQUIRED" if image_manifest["assets"] else "NO_CLEARED_IMAGES"
+    conn.execute("UPDATE source_inbox SET state=?,updated_at=? WHERE source_id=?", (state,time.time(),row["source_id"]))
+    return {"status":state, "source_id":row["source_id"], "mission":str(mission), "voice":voice,
+        "image_count":len(image_manifest["assets"]), "public_publish_enabled":False}
+
+
 def main() -> int:
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument("--db",type=Path,required=True);p.add_argument("--workspace",type=Path,required=True)
-    sub=p.add_subparsers(dest="action",required=True)
-    prep=sub.add_parser("prepare");prep.add_argument("--source-id",required=True)
-    voice=sub.add_parser("voice");voice.add_argument("--package",type=Path,required=True);voice.add_argument("--min-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][0]);voice.add_argument("--max-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][1])
-    process=sub.add_parser("process-next");process.add_argument("--min-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][0]);process.add_argument("--max-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][1])
-    render=sub.add_parser("render");render.add_argument("--package",type=Path,required=True);render.add_argument("--shell",type=Path,required=True);render.add_argument("--font",type=Path,required=True)
-    args=p.parse_args();conn=connect(args.db)
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--db", type=Path, required=True)
+    p.add_argument("--workspace", type=Path, required=True)
+    sub = p.add_subparsers(dest="action", required=True)
+    prep = sub.add_parser("prepare"); prep.add_argument("--source-id", required=True)
+    voice = sub.add_parser("voice"); voice.add_argument("--package",type=Path,required=True)
+    voice.add_argument("--min-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][0])
+    voice.add_argument("--max-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][1])
+    process = sub.add_parser("process-next")
+    process.add_argument("--min-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][0])
+    process.add_argument("--max-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][1])
+    render = sub.add_parser("render"); render.add_argument("--package",type=Path,required=True)
+    render.add_argument("--shell",type=Path,required=True); render.add_argument("--font",type=Path,required=True)
+    args = p.parse_args()
+    conn = connect(args.db)
     try:
         init_inbox(conn)
-        if args.action=="prepare":
-            path=process_source(conn,args.source_id,args.workspace,image_hosts=set(PIPELINE_POLICY["image_hosts"]))
-            print(json.dumps({"status":"SCRIPT_READY_IMAGE_RIGHTS_REVIEW_REQUIRED","mission":str(path)},ensure_ascii=False))
-            return 0
-        if args.action=="voice":
-            result=synthesize_voice(args.package,min_seconds=args.min_seconds,max_seconds=args.max_seconds)
-            print(json.dumps(result,ensure_ascii=False));return 0
-        if args.action=="process-next":
-            row=conn.execute("SELECT source_id,state FROM source_inbox WHERE state IN ('PREPARATION_REQUIRED','VOICE_PENDING') ORDER BY created_at LIMIT 1").fetchone()
-            if row is None:
-                print(json.dumps({"status":"IDLE"}));return 0
-            if not os.environ.get("OPENROUTER_API_KEY") and row["state"]=="PREPARATION_REQUIRED":
-                print(json.dumps({"status":"BLOCKED_CREDENTIAL_NOT_CONFIGURED"}));return 0
-            package=args.workspace.resolve()/"media-news"/row["source_id"]
-            if row["state"]=="VOICE_PENDING" and (package/"mission.json").is_file():
-                mission=package/"mission.json"
+        with _pipeline_lock(args.db):
+            if args.action == "prepare":
+                path = process_source(conn,args.source_id,args.workspace,image_hosts=set(PIPELINE_POLICY["image_hosts"]))
+                result = {"status":"SCRIPT_READY_IMAGE_RIGHTS_REVIEW_REQUIRED","mission":str(path)}
+            elif args.action == "voice":
+                package = _validate_existing_package(args.workspace,args.package)
+                result = synthesize_voice(package,min_seconds=args.min_seconds,max_seconds=args.max_seconds)
+            elif args.action == "process-next":
+                result = _process_next(conn,args.workspace,min_seconds=args.min_seconds,max_seconds=args.max_seconds)
             else:
-                mission=process_source(conn,row["source_id"],args.workspace,image_hosts=set(PIPELINE_POLICY["image_hosts"]))
-            result=synthesize_voice(mission.parent,min_seconds=args.min_seconds,max_seconds=args.max_seconds)
-            image_manifest=json.loads((mission.parent/"image-candidates.json").read_text(encoding="utf-8"))
-            state="ASSET_REVIEW_REQUIRED" if image_manifest["assets"] else "NO_CLEARED_IMAGES"
-            conn.execute("UPDATE source_inbox SET state=?,updated_at=? WHERE source_id=?",(state,time.time(),row["source_id"]))
-            print(json.dumps({"status":state,"source_id":row["source_id"],"mission":str(mission),"voice":result,
-                "image_count":len(image_manifest["assets"]),"public_publish_enabled":False},ensure_ascii=False));return 0
-        package=args.package.resolve()
-        image_manifest=json.loads((package/"image-candidates.json").read_text(encoding="utf-8"))
-        mission=json.loads((package/"mission.json").read_text(encoding="utf-8"))
-        assets=select_render_assets(image_manifest,len(mission["scenes"]))
-        timing=json.loads((package/"timing.json").read_text(encoding="utf-8"))
-        voice_credit=", ".join(timing.get("voicevox_credit",["VOICEVOX:ずんだもん","VOICEVOX:四国めたん"]))
-        visuals=[]
-        for i,asset in enumerate(assets):
-            visuals.append({"id":asset["id"],"file":asset["file"],"title":asset.get("alt") or mission["title"],
-                "source_credit":asset["credit"],"source_url":asset["url"],"media_region_only":True})
-        scene_indices={scene["scene_id"]:i for i,scene in enumerate(mission["scenes"])}
-        line_counts={key:0 for key in scene_indices}
-        for row in timing["records"]:
-            scene_index=scene_indices[row["scene_id"]]
-            row["visual_id"]=visuals[(scene_index*2+line_counts[row["scene_id"]]%2)%len(visuals)]["id"]
-            line_counts[row["scene_id"]]+=1
-        (package/"timing.json").write_text(json.dumps(timing,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
-        presentation={"title":mission["title"],"source_credit":"Source: OpenAI official newsroom",
-            "source_url":mission["source_url"],"voice_credit":voice_credit,"media_region_only":True,"visuals":visuals}
-        presentation_path=package/"presentation.json";presentation_path.write_text(json.dumps(presentation,ensure_ascii=False,indent=2)+"\n")
-        audio=package/"audio.wav";visual=Path(visuals[0]["file"])
-        duration=float(timing["total_duration"])
-        renderer="scripts.render_reusable_short"
-        cmd=[sys.executable,"-m",renderer,"--audio",str(audio),"--timing",str(package/"timing.json"),
-             "--shell",str(args.shell.resolve()),"--font",str(args.font.resolve()),"--visual",str(visual),
-             "--output",str(package/("final.mp4")),"--presentation",str(presentation_path),"--start","0","--duration",str(duration)]
-        subprocess.run(cmd,cwd=ROOT,check=True,timeout=1800)
-        conn.execute("UPDATE source_inbox SET state='READY_TO_PUBLISH',updated_at=? WHERE source_id=?",(time.time(),mission["source_id"]))
-        print(json.dumps({"status":"READY_TO_PUBLISH","video":str(package/"final.mp4"),"duration_seconds":duration,
-            "public_publish_enabled":False},ensure_ascii=False));return 0
-    finally:conn.close()
+                result = _render_package(args,conn)
+        print(json.dumps(result,ensure_ascii=False))
+        return 0
+    finally:
+        conn.close()
 
 
 if __name__=="__main__":

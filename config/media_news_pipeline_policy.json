@@ -3,25 +3,50 @@
   "status": "STAGING_ONLY",
   "purpose": "Turn one configured official RSS item into a source-backed draft, locally synthesized VOICEVOX audio, and downloaded official page image candidates.",
   "source_ingress_policy": "config/media_source_ingress_policy.json",
-  "article_hosts": ["openai.com", "www.openai.com"],
+  "article_hosts": [
+    "openai.com",
+    "www.openai.com"
+  ],
   "poll_interval_seconds": 900,
   "daily_openrouter_media_call_cap": 5,
+  "at_daily_cap": "LEAVE_ITEM_QUEUED_FOR_NEXT_UTC_DAY",
   "require_current_exact_free_model_catalog": true,
   "generic_openrouter_free_router_allowed": false,
   "provider_fallback_allowed": false,
   "auto_top_up": false,
-  "default_duration_seconds": [60, 300],
+  "default_duration_seconds": [
+    60,
+    300
+  ],
   "max_article_bytes": 1500000,
   "max_article_characters": 32000,
   "max_article_images": 8,
   "max_article_image_bytes": 5000000,
-  "image_hosts": ["openai.com", "www.openai.com", "cdn.openai.com", "images.ctfassets.net"],
-  "scene_count": [3, 4],
+  "image_hosts": [
+    "openai.com",
+    "www.openai.com",
+    "cdn.openai.com",
+    "images.ctfassets.net"
+  ],
+  "scene_count": [
+    3,
+    4
+  ],
   "distinct_rights_cleared_images_per_scene": 2,
   "downloaded_image_rights_default": "REVIEW_REQUIRED",
-  "render_requires_rights_basis_and_credit": true,
-  "default_voice_cast": ["ずんだもん", "四国めたん"],
+  "render_requires_rights_basis_credit_and_https_evidence_url": true,
+  "default_voice_cast": [
+    "ずんだもん",
+    "四国めたん"
+  ],
   "generated_images_allowed": false,
   "public_publish_enabled": false,
-  "stop_state_before_rights_review": "ASSET_REVIEW_REQUIRED"
+  "stop_state_before_rights_review": "ASSET_REVIEW_REQUIRED",
+  "one_pipeline_command_per_queue": true,
+  "source_id_format": "LOWERCASE_SHA256_HEX_64",
+  "article_source_fingerprint": "URL_TITLE_TEXT_AND_IMAGE_URLS_SHA256",
+  "atomic_checkpoint_writes": true,
+  "preserve_rights_review_for_unchanged_source": true,
+  "resume_existing_script_before_new_model_call": true,
+  "render_revalidates_package_path_and_asset_sha256": true
 }
