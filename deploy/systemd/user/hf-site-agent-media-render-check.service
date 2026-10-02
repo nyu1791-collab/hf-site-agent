@@ -1,0 +1,19 @@
+[Unit]
+Description=Authenticated loopback health check for the external media renderer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/hf-site-agent
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONIOENCODING=utf-8:backslashreplace
+EnvironmentFile=%h/.config/hf-site-agent/media-render.env
+ExecStart=/usr/bin/python3 -m scripts.media_render_transport --check
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+TimeoutStartSec=20
+
+# Deliberately no [Install] section: this is an explicit diagnostic, not a timer.
