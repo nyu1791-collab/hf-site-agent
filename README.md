@@ -43,7 +43,7 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 ## 常駐監視・ニュース動画の自動準備
 
-VPS運用の手順は `docs/VPS_MEDIA_NEWS_AUTOMATION.md`、実装詳細は `docs/DURABLE_MEDIA_AUTOMATION.md` を正本とする。`scripts/media_source_daemon.py` とsystemd user timerは5分ごとに公式RSSをSQLite inboxへ取得し、対象記事があれば1件ずつ台本・ローカルVOICEVOX音声・画像候補まで進める。台本用の有料APIは、ユーザーが指定したOpenRouterの `deepseek/deepseek-v4.1-flash` のみで、1回0.05 USD、1日予約0.10 USD、UTC月0.50 USD、1日5回を上限とする。ChatGPT API、別有料モデルへのフォールバック、自動トップアップは不要。画像の権利確認前に停止し、公開は無効。2026-10-02のユーザー提供画面は `Linger=yes` とtimer `active` を示すが、PR版のVPS導入、再起動後の有効性、RSS/API/VOICEVOX/MP4の成功は未確認。
+現在の24時間稼働対象は既存Google Compute Engine VMで、`docs/GCP_SMALL_HOST_DEPLOYMENT.md` と `docs/DURABLE_MEDIA_AUTOMATION.md` を正本とする。GCP VMはCoordinator/Monitor/Queue/Agent処理とprivate self-hosted Runnerを担当し、動画レンダーは行わない。`scripts/media_source_daemon.py` とsystemd user timerは5分ごとに公式RSSをSQLite inboxへ取得し、対象記事があれば1件ずつ台本・VOICEVOX音声・画像候補まで進める。台本用の有料APIはOpenRouterの `deepseek/deepseek-v4.1-flash` のみで、1回0.05 USD、1日予約0.10 USD、UTC月0.50 USD、1日5回を上限とする。ChatGPT API、別有料モデルへのフォールバック、自動トップアップは不要。画像の権利確認前に停止し、承認後の最終レンダーは外部render workerへ渡す。公開は無効。Runner接続・サービス化はprivate VM control経路で確認済みだが、最新PR HEADの実機同期、再起動後の継続稼働、RSS/API/VOICEVOX/外部renderのE2E完走はライブ確認するまで未確認として扱う。
 
 記事RSS監視・ニュース動画自動化では新タブ開始時に `config/media_command_read_gate.json` の `if_user_requests_article_rss_or_resident_news_video_automation` を解決し、列挙された現行Policy・Runner・systemd設定を読む。画像は自動取得後も権利未確認で停止し、選択した全画像に利用根拠・根拠URL・クレジットが揃うまでレンダーしない。ステータス確認ではfeedの鮮度と未処理キューの滞留時間を表示する。公開投稿は別境界で扱い、成功状態は `READY_TO_PUBLISH` で止める。
 
@@ -58,7 +58,7 @@ VPS運用の手順は `docs/VPS_MEDIA_NEWS_AUTOMATION.md`、実装詳細は `doc
 - Machine Oracle / Schema / Test / Hash / ffprobe等をAI多数決より優先する。
 - APIモデルは有料という理由だけで一律禁止しない。追加候補は config/paid_agent_route_eligibility_policy.json に基づき、DeepSeek V4.1 Flashより低い実タスク総費用と、必要機能を満たしたうえでの実測優位が確認できた場合だけ選択する。
 - Auto Top-up、Generic Paid Fallback、Paid sibling自動置換、有料の動画/画像生成・TTS・編集は引き続き禁止。例外は正確なDeepSeek V4.1 FlashによるRSS台本テキストだけ。Vertex AIは現在不要・無効。
-- VPSの永続稼働状態はライブホスト確認が必要で、リポジトリの設定だけを根拠に稼働中と報告しない。Publish先・認証・対象範囲の証拠が揃うまで公開処理を停止する。
+- GCP coordinatorの永続稼働状態はライブホスト確認が必要で、リポジトリの設定だけを根拠に稼働中と報告しない。Runner、timer、queue、処理結果、外部render workerを分けて判定する。Publish先・認証・対象範囲の証拠が揃うまで公開処理を停止する。
 
 ## 動画制作
 
