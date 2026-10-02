@@ -294,21 +294,31 @@ def preflight(
     if not env_path.is_file():
         blockers.append("PROTECTED_MEDIA_ENV_MISSING")
     else:
-        mode = stat.S_IMODE(env_path.stat().st_mode)
-        if mode != 0o600 or env_path.is_symlink() or env_path.stat().st_uid != os.getuid():
+        try:
+            info = env_path.lstat()
+            env_secure = (
+                stat.S_ISREG(info.st_mode)
+                and stat.S_IMODE(info.st_mode) == 0o600
+                and info.st_uid == os.getuid()
+                and not env_path.is_symlink()
+            )
+        except OSError:
+            env_secure = False
+        if not env_secure:
             blockers.append("PROTECTED_MEDIA_ENV_PERMISSIONS_INVALID")
-        values = _env_file_values(env_path)
-        if not values.get("OPENROUTER_API_KEY"):
-            blockers.append("OPENROUTER_CREDENTIAL_STATUS_MISSING")
-        engine = Path(values.get("VOICEVOX_ENGINE_DIR", str(home / ".local/share/voicevox_engine/linux-cpu-x64"))).expanduser()
-        remote_mode = values.get("VOICEVOX_REMOTE_TUNNEL", "0")
-        if remote_mode == "1":
-            if not values.get("VOICEVOX_EXPECTED_VERSION") or not _remote_voicevox_ready(values):
-                blockers.append("REMOTE_VOICEVOX_TUNNEL_OR_CAST_UNAVAILABLE")
-        elif remote_mode != "0":
-            blockers.append("VOICEVOX_MODE_INVALID")
-        elif not values.get("VOICEVOX_EXPECTED_VERSION") or not engine.is_dir():
-            blockers.append("VOICEVOX_ENGINE_VERSION_OR_INSTALLATION_MISSING")
+        else:
+            values = _env_file_values(env_path)
+            if not values.get("OPENROUTER_API_KEY"):
+                blockers.append("OPENROUTER_CREDENTIAL_STATUS_MISSING")
+            engine = Path(values.get("VOICEVOX_ENGINE_DIR", str(home / ".local/share/voicevox_engine/linux-cpu-x64"))).expanduser()
+            remote_mode = values.get("VOICEVOX_REMOTE_TUNNEL", "0")
+            if remote_mode == "1":
+                if not values.get("VOICEVOX_EXPECTED_VERSION") or not _remote_voicevox_ready(values):
+                    blockers.append("REMOTE_VOICEVOX_TUNNEL_OR_CAST_UNAVAILABLE")
+            elif remote_mode != "0":
+                blockers.append("VOICEVOX_MODE_INVALID")
+            elif not values.get("VOICEVOX_EXPECTED_VERSION") or not engine.is_dir():
+                blockers.append("VOICEVOX_ENGINE_VERSION_OR_INSTALLATION_MISSING")
 
     for unit in UNITS:
         source = root / "deploy/systemd/user" / unit
