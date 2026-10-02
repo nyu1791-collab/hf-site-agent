@@ -16,6 +16,8 @@ FILES = (
     "scripts/install_gcp_small_host_services.py",
     "deploy/systemd/user/hf-site-agent-media-news.service",
     "deploy/systemd/user/hf-site-agent-media-news.timer",
+    "deploy/systemd/user/hf-site-agent-media-render@.service",
+    "deploy/systemd/user/hf-site-agent-media-render-check.service",
     "deploy/systemd/hf-render-worker.service",
 )
 
@@ -90,6 +92,16 @@ class GcpCoordinatorContractTests(unittest.TestCase):
             service.write_text(text, encoding="utf-8")
             self.assertIn("GCP_PREPARATION_SERVICE_CONTRACT_INVALID", validate(root))
 
+    def test_authoritative_rss_contract_preserves_the_existing_database(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self._fixture(root)
+            policy = root / "config/media_small_host_policy.json"
+            value = json.loads(policy.read_text(encoding="utf-8"))
+            value["runtime_layout"]["move_or_reinitialize_existing_database"] = True
+            policy.write_text(json.dumps(value), encoding="utf-8")
+            self.assertIn("AUTHORITATIVE_RSS_INGRESS_CONTRACT_INVALID", validate(root))
+
     def test_timer_persistence_or_interval_drift_is_blocked(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -116,6 +128,19 @@ class GcpCoordinatorContractTests(unittest.TestCase):
             )
             installer.write_text(text, encoding="utf-8")
             self.assertIn("GCP_INSTALLER_UNIT_SCOPE_INVALID", validate(root))
+
+    def test_user_render_unit_comments_are_not_install_sections(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self._fixture(root)
+            self.assertNotIn("GCP_USER_REMOTE_RENDER_UNIT_CONTRACT_INVALID", validate(root))
+
+            service = root / "deploy/systemd/user/hf-site-agent-media-render@.service"
+            service.write_text(
+                service.read_text(encoding="utf-8") + "\n[Install]\nWantedBy=default.target\n",
+                encoding="utf-8",
+            )
+            self.assertIn("GCP_USER_REMOTE_RENDER_UNIT_CONTRACT_INVALID", validate(root))
 
 
 if __name__ == "__main__":

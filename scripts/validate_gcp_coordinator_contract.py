@@ -20,6 +20,15 @@ def _json(path: Path) -> dict[str, Any]:
     return value
 
 
+def _has_install_section(unit_text: str) -> bool:
+    """Return whether a systemd unit declares an active [Install] section."""
+    return any(
+        line.strip().lower() == "[install]"
+        for line in unit_text.splitlines()
+        if not line.lstrip().startswith("#")
+    )
+
+
 def validate(root: Path = ROOT) -> list[str]:
     blockers: list[str] = []
     try:
@@ -64,6 +73,7 @@ def validate(root: Path = ROOT) -> list[str]:
         runtime_layout.get("existing_rss_cron_is_authoritative") is True
         and runtime_layout.get("create_duplicate_source_poller") is False
         and execution.get("preserve_existing_rss_cron_and_sqlite_queue") is True
+        and runtime_layout.get("move_or_reinitialize_existing_database") is False
         and ingress.get("live_daemon_enabled") is False
         and int(ingress.get("poll_interval_seconds", 0)) == 300
         and int(ingress.get("stale_after_seconds", 0)) >= 600
@@ -213,10 +223,10 @@ def validate(root: Path = ROOT) -> list[str]:
             or "--remote-render" not in user_render_text
             or " --shell " in user_render_text
             or " --font " in user_render_text
-            or "[Install]" in user_render_text
+            or _has_install_section(user_render_text)
             or "EnvironmentFile=%h/.config/hf-site-agent/media-render.env" not in user_render_check_text
             or "scripts.media_render_transport --check" not in user_render_check_text
-            or "[Install]" in user_render_check_text
+            or _has_install_section(user_render_check_text)
         ):
             blockers.append("GCP_USER_REMOTE_RENDER_UNIT_CONTRACT_INVALID")
 

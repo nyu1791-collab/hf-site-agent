@@ -48,7 +48,12 @@ class MediaSmallHostDeploymentTests(unittest.TestCase):
         check = (ROOT / "deploy/systemd/user/hf-site-agent-media-render-check.service").read_text()
         for text in (unit, check):
             self.assertIn("EnvironmentFile=%h/.config/hf-site-agent/media-render.env", text)
-            self.assertNotIn("[Install]", text)
+            active_sections = {
+                line.strip().lower()
+                for line in text.splitlines()
+                if not line.lstrip().startswith("#")
+            }
+            self.assertNotIn("[install]", active_sections)
         self.assertIn("--remote-render", unit)
         self.assertNotIn("local render", unit.lower())
         self.assertNotIn(" --shell ", unit)
