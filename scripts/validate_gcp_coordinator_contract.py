@@ -63,7 +63,7 @@ def validate(root: Path = ROOT) -> list[str]:
     if not (
         runtime_layout.get("existing_rss_cron_is_authoritative") is True
         and runtime_layout.get("create_duplicate_source_poller") is False
-        and runtime_layout.get("preserve_existing_rss_cron_and_sqlite_queue") is True
+        and execution.get("preserve_existing_rss_cron_and_sqlite_queue") is True
         and ingress.get("live_daemon_enabled") is False
         and int(ingress.get("poll_interval_seconds", 0)) == 300
         and int(ingress.get("stale_after_seconds", 0)) >= 600
