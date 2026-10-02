@@ -67,6 +67,9 @@ def validate(root: Path = ROOT) -> list[str]:
         and ingress.get("live_daemon_enabled") is False
         and int(ingress.get("poll_interval_seconds", 0)) == 300
         and int(ingress.get("stale_after_seconds", 0)) >= 600
+        and verification.get("authoritative_rss_ingress_requires_all_enabled_feeds_fresh") is True
+        and verification.get("authoritative_rss_ingress_policy") == "config/media_source_ingress_policy.json"
+        and verification.get("preparation_service_must_not_run_source_poller") is True
     ):
         blockers.append("AUTHORITATIVE_RSS_INGRESS_CONTRACT_INVALID")
 
@@ -146,6 +149,9 @@ def validate(root: Path = ROOT) -> list[str]:
         runner.get("workflow_is_manual_only") is True
         and runner.get("runner_service_required_after_reboot") is True
         and runner.get("reboot_audit_operation") == "reboot_audit"
+        and verification.get("current_e2e_completion_requires_connected_worker_fingerprint_match") is True
+        and "CURRENT_CONNECTED_WORKER_STACK_FINGERPRINT_MATCH"
+            in set(verification.get("saved_e2e_result_requires") or [])
         and "REBOOT_OBSERVED_AFTER_CURRENT_COMMIT_BASELINE"
             in set(verification.get("coordinator_24h_ready_requires") or [])
     ):
