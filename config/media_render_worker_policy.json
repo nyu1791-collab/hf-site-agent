@@ -18,7 +18,8 @@
     "shared_token_environment": "MEDIA_RENDER_SHARED_TOKEN",
     "public_listener_allowed": false,
     "public_artifact_service_allowed": false,
-    "network_filesystem_allowed": false
+    "network_filesystem_allowed": false,
+    "request_inactivity_timeout_seconds": 30
   },
   "package": {
     "only_selected_rights_cleared_images": true,
@@ -73,7 +74,8 @@
     "failed_reserved_request_requires_new_manual_request_id_after_diagnosis": true,
     "health_reports_running_process_code_fingerprints": true,
     "disk_code_change_requires_worker_restart": true,
-    "render_rechecks_running_revision_immediately_before_renderer_spawn": true
+    "render_rechecks_running_revision_immediately_before_renderer_spawn": true,
+    "worker_jobs_directory_owner_private_required": true
   },
   "worker_authority": {
     "provider_api_calls": false,
