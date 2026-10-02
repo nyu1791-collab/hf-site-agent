@@ -81,13 +81,16 @@
     ]
   },
   "provider_and_cost_gates": {
-    "openrouter_exact_free_route_only": true,
     "daily_model_call_cap": 5,
     "paid_fallback_allowed": false,
     "automatic_top_up": false,
     "image_generation_allowed": false,
     "gcp_credits_must_not_be_treated_as_openrouter_credit": true,
-    "gpu_vm_needed_for_initial_configuration": false
+    "gpu_vm_needed_for_initial_configuration": false,
+    "resident_news_script_route": "deepseek/deepseek-v4.1-flash",
+    "resident_news_script_route_policy": "config/media_news_pipeline_policy.json#/paid_script_generation",
+    "resident_news_paid_route_is_scoped_and_budget_capped": true,
+    "generic_paid_fallback_allowed": false
   },
   "verification": {
     "engine_health_required_before_synthesis": true,
