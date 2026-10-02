@@ -77,7 +77,8 @@
       "RUNNER_ENABLED_AND_ACTIVE",
       "PREPARATION_TIMER_ENABLED_AND_ACTIVE",
       "LATEST_REMOTE_HEAD",
-      "CLEAN_WORKTREE"
+      "CLEAN_WORKTREE",
+      "AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT"
     ],
     "readiness_verdicts": [
       "coordinator_runtime_ready",
@@ -127,12 +128,15 @@
       "PREPARATION_TIMER_ENABLED_AND_ACTIVE",
       "MINIMUM_FREE_DISK",
       "QUEUE_READABLE",
+      "AUTHORITATIVE_RSS_ALL_ENABLED_FEEDS_FRESH",
+      "AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT",
       "REBOOT_OBSERVED_AFTER_CURRENT_COMMIT_BASELINE"
     ],
     "authoritative_rss_ingress_requires_all_enabled_feeds_fresh": true,
     "authoritative_rss_ingress_policy": "config/media_source_ingress_policy.json",
     "preparation_service_must_not_run_source_poller": true,
-    "current_e2e_completion_requires_connected_worker_fingerprint_match": true
+    "current_e2e_completion_requires_connected_worker_fingerprint_match": true,
+    "authoritative_rss_must_be_observed_after_current_boot": true
   },
   "billing_preflight": {
     "authorized_project_credit_ceiling_jpy": 47000,
