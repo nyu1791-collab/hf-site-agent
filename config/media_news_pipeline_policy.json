@@ -1,6 +1,6 @@
 {
   "schema_version": "media-news-pipeline-v1",
-  "status": "VPS_TIMER_ACTIVE_REPOSITORY_PATCH_PENDING_DEPLOYMENT",
+  "status": "GCP_COORDINATOR_REPOSITORY_CONFIGURED_LIVE_E2E_VERIFICATION_REQUIRED",
   "purpose": "Turn one official RSS item into a source-backed Japanese script, locally synthesized VOICEVOX audio, and image candidates; pause before rendering until asset rights are recorded.",
   "source_ingress_policy": "config/media_source_ingress_policy.json",
   "article_hosts": [
@@ -38,7 +38,6 @@
   },
   "daily_openrouter_media_call_cap": 5,
   "at_daily_cap": "LEAVE_ITEM_QUEUED_FOR_NEXT_UTC_DAY",
-  "require_current_exact_free_model_catalog": true,
   "generic_openrouter_free_router_allowed": false,
   "provider_fallback_allowed": false,
   "auto_top_up": false,
@@ -131,5 +130,8 @@
     "never_repeat_if_paid_call_was_reserved": true,
     "preserve_previous_block_record": true,
     "child_python_environment": "UTF8_BACKSLASHREPLACE"
-  }
+  },
+  "primary_script_route": "PAID_SCOPED_DEEPSEEK_V4_1_FLASH",
+  "free_review_is_optional_advisory_only": true,
+  "remote_render_required_for_final_video_completion": true
 }
