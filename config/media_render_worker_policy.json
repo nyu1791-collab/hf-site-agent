@@ -65,7 +65,12 @@
     "automatic_local_fallback": false,
     "database_state_advances_only_after_verified_result": true,
     "live_worker_ready_requires_current_health_check": true,
-    "static_connected_boolean_must_not_be_used_for_readiness": true
+    "static_connected_boolean_must_not_be_used_for_readiness": true,
+    "exact_request_id_replay_blocked": true,
+    "request_id_reserved_before_render": true,
+    "worker_state_directories_owner_private_required": true,
+    "replay_ledger_persistent_across_worker_restarts": true,
+    "failed_reserved_request_requires_new_manual_request_id_after_diagnosis": true
   },
   "worker_authority": {
     "provider_api_calls": false,
