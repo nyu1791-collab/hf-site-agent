@@ -210,17 +210,44 @@ class MediaRenderTransportTests(unittest.TestCase):
         thread.start()
         try:
             self.assertEqual(server.server_address[0], "127.0.0.1")
-            for token, expected_status in ((TOKEN, 200), ("z" * 43, 401)):
-                connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
-                connection.request("GET", "/healthz", headers={"Authorization": f"Bearer {token}"})
-                response = connection.getresponse()
-                payload = json.loads(response.read())
-                self.assertEqual(response.status, expected_status)
-                if expected_status == 200:
-                    self.assertEqual(payload["protocol"], transport.PROTOCOL)
-                else:
-                    self.assertEqual(payload["error_code"], "UNAUTHORIZED")
-                connection.close()
+            with patch.object(worker, "worker_readiness", return_value=(server.readiness, server.paths)):
+                for token, expected_status in ((TOKEN, 200), ("z" * 43, 401)):
+                    connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+                    connection.request("GET", "/healthz", headers={"Authorization": f"Bearer {token}"})
+                    response = connection.getresponse()
+                    payload = json.loads(response.read())
+                    self.assertEqual(response.status, expected_status)
+                    if expected_status == 200:
+                        self.assertEqual(payload["protocol"], transport.PROTOCOL)
+                    else:
+                        self.assertEqual(payload["error_code"], "UNAUTHORIZED")
+                    connection.close()
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            server.server_close()
+
+    def test_health_route_recomputes_pinned_readiness_on_each_request(self):
+        server = worker.SingleRequestHTTPServer(("127.0.0.1", 0), worker.RenderHandler)
+        server.readiness = {"protocol": transport.PROTOCOL, "status": "READY"}
+        server.paths = {}
+        server.shared_token = TOKEN
+        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
+        thread.start()
+        ready = {"protocol": transport.PROTOCOL, "status": "READY"}
+        blocked = {"protocol": transport.PROTOCOL, "status": "BLOCKED", "blockers": ["HASH_CHANGED"]}
+        try:
+            with patch.object(worker, "worker_readiness", side_effect=[(ready, {}), (blocked, {})]) as refresh:
+                statuses = []
+                for _ in range(2):
+                    connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+                    connection.request("GET", "/healthz", headers={"Authorization": f"Bearer {TOKEN}"})
+                    response = connection.getresponse()
+                    response.read()
+                    statuses.append(response.status)
+                    connection.close()
+                self.assertEqual(statuses, [200, 503])
+                self.assertEqual(refresh.call_count, 2)
         finally:
             server.shutdown()
             thread.join(timeout=2)
