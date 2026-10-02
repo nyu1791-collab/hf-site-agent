@@ -110,6 +110,11 @@ def main() -> int:
         "scripts/media_news_pipeline.py",
         "scripts/durable_media_runner.py",
         "docs/DURABLE_MEDIA_AUTOMATION.md",
+        "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
+        "config/media_render_worker_policy.json",
+        "scripts/media_render_transport.py",
+        "scripts/media_render_worker.py",
+        "deploy/systemd/user/hf-site-agent-media-render@.service",
         "docs/VOICEVOX_RUNTIME.md",
         "scripts/with_local_voicevox.sh",
         "scripts/synthesize_longform_voicevox.py",
@@ -119,6 +124,10 @@ def main() -> int:
         "tests/test_media_news_automation.py",
     }.issubset(news_automation), "news automation lost its implementation, worker or recovery references")
     require_paths(news_automation, "news automation reference missing")
+    require("docs/VPS_MEDIA_NEWS_AUTOMATION.md" not in news_automation, "obsolete VPS runbook returned to current news automation read gate")
+    user_render=(ROOT / "deploy/systemd/user/hf-site-agent-media-render@.service").read_text(encoding="utf-8")
+    require("--remote-render" in user_render, "GCP user render service is no longer remote-only")
+    require(" --shell " not in user_render and " --font " not in user_render, "GCP user render service regained local-render arguments")
     claim_conditional = set(video_conditional.get("if_claim_bearing_or_current_factual_content") or [])
     require({
         "config/cross_source_knowhow_evidence_matrix.json",
