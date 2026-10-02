@@ -12,6 +12,7 @@ FILES = (
     "config/media_small_host_policy.json",
     "config/media_news_pipeline_policy.json",
     "config/media_render_worker_policy.json",
+    "config/media_source_ingress_policy.json",
     "scripts/install_gcp_small_host_services.py",
     "deploy/systemd/user/hf-site-agent-media-news.service",
     "deploy/systemd/user/hf-site-agent-media-news.timer",
@@ -73,6 +74,21 @@ class GcpCoordinatorContractTests(unittest.TestCase):
             value["live_connection"]["repository_connection_state_is_authoritative"] = True
             policy.write_text(json.dumps(value), encoding="utf-8")
             self.assertIn("LIVE_RENDER_READINESS_AUTHORITY_INVALID", validate(root))
+
+    def test_preparation_service_cannot_duplicate_the_authoritative_rss_poller(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self._fixture(root)
+            service = root / "deploy/systemd/user/hf-site-agent-media-news.service"
+            text = service.read_text(encoding="utf-8")
+            text = text.replace(
+                "ExecStart=/usr/bin/python3 -m scripts.media_news_pipeline",
+                "ExecStartPre=/usr/bin/python3 -m scripts.media_source_daemon --db /tmp/q --once\n"
+                "ExecStart=/usr/bin/python3 -m scripts.media_news_pipeline",
+                1,
+            )
+            service.write_text(text, encoding="utf-8")
+            self.assertIn("GCP_PREPARATION_SERVICE_CONTRACT_INVALID", validate(root))
 
     def test_timer_persistence_or_interval_drift_is_blocked(self):
         with tempfile.TemporaryDirectory() as td:
