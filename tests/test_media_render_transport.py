@@ -188,6 +188,32 @@ class MediaRenderTransportTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 worker._tree_sha256(root / "linked")
 
+    def test_worker_request_ledger_rejects_exact_replay_and_records_completion(self):
+        with tempfile.TemporaryDirectory() as td:
+            work_dir = Path(td)
+            request_id = str(uuid.uuid4())
+            ledger = worker._reserve_request_id(work_dir, request_id, SOURCE_ID)
+            self.assertTrue(ledger.is_file())
+            self.assertEqual(os.stat(ledger).st_mode & 0o777, 0o600)
+            with self.assertRaisesRegex(worker.WorkerJobError, "REQUEST_ID_REPLAY"):
+                worker._reserve_request_id(work_dir, request_id, SOURCE_ID)
+            worker._complete_request_id(ledger, request_id, SOURCE_ID, "e" * 64)
+            record = json.loads(ledger.read_text(encoding="utf-8"))
+            self.assertEqual(record["state"], "COMPLETED")
+            self.assertEqual(record["request_id"], request_id)
+            self.assertEqual(record["source_id"], SOURCE_ID)
+            self.assertEqual(record["video_sha256"], "e" * 64)
+
+    def test_worker_readiness_blocks_group_or_world_accessible_work_directory(self):
+        with tempfile.TemporaryDirectory() as td:
+            work_dir = Path(td) / "worker"
+            work_dir.mkdir(mode=0o700)
+            os.chmod(work_dir, 0o755)
+            with patch.dict(os.environ, {"MEDIA_RENDER_WORK_DIR": str(work_dir)}):
+                health, _paths = worker.worker_readiness()
+            self.assertIn("WORK_DIRECTORY_INVALID", health["blockers"])
+            self.assertEqual(health["status"], "BLOCKED")
+
     def test_worker_rejects_wrong_bearer_token(self):
         class FakeServer:
             shared_token = TOKEN
