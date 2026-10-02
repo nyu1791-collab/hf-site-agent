@@ -144,6 +144,9 @@ def preflight_caption_metadata(mission: dict) -> dict:
 
 
 def main():
+    for stream in (sys.stdout,sys.stderr):
+        if hasattr(stream,"reconfigure"):
+            stream.reconfigure(encoding="utf-8",errors="backslashreplace")
     ap=argparse.ArgumentParser()
     ap.add_argument("--mission-b64",type=Path,required=True)
     ap.add_argument("--output-dir",type=Path,required=True)
@@ -249,7 +252,7 @@ def main():
     print(json.dumps({"line_count":len(records),"total_duration":t,"speed_scale":args.speed_scale,
         "voice_cache_hits":cache_hits,
         "voice_cache_misses":len(records)-cache_hits,
-        "engine_version":engine_version,"runtime_discovered_cast":cast},ensure_ascii=False))
+        "engine_version":engine_version,"runtime_discovered_cast":cast},ensure_ascii=True))
     if not (args.min_seconds <= t <= args.max_seconds):
         raise SystemExit(f"measured narration duration {t:.2f}s is outside requested {args.min_seconds:.0f}-{args.max_seconds:.0f}s; revise information density/script instead of padding")
     return 0
