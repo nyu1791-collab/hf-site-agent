@@ -4,6 +4,7 @@ import json
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from scripts.durable_media_runner import connect, init_db
@@ -43,6 +44,17 @@ class MediaSourceIngressTests(unittest.TestCase):
             self.assertTrue(state["any_feed_stale"])
             self.assertEqual(state["feed_freshness"][0]["age_seconds"],601)
             conn.close()
+
+    def test_parse_selects_newest_items_before_applying_feed_limit(self):
+        xml = b"""<?xml version="1.0"?>
+        <rss version="2.0"><channel>
+          <item><guid>old</guid><title>Old</title><link>https://openai.com/news/old</link><description>old</description><pubDate>Tue, 01 Jan 2025 00:00:00 GMT</pubDate></item>
+          <item><guid>newest</guid><title>Newest</title><link>https://openai.com/news/newest</link><description>newest</description><pubDate>2026-10-02T12:00:00Z</pubDate></item>
+          <item><guid>middle</guid><title>Middle</title><link>https://openai.com/news/middle</link><description>middle</description><pubDate>Wed, 01 Oct 2026 12:00:00 GMT</pubDate></item>
+        </channel></rss>"""
+        with patch("scripts.media_source_ingress.MAX_ITEMS", 2):
+            items = parse_feed(xml, "openai-news")
+        self.assertEqual([item["title"] for item in items], ["Newest", "Middle"])
 
     def test_parse_and_dedupe_feed_item_into_preparation_inbox(self):
         item = parse_feed(RSS, "openai-news")[0]

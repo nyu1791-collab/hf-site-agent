@@ -9,6 +9,8 @@ import json
 import re
 import sqlite3
 import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -42,6 +44,25 @@ def _https_link(raw: str) -> str:
     if parts.port not in (None, 443):
         raise ValueError("unsupported source link port")
     return urlunsplit(("https", parts.netloc.lower(), parts.path or "/", parts.query, ""))
+
+
+def _published_timestamp(value: str) -> float:
+    raw = (value or "").strip()
+    if not raw:
+        return float("-inf")
+    try:
+        parsed = parsedate_to_datetime(raw)
+    except (TypeError, ValueError, OverflowError):
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except (TypeError, ValueError, OverflowError):
+            return float("-inf")
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    try:
+        return parsed.timestamp()
+    except (ValueError, OverflowError, OSError):
+        return float("-inf")
 
 
 def parse_feed(content: bytes, feed_id: str) -> list[dict[str, str]]:
@@ -78,9 +99,12 @@ def parse_feed(content: bytes, feed_id: str) -> list[dict[str, str]]:
             "url": link, "summary": max(summary_candidates, key=len, default=""),
             "published": _text(fields.get("pubdate") or fields.get("published") or fields.get("updated", ""), 80),
         })
-        if len(result) == MAX_ITEMS:
-            break
-    return result
+    # Feeds are not guaranteed to be chronological. Parse the complete bounded
+    # document, then keep the newest items so an old XML prefix cannot starve
+    # recent news behind the MAX_ITEMS limit. Python's sort is stable, retaining
+    # source order when publication dates are equal or unavailable.
+    result.sort(key=lambda item: _published_timestamp(item["published"]), reverse=True)
+    return result[:MAX_ITEMS]
 
 
 class _SameHostRedirect(urllib.request.HTTPRedirectHandler):
