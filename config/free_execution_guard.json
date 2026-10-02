@@ -3,7 +3,7 @@
   "effective_date_jst": "2026-10-02",
   "status": "ENFORCED_PERMANENT_STANDARD",
   "decision_owner": "chatgpt-top-commander",
-  "purpose": "Keep paid API model selection bounded by the DeepSeek V4.1 Flash evidence gate while preserving strict no-paid-media, no-fallback, no-top-up and secret boundaries.",
+  "purpose": "Keep general paid API candidates evidence-gated and keep paid video/image/TTS generation, fallback, top-up and public posting blocked, while allowing the user's exact DeepSeek V4.1 Flash text-only RSS script exception within fixed cost caps.",
   "default_runtime": {
     "free_only_mode": false,
     "allow_paid_model": true,
@@ -70,6 +70,29 @@
       "policy": "config/deepseek_paid_supervisor_policy.json",
       "media_generation": false,
       "other_paid_provider_authorization": false
+    },
+    "resident_news_script": {
+      "enabled": true,
+      "provider": "openrouter",
+      "exact_model": "deepseek/deepseek-v4.1-flash",
+      "scope": "RSS_NEWS_SCRIPT_DRAFTING_TEXT_ONLY",
+      "policy": "config/media_news_pipeline_policy.json#/paid_script_generation",
+      "runtime": "scripts/media_news_pipeline.py",
+      "per_call_estimate_cap_usd": "0.05",
+      "reserved_daily_cost_cap_usd": "0.10",
+      "max_paid_calls_per_utc_day": 5,
+      "exact_free_review_policy": "config/media_news_pipeline_policy.json#/free_script_review",
+      "paid_fallback": false,
+      "provider_fallback": false,
+      "paid_sibling_substitution": false,
+      "auto_top_up": false,
+      "paid_video_or_image_generation": false,
+      "paid_tts_or_editing": false,
+      "auto_publish": false,
+      "reserved_monthly_cost_cap_usd": "0.50",
+      "monthly_budget_boundary": "UTC_CALENDAR_MONTH",
+      "budget_applies_to": "ALL_RESERVED_CALLS_FOR_THIS_RESIDENT_NEWS_ROUTE",
+      "user_instruction_date_jst": "2026-10-02"
     }
   },
   "cross_tab_continuity": {
@@ -80,7 +103,8 @@
     "paid_api_route_eligibility_survives_tab_change": true,
     "paid_media_block_survives_tab_change": true,
     "upgrade_or_billing_prompt_must_not_be_treated_as_permission": true,
-    "paid_api_route_gate_survives_tab_change": true
+    "paid_api_route_gate_survives_tab_change": true,
+    "resident_news_deepseek_route_survives_tab_change": true
   },
   "failure_contract": {
     "blocked_paid_route_is_not_a_failed_free_route": true,
