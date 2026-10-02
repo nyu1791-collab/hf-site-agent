@@ -272,10 +272,12 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertIn("VOICEVOX_CACHE_DIR=/var/lib/hf-site-agent/voice-cache",service)
         self.assertIn("/var/lib/hf-site-agent/voice-cache",service.split("ExecStartPre=",1)[1])
         remote=fast_path["extracted_pipeline"]["article_to_media_staging"]["optional_remote_render_handoff"]
-        self.assertEqual(remote["status"],"IMPLEMENTED_NOT_CONNECTED")
+        self.assertEqual(remote["status"],"IMPLEMENTED_LIVE_HEALTH_REQUIRED")
         self.assertFalse(remote["automatic_retry"])
         self.assertFalse(remote["automatic_local_fallback"])
         self.assertFalse(remote["publishing_enabled"])
+        self.assertTrue(fast_path["extracted_pipeline"]["article_to_media_staging"]["final_ffmpeg_render_offloaded"])
+        self.assertFalse(fast_path["extracted_pipeline"]["article_to_media_staging"]["gcp_local_video_rendering_allowed"])
         render_worker=json.loads((root/"config/media_render_worker_policy.json").read_text())
         self.assertEqual(render_worker["status"],"IMPLEMENTED_LIVE_HEALTH_REQUIRED")
         self.assertEqual(render_worker["live_connection"]["source_of_truth"],
@@ -283,7 +285,7 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertTrue(render_worker["live_connection"]["static_policy_flags_must_not_be_used_as_live_status"])
         self.assertEqual(small_host["target"]["machine_type"],"e2-small")
         self.assertEqual(small_host["target"]["memory_gib"],2)
-        self.assertFalse(small_host["execution"]["preparation_timer_enabled_by_default"])
+        self.assertTrue(small_host["execution"]["preparation_timer_enabled_by_default"])
         self.assertFalse(small_host["execution"]["render_timer_enabled_by_default"])
         self.assertEqual(pipeline_policy["paid_script_generation"]["model"],"deepseek/deepseek-v4.1-flash")
         self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_estimated_cost_per_call_usd"],"0.05")
@@ -298,9 +300,12 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertEqual(pipeline_policy["free_script_review"]["route_requirement"],"EXACT_ZERO_COST_FREE_MODEL_ONLY")
         self.assertTrue(pipeline_policy["free_script_review"]["advisory_only"])
         self.assertIn("PYTHONIOENCODING=utf-8:backslashreplace",user_service)
+        user_render=(root/"deploy/systemd/user/hf-site-agent-media-render@.service").read_text()
+        self.assertIn("--remote-render",user_render)
+        self.assertNotIn(" --shell ",user_render)
         news_read_set=set(read_gate["trigger_sets"]["VIDEO_CREATION"]["conditional"]["if_user_requests_article_rss_or_resident_news_video_automation"])
         self.assertIn("docs/GCP_SMALL_HOST_DEPLOYMENT.md",news_read_set)
-        self.assertIn("docs/VPS_MEDIA_NEWS_AUTOMATION.md",news_read_set)
+        self.assertNotIn("docs/VPS_MEDIA_NEWS_AUTOMATION.md",news_read_set)
         self.assertTrue({"config/media_render_worker_policy.json","scripts/media_render_transport.py",
             "scripts/media_render_worker.py","deploy/systemd/hf-render-worker-tunnel.service",
             "deploy/systemd/hf-site-agent-media-render@.service",
