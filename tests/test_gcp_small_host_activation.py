@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import tempfile
+import time
 from datetime import datetime, timedelta, timezone
 import unittest
 from unittest.mock import patch, MagicMock
@@ -136,6 +137,17 @@ class GcpSmallHostActivationTests(unittest.TestCase):
         db = home / "hf-site-agent/runtime/media-queue.sqlite3"
         with sqlite3.connect(db) as conn:
             conn.execute("CREATE TABLE queue (id INTEGER PRIMARY KEY)")
+            conn.execute("""CREATE TABLE source_feed_state (
+                feed_id TEXT PRIMARY KEY, etag TEXT, last_modified TEXT,
+                last_checked_at REAL NOT NULL, last_status TEXT NOT NULL
+            )""")
+            ingress = json.loads((ROOT / "config/media_source_ingress_policy.json").read_text(encoding="utf-8"))
+            for feed in ingress["feeds"]:
+                if feed.get("enabled") is True:
+                    conn.execute(
+                        "INSERT INTO source_feed_state(feed_id,etag,last_modified,last_checked_at,last_status) VALUES(?,?,?,?,?)",
+                        (feed["feed_id"], None, None, time.time(), "OK"),
+                    )
         env = home / ".config/hf-site-agent/media.env"
         env.write_text("OPENROUTER_API_KEY=test-placeholder\nVOICEVOX_EXPECTED_VERSION=0.0.0\n", encoding="utf-8")
         os.chmod(env, 0o600)
@@ -245,6 +257,27 @@ class GcpSmallHostActivationTests(unittest.TestCase):
                 free_bytes=3 * 1024**3,
             )
             self.assertEqual(blockers, [])
+
+    def test_preflight_blocks_when_authoritative_rss_poller_is_stale(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            home = Path(temp) / "home"
+            root.mkdir()
+            home.mkdir()
+            expected_name = self._prepared(root, home)
+            db = home / "hf-site-agent/runtime/media-queue.sqlite3"
+            with sqlite3.connect(db) as conn:
+                conn.execute("UPDATE source_feed_state SET last_checked_at=?", (time.time() - 3600,))
+            blockers = preflight(
+                root=root,
+                home=home,
+                instance_name=expected_name,
+                project_id="test-project",
+                branch="ai-army/provider-v3",
+                dirty=False,
+                free_bytes=3 * 1024**3,
+            )
+            self.assertIn("AUTHORITATIVE_RSS_POLLER_STALE_OR_MISSING", blockers)
 
     def test_preflight_blocks_without_fresh_project_billing_evidence(self):
         with tempfile.TemporaryDirectory() as temp:
