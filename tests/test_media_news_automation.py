@@ -48,6 +48,35 @@ def story():
 
 
 class MediaNewsAutomationTests(unittest.TestCase):
+    def test_uncertain_paid_attempt_is_blocked_and_timer_advances_to_next_source(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);workspace=root/"workspace";workspace.mkdir()
+            conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            older="a"*64;newer="b"*64
+            ingest_items(conn,[
+                {"source_id":older,"feed_id":"openai-news","title":"older",
+                 "url":"https://openai.com/news/older","summary":"","published":""},
+                {"source_id":newer,"feed_id":"openai-news","title":"newer",
+                 "url":"https://openai.com/news/newer","summary":"","published":""},
+            ])
+            conn.execute("UPDATE source_inbox SET created_at=100 WHERE source_id=?",(older,))
+            conn.execute("UPDATE source_inbox SET created_at=200 WHERE source_id=?",(newer,))
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=3*1024**3)
+            ), patch("scripts.media_news_pipeline.process_source",side_effect=[
+                PaidMediaAlreadyAttempted("uncertain prior attempt"),
+                ArticleSourceBlocked("old item inaccessible"),
+            ]):
+                first=_process_next(conn,workspace,min_seconds=60,max_seconds=300)
+                self.assertEqual(first["source_id"],newer)
+                self.assertEqual(first["status"],"SCRIPT_BLOCKED_PAID_ATTEMPT_UNKNOWN")
+                self.assertEqual(conn.execute("SELECT state FROM source_inbox WHERE source_id=?",(newer,)).fetchone()["state"],"SCRIPT_BLOCKED")
+                second=_process_next(conn,workspace,min_seconds=60,max_seconds=300)
+                self.assertEqual(second["source_id"],older)
+                self.assertEqual(second["status"],"ARTICLE_SOURCE_BLOCKED")
+            conn.close()
+
     def test_openrouter_http_errors_report_safe_reason_without_upstream_text(self):
         import io
         response = urllib.error.HTTPError(
