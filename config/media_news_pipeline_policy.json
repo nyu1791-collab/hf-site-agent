@@ -1,7 +1,7 @@
 {
   "schema_version": "media-news-pipeline-v1",
-  "status": "STAGING_ONLY",
-  "purpose": "Turn one configured official RSS item into a source-backed draft, locally synthesized VOICEVOX audio, and downloaded official page image candidates.",
+  "status": "VPS_TIMER_ACTIVE_REPOSITORY_PATCH_PENDING_DEPLOYMENT",
+  "purpose": "Turn one official RSS item into a source-backed Japanese script, locally synthesized VOICEVOX audio, and image candidates; pause before rendering until asset rights are recorded.",
   "source_ingress_policy": "config/media_source_ingress_policy.json",
   "article_hosts": [
     "openai.com",
@@ -80,5 +80,56 @@
   "atomic_checkpoint_writes": true,
   "preserve_rights_review_for_unchanged_source": true,
   "resume_existing_script_before_new_model_call": true,
-  "render_revalidates_package_path_and_asset_sha256": true
+  "render_revalidates_package_path_and_asset_sha256": true,
+  "paid_script_generation": {
+    "enabled": true,
+    "provider": "openrouter",
+    "model": "deepseek/deepseek-v4.1-flash",
+    "scope": "OFFICIAL_RSS_NEWS_SCRIPT_DRAFTING_ONLY_TEXT_API",
+    "route_selection": "EXACT_MODEL_WITH_LIVE_CURRENT_CATALOG_AND_PRICE; SORT_CHEAPEST_PROVIDER",
+    "required_supported_parameter": "response_format",
+    "maximum_estimated_cost_per_call_usd": "0.05",
+    "maximum_reserved_cost_per_utc_day_usd": "0.10",
+    "maximum_calls_per_utc_day": 5,
+    "maximum_completion_tokens": 5000,
+    "input_token_overhead": 2048,
+    "estimate_input_tokens_using": "UTF8_JSON_REQUEST_BYTE_UPPER_BOUND",
+    "require_actual_usage_cost": true,
+    "actual_cost_above_estimate_action": "REJECT_OUTPUT_AND_STOP",
+    "unknown_catalog_price_or_json_support_action": "QUEUE_WITHOUT_SENDING_REQUEST",
+    "automatic_paid_fallback": false,
+    "automatic_provider_fallback": false,
+    "automatic_paid_sibling_substitution": false,
+    "automatic_retry_after_request": false,
+    "automatic_top_up": false,
+    "reserve_before_request": true,
+    "per_source_paid_attempt_once": true,
+    "persist_model_price_usage_and_cost_evidence": true,
+    "maximum_reserved_cost_per_utc_month_usd": "0.50",
+    "monthly_cap_source": "EXPLICIT_USER_AUTHORIZATION_CAPPED_TO_PRIOR_SHARED_MONTHLY_LIMIT",
+    "monthly_budget_boundary": "USD_PER_UTC_CALENDAR_MONTH",
+    "monthly_cost_includes": "ALL_RESERVED_DEEPSEEK_NEWS_SCRIPT_CALLS"
+  },
+  "free_script_review": {
+    "enabled": true,
+    "provider": "openrouter",
+    "route_requirement": "EXACT_ZERO_COST_FREE_MODEL_ONLY",
+    "model_id_must_end_with": ":free",
+    "require_current_catalog": true,
+    "require_exact_zero_prompt_and_completion_price": true,
+    "require_reported_usage_cost_zero": true,
+    "maximum_calls_per_utc_day": 5,
+    "maximum_completion_tokens": 1200,
+    "advisory_only": true,
+    "may_rewrite_script": false,
+    "may_block_paid_script": false,
+    "if_unavailable": "RECORD_SKIPPED_AND_KEEP_PAID_SCRIPT"
+  },
+  "unicode_recovery": {
+    "recovery_version": "unicode-stdio-v1",
+    "requeue_legacy_unicodeencodeerror_once": true,
+    "never_repeat_if_paid_call_was_reserved": true,
+    "preserve_previous_block_record": true,
+    "child_python_environment": "UTF8_BACKSLASHREPLACE"
+  }
 }
