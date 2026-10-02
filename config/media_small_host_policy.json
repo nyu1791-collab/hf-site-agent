@@ -34,6 +34,8 @@
     "external_llm_calls_are_remote": true,
     "voicevox_lifecycle": "START_ONLY_DURING_VOICE_SYNTHESIS_AND_STOP_IF_WRAPPER_OWNS_PROCESS",
     "voicevox_cpu_threads": 1,
+    "voicevox_remote_mode": "OPTIONAL_EXISTING_PRIVATE_SSH_LOOPBACK_TUNNEL",
+    "remote_voicevox_preflight": "REQUIRE_LIVE_EXPECTED_VERSION_AND_STANDARD_CAST_NO_LOCAL_INSTALLATION_REQUIRED",
     "render_lifecycle": "ONE_LOCAL_ONESHOT_AFTER_HUMAN_RIGHTS_REVIEW",
     "media_jobs_per_vm_at_a_time": 1,
     "database_single_writer_lock_required": true,
@@ -74,6 +76,8 @@
   },
   "billing_preflight": {
     "authorized_project_credit_ceiling_jpy": 47000,
+    "forecast_must_be_below_available_credit_and_authorized_ceiling": true,
+    "actual_remaining_credit_may_exceed_authorized_ceiling": true,
     "billing_evidence_file": "~/.config/hf-site-agent/cloud-budget.json",
     "must_be_verified_within_hours": 24,
     "required_fields": [

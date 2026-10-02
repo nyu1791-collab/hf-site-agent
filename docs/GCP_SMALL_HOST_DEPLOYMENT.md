@@ -34,6 +34,12 @@ media.env is read from ~/.config/hf-site-agent/media.env; keep it mode 0600 and 
 
 Set the expected VOICEVOX version after verifying /version. Install the official Linux CPU Engine at ~/.local/share/voicevox_engine/linux-cpu-x64, or set VOICEVOX_ENGINE_DIR in the protected env file. The wrapper binds only to 127.0.0.1:50021, uses one CPU thread, and stops only an Engine process it started itself.
 
+An existing always-available external computer may instead provide VOICEVOX through the private SSH reverse tunnel documented in DURABLE_MEDIA_AUTOMATION.md. Set VOICEVOX_REMOTE_TUNNEL=1 and VOICEVOX_URL=http://127.0.0.1:50021 in the protected media.env. In this mode the activation preflight probes the tunnel's /version and /speakers, requires the configured exact version and normal styles for both standard speakers, and does not require a local Engine directory. Public URLs, redirects, unavailable tunnels and a missing cast block activation. Moving inference does not itself free local disk; validate an actual synthesis before considering removal of an installed Engine. An intermittently available laptop or notebook is not a verified 24-hour worker.
+
+Remaining cloud credit and authorized project spending are different quantities. A genuine balance above JPY 47,000 is valid; the next-30-day forecast must remain below both available credit and the JPY 47,000 authorization ceiling. Record actual current billing facts, never clamp or fabricate the account balance to satisfy preflight. This activation snapshot is not a live billing meter or an automatic spending-stop mechanism.
+
+For cache diagnosis, include files as well as directories: du -ax -B1 --max-depth=1 ~/.cache. Directory-only du can report a large total while omitting downloaded archives at the cache root. Do not remove the installed VOICEVOX runtime, queue or voice cache as a diagnostic step. Identify and validate any specific regenerable download before a scoped cleanup; automatic artifact deletion remains disabled.
+
 ## One reviewed render
 
 Set `MEDIA_RENDER_SHELL` and `MEDIA_RENDER_FONT` in `~/.config/hf-site-agent/media-render.env` to the already approved character shell and font. Keep that file mode `0600`. The renderer continues to require an `ASSET_REVIEW_REQUIRED` item with recorded reuse basis, HTTPS evidence URL, credit, and matching asset hashes. Then start exactly one local render for its 64-character lowercase source ID:

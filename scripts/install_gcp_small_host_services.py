@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import http.client
+import math
 import os
+import re
 from pathlib import Path
 import shutil
 import sqlite3
@@ -83,9 +86,44 @@ def _valid_billing_evidence(path: Path, expected_project: str, billing_policy: d
         and verified is not None
         and 0 <= (now - verified).total_seconds() <= float(billing_policy.get("must_be_verified_within_hours", 0)) * 3600
         and expiry is not None and expiry > now
-        and 0 < credit <= float(billing_policy.get("authorized_project_credit_ceiling_jpy", 0))
-        and 0 <= forecast < credit
+        and math.isfinite(credit) and math.isfinite(forecast)
+        and 0 < credit
+        and 0 <= forecast < min(credit, float(billing_policy.get("authorized_project_credit_ceiling_jpy", 0)))
     )
+
+
+def _remote_voicevox_ready(values: dict[str, str]) -> bool:
+    """Probe only a loopback SSH tunnel; never follow redirects or use proxies."""
+    match = re.fullmatch(r"http://127\.0\.0\.1:([0-9]{1,5})", values.get("VOICEVOX_URL", ""))
+    if not match or not 1 <= int(match.group(1)) <= 65535:
+        return False
+    connection = http.client.HTTPConnection("127.0.0.1", int(match.group(1)), timeout=3)
+    try:
+        def get(path: str) -> Any:
+            connection.request("GET", path)
+            response = connection.getresponse()
+            body = response.read(1024 * 1024 + 1)
+            if response.status != 200 or len(body) > 1024 * 1024:
+                raise ValueError("invalid engine response")
+            return json.loads(body)
+        version = get("/version")
+        speakers = get("/speakers")
+        if version != values.get("VOICEVOX_EXPECTED_VERSION") or not isinstance(speakers, list):
+            return False
+        for name in ("ずんだもん", "四国めたん"):
+            if not any(
+                isinstance(speaker, dict) and speaker.get("name") == name
+                and isinstance(speaker.get("styles"), list)
+                and any(isinstance(style, dict) and style.get("name") == "ノーマル"
+                        and type(style.get("id")) is int for style in speaker["styles"])
+                for speaker in speakers
+            ):
+                return False
+        return True
+    except (OSError, ValueError, http.client.HTTPException):
+        return False
+    finally:
+        connection.close()
 
 
 def _env_file_values(path: Path) -> dict[str, str]:
@@ -164,7 +202,13 @@ def preflight(
         if not values.get("OPENROUTER_API_KEY"):
             blockers.append("OPENROUTER_CREDENTIAL_STATUS_MISSING")
         engine = Path(values.get("VOICEVOX_ENGINE_DIR", str(home / ".local/share/voicevox_engine/linux-cpu-x64"))).expanduser()
-        if not values.get("VOICEVOX_EXPECTED_VERSION") or not engine.is_dir():
+        remote_mode = values.get("VOICEVOX_REMOTE_TUNNEL", "0")
+        if remote_mode == "1":
+            if not values.get("VOICEVOX_EXPECTED_VERSION") or not _remote_voicevox_ready(values):
+                blockers.append("REMOTE_VOICEVOX_TUNNEL_OR_CAST_UNAVAILABLE")
+        elif remote_mode != "0":
+            blockers.append("VOICEVOX_MODE_INVALID")
+        elif not values.get("VOICEVOX_EXPECTED_VERSION") or not engine.is_dir():
             blockers.append("VOICEVOX_ENGINE_VERSION_OR_INSTALLATION_MISSING")
 
     for unit in UNITS:

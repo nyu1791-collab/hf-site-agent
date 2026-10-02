@@ -6,14 +6,70 @@ import subprocess
 import tempfile
 from datetime import datetime, timedelta, timezone
 import unittest
+from unittest.mock import patch, MagicMock
 
-from scripts.install_gcp_small_host_services import preflight, _worktree_has_unapproved_changes
+from scripts.install_gcp_small_host_services import preflight, _worktree_has_unapproved_changes, _remote_voicevox_ready
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class GcpSmallHostActivationTests(unittest.TestCase):
+    def _case(self, credit=47159, forecast=12000, remote=False, ready=False):
+        with tempfile.TemporaryDirectory() as temp:
+            root, home = Path(temp) / "repo", Path(temp) / "home"
+            root.mkdir()
+            home.mkdir()
+            name = self._prepared(root, home)
+            path = home / ".config/hf-site-agent/cloud-budget.json"
+            evidence = json.loads(path.read_text())
+            evidence.update(remaining_credit_jpy=credit, forecast_next_30d_jpy=forecast)
+            path.write_text(json.dumps(evidence))
+            if remote:
+                (home / ".local/share/voicevox_engine/linux-cpu-x64").rmdir()
+                with (home / ".config/hf-site-agent/media.env").open("a") as env:
+                    env.write("VOICEVOX_REMOTE_TUNNEL=1\nVOICEVOX_URL=http://127.0.0.1:50021\n")
+            with patch("scripts.install_gcp_small_host_services._remote_voicevox_ready", return_value=ready):
+                return preflight(root=root, home=home, instance_name=name, project_id="test-project",
+                                 branch="ai-army/provider-v3", free_bytes=3 * 1024**3)
+
+    def test_balance_above_authorized_ceiling_is_not_invalid(self):
+        self.assertEqual(self._case(), [])
+
+    def test_forecast_cannot_exceed_credit_or_authorized_ceiling(self):
+        for credit, forecast in ((47159, 47050), (1000, 12000), (float("inf"), 0), (47000, float("nan"))):
+            with self.subTest(credit=credit, forecast=forecast):
+                self.assertIn("LIVE_BILLING_CREDIT_EVIDENCE_MISSING_STALE_OR_INVALID", self._case(credit, forecast))
+
+    def test_remote_engine_does_not_require_local_installation(self):
+        self.assertEqual(self._case(remote=True, ready=True), [])
+
+    def test_remote_engine_down_still_blocks(self):
+        self.assertIn("REMOTE_VOICEVOX_TUNNEL_OR_CAST_UNAVAILABLE", self._case(remote=True))
+
+    def test_remote_probe_rejects_external_urls_before_network(self):
+        with patch("scripts.install_gcp_small_host_services.http.client.HTTPConnection") as connection:
+            for url in ("https://example.com", "http://127.0.0.1:0", "http://127.0.0.1:65536", "http://127.0.0.1:50021/path"):
+                self.assertFalse(_remote_voicevox_ready({"VOICEVOX_URL": url}))
+            connection.assert_not_called()
+
+    def test_remote_probe_checks_version_cast_and_redirects(self):
+        cast = [{"name": name, "styles": [{"name": "ノーマル", "id": i}]} for i, name in enumerate(("ずんだもん", "四国めたん"))]
+        values = {"VOICEVOX_URL": "http://127.0.0.1:50021", "VOICEVOX_EXPECTED_VERSION": "0.0.0"}
+        for version, speakers, status, expected in (("0.0.0", cast, 200, True), ("wrong", cast, 200, False), ("0.0.0", [], 200, False), ("0.0.0", cast, 302, False)):
+            with self.subTest(version=version, status=status, cast=speakers):
+                responses = []
+                for payload in (version, speakers):
+                    response = MagicMock()
+                    response.status = status
+                    response.read.return_value = json.dumps(payload).encode()
+                    responses.append(response)
+                with patch("scripts.install_gcp_small_host_services.http.client.HTTPConnection") as constructor:
+                    connection = constructor.return_value
+                    connection.getresponse.side_effect = responses
+                    self.assertEqual(_remote_voicevox_ready(values), expected)
+                    connection.close.assert_called_once()
+
     def _prepared(self, root: Path, home: Path):
         for directory in ("config", "deploy/systemd/user"):
             (root / directory).mkdir(parents=True, exist_ok=True)
