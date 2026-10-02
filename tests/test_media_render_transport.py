@@ -188,6 +188,20 @@ class MediaRenderTransportTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 worker._tree_sha256(root / "linked")
 
+    def test_worker_readiness_requires_restart_when_disk_code_changes(self):
+        changed = dict(worker.STARTUP_CODE_HASHES)
+        first_key = next(iter(changed))
+        changed[first_key] = "0" * 64 if changed[first_key] != "0" * 64 else "1" * 64
+        with tempfile.TemporaryDirectory() as td, \
+             patch.dict(os.environ, {"MEDIA_RENDER_WORK_DIR": td}), \
+             patch.object(worker, "_worker_code_hashes", return_value=changed):
+            health, _paths = worker.worker_readiness()
+        self.assertIn("WORKER_RESTART_REQUIRED_CODE_CHANGED", health["blockers"])
+        self.assertEqual(health["status"], "BLOCKED")
+        self.assertEqual(
+            health[f"{first_key}_sha256"], worker.STARTUP_CODE_HASHES[first_key],
+        )
+
     def test_worker_request_ledger_rejects_exact_replay_and_records_completion(self):
         with tempfile.TemporaryDirectory() as td:
             work_dir = Path(td)
