@@ -30,13 +30,15 @@
     "unknown_untracked_block": true
   },
   "execution": {
-    "coordinator_and_local_renderer_share_one_vm": true,
+    "coordinator_and_local_renderer_share_one_vm": false,
+    "coordinator_only_for_video_rendering": true,
     "external_llm_calls_are_remote": true,
     "voicevox_lifecycle": "START_ONLY_DURING_VOICE_SYNTHESIS_AND_STOP_IF_WRAPPER_OWNS_PROCESS",
     "voicevox_cpu_threads": 1,
     "voicevox_remote_mode": "OPTIONAL_EXISTING_PRIVATE_SSH_LOOPBACK_TUNNEL",
     "remote_voicevox_preflight": "REQUIRE_LIVE_EXPECTED_VERSION_AND_STANDARD_CAST_NO_LOCAL_INSTALLATION_REQUIRED",
-    "render_lifecycle": "ONE_LOCAL_ONESHOT_AFTER_HUMAN_RIGHTS_REVIEW",
+    "render_lifecycle": "EXTERNAL_WORKER_ONLY_AFTER_HUMAN_RIGHTS_REVIEW",
+    "external_render_worker_required_for_video_completion": true,
     "media_jobs_per_vm_at_a_time": 1,
     "database_single_writer_lock_required": true,
     "render_timer_enabled_by_default": false,
@@ -55,6 +57,7 @@
     "automatic_artifact_deletion": false,
     "stop_service_on_oom": true,
     "allow_parallel_voice_and_render": false,
+    "local_video_rendering_on_gcp_allowed": false,
     "performance_measurement_required_before_claiming_five_minute_sla": true
   },
   "provider_and_cost_gates": {
