@@ -70,7 +70,10 @@
     "request_id_reserved_before_render": true,
     "worker_state_directories_owner_private_required": true,
     "replay_ledger_persistent_across_worker_restarts": true,
-    "failed_reserved_request_requires_new_manual_request_id_after_diagnosis": true
+    "failed_reserved_request_requires_new_manual_request_id_after_diagnosis": true,
+    "health_reports_running_process_code_fingerprints": true,
+    "disk_code_change_requires_worker_restart": true,
+    "render_rechecks_running_revision_immediately_before_renderer_spawn": true
   },
   "worker_authority": {
     "provider_api_calls": false,
