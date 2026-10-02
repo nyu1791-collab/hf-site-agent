@@ -842,6 +842,14 @@
     "remote_render_live_status_source": "AUTHENTICATED_RUNTIME_HEALTH_CHECK",
     "remote_render_repository_boolean_is_authoritative": false,
     "preparation_timer_expected_after_finish_setup": true,
-    "reboot_persistence_requires_new_boot_id_observation": true
+    "reboot_persistence_requires_new_boot_id_observation": true,
+    "vm_control_readiness_verdicts": [
+      "coordinator_24h_ready",
+      "e2e_infrastructure_ready",
+      "e2e_completion_verified"
+    ],
+    "vm_control_reboot_audit_operation": "reboot_audit",
+    "external_render_status_source": "AUTHENTICATED_LIVE_PROBE_NOT_REPOSITORY_BOOLEAN",
+    "saved_e2e_result_verification": "READY_TO_PUBLISH_PLUS_FINAL_MP4_PLUS_VERIFIED_REMOTE_RENDER_REPORT_PLUS_FFPROBE"
   }
 }
