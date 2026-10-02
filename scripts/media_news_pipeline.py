@@ -660,8 +660,30 @@ def _post_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, Any]:
         with urllib.request.urlopen(request, timeout=90) as response:
             return json.loads(response.read(2_000_000).decode())
     except urllib.error.HTTPError as exc:
+        # Extract only a coarse, allowlisted reason; never log upstream prose that
+        # could contain submitted article text or other request data.
+        try:
+            error_payload = json.loads(exc.read(16384).decode("utf-8", errors="replace"))
+            error_obj = error_payload.get("error") if isinstance(error_payload, dict) else None
+            message = str(error_obj.get("message") or "").lower() if isinstance(error_obj, dict) else ""
+        except Exception:
+            message = ""
+        if exc.code == 401:
+            reason = "API_KEY_REJECTED"
+        elif exc.code == 402 or any(term in message for term in ("credit", "budget", "spending limit", "key limit")):
+            reason = "CREDIT_OR_KEY_BUDGET_LIMIT"
+        elif exc.code == 403 and any(term in message for term in ("model", "permission", "access", "allowlist", "not allowed")):
+            reason = "MODEL_OR_KEY_PERMISSION"
+        elif exc.code == 403 and any(term in message for term in ("guardrail", "blocked", "prompt injection")):
+            reason = "REQUEST_GUARDRAIL"
+        elif exc.code == 403:
+            reason = "FORBIDDEN_UNCLASSIFIED"
+        elif exc.code == 429:
+            reason = "RATE_LIMIT"
+        else:
+            reason = "UPSTREAM_ERROR"
         # In particular, never retry 429 and never fall back to a paid model.
-        raise RuntimeError("OpenRouter request failed with HTTP " + str(exc.code)) from None
+        raise RuntimeError(f"OpenRouter request failed with HTTP {exc.code} ({reason})") from None
 
 
 def download_article_image(url: str, dest_dir: Path, *, allowed_hosts: set[str]) -> dict[str, Any]:
