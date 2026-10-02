@@ -30,6 +30,10 @@ class MediaSmallHostDeploymentTests(unittest.TestCase):
         self.assertFalse(policy["provider_and_cost_gates"]["paid_fallback_allowed"])
         self.assertEqual(policy["runner_control_plane"]["reboot_audit_operation"], "reboot_audit")
         self.assertIn("LATEST_REMOTE_HEAD", policy["runner_control_plane"]["reboot_audit_requires"])
+        self.assertIn("AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT",
+                      policy["runner_control_plane"]["reboot_audit_requires"])
+        self.assertIn("AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT",
+                      policy["verification"]["coordinator_24h_ready_requires"])
         self.assertIn("FFPROBE_SUCCESS", policy["verification"]["saved_e2e_result_requires"])
 
     def test_gcp_activation_does_not_install_local_render_unit(self):
