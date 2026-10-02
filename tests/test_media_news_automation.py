@@ -276,7 +276,7 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertFalse(remote["automatic_retry"])
         self.assertFalse(remote["automatic_local_fallback"])
         self.assertFalse(remote["publishing_enabled"])
-        self.assertEqual(small_host["target"]["machine_type"],"e2-small")  # legacy GCP profile is historical only
+        self.assertEqual(small_host["target"]["machine_type"],"e2-small")
         self.assertEqual(small_host["target"]["memory_gib"],2)
         self.assertFalse(small_host["execution"]["preparation_timer_enabled_by_default"])
         self.assertFalse(small_host["execution"]["render_timer_enabled_by_default"])
@@ -294,8 +294,8 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertTrue(pipeline_policy["free_script_review"]["advisory_only"])
         self.assertIn("PYTHONIOENCODING=utf-8:backslashreplace",user_service)
         news_read_set=set(read_gate["trigger_sets"]["VIDEO_CREATION"]["conditional"]["if_user_requests_article_rss_or_resident_news_video_automation"])
+        self.assertIn("docs/GCP_SMALL_HOST_DEPLOYMENT.md",news_read_set)
         self.assertIn("docs/VPS_MEDIA_NEWS_AUTOMATION.md",news_read_set)
-        self.assertNotIn("docs/GCP_SMALL_HOST_DEPLOYMENT.md",news_read_set)
         self.assertTrue({"config/media_render_worker_policy.json","scripts/media_render_transport.py",
             "scripts/media_render_worker.py","deploy/systemd/hf-render-worker-tunnel.service",
             "deploy/systemd/hf-site-agent-media-render@.service",
