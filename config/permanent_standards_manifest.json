@@ -831,7 +831,10 @@
     "preparation_timer_expected_after_finish_setup": true,
     "reboot_persistence_requires_new_boot_id_observation": true,
     "vm_control_readiness_verdicts": [
+      "coordinator_runtime_ready",
+      "reboot_persistence_verified",
       "coordinator_24h_ready",
+      "external_render_ready",
       "e2e_infrastructure_ready",
       "e2e_completion_verified"
     ],
@@ -850,6 +853,8 @@
       "REBOOT_PERSISTENCE_VERIFIED",
       "AUTHENTICATED_EXTERNAL_RENDER_HEALTH",
       "VERIFIED_SAVED_MP4_FOR_E2E_COMPLETION"
-    ]
+    ],
+    "vm_control_live_state_is_authoritative": true,
+    "repository_live_state_snapshots_are_authoritative": false
   }
 }
