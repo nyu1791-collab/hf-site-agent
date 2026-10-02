@@ -73,10 +73,31 @@ def _valid_billing_evidence(path: Path, expected_project: str, billing_policy: d
     verified = _parse_time(evidence.get("verified_at"))
     expiry = _parse_time(evidence.get("credit_expires_at"))
     now = datetime.now(timezone.utc)
+    forecast_status = evidence.get("forecast_status", "AVAILABLE")
+    forecast_raw = evidence.get("forecast_next_30d_jpy")
     try:
         credit = float(evidence.get("remaining_credit_jpy"))
-        forecast = float(evidence.get("forecast_next_30d_jpy"))
     except (TypeError, ValueError):
+        return False
+    forecast_unavailable = forecast_status == billing_policy.get("forecast_unavailable_status")
+    if forecast_unavailable:
+        forecast = None
+        forecast_valid = (
+            billing_policy.get("allow_existing_vm_preparation_when_forecast_unavailable") is True
+            and forecast_raw is None
+        )
+    elif forecast_status == "AVAILABLE":
+        try:
+            forecast = float(forecast_raw)
+        except (TypeError, ValueError):
+            return False
+        forecast_valid = (
+            math.isfinite(forecast)
+            and 0 <= forecast < min(
+                credit, float(billing_policy.get("authorized_project_credit_ceiling_jpy", 0))
+            )
+        )
+    else:
         return False
     return bool(
         evidence.get("project_id") == expected_project
@@ -86,9 +107,9 @@ def _valid_billing_evidence(path: Path, expected_project: str, billing_policy: d
         and verified is not None
         and 0 <= (now - verified).total_seconds() <= float(billing_policy.get("must_be_verified_within_hours", 0)) * 3600
         and expiry is not None and expiry > now
-        and math.isfinite(credit) and math.isfinite(forecast)
+        and math.isfinite(credit)
+        and forecast_valid
         and 0 < credit
-        and 0 <= forecast < min(credit, float(billing_policy.get("authorized_project_credit_ceiling_jpy", 0)))
     )
 
 
