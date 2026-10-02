@@ -553,9 +553,8 @@
     "prepared_media_batch_handler_exists": true,
     "live_rss_polling_connected": false,
     "script_voice_asset_end_to_end_connected": false,
-    "vps_daemon_deployed": false,
     "public_publish_enabled": false,
-    "rule": "A user screenshot showed systemd user lingering enabled and the news timer active on 2026-10-02; that proves neither the current PR revision is installed nor successful RSS/API/VOICEVOX/MP4 end-to-end execution. Do not deploy, merge, publish or mutate secrets.",
+    "rule": "Current authority is the existing Google Compute Engine coordinator plus a separately verified external render worker. Repository configuration never proves live Runner/timer/worker/E2E state. Do not merge, publish, mutate secrets, enable auto top-up, or fall back to local GCP rendering.",
     "source_ingress_policy": "config/media_source_ingress_policy.json",
     "source_ingress_runtime": "scripts/media_source_ingress.py",
     "one_shot_official_rss_to_preparation_inbox": true,
@@ -585,7 +584,7 @@
     "remote_render_worker_policy": "config/media_render_worker_policy.json",
     "remote_render_transport": "scripts/media_render_transport.py",
     "remote_render_worker_runtime": "scripts/media_render_worker.py",
-    "remote_render_status": "IMPLEMENTED_NOT_CONNECTED",
+    "remote_render_status": "IMPLEMENTED_LIVE_HEALTH_REQUIRED",
     "remote_render_runtime_verified": false,
     "voice_audio_timing_checkpoint_reuse": true,
     "persistent_voice_cache_environment": "VOICEVOX_CACHE_DIR",
@@ -602,7 +601,6 @@
     "existing_rss_cron_preserved": true,
     "local_news_user_service_template": "deploy/systemd/user/hf-site-agent-media-news.service",
     "local_news_user_timer_template": "deploy/systemd/user/hf-site-agent-media-news.timer",
-    "local_render_user_service_template": "deploy/systemd/user/hf-site-agent-media-render@.service",
     "local_voicevox_starts_only_for_synthesis": true,
     "local_renderer_is_on_demand": false,
     "queue_backpressure": "config/media_news_pipeline_policy.json#/resource_backpressure",
@@ -615,7 +613,6 @@
     "user_reported_linger_enabled": true,
     "user_reported_news_timer_active": true,
     "user_reported_evidence_date": "2026-10-02",
-    "vps_provider": "NOT_CURRENT_RUNTIME_TARGET",
     "resident_news_script_route": {
       "provider": "openrouter",
       "model": "deepseek/deepseek-v4.1-flash",
@@ -635,7 +632,6 @@
     "runner_service_previously_verified": true,
     "latest_head_live_sync_verified": false,
     "local_render_service_installed_on_gcp": false,
-    "alternative_vps_operations_doc": "docs/VPS_MEDIA_NEWS_AUTOMATION.md",
     "vm_control_readiness_verdicts": [
       "coordinator_24h_ready",
       "e2e_infrastructure_ready",
@@ -643,6 +639,12 @@
     ],
     "vm_control_reboot_audit_operation": "reboot_audit",
     "external_render_status_source": "AUTHENTICATED_LIVE_PROBE_NOT_REPOSITORY_BOOLEAN",
-    "saved_e2e_result_verification": "READY_TO_PUBLISH_PLUS_FINAL_MP4_PLUS_VERIFIED_REMOTE_RENDER_REPORT_PLUS_FFPROBE"
+    "saved_e2e_result_verification": "READY_TO_PUBLISH_PLUS_FINAL_MP4_PLUS_VERIFIED_REMOTE_RENDER_REPORT_PLUS_FFPROBE",
+    "reviewed_remote_render_user_service_template": "deploy/systemd/user/hf-site-agent-media-render@.service",
+    "gcp_local_rendering_allowed": false,
+    "remote_render_live_status_source": "AUTHENTICATED_RUNTIME_HEALTH_CHECK",
+    "remote_render_repository_boolean_is_authoritative": false,
+    "preparation_timer_expected_after_finish_setup": true,
+    "reboot_persistence_requires_new_boot_id_observation": true
   }
 }
