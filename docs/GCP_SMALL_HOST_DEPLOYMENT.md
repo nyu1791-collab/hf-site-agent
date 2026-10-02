@@ -1,10 +1,10 @@
-# GCP 2 GiB media host
+# GCP 24-hour AI coordinator
 
 ## Layout
 
 Keep the existing VM, checkout, SQLite database, and RSS cron. The current host layout shown in the SSH session is `~/hf-site-agent/runtime/media-queue.sqlite3`; the pipeline workspace is `~/hf-site-agent/runtime`. Do not run `init` against a new database, copy the database to a network filesystem, or install a second RSS poller.
 
-Use one 2 GiB VM as the coordinator and local worker. Calls to the configured language-model API remain remote, VOICEVOX starts only inside the voice-synthesis command and exits when that command finishes, and FFmpeg runs once as a manual one-shot after the selected images pass the rights review. The SQLite pipeline lock prevents concurrent writers. No GPU or always-on media worker is part of this layout.
+The GCP VM is the 24-hour coordinator and monitoring host. It owns the queue, starts the bounded agent/news preparation job, records checkpoints and results, and hosts the self-hosted GitHub Runner used by the private VM control plane. It is not the video-render machine. Language-model calls remain remote; VOICEVOX may remain local during transition or move through the verified private loopback tunnel, but final video rendering is handed to the separately provisioned external render worker. The SQLite pipeline lock prevents concurrent writers. No GPU or local always-on render worker belongs on this VM.
 
 The initial target is `e2-small`: 2 GiB RAM with a shared-core sustained allowance of 0.5 vCPU. That is enough to try the sequential workflow, but it is CPU-limited and the five-minute creation target is not certified until actual job time and peak memory are measured. The user units cap each media job at 1,700 MiB so a failed job is stopped before it can consume the whole VM; a failed preparation/render remains recoverable from its saved checkpoint and does not publish. Preparation also pauses when one item is waiting for human rights review, and pauses below 2 GiB of free disk. It never deletes output automatically.
 
@@ -18,7 +18,7 @@ Keep the current e2-small size unless live measurements justify an upgrade. The 
 
 ## Existing host bootstrap
 
-The unit files under deploy/systemd/user/ target the existing n_yu1791 home layout and preserve the existing database. After the canonical branch reaches that VM, run the read-only preflight and then the authorized activation command as that Linux user:
+The user units under deploy/systemd/user/ target the existing n_yu1791 home layout and preserve the existing database. GCP activation installs only the news preparation service and its five-minute timer; it does not install or enable the local render unit. After the canonical branch reaches that VM, run the read-only preflight and then the authorized activation command as that Linux user:
 
 ```bash
 cd ~/hf-site-agent
@@ -40,16 +40,11 @@ Remaining cloud credit and authorized project spending are different quantities.
 
 For cache diagnosis, include files as well as directories: du -ax -B1 --max-depth=1 ~/.cache. Directory-only du can report a large total while omitting downloaded archives at the cache root. Do not remove the installed VOICEVOX runtime, queue or voice cache as a diagnostic step. Identify and validate any specific regenerable download before a scoped cleanup; automatic artifact deletion remains disabled.
 
-## One reviewed render
+## External render handoff
 
-Set `MEDIA_RENDER_SHELL` and `MEDIA_RENDER_FONT` in `~/.config/hf-site-agent/media-render.env` to the already approved character shell and font. Keep that file mode `0600`. The renderer continues to require an `ASSET_REVIEW_REQUIRED` item with recorded reuse basis, HTTPS evidence URL, credit, and matching asset hashes. Then start exactly one local render for its 64-character lowercase source ID:
+The GCP coordinator stops after the source-backed script, narration/timing, image candidates, and review metadata are saved. It must not render the MP4 locally. After the selected assets have recorded rights evidence and credit, use the external render-worker path documented in [DURABLE_MEDIA_AUTOMATION.md](DURABLE_MEDIA_AUTOMATION.md).
 
-```bash
-systemctl --user start 'hf-site-agent-media-render@<source_id>.service'
-systemctl --user status 'hf-site-agent-media-render@<source_id>.service' --no-pager
-```
-
-This is a same-VM CPU render. It does not need the optional remote render worker, does not call an AI API, and does not publish. Only a verified render advances to `READY_TO_PUBLISH`.
+Before dispatching a reviewed package, require the external worker health check to report `READY`, the SSH reverse tunnel to be configured, and the pinned renderer/profile/shell/font hashes to match. If the worker is unavailable, keep the queue item and checkpoint intact; do not fall back to local GCP rendering and do not publish.
 
 ## Check the result
 
@@ -62,7 +57,7 @@ df -h /
 systemctl --user list-timers --all
 ```
 
-After one permitted preparation and one reviewed render, record wall time and peak memory from the job's systemd cgroup/journal. If the job is OOM-killed or too slow, retain the queue and checkpoints; move to a 4 GiB `e2-medium` or a separately provisioned render host only after measuring. Do not add a GPU VM for the initial workload.
+After one permitted preparation, record wall time and peak memory from the coordinator job's systemd cgroup/journal. Render timing and memory belong to the external worker and must be measured there. If coordinator preparation is OOM-killed or too slow, retain the queue and checkpoints and investigate before resizing. Do not add a GPU or local render workload to the coordinator.
 
 ## Billing note
 
