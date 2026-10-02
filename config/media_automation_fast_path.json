@@ -121,7 +121,22 @@
       "one_unresolved_package_at_human_gate": true,
       "minimum_free_disk_bytes": 2147483648,
       "automatic_artifact_deletion": false,
-      "optional_remote_render_handoff": {
+      "optional_remote_render_handoff_implemented": true,
+      "final_ffmpeg_render_offloaded": true,
+      "per_call_reserved_cost_cap_usd": "0.05",
+      "daily_reserved_cost_cap_usd": "0.10",
+      "monthly_reserved_cost_cap_usd": "0.50",
+      "script_route": "deepseek/deepseek-v4.1-flash",
+      "script_provider": "openrouter",
+      "chatgpt_api_required": false,
+      "paid_fallback": false,
+      "paid_image_or_video_generation": false,
+      "paid_tts_or_editing": false,
+      "automatic_publish": false,
+      "gcp_preparation_timer_expected_after_activation": true,
+      "gcp_local_video_rendering_allowed": false,
+      "reviewed_remote_render_user_service": "deploy/systemd/user/hf-site-agent-media-render@.service",
+      "external_render_handoff": {
         "policy": "config/media_render_worker_policy.json",
         "coordinator_transport": "scripts/media_render_transport.py",
         "worker": "scripts/media_render_worker.py",
@@ -138,23 +153,9 @@
         "automatic_local_fallback": false,
         "publishing_enabled": false,
         "live_status_is_repository_state": false,
-        "runtime_health_source": "AUTHENTICATED_LOOPBACK_HEALTH_CHECK"
-      },
-      "optional_remote_render_handoff_implemented": true,
-      "final_ffmpeg_render_offloaded": true,
-      "per_call_reserved_cost_cap_usd": "0.05",
-      "daily_reserved_cost_cap_usd": "0.10",
-      "monthly_reserved_cost_cap_usd": "0.50",
-      "script_route": "deepseek/deepseek-v4.1-flash",
-      "script_provider": "openrouter",
-      "chatgpt_api_required": false,
-      "paid_fallback": false,
-      "paid_image_or_video_generation": false,
-      "paid_tts_or_editing": false,
-      "automatic_publish": false,
-      "gcp_preparation_timer_expected_after_activation": true,
-      "gcp_local_video_rendering_allowed": false,
-      "reviewed_remote_render_user_service": "deploy/systemd/user/hf-site-agent-media-render@.service"
+        "runtime_health_source": "AUTHENTICATED_LOOPBACK_HEALTH_CHECK",
+        "required_for_final_video_completion": true
+      }
     }
   },
   "durable_execution": {
