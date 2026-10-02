@@ -35,6 +35,7 @@ DEFAULT_WORK_DIR = Path(TRANSPORT_POLICY["worker_work_dir"])
 MAX_REQUEST_FILES = len({"audio.wav", "timing.json", "presentation.json"}) + MAX_SELECTED_IMAGES
 CHUNK_BYTES = int(VERIFY_POLICY["chunk_bytes"])
 MAX_DURATION_SECONDS = float(PACKAGE_POLICY["max_duration_seconds"])
+REQUEST_INACTIVITY_TIMEOUT_SECONDS = float(TRANSPORT_POLICY["request_inactivity_timeout_seconds"])
 _IMAGE_EXTENSIONS = "|".join(re.escape(x.lstrip(".")) for x in PACKAGE_POLICY["accepted_image_extensions"])
 IMAGE_NAME = re.compile(rf"images/[0-9a-f]{{64}}\.(?:{_IMAGE_EXTENSIONS})\Z")
 INPUT_NAMES = {"audio.wav", "timing.json", "presentation.json"}
@@ -719,7 +720,7 @@ class RenderHandler(http.server.BaseHTTPRequestHandler):
 
 class SingleRequestHTTPServer(http.server.HTTPServer):
     allow_reuse_address = False
-    request_inactivity_timeout_seconds = 30.0
+    request_inactivity_timeout_seconds = REQUEST_INACTIVITY_TIMEOUT_SECONDS
 
     def get_request(self):
         connection, address = super().get_request()
