@@ -23,14 +23,17 @@
       "dedupe_owner": "SQLITE_UNIQUE_SOURCE_INBOX_AND_JOB_KEY",
       "runtime": "scripts/media_source_daemon.py",
       "runtime_policy": "config/media_source_ingress_policy.json",
-      "runtime_status": "BOUNDED_POLL_DAEMON_AND_SYSTEMD_TEMPLATES_IMPLEMENTED_NOT_DEPLOYED",
+      "runtime_status": "USER_REPORTED_LINGER_YES_AND_NEWS_TIMER_ACTIVE; RSS_SUCCESS_AND_CURRENT_BRANCH_DEPLOYMENT_UNVERIFIED",
       "live_scheduler_or_vps_daemon": false,
       "must_stop_at": "ASSET_REVIEW_REQUIRED_UNTIL_SELECTED_IMAGES_HAVE_VERIFIED_RIGHTS_AND_CREDIT",
       "one_shot_runtime": "scripts/media_source_ingress.py",
-      "service_template": "deploy/systemd/hf-site-agent-media-source.service",
-      "scheduled_preparation_timer": "deploy/systemd/hf-site-agent-media-news.timer",
+      "service_template": "deploy/systemd/user/hf-site-agent-media-news.service",
+      "scheduled_preparation_timer": "deploy/systemd/user/hf-site-agent-media-news.timer",
       "poll_interval_seconds": 300,
-      "stale_after_seconds": 600
+      "stale_after_seconds": 600,
+      "user_reported_linger_enabled": true,
+      "user_reported_news_timer_active": true,
+      "user_reported_evidence_date": "2026-10-02"
     },
     "script_and_tone": {
       "implementation": "ONE_COMBINED_JUDGMENT_PASS",
@@ -76,10 +79,10 @@
       "implementation": "scripts/media_news_pipeline.py",
       "policy": "config/media_news_pipeline_policy.json",
       "stages": [
-        "OFFICIAL_ARTICLE_FETCH",
-        "ONE_EXACT_FREE_SCRIPT_DRAFT",
+        "OFFICIAL_RSS_ARTICLE_FETCH",
+        "ONE_EXACT_DEEPSEEK_V4_1_FLASH_OPENROUTER_PAID_TEXT_SCRIPT_DRAFT",
         "LOCAL_OR_SSH_LOOPBACK_TUNNEL_VOICEVOX",
-        "ARTICLE_IMAGE_CANDIDATES"
+        "OFFICIAL_ARTICLE_IMAGE_CANDIDATES"
       ],
       "daily_model_call_cap": 5,
       "provider_fallback_allowed": false,
@@ -88,7 +91,7 @@
       "image_rights_review_required": true,
       "automated_publish": false,
       "service_template": "deploy/systemd/hf-site-agent-media-news.service",
-      "status": "REPOSITORY_IMPLEMENTED_STAGING_ONLY",
+      "status": "REPOSITORY_IMPLEMENTED; USER_REPORTED_TIMER_ACTIVE; PATCH_DEPLOYMENT_AND_END_TO_END_UNVERIFIED",
       "per_queue_single_writer_lock": true,
       "atomic_stage_checkpoints": true,
       "unchanged_article_script_and_rights_annotation_reuse": true,
@@ -106,8 +109,8 @@
       "persistent_voice_cache_environment": "VOICEVOX_CACHE_DIR",
       "remote_voicevox_transport": "SSH_REVERSE_TUNNEL_TO_LOOPBACK_ONLY",
       "small_host_profile": "config/media_small_host_policy.json",
-      "small_host_operations_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
-      "small_host_target": "E2_SMALL_2_GIB_SHARED_CORE",
+      "small_host_operations_doc": "docs/VPS_MEDIA_NEWS_AUTOMATION.md",
+      "small_host_target": "EXISTING_USER_DESIGNATED_VPS_PROVIDER_NOT_INFERRED",
       "existing_vps_rss_cron_is_preserved": true,
       "single_host_user_services": [
         "deploy/systemd/user/hf-site-agent-media-news.service",
@@ -139,7 +142,17 @@
         "publishing_enabled": false
       },
       "optional_remote_render_handoff_implemented": true,
-      "final_ffmpeg_render_offloaded": false
+      "final_ffmpeg_render_offloaded": false,
+      "per_call_reserved_cost_cap_usd": "0.05",
+      "daily_reserved_cost_cap_usd": "0.10",
+      "monthly_reserved_cost_cap_usd": "0.50",
+      "script_route": "deepseek/deepseek-v4.1-flash",
+      "script_provider": "openrouter",
+      "chatgpt_api_required": false,
+      "paid_fallback": false,
+      "paid_image_or_video_generation": false,
+      "paid_tts_or_editing": false,
+      "automatic_publish": false
     }
   },
   "durable_execution": {
@@ -172,7 +185,14 @@
     "voice_retry_delays_seconds": [
       60,
       300
-    ]
+    ],
+    "status": "USER_REPORTED_LINGER_AND_TIMER_ACTIVE; CURRENT_REPOSITORY_PATCH_NOT_DEPLOYED; LIVE_RSS_MODEL_VOICE_AND_MP4_UNVERIFIED",
+    "user_reported_linger_enabled": true,
+    "user_reported_news_timer_active": true,
+    "user_reported_evidence_date": "2026-10-02",
+    "vps_provider_inferred": false,
+    "scheduled_polling_deployed": false,
+    "auto_publish_enabled": false
   },
   "minimum_fatal_gates_that_speed_may_not_remove": [
     "NO_ARBITRARY_COMMAND_EXECUTION",
