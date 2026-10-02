@@ -40,6 +40,14 @@ Remaining cloud credit and authorized project spending are different quantities.
 
 For cache diagnosis, include files as well as directories: du -ax -B1 --max-depth=1 ~/.cache. Directory-only du can report a large total while omitting downloaded archives at the cache root. Do not remove the installed VOICEVOX runtime, queue or voice cache as a diagnostic step. Identify and validate any specific regenerable download before a scoped cleanup; automatic artifact deletion remains disabled.
 
+## Private VM-control completion gates
+
+The private `nyu1791-collab/-hf-vm-control` workflow is the operational control plane for this existing VM. Its `update_test` operation compiles the coordinator/render modules and runs the news, source-ingress, GCP activation, small-host and remote-render regression suites before a fast-forward. Its `status` operation compares the local checkout with the current remote branch and emits separate coordinator, external-render, and saved-E2E readiness verdicts. A saved E2E result counts only when the queue row is `READY_TO_PUBLISH`, `final.mp4` is non-empty, the matching `VERIFIED_REMOTE_RENDER` report exists, and `ffprobe` succeeds.
+
+After an actual VM reboot, run the private control-plane `reboot_audit` operation. It requires a new kernel boot ID relative to the activation baseline, lingering enabled, exactly one repository Runner service enabled and active, the five-minute user timer enabled and active, and a clean checkout at the current remote `ai-army/provider-v3` HEAD. The audit does not reboot the VM itself and does not publish or render.
+
+External render readiness is never taken from a repository boolean. The authoritative check is the authenticated loopback health probe `python -m scripts.media_render_transport --check`; until that returns `READY`, the external renderer remains unavailable.
+
 ## External render handoff
 
 The GCP coordinator stops after the source-backed script, narration/timing, image candidates, and review metadata are saved. It must not render the MP4 locally. After the selected assets have recorded rights evidence and credit, use the external render-worker path documented in [DURABLE_MEDIA_AUTOMATION.md](DURABLE_MEDIA_AUTOMATION.md).
