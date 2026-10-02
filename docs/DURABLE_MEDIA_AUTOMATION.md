@@ -1,10 +1,10 @@
 # Durable Media Automation — 24-hour coordinator and external render worker
 
-The currently selected always-on coordinator target is the existing Google Compute Engine VM described in [GCP_SMALL_HOST_DEPLOYMENT.md](GCP_SMALL_HOST_DEPLOYMENT.md). The GCP VM owns the queue, timer, agent preparation, checkpoints, and private self-hosted Runner; it is not the video-render machine. [VPS_MEDIA_NEWS_AUTOMATION.md](VPS_MEDIA_NEWS_AUTOMATION.md) remains an alternative deployment note and must not override the current GCP coordinator role.
+The currently selected always-on coordinator target is the existing Google Compute Engine VM described in [GCP_SMALL_HOST_DEPLOYMENT.md](GCP_SMALL_HOST_DEPLOYMENT.md). The GCP VM owns the queue, timer, agent preparation, checkpoints, and private self-hosted Runner; it is not the video-render machine. This GCP runbook is the only current host authority for resident news automation.
 
 ## Current user-reported status (2026-10-02)
 
-The user-provided SSH screenshots show `Linger=yes` and the news timer reported `active`. They do not prove that the current PR branch is installed, that the timer is `enabled` for reboot, or that RSS, DeepSeek, VOICEVOX, and MP4 end-to-end processing succeeded. PR #40 remains open, draft, and unmerged; this change has not been deployed to the VPS.
+The user-provided SSH screenshots show `Linger=yes` and the news timer reported `active`. They do not prove that the current PR branch is installed, that the timer is `enabled` for reboot, or that RSS, DeepSeek, VOICEVOX, and MP4 end-to-end processing succeeded. PR #40 remains open, draft, and unmerged; the latest branch revision has not yet been reverified on the live GCP VM.
 
 The pipeline uses the exact OpenRouter model `deepseek/deepseek-v4.1-flash` only for official-RSS Japanese script drafting. Its hard reservation limits are USD 0.05 per call, USD 0.10 per UTC day, USD 0.50 per UTC month, and five paid calls per UTC day. It never falls back to another model, retries an uncertain paid request, or tops up credit. No ChatGPT API is required.
 
@@ -17,8 +17,8 @@ The pipeline uses the exact OpenRouter model `deepseek/deepseek-v4.1-flash` only
 - Audio and timing are hash-checked and reused when inputs are unchanged. A VOICEVOX failure retries after 60 seconds and five minutes, then moves the item to `VOICE_BLOCKED`.
 - Queue preparation pauses at the human rights-review boundary and when workspace free disk falls below 2 GiB. It does not delete packages to recover space.
 - Downloaded images stay `REVIEW_REQUIRED`. A human must record reuse basis, evidence URL, and credit before render. Posting is not implemented.
-- Remote render is an optional, explicit handoff through a loopback-only SSH reverse tunnel. It is not connected or verified on the VPS.
-- User-provided screenshots report Linger and timer state as active; current deployment, reboot persistence, RSS success, paid API execution, voice synthesis, final MP4, and continuous uptime remain unverified. See the VPS runbook for one-shot checks.
+- Remote render is an optional, explicit handoff through a loopback-only SSH reverse tunnel. Its live connection must be established and verified by an authenticated loopback health check; repository booleans are never treated as live connection evidence.
+- User-provided screenshots report Linger and timer state as active; current deployment, reboot persistence, RSS success, paid API execution, voice synthesis, final MP4, and continuous uptime remain unverified. Use the GCP runbook and the private VM-control `status` operation for one-shot checks.
 
 ## Which work happens on which machine
 
@@ -30,7 +30,7 @@ There is no automatic render retry or local fallback. If the worker is unreachab
 
 ## Optional remote VOICEVOX setup
 
-The worker computer must already be running a VOICEVOX Engine HTTP server on its own loopback interface, normally `127.0.0.1:50021`. From that computer, open an SSH reverse tunnel to the VPS:
+The worker computer must already be running a VOICEVOX Engine HTTP server on its own loopback interface, normally `127.0.0.1:50021`. From that computer, open an SSH reverse tunnel to the GCP coordinator:
 
 ```bash
 ssh -NT \
@@ -38,7 +38,7 @@ ssh -NT \
   -o ServerAliveInterval=30 \
   -o ServerAliveCountMax=3 \
   -R 127.0.0.1:50021:127.0.0.1:50021 \
-  <dedicated-ssh-user>@<vps-host>
+  <dedicated-ssh-user>@<gcp-coordinator-host>
 ```
 
 Configure the preparation service's protected environment file with:
@@ -48,7 +48,7 @@ VOICEVOX_REMOTE_TUNNEL=1
 VOICEVOX_URL=http://127.0.0.1:50021
 ```
 
-The tunnel listens only on the VPS loopback interface. The wrapper rejects non-loopback remote URLs, checks `/version` and requires both standard speakers before starting synthesis. Do not expose port 50021 publicly. Use a dedicated SSH account/key with remote forwarding limited to this loopback port. If the tunnel is down, the job stays queued and uses the bounded retry schedule.
+The tunnel listens only on the GCP coordinator loopback interface. The wrapper rejects non-loopback remote URLs, checks `/version` and requires both standard speakers before starting synthesis. Do not expose port 50021 publicly. Use a dedicated SSH account/key with remote forwarding limited to this loopback port. If the tunnel is down, the job stays queued and uses the bounded retry schedule.
 
 If voice retries are exhausted, repair/reconnect the engine and run:
 
@@ -148,18 +148,18 @@ To process one article, configure `OPENROUTER_API_KEY` in the host's protected e
 python -m scripts.media_news_pipeline --db runtime/media-queue.sqlite3 --workspace runtime process-next
 ```
 
-This produces a saved mission, narration audio/timing and article image candidates, then stops for image-rights review. After each selected image has a verified reuse basis, HTTPS evidence URL and credit, render with the approved character shell and font:
+This produces a saved mission, narration audio/timing and article image candidates, then stops for image-rights review. After each selected image has a verified reuse basis, HTTPS evidence URL and credit, dispatch only to the verified external render worker:
 
 ```bash
 python -m scripts.media_news_pipeline --db runtime/media-queue.sqlite3 --workspace runtime render \
-  --package runtime/media-news/<source_id> --shell <approved-character-shell> --font <approved-font>
+  --package runtime/media-news/<source_id> --remote-render
 ```
 
-The output is local and remains at `READY_TO_PUBLISH`.
+The coordinator refuses local GCP rendering. The verified returned MP4 remains at `READY_TO_PUBLISH`; publishing is still disabled.
 
 ## System service installation templates (not performed by this PR)
 
-These root-level service examples assume a dedicated Linux account `hf-site-agent`, a checkout at `/opt/hf-site-agent`, and persistent storage at `/var/lib/hf-site-agent`. They are separate from the user's reported systemd user timer and are not the current VPS deployment path. The remote worker template assumes a separate unprivileged account `hf-render-worker`. Install units only on the corresponding hosts and set restrictive permissions on all protected environment and SSH files. Do not enable public posting, automatic top-up or paid fallback.
+These root-level service examples assume a dedicated Linux account `hf-site-agent`, a checkout at `/opt/hf-site-agent`, and persistent storage at `/var/lib/hf-site-agent`. They are separate from the current GCP user-service coordinator path. The remote worker template assumes a separate unprivileged account `hf-render-worker`. Install units only on the corresponding hosts and set restrictive permissions on all protected environment and SSH files. Do not enable public posting, automatic top-up or paid fallback.
 
 ```bash
 sudo install -m 0644 deploy/systemd/hf-site-agent-media-source.service /etc/systemd/system/
@@ -169,4 +169,4 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now hf-site-agent-media-source.service hf-site-agent-media-news.timer
 ```
 
-`durable_media_runner.py` remains the separate typed batch control plane with SQLite/WAL, dedupe, leases, bounded retry, path checks, child secret isolation and process-group cleanup. Passing CI proves repository behavior only; it does not prove a VPS has been provisioned or that any production workflow is running.
+`durable_media_runner.py` remains the separate typed batch control plane with SQLite/WAL, dedupe, leases, bounded retry, path checks, child secret isolation and process-group cleanup. Passing CI proves repository behavior only; it does not prove the GCP VM, Runner, timer, external render worker, or E2E pipeline is currently live.
