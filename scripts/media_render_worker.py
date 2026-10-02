@@ -668,7 +668,14 @@ class RenderHandler(http.server.BaseHTTPRequestHandler):
             return
         work_dir = paths["work_dir"]
         jobs = work_dir / "jobs"
-        jobs.mkdir(parents=True, exist_ok=True, mode=0o700)
+        try:
+            jobs.mkdir(parents=True, exist_ok=True, mode=0o700)
+        except OSError:
+            self._json(503, {"status": "BLOCKED", "error_code": "WORKER_JOBS_DIRECTORY_UNAVAILABLE"})
+            return
+        if not _owned_private_directory(jobs):
+            self._json(503, {"status": "BLOCKED", "error_code": "WORKER_JOBS_DIRECTORY_UNSAFE"})
+            return
         with tempfile.TemporaryDirectory(prefix="http-", dir=jobs) as request_dir:
             request_path = Path(request_dir) / "request.tar.gz"
             remaining = length
@@ -712,6 +719,12 @@ class RenderHandler(http.server.BaseHTTPRequestHandler):
 
 class SingleRequestHTTPServer(http.server.HTTPServer):
     allow_reuse_address = False
+    request_inactivity_timeout_seconds = 30.0
+
+    def get_request(self):
+        connection, address = super().get_request()
+        connection.settimeout(self.request_inactivity_timeout_seconds)
+        return connection, address
 
 
 def serve(host: str, port: int, work_dir: Path) -> int:
