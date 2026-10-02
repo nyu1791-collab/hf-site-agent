@@ -10,7 +10,7 @@ The pipeline uses the exact OpenRouter model `deepseek/deepseek-v4.1-flash` only
 
 ## What this branch implements
 
-- `scripts/media_source_daemon.py` polls the configured official RSS feed every five minutes using conditional requests, normalizes entries, and deduplicates them into SQLite/WAL. Polling creates inbox records; it does not publish.
+- `scripts/media_source_daemon.py` is the separately scheduled authoritative RSS ingress path. It polls the configured official feeds every five minutes using conditional requests, normalizes entries, and deduplicates them into SQLite/WAL. The GCP preparation user service deliberately does **not** invoke it again. Activation and 24-hour readiness require every enabled feed to remain fresh in `source_feed_state`; stale/missing ingress blocks preparation instead of silently creating a second poller.
 - `scripts/media_news_pipeline.py process-next` handles at most one queued article per run: it fetches an allowlisted article, drafts a source-backed Japanese script with the exact paid DeepSeek route above, synthesizes narration locally, and downloads official image candidates.
 - The optional exact-free reviewer can only return advisory PASS/FLAG output. It cannot rewrite or block the paid script, and if free route verification fails it is skipped.
 - VOICEVOX runs locally by default. An optional SSH reverse tunnel can move VOICEVOX inference to an already available computer while the coordinator calls only a loopback URL. The tunnel is optional and has not been connected to a live host in this change.
@@ -26,7 +26,7 @@ The coordinator is the source of truth: it owns the SQLite/WAL queue, calls the 
 
 The render API binds only to `127.0.0.1:18765` on both machines. The worker opens an SSH reverse tunnel to the coordinator's same loopback port; a shared random bearer token adds an application-level gate inside SSH. The coordinator transfers files over that tunnel, not through GitHub Actions, a public bucket or a public HTTP endpoint. Input/output size, duration and time are bounded. The coordinator and worker verify the renderer, profile, media policy, approved character shell and font fingerprints.
 
-There is no automatic render retry or local fallback. If the worker is unreachable or any hash/probe fails, the command stops and the source stays at `ASSET_REVIEW_REQUIRED`. A verified MP4 and report are written locally; publishing is still disabled. The worker must be an already available Linux machine with the approved shell/font, FFmpeg/ffprobe and Pillow. Measure its peak RAM, disk use and render duration before choosing any host size.
+There is no automatic render retry or local fallback. The worker recomputes its pinned code/policy/shell/font readiness for every authenticated health or render request rather than trusting startup-time hashes. It also reserves each request UUID in a persistent private replay ledger before rendering, so the exact request cannot execute twice across reconnects or worker restarts. If a request fails after reservation, diagnose it and create a new manual request ID; never delete the ledger to force a retry. If the worker is unreachable or any hash/probe fails, the command stops and the source stays at `ASSET_REVIEW_REQUIRED`. A verified MP4 and report are written locally; publishing is still disabled. If those files were durably saved but the subsequent SQLite state update failed, the coordinator verifies their hash/report/audio/video/duration evidence and repairs only the DB state without re-contacting the worker. The worker must be an already available Linux machine with the approved shell/font, FFmpeg/ffprobe and Pillow. Measure its peak RAM, disk use and render duration before choosing any host size.
 
 ## Optional remote VOICEVOX setup
 
@@ -77,7 +77,7 @@ MEDIA_RENDER_WORK_DIR=/var/lib/hf-render-worker
 
 Initially leave both hash values empty. After installing the worker units below, run the check and inspect its redacted JSON output. Copy the reported shell/font hashes into `worker.env`; rerun the check and require `"status":"READY"` before starting the listener. The check does not accept jobs or print the token.
 
-On the coordinator, create `/etc/hf-site-agent/media-render.env` (`root:root`, mode `0600`) with the same token and approved asset hashes:
+On the **current GCP coordinator user-service path**, create `~/.config/hf-site-agent/media-render.env` as the VM user, mode `0600`, with the same token and approved asset hashes. This is also the file read by the private VM-control live health check:
 
 ```text
 MEDIA_RENDER_SHARED_TOKEN=<same random 32-byte token on both hosts>
@@ -90,7 +90,7 @@ Generate the bearer token once with a cryptographically secure random generator 
 
 Restrict the coordinator SSH account to remote forwarding on `127.0.0.1:18765` only. For its `authorized_keys` entry, use `no-agent-forwarding,no-X11-forwarding,no-pty,no-user-rc,permitlisten="127.0.0.1:18765"`. In `sshd_config`, apply a `Match User hf-render-tunnel` block with `AllowTcpForwarding remote`, `AllowStreamLocalForwarding no`, `PermitListen 127.0.0.1:18765`, `GatewayPorts no`, `AllowAgentForwarding no`, `X11Forwarding no`, `PermitTTY no`, `PermitTunnel no`, and `MaxSessions 0`. Give the account no repository or service-management permissions. Verify the effective sshd configuration before connecting. Do not use the coordinator's normal login account.
 
-Install the worker and tunnel unit templates from `deploy/systemd/` after preparing the protected environment and SSH host-key files. Create `/var/lib/hf-render-worker` and its `home` and `tmp` directories owned by `hf-render-worker`; install the pinned shell and font read-only under `/srv/hf-render-assets`. Set `/etc/hf-render-worker` to `root:hf-render-worker`, mode `0750`; keep `worker.env` and `tunnel.env` owned by root, mode `0600`; give `id_ed25519` to `hf-render-worker`, mode `0600`; and make the verified `known_hosts` file readable by that account. Create `tunnel.env` with `COORDINATOR_HOST=<verified coordinator hostname>`. Strict host-key checking is enabled; do not populate `known_hosts` from an unverified scan.
+Install the worker and tunnel unit templates from `deploy/systemd/` after preparing the protected environment and SSH host-key files. Create `/var/lib/hf-render-worker`, its `home`, `tmp`, and runtime-created cache/ledger directories owned by `hf-render-worker` with no group/world permissions (normally mode `0700`); install the pinned shell and font read-only under `/srv/hf-render-assets`. Set `/etc/hf-render-worker` to `root:hf-render-worker`, mode `0750`; keep `worker.env` and `tunnel.env` owned by root, mode `0600`; give `id_ed25519` to `hf-render-worker`, mode `0600`; and make the verified `known_hosts` file readable by that account. Create `tunnel.env` with `COORDINATOR_HOST=<verified coordinator hostname>`. Strict host-key checking is enabled; do not populate `known_hosts` from an unverified scan.
 
 On the worker host, install and check the worker units:
 
@@ -111,36 +111,39 @@ sudo systemctl enable --now hf-render-worker.service hf-render-worker-tunnel.ser
 sudo systemctl is-active hf-render-worker.service hf-render-worker-tunnel.service
 ```
 
-On the coordinator host, install its units and verify the authenticated tunnel health check:
+On the current GCP coordinator host, install the manual-only **user** units and verify the authenticated tunnel health check:
 
 ```bash
-sudo install -m 0644 deploy/systemd/hf-site-agent-media-render@.service /etc/systemd/system/
-sudo install -m 0644 deploy/systemd/hf-site-agent-media-render-check.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl start hf-site-agent-media-render-check.service
-sudo journalctl -u hf-site-agent-media-render-check.service --no-pager -n 30
+mkdir -p ~/.config/systemd/user
+install -m 0644 deploy/systemd/user/hf-site-agent-media-render-check.service ~/.config/systemd/user/
+install -m 0644 deploy/systemd/user/hf-site-agent-media-render@.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user start hf-site-agent-media-render-check.service
+systemctl --user status hf-site-agent-media-render-check.service --no-pager
 ```
 
-The coordinator health check does not render or touch the queue. Keep the render template disabled until a human has reviewed a specific package and explicitly starts it.
+The coordinator health check does not render or touch the queue. Neither render user unit has an `[Install]` section or timer, so rights review plus an explicit start remains mandatory.
 
 After manual rights review, start one render for that package from the coordinator:
 
 ```bash
-sudo systemctl start 'hf-site-agent-media-render@<source_id>.service'
-sudo journalctl -u 'hf-site-agent-media-render@<source_id>.service' --no-pager -n 50
+systemctl --user start 'hf-site-agent-media-render@<source_id>.service'
+journalctl --user -u 'hf-site-agent-media-render@<source_id>.service' --no-pager -n 50
 ```
 
 Replace `<source_id>` with the package's 64-character lowercase SHA-256 ID. This command does not call an AI API. It sends the already prepared assets once, validates the returned MP4 with `ffprobe`, records `remote-render-report.json`, and stops at `READY_TO_PUBLISH`. If an attempt fails, diagnose it before manually running another attempt. Public posting remains out of scope.
 
-## Staging commands
+## Local staging commands — never run `init` against the live GCP queue
 
-Run from the repository root with Python and FFmpeg installed:
+The existing GCP database must never be reinitialized. For an isolated disposable local staging database only, use a different path:
 
 ```bash
-python -m scripts.durable_media_runner --db runtime/media-queue.sqlite3 --workspace . init
-python -m scripts.media_source_daemon --db runtime/media-queue.sqlite3 --once
-python -m scripts.media_source_ingress --db runtime/media-queue.sqlite3 status
+python -m scripts.durable_media_runner --db runtime/staging-media-queue.sqlite3 --workspace runtime/staging init
+python -m scripts.media_source_daemon --db runtime/staging-media-queue.sqlite3 --once
+python -m scripts.media_source_ingress --db runtime/staging-media-queue.sqlite3 status
 ```
+
+Do not substitute the live `runtime/media-queue.sqlite3` path into the staging `init` command.
 
 To process one article, configure `OPENROUTER_API_KEY` in the host's protected environment and either configure local VOICEVOX or keep the remote tunnel connected:
 
