@@ -64,6 +64,36 @@ class GcpSmallHostActivationTests(unittest.TestCase):
                 blockers = self._case(forecast=forecast, forecast_status=status)
                 self.assertIn("LIVE_BILLING_CREDIT_EVIDENCE_MISSING_STALE_OR_INVALID", blockers)
 
+    def test_activation_blocks_paid_route_render_or_timer_policy_drift(self):
+        mutations = (
+            ("RESIDENT_NEWS_PAID_ROUTE_POLICY_INVALID", "pipeline_model"),
+            ("GCP_REMOTE_ONLY_RENDER_BOUNDARY_INVALID", "local_render"),
+            ("GCP_24H_PREPARATION_TIMER_POLICY_INVALID", "timer_disabled"),
+        )
+        for expected, mutation in mutations:
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temp:
+                root, home = Path(temp) / "repo", Path(temp) / "home"
+                root.mkdir(); home.mkdir()
+                name = self._prepared(root, home)
+                if mutation == "pipeline_model":
+                    path = root / "config/media_news_pipeline_policy.json"
+                    policy = json.loads(path.read_text(encoding="utf-8"))
+                    policy["paid_script_generation"]["model"] = "wrong/model"
+                    path.write_text(json.dumps(policy), encoding="utf-8")
+                else:
+                    path = root / "config/media_small_host_policy.json"
+                    policy = json.loads(path.read_text(encoding="utf-8"))
+                    if mutation == "local_render":
+                        policy["resource_controls"]["local_video_rendering_on_gcp_allowed"] = True
+                    else:
+                        policy["execution"]["preparation_timer_enabled_by_default"] = False
+                    path.write_text(json.dumps(policy), encoding="utf-8")
+                blockers = preflight(
+                    root=root, home=home, instance_name=name, project_id="test-project",
+                    branch="ai-army/provider-v3", free_bytes=3 * 1024**3,
+                )
+                self.assertIn(expected, blockers)
+
     def test_remote_engine_does_not_require_local_installation(self):
         self.assertEqual(self._case(remote=True, ready=True), [])
 
