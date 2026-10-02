@@ -135,6 +135,10 @@ def validate(root: Path = ROOT) -> list[str]:
         and live.get("static_policy_flags_must_not_be_used_as_live_status") is True
         and live.get("source_of_truth") == "python -m scripts.media_render_transport --check"
         and render_verify.get("database_state_advances_only_after_verified_result") is True
+        and render_verify.get("exact_request_id_replay_blocked") is True
+        and render_verify.get("request_id_reserved_before_render") is True
+        and render_verify.get("worker_state_directories_owner_private_required") is True
+        and render_verify.get("replay_ledger_persistent_across_worker_restarts") is True
     ):
         blockers.append("LIVE_RENDER_READINESS_AUTHORITY_INVALID")
 
