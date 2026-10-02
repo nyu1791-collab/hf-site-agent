@@ -496,6 +496,75 @@ def _verify_video(path: Path, expected_duration: float) -> dict[str, Any]:
         raise RenderTransportError("ffprobe rejected the remote render result") from exc
 
 
+def verify_saved_remote_render(
+    *,
+    package: Path,
+    source_id: str,
+    expected_duration: float,
+) -> dict[str, Any]:
+    """Verify an already installed remote result without contacting the worker.
+
+    This closes the crash window between durable file installation and the
+    subsequent SQLite state update. It never repairs, overwrites, retries, or
+    renders; it only accepts the exact saved video/report pair.
+    """
+    if not re.fullmatch(r"[0-9a-f]{64}", str(source_id)):
+        raise RenderTransportError("invalid source identity")
+    package = package.resolve(strict=True)
+    video = package / "final.mp4"
+    report_path = package / "remote-render-report.json"
+    if video.is_symlink() or report_path.is_symlink():
+        raise RenderTransportError("saved remote render result must not use symlinks")
+    if not video.is_file() or not report_path.is_file():
+        raise RenderTransportError("saved remote render result is incomplete")
+    if report_path.stat().st_size <= 0 or report_path.stat().st_size > MAX_REPORT_BYTES:
+        raise RenderTransportError("saved remote render report is outside its size limit")
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise RenderTransportError("saved remote render report is invalid") from exc
+    if (
+        not isinstance(report, dict)
+        or report.get("schema_version") != PROTOCOL
+        or report.get("status") != "VERIFIED_REMOTE_RENDER"
+        or report.get("source_id") != source_id
+        or report.get("public_publish_enabled") is not False
+        or report.get("automatic_retry") is not False
+        or report.get("automatic_local_fallback") is not False
+        or not re.fullmatch(r"[0-9a-f]{64}", str(report.get("video_sha256") or ""))
+    ):
+        raise RenderTransportError("saved remote render report does not prove a verified result")
+    digest = _sha256_file(video)
+    if not hmac.compare_digest(digest, str(report["video_sha256"])):
+        raise RenderTransportError("saved remote render video hash no longer matches its report")
+    probe = _verify_video(video, expected_duration)
+    recorded = report.get("video")
+    if not isinstance(recorded, Mapping):
+        raise RenderTransportError("saved remote render report is missing video verification")
+    try:
+        recorded_duration = float(recorded["duration_seconds"])
+        recorded_bytes = int(recorded["bytes"])
+        recorded_streams = set(recorded["streams"])
+    except (KeyError, TypeError, ValueError):
+        raise RenderTransportError("saved remote render video verification is malformed") from None
+    if (
+        not math.isfinite(recorded_duration)
+        or abs(recorded_duration - probe["duration_seconds"]) > 0.05
+        or recorded_bytes != probe["bytes"]
+        or not {"audio", "video"}.issubset(recorded_streams)
+    ):
+        raise RenderTransportError("saved remote render verification no longer matches the video")
+    return {
+        "status": "READY_TO_PUBLISH",
+        "video": str(video),
+        "duration_seconds": probe["duration_seconds"],
+        "render_route": "SSH_REVERSE_TUNNEL",
+        "report": str(report_path),
+        "public_publish_enabled": False,
+        "recovered_from_saved_result": True,
+    }
+
+
 def dispatch_remote_render(
     *,
     package: Path,
