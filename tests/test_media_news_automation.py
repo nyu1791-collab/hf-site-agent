@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import ArticleSourceBlocked, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _rss_summary_article, _validate_existing_package, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story
+from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, PaidMediaAlreadyAttempted, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _rss_summary_article, _validate_existing_package, _review_story_free, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
 
@@ -87,15 +87,101 @@ class MediaNewsAutomationTests(unittest.TestCase):
             root=Path(td);conn=connect(root/"q.sqlite3");init_inbox(conn)
             source_id="c"*64
             ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title","url":"https://openai.com/news/x","summary":"","published":""}])
-            for _ in range(5): _reserve_call(conn)
+            for i in range(5):
+                _reserve_paid_call(conn, "paid-call-"+str(i), __import__("decimal").Decimal("0.001"),
+                    "deepseek/deepseek-v4.1-flash", __import__("decimal").Decimal("0.000000015"),
+                    __import__("decimal").Decimal("0.0000012"))
             with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
                 "scripts.media_news_pipeline.shutil.disk_usage",
                 return_value=SimpleNamespace(free=3 * 1024**3),
             ):
                 result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
-            self.assertEqual(result["status"],"BLOCKED_DAILY_MEDIA_CALL_CAP")
+            self.assertEqual(result["status"],"BLOCKED_DAILY_PAID_CALL_CAP")
             self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],"PREPARATION_REQUIRED")
             conn.close()
+
+    def test_unknown_paid_attempt_is_reported_and_not_retried(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"q.sqlite3");init_inbox(conn)
+            source_id="f"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":"https://openai.com/news/x","summary":"","published":""}])
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=3 * 1024**3),
+            ), patch("scripts.media_news_pipeline.process_source",
+                side_effect=PaidMediaAlreadyAttempted("reserved")) as paid:
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"BLOCKED_PAID_ATTEMPT_REQUIRES_REVIEW")
+            self.assertTrue(result["request_may_have_been_sent"])
+            self.assertFalse(result["automatic_retry"])
+            paid.assert_called_once()
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],
+                "PREPARATION_REQUIRED")
+            conn.close()
+
+    def test_per_call_paid_budget_error_is_returned_as_a_queued_block(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"q.sqlite3");init_inbox(conn)
+            source_id="9"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":"https://openai.com/news/x","summary":"","published":""}])
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=3 * 1024**3),
+            ), patch("scripts.media_news_pipeline.process_source",
+                side_effect=PaidMediaBudgetExceeded("cap")):
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"BLOCKED_PAID_PER_CALL_BUDGET")
+            self.assertFalse(result["request_sent"])
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],
+                "PREPARATION_REQUIRED")
+            conn.close()
+
+    def test_paid_monthly_cost_cap_stops_before_reserving_another_call(self):
+        from decimal import Decimal
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
+            policy=PIPELINE_POLICY["paid_script_generation"]
+            old_monthly_cap=policy["maximum_reserved_cost_per_utc_month_usd"]
+            policy["maximum_reserved_cost_per_utc_month_usd"]="0.05"
+            try:
+                _reserve_paid_call(conn,"a"*64,Decimal("0.04"),"deepseek/deepseek-v4.1-flash",
+                    Decimal("0.000000015"),Decimal("0.0000012"))
+                with self.assertRaises(PaidMediaMonthlyCapReached):
+                    _reserve_paid_call(conn,"b"*64,Decimal("0.02"),"deepseek/deepseek-v4.1-flash",
+                        Decimal("0.000000015"),Decimal("0.0000012"))
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM media_news_paid_calls").fetchone()[0],1)
+                self.assertEqual(_paid_reserved_cost_this_month(conn),Decimal("0.04"))
+            finally:
+                policy["maximum_reserved_cost_per_utc_month_usd"]=old_monthly_cap
+                conn.close()
+
+    def test_monthly_paid_cap_leaves_article_queued_without_an_api_call(self):
+        from decimal import Decimal
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"q.sqlite3");init_inbox(conn)
+            source_id="d"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":"https://openai.com/news/x","summary":"","published":""}])
+            policy=PIPELINE_POLICY["paid_script_generation"]
+            old_monthly_cap=policy["maximum_reserved_cost_per_utc_month_usd"]
+            policy["maximum_reserved_cost_per_utc_month_usd"]="0.001"
+            try:
+                _reserve_paid_call(conn,"e"*64,Decimal("0.001"),"deepseek/deepseek-v4.1-flash",
+                    Decimal("0.000000015"),Decimal("0.0000012"))
+                with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                    "scripts.media_news_pipeline.shutil.disk_usage",
+                    return_value=SimpleNamespace(free=3 * 1024**3),
+                ):
+                    result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+                self.assertEqual(result["status"],"BLOCKED_MONTHLY_PAID_BUDGET")
+                self.assertFalse(result["request_sent"])
+                self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],
+                    "PREPARATION_REQUIRED")
+            finally:
+                policy["maximum_reserved_cost_per_utc_month_usd"]=old_monthly_cap
+                conn.close()
 
     def test_low_disk_blocks_before_api_or_voice_work_without_mutating_queue(self):
         with tempfile.TemporaryDirectory() as td:
@@ -150,15 +236,30 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertFalse(remote["automatic_retry"])
         self.assertFalse(remote["automatic_local_fallback"])
         self.assertFalse(remote["publishing_enabled"])
-        self.assertEqual(small_host["target"]["machine_type"],"e2-small")
+        self.assertEqual(small_host["target"]["machine_type"],"e2-small")  # legacy GCP profile is historical only
         self.assertEqual(small_host["target"]["memory_gib"],2)
         self.assertFalse(small_host["execution"]["preparation_timer_enabled_by_default"])
         self.assertFalse(small_host["execution"]["render_timer_enabled_by_default"])
+        self.assertEqual(pipeline_policy["paid_script_generation"]["model"],"deepseek/deepseek-v4.1-flash")
+        self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_estimated_cost_per_call_usd"],"0.05")
+        self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_reserved_cost_per_utc_day_usd"],"0.10")
+        self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_reserved_cost_per_utc_month_usd"],"0.50")
+        self.assertEqual(fast_path["extracted_pipeline"]["article_to_media_staging"]["script_route"],
+            "deepseek/deepseek-v4.1-flash")
+        self.assertEqual(fast_path["extracted_pipeline"]["article_to_media_staging"]["monthly_reserved_cost_cap_usd"],
+            "0.50")
+        self.assertFalse(pipeline_policy["paid_script_generation"]["automatic_paid_fallback"])
+        self.assertFalse(pipeline_policy["paid_script_generation"]["automatic_retry_after_request"])
+        self.assertEqual(pipeline_policy["free_script_review"]["route_requirement"],"EXACT_ZERO_COST_FREE_MODEL_ONLY")
+        self.assertTrue(pipeline_policy["free_script_review"]["advisory_only"])
+        self.assertIn("PYTHONIOENCODING=utf-8:backslashreplace",user_service)
         news_read_set=set(read_gate["trigger_sets"]["VIDEO_CREATION"]["conditional"]["if_user_requests_article_rss_or_resident_news_video_automation"])
+        self.assertIn("docs/VPS_MEDIA_NEWS_AUTOMATION.md",news_read_set)
+        self.assertNotIn("docs/GCP_SMALL_HOST_DEPLOYMENT.md",news_read_set)
         self.assertTrue({"config/media_render_worker_policy.json","scripts/media_render_transport.py",
             "scripts/media_render_worker.py","deploy/systemd/hf-render-worker-tunnel.service",
             "deploy/systemd/hf-site-agent-media-render@.service",
-            "config/media_small_host_policy.json","docs/GCP_SMALL_HOST_DEPLOYMENT.md",
+            "config/media_small_host_policy.json","docs/DURABLE_MEDIA_AUTOMATION.md",
             "deploy/systemd/user/hf-site-agent-media-news.service",
             "deploy/systemd/user/hf-site-agent-media-news.timer",
             "deploy/systemd/user/hf-site-agent-media-render@.service",
@@ -342,35 +443,98 @@ class MediaNewsAutomationTests(unittest.TestCase):
         bad=story();bad["scenes"][0]["dialogue"][0]["id"]="../escape"
         with self.assertRaises(ValueError): validate_story(bad,TEXT)
 
-    def test_story_call_uses_exact_free_model_no_fallback_and_zero_cost(self):
+    def test_story_call_uses_exact_deepseek_v41_flash_with_live_price_cap_and_no_fallback(self):
         with tempfile.TemporaryDirectory() as td:
             conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
             call={}
-            def planner(_task,_catalog,**kwargs):
-                return {"status":"READY","primary_model":"vendor/news:free","provider_allow_fallbacks":False}
+            catalog=[{"id":"deepseek/deepseek-v4.1-flash",
+                "pricing":{"prompt":"0.000000015","completion":"0.0000012"},
+                "supported_parameters":["response_format"]}]
             def requester(payload,key):
                 call.update(payload=payload,key_seen=bool(key))
-                return {"model":"vendor/news:free","choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}],"usage":{"cost":0}}
+                return {"model":"deepseek/deepseek-v4.1-flash","choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}],
+                    "usage":{"cost":"0.0001","prompt_tokens":200,"completion_tokens":200}}
             with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test-secret-never-logged"}):
                 result,model=draft_story(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
-                    catalog=[{"id":"vendor/news:free"}],planner_fn=planner,request_fn=requester)
-            self.assertEqual(model,"vendor/news:free")
+                    catalog=catalog,request_fn=requester,
+                    planner_fn=lambda *_a,**_k:{"status":"READY","primary_model":"reviewer/model:free","provider_allow_fallbacks":False})
+            self.assertEqual(model,"deepseek/deepseek-v4.1-flash")
             self.assertEqual(len(result["scenes"]),3)
             self.assertTrue(call["key_seen"])
             self.assertIs(call["payload"]["provider"]["allow_fallbacks"],False)
+            self.assertEqual(call["payload"]["provider"]["sort"],"price")
+            self.assertTrue(call["payload"]["usage"]["include"])
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM media_news_paid_calls").fetchone()[0],1)
+            conn.close()
+
+    def test_paid_model_preflight_fails_closed_and_does_not_reserve_or_call(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
+            bad_catalogs=[
+                [{"id":"deepseek/deepseek-v4.1-flash","pricing":{"prompt":"0.000000015","completion":"0.0000012"},"supported_parameters":[]}],
+                [{"id":"deepseek/deepseek-v4.1-flash","pricing":{"prompt":"unknown","completion":"0.0000012"},"supported_parameters":["response_format"]}],
+            ]
+            for catalog in bad_catalogs:
+                with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}):
+                    with self.assertRaises(PaidMediaPreflightUnavailable):
+                        draft_story(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
+                            catalog=catalog,request_fn=lambda *_a:(_ for _ in ()).throw(AssertionError("must not call")))
+            self.assertEqual(_paid_calls_used_today(conn),0)
+            conn.close()
+
+    def test_paid_attempt_is_never_sent_twice_without_a_script_checkpoint(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
+            catalog=[{"id":"deepseek/deepseek-v4.1-flash",
+                "pricing":{"prompt":"0.000000015","completion":"0.0000012"},
+                "supported_parameters":["response_format"]}]
+            calls=[]
+            def requester(payload,key):
+                calls.append(payload["model"])
+                return {"model":payload["model"],"choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}],
+                    "usage":{"cost":"0.0001"}}
+            article={"title":"title","url":"https://openai.com/news/x","text":TEXT}
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}):
+                draft_story(conn,article,catalog=catalog,request_fn=requester)
+                with self.assertRaises(PaidMediaAlreadyAttempted):
+                    draft_story(conn,article,catalog=catalog,request_fn=requester)
+            self.assertEqual(calls,["deepseek/deepseek-v4.1-flash"])
+            conn.close()
+
+    def test_free_reviewer_uses_exact_free_model_and_is_advisory(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
+            payloads=[]
+            def request(payload,key):
+                payloads.append(payload)
+                return {"model":"reviewer/model:free","usage":{"cost":"0"},
+                    "choices":[{"message":{"content":json.dumps({"decision":"FLAG","flags":["verify excerpt"]})}}]}
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}):
+                result=_review_story_free(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
+                    story(),catalog=[{"id":"reviewer/model:free","pricing":{"prompt":"0","completion":"0"}}],
+                    planner_fn=lambda *_a,**_k:{"status":"READY","primary_model":"reviewer/model:free","provider_allow_fallbacks":False},
+                    request_fn=request)
+            self.assertEqual(result["status"],"COMPLETE")
+            self.assertEqual(result["decision"],"FLAG")
+            self.assertEqual(payloads[0]["model"],"reviewer/model:free")
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM media_news_model_calls").fetchone()[0],1)
             conn.close()
 
-    def test_nonzero_or_unknown_usage_cost_blocks_story(self):
-        with tempfile.TemporaryDirectory() as td:
-            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
-            def planner(*_a,**_k): return {"status":"READY","primary_model":"vendor/news:free","provider_allow_fallbacks":False}
-            for usage in ({"cost":0.01},{}):
+    def test_paid_actual_cost_must_be_present_and_within_reserved_cap(self):
+        catalog=[{"id":"deepseek/deepseek-v4.1-flash",
+            "pricing":{"prompt":"0.000000015","completion":"0.0000012"},
+            "supported_parameters":["response_format"]}]
+        for usage in ({"cost":"1.0"},{}):
+            with tempfile.TemporaryDirectory() as td:
+                conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
                 with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}):
                     with self.assertRaises(RuntimeError):
                         draft_story(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
-                          catalog=[{}],planner_fn=planner,request_fn=lambda *_a, u=usage: {"model":"vendor/news:free","usage":u,"choices":[]})
-            conn.close()
+                            catalog=catalog,request_fn=lambda payload,_key,u=usage: {
+                                "model":payload["model"],"usage":u,"choices":[]})
+                state=conn.execute("SELECT state FROM media_news_paid_calls").fetchone()["state"]
+                self.assertEqual(state,"OUTCOME_UNKNOWN")
+                conn.close()
 
     def test_article_to_persistent_script_package_is_resumable(self):
         with tempfile.TemporaryDirectory() as td:
@@ -379,11 +543,11 @@ class MediaNewsAutomationTests(unittest.TestCase):
             source_id="a"*64
             ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
                 "url":"https://openai.com/news/example","summary":"", "published":""}])
-            planner=lambda *_a,**_k:{"status":"READY","primary_model":"vendor/news:free","provider_allow_fallbacks":False}
+            planner=lambda *_a,**_k:{"status":"READY","primary_model":"deepseek/deepseek-v4.1-flash","provider_allow_fallbacks":False}
             calls={"model":0,"image":0}
             def requester(*_a):
                 calls["model"]+=1
-                return {"model":"vendor/news:free","usage":{"cost":0},"choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}]}
+                return {"model":"deepseek/deepseek-v4.1-flash","usage":{"cost":"0.0001"},"choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}]}
             def fake_download(_url,dest_dir,**_kwargs):
                 import hashlib
                 calls["image"]+=1;dest_dir.mkdir(parents=True,exist_ok=True)
@@ -392,11 +556,17 @@ class MediaNewsAutomationTests(unittest.TestCase):
             with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}), patch(
                 "scripts.media_news_pipeline.extract_article",return_value={"title":"title","url":"https://openai.com/news/example","text":TEXT,"description":"","images":[{"url":"https://openai.com/image.png","alt":"official image"}]}
             ), patch("scripts.media_news_pipeline.download_article_image",side_effect=fake_download):
-                mission=process_source(conn,source_id,workspace,image_hosts={"openai.com"},catalog=[{}],request_fn=requester,planner_fn=planner)
+                mission=process_source(conn,source_id,workspace,image_hosts={"openai.com"},catalog=[{"id":"deepseek/deepseek-v4.1-flash",
+                    "pricing":{"prompt":"0.000000015","completion":"0.0000012"},"supported_parameters":["response_format"]}],
+                    request_fn=requester,planner_fn=planner)
             saved=json.loads(mission.read_text())
             self.assertEqual(len(saved["scenes"]),3)
             self.assertTrue(saved["source_sha256"])
             self.assertTrue((mission.parent/"mission.json.gz.b64").is_file())
+            checkpoint=json.loads((mission.parent/"script-generation.json").read_text())
+            self.assertEqual(checkpoint["model_id"],"deepseek/deepseek-v4.1-flash")
+            self.assertEqual(checkpoint["status"],"SCRIPT_READY")
+            self.assertLessEqual(float(checkpoint["estimated_cost_usd"]),0.05)
             self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],"VOICE_PENDING")
             manifest=mission.parent/"image-candidates.json";images=json.loads(manifest.read_text())
             images["assets"][0].update(selected_for_render=True,rights_verified=True,rights_basis="licensed",rights_evidence_url="https://example.org/license",credit="OpenAI")
@@ -404,7 +574,9 @@ class MediaNewsAutomationTests(unittest.TestCase):
             with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}), patch(
                 "scripts.media_news_pipeline.extract_article",return_value={"title":"title","url":"https://openai.com/news/example","text":TEXT,"description":"","images":[{"url":"https://openai.com/image.png","alt":"official image"}]}
             ), patch("scripts.media_news_pipeline.download_article_image",side_effect=AssertionError("cached assets must be reused")):
-                reused=process_source(conn,source_id,workspace,image_hosts={"openai.com"},catalog=[{}],request_fn=lambda *_a:(_ for _ in ()).throw(AssertionError("cached script must be reused")),planner_fn=planner)
+                reused=process_source(conn,source_id,workspace,image_hosts={"openai.com"},catalog=[{"id":"deepseek/deepseek-v4.1-flash",
+                    "pricing":{"prompt":"0.000000015","completion":"0.0000012"},"supported_parameters":["response_format"]}],
+                    request_fn=lambda *_a:(_ for _ in ()).throw(AssertionError("cached script must be reused")),planner_fn=planner)
             self.assertEqual(reused,mission)
             self.assertEqual(calls,{"model":1,"image":1})
             self.assertTrue(json.loads(manifest.read_text())["assets"][0]["rights_verified"])
