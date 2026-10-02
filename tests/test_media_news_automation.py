@@ -276,6 +276,11 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertFalse(remote["automatic_retry"])
         self.assertFalse(remote["automatic_local_fallback"])
         self.assertFalse(remote["publishing_enabled"])
+        render_worker=json.loads((root/"config/media_render_worker_policy.json").read_text())
+        self.assertEqual(render_worker["status"],"IMPLEMENTED_LIVE_HEALTH_REQUIRED")
+        self.assertEqual(render_worker["live_connection"]["source_of_truth"],
+            "python -m scripts.media_render_transport --check")
+        self.assertTrue(render_worker["live_connection"]["static_policy_flags_must_not_be_used_as_live_status"])
         self.assertEqual(small_host["target"]["machine_type"],"e2-small")
         self.assertEqual(small_host["target"]["memory_gib"],2)
         self.assertFalse(small_host["execution"]["preparation_timer_enabled_by_default"])
