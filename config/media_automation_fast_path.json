@@ -109,7 +109,7 @@
       "persistent_voice_cache_environment": "VOICEVOX_CACHE_DIR",
       "remote_voicevox_transport": "SSH_REVERSE_TUNNEL_TO_LOOPBACK_ONLY",
       "small_host_profile": "config/media_small_host_policy.json",
-      "small_host_operations_doc": "docs/VPS_MEDIA_NEWS_AUTOMATION.md",
+      "small_host_operations_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
       "small_host_target": "EXISTING_USER_DESIGNATED_VPS_PROVIDER_NOT_INFERRED",
       "existing_vps_rss_cron_is_preserved": true,
       "single_host_user_services": [
