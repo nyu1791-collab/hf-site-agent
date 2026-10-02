@@ -161,11 +161,15 @@ def validate(root: Path = ROOT) -> list[str]:
     user_service = root / "deploy/systemd/user/hf-site-agent-media-news.service"
     user_timer = root / "deploy/systemd/user/hf-site-agent-media-news.timer"
     worker_service = root / "deploy/systemd/hf-render-worker.service"
+    user_render_service = root / "deploy/systemd/user/hf-site-agent-media-render@.service"
+    user_render_check = root / "deploy/systemd/user/hf-site-agent-media-render-check.service"
     try:
         installer_text = installer.read_text(encoding="utf-8")
         service_text = user_service.read_text(encoding="utf-8")
         timer_text = user_timer.read_text(encoding="utf-8")
         worker_text = worker_service.read_text(encoding="utf-8")
+        user_render_text = user_render_service.read_text(encoding="utf-8")
+        user_render_check_text = user_render_check.read_text(encoding="utf-8")
     except OSError:
         blockers.append("SYSTEMD_OR_INSTALLER_FILE_MISSING")
     else:
@@ -196,6 +200,17 @@ def validate(root: Path = ROOT) -> list[str]:
             or "ProtectSystem=strict" not in worker_text
         ):
             blockers.append("EXTERNAL_RENDER_WORKER_HARDENING_INVALID")
+        if (
+            "EnvironmentFile=%h/.config/hf-site-agent/media-render.env" not in user_render_text
+            or "--remote-render" not in user_render_text
+            or " --shell " in user_render_text
+            or " --font " in user_render_text
+            or "[Install]" in user_render_text
+            or "EnvironmentFile=%h/.config/hf-site-agent/media-render.env" not in user_render_check_text
+            or "scripts.media_render_transport --check" not in user_render_check_text
+            or "[Install]" in user_render_check_text
+        ):
+            blockers.append("GCP_USER_REMOTE_RENDER_UNIT_CONTRACT_INVALID")
 
     return sorted(set(blockers))
 
