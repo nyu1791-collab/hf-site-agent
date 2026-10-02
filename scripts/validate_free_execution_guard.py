@@ -122,10 +122,12 @@ def main() -> int:
         "must_be_re_read_when_media_intent_is_detected",
         "chat_memory_cannot_override_this_guard",
         "paid_api_route_eligibility_survives_tab_change",
+        "evidence_gated_paid_route_survives_tab_change",
         "paid_media_block_survives_tab_change",
         "resident_news_deepseek_route_survives_tab_change",
     ):
         require(continuity.get(key) is True, f"free guard continuity drift: {key}")
+    require("free_only_rule_survives_tab_change" not in continuity, "obsolete free-only continuity flag returned")
 
     standards = manifest.get("required_standards") or []
     by_id = {str(item.get("id")): item for item in standards if isinstance(item, dict)}
