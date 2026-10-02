@@ -105,7 +105,6 @@
           "config/media_automation_fast_path.json",
           "config/media_news_pipeline_policy.json",
           "config/media_render_worker_policy.json",
-          "config/media_small_host_policy.json",
           "config/media_source_ingress_policy.json",
           "scripts/media_source_ingress.py",
           "scripts/media_source_daemon.py",
@@ -114,7 +113,6 @@
           "scripts/media_render_worker.py",
           "scripts/durable_media_runner.py",
           "docs/DURABLE_MEDIA_AUTOMATION.md",
-          "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
           "deploy/systemd/hf-site-agent-media-source.service",
           "deploy/systemd/hf-site-agent-media-news.service",
           "deploy/systemd/hf-site-agent-media-news.timer",
@@ -131,7 +129,14 @@
           "scripts/synthesize_longform_voicevox.py",
           "tests/test_media_news_automation.py",
           "tests/test_media_small_host_deployment.py",
-          "tests/test_voicevox_lifecycle.py"
+          "tests/test_voicevox_lifecycle.py",
+          "config/free_execution_guard.json",
+          "scripts/validate_free_execution_guard.py",
+          "config/permanent_standards_manifest.json",
+          "config/current_commander_handoff.json",
+          "docs/AI_ARMY_MASTER_RULEBOOK.md",
+          "docs/VPS_MEDIA_NEWS_AUTOMATION.md",
+          "config/media_small_host_policy.json"
         ]
       }
     },
@@ -369,7 +374,20 @@
   },
   "default_media_research_and_script_pair_is_chatgpt_plus_deepseek": false,
   "default_video_research_and_script_owner_is_chatgpt": true,
-  "deepseek_for_video_is_optional": "ONLY_IF_USER_REQUESTS_OR_IT_CLEARLY_SHORTENS_CRITICAL_PATH",
+  "deepseek_for_video_is_optional": "The user's 2026-10-02 instruction authorizes exact DeepSeek V4.1 Flash paid text-only script drafting for this resident official-RSS route, within config/media_news_pipeline_policy.json caps; it does not authorize paid image/video/TTS generation, deployment, merge or public publishing.",
   "media_speed_quality_is_speed_first_minimum_viable_delivery": true,
-  "jev_is_optional_for_deterministic_video": true
+  "jev_is_optional_for_deterministic_video": true,
+  "resident_news_script_exception": {
+    "provider": "openrouter",
+    "exact_model": "deepseek/deepseek-v4.1-flash",
+    "scope": "OFFICIAL_RSS_NEWS_SCRIPT_DRAFTING_TEXT_ONLY",
+    "monthly_reserved_cost_cap_usd": "0.50",
+    "daily_reserved_cost_cap_usd": "0.10",
+    "per_call_estimated_cost_cap_usd": "0.05",
+    "max_calls_per_utc_day": 5,
+    "chatgpt_api_required": false,
+    "automatic_fallback": false,
+    "auto_top_up": false,
+    "automatic_public_publish": false
+  }
 }
