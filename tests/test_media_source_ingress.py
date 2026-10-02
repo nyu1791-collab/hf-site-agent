@@ -61,6 +61,32 @@ class MediaSourceIngressTests(unittest.TestCase):
             self.assertEqual(trust["content_trust"], "UNTRUSTED_EXTERNAL")
             conn.close()
 
+    def test_parse_prefers_long_content_encoded_over_short_description(self):
+        xml = RSS.replace(
+            b'<rss version="2.0">',
+            b'<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">',
+        ).replace(
+            b"</item>",
+            b"<content:encoded><![CDATA[" + (b"Extended official feed text. " * 20)
+            + b"]]></content:encoded></item>",
+        )
+        item = parse_feed(xml, "openai-news")[0]
+        self.assertGreaterEqual(len(item["summary"]), 300)
+        self.assertIn("Extended official feed text.", item["summary"])
+
+    def test_richer_reingested_feed_releases_only_short_summary_block(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"queue.sqlite3");init_inbox(conn)
+            item=parse_feed(RSS,"openai-news")[0]
+            ingest_items(conn,[item])
+            conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED'")
+            richer={**item,"summary":"Extended feed text. " * 30}
+            ingest_items(conn,[richer])
+            row=conn.execute("SELECT state,summary FROM source_inbox").fetchone()
+            self.assertEqual(row["state"],"PREPARATION_REQUIRED")
+            self.assertEqual(row["summary"],richer["summary"])
+            conn.close()
+
     def test_rejects_external_entities_and_non_https_links(self):
         with self.assertRaises(ValueError):
             parse_feed(b"<!DOCTYPE x [<!ENTITY e SYSTEM 'file:///etc/passwd'>]><rss><channel/></rss>", "feed")
