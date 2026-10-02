@@ -629,7 +629,7 @@
     ],
     "vm_control_reboot_audit_operation": "reboot_audit",
     "external_render_status_source": "AUTHENTICATED_LIVE_PROBE_NOT_REPOSITORY_BOOLEAN",
-    "saved_e2e_result_verification": "READY_TO_PUBLISH_PLUS_FINAL_MP4_PLUS_VERIFIED_REMOTE_RENDER_REPORT_PLUS_FFPROBE",
+    "saved_e2e_result_verification": "READY_TO_PUBLISH_PLUS_VIDEO_SHA256_PLUS_FAIL_CLOSED_REMOTE_REPORT_PLUS_AUDIO_VIDEO_FFPROBE_PLUS_DURATION_SIZE_PLUS_CURRENT_CONNECTED_WORKER_STACK_FINGERPRINT",
     "reviewed_remote_render_user_service_template": "deploy/systemd/user/hf-site-agent-media-render@.service",
     "gcp_local_rendering_allowed": false,
     "remote_render_live_status_source": "AUTHENTICATED_RUNTIME_HEALTH_CHECK",
@@ -645,11 +645,23 @@
       "PREPARATION_TIMER_ENABLED_AND_ACTIVE",
       "MINIMUM_FREE_DISK",
       "QUEUE_READABLE",
+      "AUTHORITATIVE_RSS_ALL_ENABLED_FEEDS_FRESH",
       "REBOOT_PERSISTENCE_VERIFIED",
       "AUTHENTICATED_EXTERNAL_RENDER_HEALTH",
-      "VERIFIED_SAVED_MP4_FOR_E2E_COMPLETION"
+      "VERIFIED_SAVED_MP4_ON_CURRENT_CONNECTED_WORKER_STACK"
     ],
     "vm_control_live_state_is_authoritative": true,
-    "repository_live_state_snapshots_are_authoritative": false
+    "repository_live_state_snapshots_are_authoritative": false,
+    "authoritative_rss_ingress": "EXISTING_SEPARATELY_SCHEDULED_POLLER_ONLY",
+    "preparation_service_runs_source_poller": false,
+    "authoritative_rss_all_enabled_feeds_must_be_fresh": true,
+    "gcp_user_render_environment": "~/.config/hf-site-agent/media-render.env",
+    "gcp_user_render_check_service_template": "deploy/systemd/user/hf-site-agent-media-render-check.service",
+    "remote_render_request_id_replay_protection": true,
+    "remote_render_worker_recomputes_readiness_each_request": true,
+    "remote_render_worker_restart_required_after_disk_code_change": true,
+    "remote_render_worker_private_state_dirs_required": true,
+    "saved_remote_render_db_recovery_is_idempotent": true,
+    "current_e2e_completion_requires_connected_worker_fingerprint_match": true
   }
 }
