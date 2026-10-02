@@ -24,6 +24,9 @@ class MediaSmallHostDeploymentTests(unittest.TestCase):
         self.assertTrue(policy["execution"]["external_render_worker_required_for_video_completion"])
         self.assertFalse(policy["resource_controls"]["local_video_rendering_on_gcp_allowed"])
         self.assertTrue(policy["execution"]["render_timer_enabled_by_default"] is False)
+        self.assertTrue(policy["execution"]["preparation_timer_enabled_by_default"])
+        self.assertFalse(policy["execution"]["gcp_local_render_unit_allowed"])
+        self.assertTrue(policy["execution"]["external_render_live_health_required"])
         self.assertFalse(policy["provider_and_cost_gates"]["paid_fallback_allowed"])
         self.assertEqual(policy["runner_control_plane"]["reboot_audit_operation"], "reboot_audit")
         self.assertIn("LATEST_REMOTE_HEAD", policy["runner_control_plane"]["reboot_audit_requires"])
@@ -35,6 +38,13 @@ class MediaSmallHostDeploymentTests(unittest.TestCase):
         self.assertIn("hf-site-agent-media-news.service", units_block)
         self.assertIn("hf-site-agent-media-news.timer", units_block)
         self.assertNotIn("hf-site-agent-media-render@.service", units_block)
+
+    def test_user_render_service_is_remote_only(self):
+        unit = (ROOT / "deploy/systemd/user/hf-site-agent-media-render@.service").read_text()
+        self.assertIn("--remote-render", unit)
+        self.assertNotIn("local render", unit.lower())
+        self.assertNotIn(" --shell ", unit)
+        self.assertNotIn(" --font ", unit)
 
     def test_user_preparation_timer_is_separate_from_existing_rss_poller(self):
         service = (ROOT / "deploy/systemd/user/hf-site-agent-media-news.service").read_text()
