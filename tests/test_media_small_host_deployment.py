@@ -41,10 +41,15 @@ class MediaSmallHostDeploymentTests(unittest.TestCase):
 
     def test_user_render_service_is_remote_only(self):
         unit = (ROOT / "deploy/systemd/user/hf-site-agent-media-render@.service").read_text()
+        check = (ROOT / "deploy/systemd/user/hf-site-agent-media-render-check.service").read_text()
+        for text in (unit, check):
+            self.assertIn("EnvironmentFile=%h/.config/hf-site-agent/media-render.env", text)
+            self.assertNotIn("[Install]", text)
         self.assertIn("--remote-render", unit)
         self.assertNotIn("local render", unit.lower())
         self.assertNotIn(" --shell ", unit)
         self.assertNotIn(" --font ", unit)
+        self.assertIn("scripts.media_render_transport --check", check)
 
     def test_user_preparation_timer_is_separate_from_existing_rss_poller(self):
         service = (ROOT / "deploy/systemd/user/hf-site-agent-media-news.service").read_text()
