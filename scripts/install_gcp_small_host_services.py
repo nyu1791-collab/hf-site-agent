@@ -202,6 +202,41 @@ def preflight(
     if pipeline.get("auto_top_up") is not False or pipeline.get("provider_fallback_allowed") is not False:
         blockers.append("PAID_FALLBACK_AND_TOP_UP_MUST_REMAIN_DISABLED")
 
+    paid = pipeline.get("paid_script_generation") or {}
+    route_ok = (
+        pipeline.get("primary_script_route") == "PAID_SCOPED_DEEPSEEK_V4_1_FLASH"
+        and paid.get("enabled") is True
+        and paid.get("provider") == "openrouter"
+        and paid.get("model") == "deepseek/deepseek-v4.1-flash"
+        and paid.get("maximum_estimated_cost_per_call_usd") == "0.05"
+        and paid.get("maximum_reserved_cost_per_utc_day_usd") == "0.10"
+        and paid.get("maximum_reserved_cost_per_utc_month_usd") == "0.50"
+        and paid.get("maximum_calls_per_utc_day") == 5
+        and paid.get("automatic_paid_fallback") is False
+        and paid.get("automatic_provider_fallback") is False
+        and paid.get("automatic_paid_sibling_substitution") is False
+        and paid.get("automatic_retry_after_request") is False
+        and paid.get("automatic_top_up") is False
+        and paid.get("per_source_paid_attempt_once") is True
+    )
+    if not route_ok:
+        blockers.append("RESIDENT_NEWS_PAID_ROUTE_POLICY_INVALID")
+
+    host_execution = host.get("execution") or {}
+    host_resources = host.get("resource_controls") or {}
+    render_boundary_ok = (
+        host_execution.get("coordinator_only_for_video_rendering") is True
+        and host_execution.get("external_render_worker_required_for_video_completion") is True
+        and host_execution.get("gcp_local_render_unit_allowed") is False
+        and host_resources.get("local_video_rendering_on_gcp_allowed") is False
+        and pipeline.get("remote_render_required_for_final_video_completion") is True
+        and pipeline.get("remote_render_auto_fallback_or_retry") is False
+    )
+    if not render_boundary_ok:
+        blockers.append("GCP_REMOTE_ONLY_RENDER_BOUNDARY_INVALID")
+    if host_execution.get("preparation_timer_enabled_by_default") is not True:
+        blockers.append("GCP_24H_PREPARATION_TIMER_POLICY_INVALID")
+
     runtime = home / "hf-site-agent" / "runtime"
     database = runtime / "media-queue.sqlite3"
     if not _db_integrity(database):
