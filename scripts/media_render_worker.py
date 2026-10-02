@@ -10,6 +10,7 @@ import math
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -43,6 +44,78 @@ class WorkerJobError(RuntimeError):
     def __init__(self, code: str):
         super().__init__(code)
         self.code = code
+
+
+def _owned_private_directory(path: Path) -> bool:
+    try:
+        info = path.lstat()
+    except OSError:
+        return False
+    return (
+        stat.S_ISDIR(info.st_mode)
+        and not path.is_symlink()
+        and info.st_uid == os.getuid()
+        and (stat.S_IMODE(info.st_mode) & 0o077) == 0
+    )
+
+
+def _request_ledger_path(work_dir: Path, request_id: str) -> Path:
+    if not re.fullmatch(r"[0-9a-fA-F-]{36}", request_id):
+        raise WorkerJobError("INVALID_REQUEST_ID")
+    ledger = work_dir / "request-ledger"
+    try:
+        ledger.mkdir(mode=0o700, parents=False, exist_ok=True)
+    except OSError as exc:
+        raise WorkerJobError("REQUEST_LEDGER_UNAVAILABLE") from exc
+    if not _owned_private_directory(ledger):
+        raise WorkerJobError("REQUEST_LEDGER_UNSAFE")
+    return ledger / f"{request_id.lower()}.json"
+
+
+def _reserve_request_id(work_dir: Path, request_id: str, source_id: str) -> Path:
+    """Persist an exact request-id reservation before invoking the renderer."""
+    path = _request_ledger_path(work_dir, request_id)
+    payload = {
+        "schema_version": "media-render-request-ledger-v1",
+        "request_id": request_id,
+        "source_id": source_id,
+        "state": "RESERVED",
+    }
+    try:
+        with path.open("x", encoding="utf-8") as handle:
+            os.chmod(path, 0o600)
+            json.dump(payload, handle, sort_keys=True, separators=(",", ":"))
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    except FileExistsError as exc:
+        raise WorkerJobError("REQUEST_ID_REPLAY") from exc
+    except OSError as exc:
+        raise WorkerJobError("REQUEST_LEDGER_UNAVAILABLE") from exc
+    return path
+
+
+def _complete_request_id(path: Path, request_id: str, source_id: str, video_sha256: str) -> None:
+    payload = {
+        "schema_version": "media-render-request-ledger-v1",
+        "request_id": request_id,
+        "source_id": source_id,
+        "state": "COMPLETED",
+        "video_sha256": video_sha256,
+    }
+    temp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temp.open("x", encoding="utf-8") as handle:
+            os.chmod(temp, 0o600)
+            json.dump(payload, handle, sort_keys=True, separators=(",", ":"))
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp, path)
+    except OSError as exc:
+        raise WorkerJobError("REQUEST_LEDGER_COMPLETION_FAILED") from exc
+    finally:
+        temp.unlink(missing_ok=True)
 
 
 def _tree_sha256(root: Path) -> str:
@@ -136,11 +209,11 @@ def worker_readiness() -> tuple[dict[str, Any], dict[str, Path]]:
     work_dir = Path(os.environ.get("MEDIA_RENDER_WORK_DIR", str(DEFAULT_WORK_DIR)))
     try:
         work_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if work_dir.is_symlink() or not work_dir.is_dir():
+        if not _owned_private_directory(work_dir):
             blockers.append("WORK_DIRECTORY_INVALID")
         cache_dir = work_dir / "reusable-assets"
         cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if cache_dir.is_symlink() or not cache_dir.is_dir():
+        if not _owned_private_directory(cache_dir):
             blockers.append("CACHE_DIRECTORY_INVALID")
     except OSError:
         blockers.append("WORK_DIRECTORY_UNAVAILABLE")
@@ -366,6 +439,9 @@ def run_render_job(archive_path: Path, readiness: dict[str, Any], paths: dict[st
         job = Path(job_name)
         staging = job / "input"
         manifest, files = _extract_request(archive_path, staging)
+        ledger_path = _reserve_request_id(
+            work_dir, str(manifest["request_id"]), str(manifest["source_id"])
+        )
         try:
             timing = json.loads(files["timing.json"].read_text(encoding="utf-8"))
             presentation = json.loads(files["presentation.json"].read_text(encoding="utf-8"))
@@ -482,6 +558,10 @@ def run_render_job(archive_path: Path, readiness: dict[str, Any], paths: dict[st
         # Copy out before the temporary job directory is removed.
         retained = work_dir / f"response-{manifest['request_id']}.tar.gz"
         shutil.copyfile(result_archive, retained)
+        _complete_request_id(
+            ledger_path, str(manifest["request_id"]), str(manifest["source_id"]),
+            str(report["video_sha256"]),
+        )
         return retained, {"source_id": manifest["source_id"], "request_id": manifest["request_id"]}
 
 
