@@ -271,11 +271,12 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertIn("ExecStartPre=/usr/bin/python3 -m scripts.media_source_daemon --db %h/hf-site-agent/runtime/media-queue.sqlite3 --once",user_service)
         self.assertIn("VOICEVOX_CACHE_DIR=/var/lib/hf-site-agent/voice-cache",service)
         self.assertIn("/var/lib/hf-site-agent/voice-cache",service.split("ExecStartPre=",1)[1])
-        remote=fast_path["extracted_pipeline"]["article_to_media_staging"]["optional_remote_render_handoff"]
+        remote=fast_path["extracted_pipeline"]["article_to_media_staging"]["external_render_handoff"]
         self.assertEqual(remote["status"],"IMPLEMENTED_LIVE_HEALTH_REQUIRED")
         self.assertFalse(remote["automatic_retry"])
         self.assertFalse(remote["automatic_local_fallback"])
         self.assertFalse(remote["publishing_enabled"])
+        self.assertTrue(remote["required_for_final_video_completion"])
         self.assertTrue(fast_path["extracted_pipeline"]["article_to_media_staging"]["final_ffmpeg_render_offloaded"])
         self.assertFalse(fast_path["extracted_pipeline"]["article_to_media_staging"]["gcp_local_video_rendering_allowed"])
         render_worker=json.loads((root/"config/media_render_worker_policy.json").read_text())
