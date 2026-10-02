@@ -43,21 +43,21 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 ## 常駐監視・ニュース動画の自動準備
 
-`docs/DURABLE_MEDIA_AUTOMATION.md` を実作業手順の正本とする。`scripts/media_source_daemon.py` とsystemd service/timerの例で公式RSSを5分ごとにSQLite inboxへ取得し、`scripts/media_news_pipeline.py` で公式記事から台本・VOICEVOX音声・画像候補を準備できる。VOICEVOX音声合成はローカル実行を既定とし、既存PCへSSH loopback reverse tunnelで任意に逃がせる。これはRepository上の実装であり、VPSへの配置・24時間稼働・実PCへの接続済みという意味ではない。最終FFmpegレンダーは引き続きVPS側で行う。
+VPS運用の手順は `docs/VPS_MEDIA_NEWS_AUTOMATION.md`、実装詳細は `docs/DURABLE_MEDIA_AUTOMATION.md` を正本とする。`scripts/media_source_daemon.py` とsystemd user timerは5分ごとに公式RSSをSQLite inboxへ取得し、対象記事があれば1件ずつ台本・ローカルVOICEVOX音声・画像候補まで進める。台本用の有料APIは、ユーザーが指定したOpenRouterの `deepseek/deepseek-v4.1-flash` のみで、1回0.05 USD、1日予約0.10 USD、UTC月0.50 USD、1日5回を上限とする。ChatGPT API、別有料モデルへのフォールバック、自動トップアップは不要。画像の権利確認前に停止し、公開は無効。2026-10-02のユーザー提供画面は `Linger=yes` とtimer `active` を示すが、PR版のVPS導入、再起動後の有効性、RSS/API/VOICEVOX/MP4の成功は未確認。
 
 記事RSS監視・ニュース動画自動化では新タブ開始時に `config/media_command_read_gate.json` の `if_user_requests_article_rss_or_resident_news_video_automation` を解決し、列挙された現行Policy・Runner・systemd設定を読む。画像は自動取得後も権利未確認で停止し、選択した全画像に利用根拠・根拠URL・クレジットが揃うまでレンダーしない。ステータス確認ではfeedの鮮度と未処理キューの滞留時間を表示する。公開投稿は別境界で扱い、成功状態は `READY_TO_PUBLISH` で止める。
 
 ## AI Army の固定境界
 
 - ChatGPT / Work がTop Commanderかつ最終判断者。
-- 有料DeepSeekは `config/deepseek_paid_supervisor_policy.json` の範囲だけで使うExecutive Supervisor。全タスクの必須hopでも大量boilerplate coderでもない。
+- 有料DeepSeekは `config/deepseek_paid_supervisor_policy.json` のExecutive Supervisor範囲と、ユーザーが許可した常駐公式RSS台本の正確なDeepSeek V4.1 Flashルートに限る。後者はテキスト台本専用で、固定費用上限は `config/media_news_pipeline_policy.json#/paid_script_generation` に定義する。
 - DeepSeekはWorking Managerとして、調査、Evidence Triage、台本/レポート草案、Task Packaging、下位作業の割当設計・査読、関連する低リスク事務作業まで担当できる。ただし明確に速く正確なDeterministic Toolを置き換えない。
 - Deterministic ToolまたはSingle Agentで十分ならそれを優先する。
 - Single Writerを維持し、同一mutable targetの並列変更にはTask Leaseを要求する。
 - 最大Delegation Depthは2、1ユーザー依頼あたり最大10 Tasks。無限Swarm・無限Reflection・無限Replanは禁止。
 - Machine Oracle / Schema / Test / Hash / ffprobe等をAI多数決より優先する。
 - APIモデルは有料という理由だけで一律禁止しない。追加候補は config/paid_agent_route_eligibility_policy.json に基づき、DeepSeek V4.1 Flashより低い実タスク総費用と、必要機能を満たしたうえでの実測優位が確認できた場合だけ選択する。
-- Auto Top-up、Generic Paid Fallback、Paid sibling自動置換、Paid Mediaは引き続き禁止。Vertex AIは現在不要・無効。
+- Auto Top-up、Generic Paid Fallback、Paid sibling自動置換、有料の動画/画像生成・TTS・編集は引き続き禁止。例外は正確なDeepSeek V4.1 FlashによるRSS台本テキストだけ。Vertex AIは現在不要・無効。
 - VPSの永続稼働状態はライブホスト確認が必要で、リポジトリの設定だけを根拠に稼働中と報告しない。Publish先・認証・対象範囲の証拠が揃うまで公開処理を停止する。
 
 ## 動画制作
