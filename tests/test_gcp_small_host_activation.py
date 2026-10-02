@@ -132,8 +132,10 @@ class GcpSmallHostActivationTests(unittest.TestCase):
         (home / ".local/share/voicevox_engine/linux-cpu-x64").mkdir(parents=True, exist_ok=True)
         host = json.loads((ROOT / "config/media_small_host_policy.json").read_text(encoding="utf-8"))
         pipeline = json.loads((ROOT / "config/media_news_pipeline_policy.json").read_text(encoding="utf-8"))
+        ingress = json.loads((ROOT / "config/media_source_ingress_policy.json").read_text(encoding="utf-8"))
         (root / "config/media_small_host_policy.json").write_text(json.dumps(host), encoding="utf-8")
         (root / "config/media_news_pipeline_policy.json").write_text(json.dumps(pipeline), encoding="utf-8")
+        (root / "config/media_source_ingress_policy.json").write_text(json.dumps(ingress), encoding="utf-8")
         db = home / "hf-site-agent/runtime/media-queue.sqlite3"
         with sqlite3.connect(db) as conn:
             conn.execute("CREATE TABLE queue (id INTEGER PRIMARY KEY)")
