@@ -70,6 +70,11 @@ def validate(root: Path = ROOT) -> list[str]:
         and verification.get("authoritative_rss_ingress_requires_all_enabled_feeds_fresh") is True
         and verification.get("authoritative_rss_ingress_policy") == "config/media_source_ingress_policy.json"
         and verification.get("preparation_service_must_not_run_source_poller") is True
+        and verification.get("authoritative_rss_must_be_observed_after_current_boot") is True
+        and "AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT"
+            in set(runner.get("reboot_audit_requires") or [])
+        and "AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT"
+            in set(verification.get("coordinator_24h_ready_requires") or [])
     ):
         blockers.append("AUTHORITATIVE_RSS_INGRESS_CONTRACT_INVALID")
 
