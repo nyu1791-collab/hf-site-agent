@@ -63,7 +63,9 @@
     "one_job_at_a_time": true,
     "automatic_retries": false,
     "automatic_local_fallback": false,
-    "database_state_advances_only_after_verified_result": true
+    "database_state_advances_only_after_verified_result": true,
+    "live_worker_ready_requires_current_health_check": true,
+    "static_connected_boolean_must_not_be_used_for_readiness": true
   },
   "worker_authority": {
     "provider_api_calls": false,
@@ -75,11 +77,11 @@
     "public_publish_enabled": false
   },
   "live_connection": {
-    "external_renderer_worker_connected": "LIVE_PROBE_REQUIRED",
-    "ssh_tunnel_configured": "LIVE_PROBE_REQUIRED",
-    "worker_host_verified": "LIVE_PROBE_REQUIRED",
-    "source_of_truth": "python -m scripts.media_render_transport --check",
-    "connection_requires_separately_provisioned_worker_and_restricted_ssh_account": true,
-    "static_policy_flags_must_not_be_used_as_live_status": true
+    "repository_connection_state_is_authoritative": false,
+    "runtime_health_must_be_probed": true,
+    "authenticated_loopback_health_check_required": true,
+    "systemd_health_check_unit": "hf-site-agent-media-render-check.service",
+    "coordinator_loopback_port": 18765,
+    "connection_requires_separately_provisioned_worker_and_restricted_ssh_account": true
   }
 }
