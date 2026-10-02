@@ -256,6 +256,110 @@ class MediaRenderTransportTests(unittest.TestCase):
             self.assertTrue((package / "remote-render-report.json").is_file())
             self.assertFalse(result["public_publish_enabled"])
 
+    def test_saved_remote_render_can_recover_db_state_without_worker_retry(self):
+        with tempfile.TemporaryDirectory() as td:
+            package = Path(td) / SOURCE_ID
+            package.mkdir()
+            video = package / "final.mp4"
+            video.write_bytes(b"durable-verified-video")
+            report = {
+                "schema_version": transport.PROTOCOL,
+                "status": "VERIFIED_REMOTE_RENDER",
+                "source_id": SOURCE_ID,
+                "request_id": str(uuid.uuid4()),
+                "video_sha256": hashlib.sha256(video.read_bytes()).hexdigest(),
+                "video": {"duration_seconds": 1.0, "streams": ["audio", "video"], "bytes": video.stat().st_size},
+                "public_publish_enabled": False,
+                "automatic_retry": False,
+                "automatic_local_fallback": False,
+            }
+            (package / "remote-render-report.json").write_text(json.dumps(report), encoding="utf-8")
+            with patch.object(
+                transport, "_verify_video",
+                return_value={"duration_seconds": 1.0, "streams": ["audio", "video"], "bytes": video.stat().st_size},
+            ):
+                result = transport.verify_saved_remote_render(
+                    package=package, source_id=SOURCE_ID, expected_duration=1.0,
+                )
+            self.assertTrue(result["recovered_from_saved_result"])
+            self.assertEqual(result["status"], "READY_TO_PUBLISH")
+            self.assertFalse(result["public_publish_enabled"])
+
+            video.write_bytes(b"tampered")
+            with self.assertRaises(transport.RenderTransportError),                  patch.object(transport, "_verify_video") as probe:
+                transport.verify_saved_remote_render(
+                    package=package, source_id=SOURCE_ID, expected_duration=1.0,
+                )
+            probe.assert_not_called()
+
+    def test_partial_saved_remote_render_never_triggers_a_second_worker_request(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            package = root / SOURCE_ID
+            package.mkdir()
+            (package / "final.mp4").write_bytes(b"orphaned-partial-result")
+            (package / "image-candidates.json").write_text("{}", encoding="utf-8")
+            (package / "mission.json").write_text(json.dumps({
+                "source_id": SOURCE_ID, "title": "Title", "source_url": "https://openai.com/news/x",
+                "scenes": [{"scene_id": "scene-1"}],
+            }), encoding="utf-8")
+            (package / "timing.json").write_text(json.dumps({
+                "total_duration": 1, "voicevox_credit": ["VOICEVOX"],
+                "records": [{"scene_id": "scene-1", "start": 0, "end": 1, "caption_text": "line"}],
+            }), encoding="utf-8")
+            assets = [
+                {"id": "visual-1", "file": str(package / "images" / "a.png"), "credit": "A", "url": "https://openai.com/a.png"},
+                {"id": "visual-2", "file": str(package / "images" / "b.png"), "credit": "B", "url": "https://openai.com/b.png"},
+            ]
+            connection = sqlite3.connect(":memory:")
+            connection.row_factory = sqlite3.Row
+            connection.execute("CREATE TABLE source_inbox (source_id TEXT PRIMARY KEY, state TEXT, updated_at REAL)")
+            connection.execute("INSERT INTO source_inbox VALUES (?, 'ASSET_REVIEW_REQUIRED', 0)", (SOURCE_ID,))
+            args = SimpleNamespace(workspace=root, package=package, remote_render=True, worker_url=None, shell=None, font=None)
+            with patch.object(media_news_pipeline, "_validate_existing_package", return_value=package),                  patch.object(media_news_pipeline, "select_render_assets", return_value=assets),                  patch.object(media_news_pipeline, "verify_saved_remote_render",
+                              side_effect=transport.RenderTransportError("saved remote render result is incomplete")) as recover,                  patch.object(media_news_pipeline, "dispatch_remote_render") as dispatch:
+                with self.assertRaises(transport.RenderTransportError):
+                    media_news_pipeline._render_package(args, connection)
+            self.assertEqual(recover.call_count, 1)
+            dispatch.assert_not_called()
+            self.assertEqual(connection.execute("SELECT state FROM source_inbox").fetchone()[0], "ASSET_REVIEW_REQUIRED")
+            connection.close()
+
+    def test_pipeline_recovers_verified_saved_result_before_dispatch(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            package = root / SOURCE_ID
+            package.mkdir()
+            (package / "final.mp4").write_bytes(b"saved")
+            (package / "remote-render-report.json").write_text("{}", encoding="utf-8")
+            (package / "image-candidates.json").write_text("{}", encoding="utf-8")
+            (package / "mission.json").write_text(json.dumps({
+                "source_id": SOURCE_ID, "title": "Title", "source_url": "https://openai.com/news/x",
+                "scenes": [{"scene_id": "scene-1"}],
+            }), encoding="utf-8")
+            (package / "timing.json").write_text(json.dumps({
+                "total_duration": 1, "voicevox_credit": ["VOICEVOX"],
+                "records": [{"scene_id": "scene-1", "start": 0, "end": 1, "caption_text": "line"}],
+            }), encoding="utf-8")
+            assets = [
+                {"id": "visual-1", "file": str(package / "images" / "a.png"), "credit": "A", "url": "https://openai.com/a.png"},
+                {"id": "visual-2", "file": str(package / "images" / "b.png"), "credit": "B", "url": "https://openai.com/b.png"},
+            ]
+            connection = sqlite3.connect(":memory:")
+            connection.row_factory = sqlite3.Row
+            connection.execute("CREATE TABLE source_inbox (source_id TEXT PRIMARY KEY, state TEXT, updated_at REAL)")
+            connection.execute("INSERT INTO source_inbox VALUES (?, 'ASSET_REVIEW_REQUIRED', 0)", (SOURCE_ID,))
+            args = SimpleNamespace(workspace=root, package=package, remote_render=True, worker_url=None, shell=None, font=None)
+            recovered = {"status": "READY_TO_PUBLISH", "public_publish_enabled": False,
+                         "recovered_from_saved_result": True}
+            with patch.object(media_news_pipeline, "_validate_existing_package", return_value=package),                  patch.object(media_news_pipeline, "select_render_assets", return_value=assets),                  patch.object(media_news_pipeline, "verify_saved_remote_render", return_value=recovered) as recover,                  patch.object(media_news_pipeline, "dispatch_remote_render") as dispatch:
+                result = media_news_pipeline._render_package(args, connection)
+            self.assertTrue(result["recovered_from_saved_result"])
+            self.assertEqual(recover.call_count, 1)
+            dispatch.assert_not_called()
+            self.assertEqual(connection.execute("SELECT state FROM source_inbox").fetchone()[0], "READY_TO_PUBLISH")
+            connection.close()
+
     def test_pipeline_advances_state_only_after_remote_result(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
