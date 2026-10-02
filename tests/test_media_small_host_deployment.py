@@ -25,6 +25,9 @@ class MediaSmallHostDeploymentTests(unittest.TestCase):
         self.assertFalse(policy["resource_controls"]["local_video_rendering_on_gcp_allowed"])
         self.assertTrue(policy["execution"]["render_timer_enabled_by_default"] is False)
         self.assertFalse(policy["provider_and_cost_gates"]["paid_fallback_allowed"])
+        self.assertEqual(policy["runner_control_plane"]["reboot_audit_operation"], "reboot_audit")
+        self.assertIn("LATEST_REMOTE_HEAD", policy["runner_control_plane"]["reboot_audit_requires"])
+        self.assertIn("FFPROBE_SUCCESS", policy["verification"]["saved_e2e_result_requires"])
 
     def test_gcp_activation_does_not_install_local_render_unit(self):
         installer = (ROOT / "scripts/install_gcp_small_host_services.py").read_text()
