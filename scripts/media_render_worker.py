@@ -514,6 +514,17 @@ class RenderHandler(http.server.BaseHTTPRequestHandler):
             # A malformed non-ASCII HTTP header must be rejected as unauthorized.
             return False
 
+    def _refresh_readiness(self) -> tuple[dict[str, Any], dict[str, Path]]:
+        """Recompute pinned hashes for every authenticated request.
+
+        The worker must not keep advertising startup-time hashes after code,
+        policy, shell, or font files have changed on disk.
+        """
+        health, paths = worker_readiness()
+        self.server.readiness = health  # type: ignore[attr-defined]
+        self.server.paths = paths  # type: ignore[attr-defined]
+        return health, paths
+
     def do_GET(self) -> None:
         if self.path != HEALTH_ROUTE:
             self._json(404, {"status": "NOT_FOUND"})
@@ -521,7 +532,12 @@ class RenderHandler(http.server.BaseHTTPRequestHandler):
         if not self._authorized():
             self._json(401, {"status": "BLOCKED", "error_code": "UNAUTHORIZED"})
             return
-        self._json(200, self.server.readiness)  # type: ignore[attr-defined]
+        try:
+            readiness, _paths = self._refresh_readiness()
+        except Exception:
+            self._json(503, {"status": "BLOCKED", "error_code": "WORKER_READINESS_REFRESH_FAILED"})
+            return
+        self._json(200 if readiness.get("status") == "READY" else 503, readiness)
 
     def do_POST(self) -> None:
         if self.path != HTTP_ROUTE:
@@ -543,10 +559,15 @@ class RenderHandler(http.server.BaseHTTPRequestHandler):
         if not (0 < length <= MAX_INPUT_BYTES):
             self._json(413, {"status": "BLOCKED", "error_code": "REQUEST_SIZE_LIMIT"})
             return
-        if self.server.readiness.get("status") != "READY":  # type: ignore[attr-defined]
+        try:
+            readiness, paths = self._refresh_readiness()
+        except Exception:
+            self._json(503, {"status": "BLOCKED", "error_code": "WORKER_READINESS_REFRESH_FAILED"})
+            return
+        if readiness.get("status") != "READY":
             self._json(503, {"status": "BLOCKED", "error_code": "WORKER_NOT_READY"})
             return
-        work_dir = self.server.paths["work_dir"]  # type: ignore[attr-defined]
+        work_dir = paths["work_dir"]
         jobs = work_dir / "jobs"
         jobs.mkdir(parents=True, exist_ok=True, mode=0o700)
         with tempfile.TemporaryDirectory(prefix="http-", dir=jobs) as request_dir:
@@ -562,7 +583,7 @@ class RenderHandler(http.server.BaseHTTPRequestHandler):
                     remaining -= len(block)
             retained: Path | None = None
             try:
-                retained, identity = run_render_job(request_path, self.server.readiness, self.server.paths)  # type: ignore[attr-defined]
+                retained, identity = run_render_job(request_path, readiness, paths)
                 size = retained.stat().st_size
                 self.send_response(200)
                 self.send_header("Content-Type", "application/gzip")
