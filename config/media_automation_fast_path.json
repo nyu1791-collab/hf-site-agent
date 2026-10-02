@@ -23,8 +23,7 @@
       "dedupe_owner": "SQLITE_UNIQUE_SOURCE_INBOX_AND_JOB_KEY",
       "runtime": "scripts/media_source_daemon.py",
       "runtime_policy": "config/media_source_ingress_policy.json",
-      "runtime_status": "USER_REPORTED_LINGER_YES_AND_NEWS_TIMER_ACTIVE; RSS_SUCCESS_AND_CURRENT_BRANCH_DEPLOYMENT_UNVERIFIED",
-      "live_scheduler_or_vps_daemon": false,
+      "runtime_status": "GCP_COORDINATOR_REPOSITORY_CONFIGURED; LIVE_HEAD_TIMER_RSS_E2E_VERIFICATION_REQUIRED",
       "must_stop_at": "ASSET_REVIEW_REQUIRED_UNTIL_SELECTED_IMAGES_HAVE_VERIFIED_RIGHTS_AND_CREDIT",
       "one_shot_runtime": "scripts/media_source_ingress.py",
       "service_template": "deploy/systemd/user/hf-site-agent-media-news.service",
@@ -33,7 +32,8 @@
       "stale_after_seconds": 600,
       "user_reported_linger_enabled": true,
       "user_reported_news_timer_active": true,
-      "user_reported_evidence_date": "2026-10-02"
+      "user_reported_evidence_date": "2026-10-02",
+      "live_scheduler": "GCP_SYSTEMD_USER_TIMER_LIVE_STATUS_REQUIRED"
     },
     "script_and_tone": {
       "implementation": "ONE_COMBINED_JUDGMENT_PASS",
@@ -110,8 +110,7 @@
       "remote_voicevox_transport": "SSH_REVERSE_TUNNEL_TO_LOOPBACK_ONLY",
       "small_host_profile": "config/media_small_host_policy.json",
       "small_host_operations_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
-      "small_host_target": "EXISTING_USER_DESIGNATED_VPS_PROVIDER_NOT_INFERRED",
-      "existing_vps_rss_cron_is_preserved": true,
+      "small_host_target": "EXISTING_GOOGLE_COMPUTE_ENGINE_COORDINATOR",
       "single_host_user_services": [
         "deploy/systemd/user/hf-site-agent-media-news.service",
         "deploy/systemd/user/hf-site-agent-media-news.timer"
@@ -121,7 +120,6 @@
       "one_unresolved_package_at_human_gate": true,
       "minimum_free_disk_bytes": 2147483648,
       "automatic_artifact_deletion": false,
-      "optional_remote_render_handoff_implemented": true,
       "final_ffmpeg_render_offloaded": true,
       "per_call_reserved_cost_cap_usd": "0.05",
       "daily_reserved_cost_cap_usd": "0.10",
@@ -155,7 +153,9 @@
         "live_status_is_repository_state": false,
         "runtime_health_source": "AUTHENTICATED_LOOPBACK_HEALTH_CHECK",
         "required_for_final_video_completion": true
-      }
+      },
+      "existing_rss_cron_is_preserved": true,
+      "external_render_handoff_implemented": true
     }
   },
   "durable_execution": {
@@ -176,7 +176,6 @@
     "live_rss_polling_connected": false,
     "one_shot_rss_ingress_to_preparation_inbox": true,
     "automatic_script_voice_asset_stages_connected": false,
-    "vps_daemon_deployed": false,
     "scheduled_polling_implemented_as_repository_template": true,
     "article_script_voice_image_candidate_stages_implemented": true,
     "article_script_voice_asset_e2e_connected": false,
@@ -189,13 +188,13 @@
       60,
       300
     ],
-    "status": "USER_REPORTED_LINGER_AND_TIMER_ACTIVE; CURRENT_REPOSITORY_PATCH_NOT_DEPLOYED; LIVE_RSS_MODEL_VOICE_AND_MP4_UNVERIFIED",
+    "status": "GCP_COORDINATOR_REPOSITORY_CONFIGURED; LIVE_RSS_MODEL_VOICE_EXTERNAL_RENDER_AND_REBOOT_PERSISTENCE_UNVERIFIED",
     "user_reported_linger_enabled": true,
     "user_reported_news_timer_active": true,
     "user_reported_evidence_date": "2026-10-02",
-    "vps_provider_inferred": false,
     "scheduled_polling_deployed": false,
-    "auto_publish_enabled": false
+    "auto_publish_enabled": false,
+    "gcp_coordinator_deployed_live_status": "LIVE_VERIFICATION_REQUIRED"
   },
   "minimum_fatal_gates_that_speed_may_not_remove": [
     "NO_ARBITRARY_COMMAND_EXECUTION",
