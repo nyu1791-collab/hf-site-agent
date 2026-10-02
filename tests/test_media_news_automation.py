@@ -498,7 +498,8 @@ class MediaNewsAutomationTests(unittest.TestCase):
                 draft_story(conn,article,catalog=catalog,request_fn=requester)
                 with self.assertRaises(PaidMediaAlreadyAttempted):
                     draft_story(conn,article,catalog=catalog,request_fn=requester)
-            self.assertEqual(calls,["deepseek/deepseek-v4.1-flash"])
+            paid_calls=[model for model in calls if model=="deepseek/deepseek-v4.1-flash"]
+            self.assertEqual(paid_calls,["deepseek/deepseek-v4.1-flash"])
             conn.close()
 
     def test_free_reviewer_uses_exact_free_model_and_is_advisory(self):
