@@ -557,11 +557,20 @@ def run_render_job(archive_path: Path, readiness: dict[str, Any], paths: dict[st
             raise WorkerJobError("RENDER_RESPONSE_TOO_LARGE")
         # Copy out before the temporary job directory is removed.
         retained = work_dir / f"response-{manifest['request_id']}.tar.gz"
-        shutil.copyfile(result_archive, retained)
-        _complete_request_id(
-            ledger_path, str(manifest["request_id"]), str(manifest["source_id"]),
-            str(report["video_sha256"]),
-        )
+        if retained.exists() or retained.is_symlink():
+            raise WorkerJobError("RENDER_RESPONSE_PATH_ALREADY_EXISTS")
+        try:
+            with result_archive.open("rb") as source, retained.open("xb") as target:
+                shutil.copyfileobj(source, target, length=CHUNK_BYTES)
+                target.flush()
+                os.fsync(target.fileno())
+            _complete_request_id(
+                ledger_path, str(manifest["request_id"]), str(manifest["source_id"]),
+                str(report["video_sha256"]),
+            )
+        except Exception:
+            retained.unlink(missing_ok=True)
+            raise
         return retained, {"source_id": manifest["source_id"], "request_id": manifest["request_id"]}
 
 
