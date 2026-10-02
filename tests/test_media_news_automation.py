@@ -140,6 +140,8 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertIn("--interval-seconds 300",(root/"deploy/systemd/hf-site-agent-media-source.service").read_text())
         self.assertIn("OnUnitInactiveSec=5min",(root/"deploy/systemd/hf-site-agent-media-news.timer").read_text())
         service=(root/"deploy/systemd/hf-site-agent-media-news.service").read_text()
+        user_service=(root/"deploy/systemd/user/hf-site-agent-media-news.service").read_text()
+        self.assertIn("ExecStartPre=/usr/bin/python3 -m scripts.media_source_daemon --db %h/hf-site-agent/runtime/media-queue.sqlite3 --once",user_service)
         self.assertIn("VOICEVOX_CACHE_DIR=/var/lib/hf-site-agent/voice-cache",service)
         self.assertIn("/var/lib/hf-site-agent/voice-cache",service.split("ExecStartPre=",1)[1])
         remote=fast_path["extracted_pipeline"]["article_to_media_staging"]["optional_remote_render_handoff"]
