@@ -1182,8 +1182,22 @@ def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int
             return {"status":"BLOCKED_PAID_PER_CALL_BUDGET","source_id":row["source_id"],
                 "request_sent":False,"automatic_retry":False,"public_publish_enabled":False}
         except PaidMediaAlreadyAttempted:
-            return {"status":"BLOCKED_PAID_ATTEMPT_REQUIRES_REVIEW","source_id":row["source_id"],
-                "request_may_have_been_sent":True,"automatic_retry":False,"public_publish_enabled":False}
+            # A prior request may have reached the provider. Persist the item as
+            # blocked so the 5-minute timer advances instead of spinning forever.
+            conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
+                (time.time(), row["source_id"]))
+            return {"status":"SCRIPT_BLOCKED_PAID_ATTEMPT_UNKNOWN","source_id":row["source_id"],
+                "request_may_have_been_sent":True,"automatic_retry":False,"will_try_next_source":True,
+                "public_publish_enabled":False}
+        except RuntimeError as exc:
+            match = re.fullmatch(r"OpenRouter request failed with HTTP (\\d+) \\(([A-Z_]+)\\)", str(exc))
+            if match is None:
+                raise
+            conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
+                (time.time(), row["source_id"]))
+            return {"status":"SCRIPT_BLOCKED_OPENROUTER_HTTP_ERROR","source_id":row["source_id"],
+                "http_status":int(match.group(1)),"provider_reason":match.group(2),
+                "automatic_retry":False,"will_try_next_source":True,"public_publish_enabled":False}
         except PaidMediaPreflightUnavailable:
             return {"status":"BLOCKED_PAID_MODEL_PREFLIGHT","source_id":row["source_id"],
                 "request_sent":False,"will_retry_next_tick":True,"public_publish_enabled":False}
