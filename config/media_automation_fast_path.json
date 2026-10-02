@@ -114,12 +114,9 @@
       "existing_vps_rss_cron_is_preserved": true,
       "single_host_user_services": [
         "deploy/systemd/user/hf-site-agent-media-news.service",
-        "deploy/systemd/user/hf-site-agent-media-news.timer",
-        "deploy/systemd/user/hf-site-agent-media-render@.service"
+        "deploy/systemd/user/hf-site-agent-media-news.timer"
       ],
       "local_voicevox_process_is_job_scoped": true,
-      "local_render_is_one_shot_after_rights_review": true,
-      "small_host_timer_enabled_by_default": false,
       "resource_backpressure_policy": "config/media_news_pipeline_policy.json#/resource_backpressure",
       "one_unresolved_package_at_human_gate": true,
       "minimum_free_disk_bytes": 2147483648,
@@ -135,14 +132,16 @@
           "deploy/systemd/hf-site-agent-media-render@.service",
           "deploy/systemd/hf-site-agent-media-render-check.service"
         ],
-        "status": "IMPLEMENTED_NOT_CONNECTED",
+        "status": "IMPLEMENTED_LIVE_HEALTH_REQUIRED",
         "explicit_human_trigger_required": true,
         "automatic_retry": false,
         "automatic_local_fallback": false,
-        "publishing_enabled": false
+        "publishing_enabled": false,
+        "live_status_is_repository_state": false,
+        "runtime_health_source": "AUTHENTICATED_LOOPBACK_HEALTH_CHECK"
       },
       "optional_remote_render_handoff_implemented": true,
-      "final_ffmpeg_render_offloaded": false,
+      "final_ffmpeg_render_offloaded": true,
       "per_call_reserved_cost_cap_usd": "0.05",
       "daily_reserved_cost_cap_usd": "0.10",
       "monthly_reserved_cost_cap_usd": "0.50",
@@ -152,7 +151,10 @@
       "paid_fallback": false,
       "paid_image_or_video_generation": false,
       "paid_tts_or_editing": false,
-      "automatic_publish": false
+      "automatic_publish": false,
+      "gcp_preparation_timer_expected_after_activation": true,
+      "gcp_local_video_rendering_allowed": false,
+      "reviewed_remote_render_user_service": "deploy/systemd/user/hf-site-agent-media-render@.service"
     }
   },
   "durable_execution": {
