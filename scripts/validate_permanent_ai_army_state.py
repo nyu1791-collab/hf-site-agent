@@ -156,6 +156,11 @@ def main() -> int:
     staging = ((automation.get("extracted_pipeline") or {}).get("article_to_media_staging") or {})
     require(staging.get("gcp_local_video_rendering_allowed") is False, "fast path regained GCP local render")
     require(staging.get("final_ffmpeg_render_offloaded") is True, "final FFmpeg render is no longer offloaded")
+    require(staging.get("status") == "REPOSITORY_IMPLEMENTED_LIVE_RUNTIME_STATE_NOT_PERSISTED", "media staging started persisting live runtime state")
+    durable = automation.get("durable_execution") or {}
+    require(durable.get("persist_live_runtime_booleans") is False, "media fast path persists volatile live runtime booleans")
+    for stale_key in ("live_rss_polling_connected", "scheduled_polling_deployed", "automatic_script_voice_asset_stages_connected", "article_script_voice_asset_e2e_connected", "user_reported_linger_enabled", "user_reported_news_timer_active", "user_reported_evidence_date", "vps_daemon_deployed", "vps_provider_inferred"):
+        require(stale_key not in durable, f"media fast path stale live key returned: {stale_key}")
     remote = staging.get("external_render_handoff") or {}
     require(remote.get("status") == "IMPLEMENTED_LIVE_HEALTH_REQUIRED", "remote render reverted to static connection status")
     require(remote.get("live_status_is_repository_state") is False, "repository state is being treated as live render status")
@@ -175,7 +180,9 @@ def main() -> int:
         require(runtime_state.get("gcp_local_rendering_allowed") is False, f"{name} re-enabled GCP local render")
         require(runtime_state.get("remote_render_status") == "IMPLEMENTED_LIVE_HEALTH_REQUIRED", f"{name} remote render status drift")
         require(runtime_state.get("remote_render_repository_boolean_is_authoritative") is False, f"{name} trusts static remote-render status")
-        for stale_key in ("vps_daemon_deployed", "vps_operations_doc", "current_vps_provider", "vps_provider", "alternative_vps_operations_doc", "local_render_user_service_template"):
+        require(runtime_state.get("persist_live_runtime_booleans_in_repository") is False, f"{name} persists volatile live runtime booleans")
+        require("vm-control" in str(runtime_state.get("live_runtime_status_source") or "").lower(), f"{name} lost live VM-control status source")
+        for stale_key in ("vps_daemon_deployed", "vps_operations_doc", "current_vps_provider", "vps_provider", "alternative_vps_operations_doc", "local_render_user_service_template", "live_rss_polling_connected", "scheduled_polling_deployed", "script_voice_asset_e2e_connected", "automatic_script_voice_asset_stages_connected", "remote_voicevox_runtime_verified", "remote_render_runtime_verified", "external_renderer_worker_connected", "user_reported_linger_enabled", "user_reported_news_timer_active", "user_reported_evidence_date", "latest_head_live_sync_verified", "runner_service_previously_verified", "local_small_host_live_status", "script_voice_asset_end_to_end_connected"):
             require(stale_key not in runtime_state, f"{name} stale runtime key returned: {stale_key}")
 
 
