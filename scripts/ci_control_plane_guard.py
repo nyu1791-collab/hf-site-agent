@@ -94,6 +94,17 @@ def main() -> int:
             raise SystemExit(f"automatic workflow needs push trigger: {name}")
         if "cancel-in-progress: true" not in text:
             raise SystemExit(f"automatic workflow must cancel superseded runs: {name}")
+    runtime = _text("verify-hierarchical-runtime.yml")
+    _require("run_live_jev_benchmarks:" in runtime, "live Jev benchmarks must have a manual opt-in input")
+    _require("type: boolean" in runtime and "default: false" in runtime,
+        "live Jev benchmark opt-in must be a false-by-default boolean")
+    jev_steps = [block for block in runtime.split("      - name: ")[1:]
+        if block.startswith("Run ") and "Jev" in block.splitlines()[0]
+        or block.startswith("Upload Jev")]
+    _require(len(jev_steps) == 10, "unexpected live Jev benchmark or evidence step count")
+    for block in jev_steps:
+        _require("inputs.run_live_jev_benchmarks == true" in block,
+            f"live Jev step is not gated by explicit manual opt-in: {block.splitlines()[0]}")
     consistency = _text("canonical-ai-army-consistency.yml")
     for required in (
         "config/ai_army_org_chart.json",

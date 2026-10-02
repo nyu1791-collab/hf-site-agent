@@ -403,7 +403,10 @@ class MediaNewsAutomationTests(unittest.TestCase):
                     {"feed_id":"google-deepmind","enabled":True,"priority":10},
                 ]},
             ), patch(
-                "scripts.media_news_pipeline.process_source",side_effect=ArticleSourceBlocked()
+                "scripts.media_news_pipeline.process_source",
+                side_effect=ArticleSourceBlocked(
+                    "article page could not be fetched and RSS summary is too short"
+                ),
             ) as process_source, patch(
                 "scripts.media_news_pipeline.shutil.disk_usage",
                 return_value=SimpleNamespace(free=3*1024**3),
@@ -411,7 +414,12 @@ class MediaNewsAutomationTests(unittest.TestCase):
                 result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
             self.assertEqual(result["status"],"ARTICLE_SOURCE_BLOCKED")
             self.assertEqual(result["source_id"],deepmind_id)
+            self.assertEqual(result["reason"],"ARTICLE_PAGE_FETCH_FAILED_RSS_SUMMARY_TOO_SHORT")
+            self.assertFalse(result["request_sent"])
             self.assertEqual(process_source.call_args.args[1],deepmind_id)
+            blocked=json.loads((root/"workspace"/"media-news"/deepmind_id/"blocked.json").read_text())
+            self.assertEqual(blocked["reason_code"],result["reason"])
+            self.assertFalse(blocked["request_sent"])
             self.assertEqual(conn.execute(
                 "SELECT state FROM source_inbox WHERE source_id=?",(deepmind_id,)
             ).fetchone()["state"],"SCRIPT_BLOCKED")

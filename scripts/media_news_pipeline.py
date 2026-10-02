@@ -1212,12 +1212,31 @@ def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int
         except PaidMediaPreflightUnavailable:
             return {"status":"BLOCKED_PAID_MODEL_PREFLIGHT","source_id":row["source_id"],
                 "request_sent":False,"will_retry_next_tick":True,"public_publish_enabled":False}
-        except ArticleSourceBlocked:
+        except ArticleSourceBlocked as exc:
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
                 (time.time(), row["source_id"]))
+            if "outside the configured article allow-list" in str(exc):
+                reason_code = "SOURCE_URL_OUTSIDE_CONFIGURED_ALLOWLIST"
+                reason = "Source URL is outside the configured official article host allow-list."
+                retryable_after_correction = True
+            else:
+                reason_code = "ARTICLE_PAGE_FETCH_FAILED_RSS_SUMMARY_TOO_SHORT"
+                reason = "The official page was unavailable and the saved RSS summary is shorter than 300 characters."
+                retryable_after_correction = True
+            package = _resolve_news_package(workspace, row["source_id"], create=True)
+            _write_text_atomic(package / "blocked.json", json.dumps({
+                "schema_version": "media-news-block-v1",
+                "error_type": "ArticleSourceBlocked",
+                "reason_code": reason_code,
+                "reason": reason,
+                "request_sent": False,
+                "retryable_after_source_correction": retryable_after_correction,
+                "recorded_at_unix": time.time(),
+            }, ensure_ascii=False, indent=2) + "\n")
             return {"status":"ARTICLE_SOURCE_BLOCKED", "source_id":row["source_id"],
-                "reason":"ARTICLE_PAGE_FETCH_FAILED_RSS_SUMMARY_TOO_SHORT", "will_try_next_source":True,
-                "public_publish_enabled":False}
+                "reason":reason_code, "request_sent":False,
+                "retryable_after_source_correction":retryable_after_correction,
+                "will_try_next_source":True,"public_publish_enabled":False}
     try:
         voice = synthesize_voice(mission.parent, min_seconds=min_seconds, max_seconds=max_seconds)
     except Exception as exc:
