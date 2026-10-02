@@ -86,6 +86,36 @@ def main() -> int:
     require((exceptions.get("jev") or {}).get("media_generation") is False, "Jev exception expanded to media generation")
     require((exceptions.get("deepseek") or {}).get("media_generation") is False, "DeepSeek exception expanded to media generation")
 
+
+    resident_news = ((guard.get("narrow_preauthorized_exceptions") or {}).get("resident_news_script") or {})
+    require(resident_news.get("enabled") is True, "resident RSS DeepSeek script route is not explicitly authorized")
+    require(resident_news.get("exact_model") == "deepseek/deepseek-v4.1-flash", "resident RSS route changed exact model")
+    require(resident_news.get("provider") == "openrouter", "resident RSS provider drift")
+    require(resident_news.get("per_call_estimate_cap_usd") == "0.05", "resident RSS per-call cap drift")
+    require(resident_news.get("reserved_daily_cost_cap_usd") == "0.10", "resident RSS daily cap drift")
+    require(resident_news.get("reserved_monthly_cost_cap_usd") == "0.50", "resident RSS monthly cap drift")
+    require(resident_news.get("max_paid_calls_per_utc_day") == 5, "resident RSS daily call cap drift")
+    for key in ("paid_fallback", "provider_fallback", "paid_sibling_substitution", "auto_top_up",
+                "paid_video_or_image_generation", "paid_tts_or_editing", "auto_publish"):
+        require(resident_news.get(key) is False, f"resident RSS route expanded: {key}")
+    news_policy = load("config/media_news_pipeline_policy.json")
+    paid_news = news_policy.get("paid_script_generation") or {}
+    free_review = news_policy.get("free_script_review") or {}
+    require(paid_news.get("model") == resident_news.get("exact_model"), "RSS script model policy mismatch")
+    require(paid_news.get("maximum_estimated_cost_per_call_usd") == "0.05", "RSS script per-call budget drift")
+    require(paid_news.get("maximum_reserved_cost_per_utc_day_usd") == "0.10", "RSS script daily budget drift")
+    require(paid_news.get("maximum_reserved_cost_per_utc_month_usd") == "0.50", "RSS script monthly budget drift")
+    require(paid_news.get("automatic_retry_after_request") is False, "RSS paid request retry enabled")
+    require(paid_news.get("automatic_paid_fallback") is False, "RSS paid fallback enabled")
+    require(paid_news.get("automatic_top_up") is False, "RSS auto top-up enabled")
+    require(free_review.get("route_requirement") == "EXACT_ZERO_COST_FREE_MODEL_ONLY", "RSS advisory reviewer is not exact-free")
+    require(free_review.get("advisory_only") is True, "free reviewer may block paid script")
+    require(free_review.get("may_rewrite_script") is False, "free reviewer may rewrite the paid script")
+    require((guard.get("media_boundary") or {}).get("paid_or_freemium_video_generation") is False,
+            "resident script exception expanded to paid video generation")
+    require((guard.get("media_boundary") or {}).get("paid_caption_or_tts_service") is False,
+            "resident script exception expanded to paid caption/TTS")
+
     continuity = guard.get("cross_tab_continuity") or {}
     for key in (
         "must_be_read_from_repository_on_new_tab",
@@ -93,6 +123,7 @@ def main() -> int:
         "chat_memory_cannot_override_this_guard",
         "paid_api_route_eligibility_survives_tab_change",
         "paid_media_block_survives_tab_change",
+        "resident_news_deepseek_route_survives_tab_change",
     ):
         require(continuity.get(key) is True, f"free guard continuity drift: {key}")
 
