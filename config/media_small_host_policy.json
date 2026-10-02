@@ -116,7 +116,8 @@
       "NONEMPTY_FINAL_MP4",
       "VERIFIED_REMOTE_RENDER_REPORT",
       "MATCHING_SOURCE_ID",
-      "FFPROBE_SUCCESS"
+      "FFPROBE_SUCCESS",
+      "CURRENT_CONNECTED_WORKER_STACK_FINGERPRINT_MATCH"
     ],
     "coordinator_24h_ready_requires": [
       "CURRENT_TESTED_COMMIT",
@@ -127,7 +128,11 @@
       "MINIMUM_FREE_DISK",
       "QUEUE_READABLE",
       "REBOOT_OBSERVED_AFTER_CURRENT_COMMIT_BASELINE"
-    ]
+    ],
+    "authoritative_rss_ingress_requires_all_enabled_feeds_fresh": true,
+    "authoritative_rss_ingress_policy": "config/media_source_ingress_policy.json",
+    "preparation_service_must_not_run_source_poller": true,
+    "current_e2e_completion_requires_connected_worker_fingerprint_match": true
   },
   "billing_preflight": {
     "authorized_project_credit_ceiling_jpy": 47000,
