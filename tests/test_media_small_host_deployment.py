@@ -50,9 +50,13 @@ class MediaSmallHostDeploymentTests(unittest.TestCase):
         service = (ROOT / "deploy/systemd/user/hf-site-agent-media-news.service").read_text()
         timer = (ROOT / "deploy/systemd/user/hf-site-agent-media-news.timer").read_text()
         self.assertIn("process-next", service)
+        self.assertNotIn("scripts.media_source_daemon", service)
         self.assertIn("VV_CPU_NUM_THREADS=1", service)
         self.assertIn("VOICEVOX_CACHE_DIR=%h/hf-site-agent/runtime/voice-cache", service)
         self.assertIn("OnUnitInactiveSec=5min", timer)
+        policy = json.loads((ROOT / "config/media_small_host_policy.json").read_text())
+        self.assertTrue(policy["runtime_layout"]["existing_rss_cron_is_authoritative"])
+        self.assertFalse(policy["runtime_layout"]["create_duplicate_source_poller"])
         source_service = (ROOT / "deploy/systemd/hf-site-agent-media-source.service").read_text()
         self.assertIn("--interval-seconds 300", source_service)
 
