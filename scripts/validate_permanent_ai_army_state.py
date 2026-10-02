@@ -46,6 +46,7 @@ def main() -> int:
     media_speed = load_json("config/media_speed_quality_policy.json")
     stream = load_json("config/session_stream_resilience_policy.json")
     automation = load_json("config/media_automation_fast_path.json")
+    render_worker = load_json("config/media_render_worker_policy.json")
 
     # Canonical authority and paid-scope boundaries.
     require(manifest.get("canonical_branch") == "ai-army/provider-v3", "wrong canonical branch")
@@ -137,6 +138,45 @@ def main() -> int:
     }.issubset(automation_safety), "automation fatal safety floor weakened")
     require((automation.get("extracted_pipeline") or {}).get("supervisor", {}).get("default") == "MACHINE_GATE_ONLY", "routine AI supervisor reintroduced")
     require((automation.get("extracted_pipeline") or {}).get("analytics_and_feedback", {}).get("critical_path") is False, "analytics entered creation critical path")
+
+    # Current 24h media host authority: GCP coordinator, remote-only final render.
+    host_exec = small_host.get("execution") or {}
+    host_cost = small_host.get("provider_and_cost_gates") or {}
+    require((small_host.get("target") or {}).get("provider") == "GOOGLE_CLOUD_COMPUTE_ENGINE", "current coordinator provider drifted from GCP")
+    require(host_exec.get("preparation_timer_enabled_by_default") is True, "24h preparation timer default is no longer enabled after preflight")
+    require(host_exec.get("render_timer_enabled_by_default") is False, "GCP render timer was enabled")
+    require(host_exec.get("gcp_local_render_unit_allowed") is False, "GCP local render unit was re-enabled")
+    require(host_exec.get("external_render_worker_required_for_video_completion") is True, "external render worker no longer required")
+    require((small_host.get("resource_controls") or {}).get("local_video_rendering_on_gcp_allowed") is False, "local video rendering on GCP was re-enabled")
+    require("openrouter_exact_free_route_only" not in host_cost, "obsolete free-only resident route gate returned")
+    require(host_cost.get("resident_news_script_route") == "deepseek/deepseek-v4.1-flash", "resident news paid route drift")
+    require(host_cost.get("generic_paid_fallback_allowed") is False, "generic paid fallback enabled in GCP host policy")
+    require(host_cost.get("automatic_top_up") is False, "GCP host policy enabled auto top-up")
+
+    staging = ((automation.get("extracted_pipeline") or {}).get("article_to_media_staging") or {})
+    require(staging.get("gcp_local_video_rendering_allowed") is False, "fast path regained GCP local render")
+    require(staging.get("final_ffmpeg_render_offloaded") is True, "final FFmpeg render is no longer offloaded")
+    remote = staging.get("optional_remote_render_handoff") or {}
+    require(remote.get("status") == "IMPLEMENTED_LIVE_HEALTH_REQUIRED", "remote render reverted to static connection status")
+    require(remote.get("live_status_is_repository_state") is False, "repository state is being treated as live render status")
+    require(remote.get("automatic_local_fallback") is False, "remote render may fall back to GCP local rendering")
+
+    live = render_worker.get("live_connection") or {}
+    require(render_worker.get("status") == "IMPLEMENTED_LIVE_HEALTH_REQUIRED", "render worker status lost live-health requirement")
+    require(live.get("source_of_truth") == "python -m scripts.media_render_transport --check", "render worker live source of truth drift")
+    require(live.get("repository_connection_state_is_authoritative") is False, "static repository render connection became authoritative")
+    require(live.get("static_policy_flags_must_not_be_used_as_live_status") is True, "static render flags can be mistaken for live status")
+
+    manifest_runtime = manifest.get("durable_media_automation") or {}
+    handoff_runtime = handoff.get("durable_media_runtime_reality") or {}
+    for name, runtime_state in (("manifest", manifest_runtime), ("handoff", handoff_runtime)):
+        require(runtime_state.get("gcp_coordinator_target") is True, f"{name} lost GCP coordinator authority")
+        require(runtime_state.get("gcp_local_rendering_allowed") is False, f"{name} re-enabled GCP local render")
+        require(runtime_state.get("remote_render_status") == "IMPLEMENTED_LIVE_HEALTH_REQUIRED", f"{name} remote render status drift")
+        require(runtime_state.get("remote_render_repository_boolean_is_authoritative") is False, f"{name} trusts static remote-render status")
+        for stale_key in ("vps_daemon_deployed", "vps_operations_doc", "current_vps_provider", "vps_provider", "alternative_vps_operations_doc", "local_render_user_service_template"):
+            require(stale_key not in runtime_state, f"{name} stale runtime key returned: {stale_key}")
+
 
     # Manifest / cross-tab reachability. Avoid duplicating every domain rule here.
     standards = manifest.get("required_standards") or []
