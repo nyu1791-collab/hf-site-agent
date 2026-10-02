@@ -23,6 +23,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.parse
+from urllib.error import HTTPError
 import urllib.request
 import array
 import shutil
@@ -50,6 +51,10 @@ OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 class DailyMediaCapReached(RuntimeError):
     """A retryable daily free-call ceiling; keep the article in the inbox."""
+
+
+class ArticleSourceBlocked(RuntimeError):
+    """The article is inaccessible and its stored RSS summary is insufficient."""
 
 
 @contextmanager
@@ -440,6 +445,22 @@ def select_render_assets(manifest: Mapping[str, Any], scene_count: int, package_
     return assets
 
 
+def _rss_summary_article(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Use the configured feed's stored summary when an allowed article page denies access."""
+    summary = re.sub(r"\s+", " ", html.unescape(str(row["summary"] or ""))).strip()
+    if len(summary) < 300:
+        raise ArticleSourceBlocked("article page denied access and RSS summary is too short")
+    title = re.sub(r"\s+", " ", html.unescape(str(row["title"] or ""))).strip()[:500]
+    return {
+        "url": str(row["url"]),
+        "title": title or str(row["url"]),
+        "text": summary[:MAX_ARTICLE_CHARS],
+        "description": summary[:1200],
+        "images": [],
+        "article_text_origin": "CONFIGURED_RSS_SUMMARY_AFTER_ARTICLE_ACCESS_DENIED",
+    }
+
+
 def process_source(conn: sqlite3.Connection, source_id: str, workspace: Path, *, image_hosts: set[str], catalog=None, request_fn=None, planner_fn=None) -> Path:
     if not re.fullmatch(r"[0-9a-f]{64}", str(source_id)):
         raise ValueError("source id must be a canonical SHA-256 hex digest")
@@ -451,7 +472,12 @@ def process_source(conn: sqlite3.Connection, source_id: str, workspace: Path, *,
     package = _resolve_news_package(workspace, source_id, create=True)
     if not os.environ.get("OPENROUTER_API_KEY"):
         raise RuntimeError("OPENROUTER_API_KEY is not configured")
-    source = extract_article(row["url"], allowed_hosts=set(PIPELINE_POLICY["article_hosts"]))
+    try:
+        source = extract_article(row["url"], allowed_hosts=set(PIPELINE_POLICY["article_hosts"]))
+    except HTTPError as exc:
+        if exc.code not in {401, 403, 404, 410}:
+            raise
+        source = _rss_summary_article(row)
     source["source_sha256"] = _article_fingerprint(source)
     article_path = package / "article.json"
     image_path = package / "image-candidates.json"
@@ -731,7 +757,14 @@ def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int
     if row["state"] == "VOICE_PENDING" and (package / "mission.json").is_file():
         mission = package / "mission.json"
     else:
-        mission = process_source(conn, row["source_id"], workspace, image_hosts=set(PIPELINE_POLICY["image_hosts"]))
+        try:
+            mission = process_source(conn, row["source_id"], workspace, image_hosts=set(PIPELINE_POLICY["image_hosts"]))
+        except ArticleSourceBlocked:
+            conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
+                (time.time(), row["source_id"]))
+            return {"status":"ARTICLE_SOURCE_BLOCKED", "source_id":row["source_id"],
+                "reason":"ARTICLE_PAGE_DENIED_RSS_SUMMARY_TOO_SHORT", "will_try_next_source":True,
+                "public_publish_enabled":False}
     try:
         voice = synthesize_voice(mission.parent, min_seconds=min_seconds, max_seconds=max_seconds)
     except Exception as exc:
