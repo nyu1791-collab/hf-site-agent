@@ -26,10 +26,12 @@ def validate(root: Path = ROOT) -> list[str]:
         host = _json(root / "config/media_small_host_policy.json")
         pipeline = _json(root / "config/media_news_pipeline_policy.json")
         render = _json(root / "config/media_render_worker_policy.json")
+        ingress = _json(root / "config/media_source_ingress_policy.json")
     except (OSError, ValueError, json.JSONDecodeError):
         return ["POLICY_JSON_UNREADABLE"]
 
     execution = host.get("execution") or {}
+    runtime_layout = host.get("runtime_layout") or {}
     resources = host.get("resource_controls") or {}
     runner = host.get("runner_control_plane") or {}
     verification = host.get("verification") or {}
@@ -57,6 +59,16 @@ def validate(root: Path = ROOT) -> list[str]:
         and authority.get("publish_or_deploy") is False
     ):
         blockers.append("PUBLIC_PUBLISH_BOUNDARY_INVALID")
+
+    if not (
+        runtime_layout.get("existing_rss_cron_is_authoritative") is True
+        and runtime_layout.get("create_duplicate_source_poller") is False
+        and runtime_layout.get("preserve_existing_rss_cron_and_sqlite_queue") is True
+        and ingress.get("live_daemon_enabled") is False
+        and int(ingress.get("poll_interval_seconds", 0)) == 300
+        and int(ingress.get("stale_after_seconds", 0)) >= 600
+    ):
+        blockers.append("AUTHORITATIVE_RSS_INGRESS_CONTRACT_INVALID")
 
     if not (
         execution.get("preparation_timer_enabled_by_default") is True
@@ -159,6 +171,7 @@ def validate(root: Path = ROOT) -> list[str]:
             or "process-next" not in service_text
             or "MemoryHigh=1300M" not in service_text
             or "MemoryMax=1700M" not in service_text
+            or "scripts.media_source_daemon" in service_text
         ):
             blockers.append("GCP_PREPARATION_SERVICE_CONTRACT_INVALID")
         if (
