@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class GcpSmallHostActivationTests(unittest.TestCase):
-    def _case(self, credit=47159, forecast=12000, remote=False, ready=False):
+    def _case(self, credit=47159, forecast=12000, remote=False, ready=False, forecast_status="AVAILABLE"):
         with tempfile.TemporaryDirectory() as temp:
             root, home = Path(temp) / "repo", Path(temp) / "home"
             root.mkdir()
@@ -23,7 +23,11 @@ class GcpSmallHostActivationTests(unittest.TestCase):
             name = self._prepared(root, home)
             path = home / ".config/hf-site-agent/cloud-budget.json"
             evidence = json.loads(path.read_text())
-            evidence.update(remaining_credit_jpy=credit, forecast_next_30d_jpy=forecast)
+            evidence.update(
+                remaining_credit_jpy=credit,
+                forecast_next_30d_jpy=forecast,
+                forecast_status=forecast_status,
+            )
             path.write_text(json.dumps(evidence))
             if remote:
                 (home / ".local/share/voicevox_engine/linux-cpu-x64").rmdir()
@@ -40,6 +44,25 @@ class GcpSmallHostActivationTests(unittest.TestCase):
         for credit, forecast in ((47159, 47050), (1000, 12000), (float("inf"), 0), (47000, float("nan"))):
             with self.subTest(credit=credit, forecast=forecast):
                 self.assertIn("LIVE_BILLING_CREDIT_EVIDENCE_MISSING_STALE_OR_INVALID", self._case(credit, forecast))
+
+    def test_insufficient_history_allows_existing_vm_with_positive_fresh_credit(self):
+        self.assertEqual(
+            self._case(
+                credit=47142.06,
+                forecast=None,
+                forecast_status="UNAVAILABLE_INSUFFICIENT_HISTORY",
+            ),
+            [],
+        )
+
+    def test_unavailable_forecast_requires_exact_status_and_null_value(self):
+        for status, forecast in (
+            ("UNKNOWN", None),
+            ("UNAVAILABLE_INSUFFICIENT_HISTORY", 0),
+        ):
+            with self.subTest(status=status, forecast=forecast):
+                blockers = self._case(forecast=forecast, forecast_status=status)
+                self.assertIn("LIVE_BILLING_CREDIT_EVIDENCE_MISSING_STALE_OR_INVALID", blockers)
 
     def test_remote_engine_does_not_require_local_installation(self):
         self.assertEqual(self._case(remote=True, ready=True), [])
