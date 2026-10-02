@@ -87,9 +87,29 @@ class MediaNewsAutomationTests(unittest.TestCase):
             source_id="c"*64
             ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title","url":"https://openai.com/news/x","summary":"","published":""}])
             for _ in range(5): _reserve_call(conn)
-            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}):
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=3 * 1024**3),
+            ):
                 result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
             self.assertEqual(result["status"],"BLOCKED_DAILY_MEDIA_CALL_CAP")
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],"PREPARATION_REQUIRED")
+            conn.close()
+
+    def test_low_disk_blocks_before_api_or_voice_work_without_mutating_queue(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            source_id="b"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":"https://openai.com/news/x","summary":TEXT*4,"published":""}])
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=1024**3),
+            ), patch("scripts.media_news_pipeline.process_source") as process_source:
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"BLOCKED_LOW_DISK_SPACE")
+            self.assertFalse(result["automatic_deletion"])
+            process_source.assert_not_called()
             self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],"PREPARATION_REQUIRED")
             conn.close()
 
@@ -217,6 +237,9 @@ class MediaNewsAutomationTests(unittest.TestCase):
                 "url":"https://openai.com/news/x","summary":"Too short.","published":""}])
             with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
                 "scripts.media_news_pipeline.process_source",side_effect=ArticleSourceBlocked()
+            ), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=3 * 1024**3),
             ):
                 result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
             self.assertEqual(result["status"],"ARTICLE_SOURCE_BLOCKED")
@@ -378,7 +401,10 @@ class MediaNewsAutomationTests(unittest.TestCase):
             conn.execute("UPDATE source_inbox SET state='VOICE_PENDING' WHERE source_id=?",(source_id,))
             package=_resolve_news_package(workspace,source_id,create=True)
             (package/"mission.json").write_text(json.dumps({"source_id":source_id,"source_sha256":"d"*64}))
-            with patch("scripts.media_news_pipeline.synthesize_voice",side_effect=OSError("unavailable")):
+            with patch("scripts.media_news_pipeline.synthesize_voice",side_effect=OSError("unavailable")), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=3 * 1024**3),
+            ):
                 first=_process_next(conn,workspace,min_seconds=60,max_seconds=300)
                 self.assertEqual(first["status"],"VOICE_RETRY_SCHEDULED")
                 self.assertEqual(first["attempts"],1)
