@@ -26,11 +26,11 @@ python3 -m scripts.install_gcp_small_host_services
 python3 -m scripts.install_gcp_small_host_services --activate
 ```
 
-The existing RSS cron remains the only source poller; this activation does not install a second poller. After every preflight passes, the preparation timer processes at most one inbox item per five-minute run. Resident RSS script drafting uses only the explicitly authorized OpenRouter `deepseek/deepseek-v4.1-flash` route under the repository cost caps (USD 0.05 per call, USD 0.10 reserved per UTC day, USD 0.50 reserved per UTC month, at most five paid calls per UTC day). Google Cloud credits are never treated as OpenRouter credit, uncertain paid attempts are not retried, generic paid fallback and auto top-up remain disabled. If a prerequisite fails, the timer stays disabled.
+The existing RSS cron remains the only source poller; this activation does not install or invoke a second poller. The five-minute preparation service only consumes the SQLite inbox. Activation now requires every enabled feed in `source_feed_state` to have a recent `OK` or `NOT_MODIFIED` observation within the source-ingress staleness window; a missing or stale authoritative poller blocks with `AUTHORITATIVE_RSS_POLLER_STALE_OR_MISSING`. After every preflight passes, the preparation timer processes at most one inbox item per five-minute run. Resident RSS script drafting uses only the explicitly authorized OpenRouter `deepseek/deepseek-v4.1-flash` route under the repository cost caps (USD 0.05 per call, USD 0.10 reserved per UTC day, USD 0.50 reserved per UTC month, at most five paid calls per UTC day). Google Cloud credits are never treated as OpenRouter credit, uncertain paid attempts are not retried, generic paid fallback and auto top-up remain disabled. If a prerequisite fails, the timer stays disabled.
 
 The worktree preflight blocks tracked edits and untracked files outside the explicit operational-artifact allowlist in `config/media_small_host_policy.json`. The allowlist covers `.media-cache/`, the persistent `runtime/` queue/workspace, and Python bytecode caches. The SQLite queue is still integrity-checked separately. Do not use `git clean` or delete runtime data to satisfy the source check; unknown untracked files and all tracked edits continue to block activation.
 
-media.env is read from ~/.config/hf-site-agent/media.env; keep it mode 0600 and never paste its secret into chat or command arguments. Store a separate cloud-budget.json snapshot at ~/.config/hf-site-agent/cloud-budget.json with mode 0600; it contains billing facts only and no credentials. The activation script checks the protected media env, local VOICEVOX installation/version, free disk, existing queue integrity, canonical branch, GCP metadata identity, and recent billing evidence. It prints only blocker codes and service state. It never initializes the queue database, runs a paid API call, enables a render timer, or publishes.
+`media.env` is read from `~/.config/hf-site-agent/media.env`; keep it a regular file owned by the VM user with mode `0600` and never paste its secret into chat or command arguments. If its ownership, type, or mode is unsafe, activation blocks **without reading its contents**. Store a separate cloud-budget.json snapshot at ~/.config/hf-site-agent/cloud-budget.json with mode 0600; it contains billing facts only and no credentials. The activation script checks the protected media env, local VOICEVOX installation/version, free disk, existing queue integrity, canonical branch, GCP metadata identity, and recent billing evidence. It prints only blocker codes and service state. It never initializes the queue database, runs a paid API call, enables a render timer, or publishes.
 
 Set the expected VOICEVOX version after verifying /version. Install the official Linux CPU Engine at ~/.local/share/voicevox_engine/linux-cpu-x64, or set VOICEVOX_ENGINE_DIR in the protected env file. The wrapper binds only to 127.0.0.1:50021, uses one CPU thread, and stops only an Engine process it started itself.
 
@@ -42,7 +42,7 @@ For cache diagnosis, include files as well as directories: du -ax -B1 --max-dept
 
 ## Private VM-control completion gates
 
-The private `nyu1791-collab/-hf-vm-control` workflow is the operational control plane for this existing VM. Its `update_test` operation compiles the coordinator/render modules and runs the news, source-ingress, GCP activation, small-host and remote-render regression suites before a fast-forward. Its `status` operation compares the local checkout with the current remote branch and emits separate coordinator, external-render, and saved-E2E readiness verdicts. A saved E2E result counts only when the queue row is `READY_TO_PUBLISH`, `final.mp4` is non-empty, the matching `VERIFIED_REMOTE_RENDER` report exists, and `ffprobe` succeeds.
+The private `nyu1791-collab/-hf-vm-control` workflow is the operational control plane for this existing VM. Its `update_test` operation compiles the coordinator/render modules and runs the news, source-ingress, GCP activation, small-host and remote-render regression suites before a fast-forward. Its `status` operation compares the local checkout with the current remote branch and emits separate coordinator, external-render, and saved-E2E readiness verdicts. A historical saved E2E result counts only when the queue row is `READY_TO_PUBLISH`, the non-symlink `final.mp4` is non-empty, its SHA-256 matches the `VERIFIED_REMOTE_RENDER` report, the report is fail-closed for publish/retry/fallback, and `ffprobe` proves both audio and video with matching duration/size metadata. The stronger `e2e_completion_verified` verdict additionally requires that saved report's renderer/profile/media-policy/render-policy/transport/worker/shell/font fingerprints to match the **currently authenticated connected worker**. An older successful MP4 therefore cannot certify the current stack.
 
 After an actual VM reboot, run the private control-plane `reboot_audit` operation. It requires a new kernel boot ID relative to the activation baseline, lingering enabled, exactly one repository Runner service enabled and active, the five-minute user timer enabled and active, and a clean checkout at the current remote `ai-army/provider-v3` HEAD. The audit does not reboot the VM itself and does not publish or render.
 
@@ -53,6 +53,19 @@ External render readiness is never taken from a repository boolean. The authorit
 The GCP coordinator stops after the source-backed script, narration/timing, image candidates, and review metadata are saved. It must not render the MP4 locally. After the selected assets have recorded rights evidence and credit, use the external render-worker path documented in [DURABLE_MEDIA_AUTOMATION.md](DURABLE_MEDIA_AUTOMATION.md).
 
 Before dispatching a reviewed package, require the external worker health check to report `READY`, the SSH reverse tunnel to be configured, and the pinned renderer/profile/shell/font hashes to match. If the worker is unavailable, keep the queue item and checkpoint intact; do not fall back to local GCP rendering and do not publish.
+
+For the current GCP user-service path, keep the renderer token and expected hashes in the single protected file `~/.config/hf-site-agent/media-render.env` (regular file, VM-user owned, mode `0600`). Do not duplicate this current-path secret into `/etc/hf-site-agent`. After the external worker and tunnel have been provisioned, install the **manual-only** user render/check units; neither has a timer:
+
+```bash
+mkdir -p ~/.config/systemd/user
+install -m 0644 deploy/systemd/user/hf-site-agent-media-render-check.service ~/.config/systemd/user/
+install -m 0644 deploy/systemd/user/hf-site-agent-media-render@.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user start hf-site-agent-media-render-check.service
+systemctl --user status hf-site-agent-media-render-check.service --no-pager
+```
+
+The check is read-only and authenticated. A reviewed package is rendered only by an explicit `systemctl --user start 'hf-site-agent-media-render@<source_id>.service'`; these units are intentionally not enabled and cannot start from the five-minute preparation timer.
 
 ## Check the result
 
