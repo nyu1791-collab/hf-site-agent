@@ -451,7 +451,10 @@
       "config/approved_video_template.json",
       "config/media_character_performance_compact_orchestration_policy.json"
     ],
-    "optional_style_profiles_scope": "ONLY_ON_USER_REQUEST_FOR_MATCHING_STYLE"
+    "optional_style_profiles_scope": "ONLY_ON_USER_REQUEST_FOR_MATCHING_STYLE",
+    "paid_text_only_rss_script_exception": "config/media_news_pipeline_policy.json#/paid_script_generation; does not include paid video/image/TTS or public publishing",
+    "resident_news_script_exception_survives_tab_change": true,
+    "vps_operations_doc": "docs/VPS_MEDIA_NEWS_AUTOMATION.md"
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
@@ -580,6 +583,29 @@
       "publish": false,
       "merge": false,
       "secret_mutation_or_disclosure": false
+    },
+    {
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-v4.1-flash",
+      "role": "RESIDENT_OFFICIAL_RSS_NEWS_SCRIPT_DRAFTING_TEXT_ONLY",
+      "policy": "config/media_news_pipeline_policy.json#/paid_script_generation",
+      "persistent_authorization": true,
+      "repeat_per_call_approval_required": false,
+      "maximum_estimated_cost_per_call_usd": "0.05",
+      "maximum_reserved_cost_per_utc_day_usd": "0.10",
+      "maximum_reserved_cost_per_utc_month_usd": "0.50",
+      "maximum_calls_per_utc_day": 5,
+      "automatic_paid_fallback": false,
+      "automatic_provider_fallback": false,
+      "automatic_paid_sibling_substitution": false,
+      "auto_top_up": false,
+      "paid_video_or_image_generation": false,
+      "paid_tts_or_editing": false,
+      "repository_write": false,
+      "deploy": false,
+      "publish": false,
+      "merge": false,
+      "secret_mutation_or_disclosure": false
     }
   ],
   "human_approval_actions": [
@@ -655,7 +681,9 @@
     "project_rule_precedence_survives_tab_change": true,
     "public_publish_remains_blocked_until_destination_and_scope_are_present": true,
     "existing_gcp_small_host_preflight_survives_tab_change": true,
-    "live_billing_credit_must_be_rechecked_before_persistent_activation": true
+    "live_billing_credit_must_be_rechecked_before_persistent_activation": true,
+    "resident_news_deepseek_route_survives_tab_change": true,
+    "user_designated_existing_vps_is_runtime_target": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",
@@ -666,7 +694,7 @@
   "longform_video_primary_goal": "WHEN_EXPLICITLY_REQUESTED_DELIVER_PLAYABLE_FINISHED_VIDEO_WITH_MINIMUM_REWORK",
   "batch_media_primary_goal": "KEEP_ROUTINE_VIDEO_RESEARCH_AND_SCRIPT_IN_ONE_CHATGPT_PASS; USE_INDEPENDENT_PREPARATION_LANES_ONLY_WHEN_THEY_REDUCE_WALL_CLOCK; ADD_NO_REVIEW_STAGE",
   "multi_agent_primary_goal": "USE_HIERARCHICAL_SPECIALIZATION ONLY WHEN SYSTEM VALUE EXCEEDS COORDINATION COST",
-  "deepseek_primary_goal": "USE PAID DEEPSEEK AS A HIGH-UTILIZATION WORKING EXECUTIVE SUPERVISOR FOR RESEARCH EVIDENCE TRIAGE DRAFTING PACKAGING REVIEW AND RELATED SUPPORT, NOT AS A REPLACEMENT FOR FASTER DETERMINISTIC WORK",
+  "deepseek_primary_goal": "USE PAID DEEPSEEK FOR AUTHORIZED SUPERVISORY SCOPE; ADDITIONALLY USE EXACT DEEPSEEK V4.1 FLASH ONLY FOR USER-AUTHORIZED RESIDENT RSS TEXT SCRIPTING UNDER A $0.50 USD UTC-MONTH CAP",
   "commerce_primary_goal": "USE_CURRENT_EVIDENCE_AND_STORYTELLING_TO_IMPROVE_PURCHASE_UNDERSTANDING_AND_TRUST_WITHOUT_FABRICATED_CLAIMS",
   "creator_monetization_primary_goal": "BUILD_DIVERSIFIED_REPEATABLE_REVENUE_WITH_NEAR_TERM_CREATIVE_ANALYTICS_AND_AI_WORKFLOW_SERVICE_CASHFLOW_PLUS_LONG_TERM_ORIGINAL_CREATOR_ASSETS_WITHOUT_SPAM_MANIPULATION_OR_LOW_VALUE_AUTOMATION",
   "forbidden_drift": [
@@ -727,7 +755,7 @@
     "policy": "config/media_automation_fast_path.json",
     "runner": "scripts/durable_media_runner.py",
     "operations_doc": "docs/DURABLE_MEDIA_AUTOMATION.md",
-    "status": "REPOSITORY_STAGING_FOUNDATION_ONLY",
+    "status": "USER_REPORTED_LINGER_YES_AND_NEWS_TIMER_ACTIVE; CURRENT_PR_PATCH_NOT_DEPLOYED; LIVE_END_TO_END_UNVERIFIED",
     "live_rss_polling_connected": false,
     "vps_daemon_deployed": false,
     "public_publish_authorized": false,
@@ -779,7 +807,7 @@
     ],
     "voice_block_recovery_command": "retry-voice",
     "small_host_profile": "config/media_small_host_policy.json",
-    "small_host_operations_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
+    "small_host_operations_doc": "docs/VPS_MEDIA_NEWS_AUTOMATION.md",
     "small_host_target_machine_type": "e2-small",
     "small_host_target_memory_gib": 2,
     "existing_rss_cron_preserved": true,
@@ -794,6 +822,16 @@
     "automatic_artifact_deletion": false,
     "local_small_host_live_status": "IMPLEMENTED_NOT_DEPLOYED",
     "final_ffmpeg_render_offloaded": false,
-    "external_renderer_worker_connected": false
+    "external_renderer_worker_connected": false,
+    "user_reported_linger_enabled": true,
+    "user_reported_news_timer_active": true,
+    "user_reported_evidence_date": "2026-10-02",
+    "current_vps_provider": "NOT_INFERRED_FROM_REPOSITORY",
+    "automatic_script_voice_asset_stages_connected": false,
+    "vps_operations_doc": "docs/VPS_MEDIA_NEWS_AUTOMATION.md",
+    "paid_script_route": "deepseek/deepseek-v4.1-flash via OpenRouter",
+    "paid_script_monthly_reserved_cost_cap_usd": "0.50",
+    "paid_script_daily_reserved_cost_cap_usd": "0.10",
+    "paid_script_per_call_estimate_cap_usd": "0.05"
   }
 }
