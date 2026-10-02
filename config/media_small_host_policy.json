@@ -78,7 +78,17 @@
       "PREPARATION_TIMER_ENABLED_AND_ACTIVE",
       "LATEST_REMOTE_HEAD",
       "CLEAN_WORKTREE"
-    ]
+    ],
+    "readiness_verdicts": [
+      "coordinator_runtime_ready",
+      "reboot_persistence_verified",
+      "coordinator_24h_ready",
+      "external_render_ready",
+      "e2e_infrastructure_ready",
+      "e2e_completion_verified"
+    ],
+    "live_status_source": "nyu1791-collab/-hf-vm-control status/reboot_audit",
+    "repository_live_status_is_authoritative": false
   },
   "provider_and_cost_gates": {
     "daily_model_call_cap": 5,
@@ -107,6 +117,16 @@
       "VERIFIED_REMOTE_RENDER_REPORT",
       "MATCHING_SOURCE_ID",
       "FFPROBE_SUCCESS"
+    ],
+    "coordinator_24h_ready_requires": [
+      "CURRENT_TESTED_COMMIT",
+      "CLEAN_WORKTREE",
+      "LINGER_ENABLED",
+      "RUNNER_ENABLED_AND_ACTIVE",
+      "PREPARATION_TIMER_ENABLED_AND_ACTIVE",
+      "MINIMUM_FREE_DISK",
+      "QUEUE_READABLE",
+      "REBOOT_OBSERVED_AFTER_CURRENT_COMMIT_BASELINE"
     ]
   },
   "billing_preflight": {
