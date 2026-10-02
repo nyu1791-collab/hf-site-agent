@@ -454,7 +454,6 @@
     "optional_style_profiles_scope": "ONLY_ON_USER_REQUEST_FOR_MATCHING_STYLE",
     "paid_text_only_rss_script_exception": "config/media_news_pipeline_policy.json#/paid_script_generation; does not include paid video/image/TTS or public publishing",
     "resident_news_script_exception_survives_tab_change": true,
-    "vps_operations_doc": "docs/VPS_MEDIA_NEWS_AUTOMATION.md",
     "gcp_operations_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md"
   },
   "monetization_command_gate": {
@@ -684,7 +683,6 @@
     "existing_gcp_small_host_preflight_survives_tab_change": true,
     "live_billing_credit_must_be_rechecked_before_persistent_activation": true,
     "resident_news_deepseek_route_survives_tab_change": true,
-    "user_designated_existing_vps_is_runtime_target": false,
     "existing_gcp_coordinator_is_runtime_target": true
   },
   "failure_contract": {
@@ -759,7 +757,6 @@
     "operations_doc": "docs/DURABLE_MEDIA_AUTOMATION.md",
     "status": "GCP_COORDINATOR_REPOSITORY_ALIGNED; RUNNER_PREVIOUSLY_VERIFIED; LATEST_HEAD_SYNC_AND_LIVE_E2E_UNVERIFIED",
     "live_rss_polling_connected": false,
-    "vps_daemon_deployed": false,
     "public_publish_authorized": false,
     "source_ingress_policy": "config/media_source_ingress_policy.json",
     "source_ingress_runtime": "scripts/media_source_ingress.py",
@@ -791,7 +788,7 @@
     "remote_render_worker_policy": "config/media_render_worker_policy.json",
     "remote_render_transport": "scripts/media_render_transport.py",
     "remote_render_worker_runtime": "scripts/media_render_worker.py",
-    "remote_render_status": "IMPLEMENTED_NOT_CONNECTED",
+    "remote_render_status": "IMPLEMENTED_LIVE_HEALTH_REQUIRED",
     "remote_render_systemd_templates": [
       "deploy/systemd/hf-render-worker.service",
       "deploy/systemd/hf-render-worker-check.service",
@@ -815,7 +812,6 @@
     "existing_rss_cron_preserved": true,
     "local_news_user_service_template": "deploy/systemd/user/hf-site-agent-media-news.service",
     "local_news_user_timer_template": "deploy/systemd/user/hf-site-agent-media-news.timer",
-    "local_render_user_service_template": "deploy/systemd/user/hf-site-agent-media-render@.service",
     "local_voicevox_starts_only_for_synthesis": true,
     "local_renderer_is_on_demand": false,
     "queue_backpressure": "config/media_news_pipeline_policy.json#/resource_backpressure",
@@ -828,9 +824,7 @@
     "user_reported_linger_enabled": true,
     "user_reported_news_timer_active": true,
     "user_reported_evidence_date": "2026-10-02",
-    "current_vps_provider": "NOT_CURRENT_RUNTIME_TARGET",
     "automatic_script_voice_asset_stages_connected": false,
-    "vps_operations_doc": "docs/VPS_MEDIA_NEWS_AUTOMATION.md",
     "paid_script_route": "deepseek/deepseek-v4.1-flash via OpenRouter",
     "paid_script_monthly_reserved_cost_cap_usd": "0.50",
     "paid_script_daily_reserved_cost_cap_usd": "0.10",
@@ -842,6 +836,12 @@
     "runner_name": "hf-site-agent-vm",
     "runner_service_previously_verified": true,
     "latest_head_live_sync_verified": false,
-    "local_render_service_installed_on_gcp": false
+    "local_render_service_installed_on_gcp": false,
+    "reviewed_remote_render_user_service_template": "deploy/systemd/user/hf-site-agent-media-render@.service",
+    "gcp_local_rendering_allowed": false,
+    "remote_render_live_status_source": "AUTHENTICATED_RUNTIME_HEALTH_CHECK",
+    "remote_render_repository_boolean_is_authoritative": false,
+    "preparation_timer_expected_after_finish_setup": true,
+    "reboot_persistence_requires_new_boot_id_observation": true
   }
 }
