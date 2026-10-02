@@ -38,6 +38,7 @@ MAX_DURATION_SECONDS = float(PACKAGE_POLICY["max_duration_seconds"])
 _IMAGE_EXTENSIONS = "|".join(re.escape(x.lstrip(".")) for x in PACKAGE_POLICY["accepted_image_extensions"])
 IMAGE_NAME = re.compile(rf"images/[0-9a-f]{{64}}\.(?:{_IMAGE_EXTENSIONS})\Z")
 INPUT_NAMES = {"audio.wav", "timing.json", "presentation.json"}
+STARTUP_CODE_HASHES = _worker_code_hashes()
 
 
 class WorkerJobError(RuntimeError):
@@ -189,9 +190,11 @@ def worker_readiness() -> tuple[dict[str, Any], dict[str, Path]]:
         except (OSError, ValueError):
             blockers.append("APPROVED_FONT_UNAVAILABLE")
 
-    code_hashes = {}
+    code_hashes = dict(STARTUP_CODE_HASHES)
     try:
-        code_hashes = _worker_code_hashes()
+        disk_hashes = _worker_code_hashes()
+        if disk_hashes != STARTUP_CODE_HASHES:
+            blockers.append("WORKER_RESTART_REQUIRED_CODE_CHANGED")
     except OSError:
         blockers.append("RENDERER_POLICY_FILES_MISSING")
     if len(code_hashes) != 6:
@@ -282,7 +285,9 @@ def _parse_manifest(raw: bytes) -> dict[str, Any]:
             raise WorkerJobError("FILE_EXCEEDS_TYPE_SIZE_LIMIT")
     code = value.get("worker_code_sha256")
     try:
-        expected_code = _worker_code_hashes()
+        if _worker_code_hashes() != STARTUP_CODE_HASHES:
+            raise WorkerJobError("WORKER_RESTART_REQUIRED_CODE_CHANGED")
+        expected_code = STARTUP_CODE_HASHES
     except OSError as exc:
         raise WorkerJobError("WORKER_CODE_FILES_MISSING") from exc
     pinned_assets = {
@@ -507,6 +512,11 @@ def run_render_job(archive_path: Path, readiness: dict[str, Any], paths: dict[st
         ]
         safe_env = {key: value for key, value in os.environ.items()
                     if key in {"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "TEMP", "TMP"}}
+        try:
+            if _worker_code_hashes() != STARTUP_CODE_HASHES:
+                raise WorkerJobError("WORKER_RESTART_REQUIRED_CODE_CHANGED")
+        except OSError as exc:
+            raise WorkerJobError("WORKER_CODE_FILES_MISSING") from exc
         start = time.monotonic()
         try:
             subprocess.run(command, cwd=ROOT, check=True, timeout=1800,
