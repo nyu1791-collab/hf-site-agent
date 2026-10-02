@@ -229,6 +229,42 @@ class MediaNewsAutomationTests(unittest.TestCase):
         with self.assertRaises(ArticleSourceBlocked):
             _rss_summary_article({**row,"summary":"Too short."})
 
+    def test_high_priority_feed_is_prepared_before_older_low_priority_backlog(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            openai_id="a"*64
+            deepmind_id="b"*64
+            ingest_items(conn,[
+                {"source_id":openai_id,"feed_id":"openai-news","title":"OpenAI article",
+                 "url":"https://openai.com/news/x","summary":TEXT*4,"published":""},
+                {"source_id":deepmind_id,"feed_id":"google-deepmind","title":"DeepMind article",
+                 "url":"https://deepmind.google/blog/x","summary":TEXT*4,"published":""},
+            ])
+            conn.execute("UPDATE source_inbox SET created_at=1 WHERE source_id=?",(deepmind_id,))
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.load_policy",
+                return_value={"feeds":[
+                    {"feed_id":"openai-news","enabled":True,"priority":0},
+                    {"feed_id":"google-deepmind","enabled":True,"priority":10},
+                ]},
+            ), patch(
+                "scripts.media_news_pipeline.process_source",side_effect=ArticleSourceBlocked()
+            ) as process_source, patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=3*1024**3),
+            ):
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"ARTICLE_SOURCE_BLOCKED")
+            self.assertEqual(result["source_id"],deepmind_id)
+            self.assertEqual(process_source.call_args.args[1],deepmind_id)
+            self.assertEqual(conn.execute(
+                "SELECT state FROM source_inbox WHERE source_id=?",(deepmind_id,)
+            ).fetchone()["state"],"SCRIPT_BLOCKED")
+            self.assertEqual(conn.execute(
+                "SELECT state FROM source_inbox WHERE source_id=?",(openai_id,)
+            ).fetchone()["state"],"PREPARATION_REQUIRED")
+            conn.close()
+
     def test_inaccessible_article_with_short_summary_is_skipped_without_retry_loop(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);conn=connect(root/"queue.sqlite3");init_inbox(conn)

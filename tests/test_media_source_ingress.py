@@ -8,7 +8,7 @@ from unittest.mock import patch
 from pathlib import Path
 
 from scripts.durable_media_runner import connect, init_db
-from scripts.media_source_ingress import inbox_status, init_inbox, ingest_items, parse_feed, promote_prepared_job
+from scripts.media_source_ingress import inbox_status, init_inbox, ingest_items, load_policy, parse_feed, promote_prepared_job
 
 
 RSS = b"""<?xml version="1.0"?>
@@ -20,6 +20,18 @@ RSS = b"""<?xml version="1.0"?>
 
 
 class MediaSourceIngressTests(unittest.TestCase):
+    def test_enabled_feeds_use_explicit_https_host_allowlists_and_priorities(self):
+        from urllib.parse import urlsplit
+        feeds=load_policy()["feeds"]
+        enabled={feed["feed_id"]:feed for feed in feeds if feed.get("enabled")}
+        self.assertIn("google-deepmind",enabled)
+        self.assertEqual(enabled["google-deepmind"]["url"],"https://deepmind.google/blog/rss.xml")
+        for feed in enabled.values():
+            parts=urlsplit(feed["url"])
+            self.assertEqual(parts.scheme,"https")
+            self.assertIn(parts.hostname,feed["allowed_hosts"])
+        self.assertGreater(enabled["google-deepmind"]["priority"],enabled["openai-news"]["priority"])
+
     def test_status_exposes_feed_staleness_and_oldest_queue_age(self):
         with tempfile.TemporaryDirectory() as td:
             conn=connect(Path(td)/"queue.sqlite3");init_inbox(conn)

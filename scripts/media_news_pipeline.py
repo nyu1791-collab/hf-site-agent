@@ -35,7 +35,7 @@ from typing import Any, Mapping
 
 from scripts.durable_media_runner import connect
 from scripts.media_render_transport import dispatch_remote_render
-from scripts.media_source_ingress import init_inbox
+from scripts.media_source_ingress import init_inbox, load_policy
 
 ROOT = Path(__file__).resolve().parents[1]
 PIPELINE_POLICY = json.loads((ROOT / "config/media_news_pipeline_policy.json").read_text(encoding="utf-8"))
@@ -714,6 +714,28 @@ def _render_package(args, conn: sqlite3.Connection) -> dict[str, Any]:
         "public_publish_enabled":False}
 
 
+def _next_preparation_candidate(conn: sqlite3.Connection) -> sqlite3.Row | None:
+    """Choose the newest queued article from the highest-priority enabled feed."""
+    priorities = {
+        str(feed["feed_id"]): int(feed.get("priority", 0))
+        for feed in load_policy().get("feeds", [])
+        if feed.get("enabled") is True and feed.get("feed_id")
+    }
+    candidates = conn.execute(
+        "SELECT source_id,state,feed_id,created_at FROM source_inbox "
+        "WHERE state='PREPARATION_REQUIRED'"
+    ).fetchall()
+    if not candidates:
+        return None
+    return max(
+        candidates,
+        key=lambda row: (
+            priorities.get(str(row["feed_id"]), -1),
+            float(row["created_at"]),
+        ),
+    )
+
+
 def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int, max_seconds: int) -> dict[str, Any]:
     conn.execute("""CREATE TABLE IF NOT EXISTS media_news_stage_retry (
         source_id TEXT NOT NULL, stage TEXT NOT NULL, attempts INTEGER NOT NULL,
@@ -739,7 +761,7 @@ def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int
                 "preparation_paused":True, "public_publish_enabled":False}
         row = pending_voice
     else:
-        row = conn.execute("SELECT source_id,state FROM source_inbox WHERE state='PREPARATION_REQUIRED' ORDER BY created_at LIMIT 1").fetchone()
+        row = _next_preparation_candidate(conn)
     if row is None:
         return {"status":"IDLE"}
     disk_anchor = workspace if workspace.exists() else workspace.parent

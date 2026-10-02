@@ -5,12 +5,16 @@
   "source_ingress_policy": "config/media_source_ingress_policy.json",
   "article_hosts": [
     "openai.com",
-    "www.openai.com"
+    "www.openai.com",
+    "deepmind.google"
   ],
   "poll_interval_seconds": 300,
   "voice_retry": {
     "maximum_attempts": 3,
-    "retry_delays_seconds": [60, 300],
+    "retry_delays_seconds": [
+      60,
+      300
+    ],
     "state_after_exhaustion": "VOICE_BLOCKED",
     "manual_requeue_command": "python -m scripts.media_news_pipeline --db <queue.db> --workspace <workspace> retry-voice --source-id <source_id>"
   },
@@ -50,7 +54,8 @@
     "openai.com",
     "www.openai.com",
     "cdn.openai.com",
-    "images.ctfassets.net"
+    "images.ctfassets.net",
+    "deepmind.google"
   ],
   "scene_count": [
     3,
