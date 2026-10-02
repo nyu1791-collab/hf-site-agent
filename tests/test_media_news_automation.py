@@ -157,7 +157,7 @@ class MediaNewsAutomationTests(unittest.TestCase):
             self.assertFalse(result["automatic_retry"])
             paid.assert_called_once()
             self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],
-                "PREPARATION_REQUIRED")
+                "SCRIPT_BLOCKED")
             conn.close()
 
     def test_per_call_paid_budget_error_is_returned_as_a_queued_block(self):
