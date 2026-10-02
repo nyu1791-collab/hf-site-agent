@@ -1,18 +1,24 @@
-# Durable Media Automation — Small Coordinator, External Media Worker
+# Durable Media Automation — VPS News Preparation
 
-For the single-VM 2 GiB layout that preserves the existing `runtime/media-queue.sqlite3`, see [GCP_SMALL_HOST_DEPLOYMENT.md](GCP_SMALL_HOST_DEPLOYMENT.md). That local setup is the primary fit when no separate Linux worker is available; the remote renderer below is optional.
+For the currently selected deployment path, read [VPS_MEDIA_NEWS_AUTOMATION.md](VPS_MEDIA_NEWS_AUTOMATION.md). The GCP-specific small-host guide is historical and does not identify the current VPS provider.
+
+## Current user-reported status (2026-10-02)
+
+The user-provided SSH screenshots show `Linger=yes` and the news timer reported `active`. They do not prove that the current PR branch is installed, that the timer is `enabled` for reboot, or that RSS, DeepSeek, VOICEVOX, and MP4 end-to-end processing succeeded. PR #40 remains open, draft, and unmerged; this change has not been deployed to the VPS.
+
+The pipeline uses the exact OpenRouter model `deepseek/deepseek-v4.1-flash` only for official-RSS Japanese script drafting. Its hard reservation limits are USD 0.05 per call, USD 0.10 per UTC day, USD 0.50 per UTC month, and five paid calls per UTC day. It never falls back to another model, retries an uncertain paid request, or tops up credit. No ChatGPT API is required.
 
 ## What this branch implements
 
-- `scripts/media_source_daemon.py` polls the configured official RSS feed every 5 minutes using conditional requests, normalizes entries and deduplicates them into SQLite/WAL. Polling only creates inbox records; it does not start a render or publish.
-- `scripts/media_news_pipeline.py process-next` handles at most one queued article per run: fetch the allowlisted article, make one exact-`:free` script request, synthesize narration, and download image candidates. The daily model-call cap, zero-cost response check, and no-paid-fallback rule remain active.
+- `scripts/media_source_daemon.py` polls the configured official RSS feed every five minutes using conditional requests, normalizes entries, and deduplicates them into SQLite/WAL. Polling creates inbox records; it does not publish.
+- `scripts/media_news_pipeline.py process-next` handles at most one queued article per run: it fetches an allowlisted article, drafts a source-backed Japanese script with the exact paid DeepSeek route above, synthesizes narration locally, and downloads official image candidates.
+- The optional exact-free reviewer can only return advisory PASS/FLAG output. It cannot rewrite or block the paid script, and if free route verification fails it is skipped.
 - VOICEVOX runs locally by default. An optional SSH reverse tunnel can move VOICEVOX inference to an already available computer while the coordinator calls only a loopback URL. The tunnel is optional and has not been connected to a live host in this change.
-- Audio and timing are hash-checked and reused when their inputs are unchanged. A VOICEVOX failure retries after 60 seconds and 5 minutes, then moves the item to `VOICE_BLOCKED`. Once the connection is repaired, requeue that item with the `retry-voice` subcommand.
-- Queue preparation pauses at the first voice failure or human rights-review boundary, and when workspace free disk falls below 2 GiB. It does not delete packages to recover space.
-- The systemd preparation service stores per-line WAV cache data under `/var/lib/hf-site-agent/voice-cache`, outside the read-only repository checkout. Local deployments can set `VOICEVOX_CACHE_DIR` to another persistent writable directory.
-- Downloaded images stay `REVIEW_REQUIRED`. A human must record the reuse basis, evidence URL and credit before render. A successful local render ends at `READY_TO_PUBLISH`; posting is not implemented.
-- `scripts/media_render_worker.py` and `scripts/media_render_transport.py` implement a bounded render handoff. `render --remote-render` sends one reviewed package through a loopback-only SSH reverse tunnel, checks pinned code/shell/font hashes, and verifies the returned MP4 before advancing the queue.
-- The source poller and preparation timer templates both use a 5-minute interval. The worker and tunnel systemd files are templates only. No VPS, worker credentials, SSH account, external worker or continuous uptime is configured or verified by this change; live status remains `IMPLEMENTED_NOT_CONNECTED`.
+- Audio and timing are hash-checked and reused when inputs are unchanged. A VOICEVOX failure retries after 60 seconds and five minutes, then moves the item to `VOICE_BLOCKED`.
+- Queue preparation pauses at the human rights-review boundary and when workspace free disk falls below 2 GiB. It does not delete packages to recover space.
+- Downloaded images stay `REVIEW_REQUIRED`. A human must record reuse basis, evidence URL, and credit before render. Posting is not implemented.
+- Remote render is an optional, explicit handoff through a loopback-only SSH reverse tunnel. It is not connected or verified on the VPS.
+- User-provided screenshots report Linger and timer state as active; current deployment, reboot persistence, RSS success, paid API execution, voice synthesis, final MP4, and continuous uptime remain unverified. See the VPS runbook for one-shot checks.
 
 ## Which work happens on which machine
 
@@ -151,9 +157,9 @@ python -m scripts.media_news_pipeline --db runtime/media-queue.sqlite3 --workspa
 
 The output is local and remains at `READY_TO_PUBLISH`.
 
-## Host installation (not performed)
+## System service installation templates (not performed by this PR)
 
-The coordinator systemd examples assume a dedicated Linux account `hf-site-agent`, a checkout at `/opt/hf-site-agent`, and persistent storage at `/var/lib/hf-site-agent`. The remote worker template assumes a separate unprivileged account `hf-render-worker`. Install units only on the corresponding hosts and set restrictive permissions on all protected environment and SSH files. Do not enable public posting, automatic top-up or paid fallback.
+These root-level service examples assume a dedicated Linux account `hf-site-agent`, a checkout at `/opt/hf-site-agent`, and persistent storage at `/var/lib/hf-site-agent`. They are separate from the user's reported systemd user timer and are not the current VPS deployment path. The remote worker template assumes a separate unprivileged account `hf-render-worker`. Install units only on the corresponding hosts and set restrictive permissions on all protected environment and SSH files. Do not enable public posting, automatic top-up or paid fallback.
 
 ```bash
 sudo install -m 0644 deploy/systemd/hf-site-agent-media-source.service /etc/systemd/system/
