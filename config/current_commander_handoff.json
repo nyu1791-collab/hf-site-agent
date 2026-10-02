@@ -646,6 +646,7 @@
       "MINIMUM_FREE_DISK",
       "QUEUE_READABLE",
       "AUTHORITATIVE_RSS_ALL_ENABLED_FEEDS_FRESH",
+      "AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT",
       "REBOOT_PERSISTENCE_VERIFIED",
       "AUTHENTICATED_EXTERNAL_RENDER_HEALTH",
       "VERIFIED_SAVED_MP4_ON_CURRENT_CONNECTED_WORKER_STACK"
@@ -662,6 +663,7 @@
     "remote_render_worker_restart_required_after_disk_code_change": true,
     "remote_render_worker_private_state_dirs_required": true,
     "saved_remote_render_db_recovery_is_idempotent": true,
-    "current_e2e_completion_requires_connected_worker_fingerprint_match": true
+    "current_e2e_completion_requires_connected_worker_fingerprint_match": true,
+    "authoritative_rss_must_be_observed_after_current_boot": true
   }
 }
