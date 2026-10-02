@@ -95,6 +95,23 @@ class GcpSmallHostActivationTests(unittest.TestCase):
                 )
                 self.assertIn(expected, blockers)
 
+    def test_insecure_media_env_is_blocked_without_reading_contents(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root, home = Path(temp) / "repo", Path(temp) / "home"
+            root.mkdir(); home.mkdir()
+            name = self._prepared(root, home)
+            env = home / ".config/hf-site-agent/media.env"
+            os.chmod(env, 0o644)
+            with patch(
+                "scripts.install_gcp_small_host_services._env_file_values",
+                side_effect=AssertionError("insecure secret file must not be read"),
+            ):
+                blockers = preflight(
+                    root=root, home=home, instance_name=name, project_id="test-project",
+                    branch="ai-army/provider-v3", free_bytes=3 * 1024**3,
+                )
+            self.assertIn("PROTECTED_MEDIA_ENV_PERMISSIONS_INVALID", blockers)
+
     def test_remote_engine_does_not_require_local_installation(self):
         self.assertEqual(self._case(remote=True, ready=True), [])
 
