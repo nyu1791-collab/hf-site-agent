@@ -1,6 +1,6 @@
 {
   "schema_version": "media-render-worker-policy-v1",
-  "status": "IMPLEMENTED_NOT_CONNECTED",
+  "status": "IMPLEMENTED_LIVE_HEALTH_REQUIRED",
   "purpose": "Run one previously reviewed render package on a separate Linux worker without exposing a public media service or sharing coordinator state.",
   "protocol": "media-render-handoff-v1",
   "transport": {
@@ -10,7 +10,10 @@
     "port": 18765,
     "worker_work_dir": "/var/lib/hf-render-worker",
     "worker_work_dir_environment": "MEDIA_RENDER_WORK_DIR",
-    "http_paths": ["/healthz", "/v1/render"],
+    "http_paths": [
+      "/healthz",
+      "/v1/render"
+    ],
     "shared_bearer_token_required": true,
     "shared_token_environment": "MEDIA_RENDER_SHARED_TOKEN",
     "public_listener_allowed": false,
@@ -19,7 +22,13 @@
   },
   "package": {
     "only_selected_rights_cleared_images": true,
-    "required_asset_fields": ["rights_verified", "rights_basis", "rights_evidence_url", "credit", "sha256"],
+    "required_asset_fields": [
+      "rights_verified",
+      "rights_basis",
+      "rights_evidence_url",
+      "credit",
+      "sha256"
+    ],
     "include_database_or_provider_credentials": false,
     "max_input_bytes": 268435456,
     "max_output_bytes": 536870912,
@@ -30,7 +39,12 @@
     "response_archive_overhead_bytes": 1048576,
     "max_duration_seconds": 300,
     "max_selected_images": 8,
-    "accepted_image_extensions": [".jpg", ".jpeg", ".png", ".webp"],
+    "accepted_image_extensions": [
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".webp"
+    ],
     "archive_path_traversal_allowed": false,
     "symbolic_or_hard_links_allowed": false
   },
@@ -61,9 +75,11 @@
     "public_publish_enabled": false
   },
   "live_connection": {
-    "external_renderer_worker_connected": false,
-    "ssh_tunnel_configured": false,
-    "worker_host_verified": false,
-    "connection_requires_separately_provisioned_worker_and_restricted_ssh_account": true
+    "external_renderer_worker_connected": "LIVE_PROBE_REQUIRED",
+    "ssh_tunnel_configured": "LIVE_PROBE_REQUIRED",
+    "worker_host_verified": "LIVE_PROBE_REQUIRED",
+    "source_of_truth": "python -m scripts.media_render_transport --check",
+    "connection_requires_separately_provisioned_worker_and_restricted_ssh_account": true,
+    "static_policy_flags_must_not_be_used_as_live_status": true
   }
 }
