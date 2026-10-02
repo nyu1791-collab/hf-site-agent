@@ -13,6 +13,7 @@ import shutil
 import sqlite3
 import stat
 import subprocess
+import time
 from datetime import datetime, timezone
 import sys
 from typing import Any
@@ -172,6 +173,47 @@ def _db_integrity(path: Path) -> bool:
         return False
 
 
+def _authoritative_source_ingress_fresh(root: Path, database: Path, host_policy: dict[str, Any]) -> bool:
+    """Verify the separately scheduled RSS poller is alive without running a second poller."""
+    runtime = host_policy.get("runtime_layout") or {}
+    if runtime.get("existing_rss_cron_is_authoritative") is not True:
+        return False
+    try:
+        ingress = _read_json(root / "config/media_source_ingress_policy.json")
+        stale_after = int(ingress.get("stale_after_seconds", 0))
+        enabled = {
+            str(feed["feed_id"]) for feed in ingress.get("feeds", [])
+            if isinstance(feed, dict) and feed.get("enabled") is True and feed.get("feed_id")
+        }
+        if stale_after <= 0 or not enabled or ingress.get("live_daemon_enabled") is not False:
+            return False
+        uri = database.resolve().as_uri() + "?mode=ro"
+        with sqlite3.connect(uri, uri=True, timeout=3) as conn:
+            conn.row_factory = sqlite3.Row
+            table = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='source_feed_state'"
+            ).fetchone()
+            if table is None:
+                return False
+            rows = {
+                str(row["feed_id"]): row
+                for row in conn.execute(
+                    "SELECT feed_id,last_checked_at,last_status FROM source_feed_state"
+                )
+            }
+        now = time.time()
+        for feed_id in enabled:
+            row = rows.get(feed_id)
+            if row is None or row["last_status"] not in {"OK", "NOT_MODIFIED"}:
+                return False
+            age = now - float(row["last_checked_at"])
+            if age < 0 or age > stale_after:
+                return False
+        return True
+    except (OSError, ValueError, TypeError, KeyError, sqlite3.Error):
+        return False
+
+
 def preflight(
     *,
     root: Path = ROOT,
@@ -241,6 +283,8 @@ def preflight(
     database = runtime / "media-queue.sqlite3"
     if not _db_integrity(database):
         blockers.append("EXISTING_QUEUE_DATABASE_MISSING_OR_INVALID")
+    elif not _authoritative_source_ingress_fresh(root, database, host):
+        blockers.append("AUTHORITATIVE_RSS_POLLER_STALE_OR_MISSING")
     minimum_free = int(host.get("resource_controls", {}).get("minimum_workspace_free_bytes", 0))
     available = free_bytes if free_bytes is not None else shutil.disk_usage(runtime if runtime.exists() else home).free
     if available < minimum_free:
