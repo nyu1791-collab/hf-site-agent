@@ -70,9 +70,12 @@ def parse_feed(content: bytes, feed_id: str) -> list[dict[str, str]]:
         link = _https_link(link or fields.get("link", ""))
         identity = (fields.get("guid") or fields.get("id") or link).strip()
         source_id = hashlib.sha256(f"{feed_id}\0{identity}".encode()).hexdigest()
+        summary_candidates = [
+            _text(fields.get(key, ""), 4000) for key in ("description", "summary", "encoded")
+        ]
         result.append({
             "source_id": source_id, "feed_id": feed_id, "title": _text(fields.get("title", ""), 500) or link,
-            "url": link, "summary": _text(fields.get("description") or fields.get("summary") or fields.get("encoded", ""), 4000),
+            "url": link, "summary": max(summary_candidates, key=len, default=""),
             "published": _text(fields.get("pubdate") or fields.get("published") or fields.get("updated", ""), 80),
         })
         if len(result) == MAX_ITEMS:
@@ -128,6 +131,21 @@ def ingest_items(conn: sqlite3.Connection, items: list[Mapping[str, str]]) -> di
             (item["source_id"], item["feed_id"], item["title"], item["url"],
              item.get("summary", ""), item.get("published", ""), now, now))
             added += cur.rowcount
+            if cur.rowcount == 0:
+                # Feed items can be reissued with a richer content:encoded body. Refresh
+                # unresolved rows and release short-summary blocks only after enrichment.
+                existing = conn.execute(
+                    "SELECT summary,state FROM source_inbox WHERE source_id=?",
+                    (item["source_id"],),
+                ).fetchone()
+                incoming_summary = item.get("summary", "")
+                if existing is not None and len(incoming_summary) > len(existing["summary"] or ""):
+                    next_state = existing["state"]
+                    if existing["state"] == "SCRIPT_BLOCKED" and len(incoming_summary) >= 300:
+                        next_state = "PREPARATION_REQUIRED"
+                    conn.execute("""UPDATE source_inbox SET title=?,summary=?,state=?,updated_at=?
+                        WHERE source_id=?""",
+                        (item["title"], incoming_summary, next_state, now, item["source_id"]))
         conn.execute("COMMIT")
     except BaseException:
         conn.execute("ROLLBACK")
