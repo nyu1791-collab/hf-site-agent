@@ -79,8 +79,8 @@
       "policy": "config/media_news_pipeline_policy.json#/paid_script_generation",
       "runtime": "scripts/media_news_pipeline.py",
       "per_call_estimate_cap_usd": "0.05",
-      "reserved_daily_cost_cap_usd": "0.10",
-      "max_paid_calls_per_utc_day": 5,
+      "reserved_daily_cost_cap_usd": "1.00",
+      "max_paid_calls_per_utc_day": 20,
       "exact_free_review_policy": "config/media_news_pipeline_policy.json#/free_script_review",
       "paid_fallback": false,
       "provider_fallback": false,
@@ -89,10 +89,10 @@
       "paid_video_or_image_generation": false,
       "paid_tts_or_editing": false,
       "auto_publish": false,
-      "reserved_monthly_cost_cap_usd": "0.50",
+      "reserved_monthly_cost_cap_usd": "10.00",
       "monthly_budget_boundary": "UTC_CALENDAR_MONTH",
       "budget_applies_to": "ALL_RESERVED_CALLS_FOR_THIS_RESIDENT_NEWS_ROUTE",
-      "user_instruction_date_jst": "2026-10-02"
+      "user_instruction_date_jst": "2026-10-03"
     }
   },
   "cross_tab_continuity": {

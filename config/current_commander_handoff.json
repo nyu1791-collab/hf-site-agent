@@ -24,17 +24,17 @@
         "rule": "A paid candidate is eligible only when fresh price, task benchmark, required features, account state and shared-budget evidence pass; paid fallback and top-up stay disabled."
       },
       "resident_news_script": {
-        "user_authorized_on_jst": "2026-10-02",
+        "user_authorized_on_jst": "2026-10-03",
         "provider": "openrouter",
         "exact_model": "deepseek/deepseek-v4.1-flash",
         "scope": "OFFICIAL_RSS_NEWS_SCRIPT_DRAFTING_TEXT_ONLY",
         "policy": "config/media_news_pipeline_policy.json#/paid_script_generation",
         "budget_caps_usd": {
           "per_call_estimated": "0.05",
-          "per_utc_day_reserved": "0.10",
-          "per_utc_month_reserved": "0.50"
+          "per_utc_day_reserved": "1.00",
+          "per_utc_month_reserved": "10.00"
         },
-        "max_calls_per_utc_day": 5,
+        "max_calls_per_utc_day": 20,
         "auto_top_up": false,
         "paid_fallback": false,
         "public_publish": false,
@@ -606,9 +606,9 @@
       "provider": "openrouter",
       "model": "deepseek/deepseek-v4.1-flash",
       "per_call_estimate_cap_usd": "0.05",
-      "daily_reserved_cost_cap_usd": "0.10",
-      "monthly_reserved_cost_cap_usd": "0.50",
-      "max_calls_per_utc_day": 5,
+      "daily_reserved_cost_cap_usd": "1.00",
+      "monthly_reserved_cost_cap_usd": "10.00",
+      "max_calls_per_utc_day": 20,
       "paid_fallback": false,
       "auto_top_up": false,
       "public_publish": false

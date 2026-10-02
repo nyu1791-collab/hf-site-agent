@@ -127,7 +127,7 @@ class MediaNewsAutomationTests(unittest.TestCase):
             root=Path(td);conn=connect(root/"q.sqlite3");init_inbox(conn)
             source_id="c"*64
             ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title","url":"https://openai.com/news/x","summary":"","published":""}])
-            for i in range(5):
+            for i in range(PIPELINE_POLICY["paid_script_generation"]["maximum_calls_per_utc_day"]):
                 _reserve_paid_call(conn, "paid-call-"+str(i), __import__("decimal").Decimal("0.001"),
                     "deepseek/deepseek-v4.1-flash", __import__("decimal").Decimal("0.000000015"),
                     __import__("decimal").Decimal("0.0000012"))
@@ -294,12 +294,12 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertFalse(small_host["execution"]["render_timer_enabled_by_default"])
         self.assertEqual(pipeline_policy["paid_script_generation"]["model"],"deepseek/deepseek-v4.1-flash")
         self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_estimated_cost_per_call_usd"],"0.05")
-        self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_reserved_cost_per_utc_day_usd"],"0.10")
-        self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_reserved_cost_per_utc_month_usd"],"0.50")
+        self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_reserved_cost_per_utc_day_usd"],"1.00")
+        self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_reserved_cost_per_utc_month_usd"],"10.00")
         self.assertEqual(fast_path["extracted_pipeline"]["article_to_media_staging"]["script_route"],
             "deepseek/deepseek-v4.1-flash")
         self.assertEqual(fast_path["extracted_pipeline"]["article_to_media_staging"]["monthly_reserved_cost_cap_usd"],
-            "0.50")
+            "10.00")
         self.assertFalse(pipeline_policy["paid_script_generation"]["automatic_paid_fallback"])
         self.assertFalse(pipeline_policy["paid_script_generation"]["automatic_retry_after_request"])
         self.assertEqual(pipeline_policy["free_script_review"]["route_requirement"],"EXACT_ZERO_COST_FREE_MODEL_ONLY")

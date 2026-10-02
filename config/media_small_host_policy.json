@@ -92,7 +92,7 @@
     "repository_live_status_is_authoritative": false
   },
   "provider_and_cost_gates": {
-    "daily_model_call_cap": 5,
+    "daily_model_call_cap": 20,
     "paid_fallback_allowed": false,
     "automatic_top_up": false,
     "image_generation_allowed": false,

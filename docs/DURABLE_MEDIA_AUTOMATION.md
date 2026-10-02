@@ -6,7 +6,7 @@ The currently selected always-on coordinator target is the existing Google Compu
 
 The user-provided SSH screenshots show `Linger=yes` and the news timer reported `active`. They do not prove that the current PR branch is installed, that the timer is `enabled` for reboot, or that RSS, DeepSeek, VOICEVOX, and MP4 end-to-end processing succeeded. PR #40 remains open, draft, and unmerged; the latest branch revision has not yet been reverified on the live GCP VM.
 
-The pipeline uses the exact OpenRouter model `deepseek/deepseek-v4.1-flash` only for official-RSS Japanese script drafting. Its hard reservation limits are USD 0.05 per call, USD 0.10 per UTC day, USD 0.50 per UTC month, and five paid calls per UTC day. It never falls back to another model, retries an uncertain paid request, or tops up credit. No ChatGPT API is required.
+The pipeline uses the exact OpenRouter model `deepseek/deepseek-v4.1-flash` only for official-RSS Japanese script drafting. Its hard reservation limits are USD 0.05 per call, USD 1.00 per UTC day, USD 10.00 per UTC month, and 20 paid calls per UTC day. It never falls back to another model, retries an uncertain paid request, or tops up credit. No ChatGPT API is required.
 
 ## What this branch implements
 

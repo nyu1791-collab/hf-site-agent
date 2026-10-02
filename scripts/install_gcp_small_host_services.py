@@ -251,9 +251,9 @@ def preflight(
         and paid.get("provider") == "openrouter"
         and paid.get("model") == "deepseek/deepseek-v4.1-flash"
         and paid.get("maximum_estimated_cost_per_call_usd") == "0.05"
-        and paid.get("maximum_reserved_cost_per_utc_day_usd") == "0.10"
-        and paid.get("maximum_reserved_cost_per_utc_month_usd") == "0.50"
-        and paid.get("maximum_calls_per_utc_day") == 5
+        and paid.get("maximum_reserved_cost_per_utc_day_usd") == "1.00"
+        and paid.get("maximum_reserved_cost_per_utc_month_usd") == "10.00"
+        and paid.get("maximum_calls_per_utc_day") == 20
         and paid.get("automatic_paid_fallback") is False
         and paid.get("automatic_provider_fallback") is False
         and paid.get("automatic_paid_sibling_substitution") is False
