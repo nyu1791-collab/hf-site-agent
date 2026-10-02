@@ -135,6 +135,7 @@ def validate(root: Path = ROOT) -> list[str]:
         and transport.get("public_artifact_service_allowed") is False
         and transport.get("network_filesystem_allowed") is False
         and transport.get("shared_bearer_token_required") is True
+        and transport.get("request_inactivity_timeout_seconds") == 30
         and package.get("include_database_or_provider_credentials") is False
     ):
         blockers.append("RENDER_TRANSPORT_BOUNDARY_INVALID")
@@ -156,6 +157,7 @@ def validate(root: Path = ROOT) -> list[str]:
         and render_verify.get("exact_request_id_replay_blocked") is True
         and render_verify.get("request_id_reserved_before_render") is True
         and render_verify.get("worker_state_directories_owner_private_required") is True
+        and render_verify.get("worker_jobs_directory_owner_private_required") is True
         and render_verify.get("replay_ledger_persistent_across_worker_restarts") is True
         and render_verify.get("health_reports_running_process_code_fingerprints") is True
         and render_verify.get("disk_code_change_requires_worker_restart") is True
