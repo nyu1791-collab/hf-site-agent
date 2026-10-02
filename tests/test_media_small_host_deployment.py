@@ -56,7 +56,7 @@ class MediaSmallHostDeploymentTests(unittest.TestCase):
         source_service = (ROOT / "deploy/systemd/hf-site-agent-media-source.service").read_text()
         self.assertIn("--interval-seconds 300", source_service)
 
-    def test_local_render_shell_and_font_can_come_from_protected_environment(self):
+    def test_render_asset_paths_can_come_from_protected_environment(self):
         with patch.dict(os.environ, {"MEDIA_RENDER_SHELL": "~/approved/shell",
                                      "MEDIA_RENDER_FONT": "/srv/fonts/approved.ttf"}):
             self.assertEqual(_render_asset_from_env("MEDIA_RENDER_SHELL"), Path.home() / "approved/shell")
