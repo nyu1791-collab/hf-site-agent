@@ -76,6 +76,10 @@ class ArticleSourceBlocked(RuntimeError):
     """The article is inaccessible and its stored RSS summary is insufficient."""
 
 
+class OpenRouterRequestError(RuntimeError):
+    """A non-retryable HTTP error returned by the OpenRouter completion API."""
+
+
 @contextmanager
 def _pipeline_lock(db_path: Path):
     db_path = db_path.resolve()
@@ -683,7 +687,7 @@ def _post_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, Any]:
         else:
             reason = "UPSTREAM_ERROR"
         # In particular, never retry 429 and never fall back to a paid model.
-        raise RuntimeError(f"OpenRouter request failed with HTTP {exc.code} ({reason})") from None
+        raise OpenRouterRequestError(f"OpenRouter request failed with HTTP {exc.code} ({reason})") from None
 
 
 def download_article_image(url: str, dest_dir: Path, *, allowed_hosts: set[str]) -> dict[str, Any]:
@@ -1189,7 +1193,7 @@ def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int
             return {"status":"SCRIPT_BLOCKED_PAID_ATTEMPT_UNKNOWN","source_id":row["source_id"],
                 "request_may_have_been_sent":True,"automatic_retry":False,"will_try_next_source":True,
                 "public_publish_enabled":False}
-        except RuntimeError as exc:
+        except OpenRouterRequestError as exc:
             match = re.fullmatch(r"OpenRouter request failed with HTTP (\d+) \(([A-Z_]+)\)", str(exc))
             if match is None:
                 raise
