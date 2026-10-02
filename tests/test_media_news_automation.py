@@ -152,7 +152,7 @@ class MediaNewsAutomationTests(unittest.TestCase):
             ), patch("scripts.media_news_pipeline.process_source",
                 side_effect=PaidMediaAlreadyAttempted("reserved")) as paid:
                 result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
-            self.assertEqual(result["status"],"BLOCKED_PAID_ATTEMPT_REQUIRES_REVIEW")
+            self.assertEqual(result["status"],"SCRIPT_BLOCKED_PAID_ATTEMPT_UNKNOWN")
             self.assertTrue(result["request_may_have_been_sent"])
             self.assertFalse(result["automatic_retry"])
             paid.assert_called_once()
