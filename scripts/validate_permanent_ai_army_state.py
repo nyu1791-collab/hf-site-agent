@@ -156,10 +156,11 @@ def main() -> int:
     staging = ((automation.get("extracted_pipeline") or {}).get("article_to_media_staging") or {})
     require(staging.get("gcp_local_video_rendering_allowed") is False, "fast path regained GCP local render")
     require(staging.get("final_ffmpeg_render_offloaded") is True, "final FFmpeg render is no longer offloaded")
-    remote = staging.get("optional_remote_render_handoff") or {}
+    remote = staging.get("external_render_handoff") or {}
     require(remote.get("status") == "IMPLEMENTED_LIVE_HEALTH_REQUIRED", "remote render reverted to static connection status")
     require(remote.get("live_status_is_repository_state") is False, "repository state is being treated as live render status")
     require(remote.get("automatic_local_fallback") is False, "remote render may fall back to GCP local rendering")
+    require(remote.get("required_for_final_video_completion") is True, "required external render handoff became optional")
 
     live = render_worker.get("live_connection") or {}
     require(render_worker.get("status") == "IMPLEMENTED_LIVE_HEALTH_REQUIRED", "render worker status lost live-health requirement")
