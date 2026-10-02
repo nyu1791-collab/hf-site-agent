@@ -60,6 +60,14 @@
     "local_video_rendering_on_gcp_allowed": false,
     "performance_measurement_required_before_claiming_five_minute_sla": true
   },
+  "runner_control_plane": {
+    "repository": "nyu1791-collab/-hf-vm-control",
+    "runner_name": "hf-site-agent-vm",
+    "runner_service_required_after_reboot": true,
+    "workflow_is_manual_only": true,
+    "status_operation_must_report_runner_timer_queue_and_blockers": true,
+    "registration_token_must_never_be_committed_or_logged": true
+  },
   "provider_and_cost_gates": {
     "openrouter_exact_free_route_only": true,
     "daily_model_call_cap": 5,
