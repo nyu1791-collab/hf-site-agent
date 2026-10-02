@@ -1,6 +1,6 @@
-# Durable Media Automation — VPS News Preparation
+# Durable Media Automation — 24-hour coordinator and external render worker
 
-For the currently selected deployment path, read [VPS_MEDIA_NEWS_AUTOMATION.md](VPS_MEDIA_NEWS_AUTOMATION.md). The GCP-specific small-host guide is historical and does not identify the current VPS provider.
+The currently selected always-on coordinator target is the existing Google Compute Engine VM described in [GCP_SMALL_HOST_DEPLOYMENT.md](GCP_SMALL_HOST_DEPLOYMENT.md). The GCP VM owns the queue, timer, agent preparation, checkpoints, and private self-hosted Runner; it is not the video-render machine. [VPS_MEDIA_NEWS_AUTOMATION.md](VPS_MEDIA_NEWS_AUTOMATION.md) remains an alternative deployment note and must not override the current GCP coordinator role.
 
 ## Current user-reported status (2026-10-02)
 
