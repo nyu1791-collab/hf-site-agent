@@ -93,6 +93,9 @@
     "required_billing_status": "ACTIVE",
     "source": "GOOGLE_CLOUD_BILLING_CONSOLE",
     "auto_top_up_enabled": false,
-    "unknown_or_stale_action": "BLOCK_TIMER_ACTIVATION"
+    "unknown_or_stale_action": "BLOCK_TIMER_ACTIVATION",
+    "allow_existing_vm_preparation_when_forecast_unavailable": true,
+    "forecast_unavailable_status": "UNAVAILABLE_INSUFFICIENT_HISTORY",
+    "forecast_unavailable_scope": "Existing configured VM only; no VM creation or resize, paid model fallback, auto top-up, or public publishing."
   }
 }
