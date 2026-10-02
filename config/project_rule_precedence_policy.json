@@ -20,6 +20,8 @@
     "public_publish": false,
     "secret_mutation_or_display": false,
     "auto_top_up": false,
-    "vps_service_deployment": "AUTHORIZED_FOR_EXISTING_GCP_VM_AFTER_READ_ONLY_PREFLIGHT"
+    "gcp_coordinator_service_activation": "AUTHORIZED_FOR_EXISTING_GCP_VM_AFTER_READ_ONLY_PREFLIGHT",
+    "gcp_local_video_rendering": false,
+    "external_render_requires_live_authenticated_worker": true
   }
 }
