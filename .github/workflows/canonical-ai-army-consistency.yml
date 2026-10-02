@@ -57,6 +57,8 @@ on:
       - 'deploy/systemd/hf-site-agent-media-news.timer'
       - 'deploy/systemd/user/hf-site-agent-media-news.service'
       - 'deploy/systemd/user/hf-site-agent-media-news.timer'
+      - 'deploy/systemd/user/hf-site-agent-media-render@.service'
+      - 'deploy/systemd/user/hf-site-agent-media-render-check.service'
       - 'deploy/systemd/hf-render-worker.service'
       - 'deploy/systemd/hf-render-worker-check.service'
       - 'deploy/systemd/hf-render-worker-tunnel.service'
