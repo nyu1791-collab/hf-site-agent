@@ -82,6 +82,8 @@
     "authenticated_loopback_health_check_required": true,
     "systemd_health_check_unit": "hf-site-agent-media-render-check.service",
     "coordinator_loopback_port": 18765,
-    "connection_requires_separately_provisioned_worker_and_restricted_ssh_account": true
+    "connection_requires_separately_provisioned_worker_and_restricted_ssh_account": true,
+    "source_of_truth": "python -m scripts.media_render_transport --check",
+    "static_policy_flags_must_not_be_used_as_live_status": true
   }
 }
