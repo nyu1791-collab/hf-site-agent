@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, base64, gzip, hashlib, json, os, re, subprocess, urllib.parse, urllib.request
+import argparse, base64, gzip, hashlib, json, os, re, subprocess, sys, urllib.parse, urllib.request
 from pathlib import Path
 
 try:
