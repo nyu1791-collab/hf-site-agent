@@ -454,7 +454,8 @@
     "optional_style_profiles_scope": "ONLY_ON_USER_REQUEST_FOR_MATCHING_STYLE",
     "paid_text_only_rss_script_exception": "config/media_news_pipeline_policy.json#/paid_script_generation; does not include paid video/image/TTS or public publishing",
     "resident_news_script_exception_survives_tab_change": true,
-    "vps_operations_doc": "docs/VPS_MEDIA_NEWS_AUTOMATION.md"
+    "vps_operations_doc": "docs/VPS_MEDIA_NEWS_AUTOMATION.md",
+    "gcp_operations_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md"
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
@@ -683,7 +684,8 @@
     "existing_gcp_small_host_preflight_survives_tab_change": true,
     "live_billing_credit_must_be_rechecked_before_persistent_activation": true,
     "resident_news_deepseek_route_survives_tab_change": true,
-    "user_designated_existing_vps_is_runtime_target": true
+    "user_designated_existing_vps_is_runtime_target": false,
+    "existing_gcp_coordinator_is_runtime_target": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",
@@ -755,7 +757,7 @@
     "policy": "config/media_automation_fast_path.json",
     "runner": "scripts/durable_media_runner.py",
     "operations_doc": "docs/DURABLE_MEDIA_AUTOMATION.md",
-    "status": "USER_REPORTED_LINGER_YES_AND_NEWS_TIMER_ACTIVE; CURRENT_PR_PATCH_NOT_DEPLOYED; LIVE_END_TO_END_UNVERIFIED",
+    "status": "GCP_COORDINATOR_REPOSITORY_ALIGNED; RUNNER_PREVIOUSLY_VERIFIED; LATEST_HEAD_SYNC_AND_LIVE_E2E_UNVERIFIED",
     "live_rss_polling_connected": false,
     "vps_daemon_deployed": false,
     "public_publish_authorized": false,
@@ -807,7 +809,7 @@
     ],
     "voice_block_recovery_command": "retry-voice",
     "small_host_profile": "config/media_small_host_policy.json",
-    "small_host_operations_doc": "docs/VPS_MEDIA_NEWS_AUTOMATION.md",
+    "small_host_operations_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
     "small_host_target_machine_type": "e2-small",
     "small_host_target_memory_gib": 2,
     "existing_rss_cron_preserved": true,
@@ -815,23 +817,31 @@
     "local_news_user_timer_template": "deploy/systemd/user/hf-site-agent-media-news.timer",
     "local_render_user_service_template": "deploy/systemd/user/hf-site-agent-media-render@.service",
     "local_voicevox_starts_only_for_synthesis": true,
-    "local_renderer_is_on_demand": true,
+    "local_renderer_is_on_demand": false,
     "queue_backpressure": "config/media_news_pipeline_policy.json#/resource_backpressure",
     "one_unresolved_package_per_queue": true,
     "minimum_free_disk_bytes": 2147483648,
     "automatic_artifact_deletion": false,
-    "local_small_host_live_status": "IMPLEMENTED_NOT_DEPLOYED",
-    "final_ffmpeg_render_offloaded": false,
+    "local_small_host_live_status": "RUNNER_AND_TIMER_PREVIOUSLY_OBSERVED; LATEST_HEAD_AND_REBOOT_PERSISTENCE_NOT_REVERIFIED",
+    "final_ffmpeg_render_offloaded": true,
     "external_renderer_worker_connected": false,
     "user_reported_linger_enabled": true,
     "user_reported_news_timer_active": true,
     "user_reported_evidence_date": "2026-10-02",
-    "current_vps_provider": "NOT_INFERRED_FROM_REPOSITORY",
+    "current_vps_provider": "NOT_CURRENT_RUNTIME_TARGET",
     "automatic_script_voice_asset_stages_connected": false,
     "vps_operations_doc": "docs/VPS_MEDIA_NEWS_AUTOMATION.md",
     "paid_script_route": "deepseek/deepseek-v4.1-flash via OpenRouter",
     "paid_script_monthly_reserved_cost_cap_usd": "0.50",
     "paid_script_daily_reserved_cost_cap_usd": "0.10",
-    "paid_script_per_call_estimate_cap_usd": "0.05"
+    "paid_script_per_call_estimate_cap_usd": "0.05",
+    "gcp_coordinator_target": true,
+    "gcp_coordinator_provider": "GOOGLE_CLOUD_COMPUTE_ENGINE",
+    "gcp_coordinator_role": "QUEUE_MONITOR_AGENT_PREPARATION_AND_PRIVATE_SELF_HOSTED_RUNNER_NOT_VIDEO_RENDERER",
+    "runner_control_repository": "nyu1791-collab/-hf-vm-control",
+    "runner_name": "hf-site-agent-vm",
+    "runner_service_previously_verified": true,
+    "latest_head_live_sync_verified": false,
+    "local_render_service_installed_on_gcp": false
   }
 }
