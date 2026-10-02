@@ -23,7 +23,6 @@ METADATA_URL = "http://metadata.google.internal/computeMetadata/v1/instance/name
 UNITS = (
     "hf-site-agent-media-news.service",
     "hf-site-agent-media-news.timer",
-    "hf-site-agent-media-render@.service",
 )
 
 
