@@ -18,7 +18,7 @@ Keep the current e2-small size unless live measurements justify an upgrade. The 
 
 ## Existing host bootstrap
 
-The user units under deploy/systemd/user/ target the existing n_yu1791 home layout and preserve the existing database. GCP activation installs only the news preparation service and its five-minute timer; it does not install or enable the local render unit. After the canonical branch reaches that VM, run the read-only preflight and then the authorized activation command as that Linux user:
+The user units under deploy/systemd/user/ target the existing n_yu1791 home layout and preserve the existing database. GCP activation installs only the news preparation service and its five-minute timer; it does not install or enable any local GCP video-render unit. The user render template, when installed separately after rights review, is remote-worker-only. After the canonical branch reaches that VM, run the read-only preflight and then the authorized activation command as that Linux user:
 
 ```bash
 cd ~/hf-site-agent
@@ -26,7 +26,7 @@ python3 -m scripts.install_gcp_small_host_services
 python3 -m scripts.install_gcp_small_host_services --activate
 ```
 
-The existing RSS cron remains the only source poller; this activation does not install a second poller. After every preflight passes, the preparation timer processes at most one inbox item per five-minute run and makes at most five exact-free script calls per UTC day. It does not use Google Cloud credits for OpenRouter and cannot fall back to a paid route. If a prerequisite fails, the timer stays disabled.
+The existing RSS cron remains the only source poller; this activation does not install a second poller. After every preflight passes, the preparation timer processes at most one inbox item per five-minute run. Resident RSS script drafting uses only the explicitly authorized OpenRouter `deepseek/deepseek-v4.1-flash` route under the repository cost caps (USD 0.05 per call, USD 0.10 reserved per UTC day, USD 0.50 reserved per UTC month, at most five paid calls per UTC day). Google Cloud credits are never treated as OpenRouter credit, uncertain paid attempts are not retried, generic paid fallback and auto top-up remain disabled. If a prerequisite fails, the timer stays disabled.
 
 The worktree preflight blocks tracked edits and untracked files outside the explicit operational-artifact allowlist in `config/media_small_host_policy.json`. The allowlist covers `.media-cache/`, the persistent `runtime/` queue/workspace, and Python bytecode caches. The SQLite queue is still integrity-checked separately. Do not use `git clean` or delete runtime data to satisfy the source check; unknown untracked files and all tracked edits continue to block activation.
 
