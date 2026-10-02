@@ -5,6 +5,7 @@ import os
 import subprocess
 import tempfile
 import threading
+import urllib.error
 from types import SimpleNamespace
 import unittest
 import wave
@@ -225,7 +226,7 @@ class MediaNewsAutomationTests(unittest.TestCase):
     def test_rss_summary_fallback_is_bounded_and_requires_enough_source_text(self):
         row={"url":"https://openai.com/news/example","title":"Official update","summary":TEXT * 4}
         article=_rss_summary_article(row)
-        self.assertEqual(article["article_text_origin"],"CONFIGURED_RSS_SUMMARY_AFTER_ARTICLE_ACCESS_DENIED")
+        self.assertEqual(article["article_text_origin"],"CONFIGURED_RSS_SUMMARY_FALLBACK")
         self.assertEqual(article["url"],row["url"])
         self.assertGreaterEqual(len(article["text"]),300)
         with self.assertRaises(ArticleSourceBlocked):
@@ -267,6 +268,32 @@ class MediaNewsAutomationTests(unittest.TestCase):
             ).fetchone()["state"],"PREPARATION_REQUIRED")
             conn.close()
 
+    def test_article_redirect_failure_uses_bounded_rss_summary(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);workspace=root/"workspace";workspace.mkdir()
+            conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            source_id="e"*64
+            summary=TEXT*4
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"google-deepmind","title":"Official update",
+                "url":"https://deepmind.google/blog/example","summary":summary,"published":""}])
+            draft=story()
+            for scene in draft["scenes"]:
+                scene["image_search_hint"]="official update"
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.extract_article",
+                side_effect=urllib.error.URLError("redirect left configured HTTPS hosts"),
+            ), patch(
+                "scripts.media_news_pipeline.draft_story",
+                return_value=(draft,"fixture/news:free"),
+            ) as draft_story:
+                mission=process_source(conn,source_id,workspace,image_hosts={"deepmind.google"})
+            article=json.loads((mission.parent/"article.json").read_text(encoding="utf-8"))
+            self.assertEqual(article["article_text_origin"],"CONFIGURED_RSS_SUMMARY_FALLBACK")
+            self.assertEqual(article["text"],summary)
+            self.assertEqual(draft_story.call_args.args[1]["text"],summary)
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],"VOICE_PENDING")
+            conn.close()
+
     def test_inaccessible_article_with_short_summary_is_skipped_without_retry_loop(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);conn=connect(root/"queue.sqlite3");init_inbox(conn)
@@ -274,7 +301,8 @@ class MediaNewsAutomationTests(unittest.TestCase):
             ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
                 "url":"https://openai.com/news/x","summary":"Too short.","published":""}])
             with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
-                "scripts.media_news_pipeline.process_source",side_effect=ArticleSourceBlocked()
+                "scripts.media_news_pipeline.extract_article",
+                side_effect=urllib.error.URLError("redirect left configured HTTPS hosts"),
             ), patch(
                 "scripts.media_news_pipeline.shutil.disk_usage",
                 return_value=SimpleNamespace(free=3 * 1024**3),

@@ -446,10 +446,10 @@ def select_render_assets(manifest: Mapping[str, Any], scene_count: int, package_
 
 
 def _rss_summary_article(row: Mapping[str, Any]) -> dict[str, Any]:
-    """Use the configured feed's stored summary when an allowed article page denies access."""
+    """Use the configured feed's stored summary when the official page cannot be fetched."""
     summary = re.sub(r"\s+", " ", html.unescape(str(row["summary"] or ""))).strip()
     if len(summary) < 300:
-        raise ArticleSourceBlocked("article page denied access and RSS summary is too short")
+        raise ArticleSourceBlocked("article page could not be fetched and RSS summary is too short")
     title = re.sub(r"\s+", " ", html.unescape(str(row["title"] or ""))).strip()[:500]
     return {
         "url": str(row["url"]),
@@ -457,7 +457,7 @@ def _rss_summary_article(row: Mapping[str, Any]) -> dict[str, Any]:
         "text": summary[:MAX_ARTICLE_CHARS],
         "description": summary[:1200],
         "images": [],
-        "article_text_origin": "CONFIGURED_RSS_SUMMARY_AFTER_ARTICLE_ACCESS_DENIED",
+        "article_text_origin": "CONFIGURED_RSS_SUMMARY_FALLBACK",
     }
 
 
@@ -472,11 +472,16 @@ def process_source(conn: sqlite3.Connection, source_id: str, workspace: Path, *,
     package = _resolve_news_package(workspace, source_id, create=True)
     if not os.environ.get("OPENROUTER_API_KEY"):
         raise RuntimeError("OPENROUTER_API_KEY is not configured")
+    article_hosts = set(PIPELINE_POLICY["article_hosts"])
     try:
-        source = extract_article(row["url"], allowed_hosts=set(PIPELINE_POLICY["article_hosts"]))
-    except HTTPError as exc:
-        if exc.code not in {401, 403, 404, 410}:
-            raise
+        article_url = _allowed_https(row["url"], article_hosts)
+    except ValueError as exc:
+        raise ArticleSourceBlocked("source URL is outside the configured article allow-list") from exc
+    try:
+        source = extract_article(article_url, allowed_hosts=article_hosts)
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        # Redirects leaving the exact HTTPS allow-list and ordinary page failures must not
+        # terminate the timer service. Continue only with a sufficiently detailed saved RSS item.
         source = _rss_summary_article(row)
     source["source_sha256"] = _article_fingerprint(source)
     article_path = package / "article.json"
@@ -785,7 +790,7 @@ def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
                 (time.time(), row["source_id"]))
             return {"status":"ARTICLE_SOURCE_BLOCKED", "source_id":row["source_id"],
-                "reason":"ARTICLE_PAGE_DENIED_RSS_SUMMARY_TOO_SHORT", "will_try_next_source":True,
+                "reason":"ARTICLE_PAGE_FETCH_FAILED_RSS_SUMMARY_TOO_SHORT", "will_try_next_source":True,
                 "public_publish_enabled":False}
     try:
         voice = synthesize_voice(mission.parent, min_seconds=min_seconds, max_seconds=max_seconds)
