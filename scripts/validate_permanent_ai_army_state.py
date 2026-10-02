@@ -47,6 +47,7 @@ def main() -> int:
     stream = load_json("config/session_stream_resilience_policy.json")
     automation = load_json("config/media_automation_fast_path.json")
     render_worker = load_json("config/media_render_worker_policy.json")
+    media_news = load_json("config/media_news_pipeline_policy.json")
 
     # Canonical authority and paid-scope boundaries.
     require(manifest.get("canonical_branch") == "ai-army/provider-v3", "wrong canonical branch")
@@ -79,6 +80,10 @@ def main() -> int:
     require(explicit_boundaries.get("push_main") is False and explicit_boundaries.get("merge") is False, "main push or merge boundary weakened")
     require(explicit_boundaries.get("production_deploy") is False and explicit_boundaries.get("public_publish") is False, "production boundary weakened")
     require(explicit_boundaries.get("secret_mutation_or_display") is False and explicit_boundaries.get("auto_top_up") is False, "secret or auto top-up boundary weakened")
+    require("vps_service_deployment" not in explicit_boundaries, "obsolete VPS deployment boundary returned")
+    require(explicit_boundaries.get("gcp_coordinator_service_activation") == "AUTHORIZED_FOR_EXISTING_GCP_VM_AFTER_READ_ONLY_PREFLIGHT", "GCP coordinator activation authority drift")
+    require(explicit_boundaries.get("gcp_local_video_rendering") is False, "GCP local video rendering boundary weakened")
+    require(explicit_boundaries.get("external_render_requires_live_authenticated_worker") is True, "external render live-health boundary weakened")
     require(guard.get("allow_paid_fallback") is False, "generic paid fallback enabled")
     require(guard.get("auto_top_up") is False, "auto top-up enabled")
     require(guard.get("unknown_cost_route") == "BLOCK", "unknown-cost route not blocked")
@@ -152,6 +157,13 @@ def main() -> int:
     require(host_cost.get("resident_news_script_route") == "deepseek/deepseek-v4.1-flash", "resident news paid route drift")
     require(host_cost.get("generic_paid_fallback_allowed") is False, "generic paid fallback enabled in GCP host policy")
     require(host_cost.get("automatic_top_up") is False, "GCP host policy enabled auto top-up")
+    require(media_news.get("status") == "GCP_COORDINATOR_REPOSITORY_CONFIGURED_LIVE_E2E_VERIFICATION_REQUIRED", "resident news pipeline status drifted to stale host state")
+    require("require_current_exact_free_model_catalog" not in media_news, "obsolete top-level free-only media gate returned")
+    require(media_news.get("primary_script_route") == "PAID_SCOPED_DEEPSEEK_V4_1_FLASH", "resident news primary script route drift")
+    require(media_news.get("remote_render_required_for_final_video_completion") is True, "resident news final render became optional")
+    paid_news = media_news.get("paid_script_generation") or {}
+    require(paid_news.get("enabled") is True and paid_news.get("model") == "deepseek/deepseek-v4.1-flash", "resident news paid route not exact")
+    require(paid_news.get("automatic_paid_fallback") is False and paid_news.get("automatic_retry_after_request") is False and paid_news.get("automatic_top_up") is False, "resident news paid safeguards weakened")
 
     staging = ((automation.get("extracted_pipeline") or {}).get("article_to_media_staging") or {})
     require(staging.get("gcp_local_video_rendering_allowed") is False, "fast path regained GCP local render")
