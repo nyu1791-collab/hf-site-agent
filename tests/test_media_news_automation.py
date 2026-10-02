@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _validate_existing_package, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story
+from scripts.media_news_pipeline import ArticleSourceBlocked, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _rss_summary_article, _validate_existing_package, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
 
@@ -199,6 +199,30 @@ class MediaNewsAutomationTests(unittest.TestCase):
             symlinked=[dict(x) for x in assets];symlinked[0]["file"]=str(linked)
             with self.assertRaisesRegex(RuntimeError,"symbolic link"):
                 select_render_assets({"assets":symlinked},3,package)
+
+    def test_rss_summary_fallback_is_bounded_and_requires_enough_source_text(self):
+        row={"url":"https://openai.com/news/example","title":"Official update","summary":TEXT * 4}
+        article=_rss_summary_article(row)
+        self.assertEqual(article["article_text_origin"],"CONFIGURED_RSS_SUMMARY_AFTER_ARTICLE_ACCESS_DENIED")
+        self.assertEqual(article["url"],row["url"])
+        self.assertGreaterEqual(len(article["text"]),300)
+        with self.assertRaises(ArticleSourceBlocked):
+            _rss_summary_article({**row,"summary":"Too short."})
+
+    def test_inaccessible_article_with_short_summary_is_skipped_without_retry_loop(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            source_id="d"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":"https://openai.com/news/x","summary":"Too short.","published":""}])
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.process_source",side_effect=ArticleSourceBlocked()
+            ):
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"ARTICLE_SOURCE_BLOCKED")
+            self.assertTrue(result["will_try_next_source"])
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],"SCRIPT_BLOCKED")
+            conn.close()
 
     def test_article_parser_extracts_text_and_only_allowlisted_image_urls(self):
         body = (TEXT + " ") * 3
