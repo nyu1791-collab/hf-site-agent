@@ -17,7 +17,7 @@ The pipeline uses the exact OpenRouter model `deepseek/deepseek-v4.1-flash` only
 - Audio and timing are hash-checked and reused when inputs are unchanged. A VOICEVOX failure retries after 60 seconds and five minutes, then moves the item to `VOICE_BLOCKED`.
 - Queue preparation pauses at the human rights-review boundary and when workspace free disk falls below 2 GiB. It does not delete packages to recover space.
 - Downloaded images stay `REVIEW_REQUIRED`. A human must record reuse basis, evidence URL, and credit before render. Posting is not implemented.
-- Remote render is an optional, explicit handoff through a loopback-only SSH reverse tunnel. Its live connection must be established and verified by an authenticated loopback health check; repository booleans are never treated as live connection evidence.
+- After human rights review, the external render worker is the only permitted final-render path for the GCP coordinator. Dispatch is explicit and uses a loopback-only SSH reverse tunnel. Its live connection must be established and verified by an authenticated loopback health check; repository booleans are never treated as live connection evidence.
 - User-provided screenshots report Linger and timer state as active; current deployment, reboot persistence, RSS success, paid API execution, voice synthesis, final MP4, and continuous uptime remain unverified. Use the GCP runbook and the private VM-control `status` operation for one-shot checks.
 
 ## Which work happens on which machine
@@ -60,7 +60,7 @@ python -m scripts.media_news_pipeline \
 
 The command only returns the saved item to `VOICE_PENDING`; it does not call an AI API or publish anything.
 
-## Optional remote render worker
+## Required external render worker for final video completion
 
 Install the same approved repository revision on an already available worker, along with FFmpeg/ffprobe and Pillow. Put the approved character shell outside the repository (for example, `/srv/hf-render-assets/approved-shell`) and the approved font at a stable, read-only path. The worker check reports shell, font, renderer, profile and handler SHA-256 values, even before asset hashes are pinned, and lists missing dependencies. It exits with status 2 while required pins are absent. Set the shell and font hashes in both protected environment files; the coordinator also compares all code hashes against its own checkout before accepting a job.
 
