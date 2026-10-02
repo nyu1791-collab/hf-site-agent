@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from scripts.durable_media_runner import connect
-from scripts.media_render_transport import dispatch_remote_render
+from scripts.media_render_transport import dispatch_remote_render, verify_saved_remote_render
 from scripts.media_source_ingress import init_inbox, load_policy
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1034,11 +1034,18 @@ def _render_package(args, conn: sqlite3.Connection) -> dict[str, Any]:
     visual = Path(visuals[0]["file"])
     duration = float(timing["total_duration"])
     if getattr(args, "remote_render", False):
-        result = dispatch_remote_render(
-            package=package, source_id=mission["source_id"], presentation_path=presentation_path,
-            timing_path=render_timing_path, assets=assets, duration_seconds=duration,
-            worker_url=getattr(args, "worker_url", None),
-        )
+        destination = package / "final.mp4"
+        report_destination = package / "remote-render-report.json"
+        if destination.exists() or destination.is_symlink() or report_destination.exists() or report_destination.is_symlink():
+            result = verify_saved_remote_render(
+                package=package, source_id=mission["source_id"], expected_duration=duration,
+            )
+        else:
+            result = dispatch_remote_render(
+                package=package, source_id=mission["source_id"], presentation_path=presentation_path,
+                timing_path=render_timing_path, assets=assets, duration_seconds=duration,
+                worker_url=getattr(args, "worker_url", None),
+            )
         conn.execute("UPDATE source_inbox SET state='READY_TO_PUBLISH',updated_at=? WHERE source_id=?",
             (time.time(), mission["source_id"]))
         return result
