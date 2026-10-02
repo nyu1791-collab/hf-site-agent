@@ -1,6 +1,6 @@
 {
   "schema_version": "media-small-host-policy-v1",
-  "status": "REPOSITORY_CONFIGURED_AWAITING_EXISTING_VM_PREFLIGHT",
+  "status": "GCP_24H_COORDINATOR_REPOSITORY_CONFIGURED_LIVE_VERIFICATION_REQUIRED",
   "target": {
     "provider": "GOOGLE_CLOUD_COMPUTE_ENGINE",
     "machine_type": "e2-small",
@@ -42,12 +42,15 @@
     "media_jobs_per_vm_at_a_time": 1,
     "database_single_writer_lock_required": true,
     "render_timer_enabled_by_default": false,
-    "preparation_timer_enabled_by_default": false,
+    "preparation_timer_enabled_by_default": true,
     "public_publish_enabled": false,
     "preparation_timer_activation": "AUTHORIZED_AFTER_READ_ONLY_PREFLIGHT",
     "activation_script": "scripts/install_gcp_small_host_services.py",
     "public_publish_requires_destination_and_account_scope": true,
-    "preserve_existing_rss_cron_and_sqlite_queue": true
+    "preserve_existing_rss_cron_and_sqlite_queue": true,
+    "gcp_local_render_unit_allowed": false,
+    "external_render_live_health_required": true,
+    "external_render_live_status_must_not_come_from_repository_boolean": true
   },
   "resource_controls": {
     "service_memory_high_mib": 1300,
@@ -82,8 +85,10 @@
     "approved_shell_and_font_required_before_render": true,
     "rights_evidence_and_credit_required_before_render": true,
     "ffprobe_output_check_required": true,
-    "live_vm_status": "NOT_VERIFIED",
-    "service_enablement": "NOT_RUN_FROM_VM"
+    "live_vm_status": "LIVE_PROBE_REQUIRED",
+    "service_enablement": "FINISH_SETUP_ENABLES_AFTER_PREFLIGHT",
+    "reboot_persistence_requires_new_boot_id_and_live_runner_timer_checks": true,
+    "external_renderer_requires_authenticated_live_health_check": true
   },
   "billing_preflight": {
     "authorized_project_credit_ceiling_jpy": 47000,
