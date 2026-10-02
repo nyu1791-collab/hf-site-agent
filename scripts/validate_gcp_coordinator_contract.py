@@ -142,6 +142,9 @@ def validate(root: Path = ROOT) -> list[str]:
         and render_verify.get("request_id_reserved_before_render") is True
         and render_verify.get("worker_state_directories_owner_private_required") is True
         and render_verify.get("replay_ledger_persistent_across_worker_restarts") is True
+        and render_verify.get("health_reports_running_process_code_fingerprints") is True
+        and render_verify.get("disk_code_change_requires_worker_restart") is True
+        and render_verify.get("render_rechecks_running_revision_immediately_before_renderer_spawn") is True
     ):
         blockers.append("LIVE_RENDER_READINESS_AUTHORITY_INVALID")
 
