@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, PaidMediaAlreadyAttempted, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _rss_summary_article, _validate_existing_package, _review_story_free, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story
+from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, PaidMediaAlreadyAttempted, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _rss_summary_article, _validate_existing_package, _review_story_free, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
 
@@ -48,6 +48,17 @@ def story():
 
 
 class MediaNewsAutomationTests(unittest.TestCase):
+    def test_openrouter_http_errors_report_safe_reason_without_upstream_text(self):
+        import io
+        response = urllib.error.HTTPError(
+            "https://openrouter.ai/api/v1/chat/completions", 403, "Forbidden", {},
+            io.BytesIO(b'{"error":{"code":403,"message":"Key limit reached; PRIVATE_TOKEN_SHOULD_NOT_LEAK"}}')
+        )
+        with patch("scripts.media_news_pipeline.urllib.request.urlopen", side_effect=response):
+            with self.assertRaisesRegex(RuntimeError, "HTTP 403 \\(CREDIT_OR_KEY_BUDGET_LIMIT\\)") as caught:
+                _post_chat({"model":"fixture"}, "hidden")
+        self.assertNotIn("PRIVATE_TOKEN_SHOULD_NOT_LEAK", str(caught.exception))
+
     def test_pipeline_lock_blocks_overlapping_stage_commands(self):
         with tempfile.TemporaryDirectory() as td:
             db=Path(td)/"queue.sqlite3"
