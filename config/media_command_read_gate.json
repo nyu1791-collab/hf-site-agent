@@ -136,7 +136,6 @@
           "config/current_commander_handoff.json",
           "docs/AI_ARMY_MASTER_RULEBOOK.md",
           "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
-          "docs/VPS_MEDIA_NEWS_AUTOMATION.md",
           "config/media_small_host_policy.json"
         ]
       }
