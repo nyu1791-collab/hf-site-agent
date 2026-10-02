@@ -1190,7 +1190,7 @@ def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int
                 "request_may_have_been_sent":True,"automatic_retry":False,"will_try_next_source":True,
                 "public_publish_enabled":False}
         except RuntimeError as exc:
-            match = re.fullmatch(r"OpenRouter request failed with HTTP (\\d+) \\(([A-Z_]+)\\)", str(exc))
+            match = re.fullmatch(r"OpenRouter request failed with HTTP (\d+) \(([A-Z_]+)\)", str(exc))
             if match is None:
                 raise
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
