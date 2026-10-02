@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MediaSmallHostDeploymentTests(unittest.TestCase):
-    def test_profile_is_single_vm_on_demand_and_preserves_existing_queue(self):
+    def test_profile_is_coordinator_only_for_video_rendering_and_preserves_existing_queue(self):
         policy = json.loads((ROOT / "config/media_small_host_policy.json").read_text())
         self.assertEqual(policy["target"]["machine_type"], "e2-small")
         self.assertEqual(policy["target"]["memory_gib"], 2)
@@ -19,17 +19,19 @@ class MediaSmallHostDeploymentTests(unittest.TestCase):
         self.assertEqual(policy["resource_controls"]["minimum_workspace_free_bytes"], 2 * 1024**3)
         self.assertFalse(policy["resource_controls"]["automatic_artifact_deletion"])
         self.assertTrue(policy["runtime_layout"]["move_or_reinitialize_existing_database"] is False)
+        self.assertFalse(policy["execution"]["coordinator_and_local_renderer_share_one_vm"])
+        self.assertTrue(policy["execution"]["coordinator_only_for_video_rendering"])
+        self.assertTrue(policy["execution"]["external_render_worker_required_for_video_completion"])
+        self.assertFalse(policy["resource_controls"]["local_video_rendering_on_gcp_allowed"])
         self.assertTrue(policy["execution"]["render_timer_enabled_by_default"] is False)
         self.assertFalse(policy["provider_and_cost_gates"]["paid_fallback_allowed"])
 
-    def test_user_render_unit_runs_local_oneshot_on_existing_runtime_database(self):
-        path = ROOT / "deploy/systemd/user/hf-site-agent-media-render@.service"
-        unit = path.read_text()
-        self.assertIn("Type=oneshot", unit)
-        self.assertIn("runtime/media-queue.sqlite3", unit)
-        self.assertIn("render --package %h/hf-site-agent/runtime/media-news/%i", unit)
-        self.assertNotIn("--remote-render", unit)
-        self.assertIn("MemoryMax=1700M", unit)
+    def test_gcp_activation_does_not_install_local_render_unit(self):
+        installer = (ROOT / "scripts/install_gcp_small_host_services.py").read_text()
+        units_block = installer.split("UNITS = (", 1)[1].split(")", 1)[0]
+        self.assertIn("hf-site-agent-media-news.service", units_block)
+        self.assertIn("hf-site-agent-media-news.timer", units_block)
+        self.assertNotIn("hf-site-agent-media-render@.service", units_block)
 
     def test_user_preparation_timer_is_separate_from_existing_rss_poller(self):
         service = (ROOT / "deploy/systemd/user/hf-site-agent-media-news.service").read_text()
