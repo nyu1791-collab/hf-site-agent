@@ -21,6 +21,9 @@ on:
       - 'config/jev_decision_engine_policy.json'
       - 'config/deepseek_paid_supervisor_policy.json'
       - 'config/deepseek_route_classification.json'
+      - 'config/ai_army_provider_route_matrix.json'
+      - 'scripts/provider_route_matrix.py'
+      - 'tests/test_provider_route_matrix.py'
       - 'scripts/validate_deepseek_route_classification.py'
       - 'config/agent_efficiency_policy.json'
       - 'config/framework_adapter_layer.json'
@@ -325,6 +328,7 @@ jobs:
             scripts/deepseek_supervisor_research_resilient.py \
             scripts/deepseek_json_guard.py \
             scripts/validate_deepseek_route_classification.py \
+            scripts/provider_route_matrix.py \
             scripts/batch_media_scheduler.py \
             scripts/media_batch_command_center.py \
             scripts/durable_media_runner.py \
@@ -347,6 +351,8 @@ jobs:
           python -m json.tool config/openrouter_free_efficiency_policy.json >/dev/null
           python -m json.tool config/jev_decision_engine_policy.json >/dev/null
           python -m json.tool config/deepseek_paid_supervisor_policy.json >/dev/null
+          python -m json.tool config/deepseek_route_classification.json >/dev/null
+          python -m json.tool config/ai_army_provider_route_matrix.json >/dev/null
           python -m json.tool config/agent_efficiency_policy.json >/dev/null
           python -m json.tool config/framework_adapter_layer.json >/dev/null
           python -m json.tool config/current_commander_handoff.json >/dev/null
@@ -421,6 +427,11 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/validate_deepseek_route_classification.py
+
+      - name: Validate explicit provider fallback matrix
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_provider_route_matrix -v
 
       - name: Enforce video creation admission contract
         run: |
@@ -564,6 +575,7 @@ jobs:
             tests.test_durable_media_runner \
             tests.test_media_source_ingress \
             tests.test_media_news_automation \
+            tests.test_provider_route_matrix \
             tests.test_gcp_coordinator_contract \
             tests.test_media_small_host_deployment \
             tests.test_media_render_transport \
