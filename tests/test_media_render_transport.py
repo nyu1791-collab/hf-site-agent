@@ -72,6 +72,7 @@ class MediaRenderTransportTests(unittest.TestCase):
             asset = {
                 "id": "selected-1", "file": str(selected), "sha256": digest,
                 "downloaded": True, "selected_for_render": True, "rights_verified": True,
+                "visual_source_mode":"LICENSE_CLEARED","source_url":"https://openai.com/policy",
                 "rights_basis": "official media reuse permission", "rights_evidence_url": "https://openai.com/policy",
                 "credit": "OpenAI",
             }
@@ -116,7 +117,7 @@ class MediaRenderTransportTests(unittest.TestCase):
                      "downloaded": True, "selected_for_render": True, "rights_verified": True,
                      "rights_basis": "permission", "rights_evidence_url": "javascript:bad", "credit": "credit"}
             with patch.dict(os.environ, _asset_environment()):
-                with self.assertRaisesRegex(transport.RenderTransportError, "rights-cleared"):
+                with self.assertRaisesRegex(transport.RenderTransportError, "source-attributed"):
                     transport.create_request_archive(package=package, source_id=SOURCE_ID,
                         presentation_path=presentation, timing_path=timing, assets=[asset],
                         duration_seconds=1, output_path=package / "request.tar.gz")
@@ -124,6 +125,53 @@ class MediaRenderTransportTests(unittest.TestCase):
                 os.environ.pop("MEDIA_RENDER_EXPECTED_SHELL_SHA256", None)
                 with self.assertRaisesRegex(transport.RenderTransportError, "fingerprints"):
                     transport._expected_worker_asset_hashes()
+
+    def test_transport_and_worker_accept_non_public_attributed_x_screenshot_without_license_metadata(self):
+        env={
+            **_asset_environment(),
+            "MEDIA_RENDER_SHELL_SHA256":SHELL_HASH,
+            "MEDIA_RENDER_FONT_SHA256":FONT_HASH,
+        }
+        with tempfile.TemporaryDirectory() as td, patch.dict(os.environ,env):
+            package=Path(td)/SOURCE_ID
+            images=package/"images";images.mkdir(parents=True)
+            _write_audio(package/"audio.wav")
+            timing=package/"render-timing.json"
+            timing.write_text(json.dumps({"total_duration":1}),encoding="utf-8")
+            image=images/"x-shot.png"
+            image.write_bytes(b"\x89PNG\r\n\x1a\nfixture")
+            digest=hashlib.sha256(image.read_bytes()).hexdigest()
+            presentation=package/"presentation.json"
+            presentation.write_text(json.dumps({
+                "title":"Announcement","source_url":"https://x.com/OpenAI/status/123",
+                "source_credit":"@OpenAI / X","voice_credit":"VOICEVOX","media_region_only":False,
+                "visuals":[{
+                    "id":"x-shot","file":str(image),"source_credit":"@OpenAI / X",
+                    "source_url":"https://x.com/OpenAI/status/123",
+                    "visual_source_mode":"OFFICIAL_ANNOUNCEMENT_SCREENSHOT",
+                    "whole_post_capture":True,"media_region_only":False,
+                }],
+            }),encoding="utf-8")
+            asset={
+                "id":"x-shot","file":str(image),"sha256":digest,
+                "downloaded":True,"selected_for_render":True,
+                "visual_source_mode":"OFFICIAL_ANNOUNCEMENT_SCREENSHOT",
+                "source_url":"https://x.com/OpenAI/status/123",
+                "credit":"@OpenAI / X","rights_verified":False,"rights_basis":"",
+                "rights_evidence_url":"https://x.com/OpenAI/status/123",
+                "whole_post_capture":True,"media_region_only":False,
+            }
+            archive=package/"request.tar.gz"
+            manifest=transport.create_request_archive(
+                package=package,source_id=SOURCE_ID,presentation_path=presentation,
+                timing_path=timing,assets=[asset],duration_seconds=1,output_path=archive,
+            )
+            self.assertFalse(manifest["public_publish_enabled"])
+            self.assertEqual(manifest["visuals"][0]["visual_source_mode"],"OFFICIAL_ANNOUNCEMENT_SCREENSHOT")
+            self.assertFalse(manifest["visuals"][0]["rights_verified"])
+            self.assertFalse(manifest["visuals"][0]["publication_authorization_inferred"])
+            parsed,_files=worker._extract_request(archive,package/"worker-input")
+            self.assertEqual(parsed["visuals"][0]["source_url"],"https://x.com/OpenAI/status/123")
 
     def test_worker_accepts_coordinator_archive_and_checks_each_payload_hash(self):
         env = {
@@ -146,7 +194,8 @@ class MediaRenderTransportTests(unittest.TestCase):
             }), encoding="utf-8")
             asset = {
                 "id": "v1", "file": str(image), "sha256": digest, "downloaded": True,
-                "selected_for_render": True, "rights_verified": True, "rights_basis": "cleared",
+                "selected_for_render": True, "visual_source_mode":"LICENSE_CLEARED",
+                "source_url":"https://openai.com/legal","rights_verified": True, "rights_basis": "cleared",
                 "rights_evidence_url": "https://openai.com/legal", "credit": "OpenAI",
             }
             archive = package / "request.tar.gz"
