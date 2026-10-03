@@ -1,7 +1,7 @@
 {
   "schema_version": "media-news-pipeline-v2",
   "status": "GCP_COORDINATOR_REPOSITORY_CONFIGURED_LIVE_E2E_VERIFICATION_REQUIRED",
-  "purpose": "Turn one official RSS item into a source-backed Japanese script, locally synthesized VOICEVOX audio, and image candidates; pause before rendering until asset rights are recorded.",
+  "purpose": "Turn one official RSS item into a source-backed Japanese script, VOICEVOX audio, and fast source-attributed visuals. License metadata is optional; rendering requires traceable source attribution and file-integrity checks.",
   "source_ingress_policy": "config/media_source_ingress_policy.json",
   "article_hosts": [
     "openai.com",
@@ -61,8 +61,8 @@
     4
   ],
   "distinct_rights_cleared_images_per_scene": 2,
-  "downloaded_image_rights_default": "REVIEW_REQUIRED",
-  "render_requires_rights_basis_credit_and_https_evidence_url": true,
+  "downloaded_image_rights_default": "SOURCE_ATTRIBUTION_REQUIRED",
+  "render_requires_rights_basis_credit_and_https_evidence_url": false,
   "remote_render_policy": "config/media_render_worker_policy.json",
   "remote_render_requires_explicit_command_flag": true,
   "remote_render_auto_fallback_or_retry": false,
@@ -70,7 +70,7 @@
     "ずんだもん",
     "四国めたん"
   ],
-  "generated_images_allowed": false,
+  "generated_images_allowed": true,
   "public_publish_enabled": false,
   "stop_state_before_rights_review": "ASSET_REVIEW_REQUIRED",
   "one_pipeline_command_per_queue": true,
@@ -166,5 +166,43 @@
     "automatic_paid_openrouter_fallback": false,
     "provider_allow_fallbacks": false
   },
-  "artificial_paid_caps_removed_for": "DEEPSEEK_OFFICIAL_ONLY"
+  "artificial_paid_caps_removed_for": "DEEPSEEK_OFFICIAL_ONLY",
+  "distinct_visuals_per_scene": 2,
+  "render_requires_source_credit_and_https_source_url": true,
+  "visual_source_policy": {
+    "profile": "FAST_SOURCE_ATTRIBUTION",
+    "license_metadata_required_for_render": false,
+    "per_image_license_lookup_required": false,
+    "source_url_required": true,
+    "source_credit_required": true,
+    "source_attribution_rendered_on_video": true,
+    "allowed_modes": [
+      "LICENSE_CLEARED",
+      "OFFICIAL_ARTICLE_IMAGE",
+      "OFFICIAL_ANNOUNCEMENT_SCREENSHOT",
+      "SOURCE_BACKED_WEB_IMAGE",
+      "USER_PROVIDED_SOURCE_SCREENSHOT",
+      "GENERATED_WITH_PROVENANCE"
+    ],
+    "official_social_post_screenshot_allowed": true,
+    "official_x_post_screenshot_allowed": true,
+    "whole_post_screenshot_allowed_for_official_announcement": true,
+    "arbitrary_public_https_image_download_allowed": true,
+    "private_or_loopback_url_blocked": true,
+    "local_file_import_allowed": true,
+    "supported_raster_types": [
+      "image/jpeg",
+      "image/png",
+      "image/webp"
+    ],
+    "maximum_source_visual_bytes": 5000000,
+    "minimum_required_checks": [
+      "REGULAR_FILE_NOT_SYMLINK",
+      "SUPPORTED_RASTER_MAGIC",
+      "BOUNDED_BYTES",
+      "SHA256_MATCH",
+      "HTTPS_SOURCE_URL_NO_CREDENTIALS",
+      "NONEMPTY_SOURCE_CREDIT"
+    ]
+  }
 }
