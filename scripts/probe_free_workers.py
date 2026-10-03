@@ -24,9 +24,11 @@ import urllib.request
 try:
     from scripts.model_registry import DEFAULT_REGISTRY_PATH, load_registry
     from scripts.worker_selection import WORKER_ROLES, catalog_worker_candidates, select_free_worker
+    from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
 except ModuleNotFoundError:  # pragma: no cover
     from model_registry import DEFAULT_REGISTRY_PATH, load_registry
     from worker_selection import WORKER_ROLES, catalog_worker_candidates, select_free_worker
+    from openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
 
 
 CATALOG_URL = "https://openrouter.ai/api/v1/models"
@@ -94,6 +96,20 @@ def _catalog() -> tuple[list[dict[str, Any]], str]:
 
 
 def _probe_one(model_id: str, api_key: str) -> dict[str, Any]:
+    try:
+        assert_openrouter_free_model(model_id, api_key=api_key)
+    except OpenRouterFreeGateError as exc:
+        return {
+            "requested_model": model_id,
+            "http_status": 0,
+            "response_model": None,
+            "usage_cost": None,
+            "fallback_used": False,
+            "request_count": 0,
+            "retry_count": 0,
+            "status": exc.reason,
+            "error": exc.reason,
+        }
     payload = {
         "model": model_id,
         "messages": [{"role": "user", "content": "Return OK."}],
