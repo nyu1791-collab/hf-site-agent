@@ -1936,19 +1936,15 @@ def _load_protected_e2e_environment() -> dict[str, Any]:
 
 
 def _deterministic_e2e_story(article: Mapping[str, Any]) -> dict[str, Any]:
-    """Build a source-bounded temporary script when provider execution is unavailable.
-
-    This is intentionally limited to the non-public one-item E2E command. It does
-    not replace the normal LLM route and makes no claim beyond the source itself.
-    """
+    """Build a short source-bounded script only for the non-public one-item E2E."""
     title=re.sub(r"\s+"," ",str(article.get("title") or "公式発表")).strip()[:90]
     article_text=str(article.get("text") or "")
     if len(article_text)<120:
         raise RuntimeError("deterministic E2E fallback needs a nontrivial saved article")
     starts=(0,max(0,len(article_text)//3),max(0,(2*len(article_text))//3))
     excerpts=[]
-    for start in starts:
-        piece=article_text[start:start+220].strip()
+    for offset in starts:
+        piece=article_text[offset:offset+220].strip()
         if len(piece)<24 or piece not in article_text:
             piece=article_text[:220].strip()
         if len(piece)<24 or piece not in article_text:
@@ -1960,24 +1956,18 @@ def _deterministic_e2e_story(article: Mapping[str, Any]) -> dict[str, Any]:
             {"scene_id":"scene-01","title":"発表の概要","source_excerpt":excerpts[0],
              "image_search_hint":title,
              "dialogue":[
-                 {"id":"s1-01","speaker":"ずんだもん","voice_text":f"今回は「{title}」について、公式ページに書かれている内容をもとに、まず一本の動画として最後まで組み立てていくのだ。"},
-                 {"id":"s1-02","speaker":"四国めたん","voice_text":"ここでは余計な推測を足さず、公式情報に沿って流れを整理するわ。細かな演出の磨き込みより、内容がつながって完成することを優先するわね。"},
-                 {"id":"s1-03","speaker":"ずんだもん","voice_text":"最初のポイントは、発表そのものが何を伝えているかを確認することなのだ。出典と素材を結び付けたまま、次の場面へ進めるのだ。"},
-                 {"id":"s1-04","speaker":"四国めたん","voice_text":"動画では音声、画像、字幕用のタイミングを同じパッケージにまとめるわ。これで途中の工程が切れても、同じ素材から再開しやすくなるわ。"}]},
+                 {"id":"s1-01","speaker":"ずんだもん","voice_text":f"今回は「{title}」について、公式情報をもとに要点を短く確認して、一本の動画として最後まで完成させるのだ。"},
+                 {"id":"s1-02","speaker":"四国めたん","voice_text":"まず発表の中心を整理するわ。余計な推測は加えず、元の記事と出典を保ったまま、次のポイントへ進むわね。"}]},
             {"scene_id":"scene-02","title":"要点の整理","source_excerpt":excerpts[1],
              "image_search_hint":title+" official announcement",
              "dialogue":[
-                 {"id":"s2-01","speaker":"ずんだもん","voice_text":"次は公式ページの本文を参照しながら、視聴者が追いやすい順番に要点を並べるのだ。今回は試運転なので、複雑な言い換えより分かりやすさを取るのだ。"},
-                 {"id":"s2-02","speaker":"四国めたん","voice_text":"そうね。重要なのは、元の記事と動画の説明が離れないことよ。画像にも出典を持たせて、どの情報を見て作ったのか後から追える形にしておくわ。"},
-                 {"id":"s2-03","speaker":"ずんだもん","voice_text":"音声はずんだもんと四国めたんの二人で交互に進めるのだ。話者が切り替わる位置を実際の音声時間から測って、そのまま映像側へ渡すのだ。"},
-                 {"id":"s2-04","speaker":"四国めたん","voice_text":"この段階では一フレーム単位の微調整は後回しよ。まず音声が最後まで生成され、映像と一緒に再生できる完成ファイルになることを確認するわ。"}]},
+                 {"id":"s2-01","speaker":"ずんだもん","voice_text":"次は本文の内容を、視聴者が追いやすい順番にまとめるのだ。画像にも出典を付けて、何を見て作ったか分かる形にするのだ。"},
+                 {"id":"s2-02","speaker":"四国めたん","voice_text":"音声は二人で交互に進め、実際の音声時間から字幕と映像のタイミングを作るわ。細かな磨き込みより完成を優先するわよ。"}]},
             {"scene_id":"scene-03","title":"完成までの確認","source_excerpt":excerpts[2],
              "image_search_hint":title+" source image",
              "dialogue":[
-                 {"id":"s3-01","speaker":"ずんだもん","voice_text":"最後はレンダリングなのだ。取得済みの画像と音声を一つの動画にして、映像ストリームと音声ストリームの両方が入っているか機械的に確認するのだ。"},
-                 {"id":"s3-02","speaker":"四国めたん","voice_text":"さらに動画の長さ、画面サイズ、ファイルサイズも確認するわ。ここを通過したものだけを完成扱いにすれば、途中生成物を誤って完成品として扱わずに済むわね。"},
-                 {"id":"s3-03","speaker":"ずんだもん","voice_text":"今回はまず一本を最後まで通すことが目的なのだ。完成後に、画像の種類、見せ方、字幕、表情、速度などを個別に改善していけばいいのだ。"},
-                 {"id":"s3-04","speaker":"四国めたん","voice_text":"これで一連の流れを確認できるわ。公式情報を起点に、台本、音声、画像、映像、最終検証まで一本につながれば、次は量産と品質改善へ進めるわね。"}]}
+                 {"id":"s3-01","speaker":"ずんだもん","voice_text":"最後に画像と音声を動画へまとめ、映像と音声の両方が入っているか、長さや画面サイズも含めて機械的に確認するのだ。"},
+                 {"id":"s3-02","speaker":"四国めたん","voice_text":"この一本が最後まで通れば基盤の流れは確認できるわ。その後で画像、字幕、表情、速度を個別に直して量産へ進めるわね。"}]}
         ]
     }
     return validate_story(story,article_text)
