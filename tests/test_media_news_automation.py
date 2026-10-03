@@ -253,6 +253,27 @@ class MediaNewsAutomationTests(unittest.TestCase):
                 "SCRIPT_BLOCKED")
             conn.close()
 
+    def test_unknown_openrouter_result_pauses_circuit_without_requeueing_item(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"q.sqlite3");init_inbox(conn)
+            source_id="d"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":"https://openai.com/news/x","summary":"","published":""}])
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=3 * 1024**3),
+            ), patch("scripts.media_news_pipeline.process_source",
+                side_effect=OpenRouterRequestUnknown("unknown",reason_code="ECONNRESET")):
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"UNKNOWN_RESULT")
+            self.assertEqual(result["reason_code"],"ECONNRESET")
+            self.assertFalse(result["automatic_retry"])
+            circuit=conn.execute("SELECT state,http_status,reason_code FROM media_news_provider_circuit WHERE provider='openrouter'").fetchone()
+            self.assertEqual((circuit["state"],circuit["http_status"],circuit["reason_code"]),
+                ("PAUSED",None,"OUTCOME_UNKNOWN"))
+            self.assertEqual(conn.execute("SELECT execution_state FROM source_inbox").fetchone()[0],"UNKNOWN_RESULT")
+            conn.close()
+
     def test_deepseek_balance_block_preserves_queue_policy(self):
         self.assertEqual(PIPELINE_POLICY["paid_script_generation"]["balance_exhaustion_state"],"BLOCKED_BALANCE")
 
@@ -638,12 +659,13 @@ class MediaNewsAutomationTests(unittest.TestCase):
                 calls.append(payload["model"])
                 raise OSError("connection reset")
             with patch.dict("os.environ",{"OPENROUTER_API_KEY":"or","DEEPSEEK_API_KEY":"ds"}):
-                with self.assertRaises(OpenRouterRequestUnknown):
+                with self.assertRaises(OpenRouterRequestUnknown) as caught:
                     draft_story(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
                         free_catalog=catalog,request_fn=requester,
                         deepseek_request_fn=lambda *args:deepseek.append(args))
             self.assertEqual(calls,["fixture/primary:free"])
             self.assertEqual(deepseek,[])
+            self.assertEqual(caught.exception.reason_code,"OSERROR")
             conn.close()
 
     def test_openrouter_http_block_is_reported_as_sent_without_deepseek_fallback(self):
