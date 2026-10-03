@@ -203,6 +203,11 @@
       "SHA256_MATCH",
       "HTTPS_SOURCE_URL_NO_CREDENTIALS",
       "NONEMPTY_SOURCE_CREDIT"
-    ]
+    ],
+    "scope": "NON_PUBLIC_RENDER_AND_EDITORIAL_REFERENCE",
+    "attribution_is_provenance_not_license": true,
+    "publication_authorization_not_inferred": true,
+    "public_publish_requires_separate_authorization_gate": true,
+    "fast_path": "SOURCE_URL_PLUS_CREDIT_PLUS_FILE_INTEGRITY"
   }
 }
