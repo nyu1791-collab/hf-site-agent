@@ -37,7 +37,7 @@ def main() -> int:
     free_guard = load_json("config/free_execution_guard.json")
     video_admission = load_json("config/video_creation_admission_policy.json")
 
-    require(handoff.get("schema_version") == "top-commander-handoff-v17", "commander handoff schema is not current v17")
+    require(handoff.get("schema_version") == "top-commander-handoff-v18", "commander handoff schema is not current v18")
     continuity = handoff.get("continuity") or {}
     require(continuity.get("repository_is_source_of_truth") is True, "handoff lost repository source-of-truth rule")
     require(continuity.get("conversation_memory_is_not_source_of_truth") is True, "handoff made chat memory authoritative")
@@ -172,7 +172,7 @@ def main() -> int:
 
     print(json.dumps({
         "status": "PASS",
-        "handoff_schema": "v17",
+        "handoff_schema": "v18",
         "compact_bootstrap": True,
         "details_delegated_to_manifest": True,
         "semantic_task_gates": True,

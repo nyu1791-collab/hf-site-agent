@@ -1,6 +1,6 @@
 {
-  "schema_version": "media-command-read-gate-v12",
-  "effective_date_jst": "2026-10-01",
+  "schema_version": "media-command-read-gate-v13",
+  "effective_date_jst": "2026-10-03",
   "status": "ENFORCED_STANDARD",
   "decision_owner": "chatgpt-top-commander",
   "purpose": "RESTORE_ONLY_CURRENT_INTENT_RELEVANT_MEDIA_KNOW_HOW_THEN_PARALLELIZE_ONLY_WHEN_EXPECTED_WALL_CLOCK_GAIN_EXCEEDS_COORDINATION_OVERHEAD_WITH_SINGLE_WRITER_INTEGRATION",
@@ -375,8 +375,10 @@
     "visual_authority": "config/media_speed_quality_policy.json#/visual_density_contract"
   },
   "default_media_research_and_script_pair_is_chatgpt_plus_deepseek": false,
-  "default_video_research_and_script_owner_is_chatgpt": true,
-  "deepseek_for_video_is_optional": "The user's 2026-10-03 instruction authorizes exact DeepSeek V4.1 Flash paid text-only script drafting for this resident official-RSS route, within config/media_news_pipeline_policy.json caps (USD 1.00 per UTC day, USD 10.00 per UTC month, at most 20 paid calls per UTC day); it does not authorize paid image/video/TTS generation, deployment, merge or public publishing.",
+  "default_video_research_and_script_owner": "AI_ARMY_ROUTED_EXACT_FREE_WORKER_WITH_CHATGPT_FINAL_AUTHORITY",
+  "chatgpt_remains_final_script_adjudicator": true,
+  "media_ai_routing_runtime": "scripts/jev_routing_coordinator.py",
+  "deepseek_for_video_is_optional": "DeepSeek official deepseek-flash is used directly only when the exact-free OpenRouter route is insufficient or a material critical-path gain justifies it. No artificial DeepSeek per-call, daily, monthly, or request-count cap is imposed. Auto Top-Up and retry after unknown outcome remain disabled; paid media generation remains unauthorized.",
   "media_speed_quality_is_speed_first_minimum_viable_delivery": true,
   "jev_is_optional_for_deterministic_video": true,
   "resident_news_script_exception": {
@@ -392,5 +394,5 @@
     "unknown_result_retry": false,
     "scope": "OFFICIAL_RSS_NEWS_SCRIPT_DRAFTING_TEXT_ONLY"
   },
-  "deepseek_for_video": "The user authorizes paid text-only DeepSeek for resident official RSS after an exact free-only OpenRouter attempt. DeepSeek must be called directly at https://api.deepseek.com using DEEPSEEK_API_KEY; OpenRouter paid models and paid fallbacks are disabled. DeepSeek artificial per-call, daily, monthly, and request-count caps are removed; Auto Top-Up and retry after unknown outcome stay disabled."
+  "deepseek_for_video": "The user authorizes paid text-only DeepSeek deepseek-flash for resident official RSS after an exact-free OpenRouter attempt. DeepSeek must be called directly at https://api.deepseek.com using DEEPSEEK_API_KEY; OpenRouter paid models and paid fallbacks are disabled. DeepSeek artificial per-call, daily, monthly, and request-count caps are removed; Auto Top-Up and retry after unknown outcome stay disabled."
 }

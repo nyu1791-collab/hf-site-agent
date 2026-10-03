@@ -1,6 +1,6 @@
 {
-  "schema_version": "top-commander-handoff-v17",
-  "effective_date_jst": "2026-10-02",
+  "schema_version": "top-commander-handoff-v18",
+  "effective_date_jst": "2026-10-03",
   "mission_id": "ai-army-canonical-supervisor-routing-20260912",
   "objective": "Preserve the hierarchical AI Army with ChatGPT as final commander, Jev as the typed fast decision plane, DeepSeek V4.1 Flash as the bounded executive supervisor, and additional paid API-agent candidates admitted only when current official pricing, task-matched evidence, budget, and account status prove they are cheaper overall and materially more capable for the task.",
   "continuity": {
@@ -28,7 +28,8 @@
         "provider": "deepseek_official",
         "scope": "OFFICIAL_RSS_NEWS_SCRIPT_DRAFTING_TEXT_ONLY",
         "policy": "config/media_news_pipeline_policy.json#/paid_script_generation",
-        "max_calls_per_utc_day": 20,
+        "max_calls_per_utc_day": null,
+        "openrouter_max_calls_per_utc_day": 20,
         "auto_top_up": false,
         "paid_fallback": false,
         "public_publish": false,
@@ -273,7 +274,7 @@
     "missing_or_invalid_health_expiry_is_not_routable_evidence": true,
     "domain_absent_health_does_not_qualify_zero_or_one_question_primary": true,
     "independent_verification_requires_explicit_verifier_role": true,
-    "media_research_and_script_default": "SINGLE_CHATGPT_PASS; DEEPSEEK_ONLY_IF_REQUESTED_OR_CRITICAL_PATH_IMPROVES"
+    "media_research_and_script_default": "PYTHON_GATE_THEN_JEV_WHEN_EXACT_ZERO_PRICE_PASSES; ONE_OPENROUTER_FREE_WORKER; DETERMINISTIC_COORDINATOR_FALLBACK_WHILE_JEV_IS_BLOCKED; DEEPSEEK_OFFICIAL_ONLY_WHEN_FREE_IS_INSUFFICIENT_OR_CRITICAL_PATH_IMPROVES"
   },
   "media_speed_fixed_rules": {
     "authority": "config/media_speed_quality_policy.json#/speed_first_delivery",
@@ -412,7 +413,7 @@
     "legacy commander routing remains compatibility-only",
     "paid DeepSeek supervisor authorization survives tab changes without granting blanket paid-provider access",
     "DeepSeek working-manager compute may cover research evidence triage drafting packaging review and bounded related clerical support while deterministic work still bypasses paid model use",
-    "routine video research and script writing use one ChatGPT pass; DeepSeek is optional only when requested or when it shortens a material bottleneck",
+    "routine RSS script work routes through Python admission and the Jev coordinator to one exact-free OpenRouter Worker; DeepSeek Official is used only when the free route is insufficient; ChatGPT remains final authority",
     "DeepSeek is not inserted as a mandatory paid hop for deterministic or narrow specialist execution",
     "ChatGPT remains final adjudicator of DeepSeek and specialist recommendations",
     "deterministic machine tools bypass unnecessary agent hops",

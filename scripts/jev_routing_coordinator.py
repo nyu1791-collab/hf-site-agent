@@ -369,6 +369,7 @@ def coordinate(
     free_requests_today: int = 0,
     use_jev: bool = True,
     api_key: str | None = None,
+    decision_catalog_entries: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Return one safe route. Jev can refine only prevalidated exact-free candidates."""
     baseline = _baseline(
@@ -443,6 +444,7 @@ def coordinate(
             shared_mutable_state=shared_state,
             high_risk=_is_high_risk(task),
             api_key=api_key,
+            catalog_entries=decision_catalog_entries,
         )
         expected_status = "JEV_FAST_DECISION_OK"
     elif primary_clear and primary_shape is not None:
@@ -468,6 +470,7 @@ def coordinate(
             shared_mutable_state=shared_state,
             high_risk=False,
             api_key=api_key,
+            catalog_entries=decision_catalog_entries,
         )
         expected_status = "JEV_SHAPE_DECISION_OK"
     else:
@@ -482,6 +485,7 @@ def coordinate(
             shared_mutable_state=shared_state,
             high_risk=False,
             api_key=api_key,
+            catalog_entries=decision_catalog_entries,
         )
         expected_status = "JEV_LEAN_DECISION_OK"
     if jev.get("status") != expected_status:

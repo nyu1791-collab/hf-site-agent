@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, OpenRouterRequestUnknown, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _run_internal_e2e_once, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, add_source_visual, add_source_visual_batch, capture_social_screenshot, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
+from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, OpenRouterRequestUnknown, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _coordinate_free_script_models, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _run_internal_e2e_once, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, add_source_visual, add_source_visual_batch, capture_social_screenshot, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
 from scripts.media_render_transport import RenderTransportError
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
@@ -218,6 +218,19 @@ class MediaNewsAutomationTests(unittest.TestCase):
             for _ in range(5): _reserve_call(conn)
             with self.assertRaises(RuntimeError): _reserve_call(conn)
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM media_news_model_calls").fetchone()[0],5)
+            conn.close()
+
+    def test_script_cap_cannot_override_shared_media_daily_limit(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
+            for _ in range(PIPELINE_POLICY["daily_openrouter_media_call_cap"]):
+                _reserve_call(conn,cap_override=1000)
+            with self.assertRaises(DailyMediaCapReached):
+                _reserve_call(conn,cap_override=1000)
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM media_news_model_calls").fetchone()[0],
+                PIPELINE_POLICY["daily_openrouter_media_call_cap"],
+            )
             conn.close()
 
     def test_deepseek_artificial_daily_cap_is_removed(self):
@@ -621,6 +634,37 @@ class MediaNewsAutomationTests(unittest.TestCase):
             self.assertNotIn("openrouter-secret",json.dumps(call["payload"]))
             conn.close()
 
+    def test_media_script_route_uses_shared_jev_coordinator_and_final_guard(self):
+        catalog=[
+            {"id":"fixture/primary:free","pricing":{"prompt":"0","completion":"0"},"context_length":100000},
+            {"id":"fixture/standby:free","pricing":{"prompt":"0","completion":"0"},"context_length":50000},
+        ]
+        with patch("scripts.jev_lean_router._request_once",side_effect=AssertionError("paid Jev route must be blocked before request")):
+            models,evidence=_coordinate_free_script_models(catalog,api_key="test-only",limit=2)
+        self.assertEqual([model for model,_row in models], ["fixture/primary:free", "fixture/standby:free"])
+        self.assertEqual(evidence["runtime"],"scripts/jev_routing_coordinator.py")
+        self.assertEqual(evidence["active_worker_count"],1)
+        self.assertEqual(evidence["selected_models"],["fixture/primary:free"])
+        self.assertEqual(evidence["final_execution_admission"]["status"],"PASS")
+        self.assertFalse(evidence["openrouter_paid_fallback"])
+
+    def test_media_script_route_reserves_only_remaining_quota(self):
+        catalog=[
+            {"id":"fixture/primary:free","pricing":{"prompt":"0","completion":"0"},"context_length":100000},
+            {"id":"fixture/standby:free","pricing":{"prompt":"0","completion":"0"},"context_length":50000},
+        ]
+        models,evidence=_coordinate_free_script_models(catalog,free_requests_today=19)
+        self.assertEqual(len(models),1)
+        self.assertEqual(evidence["reserved_worker_calls"],1)
+        self.assertEqual(evidence["final_execution_admission"]["status"],"PASS")
+        with self.assertRaises(PaidMediaPreflightUnavailable):
+            _coordinate_free_script_models(catalog,free_requests_today=20)
+
+    def test_media_script_router_respects_shared_openrouter_catalog_cap(self):
+        self.assertEqual(PIPELINE_POLICY["daily_openrouter_media_call_cap"],20)
+        self.assertEqual(PIPELINE_POLICY["openrouter_routing"]["daily_call_cap"],20)
+        self.assertEqual(PIPELINE_POLICY["free_script_generation"]["maximum_calls_per_utc_day"],20)
+
     def test_openrouter_script_uses_authenticated_live_exact_zero_catalog(self):
         with tempfile.TemporaryDirectory() as td:
             conn=connect(Path(td)/"q.sqlite3");init_inbox(conn);calls=[]
@@ -666,6 +710,31 @@ class MediaNewsAutomationTests(unittest.TestCase):
             self.assertEqual(calls,["fixture/primary:free"])
             self.assertEqual(deepseek,[])
             self.assertEqual(caught.exception.reason_code,"OSERROR")
+            conn.close()
+
+    def test_openrouter_unknown_checkpoint_prevents_resend_after_resume(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"q.sqlite3");init_inbox(conn)
+            checkpoint=root/"script-generation.json"
+            catalog=[{"id":"fixture/model:free","pricing":{"prompt":"0","completion":"0"}}]
+            article={"title":"title","url":"https://openai.com/news/x","text":TEXT}
+            calls=[]
+            def unknown(*_args):
+                calls.append("sent")
+                raise OSError("connection reset")
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"or"},clear=True):
+                with self.assertRaises(OpenRouterRequestUnknown):
+                    draft_story(conn,article,free_catalog=catalog,request_fn=unknown,checkpoint_path=checkpoint)
+                saved=json.loads(checkpoint.read_text(encoding="utf-8"))
+                self.assertEqual(saved["status"],"UNKNOWN_RESULT")
+                self.assertEqual(saved["provider"],"openrouter")
+                self.assertFalse(saved["automatic_retry"])
+                self.assertEqual(saved["routing_evidence"]["final_execution_admission"]["status"],"PASS")
+                with self.assertRaises(OpenRouterRequestUnknown):
+                    draft_story(conn,article,free_catalog=catalog,
+                        request_fn=lambda *_args:(_ for _ in ()).throw(AssertionError("unknown request must not resend")),
+                        checkpoint_path=checkpoint)
+            self.assertEqual(calls,["sent"])
             conn.close()
 
     def test_openrouter_http_block_is_reported_as_sent_without_deepseek_fallback(self):

@@ -138,6 +138,18 @@
     "child_python_environment": "UTF8_BACKSLASHREPLACE"
   },
   "primary_script_route": "OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL",
+  "ai_army_routing": {
+    "coordinator": "scripts/jev_routing_coordinator.py",
+    "decision_plane_policy": "config/jev_decision_engine_policy.json",
+    "worker_health": "scripts/openrouter_worker_health.py",
+    "final_execution_admission_guard": "scripts/final_execution_admission_guard.py",
+    "task_domain": "NEWS_SCRIPT_DRAFTING",
+    "decision_catalog_reuses_authenticated_live_free_catalog": true,
+    "maximum_active_script_workers": 1,
+    "bounded_free_standby_workers": 1,
+    "jev_paid_price_action": "BLOCK_BEFORE_REQUEST_AND_USE_DETERMINISTIC_COORDINATOR_FALLBACK",
+    "unknown_result_action": "PRESERVE_UNKNOWN_RESULT_AND_NEVER_RESEND"
+  },
   "free_review_is_optional_advisory_only": true,
   "remote_render_required_for_final_video_completion": true,
   "openrouter_routing": {
@@ -160,7 +172,7 @@
     "route_requirement": "SHARED_OPENROUTER_FREE_GATE",
     "model_id_must_end_with": null,
     "generic_router_allowed": false,
-    "maximum_calls_per_utc_day": 1000,
+    "maximum_calls_per_utc_day": 20,
     "maximum_completion_tokens": 1200,
     "if_unavailable": "FALL_BACK_TO_DEEPSEEK_OFFICIAL_API",
     "automatic_paid_openrouter_fallback": false,

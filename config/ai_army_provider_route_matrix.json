@@ -31,6 +31,11 @@
       "max_concurrency": "media-news service bounded by queue/service; no unbounded fanout",
       "queue_behavior": "preserve source_inbox and paid-call reservation on blocks/unknowns",
       "unknown_result_behavior": "UNKNOWN_RESULT; do not automatically resend DeepSeek",
+      "decision_plane": "scripts/jev_routing_coordinator.py",
+      "worker_health": "scripts/openrouter_worker_health.py",
+      "final_execution_admission": "scripts/final_execution_admission_guard.py",
+      "openrouter_daily_media_call_cap": 20,
+      "deepseek_artificial_daily_call_cap": null,
       "no_fallback_action": "BLOCKED_NO_APPROVED_FALLBACK",
       "policy": "config/media_news_pipeline_policy.json",
       "runtime": "scripts/media_news_pipeline.py"

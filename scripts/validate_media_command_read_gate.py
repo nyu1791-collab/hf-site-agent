@@ -37,7 +37,7 @@ def main() -> int:
     gate = load(GATE)
     manifest = load(MANIFEST)
 
-    require(gate.get("schema_version") == "media-command-read-gate-v12", "media read gate must remain v12")
+    require(gate.get("schema_version") == "media-command-read-gate-v13", "media read gate must remain v13")
     require(gate.get("status") == "ENFORCED_STANDARD", "media read gate is not enforced")
 
     execution = gate.get("execution_gate") or {}
@@ -192,7 +192,9 @@ def main() -> int:
     require("UNKNOWN_COST_AND_PAID_MEDIA_ROUTES_BLOCKED" in contract, "unknown/paid media routes no longer block")
 
     require(gate.get("default_media_research_and_script_pair_is_chatgpt_plus_deepseek") is False, "DeepSeek became mandatory routine media hop")
-    require(gate.get("default_video_research_and_script_owner_is_chatgpt") is True, "routine script owner drift")
+    require(gate.get("default_video_research_and_script_owner") == "AI_ARMY_ROUTED_EXACT_FREE_WORKER_WITH_CHATGPT_FINAL_AUTHORITY", "routine script route drift")
+    require(gate.get("chatgpt_remains_final_script_adjudicator") is True, "ChatGPT final script authority drift")
+    require(gate.get("media_ai_routing_runtime") == "scripts/jev_routing_coordinator.py", "media AI Army routing runtime drift")
     require(gate.get("media_speed_quality_is_speed_first_minimum_viable_delivery") is True, "speed-first minimum delivery disabled")
     require(gate.get("jev_is_optional_for_deterministic_video") is True, "Jev became mandatory for deterministic media")
 

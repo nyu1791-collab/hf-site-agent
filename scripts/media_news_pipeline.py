@@ -566,7 +566,12 @@ def _reserve_call(conn: sqlite3.Connection, *, cap_override: int | None = None) 
     conn.execute("BEGIN IMMEDIATE")
     try:
         used = int(conn.execute("SELECT COUNT(*) FROM media_news_model_calls WHERE call_date_utc=?", (day,)).fetchone()[0])
-        cap = int(cap_override if cap_override is not None else PIPELINE_POLICY["free_script_review"]["maximum_calls_per_utc_day"])
+        # The media-wide limit is the shared hard ceiling for every OpenRouter
+        # operation. A stage-specific value may make the ceiling lower, never
+        # raise it (the historic script-generation value of 1000 bypassed it).
+        media_cap = int(PIPELINE_POLICY["daily_openrouter_media_call_cap"])
+        stage_cap = int(cap_override if cap_override is not None else PIPELINE_POLICY["free_script_review"]["maximum_calls_per_utc_day"])
+        cap = min(media_cap, stage_cap)
         if used >= cap:
             raise DailyMediaCapReached("free script reviewer daily cap reached")
         conn.execute("INSERT INTO media_news_model_calls VALUES(?,?,'RESERVED')", (time.time(), day))
@@ -655,50 +660,168 @@ def _reserve_paid_call(conn: sqlite3.Connection, call_id: str, estimate: Any,
         raise
 
 
-def _resolve_free_script_models(catalog: Any, planner_fn=None, *, limit: int = 2) -> list[tuple[str, dict[str, Any]]]:
-    """Return current exact-free primary/standby models; discard paid or unknown IDs."""
-    if not isinstance(catalog,list):
+def _coordinate_free_script_models(
+    catalog: Any,
+    planner_fn=None,
+    *,
+    limit: int = 2,
+    free_requests_today: int = 0,
+    api_key: str | None = None,
+) -> tuple[list[tuple[str, dict[str, Any]]], dict[str, Any]]:
+    """Route media script work through the shared free gate, Jev, health and final guard."""
+    if not isinstance(catalog, list):
         raise PaidMediaPreflightUnavailable("OpenRouter free model catalog is unavailable")
-    if planner_fn is None:
-        from scripts.openrouter_free_efficiency_router import plan_task
-        planner_fn=plan_task
-    plan=planner_fn({"task_class":"GENERAL","long_context":False,"shared_mutable_state":False,"single_writer_only":True},
-        catalog,free_requests_today=0)
-    ids=[]
-    if plan.get("status")=="READY" and plan.get("provider_allow_fallbacks") is False:
-        for value in [plan.get("primary_model"),*(plan.get("standby_models") or [])]:
-            value=str(value or "")
-            if value and value not in ids:
-                ids.append(value)
-    # The planner may deliberately refuse routing when its separate health/registry
-    # evidence is stale even though OpenRouter's live catalog still contains exact
-    # zero-priced models. For the one-item production path, retain the shared price
-    # gate as the hard admission rule and use those exact live catalog entries as a
-    # bounded fallback shortlist instead of jumping to a paid provider.
-    if not ids:
-        live=[]
-        for row in catalog:
-            if not isinstance(row,dict):
-                continue
-            model_id=str(row.get("id") or "")
-            if not model_id or model_id=="openrouter/free":
-                continue
-            decision=decide_openrouter_free_model(model_id,catalog)
-            if _has_exact_zero_catalog_price(decision):
-                context=int(row.get("context_length") or 0)
-                live.append((context,model_id))
-        ids=[model_id for _context,model_id in sorted(live,key=lambda item:(-item[0],item[1]))]
-    result=[]
-    for model_id in ids:
-        row=next((item for item in catalog if isinstance(item,dict) and item.get("id")==model_id),None)
-        decision=decide_openrouter_free_model(model_id,catalog)
+
+    task = {
+        "task_id": "media_news_script",
+        "task_class": "RESEARCH",
+        "domain": "NEWS_SCRIPT_DRAFTING",
+        "objective": "Select one exact-free text worker for source-attributed Japanese news script generation.",
+        "single_writer_only": True,
+        "shared_mutable_state": True,
+        "strictly_sequential": True,
+        "independent_workstreams": 1,
+        "parallelizable_fraction": 0.0,
+        "independent_verification": False,
+    }
+
+    # Keep the old injection point useful for bounded tests and callers that
+    # supply a prequalified shortlist. The canonical coordinator still owns
+    # the route and final admission; this only narrows its candidate catalog.
+    route_catalog = catalog
+    if planner_fn is not None:
+        legacy_hint = planner_fn(
+            {
+                "task_class": "GENERAL",
+                "long_context": False,
+                "shared_mutable_state": True,
+                "single_writer_only": True,
+            },
+            catalog,
+            free_requests_today=free_requests_today,
+        )
+        hinted_ids = []
+        if isinstance(legacy_hint, Mapping) and legacy_hint.get("status") == "READY":
+            for value in [
+                legacy_hint.get("primary_model"),
+                *(legacy_hint.get("selected_models") or []),
+                *(legacy_hint.get("standby_models") or []),
+            ]:
+                model_id = str(value or "")
+                if model_id and model_id not in hinted_ids:
+                    hinted_ids.append(model_id)
+        hinted_rows = [
+            row for model_id in hinted_ids
+            for row in catalog
+            if isinstance(row, dict)
+            and str(row.get("id") or "") == model_id
+            and _has_exact_zero_catalog_price(decide_openrouter_free_model(model_id, catalog))
+        ]
+        if hinted_rows:
+            route_catalog = hinted_rows
+
+    from scripts.final_execution_admission_guard import apply_final_execution_admission_guard
+    from scripts.jev_routing_coordinator import coordinate
+
+    routed = coordinate(
+        task,
+        route_catalog,
+        free_requests_today=free_requests_today,
+        use_jev=True,
+        api_key=api_key,
+        decision_catalog_entries=catalog,
+    )
+    baseline = routed.get("baseline") if isinstance(routed.get("baseline"), Mapping) else {}
+    plan = routed.get("final_plan") if isinstance(routed.get("final_plan"), Mapping) else {}
+    if baseline.get("status") != "READY":
+        raise PaidMediaPreflightUnavailable("no current exact-zero OpenRouter media worker or shared quota is available")
+    if plan.get("status") != "READY" or not plan.get("selected_models"):
+        raise PaidMediaPreflightUnavailable("AI Army media route did not pass final admission")
+
+    eligible = []
+    for model_id in [
+        *(baseline.get("selected_models") or []),
+        *(baseline.get("standby_models") or []),
+        *(plan.get("selected_models") or []),
+    ]:
+        model_id = str(model_id or "")
+        if model_id and model_id not in eligible:
+            eligible.append(model_id)
+    primary = str(plan.get("primary_model") or plan["selected_models"][0])
+    primary_gate = decide_openrouter_free_model(primary, catalog)
+    if not _has_exact_zero_catalog_price(primary_gate):
+        raise PaidMediaPreflightUnavailable("AI Army selected a model without current exact-zero price evidence")
+
+    media_daily_limit = min(
+        int(PIPELINE_POLICY["daily_openrouter_media_call_cap"]),
+        int(PIPELINE_POLICY["free_script_generation"]["maximum_calls_per_utc_day"]),
+    )
+    remaining_quota = min(
+        int(baseline.get("remaining_quota_before_plan") or 0),
+        max(0, media_daily_limit - max(0, int(free_requests_today))),
+    )
+    if remaining_quota <= 0:
+        raise PaidMediaPreflightUnavailable("OpenRouter media quota is exhausted; route through the separately authorized provider policy")
+
+    candidate_ids = [primary, *(plan.get("selected_models") or []), *(baseline.get("standby_models") or [])]
+    models = []
+    for model_id in candidate_ids:
+        model_id = str(model_id or "")
+        if not model_id or any(existing[0] == model_id for existing in models):
+            continue
+        row = next((item for item in catalog if isinstance(item, dict) and item.get("id") == model_id), None)
+        decision = decide_openrouter_free_model(model_id, catalog)
         if row is not None and _has_exact_zero_catalog_price(decision):
-            result.append((model_id,row))
-        if len(result)>=limit:
+            models.append((model_id, row))
+        if len(models) >= min(max(1, int(limit)), remaining_quota):
             break
-    if not result:
-        raise PaidMediaPreflightUnavailable("no current exact-zero OpenRouter free model is available")
-    return result
+    if not models or models[0][0] != primary:
+        raise PaidMediaPreflightUnavailable("no current exact-zero OpenRouter media Worker passed admission")
+
+    # A script is one single-writer artifact. Jev may route a verifier or
+    # specialist for other tasks, but this pipeline admits one active Worker;
+    # one separately gated free standby is also reserved for a known refusal.
+    bounded_plan = dict(plan)
+    bounded_plan.pop("deferred_challenger", None)
+    bounded_plan.update(
+        selected_models=[primary],
+        primary_model=primary,
+        active_model_count=1,
+        parallel_model_calls=1,
+        execution_mode="SINGLE",
+        independent_verification=False,
+        execution_reservation_models=[model_id for model_id, _row in models],
+    )
+    guarded = apply_final_execution_admission_guard(
+        task,
+        bounded_plan,
+        eligible_models=eligible,
+        remaining_quota=remaining_quota,
+    )
+    if guarded.get("status") != "READY" or (guarded.get("final_execution_admission") or {}).get("status") != "PASS":
+        raise PaidMediaPreflightUnavailable("AI Army media route was blocked by final execution admission")
+
+    jev_result = routed.get("jev") if isinstance(routed.get("jev"), Mapping) else {}
+    evidence = {
+        "schema_version": "ai-army-media-route-v1",
+        "runtime": "scripts/jev_routing_coordinator.py",
+        "route_source": routed.get("route_source"),
+        "decision_plane_status": jev_result.get("status"),
+        "selected_models": guarded.get("selected_models"),
+        "fallback_models": [model_id for model_id, _row in models[1:]],
+        "worker_roles": guarded.get("worker_roles"),
+        "final_execution_admission": guarded.get("final_execution_admission"),
+        "active_worker_count": 1,
+        "reserved_worker_calls": len(models),
+        "openrouter_paid_fallback": False,
+    }
+    return models, evidence
+
+
+def _resolve_free_script_models(catalog: Any, planner_fn=None, *, limit: int = 2) -> list[tuple[str, dict[str, Any]]]:
+    """Return coordinator-selected current exact-free primary/standby models."""
+    models, _evidence = _coordinate_free_script_models(catalog, planner_fn, limit=limit)
+    return models
 
 
 def _has_exact_zero_catalog_price(decision: Any) -> bool:
@@ -764,15 +887,67 @@ def _load_paid_checkpoint(checkpoint_path: Path | None, source_sha256: str) -> t
         saved = json.loads(checkpoint_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+    if not isinstance(saved, Mapping):
+        return None
     if (saved.get("status") == "SCRIPT_READY" and saved.get("source_sha256") == source_sha256
             and isinstance(saved.get("story"), dict)):
         model_id = str(saved.get("model_id") or "")
         provider = str(saved.get("provider") or "")
         if _openrouter_checkpoint_is_reusable(saved) or (provider == "deepseek_official" and model_id == DEEPSEEK_PAID_MODEL):
             return saved["story"], model_id, saved
+    if (saved.get("provider") == "openrouter"
+            and saved.get("source_sha256") == source_sha256
+            and saved.get("status") in {"OPENROUTER_ATTEMPT_RESERVED", "OUTCOME_UNKNOWN", "UNKNOWN_RESULT"}):
+        raise OpenRouterRequestUnknown(
+            "prior OpenRouter request result is unknown; automatic resend is disabled",
+            reason_code=str(saved.get("reason_code") or "OUTCOME_UNKNOWN"),
+        )
     if saved.get("status") in {"ATTEMPT_RESERVED", "OUTCOME_UNKNOWN", "UNKNOWN_RESULT", "BLOCKED_BALANCE"}:
-        raise PaidMediaAlreadyAttempted("DeepSeek request is already reserved or blocked; automatic resend is disabled")
+        raise PaidMediaAlreadyAttempted("prior paid request is already reserved or blocked; automatic resend is disabled")
     return None
+
+
+def _load_openrouter_attempts(checkpoint_path: Path | None, source_sha256: str) -> list[dict[str, Any]]:
+    if checkpoint_path is None or not checkpoint_path.is_file():
+        return []
+    try:
+        saved = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(saved, Mapping):
+        return []
+    attempts = saved.get("openrouter_attempts")
+    if saved.get("provider") == "openrouter" and saved.get("source_sha256") == source_sha256 and isinstance(attempts, list):
+        return [dict(row) for row in attempts if isinstance(row, Mapping)]
+    return []
+
+
+def _save_openrouter_attempt_checkpoint(
+    checkpoint_path: Path | None,
+    *,
+    source_sha256: str,
+    model_id: str,
+    status: str,
+    attempts: list[dict[str, Any]],
+    routing_evidence: Mapping[str, Any] | None,
+    reason_code: str | None = None,
+) -> None:
+    if checkpoint_path is None:
+        return
+    record = {
+        "schema_version": "media-news-script-v2",
+        "status": status,
+        "provider": "openrouter",
+        "model_id": model_id,
+        "source_sha256": source_sha256,
+        "request_count": len(attempts),
+        "request_may_have_been_sent": True,
+        "automatic_retry": False,
+        "reason_code": reason_code,
+        "routing_evidence": dict(routing_evidence or {}),
+        "openrouter_attempts": attempts,
+    }
+    _write_text_atomic(checkpoint_path, json.dumps(record, ensure_ascii=False, indent=2) + "\n")
 
 
 def _script_payload(model: str, article: Mapping[str, Any]) -> dict[str, Any]:
@@ -845,6 +1020,8 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
     free_key=os.environ.get("OPENROUTER_API_KEY","")
     free_error=None
     free_http_error: OpenRouterRequestError | None = None
+    routing_evidence: dict[str, Any] | None = None
+    openrouter_attempts = _load_openrouter_attempts(checkpoint_path, source_sha256)
     if free_key:
         try:
             circuit=_get_paid_provider_circuit(conn)
@@ -858,7 +1035,13 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                 # this admission check effectively live immediately before dispatch.
                 free_catalog, _catalog_time, _catalog_source = load_openrouter_catalog(
                     api_key=free_key, ttl_seconds=1)
-            candidates=_resolve_free_script_models(free_catalog,planner_fn,limit=2)
+            candidates,routing_evidence=_coordinate_free_script_models(
+                free_catalog,
+                planner_fn,
+                limit=2,
+                free_requests_today=_media_calls_used_today(conn),
+                api_key=free_key,
+            )
             free_policy=PIPELINE_POLICY["free_script_generation"]
             for index,(model,_row) in enumerate(candidates):
                 try:
@@ -870,6 +1053,23 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                     payload["provider"]={"allow_fallbacks":False,"require_parameters":True}
                     payload["max_completion_tokens"]=int(free_policy["maximum_completion_tokens"])
                     payload["usage"]={"include":True}
+                    openrouter_attempts.append({
+                        "model_id": model,
+                        "status": "ATTEMPT_RESERVED",
+                        "request_may_have_been_sent": True,
+                        "free_gate_reason": gate.reason,
+                        "free_gate_verified_at": gate.verified_at,
+                        "free_gate_prompt_price": gate.prompt_price,
+                        "free_gate_completion_price": gate.completion_price,
+                    })
+                    _save_openrouter_attempt_checkpoint(
+                        checkpoint_path,
+                        source_sha256=source_sha256,
+                        model_id=model,
+                        status="OPENROUTER_ATTEMPT_RESERVED",
+                        attempts=openrouter_attempts,
+                        routing_evidence=routing_evidence,
+                    )
                     response=request_fn(payload,free_key)
                     if not isinstance(response,Mapping):
                         raise OpenRouterRequestUnknown(
@@ -907,25 +1107,63 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                     if not isinstance(usage,Mapping):
                         usage={}
                     record={"schema_version":"media-news-script-v2","status":"SCRIPT_READY","provider":"openrouter",
-                      "model_id":model,"source_sha256":source_sha256,"request_count":1,
+                      "model_id":model,"source_sha256":source_sha256,
                       "free_gate_reason":gate.reason,"free_gate_verified_at":gate.verified_at,
                       "free_gate_evidence_source":gate.evidence_source,
                       "free_gate_prompt_price":gate.prompt_price,"free_gate_completion_price":gate.completion_price,
                       "input_tokens":usage.get("prompt_tokens"),
                       "output_tokens":usage.get("completion_tokens"),
-                      "estimated_cost_usd":"0","actual_cost_usd":"0","story":story}
+                      "estimated_cost_usd":"0","actual_cost_usd":"0","story":story,
+                      "routing_evidence":routing_evidence,
+                      "request_count":len(openrouter_attempts),
+                      "openrouter_attempts":openrouter_attempts}
+                    openrouter_attempts[-1]["status"]="SCRIPT_READY"
                     if checkpoint_path is not None:
                         _write_text_atomic(checkpoint_path,json.dumps(record,ensure_ascii=False,indent=2)+"\n")
                     return story,model
                 except DailyMediaCapReached as exc:
                     free_error=type(exc).__name__;break
-                except OpenRouterRequestUnknown:
+                except OpenRouterRequestUnknown as exc:
+                    if openrouter_attempts:
+                        openrouter_attempts[-1].update(status="UNKNOWN_RESULT", reason_code=exc.reason_code)
+                        _save_openrouter_attempt_checkpoint(
+                            checkpoint_path,
+                            source_sha256=source_sha256,
+                            model_id=model,
+                            status="UNKNOWN_RESULT",
+                            attempts=openrouter_attempts,
+                            routing_evidence=routing_evidence,
+                            reason_code=exc.reason_code,
+                        )
                     raise
                 except OpenRouterRequestError as exc:
                     free_http_error=exc
                     match=re.fullmatch(r"OpenRouter request failed with HTTP (\d+) \(([A-Z_]+)\)",str(exc))
                     if match is not None and int(match.group(1))>=500:
-                        raise OpenRouterRequestUnknown("OpenRouter request result is unknown; automatic retry disabled") from None
+                        unknown=OpenRouterRequestUnknown("OpenRouter request result is unknown; automatic retry disabled")
+                        if openrouter_attempts:
+                            openrouter_attempts[-1].update(status="UNKNOWN_RESULT", reason_code=unknown.reason_code)
+                            _save_openrouter_attempt_checkpoint(
+                                checkpoint_path,
+                                source_sha256=source_sha256,
+                                model_id=model,
+                                status="UNKNOWN_RESULT",
+                                attempts=openrouter_attempts,
+                                routing_evidence=routing_evidence,
+                                reason_code=unknown.reason_code,
+                            )
+                        raise unknown from None
+                    if openrouter_attempts:
+                        openrouter_attempts[-1].update(status="KNOWN_PROVIDER_RESPONSE", reason_code=(match.group(2) if match else type(exc).__name__))
+                        _save_openrouter_attempt_checkpoint(
+                            checkpoint_path,
+                            source_sha256=source_sha256,
+                            model_id=model,
+                            status="OPENROUTER_KNOWN_FAILURE",
+                            attempts=openrouter_attempts,
+                            routing_evidence=routing_evidence,
+                            reason_code=(match.group(2) if match else type(exc).__name__),
+                        )
                     free_error=type(exc).__name__
                     if index+1<len(candidates) and "429" in str(exc):
                         import random
@@ -935,6 +1173,17 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                 except Exception as exc:
                     # The call may have reached the provider, or it may have returned
                     # an unusable response. Do not fan out to another model/provider.
+                    if openrouter_attempts:
+                        openrouter_attempts[-1].update(status="UNKNOWN_RESULT", reason_code=type(exc).__name__)
+                        _save_openrouter_attempt_checkpoint(
+                            checkpoint_path,
+                            source_sha256=source_sha256,
+                            model_id=model,
+                            status="UNKNOWN_RESULT",
+                            attempts=openrouter_attempts,
+                            routing_evidence=routing_evidence,
+                            reason_code=type(exc).__name__,
+                        )
                     raise OpenRouterRequestUnknown(
                         "OpenRouter request result is unknown; automatic retry disabled",
                         reason_code=type(exc).__name__) from None
@@ -970,7 +1219,8 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
     checkpoint={"schema_version":"media-news-script-v2","status":"ATTEMPT_RESERVED",
       "provider":"deepseek_official","model_id":DEEPSEEK_PAID_MODEL,"source_sha256":source_sha256,
       "estimated_cost_usd":str(estimate),"price_basis":"OFFICIAL_PEAK_RATE_UPPER_BOUND",
-      "free_route_failure_type":free_error,"retry_count":0,"automatic_retry":False}
+      "free_route_failure_type":free_error,"retry_count":0,"automatic_retry":False,
+      "routing_evidence":routing_evidence,"openrouter_attempts":openrouter_attempts}
     if checkpoint_path is not None:
         _write_text_atomic(checkpoint_path,json.dumps(checkpoint,ensure_ascii=False,indent=2)+"\n")
     try:
