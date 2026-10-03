@@ -497,6 +497,14 @@ def _source_call_id(article: Mapping[str, Any]) -> str:
     return value
 
 
+def _openrouter_checkpoint_is_reusable(saved: Mapping[str, Any]) -> bool:
+    """Accept only checkpoints with an exact, attributable free OpenRouter route."""
+    model_id = str(saved.get("model_id") or "")
+    if str(saved.get("provider") or "") != "openrouter" or model_id == "openrouter/free":
+        return False
+    return model_id.endswith(":free") or saved.get("free_gate_reason") == "FREE_CONFIRMED"
+
+
 def _load_paid_checkpoint(checkpoint_path: Path | None, source_sha256: str) -> tuple[dict[str, Any], str, dict[str, Any]] | None:
     if checkpoint_path is None or not checkpoint_path.is_file():
         return None
@@ -508,7 +516,7 @@ def _load_paid_checkpoint(checkpoint_path: Path | None, source_sha256: str) -> t
             and isinstance(saved.get("story"), dict)):
         model_id = str(saved.get("model_id") or "")
         provider = str(saved.get("provider") or "")
-        if (provider == "openrouter" and (model_id.endswith(":free") or model_id=="openrouter/free")) or (provider == "deepseek_official" and model_id == DEEPSEEK_PAID_MODEL):
+        if _openrouter_checkpoint_is_reusable(saved) or (provider == "deepseek_official" and model_id == DEEPSEEK_PAID_MODEL):
             return saved["story"], model_id, saved
     if saved.get("status") in {"ATTEMPT_RESERVED", "OUTCOME_UNKNOWN", "UNKNOWN_RESULT", "BLOCKED_BALANCE"}:
         raise PaidMediaAlreadyAttempted("DeepSeek request is already reserved or blocked; automatic resend is disabled")
@@ -596,6 +604,9 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
             free_policy=PIPELINE_POLICY["free_script_generation"]
             for index,(model,_row) in enumerate(candidates):
                 try:
+                    gate=decide_openrouter_free_model(model,free_catalog)
+                    if not gate.allowed:
+                        raise PaidMediaPreflightUnavailable(gate.reason)
                     _reserve_call(conn,cap_override=int(free_policy["maximum_calls_per_utc_day"]))
                     payload=_script_payload(model,article)
                     payload["provider"]={"allow_fallbacks":False,"require_parameters":True}
@@ -609,6 +620,9 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                     story=validate_story(json.loads(content),str(article["text"]))
                     record={"schema_version":"media-news-script-v2","status":"SCRIPT_READY","provider":"openrouter",
                       "model_id":model,"source_sha256":source_sha256,"request_count":1,
+                      "free_gate_reason":gate.reason,"free_gate_verified_at":gate.verified_at,
+                      "free_gate_evidence_source":gate.evidence_source,
+                      "free_gate_prompt_price":gate.prompt_price,"free_gate_completion_price":gate.completion_price,
                       "input_tokens":(response.get("usage") or {}).get("prompt_tokens"),
                       "output_tokens":(response.get("usage") or {}).get("completion_tokens"),
                       "estimated_cost_usd":"0","actual_cost_usd":"0","story":story}
@@ -937,7 +951,7 @@ def process_source(conn: sqlite3.Connection, source_id: str, workspace: Path, *,
                     and cached_mission.get("source_sha256") == source["source_sha256"]
                     and script_record.get("status") == "SCRIPT_READY"
                     and script_record.get("source_sha256") == source["source_sha256"]
-                    and ((script_record.get("provider") == "openrouter" and (str(script_record.get("model_id","")).endswith(":free") or script_record.get("model_id")=="openrouter/free"))
+                    and (_openrouter_checkpoint_is_reusable(script_record)
                          or (script_record.get("provider") == "deepseek_official" and script_record.get("model_id") == DEEPSEEK_PAID_MODEL))):
                 conn.execute("UPDATE source_inbox SET state='VOICE_PENDING',updated_at=? WHERE source_id=?", (time.time(),source_id))
                 return mission_path
