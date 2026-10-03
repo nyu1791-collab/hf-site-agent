@@ -11,7 +11,7 @@ except ImportError:
     from media_voice_cache import voice_cache_key, restore_voice, store_voice
 
 DEFAULT_SPEED_SCALE=1.20
-VOICEVOX_TIMEOUT_SECONDS=60
+VOICEVOX_TIMEOUT_SECONDS=120
 STANDARD_CAST=("ずんだもん","四国めたん")
 def decode_mission(path:Path):
     return json.loads(gzip.decompress(base64.b64decode(path.read_text(encoding="utf-8").strip())).decode("utf-8"))
