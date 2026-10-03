@@ -5,7 +5,10 @@ set -euo pipefail
 # tool runners isolate the network namespace for each command invocation.
 ENGINE_DIR="${VOICEVOX_ENGINE_DIR:-/tmp/devday-voicevox/extracted/linux-cpu-x64}"
 BASE_URL="${VOICEVOX_URL:-http://127.0.0.1:50021}"
-THREADS="${VV_CPU_NUM_THREADS:-1}"
+AUTO_THREADS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
+if ! [[ "$AUTO_THREADS" =~ ^[0-9]+$ ]] || (( AUTO_THREADS < 1 )); then AUTO_THREADS=1; fi
+if (( AUTO_THREADS > 4 )); then AUTO_THREADS=4; fi
+THREADS="${VV_CPU_NUM_THREADS:-$AUTO_THREADS}"
 REMOTE_TUNNEL="${VOICEVOX_REMOTE_TUNNEL:-0}"
 ENGINE_PID=""
 ENGINE_LOG=""
