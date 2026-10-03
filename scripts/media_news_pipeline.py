@@ -18,6 +18,7 @@ import json
 import os
 import re
 import sqlite3
+import stat
 import subprocess
 import sys
 import tempfile
@@ -1623,6 +1624,54 @@ def _render_asset_from_env(name: str) -> Path | None:
     return Path(value).expanduser() if value else None
 
 
+def _load_protected_e2e_environment() -> dict[str, Any]:
+    """Load only allowlisted runtime variables from owner-private env files.
+
+    Values are never returned or logged. This is used by the private VM control
+    path because a workflow shell does not inherit systemd EnvironmentFile data.
+    """
+    specs=(
+        (Path.home()/".config/hf-site-agent/media.env",{
+            "OPENROUTER_API_KEY","DEEPSEEK_API_KEY","VOICEVOX_REMOTE_TUNNEL","VOICEVOX_URL",
+            "VOICEVOX_EXPECTED_VERSION","VOICEVOX_ENGINE_DIR","VOICEVOX_CACHE_DIR",
+        }),
+        (Path.home()/".config/hf-site-agent/media-render.env",{
+            "MEDIA_RENDER_SHARED_TOKEN","MEDIA_RENDER_EXPECTED_SHELL_SHA256",
+            "MEDIA_RENDER_EXPECTED_FONT_SHA256","MEDIA_RENDER_WORKER_URL",
+        }),
+    )
+    loaded=set()
+    for path,allowed in specs:
+        info=path.lstat()
+        if path.is_symlink() or not stat.S_ISREG(info.st_mode) or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o600:
+            raise RuntimeError(f"protected E2E environment file is missing or insecure: {path.name}")
+        seen=set()
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            line=raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key,value=line.split("=",1)
+            key=key.strip()
+            if key not in allowed:
+                continue
+            if key in seen:
+                raise RuntimeError(f"duplicate protected E2E variable: {key}")
+            seen.add(key)
+            value=value.strip()
+            if len(value)>=2 and ((value[0]=='"' and value[-1]=='"') or (value[0]=="'" and value[-1]=="'")):
+                value=value[1:-1]
+            if value:
+                os.environ[key]=value
+                loaded.add(key)
+    required={"OPENROUTER_API_KEY","DEEPSEEK_API_KEY","MEDIA_RENDER_SHARED_TOKEN",
+              "MEDIA_RENDER_EXPECTED_SHELL_SHA256","MEDIA_RENDER_EXPECTED_FONT_SHA256"}
+    missing=sorted(required-loaded)
+    if missing:
+        raise RuntimeError("protected E2E environment is incomplete: "+",".join(missing))
+    return {"status":"PROTECTED_E2E_ENV_READY","required_names_present":sorted(required),
+            "secret_values":"HIDDEN"}
+
+
 def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
                            min_seconds: int, max_seconds: int,
                            worker_url: str | None = None) -> dict[str, Any]:
@@ -1712,8 +1761,10 @@ def main() -> int:
             elif args.action == "process-next":
                 result = _process_next(conn,args.workspace,min_seconds=args.min_seconds,max_seconds=args.max_seconds)
             elif args.action == "e2e-once":
+                env_status=_load_protected_e2e_environment()
                 result = _run_internal_e2e_once(conn,args.workspace,min_seconds=args.min_seconds,
                     max_seconds=args.max_seconds,worker_url=args.worker_url)
+                result["protected_environment"]=env_status
             elif args.action == "retry-voice":
                 result = _requeue_voice(conn,args.workspace,args.source_id)
             elif args.action == "resume-paid-provider":
