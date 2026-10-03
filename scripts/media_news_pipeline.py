@@ -300,6 +300,48 @@ def add_source_visual(package: Path, *, source_url: str, credit: str, mode: str,
             "sha256":stored["sha256"],"bytes":stored["bytes"],"public_publish_enabled":False}
 
 
+
+def add_source_visual_batch(package: Path, manifest_path: Path) -> dict[str, Any]:
+    """Attach up to 24 source-attributed visuals in one pass.
+
+    Individual failures are isolated so one unavailable web image does not
+    discard already usable visuals from the same batch.
+    """
+    source_manifest=manifest_path.expanduser()
+    if source_manifest.is_symlink() or not source_manifest.is_file() or source_manifest.stat().st_size>256*1024:
+        raise ValueError("visual batch manifest must be a regular JSON file up to 256 KiB")
+    payload=json.loads(source_manifest.read_text(encoding="utf-8"))
+    if not isinstance(payload,list) or not 1<=len(payload)<=24:
+        raise ValueError("visual batch manifest must contain 1..24 entries")
+    added=[]
+    failed=[]
+    for index,item in enumerate(payload):
+        if not isinstance(item,Mapping):
+            failed.append({"index":index,"error_type":"INVALID_ENTRY"})
+            continue
+        local_value=str(item.get("file") or "").strip()
+        local_file=(source_manifest.parent/local_value).resolve() if local_value else None
+        image_url=str(item.get("image_url") or "").strip() or None
+        try:
+            result=add_source_visual(
+                package,
+                source_url=str(item.get("source_url") or ""),
+                credit=str(item.get("credit") or ""),
+                mode=str(item.get("mode") or ""),
+                local_file=local_file,
+                image_url=image_url,
+                selected=bool(item.get("selected_for_render",True)),
+            )
+            added.append(result)
+        except Exception as exc:
+            failed.append({"index":index,"error_type":type(exc).__name__})
+    return {
+        "status":"SOURCE_VISUAL_BATCH_ATTACHED" if added else "SOURCE_VISUAL_BATCH_FAILED",
+        "requested":len(payload),"added":len(added),"failed":len(failed),
+        "assets":added,"failures":failed,"public_publish_enabled":False,
+    }
+
+
 class _AllowHostsRedirect(urllib.request.HTTPRedirectHandler):
     def __init__(self, hosts: set[str]):
         super().__init__()
@@ -1905,6 +1947,9 @@ def main() -> int:
     visual.add_argument("--credit",required=True)
     visual.add_argument("--mode",required=True,choices=PIPELINE_POLICY["visual_source_policy"]["allowed_modes"])
     visual.add_argument("--candidate-only",action="store_true",help="attach without selecting it for the next render")
+    visual_batch=sub.add_parser("add-source-visual-batch",help="attach up to 24 source-attributed visuals from one JSON manifest")
+    visual_batch.add_argument("--package",type=Path,required=True)
+    visual_batch.add_argument("--manifest",type=Path,required=True)
     retry_voice = sub.add_parser("retry-voice", help="requeue a VOICE_BLOCKED package after repairing its VOICEVOX connection")
     retry_voice.add_argument("--source-id", required=True)
     resume_provider = sub.add_parser("resume-paid-provider",
@@ -1939,6 +1984,9 @@ def main() -> int:
                 result=add_source_visual(package,source_url=args.source_url,credit=args.credit,
                     mode=args.mode,local_file=args.file,image_url=args.image_url,
                     selected=not args.candidate_only)
+            elif args.action == "add-source-visual-batch":
+                package=_validate_existing_package(args.workspace,args.package)
+                result=add_source_visual_batch(package,args.manifest)
             elif args.action == "retry-voice":
                 result = _requeue_voice(conn,args.workspace,args.source_id)
             elif args.action == "resume-paid-provider":
