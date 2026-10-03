@@ -46,6 +46,8 @@ The private `nyu1791-collab/-hf-vm-control` workflow is the operational control 
 
 After an actual VM reboot, run the private control-plane `reboot_audit` operation. It requires a new kernel boot ID relative to the activation baseline, lingering enabled, exactly one repository Runner service enabled and active, the five-minute user timer enabled and active, and a clean checkout at the current remote `ai-army/provider-v3` HEAD. The audit does not reboot the VM itself and does not publish or render.
 
+To verify boot persistence for the installed PR head, the canonical Cloud Shell helper also provides `--operation coordinator-reboot-check`. It refuses to restart during an active render or media job, requires the paid-provider circuit to be paused, records a protected baseline for the exact current PR commit, resets only the existing coordinator VM, and waits for its Runner, both user timers, fresh RSS polling, authenticated worker health, and saved fixture jobs to recover. Queue rows and artifacts are checked for preservation. The user must run this operation in authenticated Cloud Shell because the self-hosted Runner does not have the required GCP reset permission.
+
 External render readiness is never taken from a repository boolean. The authoritative check is the authenticated loopback health probe `python -m scripts.media_render_transport --check`; until that returns `READY`, the external renderer remains unavailable.
 
 ## External render handoff

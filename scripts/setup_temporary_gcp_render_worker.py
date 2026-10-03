@@ -282,6 +282,131 @@ def reboot_check(coordinator, worker):
     print(json.dumps({"reboot_e2e_verified": True, "completed_jobs": 2}))
 
 
+def _coordinator_snapshot_command(expected_sha):
+    program = f'''import json,os,pathlib,shlex,sqlite3,stat,subprocess,sys,time
+root=pathlib.Path('/home/n_yu1791/hf-site-agent'); expected={expected_sha!r}; uid=os.getuid()
+env=os.environ.copy(); env['XDG_RUNTIME_DIR']=f'/run/user/{{uid}}'; env['DBUS_SESSION_BUS_ADDRESS']=f"unix:path=/run/user/{{uid}}/bus"
+def run(args,user=False):
+ p=subprocess.run(args,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=12,check=False,env=env if user else None)
+ return p.stdout.strip() if p.returncode==0 else ''
+def user(unit,prop): return run(['systemctl','--user','show',unit,'--property='+prop,'--value'],True)
+head=run(['git','-C',str(root),'rev-parse','HEAD']); clean=not run(['git','-C',str(root),'status','--porcelain'])
+units=[x.split()[0] for x in run(['systemctl','list-unit-files','actions.runner.*.service','--no-legend','--no-pager']).splitlines() if x.split()]
+runner_active=len(units)==1 and run(['systemctl','is-active',units[0]])=='active'
+runner_enabled=len(units)==1 and run(['systemctl','is-enabled',units[0]]) in {{'enabled','enabled-runtime','static'}}
+timer='hf-site-agent-media-news.timer'; source='hf-site-agent-media-source.timer'
+boot=pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(); boot_epoch=time.time()-float(pathlib.Path('/proc/uptime').read_text().split()[0])
+queue_total=0; rss_fresh=False; rss_boot=False; provider_paused=False; fixtures=0
+try:
+ db=root/'runtime/media-queue.sqlite3'; c=sqlite3.connect(db.resolve().as_uri()+'?mode=ro',uri=True,timeout=4); c.execute('PRAGMA query_only=ON')
+ queue_total=int(c.execute('SELECT COUNT(*) FROM source_inbox').fetchone()[0])
+ p=json.loads((root/'config/media_source_ingress_policy.json').read_text()); enabled={{str(x['feed_id']) for x in p.get('feeds',[]) if isinstance(x,dict) and x.get('enabled') is True and x.get('feed_id')}}; stale=int(p.get('stale_after_seconds',0) or 0)
+ feeds={{str(a):(float(b),str(d)) for a,b,d in c.execute('SELECT feed_id,last_checked_at,last_status FROM source_feed_state')}}
+ rss_fresh=bool(enabled) and all(k in feeds and feeds[k][1] in {{'OK','NOT_MODIFIED'}} and 0<=time.time()-feeds[k][0]<=stale for k in enabled)
+ rss_boot=rss_fresh and all(feeds[k][0]>=boot_epoch-5 for k in enabled)
+ tables={{x[0] for x in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}}
+ if 'media_news_provider_circuit' in tables:
+  row=c.execute("SELECT state,http_status,reason_code FROM media_news_provider_circuit WHERE provider='openrouter'").fetchone(); provider_paused=bool(row and row[0]=='PAUSED' and row[1]==403 and row[2]=='CREDIT_OR_KEY_BUDGET_LIMIT')
+ if 'render_e2e_jobs' in tables: fixtures=int(c.execute("SELECT COUNT(*) FROM render_e2e_jobs WHERE status='success' AND job_id IN ('first','second')").fetchone()[0])
+ c.close()
+except Exception: pass
+health='BLOCKED'; worker_boot=''
+try:
+ f=pathlib.Path.home()/'.config/hf-site-agent/media-render.env'; st=f.lstat()
+ if stat.S_ISREG(st.st_mode) and st.st_uid==uid and stat.S_IMODE(st.st_mode)==0o600:
+  for raw in f.read_text().splitlines():
+   parts=shlex.split(raw,comments=True)
+   if len(parts)==1 and '=' in parts[0]:
+    k,v=parts[0].split('=',1)
+    if k.startswith('MEDIA_RENDER_'): os.environ[k]=v
+  sys.path.insert(0,str(root)); from scripts.media_render_transport import check_remote_worker
+  h=check_remote_worker(); health=str(h.get('status','BLOCKED')); worker_boot=str(h.get('worker_boot_id') or '')
+except Exception: pass
+print(json.dumps({{'boot_id':boot,'head':head,'expected_head':expected,'clean':clean,'media_service':user('hf-site-agent-media-news.service','ActiveState'),
+ 'timer_active':user(timer,'ActiveState')=='active','timer_enabled':user(timer,'UnitFileState') in {{'enabled','enabled-runtime','static'}},
+ 'source_timer_active':user(source,'ActiveState')=='active','source_timer_enabled':user(source,'UnitFileState') in {{'enabled','enabled-runtime','static'}},
+ 'runner_active':runner_active,'runner_enabled':runner_enabled,'runner_count':len(units),'linger':run(['loginctl','show-user','n_yu1791','--property=Linger','--value'])=='yes',
+ 'rss_fresh':rss_fresh,'rss_this_boot':rss_boot,'queue_total':queue_total,'provider_paused':provider_paused,'fixture_jobs_success':fixtures,
+ 'worker_health':health,'worker_boot_id':worker_boot}},sort_keys=True))'''
+    return "python3 -c " + shlex.quote(program)
+
+
+def _record_coordinator_baseline(coordinator, expected_sha):
+    program=f'''import datetime,json,os,pathlib,stat,subprocess,tempfile
+root=pathlib.Path('/home/n_yu1791/hf-site-agent'); expected={expected_sha!r}; commit=subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip()
+if commit!=expected: raise SystemExit('coordinator commit does not match current PR head')
+dest=pathlib.Path.home()/'.local/state/hf-site-agent/vm-control-baseline.json'; dest.parent.mkdir(parents=True,exist_ok=True,mode=0o700); os.chmod(dest.parent,0o700)
+try:
+ st=dest.lstat()
+ if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or stat.S_IMODE(st.st_mode)!=0o600: raise SystemExit('existing baseline is not a protected regular file')
+except FileNotFoundError: pass
+payload={{'schema_version':'hf-vm-control-baseline-v1','configured_boot_id':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'configured_commit':commit,'recorded_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()}}
+fd,tmp=tempfile.mkstemp(prefix='.vm-control-baseline.',dir=str(dest.parent)); os.fchmod(fd,0o600)
+try:
+ with os.fdopen(fd,'w',encoding='utf-8') as out: json.dump(payload,out,sort_keys=True); out.write('\\n'); out.flush(); os.fsync(out.fileno())
+ os.replace(tmp,dest)
+finally:
+ if os.path.exists(tmp): os.unlink(tmp)
+print(json.dumps({{'baseline_recorded':True,'commit':commit,'secret_values':False}},sort_keys=True))'''
+    raw=coordinator.ssh("python3 -c "+shlex.quote(program)).stdout.strip().splitlines()[-1]
+    result=json.loads(raw)
+    if result.get('baseline_recorded') is not True or result.get('commit')!=expected_sha:
+        raise RuntimeError('Coordinator reboot baseline was not recorded for the current PR commit')
+
+
+def coordinator_reboot_check(coordinator, worker, expected_sha):
+    snapshot_cmd=_coordinator_snapshot_command(expected_sha)
+    idle_deadline=time.monotonic()+1800
+    while True:
+        if worker_control(worker,'status').get('active_render') is True:
+            before=None
+        else:
+            first=coordinator.ssh(snapshot_cmd,check=False)
+            if first.returncode:
+                raise RuntimeError('Could not read coordinator readiness before reboot')
+            before=json.loads(first.stdout.strip().splitlines()[-1])
+        if before is not None and before.get('media_service')=='inactive':
+            break
+        if time.monotonic()>=idle_deadline:
+            raise RuntimeError('Active render or media preparation did not finish within 30 minutes; coordinator was not rebooted')
+        print('Waiting for current render and media job to finish before coordinator reboot...',flush=True)
+        time.sleep(10)
+    required=('clean','timer_active','timer_enabled','source_timer_active','source_timer_enabled',
+        'runner_active','runner_enabled','linger','rss_fresh','provider_paused','worker_health')
+    if before.get('head')!=expected_sha or before.get('expected_head')!=expected_sha:
+        raise RuntimeError('Coordinator must be on the current PR head with the media service idle before reboot')
+    failed=[key for key in required if before.get(key) is not True and not (key=='worker_health' and before.get(key)=='READY')]
+    if failed:
+        raise RuntimeError('Coordinator pre-reboot checks failed: '+','.join(failed))
+    _record_coordinator_baseline(coordinator,expected_sha)
+    command(['gcloud','compute','instances','reset',coordinator.name,'--project',coordinator.project,
+        '--zone',coordinator.zone,'--quiet'])
+    deadline=time.monotonic()+900; last=None
+    while time.monotonic()<deadline:
+        current=coordinator.ssh(snapshot_cmd,check=False)
+        if current.returncode==0:
+            try:
+                last=json.loads(current.stdout.strip().splitlines()[-1])
+                recovered=(last.get('boot_id')!=before.get('boot_id') and last.get('head')==expected_sha
+                    and last.get('media_service')=='inactive' and last.get('queue_total',0)>=before.get('queue_total',0)
+                    and last.get('fixture_jobs_success',0)>=2 and last.get('worker_health')=='READY'
+                    and all(last.get(key) is True for key in ('clean','timer_active','timer_enabled','source_timer_active',
+                        'source_timer_enabled','runner_active','runner_enabled','linger','rss_fresh','rss_this_boot','provider_paused')))
+                if recovered:
+                    print(json.dumps({'coordinator_reboot_verified':True,'old_boot_id':before['boot_id'],
+                        'new_boot_id':last['boot_id'],'commit':expected_sha,'runner_ready':True,'timers_ready':True,
+                        'rss_observed_this_boot':True,'worker_health':'READY','fixture_jobs_preserved':last['fixture_jobs_success'],
+                        'queue_preserved':True,'paid_provider_circuit':'PAUSED','paid_requests_sent':False},sort_keys=True))
+                    return
+            except (ValueError,TypeError,KeyError): pass
+        print('Waiting for coordinator services, fresh RSS poll and render tunnel recovery...',flush=True)
+        time.sleep(10)
+    fields=('boot_id','head','media_service','timer_active','source_timer_active','runner_active',
+        'rss_this_boot','worker_health','fixture_jobs_success','queue_total')
+    safe_last={{key:last.get(key) for key in fields}} if last else {{}}
+    raise RuntimeError('Coordinator reboot recovery timed out: '+json.dumps(safe_last,sort_keys=True))
+
+
 def drain(coordinator, worker, stop_vm):
     worker_control(worker, "drain")
     deadline = time.monotonic() + 1900
@@ -338,6 +463,8 @@ def run_operation(args):
             reboot_check(coordinator, worker)
     elif args.operation == "reboot-check":
         reboot_check(coordinator, worker)
+    elif args.operation == "coordinator-reboot-check":
+        coordinator_reboot_check(coordinator, worker, sha)
     elif args.operation in ("drain", "stop"):
         drain(coordinator, worker, stop_vm=args.operation == "stop")
     else:
@@ -349,7 +476,7 @@ def run_operation(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", required=True)
-    parser.add_argument("--operation", choices=["probe", "setup", "reboot-check", "drain", "stop", "resume"], default="probe")
+    parser.add_argument("--operation", choices=["probe", "setup", "reboot-check", "coordinator-reboot-check", "drain", "stop", "resume"], default="probe")
     parser.add_argument("--provision-render-auth", action="store_true")
     parser.add_argument("--complete-e2e", action="store_true")
     args = parser.parse_args()

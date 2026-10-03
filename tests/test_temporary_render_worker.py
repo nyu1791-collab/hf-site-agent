@@ -55,6 +55,28 @@ class TemporaryWorkerTests(unittest.TestCase):
             with setup.operation_lock():
                 pass
 
+    def test_coordinator_reboot_checks_compile_and_refuse_an_active_render(self):
+        import shlex
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        commit="a"*40
+        snapshot_command=setup._coordinator_snapshot_command(commit)
+        compile(shlex.split(snapshot_command)[2],"<coordinator-snapshot>","exec")
+        coordinator=Mock()
+        def baseline_ssh(command):
+            program=shlex.split(command)[2]
+            compile(program,"<coordinator-baseline>","exec")
+            return SimpleNamespace(stdout=json.dumps({"baseline_recorded":True,"commit":commit}))
+        coordinator.ssh.side_effect=baseline_ssh
+        setup._record_coordinator_baseline(coordinator,commit)
+        gated_coordinator=Mock();worker=Mock()
+        with patch.object(setup,"worker_control",return_value={"active_render":True}), \
+             patch.object(setup.time,"monotonic",side_effect=[0,1801]), \
+             patch.object(setup.time,"sleep"):
+            with self.assertRaisesRegex(RuntimeError,"did not finish within 30 minutes"):
+                setup.coordinator_reboot_check(gated_coordinator,worker,commit)
+        gated_coordinator.ssh.assert_not_called()
+
     def test_lock_excludes_another_writer_and_drain_preserves_existing_results(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
