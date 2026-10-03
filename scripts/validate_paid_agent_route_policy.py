@@ -23,6 +23,7 @@ def main() -> int:
     assert limits["maximum_spend_plus_reservations_per_utc_day"] == 3.00
     assert policy["routing"]["automatic_paid_fallback"] is False
     assert policy["routing"]["automatic_paid_sibling_substitution"] is False
+    assert "openrouter" in set(policy["eligibility"].get("excluded_provider_ids") or [])
     assert policy["routing"]["Vertex_AI"]["enabled"] is False
     assert evaluate_paid_candidate(None)["allowed"] is False
 
