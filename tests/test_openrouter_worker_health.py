@@ -9,10 +9,31 @@ from scripts.openrouter_worker_health import (
     load_recent_evidence,
     merge_proven_into_candidates,
     rank_candidates,
+    record_worker_result,
 )
 
 
 class OpenRouterWorkerHealthTests(unittest.TestCase):
+    def test_result_metrics_are_deduplicated_and_expire(self):
+        from datetime import timedelta
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/"health.json"
+            now=datetime(2026,10,3,tzinfo=timezone.utc)
+            for event,outcome in [("1","success"),("1","success"),("2","rate_limit"),("3","transport_failure"),("4","quality_failure")]:
+                record_worker_result("a:free",domain="NEWS_SCRIPT_DRAFTING",outcome=outcome,
+                    event_id=event,latency_ms=100,verifier_pass=outcome=="success",path=path,now=now)
+            row=load_recent_evidence(path=path,now=now)["a:free"]
+            scoped=row["domain_stats"]["NEWS_SCRIPT_DRAFTING"]
+            self.assertEqual(scoped["successes"],1)
+            self.assertEqual(scoped["rate_limits"],1)
+            self.assertEqual(scoped["transport_failures"],1)
+            self.assertEqual(scoped["quality_failures"],1)
+            self.assertEqual(scoped["verifier_passes"],1)
+            self.assertEqual(scoped["samples"],4)
+            self.assertEqual(scoped["avg_latency_ms"],100)
+            self.assertEqual(load_recent_evidence(path=path,now=now+timedelta(days=2)),{})
+            self.assertNotIn("prompt",path.read_text())
+
     def test_quality_summary_keeps_sample_count_separate_from_latency(self):
         summary = evidence_quality_summary({
             "successes": 3,

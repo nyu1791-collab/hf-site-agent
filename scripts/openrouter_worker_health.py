@@ -7,13 +7,17 @@ automatically and can only reorder already-eligible exact-free candidates.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import fcntl
+import os
+import tempfile
 import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_PATH = ROOT / "config" / "openrouter_worker_recent_evidence.json"
+RUNTIME_EVIDENCE_PATH = ROOT / "runtime" / "openrouter_worker_health.json"
 
 
 def _parse_utc(value: Any) -> datetime | None:
@@ -51,7 +55,52 @@ def load_recent_evidence(*, now: datetime | None = None, path: Path = EVIDENCE_P
         if expires is None or expires <= current:
             continue
         active[str(model)] = dict(raw)
+    if path == EVIDENCE_PATH:
+        active.update(load_recent_evidence(now=current, path=RUNTIME_EVIDENCE_PATH))
     return active
+
+
+def record_worker_result(
+    model: str, *, domain: str, outcome: str, event_id: str,
+    latency_ms: float, verifier_pass: bool = False,
+    path: Path = RUNTIME_EVIDENCE_PATH, now: datetime | None = None,
+) -> None:
+    """Persist bounded, expiring outcome metrics; never store prompts or secrets."""
+    counters = {"success": "successes", "quality_failure": "quality_failures",
+                "rate_limit": "rate_limits", "transport_failure": "transport_failures",
+                "provider_failure": "provider_failures"}
+    if outcome not in counters or not model or not domain or not event_id:
+        raise ValueError("invalid worker health outcome")
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.with_suffix(".lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        models = load_recent_evidence(now=current, path=path)
+        row = models.setdefault(model, {})
+        events = list(row.get("event_ids") or [])
+        if event_id in events:
+            return
+        scoped = row.setdefault("domain_stats", {}).setdefault(domain, {})
+        for metrics in (row, scoped):
+            counter = counters[outcome]
+            metrics[counter] = int(metrics.get(counter, 0)) + 1
+            count = int(metrics.get("samples", 0))
+            metrics["avg_latency_ms"] = (float(metrics.get("avg_latency_ms", 0)) * count + max(0.0, latency_ms)) / (count + 1)
+            metrics["samples"] = count + 1
+            metrics["verifier_passes"] = int(metrics.get("verifier_passes", 0)) + int(verifier_pass)
+            metrics["last_observed_utc"] = current.isoformat()
+        row["valid_until_utc"] = (current + timedelta(hours=24)).isoformat()
+        row["event_ids"] = [*events, event_id][-256:]
+        fd, name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as target:
+                json.dump({"schema_version": "worker-health-v1", "models": models}, target)
+                target.flush()
+                os.fsync(target.fileno())
+            os.replace(name, path)
+        finally:
+            if os.path.exists(name):
+                os.unlink(name)
 
 
 def domain_evidence(
@@ -118,7 +167,8 @@ def evidence_penalty(raw: Mapping[str, Any], *, domain: str | None = None) -> tu
     severe_slow = 1 if latency >= 30_000 else 0
     slow = 1 if latency >= 10_000 else 0
     latency_score = (latency - successes * 10_000.0) if has_evidence else 5_000.0
-    return (rate_limits, quality_failures, severe_slow, slow, latency_score)
+    transport_failures = max(0, int(scoped.get("transport_failures", 0) or 0))
+    return (rate_limits + transport_failures, quality_failures, severe_slow, slow, latency_score)
 
 
 def rank_candidates(
@@ -216,4 +266,5 @@ __all__ = [
     "profile_suffix",
     "proven_models",
     "rank_candidates",
+    "record_worker_result",
 ]

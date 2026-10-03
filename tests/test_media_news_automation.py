@@ -49,6 +49,11 @@ def story():
 
 
 class MediaNewsAutomationTests(unittest.TestCase):
+    def setUp(self):
+        health_patch = patch("scripts.media_news_pipeline._record_script_worker_health")
+        self.health = health_patch.start()
+        self.addCleanup(health_patch.stop)
+
     def test_target_e2e_blocks_provider_preflight_without_deterministic_script(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);workspace=root/"workspace";workspace.mkdir()
@@ -735,6 +740,8 @@ class MediaNewsAutomationTests(unittest.TestCase):
                         request_fn=lambda *_args:(_ for _ in ()).throw(AssertionError("unknown request must not resend")),
                         checkpoint_path=checkpoint)
             self.assertEqual(calls,["sent"])
+            self.health.assert_called_once()
+            self.assertEqual(self.health.call_args.args[-1],"transport_failure")
             conn.close()
 
     def test_openrouter_http_block_is_reported_as_sent_without_deepseek_fallback(self):

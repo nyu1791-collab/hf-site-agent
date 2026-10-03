@@ -950,6 +950,21 @@ def _save_openrouter_attempt_checkpoint(
     _write_text_atomic(checkpoint_path, json.dumps(record, ensure_ascii=False, indent=2) + "\n")
 
 
+def _record_script_worker_health(model: str, source_sha256: str, attempt: int,
+                                 started: float, outcome: str, *, verifier_pass: bool = False) -> None:
+    from scripts.openrouter_worker_health import record_worker_result
+    try:
+        record_worker_result(
+            model, domain="NEWS_SCRIPT_DRAFTING", outcome=outcome,
+            event_id=f"{source_sha256}:{model}:{attempt}",
+            latency_ms=(time.monotonic() - started) * 1000,
+            verifier_pass=verifier_pass,
+        )
+    except (OSError, ValueError, TypeError):
+        # Telemetry failure must not turn a known provider result into a resend.
+        pass
+
+
 def _script_payload(model: str, article: Mapping[str, Any]) -> dict[str, Any]:
     prompt = {
       "source_title": article["title"], "source_url": article["url"],
@@ -1044,6 +1059,7 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
             )
             free_policy=PIPELINE_POLICY["free_script_generation"]
             for index,(model,_row) in enumerate(candidates):
+                started=time.monotonic()
                 try:
                     gate=decide_openrouter_free_model(model,free_catalog)
                     if not gate.allowed:
@@ -1070,6 +1086,7 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                         attempts=openrouter_attempts,
                         routing_evidence=routing_evidence,
                     )
+                    started=time.monotonic()
                     response=request_fn(payload,free_key)
                     if not isinstance(response,Mapping):
                         raise OpenRouterRequestUnknown(
@@ -1120,10 +1137,12 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                     openrouter_attempts[-1]["status"]="SCRIPT_READY"
                     if checkpoint_path is not None:
                         _write_text_atomic(checkpoint_path,json.dumps(record,ensure_ascii=False,indent=2)+"\n")
+                    _record_script_worker_health(model,source_sha256,len(openrouter_attempts),started,"success",verifier_pass=True)
                     return story,model
                 except DailyMediaCapReached as exc:
                     free_error=type(exc).__name__;break
                 except OpenRouterRequestUnknown as exc:
+                    _record_script_worker_health(model,source_sha256,len(openrouter_attempts),started,"transport_failure" if exc.reason_code in {"OSERROR","TIMEOUTERROR","CONNECTIONERROR","CONNECTIONRESETERROR","REMOTE DISCONNECTED"} else "quality_failure")
                     if openrouter_attempts:
                         openrouter_attempts[-1].update(status="UNKNOWN_RESULT", reason_code=exc.reason_code)
                         _save_openrouter_attempt_checkpoint(
@@ -1137,6 +1156,7 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                         )
                     raise
                 except OpenRouterRequestError as exc:
+                    _record_script_worker_health(model,source_sha256,len(openrouter_attempts),started,"rate_limit" if "HTTP 429" in str(exc) else "provider_failure")
                     free_http_error=exc
                     match=re.fullmatch(r"OpenRouter request failed with HTTP (\d+) \(([A-Z_]+)\)",str(exc))
                     if match is not None and int(match.group(1))>=500:
@@ -1171,6 +1191,7 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                 except PaidMediaPreflightUnavailable as exc:
                     free_error=str(exc)[:100];break
                 except Exception as exc:
+                    _record_script_worker_health(model,source_sha256,len(openrouter_attempts),started,"transport_failure" if isinstance(exc,(OSError,TimeoutError)) else "quality_failure")
                     # The call may have reached the provider, or it may have returned
                     # an unusable response. Do not fan out to another model/provider.
                     if openrouter_attempts:
