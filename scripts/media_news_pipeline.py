@@ -14,6 +14,7 @@ import fcntl
 import gzip
 import hashlib
 import html
+import ipaddress
 import json
 import os
 import re
@@ -177,6 +178,126 @@ def _validate_existing_package(workspace: Path, package: Path) -> Path:
     if not resolved.is_dir() or not resolved.is_relative_to(news.resolve()) or not re.fullmatch(r"[0-9a-f]{64}", resolved.name):
         raise ValueError("media package must be a SHA-256-named directory inside this workspace")
     return resolved
+
+
+def _source_https_url(url: str) -> str:
+    """Accept an attributable public HTTPS source URL without a domain allow-list."""
+    parsed=urllib.parse.urlsplit(str(url or "").strip())
+    host=(parsed.hostname or "").strip().lower()
+    if parsed.scheme!="https" or not host or parsed.username or parsed.password or parsed.port not in (None,443):
+        raise ValueError("source URL must be credential-free HTTPS")
+    if host=="localhost" or host.endswith(".localhost") or host.endswith(".local"):
+        raise ValueError("local source URLs are not allowed")
+    try:
+        addr=ipaddress.ip_address(host.strip("[]"))
+    except ValueError:
+        addr=None
+    if addr is not None and (addr.is_private or addr.is_loopback or addr.is_link_local
+                             or addr.is_reserved or addr.is_multicast or addr.is_unspecified):
+        raise ValueError("private or non-public source addresses are not allowed")
+    return urllib.parse.urlunsplit(parsed)
+
+
+class _PublicHttpsRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _source_https_url(newurl)
+        return super().redirect_request(req,fp,code,msg,headers,newurl)
+
+
+def _raster_spec(data: bytes, content_type: str | None = None) -> tuple[str,str]:
+    declared=str(content_type or "").split(";",1)[0].strip().lower()
+    if data.startswith(b"\xff\xd8\xff"):
+        actual=("image/jpeg",".jpg")
+    elif data.startswith(b"\x89PNG\r\n\x1a\n"):
+        actual=("image/png",".png")
+    elif len(data)>=12 and data.startswith(b"RIFF") and data[8:12]==b"WEBP":
+        actual=("image/webp",".webp")
+    else:
+        raise ValueError("source visual must be JPEG, PNG, or WebP")
+    if declared and declared.startswith("image/") and declared != actual[0]:
+        raise ValueError("source visual bytes do not match declared image type")
+    return actual
+
+
+def _copy_or_download_source_visual(*, package: Path, local_file: Path | None,
+                                    image_url: str | None) -> dict[str, Any]:
+    if (local_file is None) == (image_url is None):
+        raise ValueError("provide exactly one of local file or image URL")
+    if local_file is not None:
+        source=local_file.expanduser()
+        if source.is_symlink() or not source.is_file():
+            raise ValueError("source visual file must be a regular non-symlink file")
+        if source.stat().st_size<=0 or source.stat().st_size>MAX_IMAGE_BYTES:
+            raise ValueError("source visual file size is outside the configured limit")
+        data=source.read_bytes()
+        mime,suffix=_raster_spec(data)
+        origin_url=None
+    else:
+        origin_url=_source_https_url(str(image_url))
+        req=urllib.request.Request(origin_url,headers={"User-Agent":"hf-site-agent-source-visual/1.0","Accept":"image/jpeg,image/png,image/webp"})
+        with urllib.request.build_opener(_PublicHttpsRedirect()).open(req,timeout=15) as response:
+            final_url=_source_https_url(response.geturl())
+            content_type=response.headers.get_content_type().lower()
+            data=response.read(MAX_IMAGE_BYTES+1)
+        if not data or len(data)>MAX_IMAGE_BYTES:
+            raise ValueError("source visual download exceeds the configured limit")
+        mime,suffix=_raster_spec(data,content_type)
+        origin_url=final_url
+    digest=hashlib.sha256(data).hexdigest()
+    images=package/"images"
+    images.mkdir(parents=True,exist_ok=True)
+    if images.is_symlink() or not images.resolve().is_relative_to(package.resolve()):
+        raise ValueError("source visual image directory escapes the package")
+    dest=images/(digest+suffix)
+    if not dest.is_file() or _sha256_file(dest)!=digest:
+        _atomic_write(dest,data)
+    return {"file":str(dest),"sha256":digest,"bytes":len(data),"mime_type":mime,
+            "download_url":origin_url}
+
+
+def add_source_visual(package: Path, *, source_url: str, credit: str, mode: str,
+                      local_file: Path | None = None, image_url: str | None = None,
+                      selected: bool = True) -> dict[str, Any]:
+    visual_policy=PIPELINE_POLICY.get("visual_source_policy") or {}
+    allowed={str(value) for value in visual_policy.get("allowed_modes") or []}
+    normalized=str(mode or "").strip().upper()
+    if normalized not in allowed:
+        raise ValueError("unsupported visual source mode")
+    source_url=_source_https_url(source_url)
+    credit=re.sub(r"\s+"," ",str(credit or "")).strip()
+    if not credit:
+        raise ValueError("source credit is required")
+    stored=_copy_or_download_source_visual(package=package,local_file=local_file,image_url=image_url)
+    manifest_path=package/"image-candidates.json"
+    try:
+        manifest=json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError,ValueError):
+        manifest={"source_url":source_url,"source_sha256":"","assets":[]}
+    assets=[dict(item) for item in manifest.get("assets",[]) if isinstance(item,Mapping)]
+    asset_id=f"source-{stored['sha256'][:20]}"
+    existing=next((item for item in assets if item.get("id")==asset_id and item.get("source_url")==source_url),None)
+    screenshot_mode=normalized in {"OFFICIAL_ANNOUNCEMENT_SCREENSHOT","USER_PROVIDED_SOURCE_SCREENSHOT"}
+    record={
+        "id":asset_id,"url":stored.get("download_url") or source_url,
+        "source_url":source_url,"file":stored["file"],"sha256":stored["sha256"],
+        "bytes":stored["bytes"],"mime_type":stored["mime_type"],"downloaded":True,
+        "selected_for_render":bool(selected),"visual_source_mode":normalized,
+        "credit":credit,"rights_verified":False,"rights_basis":"",
+        "rights_evidence_url":source_url,"source_attribution_required":True,
+        "license_metadata_required":False,"media_region_only":not screenshot_mode,
+        "whole_post_capture":screenshot_mode,
+    }
+    if existing is None:
+        assets.append(record)
+    else:
+        existing.update(record)
+    manifest["assets"]=assets
+    manifest["source_attribution_policy"]="FAST_SOURCE_ATTRIBUTION"
+    manifest["license_metadata_required_for_render"]=False
+    _write_text_atomic(manifest_path,json.dumps(manifest,ensure_ascii=False,indent=2)+"\n")
+    return {"status":"SOURCE_VISUAL_ATTACHED","asset_id":asset_id,"visual_source_mode":normalized,
+            "selected_for_render":bool(selected),"source_url":source_url,"credit":credit,
+            "sha256":stored["sha256"],"bytes":stored["bytes"],"public_publish_enabled":False}
 
 
 class _AllowHostsRedirect(urllib.request.HTTPRedirectHandler):
