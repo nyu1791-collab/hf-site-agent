@@ -135,14 +135,159 @@ def init_inbox(conn: sqlite3.Connection) -> None:
       url TEXT NOT NULL, summary TEXT NOT NULL, published TEXT NOT NULL,
       content_trust TEXT NOT NULL DEFAULT 'UNTRUSTED_EXTERNAL',
       state TEXT NOT NULL DEFAULT 'PREPARATION_REQUIRED',
-      media_job_id INTEGER REFERENCES jobs(id), created_at REAL NOT NULL, updated_at REAL NOT NULL
+      media_job_id INTEGER REFERENCES jobs(id), created_at REAL NOT NULL, updated_at REAL NOT NULL,
+      execution_state TEXT NOT NULL DEFAULT 'PENDING',
+      worker_id TEXT, claimed_at REAL, lease_expires_at REAL, request_id TEXT
     );
     CREATE TABLE IF NOT EXISTS source_feed_state (
       feed_id TEXT PRIMARY KEY, etag TEXT, last_modified TEXT,
       last_checked_at REAL NOT NULL, last_status TEXT NOT NULL
     );
     """)
+    # Non-destructive forward migration for databases created by older builds.
+    columns={str(row["name"]) for row in conn.execute("PRAGMA table_info(source_inbox)")}
+    additions={
+      "execution_state":"TEXT NOT NULL DEFAULT 'PENDING'",
+      "worker_id":"TEXT",
+      "claimed_at":"REAL",
+      "lease_expires_at":"REAL",
+      "request_id":"TEXT",
+    }
+    for name,decl in additions.items():
+        if name not in columns:
+            conn.execute(f"ALTER TABLE source_inbox ADD COLUMN {name} {decl}")
+    conn.execute("""CREATE INDEX IF NOT EXISTS idx_source_inbox_execution_claim
+        ON source_inbox(execution_state,lease_expires_at,created_at)""")
 
+
+
+SOURCE_EXECUTION_STATES=frozenset({
+    "PENDING","CLAIMED","RUNNING","BLOCKED_BALANCE","BLOCKED_PROVIDER",
+    "UNKNOWN_RESULT","RETRYABLE","RENDERING","VERIFYING","COMPLETED",
+    "FAILED_TERMINAL",
+})
+_PROCESSABLE_LEGACY_STATES=frozenset({"PREPARATION_REQUIRED","VOICE_PENDING"})
+
+
+def _request_id(source_id:str, stage:str)->str:
+    return hashlib.sha256(f"{source_id}|{stage}".encode("utf-8")).hexdigest()
+
+
+def recover_expired_source_leases(conn:sqlite3.Connection, *, now:float|None=None)->int:
+    current=time.time() if now is None else float(now)
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        rows=conn.execute(
+            """SELECT source_id,state FROM source_inbox
+               WHERE execution_state IN ('CLAIMED','RUNNING')
+                 AND lease_expires_at IS NOT NULL AND lease_expires_at<=?""",
+            (current,),
+        ).fetchall()
+        recovered=0
+        for row in rows:
+            # SCRIPT_BLOCKED may represent a provider result whose outcome is
+            # unknown. Never make it automatically claimable.
+            if str(row["state"]) not in _PROCESSABLE_LEGACY_STATES:
+                conn.execute(
+                    """UPDATE source_inbox SET execution_state='UNKNOWN_RESULT',
+                       worker_id=NULL,claimed_at=NULL,lease_expires_at=NULL,updated_at=?
+                       WHERE source_id=?""",
+                    (current,row["source_id"]),
+                )
+                continue
+            conn.execute(
+                """UPDATE source_inbox SET execution_state='RETRYABLE',
+                   worker_id=NULL,claimed_at=NULL,lease_expires_at=NULL,updated_at=?
+                   WHERE source_id=?""",
+                (current,row["source_id"]),
+            )
+            recovered+=1
+        conn.execute("COMMIT")
+        return recovered
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def claim_source(conn:sqlite3.Connection, source_id:str, *, worker_id:str,
+                 lease_seconds:int=600, stage:str="NEWS_PREPARE",
+                 now:float|None=None)->bool:
+    current=time.time() if now is None else float(now)
+    recover_expired_source_leases(conn,now=current)
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        updated=conn.execute(
+            """UPDATE source_inbox
+               SET execution_state='CLAIMED',worker_id=?,claimed_at=?,
+                   lease_expires_at=?,request_id=?,updated_at=?
+               WHERE source_id=?
+                 AND state IN ('PREPARATION_REQUIRED','VOICE_PENDING')
+                 AND execution_state IN ('PENDING','RETRYABLE')
+                 AND (lease_expires_at IS NULL OR lease_expires_at<=?)""",
+            (str(worker_id)[:160],current,current+max(30,int(lease_seconds)),
+             _request_id(source_id,stage),current,source_id,current),
+        )
+        conn.execute("COMMIT")
+        return updated.rowcount==1
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def mark_source_running(conn:sqlite3.Connection, source_id:str, *, worker_id:str,
+                        now:float|None=None)->bool:
+    current=time.time() if now is None else float(now)
+    updated=conn.execute(
+        """UPDATE source_inbox SET execution_state='RUNNING',updated_at=?
+           WHERE source_id=? AND execution_state='CLAIMED' AND worker_id=?
+             AND lease_expires_at>?""",
+        (current,source_id,str(worker_id)[:160],current),
+    )
+    return updated.rowcount==1
+
+
+def set_source_execution_state(conn:sqlite3.Connection, source_id:str, state:str,
+                               *, now:float|None=None)->None:
+    normalized=str(state).upper()
+    if normalized not in SOURCE_EXECUTION_STATES:
+        raise ValueError("unsupported source execution state")
+    current=time.time() if now is None else float(now)
+    conn.execute("UPDATE source_inbox SET execution_state=?,updated_at=? WHERE source_id=?",
+                 (normalized,current,source_id))
+
+
+def release_source_claim(conn:sqlite3.Connection, source_id:str, *,
+                         default_state:str="RETRYABLE", now:float|None=None)->str:
+    current=time.time() if now is None else float(now)
+    row=conn.execute("SELECT state,execution_state FROM source_inbox WHERE source_id=?",
+                     (source_id,)).fetchone()
+    if row is None:
+        raise ValueError("unknown source id")
+    execution=str(row["execution_state"] or "PENDING")
+    if execution in {"CLAIMED","RUNNING"}:
+        legacy=str(row["state"])
+        if legacy=="PREPARATION_REQUIRED":
+            execution="RETRYABLE"
+        elif legacy=="VOICE_PENDING":
+            execution="RETRYABLE"
+        elif legacy=="READY_TO_PUBLISH":
+            execution="COMPLETED"
+        elif legacy in {"ASSET_REVIEW_REQUIRED","NO_CLEARED_IMAGES"}:
+            execution="VERIFYING"
+        elif legacy=="VOICE_BLOCKED":
+            execution="FAILED_TERMINAL"
+        elif legacy=="SCRIPT_BLOCKED":
+            execution="UNKNOWN_RESULT"
+        else:
+            execution=str(default_state).upper()
+    if execution not in SOURCE_EXECUTION_STATES:
+        execution="RETRYABLE"
+    conn.execute(
+        """UPDATE source_inbox SET execution_state=?,worker_id=NULL,claimed_at=NULL,
+           lease_expires_at=NULL,updated_at=? WHERE source_id=?""",
+        (execution,current,source_id),
+    )
+    return execution
 
 def ingest_items(conn: sqlite3.Connection, items: list[Mapping[str, str]]) -> dict[str, int]:
     now, added = time.time(), 0
