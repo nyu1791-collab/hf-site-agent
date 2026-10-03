@@ -23,7 +23,8 @@ SHARED_GUARD_MARKERS = (
 
 
 def is_direct_openrouter_inference(source: str) -> bool:
-    if any(marker in source for marker in DIRECT_INFERENCE_PATTERNS):
+    transports = ("urlopen(", "urllib.request.Request(", "OpenAI(", "_json_request(")
+    if any(marker in source for marker in DIRECT_INFERENCE_PATTERNS) and any(t in source for t in transports):
         return True
     if "https://openrouter.ai/api/v1" in source and "OpenAI(" in source:
         return True
