@@ -73,6 +73,8 @@ jobs:
           python -m unittest tests.test_openrouter_free_gate tests.test_provider_adapters -v
       - name: Validate DeepSeek current/manual/legacy routes
         run: python scripts/validate_deepseek_route_classification.py
+      - name: Validate explicit provider fallback matrix
+        run: python -m unittest tests.test_provider_route_matrix -v
       - name: Enforce bounded CI control plane
         run: python scripts/ci_control_plane_guard.py
       - name: Run bounded core regression set
@@ -104,6 +106,8 @@ jobs:
             tests.test_durable_media_runner \
             tests.test_media_source_ingress \
             tests.test_media_news_automation \
+            tests.test_provider_route_matrix \
+            tests.test_media_render_transport \
             -v
       - name: Run parallel batch five-domain Jev trial
         if: ${{ inputs.run_live_jev_benchmarks == true && hashFiles('missions/jev-trial/active.json') != '' }}
