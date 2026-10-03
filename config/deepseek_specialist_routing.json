@@ -76,5 +76,8 @@
     "role_mode_conservative_cost_usd": 0.02783386,
     "latest_parallel_run": 34664128949,
     "latest_parallel_debugging_failure": "VISIBLE_CONTENT_MISSING"
-  }
+  },
+  "route_classification": "MANUAL_TRIAL",
+  "current_runtime_authority": false,
+  "retained_budget_reason": "Explicitly triggered bounded staging/manual trial; fixed trial budget does not constrain canonical DeepSeek current paths."
 }
