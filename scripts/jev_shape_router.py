@@ -259,7 +259,8 @@ def _request_once(
             "output_tokens": usage.get("output_tokens"),
             "cost": usage.get("cost"),
         },
-        "paid_execution": True,
+        "paid_execution": False,
+        "free_execution": True,
         "paid_fallback_to_other_family": False,
     }
 
@@ -292,7 +293,7 @@ def decide_shape_batch(
         if not ok:
             errors.append({
                 "model": model,
-                "reason": "EMERGENCY_PRICE_GUARD_BLOCK",
+                "reason": "FREE_ONLY_PRICE_GUARD_BLOCK",
                 "price_evidence": price,
             })
             continue
