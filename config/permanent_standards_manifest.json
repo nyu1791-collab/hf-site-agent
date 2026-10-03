@@ -548,32 +548,6 @@
       "other_paid_provider_authorization": false
     },
     {
-      "provider": "openrouter-typesafe",
-      "model_family": "Jev",
-      "role": "FAST_DECISION_PLANE",
-      "policy": "config/jev_decision_engine_policy.json",
-      "persistent_authorization": true,
-      "repeat_per_call_approval_required": false,
-      "allowed_scope": [
-        "TASK_CLASSIFICATION",
-        "SPECIALIST_ASSIGNMENT",
-        "DYNAMIC_FANOUT",
-        "PARALLELISM_DECISION",
-        "VERIFICATION_NEED",
-        "STOP_RETRY_ESCALATE_TRIAGE"
-      ],
-      "long_form_generation": false,
-      "bulk_coding_worker": false,
-      "repository_write": false,
-      "auto_top_up": false,
-      "generic_paid_fallback": false,
-      "deploy": false,
-      "publish": false,
-      "merge": false,
-      "secret_mutation_or_disclosure": false,
-      "other_paid_provider_authorization": false
-    },
-    {
       "provider": "ANY_PROVIDER_WITH_AN_EXACT_REGISTERED_MODEL_ROUTE",
       "role": "TASK_SCOPED_PAID_API_MODEL",
       "policy": "config/paid_agent_route_eligibility_policy.json",
@@ -884,5 +858,13 @@
     "current_e2e_completion_requires_connected_worker_fingerprint_match": true,
     "authoritative_rss_must_be_observed_after_current_boot": true
   },
-  "llm_provider_routing_policy": "config/media_news_pipeline_policy.json#/openrouter_routing_and_paid_script_generation"
+  "llm_provider_routing_policy": "config/media_news_pipeline_policy.json#/openrouter_routing_and_paid_script_generation",
+  "openrouter_execution_policy": {
+    "free_only": true,
+    "paid_models_allowed": false,
+    "paid_fallback_allowed": false,
+    "unknown_or_missing_price_action": "BLOCK_BEFORE_REQUEST",
+    "exact_zero_price_evidence_required": true,
+    "paid_text_provider": "deepseek_official"
+  }
 }
