@@ -45,5 +45,8 @@
       "reasoning_effort": "high",
       "max_tokens": 4096
     }
-  }
+  },
+  "route_classification": "MANUAL_TRIAL",
+  "current_runtime_authority": false,
+  "retained_budget_reason": "Explicitly triggered bounded staging/manual trial; fixed trial budget does not constrain canonical DeepSeek current paths."
 }
