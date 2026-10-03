@@ -606,13 +606,18 @@ class MediaNewsAutomationTests(unittest.TestCase):
             def requester(payload,key):
                 calls.append((payload["model"],key))
                 return {"model":payload["model"],"choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}]}
+            planned={}
+            def planner(task,*_args,**_kwargs):
+                planned.update(task)
+                return {"status":"BLOCKED"}
             with patch.dict("os.environ",{"OPENROUTER_API_KEY":"openrouter-secret"},clear=True), patch(
                 "scripts.media_news_pipeline.load_openrouter_catalog",
                 return_value=(catalog,100.0,"LIVE_CATALOG")) as catalog_loader:
                 draft_story(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
-                    request_fn=requester,planner_fn=lambda *_a,**_k:{"status":"BLOCKED"})
+                    request_fn=requester,planner_fn=planner)
             self.assertEqual(catalog_loader.call_args.kwargs,{"api_key":"openrouter-secret","ttl_seconds":1})
             self.assertEqual(calls,[("fixture/model:free","openrouter-secret")])
+            self.assertFalse(planned["long_context"])
             conn.close()
 
     def test_openrouter_free_suffix_without_current_zero_prices_is_blocked(self):
@@ -650,6 +655,28 @@ class MediaNewsAutomationTests(unittest.TestCase):
                         free_catalog=catalog,
                         request_fn=lambda *_a:(_ for _ in ()).throw(OpenRouterRequestError(
                             "OpenRouter request failed with HTTP 402 (CREDIT_OR_KEY_BUDGET_LIMIT)")))
+            conn.close()
+
+    def test_openrouter_model_not_found_pauses_provider_and_reports_model(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"q.sqlite3");init_inbox(conn)
+            source_id="e"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":"https://openai.com/news/x","summary":"","published":""}])
+            error=OpenRouterRequestError("OpenRouter request failed with HTTP 404 (UPSTREAM_ERROR)",
+                model_id="fixture/model:free")
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=3*1024**3)), patch(
+                "scripts.media_news_pipeline.process_source",side_effect=error):
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"BLOCKED_PAID_PROVIDER_CIRCUIT")
+            self.assertEqual(result["http_status"],404)
+            self.assertEqual(result["model_id"],"fixture/model:free")
+            self.assertTrue(result["request_sent"])
+            self.assertFalse(result["automatic_retry"])
+            self.assertEqual(conn.execute("SELECT execution_state FROM source_inbox WHERE source_id=?",
+                (source_id,)).fetchone()["execution_state"],"BLOCKED_PROVIDER")
             conn.close()
 
     def test_openrouter_paid_or_unverified_model_is_rejected_before_network_request(self):
