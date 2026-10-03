@@ -8,7 +8,7 @@ from unittest.mock import patch
 from pathlib import Path
 
 from scripts.durable_media_runner import connect, init_db
-from scripts.media_source_ingress import inbox_status, init_inbox, ingest_items, load_policy, parse_feed, promote_prepared_job
+from scripts.media_source_ingress import (claim_source, inbox_status, init_inbox, ingest_items, load_policy, mark_source_running, parse_feed, promote_prepared_job, recover_expired_source_leases, release_source_claim, set_source_execution_state)
 
 
 RSS = b"""<?xml version="1.0"?>
@@ -154,6 +154,52 @@ class MediaSourceIngressTests(unittest.TestCase):
                     "kind": "MEDIA_BATCH_RUN", "source_id": "missing", "payload": {"manifest_path": "absent.json"}
                 }, workspace=workspace)
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0], 0)
+            conn.close()
+
+
+    def test_source_claim_is_exclusive_and_request_id_is_stable(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"queue.sqlite3");init_inbox(conn)
+            item=parse_feed(RSS,"openai-news")[0];ingest_items(conn,[item])
+            source_id=item["source_id"]
+            self.assertTrue(claim_source(conn,source_id,worker_id="worker-a",lease_seconds=60,now=100))
+            self.assertFalse(claim_source(conn,source_id,worker_id="worker-b",lease_seconds=60,now=101))
+            row=conn.execute("SELECT execution_state,worker_id,request_id FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()
+            self.assertEqual((row["execution_state"],row["worker_id"]),("CLAIMED","worker-a"))
+            request_id=row["request_id"]
+            self.assertTrue(mark_source_running(conn,source_id,worker_id="worker-a",now=102))
+            self.assertEqual(release_source_claim(conn,source_id,now=103),"RETRYABLE")
+            self.assertTrue(claim_source(conn,source_id,worker_id="worker-b",lease_seconds=60,now=104))
+            row=conn.execute("SELECT request_id FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()
+            self.assertEqual(row["request_id"],request_id)
+            conn.close()
+
+    def test_unknown_result_is_not_recovered_or_reclaimed(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"queue.sqlite3");init_inbox(conn)
+            item=parse_feed(RSS,"openai-news")[0];ingest_items(conn,[item])
+            source_id=item["source_id"]
+            self.assertTrue(claim_source(conn,source_id,worker_id="worker-a",lease_seconds=30,now=100))
+            self.assertTrue(mark_source_running(conn,source_id,worker_id="worker-a",now=101))
+            conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',lease_expires_at=? WHERE source_id=?",(99,source_id))
+            recovered=recover_expired_source_leases(conn,now=200)
+            self.assertEqual(recovered,0)
+            row=conn.execute("SELECT execution_state FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()
+            self.assertEqual(row["execution_state"],"UNKNOWN_RESULT")
+            self.assertFalse(claim_source(conn,source_id,worker_id="worker-b",lease_seconds=60,now=201))
+            conn.close()
+
+    def test_balance_block_is_not_released_back_to_retryable(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"queue.sqlite3");init_inbox(conn)
+            item=parse_feed(RSS,"openai-news")[0];ingest_items(conn,[item])
+            source_id=item["source_id"]
+            self.assertTrue(claim_source(conn,source_id,worker_id="worker-a",lease_seconds=60,now=100))
+            self.assertTrue(mark_source_running(conn,source_id,worker_id="worker-a",now=101))
+            set_source_execution_state(conn,source_id,"BLOCKED_BALANCE",now=102)
+            state=release_source_claim(conn,source_id,now=103)
+            self.assertEqual(state,"BLOCKED_BALANCE")
+            self.assertFalse(claim_source(conn,source_id,worker_id="worker-b",lease_seconds=60,now=104))
             conn.close()
 
 
