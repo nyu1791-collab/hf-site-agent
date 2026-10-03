@@ -251,6 +251,13 @@ def set_source_execution_state(conn:sqlite3.Connection, source_id:str, state:str
     normalized=str(state).upper()
     if normalized not in SOURCE_EXECUTION_STATES:
         raise ValueError("unsupported source execution state")
+    # Direct stage-entry paths (for example render-only recovery after an
+    # in-place upgrade) can encounter a pre-lease source_inbox schema before
+    # init_inbox has run in the current process. Forward-add only the state
+    # column needed by this operation; never reset or delete existing rows.
+    columns={str(row["name"]) for row in conn.execute("PRAGMA table_info(source_inbox)")}
+    if "execution_state" not in columns:
+        conn.execute("ALTER TABLE source_inbox ADD COLUMN execution_state TEXT NOT NULL DEFAULT 'PENDING'")
     current=time.time() if now is None else float(now)
     conn.execute("UPDATE source_inbox SET execution_state=?,updated_at=? WHERE source_id=?",
                  (normalized,current,source_id))
