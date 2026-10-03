@@ -100,6 +100,10 @@ class OpenRouterRequestError(RuntimeError):
 class OpenRouterRequestUnknown(RuntimeError):
     """The OpenRouter request may have completed; automatic resend is forbidden."""
 
+    def __init__(self, message: str, *, reason_code: str = "OUTCOME_UNKNOWN"):
+        super().__init__(message)
+        self.reason_code = re.sub(r"[^A-Z0-9_]", "_", str(reason_code).upper())[:80]
+
 
 class DeepSeekRequestError(RuntimeError):
     """Sanitized direct DeepSeek API failure; never includes response text or key."""
@@ -596,7 +600,7 @@ def _get_paid_provider_circuit(conn: sqlite3.Connection) -> sqlite3.Row | None:
     ).fetchone()
 
 
-def _pause_paid_provider(conn: sqlite3.Connection, http_status: int, reason_code: str) -> None:
+def _pause_paid_provider(conn: sqlite3.Connection, http_status: int | None, reason_code: str) -> None:
     _ensure_paid_provider_circuit(conn)
     conn.execute("""INSERT INTO media_news_provider_circuit(provider,state,http_status,reason_code,changed_at)
         VALUES('openrouter','PAUSED',?,?,?)
@@ -902,7 +906,8 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                     # The call may have reached the provider, or it may have returned
                     # an unusable response. Do not fan out to another model/provider.
                     raise OpenRouterRequestUnknown(
-                        "OpenRouter request result is unknown; automatic retry disabled") from None
+                        "OpenRouter request result is unknown; automatic retry disabled",
+                        reason_code=type(exc).__name__) from None
         except OpenRouterRequestUnknown:
             raise
         except Exception as exc:
@@ -1090,7 +1095,8 @@ def _post_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, Any]:
         if exc.code >= 500:
             # A server error can follow completed inference. Do not try another model.
             raise OpenRouterRequestUnknown(
-                "OpenRouter request result is unknown; automatic retry disabled") from None
+                "OpenRouter request result is unknown; automatic retry disabled",
+                reason_code=f"HTTP_{exc.code}") from None
         if exc.code == 401:
             reason = "API_KEY_REJECTED"
         elif exc.code == 402 or any(term in message for term in ("credit", "budget", "spending limit", "key limit")):
@@ -1108,10 +1114,31 @@ def _post_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, Any]:
         # Never route to a paid OpenRouter model; the caller may select a separately verified free model.
         raise OpenRouterRequestError(
             f"OpenRouter request failed with HTTP {exc.code} ({reason})",model_id=model_id) from None
-    except (TimeoutError, OSError, urllib.error.URLError, json.JSONDecodeError):
+    except TimeoutError:
         # Once the POST starts, transport failure cannot prove whether inference ran.
         raise OpenRouterRequestUnknown(
-            "OpenRouter request result is unknown; automatic retry disabled") from None
+            "OpenRouter request result is unknown; automatic retry disabled",
+            reason_code="TIMEOUT") from None
+    except urllib.error.URLError as exc:
+        reason = getattr(exc, "reason", None)
+        if isinstance(reason, OSError):
+            import errno
+            reason_code = errno.errorcode.get(reason.errno, type(reason).__name__)
+        else:
+            reason_code = type(reason).__name__ if reason is not None else "URL_ERROR"
+        raise OpenRouterRequestUnknown(
+            "OpenRouter request result is unknown; automatic retry disabled",
+            reason_code=reason_code) from None
+    except OSError as exc:
+        import errno
+        reason_code = errno.errorcode.get(exc.errno, type(exc).__name__)
+        raise OpenRouterRequestUnknown(
+            "OpenRouter request result is unknown; automatic retry disabled",
+            reason_code=reason_code) from None
+    except json.JSONDecodeError:
+        raise OpenRouterRequestUnknown(
+            "OpenRouter request result is unknown; automatic retry disabled",
+            reason_code="INVALID_RESPONSE_JSON") from None
 
 
 def download_article_image(url: str, dest_dir: Path, *, allowed_hosts: set[str]) -> dict[str, Any]:
@@ -1839,12 +1866,17 @@ def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqli
             return {"status":"BLOCKED_PAID_PER_CALL_BUDGET","source_id":row["source_id"],
                 "request_sent":False,"automatic_retry":False,"public_publish_enabled":False}
         except OpenRouterRequestUnknown as exc:
+            # Stop the five-minute runner from making further provider requests
+            # until a fresh live preflight explicitly resumes the circuit.
+            _pause_paid_provider(conn, None, "OUTCOME_UNKNOWN")
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
                 (time.time(), row["source_id"]))
             set_source_execution_state(conn,row["source_id"],"UNKNOWN_RESULT")
             return {"status":"UNKNOWN_RESULT","source_id":row["source_id"],
                 "request_may_have_been_sent":True,"automatic_retry":False,
-                "queue_preserved":True,"error_type":type(exc).__name__,"public_publish_enabled":False}
+                "queue_preserved":True,"error_type":type(exc).__name__,
+                "reason_code":exc.reason_code,"provider_circuit":"PAUSED",
+                "public_publish_enabled":False}
         except DeepSeekRequestError as exc:
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
                 (time.time(), row["source_id"]))
