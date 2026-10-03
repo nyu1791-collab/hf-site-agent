@@ -18,6 +18,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
+
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "artifacts" / "free_media_council_review.json"
 
@@ -129,8 +131,12 @@ def _architecture_text() -> str:
 
 def call(model: str, prompt: str, api_key: str) -> dict[str, Any]:
     started = time.monotonic()
-    if model not in MODELS or not model.endswith(":free"):
+    if model not in MODELS:
         return {"model": model, "status": "BLOCKED_NONFREE_REQUEST", "elapsed_seconds": 0.0}
+    try:
+        assert_openrouter_free_model(model, api_key=api_key)
+    except OpenRouterFreeGateError as exc:
+        return {"model": model, "status": exc.reason, "request_sent": False, "elapsed_seconds": 0.0}
 
     body = json.dumps(
         {
