@@ -1205,7 +1205,7 @@ def _next_preparation_candidate(conn: sqlite3.Connection) -> sqlite3.Row | None:
     }
     candidates = conn.execute(
         "SELECT source_id,state,feed_id,created_at FROM source_inbox "
-        "WHERE state='PREPARATION_REQUIRED'"
+        "WHERE state='PREPARATION_REQUIRED' AND execution_state IN ('PENDING','RETRYABLE')"
     ).fetchall()
     if not candidates:
         return None
@@ -1260,7 +1260,8 @@ def _recover_unicode_blocked_item(conn: sqlite3.Connection, workspace: Path) -> 
             },ensure_ascii=False,indent=2)+"\n")
         conn.execute("INSERT INTO media_news_recoveries VALUES(?,?,?)",
             (source_id,"unicode-stdio-v1",time.time()))
-        conn.execute("UPDATE source_inbox SET state='PREPARATION_REQUIRED',updated_at=? WHERE source_id=?",
+        conn.execute("""UPDATE source_inbox SET state='PREPARATION_REQUIRED',execution_state='PENDING',
+            worker_id=NULL,claimed_at=NULL,lease_expires_at=NULL,updated_at=? WHERE source_id=?""",
             (time.time(),source_id))
         return source_id
     return None
@@ -1299,7 +1300,9 @@ def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int
     if blocker is not None:
         return {"status":"BLOCKED_PENDING_HUMAN_ACTION", "source_id":blocker["source_id"],
             "state":blocker["state"], "preparation_paused":True, "public_publish_enabled":False}
-    pending_voice = conn.execute("SELECT source_id,state FROM source_inbox WHERE state='VOICE_PENDING' ORDER BY created_at LIMIT 1").fetchone()
+    pending_voice = conn.execute("""SELECT source_id,state FROM source_inbox
+        WHERE state='VOICE_PENDING' AND execution_state IN ('PENDING','RETRYABLE')
+        ORDER BY created_at LIMIT 1""").fetchone()
     if pending_voice is not None:
         retry = conn.execute("SELECT next_attempt_at FROM media_news_stage_retry WHERE source_id=? AND stage='VOICE'",
             (pending_voice["source_id"],)).fetchone()
@@ -1469,7 +1472,8 @@ def _requeue_voice(conn: sqlite3.Connection, workspace: Path, source_id: str) ->
         source_id TEXT NOT NULL, stage TEXT NOT NULL, attempts INTEGER NOT NULL,
         next_attempt_at REAL NOT NULL, last_error_type TEXT NOT NULL,
         PRIMARY KEY(source_id,stage))""")
-    conn.execute("UPDATE source_inbox SET state='VOICE_PENDING',updated_at=? WHERE source_id=?",
+    conn.execute("""UPDATE source_inbox SET state='VOICE_PENDING',execution_state='RETRYABLE',
+        worker_id=NULL,claimed_at=NULL,lease_expires_at=NULL,updated_at=? WHERE source_id=?""",
         (time.time(), source_id))
     conn.execute("DELETE FROM media_news_stage_retry WHERE source_id=? AND stage='VOICE'", (source_id,))
     return {"status":"VOICE_REQUEUED", "source_id":source_id, "public_publish_enabled":False}
