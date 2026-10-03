@@ -21,6 +21,8 @@ from typing import Any, Mapping
 import urllib.error
 import urllib.request
 
+from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
+
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 TIMEOUT_SECONDS = 25
 MAX_OUTPUT_TOKENS = 256
@@ -126,6 +128,10 @@ def _passes(role: str, parsed: Mapping[str, Any]) -> bool:
 
 
 def _request(model: str, api_key: str, prompt: str) -> tuple[int, dict[str, Any] | None, str, float]:
+    try:
+        assert_openrouter_free_model(model, catalog=[], api_key=api_key)
+    except OpenRouterFreeGateError as exc:
+        return 0, None, exc.reason, 0.0
     body = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
