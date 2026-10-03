@@ -1,0 +1,140 @@
+{
+  "schema_version": "ai-army-provider-route-matrix-v1",
+  "effective_date_jst": "2026-10-03",
+  "default_unmatched_action": "BLOCKED_NO_APPROVED_FALLBACK",
+  "openrouter_global": {
+    "free_only": true,
+    "paid_models_allowed": false,
+    "unknown_price_allowed": false,
+    "paid_fallback_allowed": false,
+    "api_key_env": "OPENROUTER_API_KEY",
+    "admission_runtime": "scripts/openrouter_free_gate.py"
+  },
+  "task_routes": [
+    {
+      "task_type": "RSS_NEWS_SCRIPT",
+      "primary_provider": "openrouter",
+      "primary_model": "DYNAMIC_EXACT_FREE_OR_CATALOG_ZERO_PRICE",
+      "primary_cost_class": "FREE_ONLY",
+      "fallback_provider": "deepseek_official",
+      "fallback_model": "deepseek-flash",
+      "fallback_cost_class": "PAID_AUTHORIZED_TEXT_ONLY",
+      "api_key_envs": [
+        "OPENROUTER_API_KEY",
+        "DEEPSEEK_API_KEY"
+      ],
+      "retry": "OpenRouter free candidates are bounded/no paid fallback; DeepSeek explicit HTTP 429 only, max 1 retry",
+      "timeout_seconds": {
+        "openrouter": 90,
+        "deepseek": 90
+      },
+      "max_concurrency": "media-news service bounded by queue/service; no unbounded fanout",
+      "queue_behavior": "preserve source_inbox and paid-call reservation on blocks/unknowns",
+      "unknown_result_behavior": "UNKNOWN_RESULT; do not automatically resend DeepSeek",
+      "no_fallback_action": "BLOCKED_NO_APPROVED_FALLBACK",
+      "policy": "config/media_news_pipeline_policy.json",
+      "runtime": "scripts/media_news_pipeline.py"
+    },
+    {
+      "task_type": "OPENROUTER_WORKER",
+      "primary_provider": "openrouter",
+      "primary_model": "DYNAMIC_SAME_RUN_FREE_ACTIVE",
+      "primary_cost_class": "FREE_ONLY",
+      "fallback_provider": null,
+      "fallback_model": null,
+      "fallback_cost_class": null,
+      "api_key_envs": [
+        "OPENROUTER_API_KEY"
+      ],
+      "retry": "route-specific bounded; no automatic provider paid fallback",
+      "timeout_seconds": {
+        "maximum_known_direct_worker": 45
+      },
+      "max_concurrency": "dynamic bounded by policy; intra-task OpenRouter fanout 1..3",
+      "queue_behavior": "preserve parent task; may explicitly reselect another same-run verified free worker",
+      "unknown_result_behavior": "do not reinterpret uncertain call as zero-cost success",
+      "free_reselection_is_not_provider_fallback": true,
+      "no_fallback_action": "BLOCKED_NO_APPROVED_FALLBACK",
+      "policy": "config/openrouter_free_efficiency_policy.json",
+      "runtime": "scripts/openrouter_free_gate.py"
+    },
+    {
+      "task_type": "JEV_DECISION_PLANE",
+      "primary_provider": "openrouter",
+      "primary_model": "EXACT_ZERO_PRICE_JEV_ONLY",
+      "primary_cost_class": "FREE_ONLY",
+      "fallback_provider": "LOCAL_DETERMINISTIC_OR_CHATGPT",
+      "fallback_model": null,
+      "fallback_cost_class": "NO_EXTERNAL_PAID_FALLBACK",
+      "api_key_envs": [
+        "OPENROUTER_API_KEY"
+      ],
+      "retry": "latest/pinned attempts only when each exact model has zero-price evidence; no paid family fallback",
+      "timeout_seconds": {
+        "default": 10
+      },
+      "max_concurrency": "max 5 decision batches, max 20 records/request",
+      "queue_behavior": "routing failure returns task to deterministic/ChatGPT path; execution task remains intact",
+      "unknown_result_behavior": "do not authorize downstream route from missing/invalid decision",
+      "no_fallback_action": "DETERMINISTIC_OR_CHATGPT_ROUTING",
+      "policy": "config/jev_decision_engine_policy.json",
+      "runtime": "scripts/jev_decision_engine.py"
+    },
+    {
+      "task_type": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+      "primary_provider": "deepseek_official",
+      "primary_model": "deepseek-flash",
+      "primary_cost_class": "PAID_PREAUTHORIZED_SCOPE",
+      "fallback_provider": null,
+      "fallback_model": null,
+      "fallback_cost_class": null,
+      "api_key_envs": [
+        "DEEPSEEK_API_KEY"
+      ],
+      "retry": "bounded mission behavior; failed lane retry limit 1 and no same-root-cause retry",
+      "timeout_seconds": "runtime-bounded per provider request",
+      "max_concurrency": "default 3, hard maximum 4 DeepSeek calls in parallel",
+      "queue_behavior": "preserve successful lane outputs on partial failure",
+      "unknown_result_behavior": "provider/tool failure remains failure evidence; no generic paid fallback",
+      "no_fallback_action": "BLOCKED_NO_APPROVED_FALLBACK",
+      "policy": "config/deepseek_paid_supervisor_policy.json",
+      "runtime": "scripts/deepseek_supervisor_research.py"
+    },
+    {
+      "task_type": "DIRECT_SPECIALIST_BYPASS",
+      "primary_provider": "REGISTRY_VERIFIED_PROVIDER",
+      "primary_model": "EXACT_ROLE_BOUND_MODEL",
+      "primary_cost_class": "FREE_OR_EXACT_EVIDENCE_GATED_PAID_NON_OPENROUTER",
+      "fallback_provider": null,
+      "fallback_model": null,
+      "fallback_cost_class": null,
+      "api_key_envs": "provider-specific secret from registry; never returned to model",
+      "retry": "provider-specific bounded policy",
+      "timeout_seconds": "provider adapter bounded timeout",
+      "max_concurrency": "bounded by framework/agent policy",
+      "queue_behavior": "blocked route remains with parent controller; no silent substitution",
+      "unknown_result_behavior": "do not promote route without verified result",
+      "no_fallback_action": "BLOCKED_NO_APPROVED_FALLBACK",
+      "policy": "config/paid_agent_route_eligibility_policy.json",
+      "runtime": "scripts/model_registry.py::resolve_role_model"
+    },
+    {
+      "task_type": "DETERMINISTIC_LOCAL",
+      "primary_provider": "LOCAL",
+      "primary_model": null,
+      "primary_cost_class": "NO_REMOTE_MODEL",
+      "fallback_provider": null,
+      "fallback_model": null,
+      "fallback_cost_class": null,
+      "api_key_envs": [],
+      "retry": "tool-specific bounded retry only",
+      "timeout_seconds": "tool-specific",
+      "max_concurrency": "policy-bounded",
+      "queue_behavior": "checkpoint/result artifact controls completion",
+      "unknown_result_behavior": "tool-specific, never translated into paid fallback",
+      "no_fallback_action": "BLOCKED_NO_APPROVED_FALLBACK",
+      "policy": "config/multi_agent_operating_policy.json",
+      "runtime": "scripts/ai_army_routing_facade.py"
+    }
+  ]
+}
