@@ -1001,41 +1001,70 @@ def _registered_internal_e2e_asset(asset: Mapping[str, Any]) -> bool:
 
 
 def select_render_assets(manifest: Mapping[str, Any], scene_count: int, package_dir: Path) -> list[dict[str, Any]]:
-    assets = [x for x in manifest.get("assets", [])
-              if x.get("downloaded") is True and x.get("selected_for_render") is True]
-    ids = [str(x.get("id") or "") for x in assets]
-    per_scene = int(PIPELINE_POLICY["distinct_rights_cleared_images_per_scene"])
-    scene_min, scene_max = (int(x) for x in PIPELINE_POLICY["scene_count"])
-    if (not scene_min <= scene_count <= scene_max or len(assets) != per_scene * scene_count
-            or len(set(ids)) != len(ids) or "" in ids):
-        raise RuntimeError("render blocked: select exactly two distinct images per scene")
-    package_root = package_dir.resolve(strict=True)
-    images_root = package_root / "images"
+    candidates=[dict(x) for x in manifest.get("assets",[])
+                if isinstance(x,Mapping) and x.get("downloaded") is True
+                and x.get("selected_for_render") is True]
+    per_scene=int(PIPELINE_POLICY.get("distinct_visuals_per_scene")
+                  or PIPELINE_POLICY["distinct_rights_cleared_images_per_scene"])
+    scene_min,scene_max=(int(x) for x in PIPELINE_POLICY["scene_count"])
+    needed=per_scene*scene_count
+    if not scene_min<=scene_count<=scene_max or len(candidates)<needed:
+        raise RuntimeError(f"render blocked: at least {needed} selected source-attributed visuals are required")
+    # Extra candidates are allowed so acquisition can stay fast. Rendering uses
+    # the first deterministic N assets required by the current scene count.
+    assets=candidates[:needed]
+    ids=[str(x.get("id") or "") for x in assets]
+    if len(set(ids))!=len(ids) or "" in ids:
+        raise RuntimeError("render blocked: selected visual ids must be distinct and nonempty")
+
+    package_root=package_dir.resolve(strict=True)
+    images_root=package_root/"images"
     if images_root.is_symlink() or not images_root.is_dir():
         raise RuntimeError("render blocked: image directory must be a real directory inside this package")
-    images_root = images_root.resolve(strict=True)
-    hashes: set[str] = set()
-    allowed_hosts = set(PIPELINE_POLICY["image_hosts"])
+    images_root=images_root.resolve(strict=True)
+    hashes:set[str]=set()
+    visual_policy=PIPELINE_POLICY.get("visual_source_policy") or {}
+    allowed_modes={str(value) for value in visual_policy.get("allowed_modes") or []}
     for asset in assets:
-        if asset.get("rights_verified") is not True or not asset.get("rights_basis") or not asset.get("credit") or not asset.get("rights_evidence_url"):
-            raise RuntimeError("render blocked: each selected image needs verified rights, evidence, and attribution")
-        evidence = urllib.parse.urlsplit(str(asset["rights_evidence_url"]))
-        if evidence.scheme != "https" or not evidence.hostname or evidence.username or evidence.password or evidence.port not in (None, 443):
-            raise RuntimeError("render blocked: rights evidence must be a credential-free HTTPS URL")
-        if not _registered_internal_e2e_asset(asset):
-            _allowed_https(str(asset.get("url") or ""), allowed_hosts)
-        candidate = Path(str(asset.get("file") or ""))
+        registered=_registered_internal_e2e_asset(asset)
+        mode=str(asset.get("visual_source_mode") or ("LICENSE_CLEARED" if asset.get("rights_verified") is True else "")).upper()
+        if registered and not mode:
+            mode="LICENSE_CLEARED"
+        if mode not in allowed_modes and not registered:
+            raise RuntimeError("render blocked: unsupported or missing visual source mode")
+        credit=re.sub(r"\s+"," ",str(asset.get("credit") or "")).strip()
+        source_url=str(asset.get("source_url") or asset.get("rights_evidence_url") or asset.get("url") or "")
+        if not credit:
+            raise RuntimeError("render blocked: each selected visual needs a source credit")
+        try:
+            _source_https_url(source_url)
+        except ValueError as exc:
+            raise RuntimeError("render blocked: each selected visual needs a public HTTPS source URL") from exc
+        if mode=="LICENSE_CLEARED" and not registered:
+            if asset.get("rights_verified") is not True or not asset.get("rights_basis"):
+                raise RuntimeError("render blocked: LICENSE_CLEARED mode requires its declared license metadata")
+        candidate=Path(str(asset.get("file") or ""))
         if candidate.is_symlink():
             raise RuntimeError("render blocked: selected image cannot be a symbolic link")
-        image_path = candidate.resolve(strict=True)
+        image_path=candidate.resolve(strict=True)
         if not image_path.is_file() or not image_path.is_relative_to(images_root):
             raise RuntimeError("render blocked: selected image must be an existing file inside this package")
-        if image_path.stat().st_size > MAX_IMAGE_BYTES:
+        size=image_path.stat().st_size
+        if size<=0 or size>MAX_IMAGE_BYTES:
             raise RuntimeError("render blocked: selected image exceeds the configured size limit")
-        digest = hashlib.sha256(image_path.read_bytes()).hexdigest()
-        if digest != asset.get("sha256") or digest in hashes:
+        data=image_path.read_bytes()
+        try:
+            _raster_spec(data)
+        except ValueError as exc:
+            raise RuntimeError("render blocked: selected visual is not a supported raster image") from exc
+        digest=hashlib.sha256(data).hexdigest()
+        if digest!=asset.get("sha256") or digest in hashes:
             raise RuntimeError("render blocked: image content hash mismatch or duplicate visual")
         hashes.add(digest)
+        asset["visual_source_mode"]=mode
+        asset["source_url"]=source_url
+        asset["credit"]=credit
+        asset["license_metadata_required"]=(mode=="LICENSE_CLEARED")
     return assets
 
 
@@ -1051,7 +1080,7 @@ def _prepare_internal_e2e_assets(package: Path) -> dict[str, Any]:
     from scripts.media_asset_resolver import load_standard, materialize_asset, validate_standard
     mission=json.loads((package/"mission.json").read_text(encoding="utf-8"))
     scene_count=len(mission.get("scenes") or [])
-    per_scene=int(PIPELINE_POLICY["distinct_rights_cleared_images_per_scene"])
+    per_scene=int(PIPELINE_POLICY.get("distinct_visuals_per_scene") or PIPELINE_POLICY["distinct_rights_cleared_images_per_scene"])
     needed=scene_count*per_scene
     standard=load_standard()
     validate_standard(standard)
