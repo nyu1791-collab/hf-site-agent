@@ -75,7 +75,17 @@
     "decode_validate_before_render": true,
     "single_bad_asset_must_not_restart_unrelated_scenes": true,
     "news_background_must_semantically_match_current_narration_or_claim": true,
-    "audio_waveform_or_voice_visualizer_is_not_default_background": true
+    "audio_waveform_or_voice_visualizer_is_not_default_background": true,
+    "non_public_source_attribution_fast_path": {
+      "enabled": true,
+      "source_url_and_credit_are_sufficient_for_non_public_render": true,
+      "license_metadata_optional_for_non_public_render": true,
+      "official_x_post_screenshot_allowed": true,
+      "whole_official_social_post_screenshot_allowed": true,
+      "arbitrary_public_https_image_allowed_as_source_backed_reference": true,
+      "publication_authorization_not_inferred": true,
+      "public_publish_remains_separately_gated": true
+    }
   },
   "audio_asset_pool": {
     "goal": "Maintain a broad reusable pool so each video can choose a small coherent subset instead of reusing the same sounds mechanically.",
@@ -460,7 +470,13 @@
       "pointer_or_focus_mask"
     ],
     "news_backgrounds_prefer_search_collected_real_or_official_images_over_abstract_generated_visuals": true,
-    "audio_visualizer_is_not_a_semantic_news_background": true
+    "audio_visualizer_is_not_a_semantic_news_background": true,
+    "non_public_source_attribution_fast_path": {
+      "prefer_official_social_post_screenshots_when_they_directly_show_the_announcement": true,
+      "allow_source_backed_web_images_with_visible_credit_and_source_url": true,
+      "do_not_require_repeated_license_lookup_for_non_public_render": true,
+      "keep_file_integrity_and_source_provenance_checks": true
+    }
   },
   "visual_attention_hierarchy": {
     "one_primary_hero_per_beat": true,
