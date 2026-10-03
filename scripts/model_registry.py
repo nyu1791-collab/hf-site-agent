@@ -458,6 +458,10 @@ def resolve_role_model(
             }
         if not paid_enabled or not isinstance(paid_evidence, Mapping):
             continue
+        # OpenRouter is permanently free-only. Paid text execution must use an
+        # explicitly authorized direct provider route such as DeepSeek official.
+        if str(model_provider or "").strip().lower() == "openrouter":
+            continue
         decision = evaluate_paid_candidate(paid_evidence)
         evidence_candidate = paid_evidence.get("candidate")
         if not isinstance(evidence_candidate, Mapping):
