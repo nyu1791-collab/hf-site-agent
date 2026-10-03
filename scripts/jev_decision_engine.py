@@ -197,47 +197,47 @@ def price_guard_allows(
     policy: Mapping[str, Any],
     entries: Sequence[Mapping[str, Any]],
 ) -> tuple[bool, dict[str, Any]]:
-    guard = policy.get("cost_guard") or {}
-    hard_prompt = float(guard.get("hard_emergency_price_ceiling_prompt_usd_per_million", 1.0))
-    hard_completion = float(guard.get("hard_emergency_price_ceiling_completion_usd_per_million", 1.0))
-    soft_prompt = float(guard.get("soft_price_observation_prompt_usd_per_million", 0.10))
+    """Allow an OpenRouter Jev request only with exact zero-price catalog evidence."""
     entry = _catalog_entry_for_model(entries, model)
-    if entry is None and model.startswith("~"):
-        pinned = str((policy.get("provider") or {}).get("last_known_good_model") or "")
-        entry = _catalog_entry_for_model(entries, pinned)
-    pricing = entry.get("pricing") if isinstance(entry, Mapping) else None
-    evidence_source = "NORMAL_MODELS_CATALOG"
-    if isinstance(pricing, Mapping):
-        prompt = _price_per_million(pricing.get("prompt"))
-        completion = _price_per_million(pricing.get("completion"))
-    else:
-        prompt = completion = None
-
-    if prompt is None or completion is None:
-        provider = policy.get("provider") or {}
-        authorized_models = {
-            str(provider.get("canonical_model_alias") or ""),
-            str(provider.get("last_known_good_model") or ""),
+    if entry is None:
+        return False, {
+            "reason": "PRICE_EVIDENCE_UNAVAILABLE",
+            "model": model,
+            "required_prompt_usd_per_million": 0.0,
+            "required_completion_usd_per_million": 0.0,
+            "allowed": False,
         }
-        if model not in authorized_models:
-            return False, {"reason": "PRICE_EVIDENCE_UNAVAILABLE", "model": model}
-        prompt = float(guard.get("current_observed_prompt_usd_per_million", 999.0))
-        completion = float(guard.get("current_observed_completion_usd_per_million", 999.0))
-        evidence_source = "AUTHORIZED_JEV_POLICY_OBSERVATION"
-
-    allowed = prompt <= hard_prompt and completion <= hard_completion
+    pricing = entry.get("pricing") if isinstance(entry, Mapping) else None
+    if not isinstance(pricing, Mapping):
+        return False, {
+            "reason": "PRICE_EVIDENCE_UNAVAILABLE",
+            "model": model,
+            "required_prompt_usd_per_million": 0.0,
+            "required_completion_usd_per_million": 0.0,
+            "allowed": False,
+        }
+    prompt = _price_per_million(pricing.get("prompt"))
+    completion = _price_per_million(pricing.get("completion"))
+    if prompt is None or completion is None:
+        return False, {
+            "reason": "PRICE_EVIDENCE_UNAVAILABLE",
+            "model": model,
+            "required_prompt_usd_per_million": 0.0,
+            "required_completion_usd_per_million": 0.0,
+            "allowed": False,
+        }
+    allowed = abs(prompt) <= 1e-12 and abs(completion) <= 1e-12
     return allowed, {
+        "reason": "ZERO_PRICE_VERIFIED" if allowed else "NONZERO_PRICE_BLOCKED",
         "model": model,
-        "evidence_source": evidence_source,
+        "evidence_source": "NORMAL_MODELS_CATALOG_EXACT_REQUESTED_MODEL",
         "observed_prompt_usd_per_million": prompt,
         "observed_completion_usd_per_million": completion,
-        "soft_price_observation_prompt_usd_per_million": soft_prompt,
-        "soft_price_warning": prompt > soft_prompt,
-        "hard_prompt_usd_per_million": hard_prompt,
-        "hard_completion_usd_per_million": hard_completion,
+        "required_prompt_usd_per_million": 0.0,
+        "required_completion_usd_per_million": 0.0,
+        "openrouter_paid_execution_authorized": False,
         "allowed": allowed,
     }
-
 
 def _choice(criteria: Mapping[str, str], instructions: str) -> dict[str, Any]:
     return {"type": "choice", "instructions": instructions, "criteria": dict(criteria)}
@@ -640,7 +640,8 @@ def _request_batch_once(
             "post_request_usage_cost_present": observed_cost is not None,
             "hard_emergency_guard_is_family_price_based": True,
         },
-        "paid_execution": True,
+        "paid_execution": False,
+        "free_execution": True,
         "paid_fallback_to_other_family": False,
     }
 
@@ -682,7 +683,7 @@ def decide_batch(
             continue
         price_ok, price_evidence = price_guard_allows(model, policy=policy, entries=catalog)
         if not price_ok:
-            errors.append({"model": model, "reason": "EMERGENCY_PRICE_GUARD_BLOCK", "price_evidence": price_evidence})
+            errors.append({"model": model, "reason": "FREE_ONLY_PRICE_GUARD_BLOCK", "price_evidence": price_evidence})
             continue
         try:
             result = _request_batch_once(
@@ -1099,7 +1100,8 @@ def _request_fast_route_once(
             "output_tokens": usage.get("output_tokens"),
             "cost": usage.get("cost"),
         },
-        "paid_execution": True,
+        "paid_execution": False,
+        "free_execution": True,
         "paid_fallback_to_other_family": False,
     }
 
@@ -1128,7 +1130,7 @@ def decide_fast_batch(
             continue
         ok, price = price_guard_allows(model, policy=policy, entries=catalog)
         if not ok:
-            errors.append({"model": model, "reason": "EMERGENCY_PRICE_GUARD_BLOCK", "price_evidence": price})
+            errors.append({"model": model, "reason": "FREE_ONLY_PRICE_GUARD_BLOCK", "price_evidence": price})
             continue
         try:
             result = _request_fast_route_once(
@@ -1437,7 +1439,7 @@ def decide_portfolio_batch(
             continue
         ok, price = price_guard_allows(model, policy=policy, entries=catalog)
         if not ok:
-            errors.append({"model": model, "reason": "EMERGENCY_PRICE_GUARD_BLOCK"})
+            errors.append({"model": model, "reason": "FREE_ONLY_PRICE_GUARD_BLOCK"})
             continue
         body, prepared = build_portfolio_route_batch_request(model=model, records=records, policy=policy)
         status, payload, latency_ms = _json_request(
@@ -1726,7 +1728,8 @@ def _request_lean_route_once(
             "output_tokens": usage.get("output_tokens"),
             "cost": usage.get("cost"),
         },
-        "paid_execution": True,
+        "paid_execution": False,
+        "free_execution": True,
         "paid_fallback_to_other_family": False,
     }
 
@@ -1768,7 +1771,7 @@ def decide_lean_batch(
         if not price_ok:
             errors.append({
                 "model": model,
-                "reason": "EMERGENCY_PRICE_GUARD_BLOCK",
+                "reason": "FREE_ONLY_PRICE_GUARD_BLOCK",
                 "price_evidence": price_evidence,
             })
             continue
