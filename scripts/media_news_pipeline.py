@@ -2051,7 +2051,7 @@ def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
     if prepared.get("status")=="BLOCKED_PAID_MODEL_PREFLIGHT" and source_id:
         _materialize_deterministic_e2e_mission(conn,workspace,source_id)
         package=_resolve_news_package(workspace,source_id)
-        synthesize_voice(package,min_seconds=min_seconds,max_seconds=max_seconds)
+        synthesize_voice(package,min_seconds=min(int(min_seconds),45),max_seconds=max_seconds)
         conn.execute("UPDATE source_inbox SET state='ASSET_REVIEW_REQUIRED',updated_at=? WHERE source_id=?",
                      (time.time(),source_id))
         set_source_execution_state(conn,source_id,"VERIFYING")
