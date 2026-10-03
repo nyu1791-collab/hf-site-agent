@@ -2073,6 +2073,11 @@ def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
         break
     source_id=str(prepared.get("source_id") or "")
     deterministic_script_used=False
+    if (prepared.get("status")=="BLOCKED_PENDING_HUMAN_ACTION"
+            and prepared.get("state") in {"ASSET_REVIEW_REQUIRED","NO_CLEARED_IMAGES"}
+            and source_id):
+        prepared={"status":prepared["state"],"source_id":source_id,
+                  "resumed_existing_package":True,"public_publish_enabled":False}
     if prepared.get("status")=="BLOCKED_PAID_MODEL_PREFLIGHT" and source_id:
         _materialize_deterministic_e2e_mission(conn,workspace,source_id)
         package=_resolve_news_package(workspace,source_id)
