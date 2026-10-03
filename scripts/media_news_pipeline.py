@@ -1904,12 +1904,14 @@ def _load_protected_e2e_environment() -> dict[str, Any]:
             if value:
                 os.environ[key]=value
                 loaded.add(key)
-    required={"OPENROUTER_API_KEY","DEEPSEEK_API_KEY","MEDIA_RENDER_SHARED_TOKEN",
+    required={"OPENROUTER_API_KEY","MEDIA_RENDER_SHARED_TOKEN",
               "MEDIA_RENDER_EXPECTED_SHELL_SHA256","MEDIA_RENDER_EXPECTED_FONT_SHA256"}
     missing=sorted(required-loaded)
     if missing:
         raise RuntimeError("protected E2E environment is incomplete: "+",".join(missing))
     return {"status":"PROTECTED_E2E_ENV_READY","required_names_present":sorted(required),
+            "deepseek_fallback_available":"DEEPSEEK_API_KEY" in loaded,
+            "deepseek_fallback_policy":"OPTIONAL_FOR_ONE_ITEM_E2E; NEVER_REQUIRED_IF_FREE_PRIMARY_SUCCEEDS",
             "secret_values":"HIDDEN"}
 
 
