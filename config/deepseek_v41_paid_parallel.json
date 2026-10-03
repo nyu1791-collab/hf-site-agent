@@ -47,5 +47,8 @@
       "max_tokens": 4096,
       "selection_note": "Direct mode is retained for V4.1 debugging because prior A/B evidence showed better completion reliability, lower latency, and lower cost than thinking mode; the latest thinking-mode run returned VISIBLE_CONTENT_MISSING even with an 8192-token ceiling."
     }
-  }
+  },
+  "route_classification": "MANUAL_TRIAL",
+  "current_runtime_authority": false,
+  "retained_budget_reason": "Explicitly triggered bounded staging/manual trial; fixed trial budget does not constrain canonical DeepSeek current paths."
 }
