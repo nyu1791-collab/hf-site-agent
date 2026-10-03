@@ -12,6 +12,8 @@ import re
 import sys
 from typing import Any
 
+from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
+
 # This is an optional network-only compatibility lane.  Importing the
 # repository's deterministic tooling must not depend on the SDK being
 # installed; the live lane fails closed when it is unavailable.
@@ -52,9 +54,9 @@ def fail(message: str, status: int | None = None) -> None:
 
 
 def main() -> None:
-    api_key = os.environ.get("AI_API_KEY", "")
+    api_key = os.environ.get("OPENROUTER_API_KEY", "")
     if not api_key:
-        fail("AI_API_KEY secret is not configured.")
+        fail("OPENROUTER_API_KEY secret is not configured.")
     base_url = os.environ.get("AI_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
     model = os.environ.get("AI_MODEL", "").strip()
     brief = os.environ.get("DESIGN_BRIEF", "").strip()
@@ -68,8 +70,10 @@ def main() -> None:
         fail("Model ID contains unsupported characters.")
     if base_url != "https://openrouter.ai/api/v1":
         fail("Design council is restricted to the configured OpenRouter endpoint.")
-    if model == "openrouter/free" or not model.endswith(":free"):
-        fail("Design council requires an explicit role-approved free model; generic openrouter/free is disabled.")
+    try:
+        assert_openrouter_free_model(model, api_key=api_key)
+    except OpenRouterFreeGateError as exc:
+        fail(exc.reason)
 
     system_prompt = (
         "あなたはAI製品の設計レビュー担当です。これは読み取り専用の設計会議です。"
