@@ -48,7 +48,7 @@
       "prompt_cache_miss": 0.15,
       "output": 0.6
     },
-    "dashboard_peak_multiplier": 2.0,
+    "dashboard_peak_multiplier": 2,
     "conservative_budget_guard_per_million": {
       "prompt_cache_hit": 0.014,
       "prompt_cache_miss": 0.44,
@@ -71,5 +71,8 @@
     "production_routing": false,
     "secret_output": false,
     "paid_route_is_explicit_not_fallback": true
-  }
+  },
+  "route_classification": "MANUAL_TRIAL",
+  "current_runtime_authority": false,
+  "retained_budget_reason": "Explicitly triggered bounded staging/manual trial; fixed trial budget does not constrain canonical DeepSeek current paths."
 }
