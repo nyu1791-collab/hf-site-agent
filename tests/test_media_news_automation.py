@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _validate_existing_package, _review_story_free, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
+from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
 
@@ -272,6 +272,21 @@ class MediaNewsAutomationTests(unittest.TestCase):
             symlinked=[dict(x) for x in assets];symlinked[0]["file"]=str(linked)
             with self.assertRaisesRegex(RuntimeError,"symbolic link"):
                 select_render_assets({"assets":symlinked},3,package)
+
+    def test_internal_e2e_visual_must_match_registered_rights_metadata(self):
+        standard=json.loads((Path(__file__).resolve().parents[1]/"config/media_reusable_asset_standard.json").read_text(encoding="utf-8"))
+        row=next(asset for asset in standard["assets"]
+                 if asset.get("kind")=="real_photo" and asset.get("commercial_use_allowed") is True)
+        asset={
+            "registry_asset_id":row["asset_id"],
+            "rights_verification_scope":"INTERNAL_E2E_ONLY",
+            "rights_basis":row["rights_state"],
+            "rights_evidence_url":row["source_page"],
+            "publication_rights_recheck_required":True,
+        }
+        self.assertTrue(_registered_internal_e2e_asset(asset))
+        self.assertFalse(_registered_internal_e2e_asset({**asset,"rights_basis":"wrong"}))
+        self.assertFalse(_registered_internal_e2e_asset({**asset,"rights_verification_scope":"PUBLIC"}))
 
     def test_rss_summary_fallback_is_bounded_and_requires_enough_source_text(self):
         row={"url":"https://openai.com/news/example","title":"Official update","summary":TEXT * 4}
