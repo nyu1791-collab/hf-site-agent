@@ -15,6 +15,21 @@ from scripts import setup_temporary_gcp_render_worker as setup
 
 
 class TemporaryWorkerTests(unittest.TestCase):
+    def test_tunnel_reconnect_is_bounded_and_keeps_private_bind(self):
+        import configparser
+        import shlex
+        unit=configparser.ConfigParser(interpolation=None,strict=False)
+        unit.read(Path(__file__).resolve().parents[1]/"deploy/systemd/hf-render-worker-tunnel.service")
+        self.assertEqual(unit["Service"]["Restart"],"on-failure")
+        self.assertGreater(int(unit["Unit"]["StartLimitIntervalSec"]),
+                           int(unit["Unit"]["StartLimitBurst"])*int(unit["Service"]["RestartSec"]))
+        argv=shlex.split(unit["Service"]["ExecStart"])
+        self.assertEqual(argv[argv.index("-R")+1],"127.0.0.1:18765:127.0.0.1:18765")
+        for option in ("BatchMode=yes","ExitOnForwardFailure=yes","StrictHostKeyChecking=yes",
+                       "ConnectTimeout=10","ServerAliveInterval=30","ServerAliveCountMax=3"):
+            self.assertIn(option,argv)
+        self.assertNotIn("0.0.0.0",unit["Service"]["ExecStart"])
+
     def test_initial_auth_is_not_provisioned_without_explicit_user_flag(self):
         from unittest.mock import Mock
         coordinator, remote_worker = Mock(), Mock()

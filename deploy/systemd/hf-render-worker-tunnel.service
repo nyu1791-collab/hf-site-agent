@@ -2,13 +2,15 @@
 Description=Restricted SSH reverse tunnel for the media render worker
 After=network-online.target hf-render-worker.service
 Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
 User=hf-render-worker
 Group=hf-render-worker
 EnvironmentFile=/etc/hf-render-worker/tunnel.env
-ExecStart=/usr/bin/ssh -NT -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/hf-render-worker/known_hosts -i /etc/hf-render-worker/id_ed25519 -R 127.0.0.1:18765:127.0.0.1:18765 hf-render-tunnel@${COORDINATOR_HOST}
+ExecStart=/usr/bin/ssh -NT -o BatchMode=yes -o ConnectTimeout=10 -o TCPKeepAlive=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/hf-render-worker/known_hosts -i /etc/hf-render-worker/id_ed25519 -R 127.0.0.1:18765:127.0.0.1:18765 hf-render-tunnel@${COORDINATOR_HOST}
 Restart=on-failure
 RestartSec=10
 TimeoutStopSec=15
