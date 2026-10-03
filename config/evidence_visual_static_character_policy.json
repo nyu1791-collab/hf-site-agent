@@ -73,7 +73,22 @@
     "whole_page_or_feed_as_default": false,
     "enlarge_media_to_maximum_reserved_size_preserving_aspect_ratio": true,
     "exclude_login_navigation_sidebar_replies_and_unrelated_player_chrome": true,
-    "preserve_embedded_claim_labels_and_qualifiers": true
+    "preserve_embedded_claim_labels_and_qualifiers": true,
+    "non_public_source_attribution_fast_path": {
+      "enabled": true,
+      "scope": "NON_PUBLIC_RENDER_AND_INTERNAL_REVIEW_ONLY",
+      "official_x_post_screenshot_allowed": true,
+      "whole_official_social_post_screenshot_allowed": true,
+      "source_backed_web_image_allowed": true,
+      "minimum_provenance": [
+        "source_page",
+        "creator_or_source_or_account",
+        "local_sha256"
+      ],
+      "reuse_terms_or_license_state_required": false,
+      "publication_authorization_not_inferred": true,
+      "public_publish_requires_existing_separate_rights_gate": true
+    }
   },
   "voice_delivery": {
     "voicevox_speed_scale": 1.2,
@@ -88,7 +103,7 @@
     "every_spoken_turn_must_have_visible_caption_text": true,
     "full_spoken_text_contract": "FULL_SPOKEN_TEXT",
     "summary_caption_may_not_replace_narration": true,
-    "caption_coverage_ratio_minimum": 1.0,
+    "caption_coverage_ratio_minimum": 1,
     "caption_text_must_not_be_truncated_by_fixed_line_count": true,
     "fit_strategy": [
       "semantic_wrap",
@@ -289,5 +304,9 @@
       }
     ]
   },
-  "editorial_policy_reference": "config/approved_video_template.json#/editorial"
+  "editorial_policy_reference": "config/approved_video_template.json#/editorial",
+  "hard_fail_scope_exceptions": {
+    "WHOLE_PAGE_OR_FEED_USED_INSTEAD_OF_OFFICIAL_MEDIA_REGION": "Does not apply to an explicitly attributed OFFICIAL_ANNOUNCEMENT_SCREENSHOT or USER_PROVIDED_SOURCE_SCREENSHOT in a non-public render.",
+    "PUBLIC_USE_WITH_UNKNOWN_OR_BLOCKED_IMAGE_RIGHTS": "Still applies to public publishing; non-public source-attributed drafting is not public use."
+  }
 }
