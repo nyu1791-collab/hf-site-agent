@@ -82,6 +82,13 @@ class PaidAgentRoutePolicyTests(unittest.TestCase):
         self.assertEqual(result["model_id"], "fixture/reasoner-1")
         self.assertEqual(result["reason_codes"], [])
 
+    def test_openrouter_is_never_eligible_as_paid_candidate(self):
+        item = evidence()
+        item["candidate"]["provider_id"] = "openrouter"
+        result = evaluate_paid_candidate(item, now=NOW)
+        self.assertFalse(result["allowed"])
+        self.assertIn("PROVIDER_EXCLUDED_FROM_PAID_ROUTE", result["reason_codes"])
+
     def test_missing_evidence_fails_closed_without_echoing_inputs(self):
         result = evaluate_paid_candidate({"candidate": {"model_id": "secret-bearing-name"}}, now=NOW)
         self.assertFalse(result["allowed"])
