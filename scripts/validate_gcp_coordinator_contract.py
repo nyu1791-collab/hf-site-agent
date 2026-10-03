@@ -70,9 +70,9 @@ def validate(root: Path = ROOT) -> list[str]:
         blockers.append("PUBLIC_PUBLISH_BOUNDARY_INVALID")
 
     if not (
-        runtime_layout.get("existing_rss_cron_is_authoritative") is True
+        runtime_layout.get("rss_poller_schedule") == "hf-site-agent-media-source.timer"
         and runtime_layout.get("create_duplicate_source_poller") is False
-        and execution.get("preserve_existing_rss_cron_and_sqlite_queue") is True
+        and execution.get("preserve_existing_sqlite_queue") is True
         and runtime_layout.get("move_or_reinitialize_existing_database") is False
         and ingress.get("live_daemon_enabled") is False
         and int(ingress.get("poll_interval_seconds", 0)) == 300
@@ -83,7 +83,11 @@ def validate(root: Path = ROOT) -> list[str]:
         and verification.get("authoritative_rss_must_be_observed_after_current_boot") is True
         and "AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT"
             in set(runner.get("reboot_audit_requires") or [])
+        and "AUTHORITATIVE_RSS_TIMER_ENABLED_AND_ACTIVE"
+            in set(runner.get("reboot_audit_requires") or [])
         and "AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT"
+            in set(verification.get("coordinator_24h_ready_requires") or [])
+        and "AUTHORITATIVE_RSS_TIMER_ENABLED_AND_ACTIVE"
             in set(verification.get("coordinator_24h_ready_requires") or [])
     ):
         blockers.append("AUTHORITATIVE_RSS_INGRESS_CONTRACT_INVALID")
@@ -178,6 +182,8 @@ def validate(root: Path = ROOT) -> list[str]:
         blockers.append("REBOOT_PERSISTENCE_CONTRACT_INVALID")
 
     installer = root / "scripts/install_gcp_small_host_services.py"
+    source_service = root / "deploy/systemd/user/hf-site-agent-media-source.service"
+    source_timer = root / "deploy/systemd/user/hf-site-agent-media-source.timer"
     user_service = root / "deploy/systemd/user/hf-site-agent-media-news.service"
     user_timer = root / "deploy/systemd/user/hf-site-agent-media-news.timer"
     worker_service = root / "deploy/systemd/hf-render-worker.service"
@@ -185,6 +191,8 @@ def validate(root: Path = ROOT) -> list[str]:
     user_render_check = root / "deploy/systemd/user/hf-site-agent-media-render-check.service"
     try:
         installer_text = installer.read_text(encoding="utf-8")
+        source_service_text = source_service.read_text(encoding="utf-8")
+        source_timer_text = source_timer.read_text(encoding="utf-8")
         service_text = user_service.read_text(encoding="utf-8")
         timer_text = user_timer.read_text(encoding="utf-8")
         worker_text = worker_service.read_text(encoding="utf-8")
@@ -197,6 +205,8 @@ def validate(root: Path = ROOT) -> list[str]:
         if (
             "hf-site-agent-media-news.service" not in units_block
             or "hf-site-agent-media-news.timer" not in units_block
+            or "hf-site-agent-media-source.service" not in units_block
+            or "hf-site-agent-media-source.timer" not in units_block
             or "hf-site-agent-media-render@.service" in units_block
         ):
             blockers.append("GCP_INSTALLER_UNIT_SCOPE_INVALID")
@@ -208,6 +218,17 @@ def validate(root: Path = ROOT) -> list[str]:
             or "scripts.media_source_daemon" in service_text
         ):
             blockers.append("GCP_PREPARATION_SERVICE_CONTRACT_INVALID")
+        if (
+            "Type=oneshot" not in source_service_text
+            or "scripts.media_source_daemon" not in source_service_text
+            or "--once" not in source_service_text
+            or "runtime/media-queue.sqlite3" not in source_service_text
+            or "OnUnitInactiveSec=5min" not in source_timer_text
+            or "OnBootSec=1min" not in source_timer_text
+            or "Persistent=true" not in source_timer_text
+            or "WantedBy=timers.target" not in source_timer_text
+        ):
+            blockers.append("GCP_RSS_POLL_TIMER_CONTRACT_INVALID")
         if (
             "OnUnitInactiveSec=5min" not in timer_text
             or "Persistent=true" not in timer_text

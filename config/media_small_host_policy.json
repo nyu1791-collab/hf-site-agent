@@ -15,7 +15,7 @@
     "database": "~/hf-site-agent/runtime/media-queue.sqlite3",
     "workspace": "~/hf-site-agent/runtime",
     "voice_cache": "~/hf-site-agent/runtime/voice-cache",
-    "existing_rss_cron_is_authoritative": true,
+    "rss_poller_schedule": "hf-site-agent-media-source.timer",
     "create_duplicate_source_poller": false,
     "move_or_reinitialize_existing_database": false
   },
@@ -47,7 +47,7 @@
     "preparation_timer_activation": "AUTHORIZED_AFTER_READ_ONLY_PREFLIGHT",
     "activation_script": "scripts/install_gcp_small_host_services.py",
     "public_publish_requires_destination_and_account_scope": true,
-    "preserve_existing_rss_cron_and_sqlite_queue": true,
+    "preserve_existing_sqlite_queue": true,
     "gcp_local_render_unit_allowed": false,
     "external_render_live_health_required": true,
     "external_render_live_status_must_not_come_from_repository_boolean": true
@@ -78,6 +78,7 @@
       "PREPARATION_TIMER_ENABLED_AND_ACTIVE",
       "LATEST_REMOTE_HEAD",
       "CLEAN_WORKTREE",
+      "AUTHORITATIVE_RSS_TIMER_ENABLED_AND_ACTIVE",
       "AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT"
     ],
     "readiness_verdicts": [
@@ -128,6 +129,7 @@
       "PREPARATION_TIMER_ENABLED_AND_ACTIVE",
       "MINIMUM_FREE_DISK",
       "QUEUE_READABLE",
+      "AUTHORITATIVE_RSS_TIMER_ENABLED_AND_ACTIVE",
       "AUTHORITATIVE_RSS_ALL_ENABLED_FEEDS_FRESH",
       "AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT",
       "REBOOT_OBSERVED_AFTER_CURRENT_COMMIT_BASELINE"

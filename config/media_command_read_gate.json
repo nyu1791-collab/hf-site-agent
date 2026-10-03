@@ -123,6 +123,8 @@
           "deploy/systemd/hf-site-agent-media-render-check.service",
           "deploy/systemd/user/hf-site-agent-media-news.service",
           "deploy/systemd/user/hf-site-agent-media-news.timer",
+          "deploy/systemd/user/hf-site-agent-media-source.service",
+          "deploy/systemd/user/hf-site-agent-media-source.timer",
           "deploy/systemd/user/hf-site-agent-media-render@.service",
           "docs/VOICEVOX_RUNTIME.md",
           "scripts/with_local_voicevox.sh",

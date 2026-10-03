@@ -14,6 +14,8 @@ FILES = (
     "config/media_render_worker_policy.json",
     "config/media_source_ingress_policy.json",
     "scripts/install_gcp_small_host_services.py",
+    "deploy/systemd/user/hf-site-agent-media-source.service",
+    "deploy/systemd/user/hf-site-agent-media-source.timer",
     "deploy/systemd/user/hf-site-agent-media-news.service",
     "deploy/systemd/user/hf-site-agent-media-news.timer",
     "deploy/systemd/user/hf-site-agent-media-render@.service",
@@ -114,6 +116,14 @@ class GcpCoordinatorContractTests(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertIn("GCP_PREPARATION_TIMER_CONTRACT_INVALID", validate(root))
+
+    def test_rss_poller_timer_is_persistent_and_separate(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self._fixture(root)
+            timer = root / "deploy/systemd/user/hf-site-agent-media-source.timer"
+            timer.write_text(timer.read_text(encoding="utf-8").replace("OnUnitInactiveSec=5min", "OnUnitInactiveSec=30min"))
+            self.assertIn("GCP_RSS_POLL_TIMER_CONTRACT_INVALID", validate(root))
 
     def test_gcp_installer_cannot_start_installing_local_render_unit(self):
         with tempfile.TemporaryDirectory() as td:

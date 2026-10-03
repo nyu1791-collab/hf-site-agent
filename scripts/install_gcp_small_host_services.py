@@ -22,6 +22,8 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[1]
 METADATA_URL = "http://metadata.google.internal/computeMetadata/v1/instance/name"
 UNITS = (
+    "hf-site-agent-media-source.service",
+    "hf-site-agent-media-source.timer",
     "hf-site-agent-media-news.service",
     "hf-site-agent-media-news.timer",
 )
@@ -174,9 +176,9 @@ def _db_integrity(path: Path) -> bool:
 
 
 def _authoritative_source_ingress_fresh(root: Path, database: Path, host_policy: dict[str, Any]) -> bool:
-    """Verify the separately scheduled RSS poller is alive without running a second poller."""
+    """Verify every configured source has a recent successful RSS observation."""
     runtime = host_policy.get("runtime_layout") or {}
-    if runtime.get("existing_rss_cron_is_authoritative") is not True:
+    if runtime.get("rss_poller_schedule") != "hf-site-agent-media-source.timer":
         return False
     try:
         ingress = _read_json(root / "config/media_source_ingress_policy.json")
@@ -223,6 +225,7 @@ def preflight(
     branch: str | None = None,
     dirty: bool = False,
     free_bytes: int | None = None,
+    require_fresh_source: bool = True,
 ) -> list[str]:
     home = home or Path.home()
     blockers: list[str] = []
@@ -283,7 +286,7 @@ def preflight(
     database = runtime / "media-queue.sqlite3"
     if not _db_integrity(database):
         blockers.append("EXISTING_QUEUE_DATABASE_MISSING_OR_INVALID")
-    elif not _authoritative_source_ingress_fresh(root, database, host):
+    elif require_fresh_source and not _authoritative_source_ingress_fresh(root, database, host):
         blockers.append("AUTHORITATIVE_RSS_POLLER_STALE_OR_MISSING")
     minimum_free = int(host.get("resource_controls", {}).get("minimum_workspace_free_bytes", 0))
     available = free_bytes if free_bytes is not None else shutil.disk_usage(runtime if runtime.exists() else home).free
@@ -419,9 +422,20 @@ def activate() -> bool:
             os.chmod(dest, 0o644)
         if not _run(["systemctl", "--user", "daemon-reload"]):
             return False
+        if not _run(["systemctl", "--user", "enable", "--now", "hf-site-agent-media-source.timer"]):
+            return False
+        if not _run(["systemctl", "--user", "start", "--wait", "hf-site-agent-media-source.service"]):
+            return False
+        if not _authoritative_source_ingress_fresh(
+            ROOT, Path.home() / "hf-site-agent/runtime/media-queue.sqlite3",
+            _read_json(ROOT / "config/media_small_host_policy.json"),
+        ):
+            return False
         if not _run(["systemctl", "--user", "enable", "--now", "hf-site-agent-media-news.timer"]):
             return False
-        return _run(["systemctl", "--user", "is-active", "--quiet", "hf-site-agent-media-news.timer"])
+        return all(_run(["systemctl", "--user", "is-active", "--quiet", unit]) for unit in (
+            "hf-site-agent-media-source.timer", "hf-site-agent-media-news.timer"
+        ))
     except (OSError, subprocess.SubprocessError):
         return False
 
@@ -439,7 +453,7 @@ def main() -> int:
         branch = branch_result.stdout.strip() if branch_result.returncode == 0 else ""
         dirty = _worktree_has_unapproved_changes(root)
         metadata = _metadata_values()
-        blockers = preflight(instance_name=metadata.get("instance_name"), project_id=metadata.get("project_id"), branch=branch, dirty=dirty)
+        blockers = preflight(instance_name=metadata.get("instance_name"), project_id=metadata.get("project_id"), branch=branch, dirty=dirty, require_fresh_source=not args.activate)
     except Exception:
         blockers = ["PREFLIGHT_FAILED"]
     if blockers:
@@ -451,7 +465,12 @@ def main() -> int:
     if not activate():
         print(json.dumps({"status": "ACTIVATION_INCOMPLETE", "manual_or_privileged_step_required": True, "secrets_printed": False}))
         return 3
-    print(json.dumps({"status": "ACTIVE", "timer": "hf-site-agent-media-news.timer", "public_publish": False, "secrets_printed": False}))
+    print(json.dumps({
+        "status": "ACTIVE",
+        "timers": ["hf-site-agent-media-source.timer", "hf-site-agent-media-news.timer"],
+        "public_publish": False,
+        "secrets_printed": False,
+    }))
     return 0
 
 

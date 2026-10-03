@@ -9,7 +9,9 @@ from datetime import datetime, timedelta, timezone
 import unittest
 from unittest.mock import patch, MagicMock
 
-from scripts.install_gcp_small_host_services import preflight, _worktree_has_unapproved_changes, _remote_voicevox_ready
+from scripts.install_gcp_small_host_services import (
+    activate, preflight, _worktree_has_unapproved_changes, _remote_voicevox_ready,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -183,6 +185,8 @@ class GcpSmallHostActivationTests(unittest.TestCase):
         }), encoding="utf-8")
         os.chmod(billing, 0o600)
         for unit in (
+            "hf-site-agent-media-source.service",
+            "hf-site-agent-media-source.timer",
             "hf-site-agent-media-news.service",
             "hf-site-agent-media-news.timer",
             "hf-site-agent-media-render@.service",
@@ -297,6 +301,55 @@ class GcpSmallHostActivationTests(unittest.TestCase):
                 free_bytes=3 * 1024**3,
             )
             self.assertIn("AUTHORITATIVE_RSS_POLLER_STALE_OR_MISSING", blockers)
+
+    def test_activation_preflight_can_bootstrap_missing_rss_schedule(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            home = Path(temp) / "home"
+            root.mkdir()
+            home.mkdir()
+            expected_name = self._prepared(root, home)
+            db = home / "hf-site-agent/runtime/media-queue.sqlite3"
+            with sqlite3.connect(db) as conn:
+                conn.execute("UPDATE source_feed_state SET last_checked_at=?", (time.time() - 3600,))
+            blockers = preflight(
+                root=root, home=home, instance_name=expected_name, project_id="test-project",
+                branch="ai-army/provider-v3", dirty=False, free_bytes=3 * 1024**3,
+                require_fresh_source=False,
+            )
+            self.assertEqual(blockers, [])
+
+    def test_activation_polls_rss_before_enabling_preparation_timer(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root, home = Path(temp) / "repo", Path(temp) / "home"
+            units = root / "deploy/systemd/user"
+            units.mkdir(parents=True)
+            home.mkdir()
+            (root / "config").mkdir()
+            (root / "config/media_small_host_policy.json").write_text(
+                (ROOT / "config/media_small_host_policy.json").read_text(encoding="utf-8"), encoding="utf-8"
+            )
+            for name in (
+                "hf-site-agent-media-source.service", "hf-site-agent-media-source.timer",
+                "hf-site-agent-media-news.service", "hf-site-agent-media-news.timer",
+            ):
+                (units / name).write_text("[Unit]\n", encoding="utf-8")
+            with (
+                patch("scripts.install_gcp_small_host_services.ROOT", root),
+                patch("scripts.install_gcp_small_host_services.Path.home", return_value=home),
+                patch("scripts.install_gcp_small_host_services.subprocess.run") as command,
+                patch("scripts.install_gcp_small_host_services._run", return_value=True) as run_unit,
+                patch("scripts.install_gcp_small_host_services._authoritative_source_ingress_fresh", return_value=True),
+            ):
+                command.return_value.returncode = 0
+                command.return_value.stdout = "yes"
+                self.assertTrue(activate())
+            commands = [call.args[0] for call in run_unit.call_args_list]
+            source_enabled = commands.index(["systemctl", "--user", "enable", "--now", "hf-site-agent-media-source.timer"])
+            source_polled = commands.index(["systemctl", "--user", "start", "--wait", "hf-site-agent-media-source.service"])
+            news_enabled = commands.index(["systemctl", "--user", "enable", "--now", "hf-site-agent-media-news.timer"])
+            self.assertLess(source_enabled, source_polled)
+            self.assertLess(source_polled, news_enabled)
 
     def test_preflight_blocks_without_fresh_project_billing_evidence(self):
         with tempfile.TemporaryDirectory() as temp:

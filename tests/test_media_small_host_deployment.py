@@ -39,6 +39,8 @@ class MediaSmallHostDeploymentTests(unittest.TestCase):
     def test_gcp_activation_does_not_install_local_render_unit(self):
         installer = (ROOT / "scripts/install_gcp_small_host_services.py").read_text()
         units_block = installer.split("UNITS = (", 1)[1].split(")", 1)[0]
+        self.assertIn("hf-site-agent-media-source.service", units_block)
+        self.assertIn("hf-site-agent-media-source.timer", units_block)
         self.assertIn("hf-site-agent-media-news.service", units_block)
         self.assertIn("hf-site-agent-media-news.timer", units_block)
         self.assertNotIn("hf-site-agent-media-render@.service", units_block)
@@ -60,19 +62,23 @@ class MediaSmallHostDeploymentTests(unittest.TestCase):
         self.assertNotIn(" --font ", unit)
         self.assertIn("scripts.media_render_transport --check", check)
 
-    def test_user_preparation_timer_is_separate_from_existing_rss_poller(self):
+    def test_user_rss_timer_is_separate_from_preparation_timer(self):
         service = (ROOT / "deploy/systemd/user/hf-site-agent-media-news.service").read_text()
         timer = (ROOT / "deploy/systemd/user/hf-site-agent-media-news.timer").read_text()
+        source_service = (ROOT / "deploy/systemd/user/hf-site-agent-media-source.service").read_text()
+        source_timer = (ROOT / "deploy/systemd/user/hf-site-agent-media-source.timer").read_text()
         self.assertIn("process-next", service)
         self.assertNotIn("scripts.media_source_daemon", service)
         self.assertIn("VV_CPU_NUM_THREADS=1", service)
         self.assertIn("VOICEVOX_CACHE_DIR=%h/hf-site-agent/runtime/voice-cache", service)
         self.assertIn("OnUnitInactiveSec=5min", timer)
         policy = json.loads((ROOT / "config/media_small_host_policy.json").read_text())
-        self.assertTrue(policy["runtime_layout"]["existing_rss_cron_is_authoritative"])
+        self.assertEqual(policy["runtime_layout"]["rss_poller_schedule"], "hf-site-agent-media-source.timer")
         self.assertFalse(policy["runtime_layout"]["create_duplicate_source_poller"])
-        source_service = (ROOT / "deploy/systemd/hf-site-agent-media-source.service").read_text()
-        self.assertIn("--interval-seconds 300", source_service)
+        self.assertIn("scripts.media_source_daemon", source_service)
+        self.assertIn("--once", source_service)
+        self.assertIn("OnUnitInactiveSec=5min", source_timer)
+        self.assertIn("Persistent=true", source_timer)
 
     def test_render_asset_paths_can_come_from_protected_environment(self):
         with patch.dict(os.environ, {"MEDIA_RENDER_SHELL": "~/approved/shell",

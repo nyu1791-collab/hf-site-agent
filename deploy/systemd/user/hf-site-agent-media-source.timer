@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll official media RSS feeds every five minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=5min
+Persistent=true
+Unit=hf-site-agent-media-source.service
+
+[Install]
+WantedBy=timers.target
