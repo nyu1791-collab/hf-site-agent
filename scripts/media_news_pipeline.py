@@ -1469,8 +1469,23 @@ def synthesize_voice(package: Path, *, min_seconds: int = 60, max_seconds: int =
         "--output-dir", str((package / "voice-parts").resolve()),
         "--timing-out", str((package / "timing.json").resolve()),
         "--min-seconds", str(min_seconds), "--max-seconds", str(max_seconds)]
-    subprocess.run(command, cwd=ROOT, check=True, timeout=1800, env={k:v for k,v in os.environ.items()
-        if k in {"PATH","HOME","LANG","LC_ALL","TMPDIR","TEMP","TMP","VOICEVOX_ENGINE_DIR","VOICEVOX_URL","VOICEVOX_REMOTE_TUNNEL","VOICEVOX_EXPECTED_VERSION","VOICEVOX_CACHE_DIR","VV_CPU_NUM_THREADS"}})
+    voice_env={k:v for k,v in os.environ.items()
+        if k in {"PATH","HOME","LANG","LC_ALL","TMPDIR","TEMP","TMP","VOICEVOX_ENGINE_DIR","VOICEVOX_URL","VOICEVOX_REMOTE_TUNNEL","VOICEVOX_EXPECTED_VERSION","VOICEVOX_CACHE_DIR","VV_CPU_NUM_THREADS"}}
+    try:
+        subprocess.run(command,cwd=ROOT,check=True,timeout=1800,env=voice_env)
+    except subprocess.CalledProcessError:
+        # A local CPU synthesis timeout can leave earlier lines durably cached.
+        # Retry once only when no complete timing manifest exists; the retry
+        # restores cached WAVs instead of re-synthesizing successful lines.
+        retryable=True
+        try:
+            partial=json.loads(timing_path.read_text(encoding="utf-8"))
+            retryable=not timing_matches_mission(partial)
+        except (OSError,ValueError,TypeError,json.JSONDecodeError):
+            retryable=True
+        if not retryable:
+            raise
+        subprocess.run(command,cwd=ROOT,check=True,timeout=1800,env=voice_env)
     timing=json.loads(timing_path.read_text(encoding="utf-8"))
     if expected_engine_version and timing.get("engine_version") != expected_engine_version:
         raise RuntimeError("VOICEVOX Engine version did not match the configured expected version")
