@@ -43,6 +43,7 @@ def main() -> int:
     require(default.get("paid_route_requires_verified_lower_total_cost_and_materially_better_task_performance") is True, "paid route evidence gate disabled")
     require(paid_route.get("schema_version") == "paid-agent-route-eligibility-v1", "paid route policy schema drift")
     require(paid_route.get("status") == "AUTHORIZED_ONLY_THROUGH_EVIDENCE_GATE", "paid route policy is not evidence-gated")
+    require("openrouter" in set((paid_route.get("eligibility") or {}).get("excluded_provider_ids") or []), "OpenRouter is not excluded from paid API routes")
     routing = paid_route.get("routing") or {}
     require(routing.get("paid_candidate_may_be_selected_as_primary_after_gate") is True, "eligible paid route cannot be selected as primary")
     precedence = load("config/project_rule_precedence_policy.json")
