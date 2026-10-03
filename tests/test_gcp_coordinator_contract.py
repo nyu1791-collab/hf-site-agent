@@ -45,16 +45,16 @@ class GcpCoordinatorContractTests(unittest.TestCase):
             path.write_text(json.dumps(value), encoding="utf-8")
             self.assertIn("GCP_COORDINATOR_ONLY_BOUNDARY_INVALID", validate(root))
 
-    def test_paid_route_budget_or_model_drift_is_blocked(self):
+    def test_paid_route_provider_or_model_drift_is_blocked(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             self._fixture(root)
             path = root / "config/media_news_pipeline_policy.json"
             value = json.loads(path.read_text(encoding="utf-8"))
             value["paid_script_generation"]["model"] = "unexpected/model"
-            value["paid_script_generation"]["automatic_retry_after_request"] = True
+            value["paid_script_generation"]["automatic_retry_after_unknown_result"] = True
             path.write_text(json.dumps(value), encoding="utf-8")
-            self.assertIn("RESIDENT_NEWS_COST_AND_ROUTE_BOUNDARY_INVALID", validate(root))
+            self.assertIn("RESIDENT_NEWS_PROVIDER_ROUTING_BOUNDARY_INVALID", validate(root))
 
     def test_render_transport_must_remain_loopback_and_unprivileged(self):
         with tempfile.TemporaryDirectory() as td:
