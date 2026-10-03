@@ -1772,6 +1772,8 @@ def main() -> int:
             else:
                 result = _render_package(args,conn)
         print(json.dumps(result,ensure_ascii=True))
+        if args.action == "e2e-once" and result.get("status") != "COMPLETED":
+            return 2
         return 0
     finally:
         conn.close()
