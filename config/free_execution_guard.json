@@ -3,7 +3,7 @@
   "effective_date_jst": "2026-10-02",
   "status": "ENFORCED_PERMANENT_STANDARD",
   "decision_owner": "chatgpt-top-commander",
-  "purpose": "Keep general paid API candidates evidence-gated and keep paid video/image/TTS generation, fallback, top-up and public posting blocked, while allowing the user's exact DeepSeek V4.1 Flash text-only RSS script exception within fixed cost caps.",
+  "purpose": "Keep OpenRouter permanently free-only, keep all paid fallback/top-up/media routes blocked, and allow authorized paid text work only through direct provider routes such as DeepSeek official without artificial daily/monthly caps.",
   "default_runtime": {
     "free_only_mode": false,
     "allow_paid_model": true,
@@ -124,6 +124,10 @@
     "eligible_as_primary_only_after_evidence_gate": true,
     "all_unknown_evidence_blocks": true,
     "paid_fallback": false,
-    "auto_top_up": false
+    "auto_top_up": false,
+    "excluded_provider_ids": [
+      "openrouter"
+    ],
+    "openrouter_paid_models_allowed": false
   }
 }
