@@ -50,5 +50,8 @@
     "production_routing": false,
     "generic_paid_fallback": false,
     "auto_top_up": false
-  }
+  },
+  "route_classification": "MANUAL_TRIAL",
+  "current_runtime_authority": false,
+  "retained_budget_reason": "Explicitly triggered bounded staging/manual trial; fixed trial budget does not constrain canonical DeepSeek current paths."
 }
