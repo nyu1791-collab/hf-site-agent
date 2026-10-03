@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, add_source_visual, add_source_visual_batch, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
+from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, add_source_visual, add_source_visual_batch, capture_social_screenshot, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
 
@@ -326,6 +326,26 @@ class MediaNewsAutomationTests(unittest.TestCase):
             self.assertEqual(result["failed"],1)
             manifest=json.loads((package/"image-candidates.json").read_text(encoding="utf-8"))
             self.assertEqual(len(manifest["assets"]),1)
+
+    def test_capture_social_screenshot_uses_headless_browser_and_preserves_x_source(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);package=root/("c"*64);package.mkdir()
+            (package/"image-candidates.json").write_text(json.dumps({"assets":[]}),encoding="utf-8")
+            def fake_run(command,**_kwargs):
+                target=next(value.split("=",1)[1] for value in command if value.startswith("--screenshot="))
+                Path(target).write_bytes(b"\x89PNG\r\n\x1a\nfixture")
+                return SimpleNamespace(returncode=0)
+            with patch.dict("os.environ",{},clear=False), \
+                 patch("scripts.media_news_pipeline.shutil.which",return_value="/usr/bin/chromium"), \
+                 patch("scripts.media_news_pipeline.subprocess.run",side_effect=fake_run):
+                result=capture_social_screenshot(
+                    package,source_url="https://x.com/OpenAI/status/999",
+                    credit="@OpenAI / X",selected=True,
+                )
+            self.assertEqual(result["status"],"SOURCE_VISUAL_ATTACHED")
+            manifest=json.loads((package/"image-candidates.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["assets"][0]["source_url"],"https://x.com/OpenAI/status/999")
+            self.assertEqual(manifest["assets"][0]["visual_source_mode"],"OFFICIAL_ANNOUNCEMENT_SCREENSHOT")
 
     def test_internal_e2e_visual_must_match_registered_rights_metadata(self):
         standard=json.loads((Path(__file__).resolve().parents[1]/"config/media_reusable_asset_standard.json").read_text(encoding="utf-8"))
