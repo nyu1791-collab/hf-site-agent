@@ -1210,10 +1210,18 @@ def _prepare_internal_e2e_assets(package: Path) -> dict[str, Any]:
         try:
             materialized=materialize_asset(standard,row,cache_root,allow_network=True)
             source=Path(materialized["path"]).resolve(strict=True)
-            suffix=source.suffix.lower() or ".jpg"
-            dest=images_dir/f"e2e-{row['asset_id']}{suffix}"
-            tmp=dest.with_suffix(dest.suffix+".tmp")
-            shutil.copyfile(source,tmp)
+            dest=images_dir/f"e2e-{row['asset_id']}.jpg"
+            tmp=dest.with_suffix(".jpg.tmp")
+            from PIL import Image, ImageOps
+            with Image.open(source) as original:
+                image=ImageOps.exif_transpose(original).convert("RGB")
+                image.thumbnail((1600,1600),Image.Resampling.LANCZOS)
+                image.save(tmp,format="JPEG",quality=82,optimize=True)
+                if tmp.stat().st_size>MAX_IMAGE_BYTES:
+                    image.thumbnail((1080,1080),Image.Resampling.LANCZOS)
+                    image.save(tmp,format="JPEG",quality=70,optimize=True)
+            if tmp.stat().st_size<=0 or tmp.stat().st_size>MAX_IMAGE_BYTES:
+                raise RuntimeError("normalized internal E2E visual exceeds image limit")
             os.replace(tmp,dest)
             digest=_sha256_file(dest)
             selected.append({
