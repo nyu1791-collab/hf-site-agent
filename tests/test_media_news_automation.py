@@ -596,6 +596,7 @@ class MediaNewsAutomationTests(unittest.TestCase):
                     planner_fn=lambda *_a,**_k:{"status":"READY","primary_model":"fixture/model:free","provider_allow_fallbacks":False})
             self.assertEqual(model,"fixture/model:free")
             self.assertIs(call["payload"]["provider"]["allow_fallbacks"],False)
+            self.assertNotIn("response_format",call["payload"])
             self.assertNotIn("openrouter-secret",json.dumps(call["payload"]))
             conn.close()
 
