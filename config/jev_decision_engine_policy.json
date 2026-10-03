@@ -1,7 +1,7 @@
 {
   "schema_version": "jev-decision-engine-policy-v9",
   "effective_date_jst": "2026-09-22",
-  "status": "ACTIVE_SCOPED_PAID_EXCEPTION",
+  "status": "ACTIVE_FREE_ONLY",
   "role": "FAST_SYSTEM_ONE_DECISION_PLANE",
   "reports_to": "chatgpt-top-commander",
   "user_authorization": {
@@ -9,7 +9,8 @@
     "authorized_at_jst": "2026-09-21",
     "persistent_across_chat_tabs": true,
     "repeat_per_call_approval_required": false,
-    "scope": "JEV_ROUTING_CLASSIFICATION_FANOUT_PARALLELISM_VERIFICATION_AND_LIGHTWEIGHT_RESULT_TRIAGE"
+    "scope": "JEV_ROUTING_CLASSIFICATION_FANOUT_PARALLELISM_VERIFICATION_AND_LIGHTWEIGHT_RESULT_TRIAGE",
+    "paid_openrouter_authorized": false
   },
   "provider": {
     "transport": "openrouter",
@@ -17,7 +18,7 @@
     "base_url": "https://openrouter.ai/api/v1",
     "canonical_model_alias": "~typesafe/jev-latest",
     "last_known_good_model": "typesafe/jev-1.13",
-    "automatic_latest_migration": true,
+    "automatic_latest_migration": false,
     "latest_alias_semantics": "OPENROUTER_ALWAYS_REDIRECTS_TO_LATEST_JEV_FAMILY_MODEL",
     "current_observed_latest": "typesafe/jev-1.13",
     "current_observed_release_date": "2026-09-18",
@@ -30,9 +31,9 @@
     "current_observed_prompt_usd_per_million": 0.042,
     "current_observed_completion_usd_per_million": 0,
     "cost_is_not_primary_optimization_target_for_jev": true,
-    "soft_price_observation_prompt_usd_per_million": 0.1,
-    "hard_emergency_price_ceiling_prompt_usd_per_million": 1,
-    "hard_emergency_price_ceiling_completion_usd_per_million": 1,
+    "soft_price_observation_prompt_usd_per_million": 0,
+    "hard_emergency_price_ceiling_prompt_usd_per_million": 0,
+    "hard_emergency_price_ceiling_completion_usd_per_million": 0,
     "max_prompt_chars_per_record": 12000,
     "max_records_per_decisions_request": 20,
     "max_parallel_decision_batches": 5,
@@ -40,15 +41,18 @@
     "auto_top_up": false,
     "other_paid_model_fallback": false,
     "emergency_price_breach_action": "BYPASS_JEV_TO_DETERMINISTIC_OR_CHATGPT_ROUTING",
-    "rationale": "JEV_IS_CHEAP_AND_ROUTING_LATENCY_VALUE_DOMINATES_SMALL_COST_VARIATION; ONLY_CATASTROPHIC_PRICE_DRIFT_BLOCKS",
+    "rationale": "OPENROUTER_IS_FREE_ONLY; JEV_MAY_SEND_ONLY_WHEN_THE_EXACT_REQUESTED_MODEL_HAS_ZERO_PROMPT_AND_COMPLETION_PRICE_EVIDENCE",
     "preflight_source_order": [
-      "DECISIONS_MODEL_CATALOG_WHEN_AVAILABLE",
-      "AUTHORIZED_JEV_FAMILY_OBSERVED_PRICE_FROM_POLICY"
+      "NORMAL_MODELS_CATALOG_EXACT_REQUESTED_MODEL"
     ],
-    "normal_models_catalog_is_not_authoritative_for_jev_decisions": true,
+    "normal_models_catalog_is_not_authoritative_for_jev_decisions": false,
     "post_request_usage_cost_audit": true,
-    "block_only_on_hard_emergency_price_evidence": true,
-    "missing_normal_catalog_entry_is_not_a_block_for_authorized_jev_family": true
+    "block_only_on_hard_emergency_price_evidence": false,
+    "missing_normal_catalog_entry_is_not_a_block_for_authorized_jev_family": false,
+    "require_zero_prompt_and_completion_price": true,
+    "openrouter_paid_execution_authorized": false,
+    "unknown_or_missing_price_action": "BLOCK_BEFORE_REQUEST",
+    "current_observed_is_paid_and_therefore_blocked": true
   },
   "intended_uses": [
     "TASK_CLASSIFICATION",
@@ -197,15 +201,16 @@
     "candidate_cards_include_domain_quality_samples_failures_and_rate_limits": true
   },
   "automatic_upgrade_guard": {
-    "use_latest_alias_by_default": true,
+    "use_latest_alias_by_default": false,
     "accept_new_latest_only_if": [
       "AUTHORIZED_JEV_FAMILY_ALIAS_OR_PIN",
+      "EXACT_REQUESTED_MODEL_HAS_ZERO_PROMPT_AND_COMPLETION_PRICE_EVIDENCE",
       "STRUCTURED_DECISION_SCHEMA_PASSES",
       "NO_PERMISSION_OR_CANDIDATE_EXPANSION",
       "CONFIDENCE_FIELD_VALID",
-      "POST_REQUEST_USAGE_COST_AUDIT_DOES_NOT_SHOW_HARD_EMERGENCY_BREACH"
+      "POST_REQUEST_USAGE_COST_IS_ZERO_WHEN_PRESENT"
     ],
-    "on_contract_failure": "RETRY_ONCE_WITH_LAST_KNOWN_GOOD_PINNED_MODEL",
+    "on_contract_failure": "FALL_BACK_TO_LAST_KNOWN_GOOD_ONLY_IF_EXACT_ZERO_PRICE_EVIDENCE_EXISTS",
     "on_pinned_failure": "FALL_BACK_TO_DETERMINISTIC_OR_CHATGPT_ROUTING",
     "silent_upgrade_without_guards": false
   },
