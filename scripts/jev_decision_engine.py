@@ -28,6 +28,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from scripts.openrouter_free_gate import decide_openrouter_free_model
+
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "config" / "jev_decision_engine_policy.json"
 DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
@@ -197,47 +199,12 @@ def price_guard_allows(
     policy: Mapping[str, Any],
     entries: Sequence[Mapping[str, Any]],
 ) -> tuple[bool, dict[str, Any]]:
-    """Allow an OpenRouter Jev request only with exact zero-price catalog evidence."""
-    entry = _catalog_entry_for_model(entries, model)
-    if entry is None:
-        return False, {
-            "reason": "PRICE_EVIDENCE_UNAVAILABLE",
-            "model": model,
-            "required_prompt_usd_per_million": 0.0,
-            "required_completion_usd_per_million": 0.0,
-            "allowed": False,
-        }
-    pricing = entry.get("pricing") if isinstance(entry, Mapping) else None
-    if not isinstance(pricing, Mapping):
-        return False, {
-            "reason": "PRICE_EVIDENCE_UNAVAILABLE",
-            "model": model,
-            "required_prompt_usd_per_million": 0.0,
-            "required_completion_usd_per_million": 0.0,
-            "allowed": False,
-        }
-    prompt = _price_per_million(pricing.get("prompt"))
-    completion = _price_per_million(pricing.get("completion"))
-    if prompt is None or completion is None:
-        return False, {
-            "reason": "PRICE_EVIDENCE_UNAVAILABLE",
-            "model": model,
-            "required_prompt_usd_per_million": 0.0,
-            "required_completion_usd_per_million": 0.0,
-            "allowed": False,
-        }
-    allowed = abs(prompt) <= 1e-12 and abs(completion) <= 1e-12
-    return allowed, {
-        "reason": "ZERO_PRICE_VERIFIED" if allowed else "NONZERO_PRICE_BLOCKED",
-        "model": model,
-        "evidence_source": "NORMAL_MODELS_CATALOG_EXACT_REQUESTED_MODEL",
-        "observed_prompt_usd_per_million": prompt,
-        "observed_completion_usd_per_million": completion,
-        "required_prompt_usd_per_million": 0.0,
-        "required_completion_usd_per_million": 0.0,
-        "openrouter_paid_execution_authorized": False,
-        "allowed": allowed,
-    }
+    """Use the shared OpenRouter free-only gate for Jev admission."""
+    decision = decide_openrouter_free_model(model, entries)
+    evidence = decision.to_dict()
+    if not decision.allowed:
+        evidence["reason"] = decision.reason
+    return decision.allowed, evidence
 
 def _choice(criteria: Mapping[str, str], instructions: str) -> dict[str, Any]:
     return {"type": "choice", "instructions": instructions, "criteria": dict(criteria)}
