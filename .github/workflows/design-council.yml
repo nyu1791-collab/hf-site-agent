@@ -19,7 +19,7 @@ on:
       model:
         description: "Free OpenRouter model ID; use openrouter/free unless a free model is verified"
         required: true
-        default: openrouter/free
+        default: ""
         type: string
 
 permissions:
@@ -80,7 +80,7 @@ jobs:
 
       - name: Ask the external model for a design review
         env:
-          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           AI_BASE_URL: https://openrouter.ai/api/v1
           AI_MODEL: ${{ inputs.model }}
           DESIGN_BRIEF: ${{ inputs.brief }}
