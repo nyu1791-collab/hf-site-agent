@@ -475,5 +475,38 @@ class MediaRenderTransportTests(unittest.TestCase):
             connection.close()
 
 
+    def test_verify_video_requires_positive_dimensions(self):
+        with tempfile.TemporaryDirectory() as td:
+            video=Path(td)/"final.mp4"
+            video.write_bytes(b"mock-video")
+            probe_output=json.dumps({
+                "streams":[
+                    {"codec_type":"video","width":0,"height":1080},
+                    {"codec_type":"audio"},
+                ],
+                "format":{"duration":"1.0","size":str(video.stat().st_size)},
+            })
+            with patch("scripts.media_render_transport.subprocess.run",return_value=SimpleNamespace(stdout=probe_output)):
+                with self.assertRaises(transport.RenderTransportError):
+                    transport.verify_local_render(video,1.0)
+
+    def test_verify_video_returns_streams_size_duration_and_dimensions(self):
+        with tempfile.TemporaryDirectory() as td:
+            video=Path(td)/"final.mp4"
+            video.write_bytes(b"mock-video")
+            probe_output=json.dumps({
+                "streams":[
+                    {"codec_type":"video","width":1080,"height":1920},
+                    {"codec_type":"audio"},
+                ],
+                "format":{"duration":"1.0","size":str(video.stat().st_size)},
+            })
+            with patch("scripts.media_render_transport.subprocess.run",return_value=SimpleNamespace(stdout=probe_output)):
+                result=transport.verify_local_render(video,1.0)
+            self.assertEqual(result["streams"],["audio","video"])
+            self.assertEqual((result["width"],result["height"]),(1080,1920))
+            self.assertEqual(result["bytes"],video.stat().st_size)
+
+
 if __name__ == "__main__":
     unittest.main()
