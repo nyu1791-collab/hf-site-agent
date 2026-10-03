@@ -90,7 +90,17 @@
       "e2e_completion_verified"
     ],
     "live_status_source": "nyu1791-collab/-hf-vm-control status/reboot_audit",
-    "repository_live_status_is_authoritative": false
+    "repository_live_status_is_authoritative": false,
+    "live_e2e_operation": "e2e_once",
+    "live_e2e_requirements": [
+      "ONE_RSS_QUEUE_ITEM_ONLY",
+      "PUBLIC_PUBLISH_DISABLED",
+      "REGISTERED_INTERNAL_E2E_VISUALS_ONLY",
+      "PROTECTED_ENV_VALUES_HIDDEN",
+      "REMOTE_RENDER_ONLY",
+      "FFPROBE_VERIFIED_BEFORE_COMPLETED",
+      "UNKNOWN_RESULT_NEVER_AUTO_RESENT"
+    ]
   },
   "provider_and_cost_gates": {
     "paid_fallback_allowed": false,
