@@ -1012,7 +1012,9 @@ def _post_deepseek_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, A
 def _post_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, Any]:
     model_id=str(payload.get("model") or "")
     try:
-        assert_openrouter_free_model(model_id, catalog=[], api_key=api_key)
+        # Re-validate immediately before transport. Non-:free zero-cost IDs
+        # require current catalog evidence, so do not pass an empty catalog here.
+        assert_openrouter_free_model(model_id, api_key=api_key)
     except OpenRouterFreeGateError as exc:
         raise PaidMediaPreflightUnavailable(exc.reason) from None
     request = urllib.request.Request(OPENROUTER_CHAT_URL,
