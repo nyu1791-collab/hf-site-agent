@@ -36,7 +36,7 @@ from typing import Any, Mapping
 
 from scripts.durable_media_runner import connect
 from scripts.media_render_transport import dispatch_remote_render, verify_saved_remote_render, RenderTransportError
-from scripts.media_source_ingress import init_inbox, load_policy
+from scripts.media_source_ingress import (claim_source, init_inbox, load_policy, mark_source_running, release_source_claim, set_source_execution_state)
 from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model, decide_openrouter_free_model
 from scripts.provider_route_matrix import approved_fallback
 
@@ -1266,6 +1266,23 @@ def _recover_unicode_blocked_item(conn: sqlite3.Connection, workspace: Path) -> 
     return None
 
 
+
+@contextmanager
+def _source_execution_lease(conn:sqlite3.Connection, source_id:str, *,
+                            worker_id:str, lease_seconds:int=600):
+    claimed=claim_source(conn,source_id,worker_id=worker_id,lease_seconds=lease_seconds)
+    if not claimed:
+        yield False
+        return
+    if not mark_source_running(conn,source_id,worker_id=worker_id):
+        release_source_claim(conn,source_id,default_state="RETRYABLE")
+        yield False
+        return
+    try:
+        yield True
+    finally:
+        release_source_claim(conn,source_id,default_state="RETRYABLE")
+
 def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int, max_seconds: int) -> dict[str, Any]:
     conn.execute("""CREATE TABLE IF NOT EXISTS media_news_stage_retry (
         source_id TEXT NOT NULL, stage TEXT NOT NULL, attempts INTEGER NOT NULL,
@@ -1295,6 +1312,14 @@ def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int
         row = _next_preparation_candidate(conn)
     if row is None:
         return {"status":"IDLE"}
+    worker_id=os.environ.get("MEDIA_NEWS_WORKER_ID") or f"media-news:{os.getpid()}"
+    with _source_execution_lease(conn,row["source_id"],worker_id=worker_id,lease_seconds=600) as claimed:
+        if not claimed:
+            return {"status":"CLAIM_CONFLICT","source_id":row["source_id"],"queue_preserved":True}
+        return _process_claimed_source(conn,workspace,row,min_seconds=min_seconds,max_seconds=max_seconds)
+
+
+def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqlite3.Row, *, min_seconds: int, max_seconds: int) -> dict[str, Any]:
     disk_anchor = workspace if workspace.exists() else workspace.parent
     free_bytes = shutil.disk_usage(disk_anchor).free
     minimum_free_bytes = int(PIPELINE_POLICY["resource_backpressure"]["minimum_workspace_free_bytes"])
