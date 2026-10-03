@@ -71,6 +71,8 @@ jobs:
         run: |
           python scripts/validate_openrouter_free_only.py
           python -m unittest tests.test_openrouter_free_gate tests.test_provider_adapters -v
+      - name: Validate DeepSeek current/manual/legacy routes
+        run: python scripts/validate_deepseek_route_classification.py
       - name: Enforce bounded CI control plane
         run: python scripts/ci_control_plane_guard.py
       - name: Run bounded core regression set
