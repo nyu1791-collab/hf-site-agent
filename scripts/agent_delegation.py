@@ -35,6 +35,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by minimal runners
 try:
     from scripts.model_registry import load_registry, role_candidates, role_config
     from scripts.free_quota import FreeQuotaBlocked, FreeUsageLedger, is_explicit_free_model
+    from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
     from scripts.agent_runtime import (
         AgentRegistry,
         ReportEnvelope,
@@ -46,6 +47,7 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - when invoked from scripts/
     from model_registry import load_registry, role_candidates, role_config
     from free_quota import FreeQuotaBlocked, FreeUsageLedger, is_explicit_free_model
+    from openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
     from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
 
 MAX_BRIEF = 3000
@@ -267,6 +269,18 @@ def _annotate_call(label: str, result: dict[str, Any]) -> dict[str, Any]:
 
 
 def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+    try:
+        assert_openrouter_free_model(model, catalog=[])
+    except OpenRouterFreeGateError as exc:
+        return {
+            "ok": False,
+            "status": "blocked_before_request",
+            "error_code": exc.reason,
+            "error": exc.reason,
+            "provider_status": None,
+            "attempts": 0,
+            "valid": False,
+        }
     if not is_explicit_free_model(model):
         return {
             "ok": False,
