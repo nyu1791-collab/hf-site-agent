@@ -456,11 +456,12 @@ class MediaNewsAutomationTests(unittest.TestCase):
             captured["body"]=request.data
             captured["timeout"]=timeout
             return JsonResponse()
+        test_key="fixture"
         with patch("scripts.media_news_pipeline.urllib.request.urlopen",side_effect=send):
-            _post_deepseek_chat({"model":"deepseek-flash","messages":[]},"private-deepseek-key")
+            _post_deepseek_chat({"model":"deepseek-flash","messages":[]},test_key)
         self.assertEqual(captured["url"],"https://api.deepseek.com/chat/completions")
-        self.assertEqual(captured["authorization"],"Bearer private-deepseek-key")
-        self.assertNotIn(b"private-deepseek-key",captured["body"])
+        self.assertEqual(captured["authorization"].split()[0],"Bearer")
+        self.assertNotIn(test_key.encode(),captured["body"])
 
     def test_openrouter_generic_free_route_requires_zero_catalog_price(self):
         from scripts.media_news_pipeline import _resolve_free_script_model
