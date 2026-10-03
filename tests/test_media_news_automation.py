@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, add_source_visual, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
+from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, add_source_visual, add_source_visual_batch, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
 
@@ -307,6 +307,25 @@ class MediaNewsAutomationTests(unittest.TestCase):
             self.assertTrue(asset["whole_post_capture"])
             self.assertEqual(asset["source_url"],"https://x.com/OpenAI/status/123456789")
 
+
+    def test_add_source_visual_batch_isolates_bad_entries_and_keeps_good_visuals(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);package=root/("b"*64);package.mkdir()
+            (package/"image-candidates.json").write_text(json.dumps({"assets":[]}),encoding="utf-8")
+            good=root/"good.png";good.write_bytes(b"\x89PNG\r\n\x1a\nfixture")
+            batch=root/"visuals.json"
+            batch.write_text(json.dumps([
+                {"file":"good.png","source_url":"https://x.com/OpenAI/status/1",
+                 "credit":"@OpenAI / X","mode":"OFFICIAL_ANNOUNCEMENT_SCREENSHOT"},
+                {"file":"missing.png","source_url":"https://example.com/post",
+                 "credit":"Example","mode":"SOURCE_BACKED_WEB_IMAGE"}
+            ]),encoding="utf-8")
+            result=add_source_visual_batch(package,batch)
+            self.assertEqual(result["requested"],2)
+            self.assertEqual(result["added"],1)
+            self.assertEqual(result["failed"],1)
+            manifest=json.loads((package/"image-candidates.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(manifest["assets"]),1)
 
     def test_internal_e2e_visual_must_match_registered_rights_metadata(self):
         standard=json.loads((Path(__file__).resolve().parents[1]/"config/media_reusable_asset_standard.json").read_text(encoding="utf-8"))
