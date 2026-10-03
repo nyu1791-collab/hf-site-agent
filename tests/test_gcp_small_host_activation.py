@@ -170,7 +170,7 @@ class GcpSmallHostActivationTests(unittest.TestCase):
                         (feed["feed_id"], None, None, time.time(), "OK"),
                     )
         env = home / ".config/hf-site-agent/media.env"
-        env.write_text("OPENROUTER_API_KEY=test-placeholder\nVOICEVOX_EXPECTED_VERSION=0.0.0\n", encoding="utf-8")
+        env.write_text("OPENROUTER_API_KEY=test-placeholder\nDEEPSEEK_API_KEY=test-placeholder\nVOICEVOX_EXPECTED_VERSION=0.0.0\n", encoding="utf-8")
         os.chmod(env, 0o600)
         billing = home / ".config/hf-site-agent/cloud-budget.json"
         billing.write_text(json.dumps({
