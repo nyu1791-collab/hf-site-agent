@@ -22,6 +22,7 @@ from urllib.request import Request, urlopen
 from .provider_registry import ProviderRegistryError, provider_config, validate_provider_registry
 from .provider_controls import ProviderQuotaLedger, QuotaGuardError
 from .execution_scope import ExecutionPolicy, ExecutionScopeError, authorize_execution
+from .openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
 
 
 LIMITED_STAGING_MAX_OUTPUT_TOKENS = 8
@@ -321,8 +322,14 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             raise ProviderAdapterError("MODEL_ID_REQUIRED")
         if self.provider_id == "openrouter":
             normalized_model = model_id.strip()
-            if normalized_model != "openrouter/free" and not normalized_model.endswith(":free"):
-                raise ProviderAdapterError("OPENROUTER_FREE_ONLY_MODEL_REQUIRED")
+            try:
+                assert_openrouter_free_model(
+                    normalized_model,
+                    catalog=getattr(self, "_last_discovered_models", None),
+                    api_key=self._api_key(),
+                )
+            except OpenRouterFreeGateError as exc:
+                raise ProviderAdapterError(exc.reason) from None
         if not messages or len(messages) > 64:
             raise ProviderAdapterError("INPUT_INVALID")
         payload: dict[str, Any] = {
