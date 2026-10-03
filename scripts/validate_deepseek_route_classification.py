@@ -85,10 +85,11 @@ def main()->int:
         require(cfg.get("production_enabled") is False or "production_enabled" not in cfg,f"{path}: production enabled")
 
     legacy=load("config/legacy_deepseek_compatibility.json")
+    rules=legacy.get("rules") or {}
     require(legacy.get("status")=="HISTORICAL_COMPATIBILITY_ONLY","legacy DeepSeek registry became active")
-    require(legacy.get("legacy_artifact_is_not_routing_authority") is True,"legacy artifact gained routing authority")
-    require(legacy.get("legacy_enabled_flag_does_not_authorize_execution") is True,"legacy enabled flag authorizes execution")
-    require(legacy.get("old_paid_engineering_workflows_must_not_remain_active") is True,"old paid workflows may remain active")
+    require(rules.get("legacy_artifact_is_not_routing_authority") is True,"legacy artifact gained routing authority")
+    require(rules.get("legacy_enabled_flag_does_not_authorize_execution") is True,"legacy enabled flag authorizes execution")
+    require(rules.get("old_paid_engineering_workflows_must_not_remain_active") is True,"old paid workflows may remain active")
 
     supervisor_workflow=(ROOT/".github/workflows/deepseek-supervisor-research.yml").read_text(encoding="utf-8")
     require("DEEPSEEK_API_KEY" in supervisor_workflow,"canonical supervisor workflow lacks DeepSeek key binding")
