@@ -314,8 +314,10 @@ def preflight(
             blockers.append("PROTECTED_MEDIA_ENV_PERMISSIONS_INVALID")
         else:
             values = _env_file_values(env_path)
-            if not values.get("OPENROUTER_API_KEY") and not values.get("DEEPSEEK_API_KEY"):
-                blockers.append("NO_PROVIDER_CREDENTIAL_CONFIGURED")
+            if not values.get("OPENROUTER_API_KEY"):
+                blockers.append("OPENROUTER_CREDENTIAL_MISSING")
+            if not values.get("DEEPSEEK_API_KEY"):
+                blockers.append("DEEPSEEK_CREDENTIAL_MISSING")
             engine = Path(values.get("VOICEVOX_ENGINE_DIR", str(home / ".local/share/voicevox_engine/linux-cpu-x64"))).expanduser()
             remote_mode = values.get("VOICEVOX_REMOTE_TUNNEL", "0")
             if remote_mode == "1":
