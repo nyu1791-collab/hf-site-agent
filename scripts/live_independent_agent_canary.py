@@ -33,6 +33,7 @@ if __package__ in {None, ""}:  # pragma: no cover
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.independent_agent_scheduler import IndependentAgentScheduler
+from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
 from scripts.replaceable_agent_organization import load_config
 from scripts.replaceable_agent_scheduler import AgentTask
 
@@ -255,6 +256,16 @@ def _provider_request(
     context: Mapping[str, Any],
     call_index: int,
 ) -> dict[str, Any]:
+    try:
+        assert_openrouter_free_model(model, catalog=[], api_key=api_key)
+    except OpenRouterFreeGateError as exc:
+        return {
+            "status": "FAILED",
+            "summary": exc.reason,
+            "error_class": exc.reason,
+            "requested_model": model,
+            "request_sent": False,
+        }
     compact = _compact_context(context)
     prompt = (
         "You are an independent role agent in a bounded engineering organization. "
