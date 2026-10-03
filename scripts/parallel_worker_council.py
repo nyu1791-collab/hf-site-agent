@@ -26,6 +26,7 @@ if __package__ in {None, ""}:  # pragma: no cover - direct script entrypoint
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.multi_agent_efficiency import adaptive_parallel_limit, attach_specialist_assignments
+from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
 
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 TIMEOUT_SECONDS = 45
@@ -199,6 +200,10 @@ def select_council_models(probe: Mapping[str, Any], benchmark: Mapping[str, Any]
 
 def _request(model: str, api_key: str, roles: list[str], evidence: Mapping[str, Any] | None = None) -> dict[str, Any]:
     evidence = evidence if isinstance(evidence, Mapping) else {}
+    try:
+        assert_openrouter_free_model(model, api_key=api_key)
+    except OpenRouterFreeGateError as exc:
+        return {"status": "COUNCIL_FAILED", "model": model, "roles": roles, "error": exc.reason, "request_sent": False}
     context = evidence.get("specialist_context") if isinstance(evidence.get("specialist_context"), Mapping) else {}
     compact_evidence = {
         "roles": roles[:8],
