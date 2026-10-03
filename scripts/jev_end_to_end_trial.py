@@ -6,9 +6,11 @@ from pathlib import Path
 try:
     from scripts.jev_decision_engine import decide_many
     from scripts.openrouter_free_efficiency_router import exact_free_catalog_entry, fetch_catalog, load_policy, ordered_candidates
+    from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
 except ModuleNotFoundError:
     from jev_decision_engine import decide_many
     from openrouter_free_efficiency_router import exact_free_catalog_entry, fetch_catalog, load_policy, ordered_candidates
+    from openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
 
 CHAT_URL="https://openrouter.ai/api/v1/chat/completions"
 MAX_JEV_WORKER_CALLS=6
@@ -41,8 +43,10 @@ def parse_obj(text):
     return None
 
 def worker_call(model,prompt,expected,key):
-    if not model.endswith(":free") or model=="openrouter/free":
-        return {"status":"BLOCKED_NOT_EXACT_FREE","model":model,"quality_pass":False,"latency_ms":0}
+    try:
+        assert_openrouter_free_model(model, api_key=key)
+    except OpenRouterFreeGateError as exc:
+        return {"status":exc.reason,"model":model,"quality_pass":False,"latency_ms":0,"request_sent":False}
     body={"model":model,"messages":[{"role":"user","content":prompt}],"max_tokens":180,"temperature":0,"stream":False,"provider":{"allow_fallbacks":False}}
     req=urllib.request.Request(CHAT_URL,data=json.dumps(body,separators=(",",":")).encode(),headers={"Authorization":f"Bearer {key}","Accept":"application/json","Content-Type":"application/json","X-Title":"hf-site-agent-jev-trial"},method="POST")
     start=time.perf_counter()
