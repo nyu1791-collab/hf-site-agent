@@ -640,6 +640,18 @@ class MediaNewsAutomationTests(unittest.TestCase):
             self.assertEqual(deepseek,[])
             conn.close()
 
+    def test_openrouter_http_block_is_reported_as_sent_without_deepseek_fallback(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
+            catalog=[{"id":"fixture/model:free","pricing":{"prompt":"0","completion":"0"}}]
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"or"},clear=True):
+                with self.assertRaisesRegex(OpenRouterRequestError,r"HTTP 402 \(CREDIT_OR_KEY_BUDGET_LIMIT\)"):
+                    draft_story(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
+                        free_catalog=catalog,
+                        request_fn=lambda *_a:(_ for _ in ()).throw(OpenRouterRequestError(
+                            "OpenRouter request failed with HTTP 402 (CREDIT_OR_KEY_BUDGET_LIMIT)")))
+            conn.close()
+
     def test_openrouter_paid_or_unverified_model_is_rejected_before_network_request(self):
         with self.assertRaises(PaidMediaPreflightUnavailable) as caught:
             _post_chat({"model":"deepseek/deepseek-v4.1-flash"},"key")
