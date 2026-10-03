@@ -853,6 +853,31 @@ def download_article_image(url: str, dest_dir: Path, *, allowed_hosts: set[str])
     return {"url":final_url,"file":str(path),"sha256":digest,"bytes":len(data)}
 
 
+def _registered_internal_e2e_asset(asset: Mapping[str, Any]) -> bool:
+    """Validate a registry-backed visual for non-public live E2E rendering only."""
+    if PIPELINE_POLICY.get("public_publish_enabled") is not False:
+        return False
+    asset_id=str(asset.get("registry_asset_id") or "")
+    if not asset_id or asset.get("rights_verification_scope")!="INTERNAL_E2E_ONLY":
+        return False
+    try:
+        from scripts.media_asset_resolver import load_standard, validate_standard
+        standard=load_standard()
+        validate_standard(standard)
+    except Exception:
+        return False
+    row=next((item for item in standard.get("assets",[])
+              if isinstance(item,Mapping) and str(item.get("asset_id") or "")==asset_id),None)
+    return bool(
+        isinstance(row,Mapping)
+        and row.get("kind")=="real_photo"
+        and row.get("commercial_use_allowed") is True
+        and str(row.get("rights_state") or "")==str(asset.get("rights_basis") or "")
+        and str(row.get("source_page") or "")==str(asset.get("rights_evidence_url") or "")
+        and asset.get("publication_rights_recheck_required") is True
+    )
+
+
 def select_render_assets(manifest: Mapping[str, Any], scene_count: int, package_dir: Path) -> list[dict[str, Any]]:
     assets = [x for x in manifest.get("assets", [])
               if x.get("downloaded") is True and x.get("selected_for_render") is True]
@@ -875,7 +900,8 @@ def select_render_assets(manifest: Mapping[str, Any], scene_count: int, package_
         evidence = urllib.parse.urlsplit(str(asset["rights_evidence_url"]))
         if evidence.scheme != "https" or not evidence.hostname or evidence.username or evidence.password or evidence.port not in (None, 443):
             raise RuntimeError("render blocked: rights evidence must be a credential-free HTTPS URL")
-        _allowed_https(str(asset.get("url") or ""), allowed_hosts)
+        if not _registered_internal_e2e_asset(asset):
+            _allowed_https(str(asset.get("url") or ""), allowed_hosts)
         candidate = Path(str(asset.get("file") or ""))
         if candidate.is_symlink():
             raise RuntimeError("render blocked: selected image cannot be a symbolic link")
@@ -889,6 +915,92 @@ def select_render_assets(manifest: Mapping[str, Any], scene_count: int, package_
             raise RuntimeError("render blocked: image content hash mismatch or duplicate visual")
         hashes.add(digest)
     return assets
+
+
+def _prepare_internal_e2e_assets(package: Path) -> dict[str, Any]:
+    """Populate a package with pre-registered rights metadata for a non-public E2E run.
+
+    This never authorizes publication. Registry entries explicitly retain their
+    publish-time recheck requirement; the helper exists only to prove the live
+    RSS -> LLM -> voice -> renderer path without blocking on manual image review.
+    """
+    if PIPELINE_POLICY.get("public_publish_enabled") is not False:
+        raise RuntimeError("internal E2E assets require public publishing to remain disabled")
+    from scripts.media_asset_resolver import load_standard, materialize_asset, validate_standard
+    mission=json.loads((package/"mission.json").read_text(encoding="utf-8"))
+    scene_count=len(mission.get("scenes") or [])
+    per_scene=int(PIPELINE_POLICY["distinct_rights_cleared_images_per_scene"])
+    needed=scene_count*per_scene
+    standard=load_standard()
+    validate_standard(standard)
+    candidates=[
+        dict(row) for row in standard.get("assets",[])
+        if isinstance(row,Mapping)
+        and row.get("kind")=="real_photo"
+        and row.get("commercial_use_allowed") is True
+        and row.get("acquisition_mode")=="DIRECT_KNOWN_URL"
+        and str(row.get("source_page") or "").startswith("https://")
+        and str(row.get("rights_state") or "")
+    ]
+    if len(candidates)<needed:
+        raise RuntimeError("not enough registered rights-cleared visuals for internal E2E")
+    cache_root=ROOT/"runtime"/"media-e2e-assets"
+    images_dir=package/"images"
+    images_dir.mkdir(parents=True,exist_ok=True)
+    if images_dir.is_symlink() or not images_dir.resolve().is_relative_to(package.resolve()):
+        raise RuntimeError("internal E2E image directory escaped the source package")
+    selected=[]
+    failures=[]
+    for row in candidates:
+        if len(selected)>=needed:
+            break
+        try:
+            materialized=materialize_asset(standard,row,cache_root,allow_network=True)
+            source=Path(materialized["path"]).resolve(strict=True)
+            suffix=source.suffix.lower() or ".jpg"
+            dest=images_dir/f"e2e-{row['asset_id']}{suffix}"
+            tmp=dest.with_suffix(dest.suffix+".tmp")
+            shutil.copyfile(source,tmp)
+            os.replace(tmp,dest)
+            digest=_sha256_file(dest)
+            selected.append({
+                "id":f"e2e-registry-{row['asset_id']}",
+                "url":str(row["download_url"]),
+                "alt":str(row.get("usage") or row.get("asset_id") or "registered E2E visual"),
+                "file":str(dest),
+                "sha256":digest,
+                "bytes":dest.stat().st_size,
+                "downloaded":True,
+                "selected_for_render":True,
+                "rights_verified":True,
+                "rights_state":str(row["rights_state"]),
+                "rights_basis":str(row["rights_state"]),
+                "rights_evidence_url":str(row["source_page"]),
+                "credit":str(row.get("attribution_text") or row.get("creator_or_source") or row["asset_id"]),
+                "media_region_only":True,
+                "registry_asset_id":str(row["asset_id"]),
+                "rights_verification_scope":"INTERNAL_E2E_ONLY",
+                "publication_rights_recheck_required":True,
+            })
+        except Exception as exc:
+            failures.append({"asset_id":str(row.get("asset_id") or ""),"error_type":type(exc).__name__})
+    if len(selected)!=needed:
+        raise RuntimeError(f"internal E2E registered visual materialization incomplete: {len(selected)}/{needed}")
+    manifest_path=package/"image-candidates.json"
+    manifest=json.loads(manifest_path.read_text(encoding="utf-8"))
+    existing=[]
+    for item in manifest.get("assets",[]):
+        if isinstance(item,Mapping):
+            value=dict(item)
+            value["selected_for_render"]=False
+            existing.append(value)
+    manifest["assets"]=existing+selected
+    manifest["internal_e2e_assets"]=True
+    manifest["internal_e2e_public_publish_enabled"]=False
+    manifest["publication_rights_recheck_required"]=True
+    _write_text_atomic(manifest_path,json.dumps(manifest,ensure_ascii=False,indent=2)+"\n")
+    return {"status":"INTERNAL_E2E_ASSETS_READY","selected":len(selected),"required":needed,
+            "materialization_failures":failures,"public_publish_enabled":False}
 
 
 def _rss_summary_article(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -1511,6 +1623,54 @@ def _render_asset_from_env(name: str) -> Path | None:
     return Path(value).expanduser() if value else None
 
 
+def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
+                           min_seconds: int, max_seconds: int,
+                           worker_url: str | None = None) -> dict[str, Any]:
+    prepared=_process_next(conn,workspace,min_seconds=min_seconds,max_seconds=max_seconds)
+    source_id=str(prepared.get("source_id") or "")
+    if prepared.get("status") not in {"ASSET_REVIEW_REQUIRED","NO_CLEARED_IMAGES"}:
+        return {"status":"E2E_NOT_COMPLETED","stage_result":prepared,
+                "public_publish_enabled":False,"automatic_retry":False}
+    package=_resolve_news_package(workspace,source_id)
+    assets=_prepare_internal_e2e_assets(package)
+    conn.execute("UPDATE source_inbox SET state='ASSET_REVIEW_REQUIRED',updated_at=? WHERE source_id=?",
+                 (time.time(),source_id))
+    set_source_execution_state(conn,source_id,"VERIFYING")
+    class RenderArgs:
+        pass
+    args=RenderArgs()
+    args.workspace=workspace
+    args.package=package
+    args.remote_render=True
+    args.worker_url=worker_url
+    args.shell=None
+    args.font=None
+    rendered=_render_package(args,conn)
+    script={}
+    try:
+        raw=json.loads((package/"script-generation.json").read_text(encoding="utf-8"))
+        for key in ("provider","model_id","status","request_count","input_tokens","output_tokens",
+                    "retry_count","estimated_cost_usd","actual_cost_usd","actual_cost_upper_bound_usd",
+                    "free_gate_reason","free_gate_evidence_source"):
+            if key in raw:
+                script[key]=raw[key]
+    except (OSError,ValueError,TypeError):
+        script={"status":"UNAVAILABLE"}
+    row=conn.execute("SELECT state,execution_state FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()
+    return {
+        "status":"COMPLETED" if row and row["execution_state"]=="COMPLETED" else "E2E_NOT_COMPLETED",
+        "source_id":source_id,
+        "legacy_queue_state":row["state"] if row else "MISSING",
+        "execution_state":row["execution_state"] if row else "MISSING",
+        "provider_evidence":script,
+        "asset_evidence":assets,
+        "render":rendered,
+        "final_mp4":str(package/"final.mp4"),
+        "public_publish_enabled":False,
+        "automatic_retry":False,
+    }
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--db", type=Path, required=True)
@@ -1523,6 +1683,10 @@ def main() -> int:
     process = sub.add_parser("process-next")
     process.add_argument("--min-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][0])
     process.add_argument("--max-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][1])
+    e2e = sub.add_parser("e2e-once", help="run exactly one non-public live E2E item through the remote renderer")
+    e2e.add_argument("--min-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][0])
+    e2e.add_argument("--max-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][1])
+    e2e.add_argument("--worker-url",help="loopback endpoint; defaults to MEDIA_RENDER_WORKER_URL or 127.0.0.1:18765")
     retry_voice = sub.add_parser("retry-voice", help="requeue a VOICE_BLOCKED package after repairing its VOICEVOX connection")
     retry_voice.add_argument("--source-id", required=True)
     resume_provider = sub.add_parser("resume-paid-provider",
@@ -1547,6 +1711,9 @@ def main() -> int:
                 result = synthesize_voice(package,min_seconds=args.min_seconds,max_seconds=args.max_seconds)
             elif args.action == "process-next":
                 result = _process_next(conn,args.workspace,min_seconds=args.min_seconds,max_seconds=args.max_seconds)
+            elif args.action == "e2e-once":
+                result = _run_internal_e2e_once(conn,args.workspace,min_seconds=args.min_seconds,
+                    max_seconds=args.max_seconds,worker_url=args.worker_url)
             elif args.action == "retry-voice":
                 result = _requeue_voice(conn,args.workspace,args.source_id)
             elif args.action == "resume-paid-provider":
