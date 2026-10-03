@@ -118,7 +118,10 @@ def validate(root: Path = ROOT) -> list[str]:
         and openrouter.get("free_only") is True
         and openrouter.get("paid_models_allowed") is False
         and openrouter.get("paid_fallback_allowed") is False
-        and free_script.get("model_id_must_end_with") == ":free"
+        and free_script.get("route_requirement") == "SHARED_OPENROUTER_FREE_GATE"
+        and free_script.get("model_id_must_end_with") is None
+        and free_script.get("generic_router_allowed") is False
+        and free_script.get("provider_allow_fallbacks") is False
         and paid.get("enabled") is True
         and paid.get("provider") == "deepseek_official"
         and paid.get("base_url") == "https://api.deepseek.com"
