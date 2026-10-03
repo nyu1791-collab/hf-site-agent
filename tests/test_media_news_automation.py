@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _run_internal_e2e_once, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, add_source_visual, add_source_visual_batch, capture_social_screenshot, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
+from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, OpenRouterRequestUnknown, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _run_internal_e2e_once, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, add_source_visual, add_source_visual_batch, capture_social_screenshot, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
 from scripts.media_render_transport import RenderTransportError
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
@@ -597,6 +597,47 @@ class MediaNewsAutomationTests(unittest.TestCase):
             self.assertEqual(model,"fixture/model:free")
             self.assertIs(call["payload"]["provider"]["allow_fallbacks"],False)
             self.assertNotIn("openrouter-secret",json.dumps(call["payload"]))
+            conn.close()
+
+    def test_openrouter_script_uses_authenticated_live_exact_zero_catalog(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn);calls=[]
+            catalog=[{"id":"fixture/model:free","pricing":{"prompt":"0","completion":"0"}}]
+            def requester(payload,key):
+                calls.append((payload["model"],key))
+                return {"model":payload["model"],"choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}]}
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"openrouter-secret"},clear=True), patch(
+                "scripts.media_news_pipeline.load_openrouter_catalog",
+                return_value=(catalog,100.0,"LIVE_CATALOG")) as catalog_loader:
+                draft_story(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
+                    request_fn=requester,planner_fn=lambda *_a,**_k:{"status":"BLOCKED"})
+            self.assertEqual(catalog_loader.call_args.kwargs,{"api_key":"openrouter-secret","ttl_seconds":1})
+            self.assertEqual(calls,[("fixture/model:free","openrouter-secret")])
+            conn.close()
+
+    def test_openrouter_free_suffix_without_current_zero_prices_is_blocked(self):
+        from scripts.media_news_pipeline import _resolve_free_script_model
+        with self.assertRaisesRegex(PaidMediaPreflightUnavailable,"exact-zero"):
+            _resolve_free_script_model([{"id":"fixture/model:free"}],
+                lambda *_a,**_k:{"status":"READY","primary_model":"fixture/model:free","provider_allow_fallbacks":False})
+
+    def test_openrouter_unknown_transport_result_is_never_fanned_out(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn);calls=[];deepseek=[]
+            catalog=[
+                {"id":"fixture/primary:free","pricing":{"prompt":"0","completion":"0"},"context_length":1000},
+                {"id":"fixture/secondary:free","pricing":{"prompt":"0","completion":"0"},"context_length":500},
+            ]
+            def requester(payload,_key):
+                calls.append(payload["model"])
+                raise OSError("connection reset")
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"or","DEEPSEEK_API_KEY":"ds"}):
+                with self.assertRaises(OpenRouterRequestUnknown):
+                    draft_story(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
+                        free_catalog=catalog,request_fn=requester,
+                        deepseek_request_fn=lambda *args:deepseek.append(args))
+            self.assertEqual(calls,["fixture/primary:free"])
+            self.assertEqual(deepseek,[])
             conn.close()
 
     def test_openrouter_paid_or_unverified_model_is_rejected_before_network_request(self):
