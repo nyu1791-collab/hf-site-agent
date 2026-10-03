@@ -15,7 +15,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, add_source_visual, add_source_visual_batch, capture_social_screenshot, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
+from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _run_internal_e2e_once, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, add_source_visual, add_source_visual_batch, capture_social_screenshot, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
+from scripts.media_render_transport import RenderTransportError
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
 
@@ -48,6 +49,99 @@ def story():
 
 
 class MediaNewsAutomationTests(unittest.TestCase):
+    def test_target_e2e_blocks_provider_preflight_without_deterministic_script(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);workspace=root/"workspace";workspace.mkdir()
+            conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            source_id="c"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"latest",
+                "url":"https://openai.com/news/latest","summary":TEXT*4,"published":"2026-10-03T00:00:00Z"}])
+            blocked={"status":"BLOCKED_PAID_MODEL_PREFLIGHT","source_id":source_id,
+                "request_sent":False,"preflight_reason":"no current exact-zero OpenRouter free model is available"}
+            with patch("scripts.media_news_pipeline._process_next",return_value=blocked), \
+                    patch("scripts.media_news_pipeline._materialize_deterministic_e2e_mission") as deterministic, \
+                    patch("scripts.media_news_pipeline.synthesize_voice") as synthesize:
+                result=_run_internal_e2e_once(conn,workspace,min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"BLOCKED_TARGET_STACK_LLM_ROUTE")
+            self.assertEqual(result["stage_result"]["preflight_reason"],blocked["preflight_reason"])
+            self.assertFalse(result["automatic_retry"])
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()["state"],"PREPARATION_REQUIRED")
+            deterministic.assert_not_called()
+            synthesize.assert_not_called()
+            conn.close()
+
+    def test_target_e2e_keeps_render_waiting_without_local_fallback(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);workspace=root/"workspace";workspace.mkdir()
+            conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            source_id="d"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"latest",
+                "url":"https://openai.com/news/latest","summary":TEXT*4,"published":"2026-10-03T00:00:00Z"}])
+            conn.execute("UPDATE source_inbox SET state='ASSET_REVIEW_REQUIRED',execution_state='VERIFYING' WHERE source_id=?",(source_id,))
+            package=_resolve_news_package(workspace,source_id,create=True)
+            (package/"script-generation.json").write_text(json.dumps({
+                "status":"SCRIPT_READY","provider":"openrouter","model_id":"test/free-model",
+                "request_count":1,"free_gate_evidence_source":"LIVE_CATALOG",
+                "free_gate_verified_at":"2026-10-03T00:00:00Z",
+                "free_gate_prompt_price":"0","free_gate_completion_price":"0",
+            }),encoding="utf-8")
+            def fail_remote(_args, database):
+                database.execute("UPDATE source_inbox SET execution_state='RETRYABLE' WHERE source_id=?",(source_id,))
+                raise RenderTransportError("worker result is waiting for authenticated recovery")
+            with patch("scripts.media_news_pipeline._process_next",return_value={
+                    "status":"BLOCKED_PENDING_HUMAN_ACTION","source_id":source_id,
+                    "state":"ASSET_REVIEW_REQUIRED"}), \
+                    patch("scripts.media_news_pipeline._prepare_internal_e2e_assets",return_value={
+                        "status":"INTERNAL_E2E_ASSETS_READY","selected":6,"required":6,
+                        "materialization_failures":[],"public_publish_enabled":False}), \
+                    patch("scripts.media_news_pipeline._render_package",side_effect=fail_remote), \
+                    patch("scripts.media_news_pipeline._render_minimal_local_e2e") as local_fallback:
+                result=_run_internal_e2e_once(conn,workspace,min_seconds=60,max_seconds=300)
+            row=conn.execute("SELECT state,execution_state FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()
+            self.assertEqual(result["status"],"BLOCKED_TARGET_STACK_REMOTE_RENDERER")
+            self.assertEqual(result["execution_state"],"RETRYABLE")
+            self.assertFalse(result["local_fallback_attempted"])
+            self.assertEqual(row["state"],"ASSET_REVIEW_REQUIRED")
+            self.assertEqual(row["execution_state"],"RETRYABLE")
+            local_fallback.assert_not_called()
+            conn.close()
+
+    def test_target_e2e_requires_exact_zero_script_and_verified_remote_result(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);workspace=root/"workspace";workspace.mkdir()
+            conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            source_id="e"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"latest",
+                "url":"https://openai.com/news/latest","summary":TEXT*4,"published":"2026-10-03T00:00:00Z"}])
+            conn.execute("UPDATE source_inbox SET state='ASSET_REVIEW_REQUIRED',execution_state='VERIFYING' WHERE source_id=?",(source_id,))
+            package=_resolve_news_package(workspace,source_id,create=True)
+            (package/"script-generation.json").write_text(json.dumps({
+                "status":"SCRIPT_READY","provider":"openrouter","model_id":"verified/free-model",
+                "request_count":1,"free_gate_evidence_source":"LIVE_CATALOG",
+                "free_gate_verified_at":"2026-10-03T00:00:00Z",
+                "free_gate_prompt_price":"0","free_gate_completion_price":"0",
+            }),encoding="utf-8")
+            def complete_remote(_args, database):
+                database.execute("UPDATE source_inbox SET state='READY_TO_PUBLISH',execution_state='COMPLETED' WHERE source_id=?",(source_id,))
+                return {"status":"READY_TO_PUBLISH","render_route":"SSH_REVERSE_TUNNEL",
+                    "duration_seconds":60.0,"bytes":1000,"width":720,"height":1280,
+                    "streams":["audio","video"],"public_publish_enabled":False}
+            with patch("scripts.media_news_pipeline._process_next",return_value={
+                    "status":"BLOCKED_PENDING_HUMAN_ACTION","source_id":source_id,
+                    "state":"ASSET_REVIEW_REQUIRED"}), \
+                    patch("scripts.media_news_pipeline._prepare_internal_e2e_assets",return_value={
+                        "status":"INTERNAL_E2E_ASSETS_READY","selected":6,"required":6,
+                        "materialization_failures":[],"public_publish_enabled":False}), \
+                    patch("scripts.media_news_pipeline._render_package",side_effect=complete_remote), \
+                    patch("scripts.media_news_pipeline._render_minimal_local_e2e") as local_fallback:
+                result=_run_internal_e2e_once(conn,workspace,min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"TARGET_STACK_COMPLETE")
+            self.assertEqual(result["execution_state"],"COMPLETED")
+            self.assertEqual(result["render"]["render_route"],"SSH_REVERSE_TUNNEL")
+            self.assertFalse(result["deterministic_script_fallback_used"])
+            local_fallback.assert_not_called()
+            conn.close()
+
     def test_uncertain_paid_attempt_is_blocked_and_timer_advances_to_next_source(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);workspace=root/"workspace";workspace.mkdir()
