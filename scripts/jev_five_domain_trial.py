@@ -15,6 +15,7 @@ from typing import Any, Mapping, Sequence
 try:
     from scripts.jev_decision_engine import decide
     from scripts.openrouter_free_efficiency_router import fetch_catalog, load_policy, ordered_candidates
+    from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
     from scripts.openrouter_worker_health import (
         load_recent_evidence,
         merge_proven_into_candidates,
@@ -23,6 +24,7 @@ try:
 except ModuleNotFoundError:
     from jev_decision_engine import decide
     from openrouter_free_efficiency_router import fetch_catalog, load_policy, ordered_candidates
+    from openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
     from openrouter_worker_health import (
         load_recent_evidence,
         merge_proven_into_candidates,
@@ -111,8 +113,10 @@ def _worker_call(
     api_key: str,
     timeout_seconds: float | None = None,
 ) -> dict[str, Any]:
-    if not model.endswith(":free") or model == "openrouter/free":
-        return {"status": "BLOCKED_NOT_EXACT_FREE", "model": model, "quality_pass": False, "latency_ms": 0.0}
+    try:
+        assert_openrouter_free_model(model, api_key=api_key)
+    except OpenRouterFreeGateError as exc:
+        return {"status": exc.reason, "model": model, "quality_pass": False, "latency_ms": 0.0, "request_sent": False}
 
     body = {
         "model": model,
