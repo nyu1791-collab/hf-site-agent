@@ -43,7 +43,11 @@
       "quota": "READY"
     },
     "benchmark_workload_must_match_baseline": true,
-    "unknown_stale_or_unverifiable_evidence_action": "BLOCK"
+    "unknown_stale_or_unverifiable_evidence_action": "BLOCK",
+    "excluded_provider_ids": [
+      "openrouter"
+    ],
+    "excluded_provider_reason": "OPENROUTER_IS_FREE_ONLY_USE_DEEPSEEK_OFFICIAL_FOR_PAID_TEXT"
   },
   "shared_budget": {
     "currency": "USD",
