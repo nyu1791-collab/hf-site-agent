@@ -160,11 +160,12 @@
     "route_requirement": "SHARED_OPENROUTER_FREE_GATE",
     "model_id_must_end_with": null,
     "generic_router_allowed": false,
-    "maximum_calls_per_utc_day": 20,
+    "maximum_calls_per_utc_day": 1000,
     "maximum_completion_tokens": 1200,
     "if_unavailable": "FALL_BACK_TO_DEEPSEEK_OFFICIAL_API",
     "automatic_paid_openrouter_fallback": false,
-    "provider_allow_fallbacks": false
+    "provider_allow_fallbacks": false,
+    "daily_cap_rationale": "HIGH_BOUNDED_FREE_PRIMARY_CAP_FOR_BATCH_VIDEO_PRODUCTION; PROVIDER_RATE_LIMITS_AND_PER_JOB_BOUNDS_REMAIN"
   },
   "artificial_paid_caps_removed_for": "DEEPSEEK_OFFICIAL_ONLY",
   "distinct_visuals_per_scene": 2,
