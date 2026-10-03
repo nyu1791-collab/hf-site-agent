@@ -647,20 +647,40 @@ def _resolve_free_script_models(catalog: Any, planner_fn=None, *, limit: int = 2
         planner_fn=plan_task
     plan=planner_fn({"task_class":"GENERAL","long_context":True,"shared_mutable_state":False,"single_writer_only":True},
         catalog,free_requests_today=0)
-    if plan.get("status")!="READY" or plan.get("provider_allow_fallbacks") is not False:
-        raise PaidMediaPreflightUnavailable("no current exact-zero OpenRouter free model is available")
     ids=[]
-    for value in [plan.get("primary_model"),*(plan.get("standby_models") or [])]:
-        value=str(value or "")
-        if value and value not in ids: ids.append(value)
+    if plan.get("status")=="READY" and plan.get("provider_allow_fallbacks") is False:
+        for value in [plan.get("primary_model"),*(plan.get("standby_models") or [])]:
+            value=str(value or "")
+            if value and value not in ids:
+                ids.append(value)
+    # The planner may deliberately refuse routing when its separate health/registry
+    # evidence is stale even though OpenRouter's live catalog still contains exact
+    # zero-priced models. For the one-item production path, retain the shared price
+    # gate as the hard admission rule and use those exact live catalog entries as a
+    # bounded fallback shortlist instead of jumping to a paid provider.
+    if not ids:
+        live=[]
+        for row in catalog:
+            if not isinstance(row,dict):
+                continue
+            model_id=str(row.get("id") or "")
+            if not model_id or model_id=="openrouter/free":
+                continue
+            decision=decide_openrouter_free_model(model_id,catalog)
+            if decision.allowed:
+                context=int(row.get("context_length") or 0)
+                live.append((context,model_id))
+        ids=[model_id for _context,model_id in sorted(live,key=lambda item:(-item[0],item[1]))]
     result=[]
     for model_id in ids:
         row=next((item for item in catalog if isinstance(item,dict) and item.get("id")==model_id),None)
         decision=decide_openrouter_free_model(model_id,catalog)
         if row is not None and decision.allowed:
             result.append((model_id,row))
-        if len(result)>=limit: break
-    if not result: raise PaidMediaPreflightUnavailable("no current exact-zero OpenRouter free model is available")
+        if len(result)>=limit:
+            break
+    if not result:
+        raise PaidMediaPreflightUnavailable("no current exact-zero OpenRouter free model is available")
     return result
 
 
