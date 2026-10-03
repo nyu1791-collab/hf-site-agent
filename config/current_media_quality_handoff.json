@@ -190,5 +190,32 @@
     "validator": "scripts/validate_video_content_contract.py",
     "speed": "追加査読や全編見直しは不要。台本・音声・素材の入力契約を制作時に一度確認する。",
     "image_rich_video": "公式画像限定ではなく、関連する写真・製品画面・スクリーンショット・図解を各主要章2〜4場面使う。文字だけのカードや同一画像の水増しは不可。画像生成は使わない。"
+  },
+  "source_attributed_visual_fast_path": {
+    "effective_date_jst": "2026-10-03",
+    "applies_to": "NON_PUBLIC_VIDEO_GENERATION_AND_INTERNAL_REVIEW",
+    "objective": "Prefer rapid, varied, source-backed visuals over license-metadata-only libraries.",
+    "accepted_visuals": [
+      "OFFICIAL_ARTICLE_IMAGE",
+      "OFFICIAL_ANNOUNCEMENT_SCREENSHOT",
+      "SOURCE_BACKED_WEB_IMAGE",
+      "USER_PROVIDED_SOURCE_SCREENSHOT",
+      "LICENSE_CLEARED",
+      "GENERATED_WITH_PROVENANCE"
+    ],
+    "minimum_visual_metadata": [
+      "SOURCE_URL",
+      "SOURCE_CREDIT",
+      "LOCAL_FILE_SHA256",
+      "SUPPORTED_RASTER_FORMAT"
+    ],
+    "official_x_post_screenshot_allowed": true,
+    "whole_official_social_post_screenshot_allowed": true,
+    "license_metadata_required_for_non_public_render": false,
+    "attribution_is_provenance_not_publication_authorization": true,
+    "public_publish_requires_separate_authorization": true,
+    "extra_candidates_allowed": true,
+    "renderer_uses_first_required_candidates_deterministically": true,
+    "batch_goal": "MANY_VIDEOS_WITH_VARIED_VISUALS_AND_MINIMAL_MANUAL_REVIEW"
   }
 }
