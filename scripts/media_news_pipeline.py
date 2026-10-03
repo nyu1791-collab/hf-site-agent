@@ -37,7 +37,7 @@ from typing import Any, Mapping
 from scripts.durable_media_runner import connect
 from scripts.media_render_transport import dispatch_remote_render, verify_saved_remote_render, RenderTransportError
 from scripts.media_source_ingress import init_inbox, load_policy
-from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
+from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model, decide_openrouter_free_model
 
 ROOT = Path(__file__).resolve().parents[1]
 PIPELINE_POLICY = json.loads((ROOT / "config/media_news_pipeline_policy.json").read_text(encoding="utf-8"))
@@ -453,10 +453,9 @@ def _resolve_free_script_models(catalog: Any, planner_fn=None, *, limit: int = 2
     result=[]
     for model_id in ids:
         row=next((item for item in catalog if isinstance(item,dict) and item.get("id")==model_id),None)
-        pricing=(row or {}).get("pricing") or {}
-        try: zero=float(pricing.get("prompt"))==0 and float(pricing.get("completion"))==0
-        except (TypeError,ValueError): zero=False
-        if row is not None and (model_id.endswith(":free") or model_id=="openrouter/free") and zero: result.append((model_id,row))
+        decision=decide_openrouter_free_model(model_id,catalog)
+        if row is not None and decision.allowed:
+            result.append((model_id,row))
         if len(result)>=limit: break
     if not result: raise PaidMediaPreflightUnavailable("no current exact-zero OpenRouter free model is available")
     return result
@@ -769,7 +768,7 @@ def _post_deepseek_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, A
 def _post_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, Any]:
     model_id=str(payload.get("model") or "")
     try:
-        assert_openrouter_free_model(model_id, api_key=api_key)
+        assert_openrouter_free_model(model_id, catalog=[], api_key=api_key)
     except OpenRouterFreeGateError as exc:
         raise PaidMediaPreflightUnavailable(exc.reason) from None
     request = urllib.request.Request(OPENROUTER_CHAT_URL,
