@@ -1336,27 +1336,33 @@ def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqli
         try:
             mission = process_source(conn, row["source_id"], workspace, image_hosts=set(PIPELINE_POLICY["image_hosts"]))
         except PaidMediaMonthlyCapReached:
+            set_source_execution_state(conn,row["source_id"],"RETRYABLE")
             return {"status":"BLOCKED_MONTHLY_PAID_BUDGET","source_id":row["source_id"],
                 "will_retry_next_utc_month":True,"request_sent":False,"public_publish_enabled":False}
         except DailyMediaCapReached:
+            set_source_execution_state(conn,row["source_id"],"RETRYABLE")
             return {"status":"BLOCKED_DAILY_PAID_BUDGET","source_id":row["source_id"],
                 "will_retry_next_utc_day":True,"public_publish_enabled":False}
         except PaidMediaBudgetExceeded:
+            set_source_execution_state(conn,row["source_id"],"BLOCKED_PROVIDER")
             return {"status":"BLOCKED_PAID_PER_CALL_BUDGET","source_id":row["source_id"],
                 "request_sent":False,"automatic_retry":False,"public_publish_enabled":False}
         except DeepSeekRequestError as exc:
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
                 (time.time(), row["source_id"]))
+            set_source_execution_state(conn,row["source_id"],"UNKNOWN_RESULT")
             return {"status":"UNKNOWN_RESULT","source_id":row["source_id"],
                 "request_may_have_been_sent":True,"automatic_retry":False,
                 "queue_preserved":True,"error_type":type(exc).__name__,"public_publish_enabled":False}
         except PaidMediaBalanceBlocked:
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
                 (time.time(), row["source_id"]))
+            set_source_execution_state(conn,row["source_id"],"BLOCKED_BALANCE")
             return {"status":"BLOCKED_BALANCE","source_id":row["source_id"],
                 "request_sent":True,"queue_preserved":True,"automatic_retry":False,
                 "public_publish_enabled":False}
         except PaidMediaAlreadyAttempted:
+            set_source_execution_state(conn,row["source_id"],"UNKNOWN_RESULT")
             # A prior request may have reached the provider. Persist the item as
             # blocked so the 5-minute timer advances instead of spinning forever.
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
@@ -1376,6 +1382,7 @@ def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqli
             provider_paused = http_status in {401, 402, 403, 429} or http_status >= 500
             if provider_paused:
                 _pause_paid_provider(conn, http_status, provider_reason)
+            set_source_execution_state(conn,row["source_id"],"BLOCKED_PROVIDER" if provider_paused else "RETRYABLE")
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
                 (time.time(), row["source_id"]))
             return {"status":"BLOCKED_PAID_PROVIDER_CIRCUIT" if provider_paused else "SCRIPT_BLOCKED_OPENROUTER_HTTP_ERROR",
@@ -1384,9 +1391,11 @@ def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqli
                 "request_sent":True,"automatic_retry":False,"will_try_next_source":not provider_paused,
                 "queue_preserved":True,"public_publish_enabled":False}
         except PaidMediaPreflightUnavailable:
+            set_source_execution_state(conn,row["source_id"],"RETRYABLE")
             return {"status":"BLOCKED_PAID_MODEL_PREFLIGHT","source_id":row["source_id"],
                 "request_sent":False,"will_retry_next_tick":True,"public_publish_enabled":False}
         except ArticleSourceBlocked as exc:
+            set_source_execution_state(conn,row["source_id"],"BLOCKED_PROVIDER")
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
                 (time.time(), row["source_id"]))
             if "outside the configured article allow-list" in str(exc):
@@ -1418,6 +1427,7 @@ def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqli
             (row["source_id"],)).fetchone()
         attempts = int(previous["attempts"]) + 1 if previous else 1
         if attempts >= VOICE_RETRY_LIMIT:
+            set_source_execution_state(conn,row["source_id"],"FAILED_TERMINAL")
             blocked_at = time.time()
             conn.execute("UPDATE source_inbox SET state='VOICE_BLOCKED',updated_at=? WHERE source_id=?",
                 (blocked_at, row["source_id"]))
@@ -1428,6 +1438,7 @@ def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqli
             return {"status":"VOICE_BLOCKED", "source_id":row["source_id"],
                 "attempts":attempts, "error_type":type(exc).__name__, "public_publish_enabled":False}
         delay_index = min(attempts - 1, len(VOICE_RETRY_DELAYS) - 1)
+        set_source_execution_state(conn,row["source_id"],"RETRYABLE")
         retry_at = time.time() + VOICE_RETRY_DELAYS[delay_index]
         conn.execute("""INSERT INTO media_news_stage_retry VALUES(?, 'VOICE', ?, ?, ?)
             ON CONFLICT(source_id,stage) DO UPDATE SET attempts=excluded.attempts,
@@ -1439,6 +1450,7 @@ def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqli
     conn.execute("DELETE FROM media_news_stage_retry WHERE source_id=? AND stage='VOICE'", (row["source_id"],))
     image_manifest = json.loads((mission.parent / "image-candidates.json").read_text(encoding="utf-8"))
     state = "ASSET_REVIEW_REQUIRED" if image_manifest["assets"] else "NO_CLEARED_IMAGES"
+    set_source_execution_state(conn,row["source_id"],"VERIFYING")
     conn.execute("UPDATE source_inbox SET state=?,updated_at=? WHERE source_id=?", (state,time.time(),row["source_id"]))
     return {"status":state, "source_id":row["source_id"], "mission":str(mission), "voice":voice,
         "image_count":len(image_manifest["assets"]), "public_publish_enabled":False}
