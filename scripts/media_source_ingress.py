@@ -310,11 +310,18 @@ def ingest_items(conn: sqlite3.Connection, items: list[Mapping[str, str]]) -> di
                 incoming_summary = item.get("summary", "")
                 if existing is not None and len(incoming_summary) > len(existing["summary"] or ""):
                     next_state = existing["state"]
-                    if existing["state"] == "SCRIPT_BLOCKED" and len(incoming_summary) >= 300:
+                    reset_execution = existing["state"] == "SCRIPT_BLOCKED" and len(incoming_summary) >= 300
+                    if reset_execution:
                         next_state = "PREPARATION_REQUIRED"
-                    conn.execute("""UPDATE source_inbox SET title=?,summary=?,state=?,updated_at=?
-                        WHERE source_id=?""",
-                        (item["title"], incoming_summary, next_state, now, item["source_id"]))
+                    if reset_execution:
+                        conn.execute("""UPDATE source_inbox SET title=?,summary=?,state=?,
+                            execution_state='PENDING',worker_id=NULL,claimed_at=NULL,lease_expires_at=NULL,
+                            updated_at=? WHERE source_id=?""",
+                            (item["title"], incoming_summary, next_state, now, item["source_id"]))
+                    else:
+                        conn.execute("""UPDATE source_inbox SET title=?,summary=?,state=?,updated_at=?
+                            WHERE source_id=?""",
+                            (item["title"], incoming_summary, next_state, now, item["source_id"]))
         conn.execute("COMMIT")
     except BaseException:
         conn.execute("ROLLBACK")
