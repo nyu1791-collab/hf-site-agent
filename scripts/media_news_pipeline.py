@@ -843,6 +843,10 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
     free_http_error: OpenRouterRequestError | None = None
     if free_key:
         try:
+            circuit=_get_paid_provider_circuit(conn)
+            if circuit is not None and str(circuit["state"]).upper()=="PAUSED":
+                raise PaidMediaPreflightUnavailable(
+                    "OpenRouter provider circuit is paused after a prior provider error")
             if free_catalog is None:
                 # Use the shared catalog reader with the configured credential. Some
                 # OpenRouter deployments reject anonymous catalog requests even while
