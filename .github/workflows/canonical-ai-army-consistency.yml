@@ -101,6 +101,18 @@ on:
       - 'config/bulk_media_worker_pool.json'
       - 'scripts/ai_army_routing_facade.py'
       - 'scripts/openrouter_free_efficiency_router.py'
+      - 'scripts/openrouter_free_gate.py'
+      - 'scripts/validate_openrouter_free_only.py'
+      - 'tests/test_openrouter_free_gate.py'
+      - 'scripts/provider_adapters.py'
+      - 'scripts/design_council.py'
+      - 'scripts/parallel_worker_council.py'
+      - 'scripts/benchmark_free_workers.py'
+      - 'scripts/probe_free_workers.py'
+      - 'scripts/free_media_council_review.py'
+      - 'scripts/jev_end_to_end_trial.py'
+      - 'scripts/jev_five_domain_trial.py'
+      - 'scripts/jev_mixed_batch_benchmark.py'
       - 'scripts/jev_decision_engine.py'
       - 'scripts/jev_routing_coordinator.py'
       - 'scripts/final_execution_admission_guard.py'
@@ -256,6 +268,8 @@ jobs:
           python -m py_compile \
             scripts/ai_army_routing_facade.py \
             scripts/openrouter_free_efficiency_router.py \
+            scripts/openrouter_free_gate.py \
+            scripts/validate_openrouter_free_only.py \
             scripts/jev_decision_engine.py \
             scripts/jev_routing_coordinator.py \
             scripts/jev_mixed_router.py \
@@ -415,6 +429,12 @@ jobs:
           set -euo pipefail
           python scripts/validate_openrouter_free_efficiency.py
           python -m unittest tests.test_openrouter_free_efficiency_router
+
+      - name: Enforce OpenRouter free-only at every direct dispatch
+        run: |
+          set -euo pipefail
+          python scripts/validate_openrouter_free_only.py
+          python -m unittest tests.test_openrouter_free_gate tests.test_provider_adapters
 
       - name: Enforce Jev fast decision plane
         run: |
