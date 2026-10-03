@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
+from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _validate_existing_package, _review_story_free, _registered_internal_e2e_asset, add_source_visual, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
 
@@ -247,31 +247,66 @@ class MediaNewsAutomationTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT state FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()["state"],"PREPARATION_REQUIRED")
             conn.close()
 
-    def test_render_assets_require_selection_rights_basis_and_credit(self):
+    def test_render_assets_accept_source_attribution_without_license_metadata(self):
         with tempfile.TemporaryDirectory() as td:
             package=Path(td);images=package/"images";images.mkdir()
             assets=[]
-            for i in range(6):
-                data=f"image-{i}".encode();path=images/f"{i}.png";path.write_bytes(data)
+            for i in range(7):
+                data=b"\x89PNG\r\n\x1a\n"+f"image-{i}".encode()
+                path=images/f"{i}.png";path.write_bytes(data)
                 import hashlib
                 assets.append({"id":str(i),"downloaded":True,"selected_for_render":True,
-                    "rights_verified":True,"rights_basis":"CC BY 4.0","rights_evidence_url":"https://example.org/license",
-                    "credit":"Author","url":"https://openai.com/media/image.png","file":str(path),
+                    "rights_verified":False,"rights_basis":"",
+                    "source_url":f"https://x.com/example/status/{100+i}",
+                    "rights_evidence_url":f"https://x.com/example/status/{100+i}",
+                    "credit":"@example / X official announcement",
+                    "visual_source_mode":"OFFICIAL_ANNOUNCEMENT_SCREENSHOT",
+                    "whole_post_capture":True,"media_region_only":False,
+                    "url":f"https://x.com/example/status/{100+i}","file":str(path),
                     "sha256":hashlib.sha256(data).hexdigest()})
-            self.assertEqual(len(select_render_assets({"assets":assets},3,package)),6)
-            for field,value in (("rights_verified",False),("rights_basis",""),("credit",""),("rights_evidence_url","")):
-                broken=[dict(x) for x in assets];broken[0][field]=value
-                with self.assertRaises(RuntimeError): select_render_assets({"assets":broken},3,package)
-            with self.assertRaises(RuntimeError): select_render_assets({"assets":assets[:5]},3,package)
-            with self.assertRaises(RuntimeError): select_render_assets({"assets":assets+[dict(assets[0],id="extra")]},3,package)
-            duplicated=[dict(x) for x in assets];duplicated[1]["sha256"]=duplicated[0]["sha256"]
-            with self.assertRaises(RuntimeError): select_render_assets({"assets":duplicated},3,package)
+            chosen=select_render_assets({"assets":assets},3,package)
+            self.assertEqual(len(chosen),6)
+            self.assertTrue(all(item["visual_source_mode"]=="OFFICIAL_ANNOUNCEMENT_SCREENSHOT" for item in chosen))
+            # Extra candidates do not block a fast render; the first deterministic N are used.
+            self.assertEqual([item["id"] for item in chosen],[str(i) for i in range(6)])
+            broken=[dict(x) for x in assets];broken[0]["credit"]=""
+            with self.assertRaisesRegex(RuntimeError,"source credit"):
+                select_render_assets({"assets":broken},3,package)
+            broken=[dict(x) for x in assets];broken[0]["source_url"]="http://127.0.0.1/private"
+            with self.assertRaisesRegex(RuntimeError,"public HTTPS source URL"):
+                select_render_assets({"assets":broken},3,package)
+            duplicated=[dict(x) for x in assets]
+            duplicated[1]["sha256"]=duplicated[0]["sha256"]
+            duplicated[1]["file"]=duplicated[0]["file"]
+            with self.assertRaisesRegex(RuntimeError,"duplicate visual"):
+                select_render_assets({"assets":duplicated},3,package)
             escaped=[dict(x) for x in assets];escaped[0]["file"]="/etc/passwd"
-            with self.assertRaises(RuntimeError): select_render_assets({"assets":escaped},3,package)
-            linked=images/"linked.png";linked.symlink_to(images/"0.png")
-            symlinked=[dict(x) for x in assets];symlinked[0]["file"]=str(linked)
-            with self.assertRaisesRegex(RuntimeError,"symbolic link"):
-                select_render_assets({"assets":symlinked},3,package)
+            with self.assertRaises(RuntimeError):
+                select_render_assets({"assets":escaped},3,package)
+
+    def test_add_source_visual_accepts_local_x_screenshot_with_attribution(self):
+        with tempfile.TemporaryDirectory() as td:
+            package=Path(td)/("a"*64);package.mkdir()
+            (package/"image-candidates.json").write_text(json.dumps({"assets":[]}),encoding="utf-8")
+            screenshot=Path(td)/"x-shot.png"
+            screenshot.write_bytes(b"\x89PNG\r\n\x1a\nfixture")
+            result=add_source_visual(
+                package,
+                source_url="https://x.com/OpenAI/status/123456789",
+                credit="@OpenAI / X",
+                mode="OFFICIAL_ANNOUNCEMENT_SCREENSHOT",
+                local_file=screenshot,
+                selected=True,
+            )
+            self.assertEqual(result["status"],"SOURCE_VISUAL_ATTACHED")
+            manifest=json.loads((package/"image-candidates.json").read_text(encoding="utf-8"))
+            asset=manifest["assets"][0]
+            self.assertEqual(asset["visual_source_mode"],"OFFICIAL_ANNOUNCEMENT_SCREENSHOT")
+            self.assertFalse(asset["rights_verified"])
+            self.assertFalse(asset["license_metadata_required"])
+            self.assertTrue(asset["whole_post_capture"])
+            self.assertEqual(asset["source_url"],"https://x.com/OpenAI/status/123456789")
+
 
     def test_internal_e2e_visual_must_match_registered_rights_metadata(self):
         standard=json.loads((Path(__file__).resolve().parents[1]/"config/media_reusable_asset_standard.json").read_text(encoding="utf-8"))
