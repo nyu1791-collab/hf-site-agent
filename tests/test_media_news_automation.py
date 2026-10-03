@@ -416,9 +416,10 @@ class MediaNewsAutomationTests(unittest.TestCase):
             self.assertNotIn("openrouter-secret",json.dumps(call["payload"]))
             conn.close()
 
-    def test_openrouter_paid_model_is_rejected_before_network_request(self):
-        with self.assertRaisesRegex(ValueError,"paid and unverified"):
+    def test_openrouter_paid_or_unverified_model_is_rejected_before_network_request(self):
+        with self.assertRaises(PaidMediaPreflightUnavailable) as caught:
             _post_chat({"model":"deepseek/deepseek-v4.1-flash"},"key")
+        self.assertIn("BLOCKED_UNVERIFIED_PRICE", str(caught.exception))
 
     def test_deepseek_official_result_is_not_requested_twice(self):
         from scripts.media_news_pipeline import DEEPSEEK_PAID_MODEL
@@ -463,13 +464,12 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertEqual(captured["authorization"].split()[0],"Bearer")
         self.assertNotIn(test_key.encode(),captured["body"])
 
-    def test_openrouter_generic_free_route_requires_zero_catalog_price(self):
+    def test_openrouter_generic_free_router_is_not_an_exact_model_route(self):
         from scripts.media_news_pipeline import _resolve_free_script_model
         free_catalog=[{"id":"openrouter/free","pricing":{"prompt":"0","completion":"0"}}]
         plan=lambda *_a,**_k:{"status":"READY","primary_model":"openrouter/free","provider_allow_fallbacks":False}
-        self.assertEqual(_resolve_free_script_model(free_catalog,plan)[0],"openrouter/free")
         with self.assertRaises(PaidMediaPreflightUnavailable):
-            _resolve_free_script_model([{"id":"openrouter/free","pricing":{"prompt":"0.001","completion":"0"}}],plan)
+            _resolve_free_script_model(free_catalog,plan)
 
     def test_deepseek_balance_error_is_blocked_and_queue_preserved(self):
         with tempfile.TemporaryDirectory() as td:
