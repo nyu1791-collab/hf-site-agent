@@ -20,6 +20,8 @@ on:
       - 'config/openrouter_free_efficiency_policy.json'
       - 'config/jev_decision_engine_policy.json'
       - 'config/deepseek_paid_supervisor_policy.json'
+      - 'config/deepseek_route_classification.json'
+      - 'scripts/validate_deepseek_route_classification.py'
       - 'config/agent_efficiency_policy.json'
       - 'config/framework_adapter_layer.json'
       - 'config/current_commander_handoff.json'
@@ -322,6 +324,7 @@ jobs:
             scripts/deepseek_supervisor_research.py \
             scripts/deepseek_supervisor_research_resilient.py \
             scripts/deepseek_json_guard.py \
+            scripts/validate_deepseek_route_classification.py \
             scripts/batch_media_scheduler.py \
             scripts/media_batch_command_center.py \
             scripts/durable_media_runner.py \
@@ -413,6 +416,11 @@ jobs:
           python scripts/validate_free_execution_guard.py
           python scripts/validate_paid_agent_route_policy.py
           python scripts/validate_paid_agent_route_policy.py
+
+      - name: Validate DeepSeek current/manual/legacy route separation
+        run: |
+          set -euo pipefail
+          python scripts/validate_deepseek_route_classification.py
 
       - name: Enforce video creation admission contract
         run: |
