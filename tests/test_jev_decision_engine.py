@@ -22,7 +22,7 @@ from scripts.jev_decision_engine import (
 )
 
 
-def catalog_entry(model, prompt="0.000000042", completion="0"):
+def catalog_entry(model, prompt="0", completion="0"):
     return {"id": model, "pricing": {"prompt": prompt, "completion": completion}}
 
 
@@ -194,7 +194,7 @@ class JevDecisionEngineTests(unittest.TestCase):
         self.assertTrue(out["low_confidence"])
         self.assertEqual(out["action"], "ESCALATE")
 
-    def test_emergency_price_guard_allows_normal_price_and_blocks_catastrophic_drift(self):
+    def test_free_only_price_guard_requires_exact_zero_price(self):
         policy = load_policy()
         ok, evidence = price_guard_allows(
             "typesafe/jev-1.13",
@@ -202,13 +202,15 @@ class JevDecisionEngineTests(unittest.TestCase):
             entries=[catalog_entry("typesafe/jev-1.13")],
         )
         self.assertTrue(ok)
-        self.assertAlmostEqual(evidence["observed_prompt_usd_per_million"], 0.042)
-        bad, _ = price_guard_allows(
+        self.assertEqual(evidence["reason"], "ZERO_PRICE_VERIFIED")
+        self.assertEqual(evidence["observed_prompt_usd_per_million"], 0.0)
+        bad, blocked = price_guard_allows(
             "typesafe/jev-1.13",
             policy=policy,
-            entries=[catalog_entry("typesafe/jev-1.13", prompt="0.000002")],
+            entries=[catalog_entry("typesafe/jev-1.13", prompt="0.000000042")],
         )
         self.assertFalse(bad)
+        self.assertEqual(blocked["reason"], "NONZERO_PRICE_BLOCKED")
 
     def test_one_hundred_jobs_become_five_parallel_batches(self):
         records = [
@@ -283,16 +285,15 @@ class JevDecisionEngineTests(unittest.TestCase):
         self.assertFalse(out["low_confidence"])
         self.assertEqual(out["action"], "EXECUTE")
 
-    def test_authorized_jev_is_not_blocked_when_normal_catalog_omits_decisions_model(self):
+    def test_alias_is_blocked_when_exact_zero_price_evidence_is_missing(self):
         policy = load_policy()
         ok, evidence = price_guard_allows(
             "~typesafe/jev-latest",
             policy=policy,
             entries=[],
         )
-        self.assertTrue(ok)
-        self.assertEqual(evidence["evidence_source"], "AUTHORIZED_JEV_POLICY_OBSERVATION")
-        self.assertAlmostEqual(evidence["observed_prompt_usd_per_million"], 0.042)
+        self.assertFalse(ok)
+        self.assertEqual(evidence["reason"], "PRICE_EVIDENCE_UNAVAILABLE")
 
     def test_fast_route_routine_uses_three_questions_per_record(self):
         policy = load_policy()
