@@ -8,6 +8,14 @@ The user-provided SSH screenshots show `Linger=yes` and the news timer reported 
 
 The pipeline uses the exact OpenRouter model `deepseek/deepseek-v4.1-flash` only for official-RSS Japanese script drafting. Its hard reservation limits are USD 0.05 per call, USD 1.00 per UTC day, USD 10.00 per UTC month, and 20 paid calls per UTC day. It never falls back to another model, retries an uncertain paid request, or tops up credit. No ChatGPT API is required.
 
+When OpenRouter returns a provider-wide authorization, budget, rate-limit, or upstream error (HTTP 401, 402, 403, 429, or 5xx), the coordinator persists an `openrouter` circuit pause in the existing queue database. RSS ingestion keeps running and unprocessed rows stay queued, while new paid script calls stop. This does not retry any request whose outcome is unknown. After restoring the key and permitted budget, an operator must explicitly clear the pause; the command sends no API request:
+
+```bash
+python3 -m scripts.media_news_pipeline \
+  --db runtime/media-queue.sqlite3 --workspace runtime \
+  resume-paid-provider --confirm-provider-ready
+```
+
 ## What this branch implements
 
 - `scripts/media_source_daemon.py` is the separately scheduled authoritative RSS ingress path. It polls the configured official feeds every five minutes using conditional requests, normalizes entries, and deduplicates them into SQLite/WAL. The GCP preparation user service deliberately does **not** invoke it again. Activation and 24-hour readiness require every enabled feed to remain fresh in `source_feed_state`; stale/missing ingress blocks preparation instead of silently creating a second poller.

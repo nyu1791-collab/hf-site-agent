@@ -349,6 +349,43 @@ def _paid_calls_used_today(conn: sqlite3.Connection) -> int:
     return int(conn.execute("SELECT COUNT(*) FROM media_news_paid_calls WHERE call_date_utc=?", (day,)).fetchone()[0])
 
 
+def _ensure_paid_provider_circuit(conn: sqlite3.Connection) -> None:
+    """Persist provider-wide authorization and budget failures across timer runs."""
+    conn.execute("""CREATE TABLE IF NOT EXISTS media_news_provider_circuit(
+      provider TEXT PRIMARY KEY, state TEXT NOT NULL, http_status INTEGER,
+      reason_code TEXT, changed_at REAL NOT NULL)""")
+
+
+def _get_paid_provider_circuit(conn: sqlite3.Connection) -> sqlite3.Row | None:
+    _ensure_paid_provider_circuit(conn)
+    return conn.execute(
+        "SELECT state,http_status,reason_code,changed_at FROM media_news_provider_circuit WHERE provider='openrouter'"
+    ).fetchone()
+
+
+def _pause_paid_provider(conn: sqlite3.Connection, http_status: int, reason_code: str) -> None:
+    _ensure_paid_provider_circuit(conn)
+    conn.execute("""INSERT INTO media_news_provider_circuit(provider,state,http_status,reason_code,changed_at)
+        VALUES('openrouter','PAUSED',?,?,?)
+        ON CONFLICT(provider) DO UPDATE SET state='PAUSED',http_status=excluded.http_status,
+        reason_code=excluded.reason_code,changed_at=excluded.changed_at""",
+        (http_status, reason_code, time.time()))
+    conn.commit()
+
+
+def _resume_paid_provider(conn: sqlite3.Connection, *, acknowledge_ready: bool) -> dict[str, Any]:
+    """Clear an explicit provider pause only after a human confirms budget/auth recovery."""
+    if acknowledge_ready is not True:
+        raise ValueError("confirm that the OpenRouter budget and key are ready before resuming")
+    _ensure_paid_provider_circuit(conn)
+    conn.execute("""INSERT INTO media_news_provider_circuit(provider,state,http_status,reason_code,changed_at)
+        VALUES('openrouter','ACTIVE',NULL,NULL,?)
+        ON CONFLICT(provider) DO UPDATE SET state='ACTIVE',http_status=NULL,
+        reason_code=NULL,changed_at=excluded.changed_at""", (time.time(),))
+    conn.commit()
+    return {"status":"PAID_PROVIDER_RESUMED", "paid_requests_sent":False}
+
+
 def _paid_reserved_cost_this_month(conn: sqlite3.Connection):
     from decimal import Decimal
     _paid_calls_used_today(conn)
@@ -1169,6 +1206,13 @@ def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int
         row = _next_preparation_candidate(conn)
     if row is None:
         return {"status":"IDLE"}
+    if row["state"] == "PREPARATION_REQUIRED":
+        circuit = _get_paid_provider_circuit(conn)
+        if circuit is not None and circuit["state"] == "PAUSED":
+            return {"status":"BLOCKED_PAID_PROVIDER_CIRCUIT", "source_id":row["source_id"],
+                "http_status":circuit["http_status"], "provider_reason":circuit["reason_code"],
+                "request_sent":False, "automatic_retry":False, "queue_preserved":True,
+                "public_publish_enabled":False}
     disk_anchor = workspace if workspace.exists() else workspace.parent
     free_bytes = shutil.disk_usage(disk_anchor).free
     minimum_free_bytes = int(PIPELINE_POLICY["resource_backpressure"]["minimum_workspace_free_bytes"])
@@ -1214,11 +1258,21 @@ def _process_next(conn: sqlite3.Connection, workspace: Path, *, min_seconds: int
             match = re.fullmatch(r"OpenRouter request failed with HTTP (\d+) \(([A-Z_]+)\)", str(exc))
             if match is None:
                 raise
+            http_status = int(match.group(1))
+            provider_reason = match.group(2)
+            # Stop spending attempts on other sources after a provider-wide auth,
+            # budget, rate-limit, or upstream outage. Keep the current row blocked;
+            # never replay its paid request automatically.
+            provider_paused = http_status in {401, 402, 403, 429} or http_status >= 500
+            if provider_paused:
+                _pause_paid_provider(conn, http_status, provider_reason)
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
                 (time.time(), row["source_id"]))
-            return {"status":"SCRIPT_BLOCKED_OPENROUTER_HTTP_ERROR","source_id":row["source_id"],
-                "http_status":int(match.group(1)),"provider_reason":match.group(2),
-                "automatic_retry":False,"will_try_next_source":True,"public_publish_enabled":False}
+            return {"status":"BLOCKED_PAID_PROVIDER_CIRCUIT" if provider_paused else "SCRIPT_BLOCKED_OPENROUTER_HTTP_ERROR",
+                "source_id":row["source_id"],
+                "http_status":http_status,"provider_reason":provider_reason,
+                "request_sent":True,"automatic_retry":False,"will_try_next_source":not provider_paused,
+                "queue_preserved":True,"public_publish_enabled":False}
         except PaidMediaPreflightUnavailable:
             return {"status":"BLOCKED_PAID_MODEL_PREFLIGHT","source_id":row["source_id"],
                 "request_sent":False,"will_retry_next_tick":True,"public_publish_enabled":False}
@@ -1318,6 +1372,10 @@ def main() -> int:
     process.add_argument("--max-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][1])
     retry_voice = sub.add_parser("retry-voice", help="requeue a VOICE_BLOCKED package after repairing its VOICEVOX connection")
     retry_voice.add_argument("--source-id", required=True)
+    resume_provider = sub.add_parser("resume-paid-provider",
+        help="clear the persisted OpenRouter circuit after restoring its key budget and access")
+    resume_provider.add_argument("--confirm-provider-ready", action="store_true",
+        help="confirm the OpenRouter key and permitted budget have been restored")
     render = sub.add_parser("render"); render.add_argument("--package",type=Path,required=True)
     render.add_argument("--shell",type=Path,default=_render_asset_from_env("MEDIA_RENDER_SHELL"))
     render.add_argument("--font",type=Path,default=_render_asset_from_env("MEDIA_RENDER_FONT"))
@@ -1338,6 +1396,8 @@ def main() -> int:
                 result = _process_next(conn,args.workspace,min_seconds=args.min_seconds,max_seconds=args.max_seconds)
             elif args.action == "retry-voice":
                 result = _requeue_voice(conn,args.workspace,args.source_id)
+            elif args.action == "resume-paid-provider":
+                result = _resume_paid_provider(conn,acknowledge_ready=args.confirm_provider_ready)
             else:
                 result = _render_package(args,conn)
         print(json.dumps(result,ensure_ascii=True))

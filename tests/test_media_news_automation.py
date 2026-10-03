@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, PaidMediaAlreadyAttempted, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _rss_summary_article, _validate_existing_package, _review_story_free, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat
+from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _validate_existing_package, _review_story_free, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
 
@@ -87,6 +87,43 @@ class MediaNewsAutomationTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "HTTP 403 \\(CREDIT_OR_KEY_BUDGET_LIMIT\\)") as caught:
                 _post_chat({"model":"fixture"}, "hidden")
         self.assertNotIn("PRIVATE_TOKEN_SHOULD_NOT_LEAK", str(caught.exception))
+
+    def test_provider_budget_rejection_pauses_future_paid_calls_and_preserves_queue(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);workspace=root/"workspace";workspace.mkdir()
+            conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            older="a"*64;newer="b"*64
+            ingest_items(conn,[
+                {"source_id":older,"feed_id":"openai-news","title":"older",
+                 "url":"https://openai.com/news/older","summary":"","published":""},
+                {"source_id":newer,"feed_id":"openai-news","title":"newer",
+                 "url":"https://openai.com/news/newer","summary":"","published":""},
+            ])
+            conn.execute("UPDATE source_inbox SET created_at=100 WHERE source_id=?",(older,))
+            conn.execute("UPDATE source_inbox SET created_at=200 WHERE source_id=?",(newer,))
+            rejected=OpenRouterRequestError("OpenRouter request failed with HTTP 403 (CREDIT_OR_KEY_BUDGET_LIMIT)")
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=3*1024**3)
+            ), patch("scripts.media_news_pipeline.process_source",side_effect=rejected) as process:
+                first=_process_next(conn,workspace,min_seconds=60,max_seconds=300)
+                second=_process_next(conn,workspace,min_seconds=60,max_seconds=300)
+            self.assertEqual(first["status"],"BLOCKED_PAID_PROVIDER_CIRCUIT")
+            self.assertEqual(first["http_status"],403)
+            self.assertEqual(first["provider_reason"],"CREDIT_OR_KEY_BUDGET_LIMIT")
+            self.assertFalse(first["automatic_retry"])
+            self.assertFalse(second["request_sent"])
+            self.assertTrue(second["queue_preserved"])
+            self.assertEqual(second["status"],"BLOCKED_PAID_PROVIDER_CIRCUIT")
+            self.assertEqual(process.call_count,1)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM source_inbox WHERE state='PREPARATION_REQUIRED'").fetchone()[0],1)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM source_inbox WHERE state='SCRIPT_BLOCKED'").fetchone()[0],1)
+            with self.assertRaisesRegex(ValueError,"confirm that the OpenRouter budget"):
+                _resume_paid_provider(conn,acknowledge_ready=False)
+            resumed=_resume_paid_provider(conn,acknowledge_ready=True)
+            self.assertEqual(resumed,{"status":"PAID_PROVIDER_RESUMED","paid_requests_sent":False})
+            self.assertEqual(conn.execute("SELECT state FROM media_news_provider_circuit WHERE provider='openrouter'").fetchone()[0],"ACTIVE")
+            conn.close()
 
     def test_pipeline_lock_blocks_overlapping_stage_commands(self):
         with tempfile.TemporaryDirectory() as td:
