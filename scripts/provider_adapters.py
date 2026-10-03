@@ -326,7 +326,6 @@ class OpenAICompatibleAdapter(ProviderAdapter):
                 assert_openrouter_free_model(
                     normalized_model,
                     catalog=getattr(self, "_last_discovered_models", []),
-                    api_key=self._api_key(),
                 )
             except OpenRouterFreeGateError as exc:
                 raise ProviderAdapterError(exc.reason) from None
