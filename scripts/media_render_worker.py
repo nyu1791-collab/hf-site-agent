@@ -527,20 +527,27 @@ def _probe_video(path: Path, expected_duration: float) -> dict[str, Any]:
         raise WorkerJobError("RENDER_OUTPUT_INVALID")
     try:
         completed = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type", "-show_entries",
+            ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height", "-show_entries",
              "format=duration,size", "-of", "json", str(path)],
             check=True, capture_output=True, text=True, timeout=30,
         )
         value = json.loads(completed.stdout)
-        streams = sorted({item.get("codec_type") for item in value.get("streams", [])})
+        stream_rows = [item for item in value.get("streams", []) if isinstance(item, Mapping)]
+        streams = sorted({item.get("codec_type") for item in stream_rows})
+        video_rows = [item for item in stream_rows if item.get("codec_type") == "video"]
         duration = float(value["format"]["duration"])
-    except (OSError, subprocess.SubprocessError, ValueError, KeyError, json.JSONDecodeError) as exc:
+        width = max((int(item.get("width") or 0) for item in video_rows), default=0)
+        height = max((int(item.get("height") or 0) for item in video_rows), default=0)
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
         raise WorkerJobError("FFPROBE_REJECTED_OUTPUT") from exc
     if not {"audio", "video"}.issubset(streams) or not math.isfinite(duration) or duration <= 0:
         raise WorkerJobError("OUTPUT_MISSING_AUDIO_OR_VIDEO")
+    if width <= 0 or height <= 0:
+        raise WorkerJobError("OUTPUT_INVALID_VIDEO_DIMENSIONS")
     if abs(duration - expected_duration) > max(2.0, expected_duration * 0.02):
         raise WorkerJobError("OUTPUT_DURATION_MISMATCH")
-    return {"duration_seconds": duration, "streams": streams, "bytes": path.stat().st_size}
+    return {"duration_seconds": duration, "streams": streams, "bytes": path.stat().st_size,
+            "width": width, "height": height}
 
 
 def _write_archive_file(archive: tarfile.TarFile, path: Path, name: str) -> None:
