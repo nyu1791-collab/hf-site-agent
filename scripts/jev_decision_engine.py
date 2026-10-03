@@ -202,6 +202,10 @@ def price_guard_allows(
     """Use the shared OpenRouter free-only gate for Jev admission."""
     decision = decide_openrouter_free_model(model, entries)
     evidence = decision.to_dict()
+    # Preserve Jev's existing audit surface while delegating the admission
+    # decision itself to the shared OpenRouter free-only gate.
+    evidence["observed_prompt_usd_per_million"] = _price_per_million(decision.prompt_price)
+    evidence["observed_completion_usd_per_million"] = _price_per_million(decision.completion_price)
     if not decision.allowed:
         evidence["reason"] = decision.reason
     return decision.allowed, evidence
