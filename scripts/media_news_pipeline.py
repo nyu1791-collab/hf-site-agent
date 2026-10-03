@@ -39,7 +39,12 @@ from typing import Any, Mapping
 from scripts.durable_media_runner import connect
 from scripts.media_render_transport import dispatch_remote_render, verify_saved_remote_render, verify_local_render, RenderTransportError
 from scripts.media_source_ingress import (claim_source, init_inbox, load_policy, mark_source_running, release_source_claim, set_source_execution_state)
-from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model, decide_openrouter_free_model
+from scripts.openrouter_free_gate import (
+    OpenRouterFreeGateError,
+    assert_openrouter_free_model,
+    decide_openrouter_free_model,
+    load_openrouter_catalog,
+)
 from scripts.provider_route_matrix import approved_fallback
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -86,6 +91,10 @@ class ArticleSourceBlocked(RuntimeError):
 
 class OpenRouterRequestError(RuntimeError):
     """A non-retryable HTTP error returned by the OpenRouter completion API."""
+
+
+class OpenRouterRequestUnknown(RuntimeError):
+    """The OpenRouter request may have completed; automatic resend is forbidden."""
 
 
 class DeepSeekRequestError(RuntimeError):
@@ -667,7 +676,7 @@ def _resolve_free_script_models(catalog: Any, planner_fn=None, *, limit: int = 2
             if not model_id or model_id=="openrouter/free":
                 continue
             decision=decide_openrouter_free_model(model_id,catalog)
-            if decision.allowed:
+            if _has_exact_zero_catalog_price(decision):
                 context=int(row.get("context_length") or 0)
                 live.append((context,model_id))
         ids=[model_id for _context,model_id in sorted(live,key=lambda item:(-item[0],item[1]))]
@@ -675,13 +684,26 @@ def _resolve_free_script_models(catalog: Any, planner_fn=None, *, limit: int = 2
     for model_id in ids:
         row=next((item for item in catalog if isinstance(item,dict) and item.get("id")==model_id),None)
         decision=decide_openrouter_free_model(model_id,catalog)
-        if row is not None and decision.allowed:
+        if row is not None and _has_exact_zero_catalog_price(decision):
             result.append((model_id,row))
         if len(result)>=limit:
             break
     if not result:
         raise PaidMediaPreflightUnavailable("no current exact-zero OpenRouter free model is available")
     return result
+
+
+def _has_exact_zero_catalog_price(decision: Any) -> bool:
+    """Require current, explicit zero prices even for IDs ending in ``:free``."""
+    from decimal import Decimal, InvalidOperation
+
+    if not getattr(decision,"allowed",False):
+        return False
+    try:
+        return (Decimal(str(decision.prompt_price)) == 0
+                and Decimal(str(decision.completion_price)) == 0)
+    except (InvalidOperation, ValueError, TypeError):
+        return False
 
 
 def _resolve_free_script_model(catalog: Any, planner_fn=None) -> tuple[str, dict[str, Any]]:
@@ -817,11 +839,12 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
     if free_key:
         try:
             if free_catalog is None:
-                if catalog is not None and any(isinstance(row,dict) and str(row.get("id","")).endswith(":free") for row in catalog):
-                    free_catalog=catalog
-                else:
-                    from scripts.openrouter_free_efficiency_router import fetch_catalog
-                    free_catalog=fetch_catalog()
+                # Use the shared catalog reader with the configured credential. Some
+                # OpenRouter deployments reject anonymous catalog requests even while
+                # the authenticated key endpoint is healthy. A one-second TTL keeps
+                # this admission check effectively live immediately before dispatch.
+                free_catalog, _catalog_time, _catalog_source = load_openrouter_catalog(
+                    api_key=free_key, ttl_seconds=1)
             candidates=_resolve_free_script_models(free_catalog,planner_fn,limit=2)
             free_policy=PIPELINE_POLICY["free_script_generation"]
             for index,(model,_row) in enumerate(candidates):
@@ -853,13 +876,30 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                     return story,model
                 except DailyMediaCapReached as exc:
                     free_error=type(exc).__name__;break
-                except Exception as exc:
+                except OpenRouterRequestUnknown:
+                    raise
+                except OpenRouterRequestError as exc:
+                    match=re.fullmatch(r"OpenRouter request failed with HTTP (\d+) \(([A-Z_]+)\)",str(exc))
+                    if match is not None and int(match.group(1))>=500:
+                        raise OpenRouterRequestUnknown("OpenRouter request result is unknown; automatic retry disabled") from None
                     free_error=type(exc).__name__
                     if index+1<len(candidates) and "429" in str(exc):
                         import random
                         time.sleep(1.0+random.uniform(0.0,0.5))
+                except PaidMediaPreflightUnavailable as exc:
+                    free_error=str(exc)[:100];break
+                except Exception as exc:
+                    # The call may have reached the provider, or it may have returned
+                    # an unusable response. Do not fan out to another model/provider.
+                    raise OpenRouterRequestUnknown(
+                        "OpenRouter request result is unknown; automatic retry disabled") from None
+        except OpenRouterRequestUnknown:
+            raise
         except Exception as exc:
-            free_error=type(exc).__name__
+            if isinstance(exc,(PaidMediaPreflightUnavailable,OpenRouterFreeGateError)):
+                free_error=str(exc)[:100]
+            else:
+                free_error=type(exc).__name__
     fallback=approved_fallback("RSS_NEWS_SCRIPT")
     if (
         fallback.get("execution_allowed") is not True
@@ -869,7 +909,8 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
         raise PaidMediaPreflightUnavailable("BLOCKED_NO_APPROVED_FALLBACK")
     deepseek_key=os.environ.get("DEEPSEEK_API_KEY","")
     if not deepseek_key:
-        raise PaidMediaPreflightUnavailable("DEEPSEEK_API_KEY is not configured; free OpenRouter route unavailable")
+        detail = f"; OpenRouter free route unavailable ({str(free_error)[:100]})" if free_error else ""
+        raise PaidMediaPreflightUnavailable("DEEPSEEK_API_KEY is not configured" + detail)
     from decimal import Decimal
     payload=_script_payload(DEEPSEEK_PAID_MODEL,article)
     payload["max_tokens"]=int(PIPELINE_POLICY["paid_script_generation"]["maximum_completion_tokens"])
@@ -1034,6 +1075,10 @@ def _post_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, Any]:
             message = str(error_obj.get("message") or "").lower() if isinstance(error_obj, dict) else ""
         except Exception:
             message = ""
+        if exc.code >= 500:
+            # A server error can follow completed inference. Do not try another model.
+            raise OpenRouterRequestUnknown(
+                "OpenRouter request result is unknown; automatic retry disabled") from None
         if exc.code == 401:
             reason = "API_KEY_REJECTED"
         elif exc.code == 402 or any(term in message for term in ("credit", "budget", "spending limit", "key limit")):
@@ -1050,6 +1095,10 @@ def _post_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, Any]:
             reason = "UPSTREAM_ERROR"
         # Never route to a paid OpenRouter model; the caller may select a separately verified free model.
         raise OpenRouterRequestError(f"OpenRouter request failed with HTTP {exc.code} ({reason})") from None
+    except (TimeoutError, OSError, urllib.error.URLError, json.JSONDecodeError):
+        # Once the POST starts, transport failure cannot prove whether inference ran.
+        raise OpenRouterRequestUnknown(
+            "OpenRouter request result is unknown; automatic retry disabled") from None
 
 
 def download_article_image(url: str, dest_dir: Path, *, allowed_hosts: set[str]) -> dict[str, Any]:
@@ -1776,6 +1825,13 @@ def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqli
             set_source_execution_state(conn,row["source_id"],"BLOCKED_PROVIDER")
             return {"status":"BLOCKED_PAID_PER_CALL_BUDGET","source_id":row["source_id"],
                 "request_sent":False,"automatic_retry":False,"public_publish_enabled":False}
+        except OpenRouterRequestUnknown as exc:
+            conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
+                (time.time(), row["source_id"]))
+            set_source_execution_state(conn,row["source_id"],"UNKNOWN_RESULT")
+            return {"status":"UNKNOWN_RESULT","source_id":row["source_id"],
+                "request_may_have_been_sent":True,"automatic_retry":False,
+                "queue_preserved":True,"error_type":type(exc).__name__,"public_publish_enabled":False}
         except DeepSeekRequestError as exc:
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
                 (time.time(), row["source_id"]))
@@ -1820,9 +1876,9 @@ def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqli
                 "request_sent":True,"automatic_retry":False,"will_try_next_source":not provider_paused,
                 "queue_preserved":True,"public_publish_enabled":False}
         except PaidMediaPreflightUnavailable as exc:
-            set_source_execution_state(conn,row["source_id"],"RETRYABLE")
+            set_source_execution_state(conn,row["source_id"],"BLOCKED_PROVIDER")
             return {"status":"BLOCKED_PAID_MODEL_PREFLIGHT","source_id":row["source_id"],
-                "request_sent":False,"will_retry_next_tick":True,
+                "request_sent":False,"automatic_retry":False,"will_retry_next_tick":False,
                 "preflight_reason":str(exc)[:200],"public_publish_enabled":False}
         except ArticleSourceBlocked as exc:
             set_source_execution_state(conn,row["source_id"],"BLOCKED_PROVIDER")
