@@ -1127,7 +1127,9 @@ def _prepare_internal_e2e_assets(package: Path) -> dict[str, Any]:
                 "rights_state":str(row["rights_state"]),
                 "rights_basis":str(row["rights_state"]),
                 "rights_evidence_url":str(row["source_page"]),
+                "source_url":str(row["source_page"]),
                 "credit":str(row.get("attribution_text") or row.get("creator_or_source") or row["asset_id"]),
+                "visual_source_mode":"LICENSE_CLEARED",
                 "media_region_only":True,
                 "registry_asset_id":str(row["asset_id"]),
                 "rights_verification_scope":"INTERNAL_E2E_ONLY",
@@ -1230,10 +1232,14 @@ def process_source(conn: sqlite3.Connection, source_id: str, workspace: Path, *,
             raise ValueError("image cache directory escapes the source package")
         images = []
         for index, item in enumerate(source["images"]):
+            source_host=urllib.parse.urlsplit(source["url"]).hostname or "official source"
             asset = {"id": f"article-image-{index+1:02d}", "url": item["url"], "alt": item["alt"],
-                     "downloaded": False, "rights_verified": False, "rights_state": "REVIEW_REQUIRED",
-                     "selected_for_render": False, "rights_basis": "", "rights_evidence_url": "",
-                     "credit": "", "media_region_only": True}
+                     "downloaded": False, "rights_verified": False, "rights_state": "SOURCE_ATTRIBUTED",
+                     "selected_for_render": True, "rights_basis": "", "rights_evidence_url": source["url"],
+                     "source_url":source["url"], "credit":f"Official source: {source_host}",
+                     "visual_source_mode":"OFFICIAL_ARTICLE_IMAGE",
+                     "source_attribution_required":True,"license_metadata_required":False,
+                     "media_region_only": True}
             try:
                 asset.update(download_article_image(item["url"], image_dir, allowed_hosts=image_hosts))
                 asset["downloaded"] = True
@@ -1242,8 +1248,9 @@ def process_source(conn: sqlite3.Connection, source_id: str, workspace: Path, *,
             images.append(asset)
         images = [x for x in images if x["downloaded"]]
         _write_text_atomic(image_path, json.dumps({"source_url":source["url"],
-            "source_sha256":source["source_sha256"], "assets":images, "rights_review_required":True,
-            "render_blocked_until_each_used_asset_has_verified_rights_and_evidence":True}, ensure_ascii=False, indent=2)+"\n")
+            "source_sha256":source["source_sha256"], "assets":images,
+            "source_attribution_required":True,"license_metadata_required_for_render":False,
+            "visual_source_policy":"FAST_SOURCE_ATTRIBUTION"}, ensure_ascii=False, indent=2)+"\n")
     try:
         story, model = draft_story(conn, source, catalog=catalog, request_fn=request_fn,
             planner_fn=planner_fn, checkpoint_path=script_checkpoint_path,
@@ -1886,6 +1893,14 @@ def main() -> int:
     e2e.add_argument("--min-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][0])
     e2e.add_argument("--max-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][1])
     e2e.add_argument("--worker-url",help="loopback endpoint; defaults to MEDIA_RENDER_WORKER_URL or 127.0.0.1:18765")
+    visual = sub.add_parser("add-source-visual", help="attach a source-attributed web image or social-post screenshot")
+    visual.add_argument("--package",type=Path,required=True)
+    visual.add_argument("--file",type=Path)
+    visual.add_argument("--image-url")
+    visual.add_argument("--source-url",required=True)
+    visual.add_argument("--credit",required=True)
+    visual.add_argument("--mode",required=True,choices=PIPELINE_POLICY["visual_source_policy"]["allowed_modes"])
+    visual.add_argument("--candidate-only",action="store_true",help="attach without selecting it for the next render")
     retry_voice = sub.add_parser("retry-voice", help="requeue a VOICE_BLOCKED package after repairing its VOICEVOX connection")
     retry_voice.add_argument("--source-id", required=True)
     resume_provider = sub.add_parser("resume-paid-provider",
@@ -1915,6 +1930,11 @@ def main() -> int:
                 result = _run_internal_e2e_once(conn,args.workspace,min_seconds=args.min_seconds,
                     max_seconds=args.max_seconds,worker_url=args.worker_url)
                 result["protected_environment"]=env_status
+            elif args.action == "add-source-visual":
+                package=_validate_existing_package(args.workspace,args.package)
+                result=add_source_visual(package,source_url=args.source_url,credit=args.credit,
+                    mode=args.mode,local_file=args.file,image_url=args.image_url,
+                    selected=not args.candidate_only)
             elif args.action == "retry-voice":
                 result = _requeue_voice(conn,args.workspace,args.source_id)
             elif args.action == "resume-paid-provider":
