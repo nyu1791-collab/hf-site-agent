@@ -52,13 +52,27 @@ def wrap(text,font,width):
     if line:lines.append(line)
     return lines
 
+def _whole_post_source_visual(item):
+    return (
+        item.get('visual_source_mode') in {'OFFICIAL_ANNOUNCEMENT_SCREENSHOT','USER_PROVIDED_SOURCE_SCREENSHOT'}
+        and item.get('whole_post_capture') is True
+    )
+
+def _display_source_url(value):
+    text=str(value or '').removeprefix('https://')
+    return text if len(text)<=82 else text[:79]+'...'
+
 def validate_visual_inputs(profile, presentation):
     if profile['layout']['caption_colors'] != {'ずんだもん':'#B8E6C8','四国めたん':'#F2C4D7'}:
         raise ValueError('approved pale caption palette required')
     visuals=presentation.get('visuals') or [presentation]
     for item in visuals:
-        if item.get('media_region_only',presentation.get('media_region_only')) is not True:
-            raise ValueError('verified media-only visual required; whole-page capture forbidden')
+        source_url=item.get('source_url') or presentation.get('source_url')
+        source_credit=item.get('source_credit') or presentation.get('source_credit')
+        if not source_url or not source_credit:
+            raise ValueError('source-attributed visual requires source URL and credit')
+        if item.get('media_region_only',presentation.get('media_region_only')) is not True and not _whole_post_source_visual(item):
+            raise ValueError('whole-page capture is allowed only for attributed official/user-provided source screenshots')
 
 
 def render(args):
@@ -95,8 +109,8 @@ def render(args):
     for item in source_items:
         src=Path(item['file'])
         if not src.is_absolute():src=args.presentation.parent/src
-        if item.get('media_region_only',presentation.get('media_region_only')) is not True:
-            raise ValueError('verified media-only visual required; whole-page capture forbidden')
+        if item.get('media_region_only',presentation.get('media_region_only')) is not True and not _whole_post_source_visual(item):
+            raise ValueError('whole-page capture requires an attributed screenshot source mode')
         with Image.open(src) as im:visual=ImageOps.contain(im.convert('RGB'),(680,390),Image.Resampling.LANCZOS)
         visual_hashes[item['id']]=hashlib.sha256(src.read_bytes()).hexdigest()
         background=Image.new('RGB',(W,H),layout['background']);draw=ImageDraw.Draw(background)
@@ -105,9 +119,9 @@ def render(args):
         draw.text(tuple(layout['zones']['title']),heading,font=title,fill='#24364F')
         draw.rounded_rectangle((20,105,700,545),radius=22,fill='white')
         background.paste(visual,((W-visual.width)//2,120+(390-visual.height)//2))
-        credit=item['source_credit'];url=item['source_url'].removeprefix('https://')
+        credit=item['source_credit'];url=_display_source_url(item['source_url'])
         urlfont=ImageFont.truetype(str(args.font),14)
-        if small.getlength(credit)>650 or urlfont.getlength(url)>670:raise ValueError('source attribution exceeds safe zone')
+        if small.getlength(credit)>650:raise ValueError('source credit exceeds safe zone')
         draw.text(tuple(layout['zones']['source_credit']),credit,font=small,fill='#425570')
         draw.text(tuple(layout['zones']['source_url']),url,font=urlfont,fill='#4C5870')
         draw.text(tuple(layout['zones']['voice_credit']),presentation['voice_credit'],font=small,fill='#4C5870')
@@ -165,7 +179,7 @@ def render(args):
         for name in {r['speaker'] for r in records}:
             if len(expressions_seen[name]) < 2:
                 raise RuntimeError(f'{name}: longform missing authored expression changes')
-    report={'duration':args.duration,'mouth_states':{k:sorted(v) for k,v in states.items()},'expressions':{k:sorted(v) for k,v in expressions_seen.items()},'character_keys':keys,'native_parts_no_double_mouth':True,'voice_reused':True,'media_region_only':True,'whole_page_visuals':False,'mouth_method':'RMS_APPROXIMATION','caption_timing_method':'MEASURED_TURN_BOUNDARIES_WITH_CHARACTER_WEIGHTED_CLAUSES','source_url':presentation['source_url'],'caption_colors':palette,'visual_sha256':visual_hashes,'input_sha256':{name:hashlib.sha256(getattr(args,name).read_bytes()).hexdigest() for name in ['profile','presentation','audio','timing','visual','font']}}
+    report={'duration':args.duration,'mouth_states':{k:sorted(v) for k,v in states.items()},'expressions':{k:sorted(v) for k,v in expressions_seen.items()},'character_keys':keys,'native_parts_no_double_mouth':True,'voice_reused':True,'media_region_only':all(item.get('media_region_only',presentation.get('media_region_only')) is True for item in source_items),'whole_page_visuals':any(_whole_post_source_visual(item) for item in source_items),'visual_source_modes':sorted({str(item.get('visual_source_mode') or 'LEGACY') for item in source_items}),'source_attribution_rendered':True,'mouth_method':'RMS_APPROXIMATION','caption_timing_method':'MEASURED_TURN_BOUNDARIES_WITH_CHARACTER_WEIGHTED_CLAUSES','source_url':presentation['source_url'],'caption_colors':palette,'visual_sha256':visual_hashes,'input_sha256':{name:hashlib.sha256(getattr(args,name).read_bytes()).hexdigest() for name in ['profile','presentation','audio','timing','visual','font']}}
     out.with_suffix('.report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
     print(json.dumps(report,ensure_ascii=False))
 
