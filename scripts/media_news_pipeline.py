@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from scripts.durable_media_runner import connect
-from scripts.media_render_transport import dispatch_remote_render, verify_saved_remote_render
+from scripts.media_render_transport import dispatch_remote_render, verify_saved_remote_render, RenderTransportError
 from scripts.media_source_ingress import init_inbox, load_policy
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1041,11 +1041,21 @@ def _render_package(args, conn: sqlite3.Connection) -> dict[str, Any]:
                 package=package, source_id=mission["source_id"], expected_duration=duration,
             )
         else:
-            result = dispatch_remote_render(
-                package=package, source_id=mission["source_id"], presentation_path=presentation_path,
-                timing_path=render_timing_path, assets=assets, duration_seconds=duration,
-                worker_url=getattr(args, "worker_url", None),
-            )
+            try:
+                result = dispatch_remote_render(
+                    package=package, source_id=mission["source_id"], presentation_path=presentation_path,
+                    timing_path=render_timing_path, assets=assets, duration_seconds=duration,
+                    worker_url=getattr(args, "worker_url", None),
+                )
+            except RenderTransportError as exc:
+                _write_text_atomic(package / "render-waiting.json", json.dumps({
+                    "status": "RENDER_WAITING", "source_id": mission["source_id"],
+                    "reason": str(exc), "resume_stage": "RENDER_ONLY",
+                    "script_regeneration": False, "paid_request_resubmission": False,
+                }, ensure_ascii=True) + "\n")
+                # Keep the existing rights-approved boundary; no preparation or
+                # paid-script candidate selection can take this item again.
+                raise
         conn.execute("UPDATE source_inbox SET state='READY_TO_PUBLISH',updated_at=? WHERE source_id=?",
             (time.time(), mission["source_id"]))
         return result

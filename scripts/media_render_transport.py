@@ -7,6 +7,8 @@ single-attempt and the caller must explicitly select remote rendering.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import gzip
 import hashlib
 import hmac
@@ -57,6 +59,74 @@ _IMAGE_SUFFIXES = set(PACKAGE_POLICY["accepted_image_extensions"])
 
 class RenderTransportError(RuntimeError):
     """A bounded remote-render handoff failed; no local fallback is attempted."""
+
+
+class RenderRequestNotAccepted(RenderTransportError):
+    """Authenticated worker confirms that this request ID was never reserved."""
+
+
+def _write_checkpoint(path: Path, value: Mapping[str, Any]) -> None:
+    temp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temp.open("x", encoding="utf-8") as stream:
+            os.chmod(temp, 0o600)
+            json.dump(value, stream, sort_keys=True)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
+@contextlib.contextmanager
+def _transfer_lock(package: Path):
+    fd = os.open(package / "render-transfer.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise RenderTransportError("another render transfer owns this package") from exc
+        yield
+    finally:
+        os.close(fd)
+
+
+def _fetch_archive(port: int, token: str, request_id: str, response_path: Path) -> None:
+    """Recover a completed result by GET; never repeat the render POST."""
+    if not re.fullmatch(r"[0-9a-f-]{36}", request_id):
+        raise RenderTransportError("invalid checkpoint request ID")
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
+    try:
+        conn.request("GET", f"/v1/results/{request_id}", headers={"Authorization": f"Bearer {token}", "Connection": "close"})
+        response = conn.getresponse()
+        if response.status != 200:
+            detail = response.read(4096)
+            if response.status == 404:
+                try:
+                    if json.loads(detail).get("error_code") == "REQUEST_NOT_ACCEPTED":
+                        raise RenderRequestNotAccepted("worker never accepted this saved request")
+                except (ValueError, AttributeError):
+                    pass
+            raise RenderTransportError(f"saved render result is not yet available (HTTP {response.status}); no POST repeated")
+        if response.getheader("X-Media-Render-Protocol") != PROTOCOL or response.getheader("X-Media-Render-Status") != "RENDERED":
+            raise RenderTransportError("saved render result protocol mismatch")
+        length = int(response.getheader("Content-Length") or "-1")
+        if not (0 < length <= MAX_OUTPUT_ARCHIVE_BYTES):
+            raise RenderTransportError("saved render response exceeds the transfer limit")
+        remaining = length
+        with response_path.open("xb") as output:
+            while remaining:
+                chunk = response.read(min(remaining, CHUNK_BYTES))
+                if not chunk:
+                    raise RenderTransportError("saved render response is truncated")
+                output.write(chunk)
+                remaining -= len(chunk)
+        if response.read(1):
+            raise RenderTransportError("saved render response exceeds its declared size")
+    except (OSError, ValueError, http.client.HTTPException) as exc:
+        raise RenderTransportError("saved render recovery failed; no POST repeated") from exc
+    finally:
+        conn.close()
 
 
 def _shared_access_token() -> str:
@@ -485,7 +555,7 @@ def _verify_video(path: Path, expected_duration: float) -> dict[str, Any]:
         value = json.loads(result.stdout)
         streams = [item.get("codec_type") for item in value.get("streams", [])]
         duration = float(value["format"]["duration"])
-        if not {"video", "audio"}.issubset(set(streams)) or not math.isfinite(duration):
+        if not {"video", "audio"}.issubset(set(streams)) or not math.isfinite(duration) or duration <= 0:
             raise RenderTransportError("render output is missing audio or video")
         if abs(duration - expected_duration) > max(2.0, expected_duration * 0.02):
             raise RenderTransportError("render output duration does not match the approved narration")
@@ -565,7 +635,13 @@ def verify_saved_remote_render(
     }
 
 
-def dispatch_remote_render(
+def dispatch_remote_render(**kwargs) -> dict[str, Any]:
+    package = Path(kwargs["package"]).resolve(strict=True)
+    with _transfer_lock(package):
+        return _dispatch_remote_render(**kwargs)
+
+
+def _dispatch_remote_render(
     *,
     package: Path,
     source_id: str,
@@ -580,7 +656,11 @@ def dispatch_remote_render(
     port, _ = _checked_loopback_url(url)
     token = _shared_access_token()
     health = _read_health(port, token)
-    _validate_health(health)
+    # A draining worker may still return an already completed response.
+    checked_health = dict(health)
+    if checked_health.get("status") == "DRAINING":
+        checked_health["status"] = "READY"
+    _validate_health(checked_health)
     package = package.resolve(strict=True)
     destination = package / "final.mp4"
     report_destination = package / "remote-render-report.json"
@@ -588,14 +668,57 @@ def dispatch_remote_render(
         raise RenderTransportError("render result path must not be a symlink")
     with tempfile.TemporaryDirectory(prefix="media-render-transfer-") as temp_name:
         temp = Path(temp_name)
-        request_archive = temp / "request.tar.gz"
+        request_archive = package / "render-request.tar.gz"
+        checkpoint_path = package / "render-request.json"
         response_archive = temp / "response.tar.gz"
-        manifest = create_request_archive(
-            package=package, source_id=source_id, presentation_path=presentation_path,
-            timing_path=timing_path, assets=assets, duration_seconds=duration_seconds,
-            output_path=request_archive,
-        )
-        _send_archive(port, token, request_archive, response_archive)
+        if checkpoint_path.exists():
+            if checkpoint_path.is_symlink() or checkpoint_path.stat().st_size > MAX_METADATA_BYTES:
+                raise RenderTransportError("unsafe render checkpoint")
+            checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+            manifest = checkpoint["manifest"]
+            if manifest.get("source_id") != source_id or request_archive.is_symlink() or not request_archive.is_file() or _sha256_file(request_archive) != checkpoint.get("archive_sha256"):
+                raise RenderTransportError("saved render request does not match its checkpoint")
+        else:
+            if health.get("status") == "DRAINING":
+                raise RenderTransportError("worker is draining; job remains queued")
+            if request_archive.exists() or request_archive.is_symlink():
+                raise RenderTransportError("uncheckpointed render archive requires diagnosis")
+            manifest = create_request_archive(
+                package=package, source_id=source_id, presentation_path=presentation_path,
+                timing_path=timing_path, assets=assets, duration_seconds=duration_seconds,
+                output_path=request_archive,
+            )
+            checkpoint = {"schema_version": "media-render-transfer-v1", "manifest": manifest,
+                          "archive_sha256": _sha256_file(request_archive), "state": "PREPARED"}
+            _write_checkpoint(checkpoint_path, checkpoint)
+        if checkpoint["state"] == "PREPARED":
+            if health.get("status") == "DRAINING":
+                raise RenderTransportError("worker is draining; prepared job remains queued")
+            checkpoint["state"] = "SENDING"
+            _write_checkpoint(checkpoint_path, checkpoint)
+            try:
+                _send_archive(port, token, request_archive, response_archive)
+            except RenderTransportError:
+                checkpoint["state"] = "WAITING_FOR_RESULT"
+                _write_checkpoint(checkpoint_path, checkpoint)
+                raise
+        else:
+            try:
+                _fetch_archive(port, token, manifest["request_id"], response_archive)
+            except RenderRequestNotAccepted:
+                if health.get("status") == "DRAINING":
+                    raise RenderTransportError("worker is draining; unaccepted request remains waiting")
+                # One explicit resume may send the same ID only after a trusted
+                # GET proves no reservation. The ledger still prevents a race
+                # from executing it twice. Script/audio preparation is untouched.
+                checkpoint["state"] = "SENDING"
+                _write_checkpoint(checkpoint_path, checkpoint)
+                try:
+                    _send_archive(port, token, request_archive, response_archive)
+                except RenderTransportError:
+                    checkpoint["state"] = "WAITING_FOR_RESULT"
+                    _write_checkpoint(checkpoint_path, checkpoint)
+                    raise
         result_dir = temp / "result"
         result_dir.mkdir(mode=0o700)
         extracted = _extract_response(
@@ -634,6 +757,8 @@ def dispatch_remote_render(
             installed_report = True
             os.replace(video_tmp, destination)
             installed_video = True
+            checkpoint["state"] = "VERIFIED"
+            _write_checkpoint(checkpoint_path, checkpoint)
         finally:
             video_tmp.unlink(missing_ok=True)
             report_tmp.unlink(missing_ok=True)
@@ -651,6 +776,7 @@ def check_remote_worker(worker_url: str | None = None) -> dict[str, Any]:
     health = _read_health(port, token)
     _validate_health(health)
     return {"status": "READY", "protocol": PROTOCOL,
+            "worker_id": health.get("worker_id"), "worker_boot_id": health.get("boot_id"),
             "renderer_sha256": health["renderer_sha256"],
             "profile_sha256": health["profile_sha256"],
             "media_policy_sha256": health["media_policy_sha256"],

@@ -298,7 +298,10 @@ class MediaRenderTransportTests(unittest.TestCase):
             package = Path(td) / SOURCE_ID
             package.mkdir()
             request_id = str(uuid.uuid4())
-            manifest = {"request_id": request_id, "worker_code_sha256": {"renderer": "x"}}
+            manifest = {"request_id": request_id, "source_id": SOURCE_ID, "worker_code_sha256": {"renderer": "x"}}
+            def fake_archive(**kwargs):
+                kwargs["output_path"].write_bytes(b"saved-test-request")
+                return manifest
             def make_result(_archive, dest, **_kwargs):
                 video = dest / "final.mp4"
                 video.write_bytes(b"verified-mock-video")
@@ -308,7 +311,7 @@ class MediaRenderTransportTests(unittest.TestCase):
                 response.write_bytes(b"fake-response")
             with patch.object(transport, "_read_health", return_value={"status": "READY"}), \
                  patch.object(transport, "_validate_health"), \
-                 patch.object(transport, "create_request_archive", return_value=manifest), \
+                 patch.object(transport, "create_request_archive", side_effect=fake_archive), \
                  patch.object(transport, "_send_archive", side_effect=fake_send), \
                  patch.object(transport, "_extract_response", side_effect=make_result), \
                  patch.object(transport, "_verify_video", return_value={"duration_seconds": 1, "streams": ["audio", "video"], "bytes": 20}), \
@@ -466,6 +469,9 @@ class MediaRenderTransportTests(unittest.TestCase):
                 with self.assertRaises(transport.RenderTransportError):
                     media_news_pipeline._render_package(args, connection)
             self.assertEqual(connection.execute("SELECT state FROM source_inbox").fetchone()[0], "ASSET_REVIEW_REQUIRED")
+            wait = json.loads((package / "render-waiting.json").read_text())
+            self.assertEqual(wait["resume_stage"], "RENDER_ONLY")
+            self.assertFalse(wait["paid_request_resubmission"])
             connection.close()
 
 

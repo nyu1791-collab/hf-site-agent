@@ -1,0 +1,13 @@
+{
+  "schema_version": "temporary-render-e2e-v1",
+  "scope": "PRIVATE_INFRASTRUCTURE_ACCEPTANCE_ONLY",
+  "rights_basis": "Original repository-authored fixture diagrams and abstract character layers; no external photographs or character assets",
+  "title": "外部レンダー接続テスト",
+  "sections": [{"id": "connection", "heading": "接続確認", "main_point": "司令塔から別のWorkerへ素材を渡して動画を保存する。", "plain_explanation": "二つの図で要求と結果の経路を確認する。"}],
+  "dialogue": [
+    {"id": "test-z1", "speaker": "ずんだもん", "voice_text": "これは外部レンダーの接続テストなのだ。"},
+    {"id": "test-m1", "speaker": "四国めたん", "voice_text": "司令塔から別のワーカーへ素材を渡すのね。"},
+    {"id": "test-z2", "speaker": "ずんだもん", "voice_text": "完成した動画を司令塔へ戻して保存するのだ。"},
+    {"id": "test-m2", "speaker": "四国めたん", "voice_text": "再起動しても同じ経路で確認しましょう。"}
+  ]
+}

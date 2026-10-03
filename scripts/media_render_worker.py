@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import hashlib
 import hmac
 import http.server
@@ -10,12 +12,15 @@ import math
 import os
 import re
 import shutil
+import signal
+import socket
 import stat
 import subprocess
 import sys
 import tarfile
 import tempfile
 import time
+import threading
 import uuid
 import wave
 from pathlib import Path, PurePosixPath
@@ -40,6 +45,114 @@ _IMAGE_EXTENSIONS = "|".join(re.escape(x.lstrip(".")) for x in PACKAGE_POLICY["a
 IMAGE_NAME = re.compile(rf"images/[0-9a-f]{{64}}\.(?:{_IMAGE_EXTENSIONS})\Z")
 INPUT_NAMES = {"audio.wav", "timing.json", "presentation.json"}
 STARTUP_CODE_HASHES = _worker_code_hashes()
+
+
+def _atomic_state(path: Path, value: dict[str, Any]) -> None:
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temporary.open("x", encoding="utf-8") as stream:
+            os.chmod(temporary, 0o600)
+            json.dump(value, stream, sort_keys=True)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+@contextlib.contextmanager
+def job_lock(work_dir: Path):
+    """Kernel-owned single writer lock, released even after a VM/process crash."""
+    fd = os.open(work_dir / "render.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise WorkerJobError("WORKER_LOCK_UNSAFE")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise WorkerJobError("WORKER_BUSY") from exc
+        yield
+    finally:
+        os.close(fd)
+
+
+def lifecycle_status(work_dir: Path) -> dict[str, Any]:
+    busy = False
+    try:
+        with job_lock(work_dir):
+            pass
+    except WorkerJobError as exc:
+        if exc.code != "WORKER_BUSY":
+            raise
+        busy = True
+    draining = _draining(work_dir)
+    return {"draining": draining, "active_render": busy,
+            "safe_to_stop": not busy and draining,
+            "retained_results": len(list(work_dir.glob("response-*.tar.gz")))}
+
+
+def _draining(work_dir: Path) -> bool:
+    deadline = os.environ.get("MEDIA_RENDER_ACCEPT_UNTIL", "")
+    admission = work_dir / "admission.json"
+    if admission.exists():
+        try:
+            if admission.is_symlink():
+                return True
+            deadline = str(json.loads(admission.read_text())["accept_until"])
+        except (OSError, ValueError, KeyError):
+            return True
+    return (work_dir / "draining.json").exists() or bool(deadline and time.time() >= float(deadline))
+
+
+def set_draining(work_dir: Path, enabled: bool) -> dict[str, Any]:
+    if not _owned_private_directory(work_dir):
+        raise WorkerJobError("WORK_DIRECTORY_INVALID")
+    marker = work_dir / "draining.json"
+    if enabled:
+        _atomic_state(marker, {"state": "DRAINING", "requested_at": time.time()})
+    else:
+        marker.unlink(missing_ok=True)
+        _atomic_state(work_dir / "admission.json", {"accept_until": time.time() + 72 * 3600})
+    return lifecycle_status(work_dir)
+
+
+def _notify(message: str) -> None:
+    address = os.environ.get("NOTIFY_SOCKET")
+    if not address:
+        return
+    if address.startswith("@"):
+        address = "\0" + address[1:]
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as channel:
+            channel.sendto(message.encode("ascii"), address)
+    except OSError:
+        pass
+
+
+def _heartbeat(work_dir: Path, stop: threading.Event) -> None:
+    while not stop.is_set():
+        _atomic_state(work_dir / "heartbeat.json", {"observed_at": time.time(), "pid": os.getpid()})
+        _notify("WATCHDOG=1")
+        stop.wait(10)
+
+
+def _run_renderer(command: list[str], safe_env: dict[str, str], timeout: float = 1800, log_path: Path | None = None) -> None:
+    """Kill the whole renderer/FFmpeg group on timeout, retaining no orphans."""
+    with (log_path.open("xb") if log_path else tempfile.TemporaryFile()) as log:
+        process = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=log,
+                                   env=safe_env, start_new_session=True)
+        try:
+            if process.wait(timeout=timeout):
+                raise WorkerJobError("RENDER_FAILED")
+        except subprocess.TimeoutExpired as exc:
+            os.killpg(process.pid, signal.SIGTERM)
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+            raise WorkerJobError("RENDER_TIMEOUT") from exc
 
 
 class WorkerJobError(RuntimeError):
@@ -222,9 +335,13 @@ def worker_readiness() -> tuple[dict[str, Any], dict[str, Path]]:
     except OSError:
         blockers.append("WORK_DIRECTORY_UNAVAILABLE")
 
+    draining = _draining(work_dir)
     health = {
         "protocol": PROTOCOL,
-        "status": "READY" if not blockers else "BLOCKED",
+        "status": "BLOCKED" if blockers else ("DRAINING" if draining else "READY"),
+        "worker_id": os.environ.get("MEDIA_RENDER_WORKER_ID", "external-render-worker"),
+        "boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
+        "observed_at": time.time(),
         **{f"{key}_sha256": value for key, value in code_hashes.items()},
         "shell_sha256": shell_hash,
         "font_sha256": font_hash,
@@ -419,7 +536,7 @@ def _probe_video(path: Path, expected_duration: float) -> dict[str, Any]:
         duration = float(value["format"]["duration"])
     except (OSError, subprocess.SubprocessError, ValueError, KeyError, json.JSONDecodeError) as exc:
         raise WorkerJobError("FFPROBE_REJECTED_OUTPUT") from exc
-    if not {"audio", "video"}.issubset(streams) or not math.isfinite(duration):
+    if not {"audio", "video"}.issubset(streams) or not math.isfinite(duration) or duration <= 0:
         raise WorkerJobError("OUTPUT_MISSING_AUDIO_OR_VIDEO")
     if abs(duration - expected_duration) > max(2.0, expected_duration * 0.02):
         raise WorkerJobError("OUTPUT_DURATION_MISMATCH")
@@ -436,6 +553,21 @@ def _write_archive_file(archive: tarfile.TarFile, path: Path, name: str) -> None
 
 
 def run_render_job(archive_path: Path, readiness: dict[str, Any], paths: dict[str, Path]) -> tuple[Path, dict[str, Any]]:
+    work_dir = paths["work_dir"].resolve(strict=True)
+    with job_lock(work_dir):
+        if _draining(work_dir):
+            raise WorkerJobError("WORKER_DRAINING")
+        _atomic_state(work_dir / "active-job.json", {"state": "RUNNING", "pid": os.getpid(), "started_at": time.time()})
+        try:
+            result = _run_render_job(archive_path, readiness, paths)
+            _atomic_state(work_dir / "active-job.json", {"state": "COMPLETED", **result[1], "completed_at": time.time()})
+            return result
+        except Exception as exc:
+            _atomic_state(work_dir / "active-job.json", {"state": "FAILED", "error_type": type(exc).__name__, "completed_at": time.time()})
+            raise
+
+
+def _run_render_job(archive_path: Path, readiness: dict[str, Any], paths: dict[str, Path]) -> tuple[Path, dict[str, Any]]:
     if readiness.get("status") != "READY":
         raise WorkerJobError("WORKER_NOT_READY")
     work_dir = paths["work_dir"].resolve(strict=True)
@@ -520,8 +652,11 @@ def run_render_job(archive_path: Path, readiness: dict[str, Any], paths: dict[st
             raise WorkerJobError("WORKER_CODE_FILES_MISSING") from exc
         start = time.monotonic()
         try:
-            subprocess.run(command, cwd=ROOT, check=True, timeout=1800,
-                           capture_output=True, text=True, env=safe_env)
+            logs = work_dir / "render-logs"
+            logs.mkdir(mode=0o700, exist_ok=True)
+            if not _owned_private_directory(logs):
+                raise WorkerJobError("RENDER_LOG_DIRECTORY_UNSAFE")
+            _run_renderer(command, safe_env, log_path=logs / f"{manifest['request_id']}.log")
         except (OSError, subprocess.SubprocessError) as exc:
             raise WorkerJobError("RENDER_FAILED") from exc
         probe = _probe_video(output, duration)
@@ -626,6 +761,31 @@ class RenderHandler(http.server.BaseHTTPRequestHandler):
         return health, paths
 
     def do_GET(self) -> None:
+        if self.path.startswith("/v1/results/"):
+            if not self._authorized():
+                self._json(401, {"error_code": "UNAUTHORIZED"})
+                return
+            request_id = self.path.removeprefix("/v1/results/")
+            if not re.fullmatch(r"[0-9a-f-]{36}", request_id):
+                self._json(400, {"error_code": "INVALID_REQUEST_ID"})
+                return
+            work_dir = self.server.paths["work_dir"]
+            ledger = _request_ledger_path(work_dir, request_id)
+            response = work_dir / f"response-{request_id}.tar.gz"
+            if not ledger.exists() and not ledger.is_symlink():
+                self._json(404, {"error_code": "REQUEST_NOT_ACCEPTED"})
+                return
+            try:
+                state = json.loads(ledger.read_text(encoding="utf-8"))
+                if state.get("state") != "COMPLETED":
+                    self._json(409, {"error_code": "RESULT_NOT_COMPLETE"})
+                    return
+                if response.is_symlink() or not response.is_file() or not (0 < response.stat().st_size <= MAX_OUTPUT_ARCHIVE_BYTES):
+                    raise OSError("result missing")
+                self._send_result(response)
+            except (OSError, ValueError):
+                self._json(404, {"error_code": "RESULT_NOT_AVAILABLE"})
+            return
         if self.path != HEALTH_ROUTE:
             self._json(404, {"status": "NOT_FOUND"})
             return
@@ -637,7 +797,7 @@ class RenderHandler(http.server.BaseHTTPRequestHandler):
         except Exception:
             self._json(503, {"status": "BLOCKED", "error_code": "WORKER_READINESS_REFRESH_FAILED"})
             return
-        self._json(200 if readiness.get("status") == "READY" else 503, readiness)
+        self._json(200 if readiness.get("status") in {"READY", "DRAINING"} else 503, readiness)
 
     def do_POST(self) -> None:
         if self.path != HTTP_ROUTE:
@@ -645,6 +805,9 @@ class RenderHandler(http.server.BaseHTTPRequestHandler):
             return
         if not self._authorized():
             self._json(401, {"status": "BLOCKED", "error_code": "UNAUTHORIZED"})
+            return
+        if getattr(self.server, "stopping", False):
+            self._json(503, {"error_code": "WORKER_DRAINING"})
             return
         if self.headers.get("X-Media-Render-Protocol") != PROTOCOL or self.headers.get_content_type() != "application/gzip":
             self._json(415, {"status": "BLOCKED", "error_code": "PROTOCOL_OR_CONTENT_TYPE"})
@@ -691,25 +854,27 @@ class RenderHandler(http.server.BaseHTTPRequestHandler):
             retained: Path | None = None
             try:
                 retained, identity = run_render_job(request_path, readiness, paths)
-                size = retained.stat().st_size
-                self.send_response(200)
-                self.send_header("Content-Type", "application/gzip")
-                self.send_header("Content-Length", str(size))
-                self.send_header("X-Media-Render-Protocol", PROTOCOL)
-                self.send_header("X-Media-Render-Status", "RENDERED")
-                self.send_header("Connection", "close")
-                self.end_headers()
-                with retained.open("rb") as source:
-                    shutil.copyfileobj(source, self.wfile, length=CHUNK_BYTES)
-                self.close_connection = True
+                self._send_result(retained)
                 sys.stderr.write("media-render-worker: rendered one bounded job\n")
+            except (BrokenPipeError, ConnectionResetError):
+                # The durable response and ledger remain available by request ID.
+                self.close_connection = True
             except WorkerJobError as exc:
                 self._json(422, {"status": "BLOCKED", "error_code": exc.code})
             except Exception:
                 self._json(500, {"status": "BLOCKED", "error_code": "WORKER_INTERNAL_ERROR"})
-            finally:
-                if retained is not None:
-                    retained.unlink(missing_ok=True)
+
+    def _send_result(self, retained: Path) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", "application/gzip")
+        self.send_header("Content-Length", str(retained.stat().st_size))
+        self.send_header("X-Media-Render-Protocol", PROTOCOL)
+        self.send_header("X-Media-Render-Status", "RENDERED")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        with retained.open("rb") as source:
+            shutil.copyfileobj(source, self.wfile, length=CHUNK_BYTES)
+        self.close_connection = True
 
     def do_PUT(self) -> None:
         self._json(405, {"status": "BLOCKED", "error_code": "METHOD_NOT_ALLOWED"})
@@ -718,8 +883,9 @@ class RenderHandler(http.server.BaseHTTPRequestHandler):
         self._json(405, {"status": "BLOCKED", "error_code": "METHOD_NOT_ALLOWED"})
 
 
-class SingleRequestHTTPServer(http.server.HTTPServer):
-    allow_reuse_address = False
+class SingleRequestHTTPServer(http.server.ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = False
     request_inactivity_timeout_seconds = REQUEST_INACTIVITY_TIMEOUT_SECONDS
 
     def get_request(self):
@@ -742,22 +908,43 @@ def serve(host: str, port: int, work_dir: Path) -> int:
     server.readiness = health  # type: ignore[attr-defined]
     server.paths = paths  # type: ignore[attr-defined]
     server.shared_token = shared_token  # type: ignore[attr-defined]
+    server.stopping = False
     server.timeout = 1
+    stop = threading.Event()
+    heartbeat = threading.Thread(target=_heartbeat, args=(work_dir, stop), daemon=True)
+    heartbeat.start()
+    def graceful_stop(_signum, _frame):
+        server.stopping = True
+        _notify("STOPPING=1")
+        threading.Thread(target=server.shutdown, daemon=True).start()
+    signal.signal(signal.SIGTERM, graceful_stop)
+    signal.signal(signal.SIGINT, graceful_stop)
+    _notify("READY=1")
     sys.stderr.write("media-render-worker: listening on loopback\n")
     try:
         server.serve_forever(poll_interval=0.5)
     finally:
         server.server_close()
+        stop.set()
+        heartbeat.join(timeout=2)
     return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="check dependencies and pinned local assets only")
+    lifecycle = parser.add_mutually_exclusive_group()
+    lifecycle.add_argument("--drain", action="store_true", help="persistently reject new jobs, allowing active render to finish")
+    lifecycle.add_argument("--resume", action="store_true", help="reopen admission after a planned drain")
+    lifecycle.add_argument("--status", action="store_true", help="report drain and active-render state without credentials")
     parser.add_argument("--listen-host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=WORKER_PORT)
     parser.add_argument("--work-dir", type=Path, default=Path(os.environ.get(TRANSPORT_POLICY["worker_work_dir_environment"], str(DEFAULT_WORK_DIR))))
     args = parser.parse_args()
+    if args.drain or args.resume or args.status:
+        value = lifecycle_status(args.work_dir) if args.status else set_draining(args.work_dir, args.drain)
+        print(json.dumps(value, sort_keys=True))
+        return 0
     if not (1 <= args.port <= 65535):
         parser.error("--port must be between 1 and 65535")
     if args.check:

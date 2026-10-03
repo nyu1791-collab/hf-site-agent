@@ -12,7 +12,8 @@
     "worker_work_dir_environment": "MEDIA_RENDER_WORK_DIR",
     "http_paths": [
       "/healthz",
-      "/v1/render"
+      "/v1/render",
+      "/v1/results/<request_id>"
     ],
     "shared_bearer_token_required": true,
     "shared_token_environment": "MEDIA_RENDER_SHARED_TOKEN",
@@ -74,6 +75,12 @@
     "failed_reserved_request_requires_new_manual_request_id_after_diagnosis": true,
     "health_reports_running_process_code_fingerprints": true,
     "disk_code_change_requires_worker_restart": true,
+    "coordinator_request_checkpoint_before_post": true,
+    "completed_response_retained_across_disconnect_and_restart": true,
+    "uncertain_render_recovers_by_authenticated_get_only": true,
+    "single_writer_kernel_file_lock": true,
+    "persistent_drain_rejects_new_jobs": true,
+    "graceful_stop_waits_for_active_render": true,
     "render_rechecks_running_revision_immediately_before_renderer_spawn": true,
     "worker_jobs_directory_owner_private_required": true
   },

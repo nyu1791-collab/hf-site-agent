@@ -4,7 +4,9 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=main
+WatchdogSec=60
 User=hf-render-worker
 Group=hf-render-worker
 WorkingDirectory=/opt/hf-site-agent
@@ -17,7 +19,10 @@ ExecStartPre=/usr/bin/mkdir -p /var/lib/hf-render-worker/home /var/lib/hf-render
 ExecStart=/usr/bin/python3 -m scripts.media_render_worker --listen-host 127.0.0.1 --port 18765 --work-dir /var/lib/hf-render-worker
 Restart=on-failure
 RestartSec=10
-TimeoutStopSec=30
+TimeoutStopSec=1830
+KillMode=control-group
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=100
 NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true
