@@ -55,6 +55,14 @@ CHUNK_BYTES = int(VERIFY_POLICY["chunk_bytes"])
 MAX_DURATION_SECONDS = float(PACKAGE_POLICY["max_duration_seconds"])
 MAX_SELECTED_IMAGES = int(PACKAGE_POLICY["max_selected_images"])
 _IMAGE_SUFFIXES = set(PACKAGE_POLICY["accepted_image_extensions"])
+_NON_PUBLIC_ATTRIBUTED_VISUAL_MODES = {
+    "OFFICIAL_ARTICLE_IMAGE",
+    "OFFICIAL_ANNOUNCEMENT_SCREENSHOT",
+    "SOURCE_BACKED_WEB_IMAGE",
+    "USER_PROVIDED_SOURCE_SCREENSHOT",
+    "GENERATED_WITH_PROVENANCE",
+}
+_ALLOWED_VISUAL_SOURCE_MODES = {"LICENSE_CLEARED"} | _NON_PUBLIC_ATTRIBUTED_VISUAL_MODES
 
 
 class RenderTransportError(RuntimeError):
@@ -256,7 +264,12 @@ def create_request_archive(
     duration_seconds: float,
     output_path: Path,
 ) -> dict[str, Any]:
-    """Pack only the narration, timing, presentation, and selected licensed images."""
+    """Pack narration, timing, presentation, and selected source-attributed images.
+
+    Non-license visual modes are permitted only because this transport protocol
+    is hard-gated to public_publish_enabled=false; attribution is provenance,
+    not a claim of publication authorization.
+    """
     if not re.fullmatch(r"[0-9a-f]{64}", str(source_id)):
         raise RenderTransportError("invalid source identity")
     if not math.isfinite(float(duration_seconds)) or not (0 < float(duration_seconds) <= MAX_DURATION_SECONDS):
@@ -300,37 +313,46 @@ def create_request_archive(
     portable_visuals = {str(item["id"]): item for item in portable_presentation["visuals"]}
     total_bytes = 0
     for asset in assets:
-        asset_id = str(asset.get("id") or "")
-        digest = str(asset.get("sha256") or "")
-        rights_basis = str(asset.get("rights_basis") or "").strip()
-        evidence_url = str(asset.get("rights_evidence_url") or "").strip()
-        credit = str(asset.get("credit") or "").strip()
-        if (asset.get("downloaded") is not True or asset.get("selected_for_render") is not True or
-                asset.get("rights_verified") is not True or not rights_basis or
-                not credit or not _https_url(evidence_url)):
-            raise RenderTransportError("remote render requires rights-cleared selected assets")
-        if (not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", asset_id) or len(rights_basis) > 2000 or
-                len(evidence_url) > 2048 or len(credit) > 500):
-            raise RenderTransportError("selected asset review metadata exceeds its allowed format")
-        if not re.fullmatch(r"[0-9a-f]{64}", digest) or digest in seen_hashes:
+        asset_id=str(asset.get("id") or "")
+        digest=str(asset.get("sha256") or "")
+        mode=str(asset.get("visual_source_mode") or ("LICENSE_CLEARED" if asset.get("rights_verified") is True else "")).upper()
+        rights_basis=str(asset.get("rights_basis") or "").strip()
+        evidence_url=str(asset.get("rights_evidence_url") or "").strip()
+        source_url=str(asset.get("source_url") or evidence_url or asset.get("url") or "").strip()
+        credit=str(asset.get("credit") or "").strip()
+        if (asset.get("downloaded") is not True or asset.get("selected_for_render") is not True
+                or mode not in _ALLOWED_VISUAL_SOURCE_MODES or not credit or not _https_url(source_url)):
+            raise RenderTransportError("remote render requires selected source-attributed assets")
+        if mode=="LICENSE_CLEARED" and (
+                asset.get("rights_verified") is not True or not rights_basis or not _https_url(evidence_url)):
+            raise RenderTransportError("LICENSE_CLEARED mode requires its declared rights evidence")
+        if (not re.fullmatch(r"[A-Za-z0-9_-]{1,128}",asset_id)
+                or len(rights_basis)>2000 or len(evidence_url)>2048
+                or len(source_url)>2048 or len(credit)>500):
+            raise RenderTransportError("selected asset provenance metadata exceeds its allowed format")
+        if not re.fullmatch(r"[0-9a-f]{64}",digest) or digest in seen_hashes:
             raise RenderTransportError("selected image hash is invalid or duplicated")
         seen_hashes.add(digest)
-        source_file = _regular_package_file(package, Path(str(asset.get("file") or "")))
+        source_file=_regular_package_file(package,Path(str(asset.get("file") or "")))
         if not source_file.is_relative_to(image_root) or source_file.suffix.lower() not in _IMAGE_SUFFIXES:
             raise RenderTransportError("selected image is outside the package image directory")
-        if source_file.stat().st_size > MAX_IMAGE_BYTES:
+        if source_file.stat().st_size>MAX_IMAGE_BYTES:
             raise RenderTransportError("selected image exceeds the worker transfer size limit")
-        if _sha256_file(source_file) != digest:
+        if _sha256_file(source_file)!=digest:
             raise RenderTransportError("selected image hash changed before transfer")
-        if asset_id not in by_id or str(by_id[asset_id].get("file") or "") != str(asset.get("file")):
+        if asset_id not in by_id or str(by_id[asset_id].get("file") or "")!=str(asset.get("file")):
             raise RenderTransportError("presentation references an unexpected selected image")
-        archive_name = f"images/{digest}{source_file.suffix.lower()}"
-        files[archive_name] = {"path": source_file}
-        portable_visuals[asset_id]["file"] = archive_name
+        archive_name=f"images/{digest}{source_file.suffix.lower()}"
+        files[archive_name]={"path":source_file}
+        portable_visuals[asset_id]["file"]=archive_name
         image_records.append({
-            "id": asset_id, "path": archive_name, "sha256": digest,
-            "rights_verified": True, "rights_basis": rights_basis,
-            "rights_evidence_url": evidence_url, "credit": credit,
+            "id":asset_id,"path":archive_name,"sha256":digest,
+            "visual_source_mode":mode,"source_url":source_url,"credit":credit,
+            "rights_verified":asset.get("rights_verified") is True,
+            "rights_basis":rights_basis,"rights_evidence_url":evidence_url,
+            "media_region_only":bool(asset.get("media_region_only",True)),
+            "whole_post_capture":bool(asset.get("whole_post_capture")),
+            "publication_authorization_inferred":False,
         })
 
     input_paths = {
