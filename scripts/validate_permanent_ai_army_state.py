@@ -53,7 +53,7 @@ def main() -> int:
     require(manifest.get("canonical_branch") == "ai-army/provider-v3", "wrong canonical branch")
     require(org.get("status") == "CANONICAL", "AI Army org chart is not canonical")
     require(supervisor.get("status") == "ACTIVE_SCOPED_EXCEPTION", "DeepSeek supervisor exception inactive")
-    require(jev.get("status") == "ACTIVE_SCOPED_PAID_EXCEPTION", "Jev fast decision exception inactive")
+    require(jev.get("status") == "ACTIVE_FREE_ONLY", "Jev free-only policy inactive")
     require(ci_policy.get("schema_version") == "ci-execution-policy-v2", "CI execution policy drift")
 
     guard = free_guard.get("default_runtime") or {}
@@ -68,11 +68,13 @@ def main() -> int:
     require(paid_routing.get("paid_candidate_may_be_selected_as_primary_after_gate") is True, "eligible paid model cannot serve as primary")
     permissions = multi.get("security_and_permissions") or {}
     paid_exceptions = permissions.get("preauthorized_paid_execution_exceptions") or []
+    require(not any(isinstance(item, dict) and "openrouter" in str(item.get("provider") or "").lower() for item in paid_exceptions), "OpenRouter remains preauthorized for paid execution")
     require(any(isinstance(item, dict) and item.get("policy_file") == "config/paid_agent_route_eligibility_policy.json" for item in paid_exceptions), "paid API route preauthorization missing from multi-agent permissions")
     manifest_paid_routes = manifest.get("preauthorized_paid_exceptions") or []
     require(any(isinstance(item, dict) and item.get("policy") == "config/paid_agent_route_eligibility_policy.json" for item in manifest_paid_routes), "paid API route preauthorization missing from permanent manifest")
     require(paid_routing.get("automatic_paid_fallback") is False, "automatic paid fallback enabled")
     require(paid_routing.get("automatic_paid_sibling_substitution") is False, "paid sibling substitution enabled")
+    require("openrouter" in set((paid_route.get("eligibility") or {}).get("excluded_provider_ids") or []), "OpenRouter is not excluded from general paid routes")
     require(precedence.get("schema_version") == "project-rule-precedence-v1", "rule precedence policy schema drift")
     require(precedence.get("status") == "CANONICAL", "rule precedence policy is not canonical")
     explicit_boundaries = precedence.get("current_explicit_boundaries") or {}
