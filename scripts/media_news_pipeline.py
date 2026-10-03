@@ -2048,7 +2048,14 @@ def _render_minimal_local_e2e(package: Path, assets: list[Mapping[str, Any]],
 def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
                            min_seconds: int, max_seconds: int,
                            worker_url: str | None = None) -> dict[str, Any]:
-    prepared=_process_next(conn,workspace,min_seconds=min_seconds,max_seconds=max_seconds)
+    prepared={}
+    skipped_sources=[]
+    for _attempt in range(8):
+        prepared=_process_next(conn,workspace,min_seconds=min_seconds,max_seconds=max_seconds)
+        if prepared.get("status")=="ARTICLE_SOURCE_BLOCKED":
+            skipped_sources.append(str(prepared.get("source_id") or ""))
+            continue
+        break
     source_id=str(prepared.get("source_id") or "")
     deterministic_script_used=False
     if prepared.get("status")=="BLOCKED_PAID_MODEL_PREFLIGHT" and source_id:
@@ -2111,6 +2118,7 @@ def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
         "asset_evidence":assets,
         "render":rendered,
         "deterministic_script_fallback_used":deterministic_script_used,
+        "skipped_unusable_source_count":len(skipped_sources),
         "final_mp4":str(package/"final.mp4"),
         "public_publish_enabled":False,
         "automatic_retry":False,
