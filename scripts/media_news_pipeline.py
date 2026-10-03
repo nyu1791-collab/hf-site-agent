@@ -37,6 +37,7 @@ from typing import Any, Mapping
 from scripts.durable_media_runner import connect
 from scripts.media_render_transport import dispatch_remote_render, verify_saved_remote_render, RenderTransportError
 from scripts.media_source_ingress import init_inbox, load_policy
+from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
 
 ROOT = Path(__file__).resolve().parents[1]
 PIPELINE_POLICY = json.loads((ROOT / "config/media_news_pipeline_policy.json").read_text(encoding="utf-8"))
@@ -767,8 +768,10 @@ def _post_deepseek_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, A
 
 def _post_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, Any]:
     model_id=str(payload.get("model") or "")
-    if model_id != "openrouter/free" and not model_id.endswith(":free"):
-        raise ValueError("OpenRouter paid and unverified model IDs are disabled")
+    try:
+        assert_openrouter_free_model(model_id, api_key=api_key)
+    except OpenRouterFreeGateError as exc:
+        raise PaidMediaPreflightUnavailable(exc.reason) from None
     request = urllib.request.Request(OPENROUTER_CHAT_URL,
         data=json.dumps(payload, ensure_ascii=False).encode(),
         headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json",
