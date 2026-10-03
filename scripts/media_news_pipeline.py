@@ -1439,8 +1439,9 @@ def _render_package(args, conn: sqlite3.Connection) -> dict[str, Any]:
         raise RuntimeError("render blocked: timing data must cover every scene")
     render_timing_path = package / "render-timing.json"
     _write_text_atomic(render_timing_path, json.dumps(timing, ensure_ascii=False, indent=2) + "\n")
-    presentation = {"title":mission["title"], "source_credit":"Official article images; see per-image credits",
-        "source_url":mission["source_url"], "voice_credit":voice_credit, "media_region_only":True, "visuals":visuals}
+    presentation = {"title":mission["title"], "source_credit":"Source-attributed visuals; see per-image credits",
+        "source_url":mission["source_url"], "voice_credit":voice_credit,
+        "media_region_only":all(item["media_region_only"] for item in visuals), "visuals":visuals}
     presentation_path = package / "presentation.json"
     _write_text_atomic(presentation_path, json.dumps(presentation, ensure_ascii=False, indent=2) + "\n")
     audio = package / "audio.wav"
