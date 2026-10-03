@@ -32,8 +32,10 @@ def operation_lock():
     lock_dir = Path.home() / ".cache" / "hf-site-agent"
     lock_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     info = lock_dir.lstat()
-    if not __import__("stat").S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+    if not __import__("stat").S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
         raise RuntimeError("temporary renderer operation lock directory is not private")
+    if info.st_mode & 0o077:
+        os.chmod(lock_dir, 0o700)
     lock_path = lock_dir / "temporary-render-operation.lock"
     fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:
