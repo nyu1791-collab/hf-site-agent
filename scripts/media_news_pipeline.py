@@ -92,6 +92,10 @@ class ArticleSourceBlocked(RuntimeError):
 class OpenRouterRequestError(RuntimeError):
     """A non-retryable HTTP error returned by the OpenRouter completion API."""
 
+    def __init__(self, message: str, *, model_id: str = ""):
+        super().__init__(message)
+        self.model_id = str(model_id)[:160]
+
 
 class OpenRouterRequestUnknown(RuntimeError):
     """The OpenRouter request may have completed; automatic resend is forbidden."""
@@ -654,7 +658,7 @@ def _resolve_free_script_models(catalog: Any, planner_fn=None, *, limit: int = 2
     if planner_fn is None:
         from scripts.openrouter_free_efficiency_router import plan_task
         planner_fn=plan_task
-    plan=planner_fn({"task_class":"GENERAL","long_context":True,"shared_mutable_state":False,"single_writer_only":True},
+    plan=planner_fn({"task_class":"GENERAL","long_context":False,"shared_mutable_state":False,"single_writer_only":True},
         catalog,free_requests_today=0)
     ids=[]
     if plan.get("status")=="READY" and plan.get("provider_allow_fallbacks") is False:
@@ -1098,7 +1102,8 @@ def _post_chat(payload: Mapping[str, Any], api_key: str) -> dict[str, Any]:
         else:
             reason = "UPSTREAM_ERROR"
         # Never route to a paid OpenRouter model; the caller may select a separately verified free model.
-        raise OpenRouterRequestError(f"OpenRouter request failed with HTTP {exc.code} ({reason})") from None
+        raise OpenRouterRequestError(
+            f"OpenRouter request failed with HTTP {exc.code} ({reason})",model_id=model_id) from None
     except (TimeoutError, OSError, urllib.error.URLError, json.JSONDecodeError):
         # Once the POST starts, transport failure cannot prove whether inference ran.
         raise OpenRouterRequestUnknown(
@@ -1868,7 +1873,7 @@ def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqli
             # Stop spending attempts on other sources after a provider-wide auth,
             # budget, rate-limit, or upstream outage. Keep the current row blocked;
             # never replay its paid request automatically.
-            provider_paused = http_status in {401, 402, 403, 429} or http_status >= 500
+            provider_paused = http_status in {401, 402, 403, 404, 429} or http_status >= 500
             if provider_paused:
                 _pause_paid_provider(conn, http_status, provider_reason)
             set_source_execution_state(conn,row["source_id"],"BLOCKED_PROVIDER" if provider_paused else "RETRYABLE")
@@ -1877,6 +1882,7 @@ def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqli
             return {"status":"BLOCKED_PAID_PROVIDER_CIRCUIT" if provider_paused else "SCRIPT_BLOCKED_OPENROUTER_HTTP_ERROR",
                 "source_id":row["source_id"],
                 "http_status":http_status,"provider_reason":provider_reason,
+                "model_id":str(getattr(exc,"model_id","") or "")[:160],
                 "request_sent":True,"automatic_retry":False,"will_try_next_source":not provider_paused,
                 "queue_preserved":True,"public_publish_enabled":False}
         except PaidMediaPreflightUnavailable as exc:
