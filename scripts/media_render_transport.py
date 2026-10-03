@@ -548,22 +548,37 @@ def _verify_video(path: Path, expected_duration: float) -> dict[str, Any]:
         raise RenderTransportError("rendered video is missing or invalid")
     try:
         result = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type", "-show_entries",
+            ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height", "-show_entries",
              "format=duration,size", "-of", "json", str(path)],
             check=True, capture_output=True, text=True, timeout=30,
         )
         value = json.loads(result.stdout)
-        streams = [item.get("codec_type") for item in value.get("streams", [])]
+        stream_rows = [item for item in value.get("streams", []) if isinstance(item, Mapping)]
+        streams = [item.get("codec_type") for item in stream_rows]
+        video_rows = [item for item in stream_rows if item.get("codec_type") == "video"]
         duration = float(value["format"]["duration"])
+        try:
+            width = max(int(item.get("width") or 0) for item in video_rows)
+            height = max(int(item.get("height") or 0) for item in video_rows)
+        except (TypeError, ValueError):
+            width = height = 0
         if not {"video", "audio"}.issubset(set(streams)) or not math.isfinite(duration) or duration <= 0:
             raise RenderTransportError("render output is missing audio or video")
+        if width <= 0 or height <= 0:
+            raise RenderTransportError("render output has invalid video dimensions")
         if abs(duration - expected_duration) > max(2.0, expected_duration * 0.02):
             raise RenderTransportError("render output duration does not match the approved narration")
-        return {"duration_seconds": duration, "streams": sorted(set(streams)), "bytes": path.stat().st_size}
+        return {"duration_seconds": duration, "streams": sorted(set(streams)), "bytes": path.stat().st_size,
+                "width": width, "height": height}
     except (OSError, subprocess.SubprocessError, ValueError, KeyError, json.JSONDecodeError) as exc:
         if isinstance(exc, RenderTransportError):
             raise
         raise RenderTransportError("ffprobe rejected the remote render result") from exc
+
+
+def verify_local_render(path: Path, expected_duration: float) -> dict[str, Any]:
+    """Verify a local final.mp4 with the same ffprobe contract as remote renders."""
+    return _verify_video(path, expected_duration)
 
 
 def verify_saved_remote_render(
