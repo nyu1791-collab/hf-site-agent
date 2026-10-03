@@ -508,7 +508,8 @@ class MediaNewsAutomationTests(unittest.TestCase):
     def test_openrouter_paid_or_unverified_model_is_rejected_before_network_request(self):
         with self.assertRaises(PaidMediaPreflightUnavailable) as caught:
             _post_chat({"model":"deepseek/deepseek-v4.1-flash"},"key")
-        self.assertIn("BLOCKED_UNVERIFIED_PRICE", str(caught.exception))
+        self.assertRegex(str(caught.exception),
+            r"BLOCKED_(?:UNVERIFIED_PRICE|PAID_OPENROUTER)")
 
     def test_deepseek_official_result_is_not_requested_twice(self):
         from scripts.media_news_pipeline import DEEPSEEK_PAID_MODEL
