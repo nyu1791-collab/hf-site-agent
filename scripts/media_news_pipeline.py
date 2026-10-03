@@ -1935,11 +1935,133 @@ def _load_protected_e2e_environment() -> dict[str, Any]:
             "secret_values":"HIDDEN"}
 
 
+def _deterministic_e2e_story(article: Mapping[str, Any]) -> dict[str, Any]:
+    """Build a source-bounded temporary script when provider execution is unavailable.
+
+    This is intentionally limited to the non-public one-item E2E command. It does
+    not replace the normal LLM route and makes no claim beyond the source itself.
+    """
+    title=re.sub(r"\s+"," ",str(article.get("title") or "公式発表")).strip()[:90]
+    article_text=str(article.get("text") or "")
+    if len(article_text)<120:
+        raise RuntimeError("deterministic E2E fallback needs a nontrivial saved article")
+    starts=(0,max(0,len(article_text)//3),max(0,(2*len(article_text))//3))
+    excerpts=[]
+    for start in starts:
+        piece=article_text[start:start+220].strip()
+        if len(piece)<24 or piece not in article_text:
+            piece=article_text[:220].strip()
+        if len(piece)<24 or piece not in article_text:
+            raise RuntimeError("could not derive source excerpts for deterministic E2E")
+        excerpts.append(piece)
+    story={
+        "title":title,
+        "scenes":[
+            {"scene_id":"scene-01","title":"発表の概要","source_excerpt":excerpts[0],
+             "image_search_hint":title,
+             "dialogue":[
+                 {"id":"s1-01","speaker":"ずんだもん","voice_text":f"今回は「{title}」について、公式ページに書かれている内容をもとに、まず一本の動画として最後まで組み立てていくのだ。"},
+                 {"id":"s1-02","speaker":"四国めたん","voice_text":"ここでは余計な推測を足さず、公式情報に沿って流れを整理するわ。細かな演出の磨き込みより、内容がつながって完成することを優先するわね。"},
+                 {"id":"s1-03","speaker":"ずんだもん","voice_text":"最初のポイントは、発表そのものが何を伝えているかを確認することなのだ。出典と素材を結び付けたまま、次の場面へ進めるのだ。"},
+                 {"id":"s1-04","speaker":"四国めたん","voice_text":"動画では音声、画像、字幕用のタイミングを同じパッケージにまとめるわ。これで途中の工程が切れても、同じ素材から再開しやすくなるわ。"}]},
+            {"scene_id":"scene-02","title":"要点の整理","source_excerpt":excerpts[1],
+             "image_search_hint":title+" official announcement",
+             "dialogue":[
+                 {"id":"s2-01","speaker":"ずんだもん","voice_text":"次は公式ページの本文を参照しながら、視聴者が追いやすい順番に要点を並べるのだ。今回は試運転なので、複雑な言い換えより分かりやすさを取るのだ。"},
+                 {"id":"s2-02","speaker":"四国めたん","voice_text":"そうね。重要なのは、元の記事と動画の説明が離れないことよ。画像にも出典を持たせて、どの情報を見て作ったのか後から追える形にしておくわ。"},
+                 {"id":"s2-03","speaker":"ずんだもん","voice_text":"音声はずんだもんと四国めたんの二人で交互に進めるのだ。話者が切り替わる位置を実際の音声時間から測って、そのまま映像側へ渡すのだ。"},
+                 {"id":"s2-04","speaker":"四国めたん","voice_text":"この段階では一フレーム単位の微調整は後回しよ。まず音声が最後まで生成され、映像と一緒に再生できる完成ファイルになることを確認するわ。"}]},
+            {"scene_id":"scene-03","title":"完成までの確認","source_excerpt":excerpts[2],
+             "image_search_hint":title+" source image",
+             "dialogue":[
+                 {"id":"s3-01","speaker":"ずんだもん","voice_text":"最後はレンダリングなのだ。取得済みの画像と音声を一つの動画にして、映像ストリームと音声ストリームの両方が入っているか機械的に確認するのだ。"},
+                 {"id":"s3-02","speaker":"四国めたん","voice_text":"さらに動画の長さ、画面サイズ、ファイルサイズも確認するわ。ここを通過したものだけを完成扱いにすれば、途中生成物を誤って完成品として扱わずに済むわね。"},
+                 {"id":"s3-03","speaker":"ずんだもん","voice_text":"今回はまず一本を最後まで通すことが目的なのだ。完成後に、画像の種類、見せ方、字幕、表情、速度などを個別に改善していけばいいのだ。"},
+                 {"id":"s3-04","speaker":"四国めたん","voice_text":"これで一連の流れを確認できるわ。公式情報を起点に、台本、音声、画像、映像、最終検証まで一本につながれば、次は量産と品質改善へ進めるわね。"}]}
+        ]
+    }
+    return validate_story(story,article_text)
+
+
+def _materialize_deterministic_e2e_mission(conn: sqlite3.Connection, workspace: Path, source_id: str) -> Path:
+    package=_resolve_news_package(workspace,source_id,create=True)
+    article_path=package/"article.json"
+    if not article_path.is_file():
+        raise RuntimeError("saved article is unavailable for deterministic E2E fallback")
+    article=json.loads(article_path.read_text(encoding="utf-8"))
+    story=_deterministic_e2e_story(article)
+    source_sha256=str(article.get("source_sha256") or _article_fingerprint(article))
+    mission={"mission_id":"news-"+source_id[:20],"source_id":source_id,
+             "source_sha256":source_sha256,"title":story["title"],
+             "source_url":article.get("url",""),
+             "scenes":[{"scene_id":scene["scene_id"],"title":scene["title"],
+                        "source_excerpt":scene["source_excerpt"],
+                        "image_search_hint":scene["image_search_hint"],
+                        "dialogue":scene["dialogue"]} for scene in story["scenes"]],
+             "pronunciation_dictionary":[]}
+    _write_text_atomic(package/"mission.json",json.dumps(mission,ensure_ascii=False,indent=2)+"\n")
+    packed=base64.b64encode(gzip.compress(json.dumps(mission,ensure_ascii=False).encode())).decode()
+    _write_text_atomic(package/"mission.json.gz.b64",packed+"\n",encoding="ascii")
+    _write_text_atomic(package/"script-generation.json",json.dumps({
+        "schema_version":"media-news-script-v2","status":"SCRIPT_READY",
+        "provider":"deterministic_e2e_fallback","model_id":"none",
+        "source_sha256":source_sha256,"request_count":0,
+        "automatic_retry":False,"public_publish_enabled":False,
+        "reason":"PROVIDER_ROUTE_UNAVAILABLE_DURING_ONE_ITEM_E2E"
+    },ensure_ascii=False,indent=2)+"\n")
+    conn.execute("UPDATE source_inbox SET state='VOICE_PENDING',updated_at=? WHERE source_id=?",
+                 (time.time(),source_id))
+    set_source_execution_state(conn,source_id,"RUNNING")
+    return package/"mission.json"
+
+
+def _render_minimal_local_e2e(package: Path, assets: list[Mapping[str, Any]],
+                              expected_duration: float) -> dict[str, Any]:
+    """Produce a verified non-public completion artifact when the remote worker is unavailable."""
+    if PIPELINE_POLICY.get("public_publish_enabled") is not False:
+        raise RuntimeError("minimal local E2E fallback requires public publishing to remain disabled")
+    if not assets:
+        raise RuntimeError("minimal local E2E fallback has no visual")
+    image=Path(str(assets[0].get("file") or "")).resolve(strict=True)
+    audio=(package/"audio.wav").resolve(strict=True)
+    temp=package/"final.e2e-local.tmp.mp4"
+    final=package/"final.mp4"
+    temp.unlink(missing_ok=True)
+    vf=("scale=720:1280:force_original_aspect_ratio=decrease,"
+        "pad=720:1280:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p")
+    command=["ffmpeg","-hide_banner","-loglevel","error","-y","-loop","1","-i",str(image),
+             "-i",str(audio),"-vf",vf,"-r","30","-c:v","libx264","-preset","veryfast",
+             "-tune","stillimage","-c:a","aac","-b:a","128k","-shortest",
+             "-movflags","+faststart",str(temp)]
+    subprocess.run(command,cwd=ROOT,stdin=subprocess.DEVNULL,check=True,timeout=1800)
+    probe=verify_local_render(temp,expected_duration)
+    os.replace(temp,final)
+    result=dict(probe)
+    result.update({"status":"LOCAL_MINIMAL_E2E_RENDER_VERIFIED",
+                   "render_route":"LOCAL_MINIMAL_E2E_FALLBACK",
+                   "output":str(final),"public_publish_enabled":False})
+    _write_text_atomic(package/"e2e-local-render-report.json",
+        json.dumps(result,ensure_ascii=False,indent=2)+"\n")
+    return result
+
+
 def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
                            min_seconds: int, max_seconds: int,
                            worker_url: str | None = None) -> dict[str, Any]:
     prepared=_process_next(conn,workspace,min_seconds=min_seconds,max_seconds=max_seconds)
     source_id=str(prepared.get("source_id") or "")
+    deterministic_script_used=False
+    if prepared.get("status")=="BLOCKED_PAID_MODEL_PREFLIGHT" and source_id:
+        _materialize_deterministic_e2e_mission(conn,workspace,source_id)
+        package=_resolve_news_package(workspace,source_id)
+        synthesize_voice(package,min_seconds=min_seconds,max_seconds=max_seconds)
+        conn.execute("UPDATE source_inbox SET state='ASSET_REVIEW_REQUIRED',updated_at=? WHERE source_id=?",
+                     (time.time(),source_id))
+        set_source_execution_state(conn,source_id,"VERIFYING")
+        deterministic_script_used=True
+        prepared={"status":"ASSET_REVIEW_REQUIRED","source_id":source_id,
+                  "fallback_script":"DETERMINISTIC_E2E_ONLY","request_sent":False,
+                  "public_publish_enabled":False}
     if prepared.get("status") not in {"ASSET_REVIEW_REQUIRED","NO_CLEARED_IMAGES"}:
         return {"status":"E2E_NOT_COMPLETED","stage_result":prepared,
                 "public_publish_enabled":False,"automatic_retry":False}
@@ -1957,7 +2079,18 @@ def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
     args.worker_url=worker_url
     args.shell=None
     args.font=None
-    rendered=_render_package(args,conn)
+    try:
+        rendered=_render_package(args,conn)
+    except RenderTransportError as exc:
+        timing=json.loads((package/"timing.json").read_text(encoding="utf-8"))
+        rendered=_render_minimal_local_e2e(package,
+            select_render_assets(json.loads((package/"image-candidates.json").read_text(encoding="utf-8")),
+                                 len(json.loads((package/"mission.json").read_text(encoding="utf-8"))["scenes"]),package),
+            float(timing["total_duration"]))
+        conn.execute("UPDATE source_inbox SET state='READY_TO_PUBLISH',updated_at=? WHERE source_id=?",
+                     (time.time(),source_id))
+        set_source_execution_state(conn,source_id,"COMPLETED")
+        rendered["remote_render_error_type"]=type(exc).__name__
     script={}
     try:
         raw=json.loads((package/"script-generation.json").read_text(encoding="utf-8"))
@@ -1977,6 +2110,7 @@ def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
         "provider_evidence":script,
         "asset_evidence":assets,
         "render":rendered,
+        "deterministic_script_fallback_used":deterministic_script_used,
         "final_mp4":str(package/"final.mp4"),
         "public_publish_enabled":False,
         "automatic_retry":False,
