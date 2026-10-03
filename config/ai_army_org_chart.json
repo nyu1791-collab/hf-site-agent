@@ -46,14 +46,17 @@
       "max_records_per_request": 20,
       "max_parallel_batches": 5,
       "quota_math_location": "PYTHON_ONLY",
-      "cost_priority": "SECONDARY_TO_VERIFIED_ROUTE_CORRECTNESS_DECISION_STABILITY_AND_TIME_TO_VERIFIED_COMPLETION_WITH_EMERGENCY_CEILING_ONLY",
+      "cost_priority": "ZERO_PRICE_ADMISSION_REQUIRED_BEFORE_VERIFIED_ROUTE_CORRECTNESS_AND_DECISION_STABILITY",
       "routing_priority": [
         "VERIFIED_ROUTE_CORRECTNESS",
         "DECISION_STABILITY_AND_EVIDENCE_SUFFICIENCY",
         "TIME_TO_VERIFIED_COMPLETION",
         "COORDINATION_EFFICIENCY"
       ],
-      "thin_evidence_keeps_jev_decision_surface": true
+      "thin_evidence_keeps_jev_decision_surface": true,
+      "openrouter_free_only": true,
+      "paid_execution_authorized": false,
+      "exact_zero_price_evidence_required": true
     },
     "depth_1": {
       "role": "EXECUTIVE_SUPERVISOR",
