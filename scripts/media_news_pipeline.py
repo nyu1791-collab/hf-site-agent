@@ -38,6 +38,7 @@ from scripts.durable_media_runner import connect
 from scripts.media_render_transport import dispatch_remote_render, verify_saved_remote_render, RenderTransportError
 from scripts.media_source_ingress import init_inbox, load_policy
 from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model, decide_openrouter_free_model
+from scripts.provider_route_matrix import approved_fallback
 
 ROOT = Path(__file__).resolve().parents[1]
 PIPELINE_POLICY = json.loads((ROOT / "config/media_news_pipeline_policy.json").read_text(encoding="utf-8"))
@@ -623,6 +624,13 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                         time.sleep(1.0+random.uniform(0.0,0.5))
         except Exception as exc:
             free_error=type(exc).__name__
+    fallback=approved_fallback("RSS_NEWS_SCRIPT")
+    if (
+        fallback.get("execution_allowed") is not True
+        or fallback.get("fallback_provider")!="deepseek_official"
+        or fallback.get("fallback_model")!=DEEPSEEK_PAID_MODEL
+    ):
+        raise PaidMediaPreflightUnavailable("BLOCKED_NO_APPROVED_FALLBACK")
     deepseek_key=os.environ.get("DEEPSEEK_API_KEY","")
     if not deepseek_key:
         raise PaidMediaPreflightUnavailable("DEEPSEEK_API_KEY is not configured; free OpenRouter route unavailable")
