@@ -82,6 +82,14 @@ def evaluate_paid_candidate(
     if not isinstance(model_id, str) or not model_id.strip() or not isinstance(provider_id, str) or not provider_id.strip():
         reasons.append("EXACT_PROVIDER_MODEL_REQUIRED")
 
+    excluded_providers = {
+        str(item).strip().lower()
+        for item in eligibility.get("excluded_provider_ids", [])
+        if str(item).strip()
+    }
+    if isinstance(provider_id, str) and provider_id.strip().lower() in excluded_providers:
+        reasons.append("PROVIDER_EXCLUDED_FROM_PAID_ROUTE")
+
     expected_baseline = baseline_policy.get("model_id")
     if baseline.get("model_id") != expected_baseline:
         reasons.append("BASELINE_MODEL_MISMATCH")
