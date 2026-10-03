@@ -1420,7 +1420,10 @@ def _render_package(args, conn: sqlite3.Connection) -> dict[str, Any]:
     timing = json.loads((package / "timing.json").read_text(encoding="utf-8"))
     voice_credit = ", ".join(timing.get("voicevox_credit", ["VOICEVOX:ずんだもん", "VOICEVOX:四国めたん"]))
     visuals = [{"id":asset["id"], "file":asset["file"], "title":asset.get("alt") or mission["title"],
-        "source_credit":asset["credit"], "source_url":asset["url"], "media_region_only":True} for asset in assets]
+        "source_credit":asset["credit"], "source_url":asset.get("source_url") or asset["url"],
+        "visual_source_mode":asset.get("visual_source_mode","LICENSE_CLEARED"),
+        "whole_post_capture":bool(asset.get("whole_post_capture")),
+        "media_region_only":bool(asset.get("media_region_only",True))} for asset in assets]
     scene_indices = {scene["scene_id"]:i for i,scene in enumerate(mission["scenes"])}
     if len(scene_indices) != len(mission["scenes"]):
         raise RuntimeError("render blocked: duplicate scene ids")
