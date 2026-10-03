@@ -1,0 +1,11 @@
+render_longform=true
+mission=20260915-ai-slowdown-longform-v1
+variant=speaker_color_static_photo_first_person_safe_v5
+target_duration_seconds=360-720
+voice_checkpoint_run_id=34982814053
+voice_speed_scale=1.20
+speaker_colored_caption_text=true
+photo_first=true
+person_photo_face_safe_crop=true
+generated_images=0
+public_publish=false

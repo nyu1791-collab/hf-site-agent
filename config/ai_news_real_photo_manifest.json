@@ -1,0 +1,82 @@
+{
+  "schema_version": "real-photo-rights-manifest-v1",
+  "project": "60sec-ai-news-openai-safety-2026-09-11",
+  "visual_policy": {
+    "generated_images": false,
+    "real_photos_only_for_external_cutaways": true,
+    "unknown_rights_blocked": true,
+    "news_agency_photos_without_reuse_license_blocked": true,
+    "watermarked_assets_blocked": true,
+    "paid_stock_fallback": false,
+    "publish_requires_attribution": true
+  },
+  "assets": [
+    {
+      "asset_id": "sam-altman-ted-2025",
+      "subject": "Sam Altman speaking at TED",
+      "source": "WIKIMEDIA_COMMONS",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Sam_Altman_speaking_at_TED.jpg",
+      "author": "Steve Jurvetson",
+      "license": "CC-BY-2.0",
+      "license_url": "https://creativecommons.org/licenses/by/2.0/",
+      "verified_date": "2026-09-11",
+      "recommended_scenes": ["HOOK", "CEO_CONTEXT", "PERSON_REFERENCE"],
+      "credit": "Photo: Steve Jurvetson / Wikimedia Commons / CC BY 2.0"
+    },
+    {
+      "asset_id": "sam-altman-november-2022",
+      "subject": "Sam Altman",
+      "source": "WIKIMEDIA_COMMONS",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Sam_Altman_November_2022.jpg",
+      "author": "Village Global",
+      "license": "CC-BY-2.0",
+      "license_url": "https://creativecommons.org/licenses/by/2.0/",
+      "verified_date": "2026-09-11",
+      "recommended_scenes": ["SECONDARY_CUTAWAY", "PERSON_REFERENCE"],
+      "credit": "Photo: Village Global / Wikimedia Commons / CC BY 2.0"
+    },
+    {
+      "asset_id": "openai-1515-third-street",
+      "subject": "OpenAI headquarters building at 1515 Third Street",
+      "source": "WIKIMEDIA_COMMONS",
+      "source_page": "https://commons.wikimedia.org/wiki/File:1515_Third_Street.jpg",
+      "author": "Coolcaesar",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "verified_date": "2026-09-11",
+      "recommended_scenes": ["COMPANY_CONTEXT", "LOCATION_CUTAWAY"],
+      "credit": "Photo: Coolcaesar / Wikimedia Commons / CC BY 4.0"
+    },
+    {
+      "asset_id": "datacenter-server-racks-22370909788",
+      "subject": "Data center server racks",
+      "source": "WIKIMEDIA_COMMONS",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Datacenter_Server_Racks_(22370909788).jpg",
+      "author": "Carl Lender",
+      "license": "CC-BY-2.0",
+      "license_url": "https://creativecommons.org/licenses/by/2.0/",
+      "verified_date": "2026-09-11",
+      "recommended_scenes": ["AI_INFRASTRUCTURE", "COMPUTE_CONTEXT", "BACKGROUND_CUTAWAY"],
+      "credit": "Photo: Carl Lender / Wikimedia Commons / CC BY 2.0"
+    },
+    {
+      "asset_id": "csiro-server-racks-2042",
+      "subject": "Computer servers in a server rack",
+      "source": "WIKIMEDIA_COMMONS",
+      "source_page": "https://commons.wikimedia.org/wiki/File:CSIRO_ScienceImage_2042_A_row_of_computer_servers_in_a_server_rack.jpg",
+      "author": "CSIRO",
+      "license": "CC-BY-3.0",
+      "license_url": "https://creativecommons.org/licenses/by/3.0/",
+      "verified_date": "2026-09-11",
+      "recommended_scenes": ["AI_INFRASTRUCTURE", "COMPUTE_CONTEXT", "SECONDARY_CUTAWAY"],
+      "credit": "Photo: CSIRO / Wikimedia Commons / CC BY 3.0"
+    }
+  ],
+  "edit_sequence": [
+    "sam-altman-ted-2025",
+    "openai-1515-third-street",
+    "datacenter-server-racks-22370909788",
+    "sam-altman-november-2022",
+    "csiro-server-racks-2042"
+  ]
+}

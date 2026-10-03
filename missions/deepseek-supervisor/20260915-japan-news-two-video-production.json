@@ -1,0 +1,65 @@
+{
+  "mission_id": "20260915-japan-news-two-video-production",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Work with ChatGPT as the compact research-and-script pair for two Japanese short-form news videos dated 2026-09-15. Use only the supplied fresh evidence to audit facts, strengthen hooks without sensationalism, draft concise Zundamon/Shikoku Metan dialogue, and package production guidance. Do not over-fragment the work into many agents. Topic A is Japan's cabinet-approved outline to cut the food consumption-tax rate from 8% to 1% for two years from April 2027 with payouts equivalent to the remaining 1%, while funding details remain unspecified. Topic B is Chubu Electric's Hamaoka nuclear restart data scandal, leadership resignations and withdrawal of restart applications for reactors 3 and 4. ChatGPT retains final factual and editorial adjudication before rendering.",
+  "shared_evidence": [
+    {
+      "source": "Reuters 2026-09-15 — Japan to sidestep funding in tax cut outline, keep fiscal concerns alive",
+      "summary": "Japan's government finalized a cabinet-approved outline to reduce the food consumption-tax rate from 8% to 1% for two years starting April 2027 and supplement it with payouts equivalent to the remaining 1%. The outline does not yet specify how to fund the roughly 5 trillion yen annual revenue shortfall. Related legislation is expected to be submitted to parliament. Finance Minister Satsuki Katayama said the government intends not to rely on deficit-financing bonds.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-15T18:21:00+09:00"
+    },
+    {
+      "source": "Jiji/Nippon.com 2026-09-11 — Japan Ruling LDP OKs Food Consumption Tax Cut Plan",
+      "summary": "The ruling LDP approved a package to cut the food consumption-tax rate from 8% to 1% for two years from April 2027 and introduce an income-linked benefit program. This corroborates the policy structure while showing that legislation and implementation steps remain ahead.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-15T18:21:00+09:00"
+    },
+    {
+      "source": "Reuters 2026-09-14 — Chubu says its president to resign, nuclear restart application withdrawn over data scandal",
+      "summary": "Chubu Electric said its president and chairman will resign after a third-party committee found the company cherry-picked seismic-wave data related to Hamaoka reactors 3 and 4 and failed to act appropriately despite internal reports of irregularities. The company will withdraw the current restart applications and plans to reapply only after organizational and process reforms. Irregular submissions were reported as dating back to 2012.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-15T18:21:00+09:00"
+    },
+    {
+      "source": "AP 2026-09-14 — Japanese utility execs resign over falsified quake safety data for 2 nuclear reactors",
+      "summary": "AP independently reports the resignations, manipulated earthquake-safety data and withdrawal of restart applications. It notes the Nuclear Regulation Authority had suspended screening and that the issue occurs in the broader post-Fukushima restart context.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-15T18:21:00+09:00"
+    }
+  ],
+  "lanes": [
+    {
+      "id": "fact_and_hook_audit",
+      "objective": "Audit both topics for precise confirmed facts, unresolved points, wording traps and the strongest accurate 1-3 second hooks for a Japanese audience. Explicitly distinguish cabinet outline from enacted law and distinguish data manipulation/cherry-picking from unsupported broader claims about all plant safety data."
+    },
+    {
+      "id": "script_draft",
+      "objective": "Draft two distinct 60-90 second Japanese Zundamon/Shikoku Metan dialogue scripts. Use hook -> why it matters -> early evidence -> question/contrast -> explanation -> payoff. Keep caption text naturally segmented by meaning, preserve proper nouns, and avoid excessive fragmentation. Include emotion/visual-beat cues for facial expression and speaker emphasis."
+    },
+    {
+      "id": "visual_and_retention",
+      "objective": "Design bright, readable vertical visual beats for both videos using evidence cards, simple timelines, tax-number graphics and seismic-data diagrams. Keep Zundamon and Metan visually similar in baseline size, enlarge the active speaker smoothly, vary eyes/brows/pose by meaning, and avoid dark heavy panels, constant zoom, SFX-on-every-cut or motion overload."
+    },
+    {
+      "id": "final_editorial_redteam",
+      "objective": "Red-team the two proposed videos for factual overclaim, misleading causal framing, weak retention, awkward Japanese caption boundaries, health/safety-style overstatement, political advocacy, and unnecessary production complexity. Return concrete corrections and a compact final production packet rather than creating more sub-agents."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 6,
+  "max_output_tokens_per_lane": 4096,
+  "max_output_tokens_synthesis": 8192,
+  "max_estimated_cost_usd": 0.50,
+  "known_estimated_daily_spend_before_mission_usd": 0.0,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}

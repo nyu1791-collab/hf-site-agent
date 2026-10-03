@@ -1,0 +1,197 @@
+{
+  "schema_version": "current-news-short-v1",
+  "mission_id": "20260922-mars-jezero-water-history-short-v1",
+  "target_duration_seconds": [
+    50,
+    70
+  ],
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "codec": "h264",
+    "audio": "aac-48000",
+    "public_publish": false
+  },
+  "voice": {
+    "engine": "VOICEVOX_LOCAL",
+    "primary": "ずんだもん",
+    "secondary": "四国めたん",
+    "runtime_style_discovery": true,
+    "speed_scale": 1.16,
+    "actual_wav_duration_drives_timeline": true,
+    "credit": "VOICEVOX:ずんだもん / VOICEVOX:四国めたん"
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "title": "NASA Discovery Reveals Complex Water Systems on Early Mars",
+      "publisher": "NASA/JPL",
+      "published_at": "2026-09-21",
+      "url": "https://www.jpl.nasa.gov/news/nasa-discovery-reveals-complex-water-systems-on-early-mars/",
+      "tier": "PRIMARY"
+    },
+    {
+      "id": "S2",
+      "title": "Lake- and groundwater-associated alteration of the olivine-rich Margin unit in Jezero crater, Mars",
+      "publisher": "Communications Earth & Environment",
+      "published_at": "2026-09-21",
+      "url": "https://www.nature.com/articles/s43247-026-03997-9",
+      "tier": "PEER_REVIEWED_OR_OFFICIAL_RESEARCH",
+      "license": "CC-BY-4.0"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "text": "Lower Margin Unit exposures record at least three distinct episodes of water-rock interaction.",
+      "source_refs": [
+        "S1",
+        "S2"
+      ],
+      "status": "VERIFIED"
+    },
+    {
+      "id": "C2",
+      "text": "Higher exposures are olivine-rich igneous rocks while lower exposures show substantial aqueous alteration.",
+      "source_refs": [
+        "S1",
+        "S2"
+      ],
+      "status": "VERIFIED"
+    },
+    {
+      "id": "C3",
+      "text": "The alteration sequence includes CO2-rich groundwater, later lake/groundwater-related carbonate remobilization and silica precipitation, and late hydrothermal fluids forming fluorite-bearing Ca-sulfate veins.",
+      "source_refs": [
+        "S1",
+        "S2"
+      ],
+      "status": "VERIFIED"
+    },
+    {
+      "id": "C4",
+      "text": "The study does not report detection of life; it describes the altered rocks as being of astrobiological interest.",
+      "source_refs": [
+        "S1",
+        "S2"
+      ],
+      "status": "VERIFIED_WITH_EDITORIAL_CLARIFICATION"
+    }
+  ],
+  "visuals": [
+    {
+      "id": "V1",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Jezero_Crater_Rim_Panorama_NASA_Perseverance_rover.jpg",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Jezero_Crater_Rim_Panorama_NASA_Perseverance_rover.jpg",
+      "title": "Jezero Crater Rim Panorama NASA Perseverance rover",
+      "author": "NASA/JPL-Caltech",
+      "license": "PD-USGov",
+      "usage": "CONTEXTUAL_JEZERO_LOCATION",
+      "exact_study_visual": false
+    },
+    {
+      "id": "V2",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Locations_and_future_destinations_of_Perseverance_in_Jezero.jpg",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Locations_and_future_destinations_of_Perseverance_in_Jezero.jpg",
+      "title": "Locations and future destinations of Perseverance in Jezero",
+      "author": "NASA/JPL-Caltech/University of Arizona",
+      "license": "PD-USGov",
+      "usage": "MISSION_AND_GEOGRAPHIC_CONTEXT",
+      "exact_study_visual": false
+    }
+  ],
+  "dialogue": [
+    {
+      "id": "L01",
+      "speaker": "ずんだもん",
+      "voice_text": "火星に水があった、だけじゃないのだ。ジェゼロ・クレーターのマージン・ユニット下部の岩には、別々の時期に水が少なくとも三回作用した痕跡が残っていたのだ。",
+      "caption_text": "火星に水があった、だけじゃない。\nlower Margin Unitに「少なくとも3回」の水作用。",
+      "heading": "火星の水の歴史",
+      "claim_ids": [
+        "C1"
+      ],
+      "visual": "V1"
+    },
+    {
+      "id": "L02",
+      "speaker": "四国めたん",
+      "voice_text": "ナサとジェット推進研究所が九月二十一日に紹介した査読研究ね。パーサヴィアランスのスーパーカムで、マージン・ユニットの上部と下部を比べた結果よ。",
+      "caption_text": "NASA/JPLが9月21日に紹介した査読研究。\nPerseveranceのSuperCamでMargin Unitを分析。",
+      "heading": "最新の査読研究",
+      "claim_ids": [
+        "C1",
+        "C2"
+      ],
+      "visual": "V2"
+    },
+    {
+      "id": "L03",
+      "speaker": "ずんだもん",
+      "voice_text": "高い場所は、かんらん石に富む火成岩。ところが低い場所では、水との反応で岩の化学が大きく変わっていたのだ。",
+      "caption_text": "高所：olivine-richな火成岩\n低所：水との反応で大きく変質",
+      "heading": "場所で岩石が違う",
+      "claim_ids": [
+        "C2"
+      ],
+      "visual": "V1"
+    },
+    {
+      "id": "L04",
+      "speaker": "四国めたん",
+      "voice_text": "下部で最初に記録されたのは、二酸化炭素を含む地下水。その後、湖か地下水が炭酸塩を動かし、シリカを沈殿させたと考えられているわ。",
+      "caption_text": "lower Margin Unit\n① CO₂-rich groundwater → carbonate\n② lake / groundwater → silica precipitation",
+      "heading": "水作用 ①・②",
+      "claim_ids": [
+        "C3"
+      ],
+      "visual": "DIAGRAM_WATER"
+    },
+    {
+      "id": "L05",
+      "speaker": "ずんだもん",
+      "voice_text": "さらに後には、熱い地下水が通って、蛍石を含む硫酸カルシウムの鉱物脈ができたのだ。",
+      "caption_text": "③ late hydrothermal fluids\n→ fluorite-bearing Ca-sulfate veins",
+      "heading": "水作用 ③",
+      "claim_ids": [
+        "C3"
+      ],
+      "visual": "DIAGRAM_HYDRO"
+    },
+    {
+      "id": "L06",
+      "speaker": "四国めたん",
+      "voice_text": "つまりマージン・ユニット下部には、地下水、湖、熱水という、別々の水環境が重なった履歴が残っていると考えられるの。",
+      "caption_text": "lower Margin Unitに残る複雑な履歴。\ngroundwater・lake・hydrothermal activity",
+      "heading": "複雑な水環境",
+      "claim_ids": [
+        "C1",
+        "C3"
+      ],
+      "visual": "V2"
+    },
+    {
+      "id": "L07",
+      "speaker": "ずんだもん",
+      "voice_text": "ただし、これは生命そのものを発見したという報告ではないのだ。研究が示すのは、火星の過去の環境を宇宙生物学の視点で調べる手がかりが増えた、という段階なのだ。",
+      "caption_text": "※生命の証拠ではない。\n研究はastrobiological interestを示す段階。",
+      "heading": "ここは誤解注意",
+      "claim_ids": [
+        "C4"
+      ],
+      "visual": "V1"
+    },
+    {
+      "id": "L08",
+      "speaker": "ずんだもん",
+      "voice_text": "火星の水の歴史は、想像以上に複雑だったのだ。",
+      "caption_text": "火星の水の歴史は、想像以上に複雑だった。",
+      "heading": "結論",
+      "claim_ids": [
+        "C1",
+        "C3"
+      ],
+      "visual": "V1"
+    }
+  ]
+}

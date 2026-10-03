@@ -1,0 +1,51 @@
+{
+  "schema_version": "deepseek-clipping-research-mission-v1",
+  "mission_id": "clipping-monetization-20260912",
+  "effective_date_jst": "2026-09-12",
+  "attempt": 2,
+  "user_goal": "Evaluate whether authorized livestream highlight clipping should become a permanent AI Army monetization lane, and identify adjacent AI-automation businesses with strong revenue potential.",
+  "decision_owner": "chatgpt-top-commander",
+  "constraints": {
+    "paid_deepseek_authorized_for_this_mission": true,
+    "publishing_not_authorized_by_this_mission": true,
+    "production_deploy_not_authorized": true,
+    "pr_merge_not_authorized": true,
+    "secret_mutation_or_disclosure_not_authorized": true,
+    "do_not_recommend_unlicensed_mass_reposting": true,
+    "prefer_open_source_or_verified_free_media_tooling": true,
+    "existing_media_policy_prohibits_runway_fal_descript_veed_heygen_higgsfield": true
+  },
+  "fresh_primary_evidence": [
+    {"source":"YouTube channel monetization policies","url":"https://support.google.com/youtube/answer/1311392?hl=ja","facts":["Reused content without significant original commentary, substantive modification, or educational/entertainment value is ineligible.","The policy applies to the whole channel.","Monetizable examples include critical-review clips, explained sports replays, reactions with commentary, and footage edited with a new story/commentary.","Mass-produced/repetitive inauthentic content is not monetizable."]},
+    {"source":"YouTube Shorts monetization policies","url":"https://support.google.com/youtube/answer/12504220?hl=ja","facts":["Non-original unedited clips, reuploads, and compilations without original content are ineligible engaged views for Shorts revenue sharing.","Shorts monetization remains subject to reused-content, copyright, terms, and advertiser-friendly rules."]},
+    {"source":"YouTube monetizable content rights guidance","url":"https://support.google.com/youtube/answer/2490020?hl=ja","facts":["Creators need commercial-use rights for all audio/video elements.","For another person's content, YouTube says written explicit commercial-use permission is required.","Fair use is fact-specific and commercial purpose can weigh against it."]},
+    {"source":"YouTube copyright claims","url":"https://support.google.com/youtube/answer/6013276","facts":["Content ID may block, monetize for the rightsholder, or track matched segments, possibly by territory."]},
+    {"source":"TikTok Creator Rewards Program support","url":"https://support.tiktok.com/en/business-and-creator/creator-rewards-program/how-is-the-creator-rewards-program-different-from-the-tiktok-creator-fund","facts":["Qualifying videos must be original, high quality, and longer than one minute.","Original content for the program excludes Duets, Stitches, and sponsored content."]},
+    {"source":"TikTok Creator Rewards Program terms for Japan/Korea","url":"https://www.tiktok.com/legal/page/global/tiktok-creator-rewards-program-jp-kr/ko","facts":["Japan is covered; eligibility includes age/follower/view requirements.","Eligible videos are at least one minute; creators are responsible for ownership, originality, copyright, neighboring rights, voice and likeness rights.","Automation that artificially inflates engagement is prohibited."]},
+    {"source":"TikTok intellectual property policy","url":"https://t.tiktok.com/legal/page/global/copyright-policy/en","facts":["Copyright-infringing content is not allowed absent authorization or valid legal exception.","Repeat infringement can lead to bans."]},
+    {"source":"TikTok Shop Japan one-year update","url":"https://newsroom.tiktok.com/tiktok-shop-japan-1st-year-anniversary?lang=ja-JP","facts":["TikTok Shop launched in Japan on 2025-06-30.","Over 70% of GMV through 2026-06-30 originated from content such as short videos and LIVE streams."]},
+    {"source":"YouTube Shopping Affiliate Program","url":"https://support.google.com/youtube/answer/13376398?hl=JA","facts":["The program is available to eligible Japan-based creators.","Eligibility requires YPP and the applicable subscriber threshold plus other channel restrictions."]},
+    {"source":"Open-source livestream highlight clipper","url":"https://github.com/Cbhhhh211/livestream-highlight-clipper","facts":["An open-source implementation combines chat density, emotion keywords, speech-chat overlap, smoothing and peak detection.","It uses local faster-whisper and review-before-export."]},
+    {"source":"WhisperX","url":"https://github.com/m-bain/whisperX","facts":["WhisperX provides word-level timestamps, forced alignment, VAD, batching and optional diarization for precise clip boundaries/captions."]},
+    {"source":"Auto-Editor","url":"https://github.com/WyattBlue/auto-editor","facts":["Auto-Editor can cut on loudness and motion with configurable margins for dead-space removal."]}
+  ],
+  "candidate_business_models_to_evaluate": [
+    "Authorized official clipping service for streamers with written commercial-use license and revenue share",
+    "Creator-owned content repurposing: livestream/podcast to Shorts/TikTok/Reels with captions, context, commentary and CTA",
+    "Managed clipping service for small creators where the source creator owns the footage",
+    "AI-assisted shopping review content using creator-owned footage plus YouTube Shopping/TikTok Shop affiliate monetization",
+    "Original AI news/explainer short-form channel with source citations and human editorial control",
+    "Local-business short-video production using client-provided footage",
+    "Digital product/course funnel from original long-form expertise content",
+    "B2B content repurposing agency for webinars/podcasts with client permission"
+  ],
+  "required_output_questions": [
+    "Should livestream highlight clipping become a permanent AI Army lane?",
+    "What permission model makes it commercially sustainable?",
+    "What transformation/originality layer is needed for monetization while keeping rights permission separate?",
+    "What should be fully automated versus human-approved?",
+    "What open-source/free highlight-scoring stack should be used?",
+    "Which adjacent monetization models are safer or faster to revenue than generic clipping?",
+    "What kill-switches prevent unlicensed, repetitive, spammy, or non-original publishing?"
+  ]
+}

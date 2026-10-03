@@ -1,4 +1,6 @@
-name: Check OpenAI-compatible provider safely
+name: Probe configured provider safely
+
+# Preset and approval guidance: docs/SETUP_FLOW.md
 
 on:
   workflow_dispatch:
@@ -8,17 +10,16 @@ on:
         required: true
         type: string
       provider:
-        description: "Provider to test; no automatic fallback. See docs/SETUP_FLOW.md for the key setup."
+        description: "Commander or Worker provider to test; no automatic fallback."
         required: true
         type: choice
         options:
+          - google
+          - nvidia
           - groq
-          - huggingface
-          - deepseek
-          - siliconflow
           - openrouter
       model:
-        description: "Exact provider model ID; recommended free smoke: openrouter/free"
+        description: "Exact model ID from the current provider catalog; generic openrouter/free is forbidden"
         required: true
         type: string
 
@@ -64,34 +65,62 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install the OpenAI-compatible SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --disable-pip-version-check --no-input "openai>=1.0,<2"
-
-      - name: Run one bounded provider smoke test
+      - name: Run one exact provider probe
         env:
           AI_PROVIDER: ${{ github.event.inputs.provider }}
-          AI_MODEL: ${{ github.event.inputs.model }}
-          AI_TIMEOUT_MS: "15000"
-          AI_MAX_RETRIES: "1"
-          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          PROBE_MODEL_INPUT: ${{ github.event.inputs.model }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.AI_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
-          case "$AI_PROVIDER" in
-            groq) key="$GROQ_API_KEY" ;;
-            huggingface) key="$HF_TOKEN" ;;
-            deepseek|siliconflow|openrouter) key="$AI_API_KEY" ;;
-            *) echo "Unsupported provider selection." >&2; exit 2 ;;
-          esac
-          if [[ -z "$key" ]]; then
-            echo "The selected provider secret is not configured; no request was sent." >&2
+          if [[ -z "$PROBE_MODEL_INPUT" || ${#PROBE_MODEL_INPUT} -gt 160 || "$PROBE_MODEL_INPUT" =~ [[:space:]] ]]; then
+            echo "An exact provider model ID is required." >&2
             exit 2
           fi
-          export AI_API_KEY="$key"
-          unset key
-          python scripts/provider_smoke.py
+          if [[ "$PROBE_MODEL_INPUT" == "openrouter/free" ]]; then
+            echo "The generic OpenRouter router is forbidden." >&2
+            exit 2
+          fi
+          case "$AI_PROVIDER" in
+            google) export GOOGLE_PROBE_MODEL="$PROBE_MODEL_INPUT" ;;
+            nvidia) export NVIDIA_PROBE_MODEL="$PROBE_MODEL_INPUT" ;;
+            groq) export GROQ_PROBE_MODEL="$PROBE_MODEL_INPUT" ;;
+            openrouter) export OPENROUTER_WORKER_PROBE_MODEL="$PROBE_MODEL_INPUT" ;;
+            *) echo "Unsupported provider selection." >&2; exit 2 ;;
+          esac
+          python scripts/probe_providers.py --network --confirm "$CONFIRM" --provider "$AI_PROVIDER" --output artifacts/provider_probe.json
+
+      - name: Validate redacted probe report
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          test -f artifacts/provider_probe.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/provider_probe.json").read_text(encoding="utf-8"))
+          assert report["retry_count"] == 0
+          assert report["model_calls"] in {0, 1}
+          assert report["paid_fallback"] is False
+          assert report["registry_changed"] is False
+          encoded = json.dumps(report, ensure_ascii=False).lower()
+          assert "api_key_env" not in encoded
+          assert "authorization" not in encoded
+          print(json.dumps({
+              "model_calls": report["model_calls"],
+              "statuses": [item.get("status") for item in report.get("providers", [])],
+              "paid_fallback": report["paid_fallback"],
+          }, ensure_ascii=False))
+          PY
+
+      - name: Upload redacted provider probe
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: provider-probe
+          path: artifacts/provider_probe.json
+          if-no-files-found: error
+          retention-days: 14

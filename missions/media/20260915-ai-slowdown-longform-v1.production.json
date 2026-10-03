@@ -1,0 +1,81 @@
+{
+  "schema": "media-longform-production-contract-v1",
+  "mission_id": "20260915-ai-slowdown-longform-v1",
+  "dialogue_payload": "missions/media/20260915-ai-slowdown-longform-v1.json.gz.b64",
+  "claim_ledger": "missions/media/20260915-ai-slowdown-longform-v1.claims.json",
+  "target_duration_seconds": [480, 720],
+  "preferred_duration_seconds": [540, 630],
+  "no_padding": true,
+  "characters": {
+    "shell_asset_id": "zm_shell_20230806",
+    "reaction_pack": ".media-cache/derived/zm-reaction-pack-v1",
+    "zundamon_speaker_id": 3,
+    "metan_speaker_id": 2,
+    "voice_speed_scale": {"ずんだもん": 1.02, "四国めたん": 1.00},
+    "baseline_perceived_size_normalized": true,
+    "active_speaker_scale": 1.05,
+    "inactive_speaker_scale": 1.00,
+    "listener_visible": true,
+    "mouth_animation_required": true,
+    "expression_reaction_required": true
+  },
+  "registered_visual_assets": [
+    "dario_amodei_tc_disrupt_2023",
+    "sam_altman_ted_2025",
+    "openai_hq_1515_third_street",
+    "datacenter_server_racks_22370909788",
+    "csiro_server_racks_2042",
+    "cyberport_network_operations_centre"
+  ],
+  "visual_strategy": {
+    "bright_explainer_panels": true,
+    "real_or_official_rights_verified_visuals_first": true,
+    "fallback_to_original_infographic_panel": true,
+    "no_generated_image_dependency": true,
+    "no_per_scene_network_fetch_during_render": true,
+    "no_background_vertical_drift": true,
+    "one_primary_attention_hero_per_semantic_beat": true,
+    "caption_style": {
+      "body": "white",
+      "zundamon_accent": "bright_green",
+      "metan_accent": "bright_pink_magenta",
+      "large_black_box": false,
+      "semantic_chunking": true
+    }
+  },
+  "render": {
+    "unit": "scene",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "video_codec": "h264",
+    "pixel_format": "yuv420p",
+    "audio_codec": "aac",
+    "audio_sample_rate_hz": 48000,
+    "movflags": "+faststart",
+    "scene_parallelism": 1,
+    "checkpoint_each_scene": true,
+    "concat_copy_preferred": true,
+    "final_reencode_only_if_required": true
+  },
+  "qa": {
+    "ffprobe_required": true,
+    "full_decode_required": true,
+    "decode_error_target": 0,
+    "subtitle_narration_coverage_ratio": 1.0,
+    "fast_start_required": true,
+    "representative_visual_samples": 5,
+    "contact_sheet_required": true,
+    "character_size_balance_check": true,
+    "active_speaker_safe_zone_check": true,
+    "final_user_request_rereview": true
+  },
+  "side_effects": {
+    "public_publish": false,
+    "production_deploy": false,
+    "merge": false,
+    "secret_mutation": false,
+    "auto_top_up": false,
+    "paid_media_generation": false
+  }
+}

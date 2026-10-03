@@ -1,0 +1,28 @@
+[Unit]
+Description=hf-site-agent article to script and VOICEVOX preparation
+After=network-online.target hf-site-agent-media-source.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=hf-site-agent
+Group=hf-site-agent
+WorkingDirectory=/opt/hf-site-agent
+Environment=PYTHONUNBUFFERED=1
+Environment=LANG=C.UTF-8
+Environment=LC_ALL=C.UTF-8
+Environment=PYTHONUTF8=1
+Environment=PYTHONIOENCODING=utf-8:backslashreplace
+Environment=HOME=/var/lib/hf-site-agent/home
+Environment=TMPDIR=/var/lib/hf-site-agent/tmp
+Environment=VOICEVOX_CACHE_DIR=/var/lib/hf-site-agent/voice-cache
+EnvironmentFile=/etc/hf-site-agent/media.env
+ExecStartPre=/usr/bin/mkdir -p /var/lib/hf-site-agent/home /var/lib/hf-site-agent/tmp /var/lib/hf-site-agent/voice-cache
+ExecStart=/usr/bin/python3 -m scripts.media_news_pipeline --db /var/lib/hf-site-agent/media-queue.sqlite3 --workspace /var/lib/hf-site-agent process-next --min-seconds 60 --max-seconds 300
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hf-site-agent
+UMask=0077
+TimeoutStartSec=1800

@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for pending official news article preparation
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=5min
+Persistent=true
+Unit=hf-site-agent-media-news.service
+
+[Install]
+WantedBy=timers.target

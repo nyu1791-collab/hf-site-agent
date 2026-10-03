@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nyu1791-collab/hf-site-agent/schemas/modal_cost_ledger.schema.json",
+  "title": "Modal Cost Ledger",
+  "description": "Atomic local representation of reserved and unsettled Modal compute exposure.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "provider_id",
+    "entries",
+    "reservations",
+    "circuit_state",
+    "reconciliation_state",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "modal-cost-ledger-v1" },
+    "provider_id": { "const": "modal" },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "reservations": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/entry" }
+    },
+    "circuit_state": { "enum": ["CLOSED", "OPEN", "HALF_OPEN"] },
+    "circuit_reason": { "type": ["string", "null"], "maxLength": 120 },
+    "reconciliation_state": { "enum": ["CLEAR", "PENDING", "MISMATCH", "UNKNOWN"] },
+    "updated_at": { "type": "string", "minLength": 1, "maxLength": 80 }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "required": [
+        "mission_id",
+        "job_id",
+        "idempotency_key",
+        "operation_type",
+        "payload_hash",
+        "resource_type",
+        "cpu",
+        "memory_mb",
+        "timeout_seconds",
+        "max_containers",
+        "max_parallel",
+        "estimated_max_cost",
+        "reserved_cost",
+        "observed_cost",
+        "billing_status",
+        "created_at",
+        "status"
+      ],
+      "properties": {
+        "mission_id": { "type": "string", "minLength": 1 },
+        "job_id": { "type": "string", "minLength": 1 },
+        "idempotency_key": { "type": "string", "minLength": 1 },
+        "operation_type": { "const": "compute" },
+        "payload_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "resource_type": { "enum": ["cpu", "gpu"] },
+        "gpu_type": { "type": ["string", "null"] },
+        "cpu": { "type": "string", "minLength": 1 },
+        "memory_mb": { "type": "integer", "minimum": 1 },
+        "timeout_seconds": { "type": "integer", "minimum": 1 },
+        "max_containers": { "type": "integer", "minimum": 1 },
+        "max_parallel": { "type": "integer", "minimum": 1 },
+        "max_depth": { "type": "integer", "minimum": 1 },
+        "max_children": { "type": "integer", "minimum": 0 },
+        "retries": { "type": "integer", "minimum": 0 },
+        "estimated_max_cost": { "type": "string", "minLength": 1 },
+        "reserved_cost": { "type": "string", "minLength": 1 },
+        "observed_cost": { "type": ["string", "null"] },
+        "billing_status": { "enum": ["RESERVED", "UNSETTLED", "RECONCILIATION_PENDING", "RECONCILED"] },
+        "created_at": { "type": "string", "minLength": 1 },
+        "started_at": { "type": ["string", "null"] },
+        "completed_at": { "type": ["string", "null"] },
+        "status": { "enum": ["RESERVED", "RUNNING", "COMPLETED", "FAILED", "CANCELLED", "RELEASED"] }
+      }
+    }
+  },
+  "additionalProperties": true
+}

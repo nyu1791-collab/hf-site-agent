@@ -1,0 +1,81 @@
+{
+  "schema_version": "paid-agent-route-eligibility-v1",
+  "effective_date_jst": "2026-10-02",
+  "status": "AUTHORIZED_ONLY_THROUGH_EVIDENCE_GATE",
+  "authorization": "Paid API models are eligible without per-call user confirmation only when every rule in this policy passes. This does not authorize paid media, compute, fallback, top-up, external writes, deployment, publication, merge, or secret changes.",
+  "comparison_baseline": {
+    "model_id": "deepseek-flash",
+    "official_name": "DeepSeek V4.1 Flash",
+    "pricing_source": "https://api-docs.deepseek.com/quick_start/pricing/",
+    "price_verified_at": "2026-10-02",
+    "currency": "USD",
+    "units": "USD_PER_MILLION_TOKENS",
+    "price_profiles": {
+      "peak": {
+        "input_cache_hit": 0.006,
+        "input_cache_miss": 0.3,
+        "output": 1.2
+      },
+      "off_peak": {
+        "input_cache_hit": 0.003,
+        "input_cache_miss": 0.15,
+        "output": 0.6
+      }
+    }
+  },
+  "eligibility": {
+    "exact_provider_model_endpoint_required": true,
+    "official_price_source_required": true,
+    "maximum_price_evidence_age_days": 30,
+    "all_fees_surcharges_and_retries_must_be_included": true,
+    "selected_profile_component_rates_must_each_be_at_or_below_baseline": true,
+    "same_workload_estimated_total_cost_must_be_strictly_below_baseline": true,
+    "official_feature_documentation_required": true,
+    "benchmark_maximum_age_days": 90,
+    "minimum_paired_workload_samples": 30,
+    "minimum_quality_score_improvement": 0.03,
+    "candidate_must_cover_all_task_required_features": true,
+    "material_feature_or_quality_improvement_required": true,
+    "critical_regressions_allowed": false,
+    "account_status_fields_only": {
+      "authentication": "AUTH_OK",
+      "billing": "READY",
+      "quota": "READY"
+    },
+    "benchmark_workload_must_match_baseline": true,
+    "unknown_stale_or_unverifiable_evidence_action": "BLOCK",
+    "excluded_provider_ids": [
+      "openrouter"
+    ],
+    "excluded_provider_reason": "OPENROUTER_IS_FREE_ONLY_USE_DEEPSEEK_OFFICIAL_FOR_PAID_TEXT"
+  },
+  "shared_budget": {
+    "currency": "USD",
+    "maximum_estimated_cost_per_mission": 0.5,
+    "maximum_spend_plus_reservations_per_utc_day": 3,
+    "maximum_calls_per_utc_day": 8,
+    "maximum_parallel_paid_calls": 3,
+    "hard_maximum_calls_per_utc_day": 12,
+    "hard_maximum_parallel_paid_calls": 4,
+    "account_credit_must_cover_reserved_call_cost": true,
+    "verified_shared_ledger_required": true,
+    "auto_top_up": false,
+    "paid_route_failure_action": "QUEUE_AND_STOP",
+    "unknown_or_unavailable_ledger_action": "BLOCK"
+  },
+  "routing": {
+    "paid_candidate_may_be_selected_as_primary_after_gate": true,
+    "automatic_paid_fallback": false,
+    "automatic_paid_sibling_substitution": false,
+    "generic_router_selection": false,
+    "Jev_may_adjudicate_only_prevalidated_candidates": true,
+    "ChatGPT_final_route_adjudicator": true,
+    "paid_media": false,
+    "Vertex_AI": {
+      "enabled": false,
+      "required": false,
+      "preferred": false
+    },
+    "secret_values_in_status_or_logs": false
+  }
+}

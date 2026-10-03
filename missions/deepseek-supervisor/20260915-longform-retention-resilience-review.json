@@ -1,0 +1,77 @@
+{
+  "mission_id": "20260915-longform-retention-resilience-review",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Perform a compact second-pass peer review for the current 8-12 minute Japanese Zundamon/Shikoku Metan news and topic explainer pipeline. Review two things together rather than fragmenting them into many agents: (1) long-form viewer value, comprehension, retention and information density without padding, and (2) long-running AI/media production resilience so work does not silently stop, restart from zero, duplicate side effects, or lose healthy artifacts. Reconcile the recommendations with the existing Scene -> Validate -> Checkpoint -> Join architecture, bounded retry rules, content-addressed manifests, ChatGPT+DeepSeek compact research/script pair, deterministic render stages, current user preference for 8-12 minutes, stationary explainer/background diagrams, white captions with speaker-color borders, and final visual rereview. Explicitly identify redundant or dangerous advice, separate official evidence from inference, and return a prioritized adoption packet for ChatGPT final adjudication. Do not generate video, publish, deploy, merge, mutate secrets, or write repository files.",
+  "shared_evidence": [
+    {
+      "source": "YouTube Help: audience retention/key moments and performance FAQ",
+      "tier": "PRIMARY",
+      "summary": "YouTube retention analysis emphasizes intros, top moments, spikes and dips, and comparison against videos of similar length. Recommendation/search guidance says performance and relevance matter and warns against relying on myths or one-off changes."
+    },
+    {
+      "source": "YouTube Help: Test & Compare thumbnails and YouTube Analytics API metrics",
+      "tier": "PRIMARY",
+      "summary": "YouTube supports controlled thumbnail comparison using watch-time share and exposes averageViewDuration, averageViewPercentage and retention-related metrics. Creative learning should use comparable videos and observed analytics rather than fixed universal retention numbers."
+    },
+    {
+      "source": "LangGraph official persistence, interrupts, functional API and fault-tolerance documentation",
+      "tier": "PRIMARY",
+      "summary": "Durable execution uses checkpoints and thread IDs; successful node writes can survive sibling failure; replay resumes from checkpoints; task results should be serializable; external side effects should be idempotent; retries should be class-specific and bounded."
+    },
+    {
+      "source": "Anthropic Engineering: Effective harnesses for long-running agents and Harness design for long-running application development",
+      "tier": "PEER_REVIEWED_OR_OFFICIAL_RESEARCH",
+      "summary": "Long-running agents benefit from incremental work, structured progress artifacts, explicit acceptance criteria, clean handoffs, verification before marking done, and durable state across context resets. Overly broad one-shot execution and premature completion are recurring failure modes."
+    },
+    {
+      "source": "GitHub Actions official docs: dependency caching, artifacts, reruns, concurrency",
+      "tier": "PRIMARY",
+      "summary": "Caches are accelerators for regenerable data, while artifacts preserve produced outputs across jobs/runs. Failed jobs can be rerun, concurrency must be controlled, and cache hits are not proof of durable checkpoint correctness."
+    },
+    {
+      "source": "FFmpeg/ffprobe official documentation",
+      "tier": "PRIMARY",
+      "summary": "FFmpeg concat/segment primitives and ffprobe machine-readable stream inspection support scene/chapter-first rendering, contract checks, deterministic joining, and validation before final delivery."
+    },
+    {
+      "source": "Current repository longform-video-reliability-v4 and longform-video-objectives-v3",
+      "tier": "PRIMARY",
+      "summary": "The current system already has atomic scene promotion, content-addressed manifests, bounded retries, scene media contracts, predownload/decode validation, subprocess timeouts, Scene -> Validate -> Checkpoint -> Join, and final ffprobe/decode gates. The review must improve gaps without duplicating these rules."
+    },
+    {
+      "source": "Explicit user direction 2026-09-15",
+      "tier": "PRIMARY",
+      "summary": "Future normal news/topic explainers should target roughly 8-12 minutes without padding with irrelevant history or filler. User also requested stronger long-form know-how research and explicit measures that keep AI production from stopping, followed by peer review, durable storage and post-save verification."
+    }
+  ],
+  "lanes": [
+    {
+      "id": "longform_editorial_retention",
+      "objective": "Review evidence-backed long-form structure for 8-12 minute Japanese explainers. Propose a flexible chapter/beat architecture that earns runtime through mechanism, stakeholder impact, evidence, uncertainty, competing interpretations and next watchpoints rather than padding. Define what to measure after publication, how to compare similar-length videos, what not to hard-code, and how Zundamon/Metan dialogue can reset attention without forced cuts or constant motion."
+    },
+    {
+      "id": "durable_execution_and_recovery",
+      "objective": "Audit the current AI/media pipeline against long-running-agent and workflow reliability patterns. Focus on heartbeat/progress manifests, stall detection, checkpoint granularity, idempotency keys, atomic writes, leases/single writer, retry classification, circuit breakers, provider/tool timeouts, artifact versus cache semantics, cross-session recovery, partial-success preservation, context-reset handoff, and how to avoid both infinite loops and premature termination. Prefer minimal additions to existing policy."
+    },
+    {
+      "id": "red_team_reconciliation",
+      "objective": "Act as skeptical peer reviewer. Reconcile the first two lanes with the current repository policies and the user's anti-fragmentation rule. Produce MUST KEEP, ADOPT NOW, MEASURE BEFORE PROMOTION, REJECT/DEMOTE. Flag contradictions such as fixed retention thresholds, fixed cut intervals, too-frequent checkpoints, excessive agents, cache-as-checkpoint, unbounded retries, monolithic rendering, or background motion added only for stimulation. Give measurable acceptance criteria and a compact recovery state machine."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 5,
+  "max_output_tokens_per_lane": 6144,
+  "max_output_tokens_synthesis": 8192,
+  "max_estimated_cost_usd": 0.50,
+  "known_estimated_daily_spend_before_mission_usd": 0.50,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}

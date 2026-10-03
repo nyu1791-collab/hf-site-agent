@@ -1,0 +1,119 @@
+{
+  "schema_version": "deepseek-route-classification-v1",
+  "effective_date_jst": "2026-10-03",
+  "purpose": "Separate current authorized DeepSeek official API routes from manually triggered bounded trials and historical compatibility code. Manual trial cost ceilings do not constrain current production paths.",
+  "invariants": {
+    "canonical_base_url": "https://api.deepseek.com",
+    "canonical_model": "deepseek-flash",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "automatic_top_up": false,
+    "generic_paid_fallback": false,
+    "unknown_result_automatic_resend": false,
+    "secret_values_logged": false,
+    "current_paths_have_artificial_daily_or_monthly_spend_caps": false,
+    "bounded_retry_concurrency_fanout_and_idempotency_remain_required": true
+  },
+  "CURRENT_PRODUCTION_PATH": [
+    {
+      "id": "deepseek-executive-supervisor",
+      "policy": "config/deepseek_paid_supervisor_policy.json",
+      "runtime": "scripts/deepseek_supervisor_research.py",
+      "resilient_runtime": "scripts/deepseek_supervisor_research_resilient.py",
+      "workflow": ".github/workflows/deepseek-supervisor-research.yml",
+      "base_url": "https://api.deepseek.com",
+      "model": "deepseek-flash",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "artificial_per_mission_spending_cap": false,
+      "artificial_daily_spending_cap": false,
+      "artificial_monthly_spending_cap": false,
+      "finite_fanout_and_concurrency": true,
+      "production_side_effects_authorized": false
+    },
+    {
+      "id": "resident-rss-news-script",
+      "policy": "config/media_news_pipeline_policy.json#/paid_script_generation",
+      "runtime": "scripts/media_news_pipeline.py",
+      "base_url": "https://api.deepseek.com",
+      "model": "deepseek-flash",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "artificial_per_call_cap_usd": null,
+      "artificial_daily_cap_usd": null,
+      "artificial_monthly_cap_usd": null,
+      "artificial_daily_call_cap": null,
+      "max_explicit_429_retries": 1,
+      "unknown_result_automatic_resend": false,
+      "idempotency_reservation_required": true,
+      "production_side_effects_authorized": false
+    }
+  ],
+  "MANUAL_TRIAL": [
+    {
+      "path": "config/deepseek_paid_parallel.json",
+      "reason": "STAGING_ONLY explicit approval marker; fixed budget retained for manual trial"
+    },
+    {
+      "path": "config/deepseek_v41_paid_parallel.json",
+      "reason": "STAGING_ONLY explicit approval marker; fixed budget retained for manual trial"
+    },
+    {
+      "path": "config/deepseek_specialist_trial.json",
+      "reason": "STAGING_TRIAL_ONLY; fixed trial budget retained"
+    },
+    {
+      "path": "config/deepseek_specialist_routing.json",
+      "reason": "STAGING_ONLY routing used by explicit paid-trial escalation"
+    },
+    {
+      "path": "config/deepseek_targeted_review.json",
+      "reason": "single-call explicit targeted review with hard ceiling"
+    },
+    {
+      "path": "scripts/deepseek_paid_parallel.py",
+      "reason": "manual staging runner requiring approval marker"
+    },
+    {
+      "path": "scripts/deepseek_targeted_review.py",
+      "reason": "manual one-call review runner"
+    },
+    {
+      "path": "scripts/deepseek_critical_escalation.py",
+      "reason": "explicit paid-trial approval only; not generic current fallback"
+    },
+    {
+      "path": ".github/workflows/subordinate-continuation.yml",
+      "reason": "runs old bounded DeepSeek path only when explicit trigger file changes"
+    }
+  ],
+  "LEGACY": [
+    {
+      "path": "config/legacy_deepseek_compatibility.json",
+      "reason": "authoritative registry for historical compatibility-only DeepSeek artifacts"
+    },
+    {
+      "path": "scripts/deepseek_specialist_trial_v2.py",
+      "reason": "historical trial implementation"
+    },
+    {
+      "path": "scripts/deepseek_specialist_trial_v3.py",
+      "reason": "historical trial implementation"
+    },
+    {
+      "path": "scripts/deepseek_specialist_trial_v4.py",
+      "reason": "historical trial implementation"
+    },
+    {
+      "path": "scripts/deepseek_role_mode_benchmark.py",
+      "reason": "historical benchmark"
+    },
+    {
+      "path": "scripts/deepseek_paid_media_council.py",
+      "reason": "historical/noncanonical paid media path; paid media remains prohibited"
+    }
+  ],
+  "migration_policy": {
+    "delete_legacy_automatically": false,
+    "disable_or_deprecate_before_removal": true,
+    "manual_trial_budget_removal_required": false,
+    "current_path_spend_cap_reintroduction_requires_explicit_user_change": true
+  }
+}

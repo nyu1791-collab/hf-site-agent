@@ -1,0 +1,49 @@
+{
+  "schema_version": "subordinate-continuation-policy-v1",
+  "mode": "LOWER_AI_INTERNAL_HANDOFF",
+  "max_rounds_per_run": 3,
+  "max_lanes_per_round": 4,
+  "same_run_retry_categories": [
+    "NETWORK",
+    "PROVIDER_5XX",
+    "EMPTY_RESPONSE",
+    "HTTP_ERROR",
+    "INTERNAL"
+  ],
+  "checkpoint_categories": [
+    "RATE_LIMIT",
+    "MODEL_MISMATCH",
+    "SAFETY_COST",
+    "OTHER"
+  ],
+  "critical_lanes": [
+    "SCHEDULER_DAG",
+    "FAILURE_RETRY"
+  ],
+  "paid_seed": {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "max_estimated_cost_usd_per_execution": 0.1,
+    "max_calls": 2,
+    "allow_repeat_inside_continuation": false
+  },
+  "hard_boundaries": {
+    "repository_write": false,
+    "merge": false,
+    "deploy": false,
+    "publish": false,
+    "secret_readback": false,
+    "secret_mutation": false,
+    "auto_top_up": false,
+    "generic_paid_fallback": false,
+    "production_active": false
+  },
+  "continuation": {
+    "checkpoint_on_uncertain_usage": true,
+    "duplicate_replay_on_uncertain_usage": false,
+    "provider_fallback": false,
+    "persist_redacted_state": true,
+    "user_delivery_required_between_rounds": false,
+    "final_independent_review": "NVIDIA"
+  }
+}

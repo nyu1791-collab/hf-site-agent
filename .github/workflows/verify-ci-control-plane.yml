@@ -1,0 +1,32 @@
+name: Verify CI control plane
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-control-plane-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source without write credentials
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Compile CI guard
+        run: python -m py_compile scripts/ci_control_plane_guard.py
+      - name: Validate CI policy
+        run: python -m json.tool config/ci_execution_policy.json >/dev/null
+      - name: Enforce bounded workflow fan-out
+        run: python scripts/ci_control_plane_guard.py

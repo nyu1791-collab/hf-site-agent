@@ -1,0 +1,22 @@
+{
+  "title": "DevDay 2026｜要点まとめ",
+  "source_credit": "引用：OpenAI公式X｜Ultrafastのデモ",
+  "source_url": "https://x.com/OpenAI/status/2104993966043320759",
+  "source_account": "OpenAI",
+  "source_published_at": "UNKNOWN",
+  "captured_on_jst": "2026-09-30",
+  "source_video_timestamp_seconds": 13.929511,
+  "media_region_only": true,
+  "claim_mapping": [
+    "Ultrafastの公式デモ。その他の製品・プラン説明をこの画像だけで立証しない。"
+  ],
+  "reuse_rights": "INTERNAL_REVIEW_ONLY_PUBLICATION_NOT_CLEARED",
+  "voice_credit": "VOICEVOX：ずんだもん・四国めたん",
+  "start": 430.777334,
+  "duration": 47.301334,
+  "timing_file": "approved_timing.json",
+  "visual_file": "OpenAI_official_video_frame.jpg",
+  "audio_file": "narration.wav",
+  "font_file": "NotoSansCJKjp-Bold.otf",
+  "shell_archive": "native_character_shell.zip"
+}

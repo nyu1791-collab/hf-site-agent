@@ -1,0 +1,90 @@
+{
+  "schema_version": "session-stream-resilience-v2",
+  "effective_date_jst": "2026-10-01",
+  "status": "ENFORCED_PERMANENT_STANDARD",
+  "purpose": "Make long-running media execution survive ChatGPT/app response-stream interruption while minimizing coordination overhead and preserving only fatal safety gates.",
+  "authority": {
+    "repository_current_head_is_source_of_truth": true,
+    "chat_response_stream_is_not_execution_authority": true,
+    "durable_runner_is_preferred_for_long_running_media_when_local_runtime_is_available": true,
+    "user_visible_stream_disconnect_must_not_be_treated_as_job_failure": true
+  },
+  "runtime": {
+    "runner": "scripts/durable_media_runner.py",
+    "speed_first_policy": "config/media_automation_fast_path.json",
+    "queue_backend": "SQLITE_WAL",
+    "typed_handler_registry_only": true,
+    "arbitrary_shell_jobs_allowed": false,
+    "default_poll_seconds": 0.2,
+    "default_lease_seconds": 120,
+    "default_max_attempts": 2,
+    "child_process_secret_environment_forwarding": false,
+    "successful_media_terminal_state": "READY_TO_PUBLISH"
+  },
+  "execution_contract": {
+    "persist_request_and_inputs_before_long_running_execution": true,
+    "execution_must_be_recoverable_from_repository_plus_artifacts": true,
+    "independent_runner_continues_without_chat_connection": true,
+    "cancel_in_progress": false,
+    "explicit_stage_state_manifest": true,
+    "checkpoint_after_expensive_verified_stage": true,
+    "resume_from_last_verified_checkpoint": true,
+    "regenerate_only_invalidated_stage": true,
+    "same_source_and_payload_must_dedupe": true,
+    "partial_is_not_complete": true,
+    "routine_manual_review_required": false,
+    "routine_second_ai_review_required": false,
+    "minimum_machine_gate_only_on_fast_path": true
+  },
+  "stage_state": {
+    "required_fields": [
+      "mission_id",
+      "request_hash",
+      "head_sha",
+      "stage",
+      "status",
+      "last_progress_at",
+      "verified_artifacts",
+      "failure_class",
+      "termination_reason"
+    ],
+    "statuses": [
+      "PENDING",
+      "RUNNING",
+      "VERIFIED",
+      "BLOCKED",
+      "FAILED_RETRYABLE",
+      "FAILED_PERMANENT",
+      "READY_TO_PUBLISH",
+      "COMPLETE"
+    ]
+  },
+  "retry_contract": {
+    "one_retry_owner_per_failure": true,
+    "retry_transient_only": true,
+    "bounded_exponential_backoff": true,
+    "jitter_required_for_current_deterministic_media_handler": false,
+    "provider_or_process_timeout_required": true,
+    "default_max_attempts": 2,
+    "expired_lease_requeued_when_attempt_budget_remains": true
+  },
+  "chat_recovery_contract": {
+    "on_reconnect_recheck_branch_head": true,
+    "recheck_pr_state": true,
+    "read_latest_request_state": true,
+    "inspect_latest_runner_state_and_artifacts": true,
+    "continue_from_verified_state_not_from_chat_text": true
+  },
+  "safety": {
+    "main_direct_push": false,
+    "pr_merge": false,
+    "production_deploy": false,
+    "public_publish": false,
+    "secret_mutation": false,
+    "secret_in_job_payload": false,
+    "workspace_path_escape": false,
+    "arbitrary_command_execution": false,
+    "paid_media_fallback": false,
+    "auto_top_up": false
+  }
+}

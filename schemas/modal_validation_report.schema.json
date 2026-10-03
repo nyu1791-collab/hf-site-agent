@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nyu1791-collab/hf-site-agent/schemas/modal_validation_report.schema.json",
+  "title": "Modal Compute Validation Report",
+  "description": "Redacted readiness evidence for Modal compute. It never activates or starts a job.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "phase",
+    "checked_at",
+    "network_enabled",
+    "provider",
+    "billing",
+    "rates",
+    "ledger",
+    "fail_closed",
+    "safety",
+    "gates",
+    "final"
+  ],
+  "properties": {
+    "schema_version": { "const": "modal-validation-report-v1" },
+    "phase": { "const": "MODAL_COMPUTE_VALIDATION" },
+    "checked_at": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "network_requested": { "type": "boolean" },
+    "network_enabled": { "type": "boolean" },
+    "confirmation_ok": { "type": "boolean" },
+    "provider": { "type": "object" },
+    "billing": { "type": "object" },
+    "rates": { "type": "object" },
+    "ledger": { "type": "object" },
+    "fail_closed": { "type": "object" },
+    "safety": {
+      "type": "object",
+      "required": [
+        "free_only_mode",
+        "paid_execution_count",
+        "paid_fallback",
+        "auto_top_up",
+        "compute_jobs_started",
+        "cpu_jobs_started",
+        "gpu_jobs_started",
+        "deploy_count",
+        "publish_count",
+        "secret_values_emitted",
+        "registry_changed",
+        "production_routing_changed"
+      ],
+      "properties": {
+        "free_only_mode": { "const": true },
+        "paid_execution_count": { "const": 0 },
+        "paid_fallback": { "const": false },
+        "auto_top_up": { "const": false },
+        "compute_jobs_started": { "const": 0 },
+        "cpu_jobs_started": { "const": 0 },
+        "gpu_jobs_started": { "const": 0 },
+        "deploy_count": { "const": 0 },
+        "publish_count": { "const": 0 },
+        "secret_values_emitted": { "const": false },
+        "registry_changed": { "const": false },
+        "production_routing_changed": { "const": false }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "required": [
+        "MODAL_AUTH_READY",
+        "SDK_READY",
+        "BILLING_API_READY",
+        "RATES_API_READY",
+        "LEDGER_READY",
+        "ATOMIC_RESERVATION_READY",
+        "FAIL_CLOSED_VERIFIED",
+        "MODAL_NEW_JOBS_ALLOWED"
+      ],
+      "properties": {
+        "MODAL_AUTH_READY": { "type": "boolean" },
+        "SDK_READY": { "type": "boolean" },
+        "BILLING_API_READY": { "type": "boolean" },
+        "RATES_API_READY": { "type": "boolean" },
+        "LEDGER_READY": { "type": "boolean" },
+        "ATOMIC_RESERVATION_READY": { "type": "boolean" },
+        "FAIL_CLOSED_VERIFIED": { "type": "boolean" },
+        "MODAL_NEW_JOBS_ALLOWED": { "const": false }
+      }
+    },
+    "final": {
+      "type": "object",
+      "required": ["MODAL_STATE", "MODAL_NEW_JOBS_ALLOWED", "activation_approved", "production_activation_performed"],
+      "properties": {
+        "MODAL_STATE": { "enum": ["NOT_READY", "READY_FOR_ACTIVATION"] },
+        "MODAL_NEW_JOBS_ALLOWED": { "const": false },
+        "activation_approved": { "const": false },
+        "production_activation_performed": { "const": false }
+      }
+    }
+  },
+  "additionalProperties": true
+}

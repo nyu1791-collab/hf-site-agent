@@ -13,6 +13,8 @@
     "rank",
     "status",
     "summary",
+    "provider",
+    "model",
     "result",
     "artifacts",
     "evidence",
@@ -21,6 +23,10 @@
     "children_used",
     "duration_ms",
     "tokens_used",
+    "requests_used",
+    "input_tokens",
+    "output_tokens",
+    "quota_state",
     "cache_hit",
     "tools_used",
     "source_version",
@@ -71,6 +77,14 @@
     "summary": {
       "type": "string",
       "maxLength": 2000
+    },
+    "provider": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 160
     },
     "result": {
       "type": "object"
@@ -123,6 +137,23 @@
       "type": "integer",
       "minimum": 0
     },
+    "requests_used": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "input_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "output_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "quota_state": {
+      "type": "string",
+      "maxLength": 80
+    },
     "cache_hit": {
       "type": "boolean"
     },
@@ -143,6 +174,11 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 80
+    },
+    "response_version": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonic version owned by the command caller; older or duplicate responses are rejected."
     },
     "free_requests_used": {
       "type": "integer",

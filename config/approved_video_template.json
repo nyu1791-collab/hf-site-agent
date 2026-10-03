@@ -1,0 +1,185 @@
+{
+  "schema_version": "approved-video-template-v1",
+  "effective_date_jst": "2026-09-30",
+  "status": "USER_APPROVED_PRODUCTION_BASELINE",
+  "approval": {
+    "reference_video": "DevDay2026_corrected_47s.mp4",
+    "user_quote": "めちゃくちゃいい出来です。これをしっかりルールブックや型に落とし込んでください。",
+    "reference_video_library_file_id": "libfile_ad76f1b9059c819192e21420da30557b",
+    "reference_video_sha256": "a7fba3d94ad314045cadb220911bfe6916233addbb1f217bfdffdc2af214b15f",
+    "approved_visual_execution_commit": "c78ad5c66f816875dfaee93eb1cb4e233b6b35cf",
+    "approval_is_presentation_acceptance_not_fact_or_publication_approval": true,
+    "longform_presentation_acceptance": {
+      "reference_video": "DevDay2026_まとめ_修正版_8分13秒.mp4",
+      "library_file_id": "libfile_8d4ffa3f683c819191395b55f9e92a0c",
+      "user_quote": "動画自体はとても良かった",
+      "acceptance_scope": "PRESENTATION_AND_ACTING_ONLY_CONTENT_REQUIRES_MORE_CONCISE_EXPLANATION",
+      "reviewed_on_jst": "2026-09-30"
+    }
+  },
+  "renderer": "scripts/render_reusable_short.py",
+  "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md",
+  "presentation_example": "examples/approved_video_presentation.json",
+  "layout": {
+    "width": 720,
+    "height": 1280,
+    "fps": 30,
+    "background": "#F1F6FC",
+    "caption_backplate": "#152134",
+    "caption_font_size": 29,
+    "title_font_size": 34,
+    "source_font_size": 18,
+    "caption_colors": {
+      "ずんだもん": "#B8E6C8",
+      "四国めたん": "#F2C4D7"
+    },
+    "zones": {
+      "title": [
+        30,
+        28
+      ],
+      "evidence": [
+        20,
+        105,
+        700,
+        545
+      ],
+      "source_credit": [
+        34,
+        518
+      ],
+      "source_url": [
+        25,
+        548
+      ],
+      "caption": [
+        20,
+        575,
+        700,
+        790
+      ],
+      "characters_bottom": 1215,
+      "voice_credit": [
+        25,
+        1227
+      ]
+    },
+    "inactive_opacity": 0.72
+  },
+  "acting": {
+    "native_layers_required": true,
+    "mouth_method": "RMS_APPROXIMATION",
+    "closed_threshold": 0.014,
+    "wide_threshold": 0.07,
+    "window_seconds": 0.03,
+    "silent_and_listener_mouth_closed": true,
+    "expressions": [
+      "NORMAL",
+      "HAPPY",
+      "SERIOUS"
+    ],
+    "expressions_from_authored_cues_not_topic_keyword_matching": true,
+    "happiness_hold_seconds": 4,
+    "no_synthetic_mouth_over_existing_mouth": true
+  },
+  "media": {
+    "official_accounts_first": [
+      "OpenAI",
+      "Anthropic"
+    ],
+    "images": "Enlarge the individual image and capture its media region.",
+    "video": "Play, seek, pause an important moment and capture the enlarged media region.",
+    "whole_feed_capture_as_default": false,
+    "credits_required": true,
+    "source_visual_must_support_claim_or_be_labeled_illustration": true,
+    "missing_source_timestamp": "UNKNOWN_DO_NOT_INVENT",
+    "image_coverage_contract": "config/media_speed_quality_policy.json#/visual_density_contract"
+  },
+  "reuse": {
+    "audio": "reuse measured unchanged VOICEVOX narration",
+    "characters": "native layers and content-addressed variants",
+    "layout": "reuse this preset",
+    "changed_stage_only": true,
+    "third_party_binary_assets_in_git": false,
+    "new_content_request": "WRITE_NEW_SCRIPT_AND_SYNTHESIZE_NEW_MEASURED_VOICE_REUSE_ONLY_TEMPLATE_AND_ASSETS"
+  },
+  "verification": {
+    "minimum_completion_only": true,
+    "final_decode_required": false,
+    "manual_visual_review_required": false
+  },
+  "scope": {
+    "short_requested_duration_seconds": [
+      30,
+      60
+    ],
+    "reference_duration_seconds": 47.301334,
+    "resolution_is_fast_baseline_not_universal_maximum": true,
+    "longform_duration_policies_preserved": true,
+    "publication_and_paid_permissions_unchanged": true
+  },
+  "platform_delivery": {
+    "profile_registry": "config/video_platform_delivery_profiles.json",
+    "playbook": "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md",
+    "master_then_platform_derivatives": true,
+    "approved_visual_template_remains_rendering_source_of_truth": true,
+    "recheck_platform_limits_and_safe_areas_before_upload": true
+  },
+  "longform_renderer": "scripts/render_reusable_longform.py",
+  "execution_contract": {
+    "same_visual_and_acting_standard_for_short_and_long": true,
+    "media_region_only_boolean_required_for_each_visual": true,
+    "native_motion_must_be_present_in_output": true,
+    "longform_chapter_checkpoints": true,
+    "audio_regeneration_for_visual_only_repair": false
+  },
+  "editorial": {
+    "priority": "CLEAR_CONCISE_VIEWER_UNDERSTANDING",
+    "answer_first": true,
+    "opening": "短い導入から主要な変化・結論を先に伝える。一般的な注意事項を並べて本題を遅らせない。",
+    "main_takeaways_range": [
+      3,
+      5
+    ],
+    "explain_each": "何が変わったか → 何ができるか → 必要なら具体例を一つ。",
+    "caveats": {
+      "include_only_if_changes_viewer_understanding_or_action": true,
+      "attach_once_to_relevant_feature": true,
+      "brief_plain_language": true,
+      "repeat_generic_warning_per_chapter": false,
+      "separate_announced_from_available_without_long_preamble": true,
+      "omit_irrelevant_billing_rights_runtime_or_production_process_narration": true,
+      "supporting_detail_location": "SOURCE_LEDGER_END_CARD_OR_DESCRIPTION_WHEN_USEFUL",
+      "preserve_material_limits_and_factual_accuracy": true
+    },
+    "script_review": {
+      "read_aloud_for_comprehension": false,
+      "remove_repeated_preamble_warning_and_meta_process": true,
+      "each_paragraph_must_add_new_takeaway_example_or_material_limit": true,
+      "do_not_pad_to_duration": true,
+      "verify_against_current_template_before_voice_generation": true,
+      "optional_review_passes": 0
+    },
+    "latest_feedback": "動画の見た目は良かった。前置き・細かい注意説明がくどかったため、分かりやすい要点整理を優先する。",
+    "clarity_contract": "config/media_speed_quality_policy.json#/script_clarity_contract"
+  },
+  "speed_delivery_policy": "config/media_speed_quality_policy.json#/speed_first_delivery",
+  "dialogue_contract": {
+    "required_speakers": [
+      "ずんだもん",
+      "四国めたん"
+    ],
+    "both_must_have_substantive_spoken_turns": true,
+    "visible_listener_does_not_count_as_spoken_dialogue": true,
+    "minimum_spoken_turns_per_speaker": 2,
+    "voicevox_speaker_ids_must_be_distinct_and_recorded": true,
+    "never_relabel_single_speaker_audio_as_two_speakers": true,
+    "roles": {
+      "ずんだもん": "要点を平易に説明する",
+      "四国めたん": "視聴者の疑問を質問し、具体例や短い言い換えで理解を助ける"
+    },
+    "avoid_mechanical_sentence_by_sentence_alternation": true,
+    "both_speakers_participate_in_main_sections": true
+  },
+  "content_contract_validator": "scripts/validate_video_content_contract.py"
+}

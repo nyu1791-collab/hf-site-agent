@@ -1,0 +1,77 @@
+{
+  "schema_version": "compute-provider-registry-v1",
+  "policy": {
+    "free_only_mode": true,
+    "allow_paid_execution": false,
+    "allow_paid_fallback": false,
+    "auto_top_up": false,
+    "allow_deploy": false,
+    "allow_publish": false,
+    "gpu_probe_required": false,
+    "default_retry": 0,
+    "shared_ledger_required": true,
+    "ledger_shared_env": "MODAL_LEDGER_SHARED",
+    "safety_buffer_ratio": "0.05",
+    "cost_thresholds": {
+      "green": "0.70",
+      "caution": "0.80",
+      "soft_stop": "0.90",
+      "hard_stop": "0.90"
+    },
+    "max_resource_limits": {
+      "cpu": "32",
+      "memory_mb": 131072,
+      "timeout_seconds": 86400,
+      "max_containers": 10,
+      "max_parallel": 10,
+      "max_children": 32,
+      "max_depth": 3,
+      "max_retries": 0
+    }
+  },
+  "providers": {
+    "modal": {
+      "provider_id": "modal",
+      "display_name": "Modal",
+      "provider_kind": "COMPUTE_PROVIDER",
+      "provider_tier": "COMPUTE_PROVIDER",
+      "api_key_envs": [
+        "MODAL_TOKEN_ID",
+        "MODAL_TOKEN_SECRET"
+      ],
+      "endpoint_source": "Modal Workspace SDK",
+      "enabled": false,
+      "activation_approved": false,
+      "activation_state": "REGISTERED",
+      "health_status": "UNPROBED",
+      "circuit_state": "CLOSED",
+      "billing_status": "UNKNOWN",
+      "rates_status": "UNKNOWN",
+      "credit_status": "UNKNOWN",
+      "ledger_status": "UNKNOWN",
+      "new_jobs_allowed": false,
+      "free_credit_usd": null,
+      "fixed_free_credit_assumption": false,
+      "last_probe_at": null,
+      "last_success_at": null,
+      "last_error_type": null,
+      "billing_cycle": null,
+      "quota_source": "official Modal Workspace Billing SDK",
+      "billing_api": [
+        "Workspace.billing.summary",
+        "Workspace.billing.rates",
+        "Workspace.billing.report"
+      ],
+      "limits": {
+        "cpu": "32",
+        "memory_mb": 131072,
+        "timeout_seconds": 86400,
+        "max_containers": 10,
+        "max_parallel": 10,
+        "max_children": 32,
+        "max_depth": 3,
+        "max_retries": 0
+      }
+    }
+  }
+}

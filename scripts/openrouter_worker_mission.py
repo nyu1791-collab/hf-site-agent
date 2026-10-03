@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""Build the NVIDIA+Google implementation mission for OpenRouter workers.
+
+This module is deterministic and makes no provider call itself. It defines the
+exact repository scope, worker roles, benchmark contract, continuation rules,
+and acceptance gates for the two-agent staging carrier. Google is the
+implementation Executor; NVIDIA is the independent performance/reliability
+Reviewer; Work remains the source integrator.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+
+MISSION_ID = "openrouter-worker-army-v1"
+MISSION_IMPORTANCE = "IMPORTANT"
+ALLOWED_PATHS = (
+    "scripts/worker_selection.py",
+    "scripts/worker_benchmark_ranking.py",
+    "scripts/probe_free_workers.py",
+    "scripts/probe_free_workers_multi.py",
+    "scripts/benchmark_free_workers.py",
+    "scripts/worker_canary.py",
+    "scripts/continuous_project_loop.py",
+    "scripts/openrouter_worker_orchestrator.py",
+    "scripts/adaptive_multi_attempt.py",
+    "scripts/agent_executor.py",
+    "scripts/commander_routing.py",
+    "scripts/model_registry.py",
+    "tests/test_worker_selection.py",
+    "tests/test_worker_benchmark_ranking.py",
+    "tests/test_probe_free_workers.py",
+    "tests/test_openrouter_worker_orchestrator.py",
+    "tests/test_continuous_project_loop.py",
+    "tests/test_agent_executor.py",
+    "tests/test_commander_routing.py",
+)
+WORKER_ROLES = (
+    "GENERAL_WORKER",
+    "CODING_WORKER",
+    "REVIEW_WORKER",
+    "FAST_WORKER",
+)
+
+
+def build_mission_packet(*, source_head: str = "") -> dict[str, Any]:
+    return {
+        "schema_version": "openrouter-worker-mission-v2",
+        "mission_id": MISSION_ID,
+        "source_head": source_head,
+        "importance": MISSION_IMPORTANCE,
+        "adaptive_redundancy": {
+            "executor_attempts": 2,
+            "review_attempts": 1,
+            "same_provider_attempts_parallel": False,
+            "selection": "DETERMINISTIC_BEST_OF_N",
+        },
+        "chain_of_command": [
+            "WORK_SUPREME_COMMAND",
+            "GOOGLE_GEMINI_EXECUTOR",
+            "LOCAL_DETERMINISTIC_VALIDATOR",
+            "NVIDIA_NEMOTRON_REVIEWER",
+            "WORK_INTEGRATOR",
+        ],
+        "project_continuation_contract": {
+            "stop_between_substeps": False,
+            "current_stop_scope": "PROJECT_BOUNDARY",
+            "validation_failure": "REVISE_SAME_PROJECT",
+            "review_failure": "REVISE_SAME_PROJECT",
+            "repeated_failure": "BOUNDED_REPLAN_SAME_PROJECT",
+            "provider_usage_uncertain": "CHECKPOINT_WITHOUT_REPLAY",
+            "external_dependency_blocked": "RESUME_SAME_PROJECT",
+            "after_project_acceptance": "PREDICT_NEXT_PROJECT",
+            "auto_continue_safe_followups": True,
+            "max_auto_followup_projects_per_carrier": 3,
+            "source_mutation_requires_work_integrator": True,
+        },
+        "objective": (
+            "Complete the existing OpenRouter free-worker subsystem without replacing it. "
+            "Continue through all substeps of this project until acceptance gates pass; do not "
+            "stop merely because one action, probe, benchmark, review, or revision finished. "
+            "Use the existing deterministic worker_benchmark_ranking layer as the baseline "
+            "instead of inventing a second scorer. Integrate measured benchmark evidence into "
+            "role assignment so current free exact-model candidates are compared for quality, "
+            "structured-output reliability, measured latency and token efficiency. Preserve "
+            "dynamic catalog selection and do not hard-code a model ID. After project acceptance, "
+            "emit evidence-based next-project candidates and automatically continue only bounded "
+            "safe staging/read-only follow-ups."
+        ),
+        "google_executor": {
+            "responsibilities": [
+                "inspect existing worker selection, exact probe and worker_benchmark_ranking contracts",
+                "continue the same project through revision until acceptance or a real external blocker",
+                "integrate the existing role-weighted scorer with the smallest compatible change",
+                "propose exact code changes and regression tests",
+                "prefer reuse of existing probe/catalog data",
+                "measure latency rather than substituting a constant when provider metadata omits it",
+                "keep same-provider Best-of-N serialized unless parallel safety is explicitly proven",
+                "preserve uncertain provider usage as unsettled and never replay it automatically",
+                "predict the next useful project after current-project acceptance",
+            ],
+            "required_output": [
+                "summary",
+                "proposal",
+                "files_affected",
+                "tests",
+                "risks",
+                "benchmark_design",
+                "project_completion_state",
+                "next_project_candidates",
+                "next_action",
+            ],
+        },
+        "nvidia_reviewer": {
+            "responsibilities": [
+                "challenge benchmark bias, fake latency and unstable scoring",
+                "detect race, duplicate probe and quota-waste paths",
+                "reject same-provider parallel attempts without explicit safety evidence",
+                "verify interrupted or uncertain provider calls cannot be silently converted to zero usage",
+                "check that speed is measured independently from quality",
+                "check role misassignment and stale-catalog behavior",
+                "verify worker_benchmark_ranking remains deterministic and role-scoped",
+                "review all project acceptance gates rather than only the latest action",
+                "reject unnecessary rewrites, duplicate scorers or fixed model IDs",
+            ],
+            "required_output": [
+                "decision",
+                "summary",
+                "findings",
+                "required_changes",
+                "risks",
+                "project_acceptance_gaps",
+                "failure_signature",
+            ],
+        },
+        "worker_roles": {
+            "GENERAL_WORKER": {"primary_metrics": ["task_quality", "schema_success", "context_utility"]},
+            "CODING_WORKER": {"primary_metrics": ["code_quality", "test_quality", "schema_success", "latency"]},
+            "REVIEW_WORKER": {"primary_metrics": ["defect_detection", "false_positive_rate", "schema_success"]},
+            "FAST_WORKER": {"primary_metrics": ["latency", "token_efficiency", "schema_success", "basic_quality"]},
+        },
+        "benchmark_contract": {
+            "candidate_source": "CURRENT_OPENROUTER_CATALOG_ONLY",
+            "ranking_baseline": "scripts/worker_benchmark_ranking.py",
+            "generic_router_allowed": False,
+            "fixed_model_ids_allowed": False,
+            "benchmark_only_after_exact_free_probe": True,
+            "max_candidates_per_role": 3,
+            "reuse_one_model_across_roles_when_it_wins": True,
+            "latency_source": "LOCAL_MONOTONIC_WALL_CLOCK",
+            "metrics": [
+                "task_quality",
+                "schema_success_rate",
+                "latency_ms",
+                "tokens_per_success",
+                "revision_rate",
+                "error_rate",
+            ],
+            "score_policy": "ROLE_WEIGHTED_NORMALIZED_SCORE",
+            "tie_breakers": ["lower_latency", "lower_tokens_per_success", "lexical_model_id"],
+        },
+        "allowed_paths": list(ALLOWED_PATHS),
+        "acceptance": [
+            "existing OpenRouter worker tests remain green",
+            "worker_benchmark_ranking tests remain green",
+            "ranking is deterministic for identical benchmark evidence",
+            "latency is measured locally and not defaulted to a fake 1ms success value",
+            "same-provider independent attempts do not bypass scheduler serialization",
+            "uncertain provider usage cannot trigger another independent attempt",
+            "no generic openrouter/free route",
+            "no fixed free model ID becomes mandatory",
+            "no duplicate catalog or exact-probe request is introduced",
+            "failed benchmark cannot activate a worker",
+            "commander receives a role-scoped worker selection rather than a global winner",
+            "current project does not stop between execute validate review revise benchmark and handoff substeps",
+            "project completion emits a bounded evidence-based next-project prediction",
+        ],
+        "hard_boundaries": {
+            "paid_fallback": False,
+            "secret_exposure": False,
+            "production_activation": False,
+            "external_repository_write": False,
+        },
+    }
+
+
+def main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--source-head", default="")
+    parser.add_argument("--output", default="artifacts/openrouter_worker_mission.json")
+    args = parser.parse_args()
+    output = Path(args.output)
+    if output.is_absolute() or ".." in output.parts:
+        raise SystemExit("output must stay inside workspace")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    packet = build_mission_packet(source_head=args.source_head)
+    output.write_text(json.dumps(packet, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(packet, ensure_ascii=False, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

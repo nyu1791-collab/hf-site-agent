@@ -1,0 +1,91 @@
+{
+  "mission_id": "20260922-mars-jezero-water-history-short-review",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Review a Japanese 50-70 second Zundamon/Shikoku-Metan science-news short about the 2026-09-21 Mars Jezero Crater Margin Unit study. Audit factual accuracy, overclaiming, hook quality, and whether the script clearly distinguishes evidence of multiple water-rock alteration episodes from any claim of life detection. Work only from the supplied primary/peer-reviewed evidence. Return concise corrections and a preferred final dialogue order; ChatGPT performs final adjudication. Do not generate media.",
+  "shared_evidence": [
+    {
+      "source": "NASA/JPL 2026-09-21 — NASA Discovery Reveals Complex Water Systems on Early Mars",
+      "url": "https://www.jpl.nasa.gov/news/nasa-discovery-reveals-complex-water-systems-on-early-mars/",
+      "summary": "JPL reports Perseverance observations of Jezero Crater's Margin Unit indicate at least three separate episodes of water-rock interaction. Higher exposures are coarse olivine-rich igneous rocks; lower exposures show alteration associated with CO2-rich groundwater, later lake/groundwater processes with silica, and late hot-water/hydrothermal veins including calcium sulfate and fluorite.",
+      "tier": "PRIMARY",
+      "published_at": "2026-09-21",
+      "retrieved_at": "2026-09-22T12:47:00+09:00"
+    },
+    {
+      "source": "Communications Earth & Environment 2026-09-21 — Lake- and groundwater-associated alteration of the olivine-rich Margin unit in Jezero crater, Mars",
+      "url": "https://www.nature.com/articles/s43247-026-03563-5",
+      "summary": "The open-access peer-reviewed paper reports three alteration episodes in lower Margin Unit exposures: neutral-to-alkaline CO2-rich fluids forming carbonate ridges; lake/groundwater remobilization with silica precipitation; and late hydrothermal fluids forming fluorite-bearing Ca-sulfate veins. The study describes astrobiological interest but does not report detection of life.",
+      "tier": "PEER_REVIEWED_OR_OFFICIAL_RESEARCH",
+      "published_at": "2026-09-21",
+      "retrieved_at": "2026-09-22T12:47:00+09:00"
+    }
+  ],
+  "draft_dialogue": [
+    {
+      "speaker": "ずんだもん",
+      "voice_text": "火星に水があった、だけじゃないのだ。ジェゼロ・クレーターの岩には、別々の時期に水が少なくとも三回作用した痕跡が残っていたのだ。",
+      "caption_text": "火星に水があった、だけじゃない。Jezero Craterの岩に、少なくとも3回の水作用の痕跡。"
+    },
+    {
+      "speaker": "四国めたん",
+      "voice_text": "ナサとジェット推進研究所が九月二十一日に紹介した査読研究ね。パーサヴィアランスのスーパーカムで、マージン・ユニットを調べた結果よ。",
+      "caption_text": "NASA/JPLが9月21日に紹介した査読研究。PerseveranceのSuperCamでMargin Unitを分析。"
+    },
+    {
+      "speaker": "ずんだもん",
+      "voice_text": "高い場所は、かんらん石に富む火成岩。ところが低い場所では、水との反応で岩の化学が大きく変わっていたのだ。",
+      "caption_text": "高所はolivine-richな火成岩。低所では水との反応で岩石が大きく変化。"
+    },
+    {
+      "speaker": "四国めたん",
+      "voice_text": "最初は二酸化炭素を含む地下水。その後、湖か地下水が炭酸塩を動かし、シリカを沈殿させたと考えられているわ。",
+      "caption_text": "① CO₂-rich groundwater → carbonate  ② lake/groundwater → silica precipitation"
+    },
+    {
+      "speaker": "ずんだもん",
+      "voice_text": "さらに後には、熱い地下水が通って、硫酸カルシウムとフッ化物を含む鉱物脈ができたのだ。",
+      "caption_text": "③ late hydrothermal fluids → fluorite-bearing Ca-sulfate veins"
+    },
+    {
+      "speaker": "四国めたん",
+      "voice_text": "つまりジェゼロは、単純な古代湖の跡ではなく、地下水、湖、熱水が重なる複雑な水環境だった可能性が高まったの。",
+      "caption_text": "Jezeroは「湖だけ」ではなく、groundwater・lake・hydrothermal activityが重なる複雑な環境。"
+    },
+    {
+      "speaker": "ずんだもん",
+      "voice_text": "ただし、これは生命そのものを発見したという報告ではないのだ。生命が存在できた環境を考える手がかりが増えた、という段階なのだ。",
+      "caption_text": "※生命の発見ではない。古代火星のhabitabilityを考える手がかりが増えた段階。"
+    },
+    {
+      "speaker": "ずんだもん",
+      "voice_text": "火星の水の歴史は、想像以上に複雑だったのだ。",
+      "caption_text": "火星の水の歴史は、想像以上に複雑だった。"
+    }
+  ],
+  "lanes": [
+    {
+      "id": "fact_overclaim_audit",
+      "objective": "Audit every dialogue turn against the supplied JPL and peer-reviewed study. Flag unsupported wording, especially around the number/timing of alteration episodes, hydrothermal interpretation, habitability, and any implication of life detection. Provide exact replacement wording where needed."
+    },
+    {
+      "id": "shortform_editorial_review",
+      "objective": "Review the dialogue as a 50-70 second Japanese science-news short. Preserve Zundamon as primary voice, use Metan only where dialogue helps, keep a truthful 1-3 second hook, reduce jargon without losing accuracy, and return a preferred final order and concise caption wording."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 2,
+  "max_calls": 3,
+  "max_output_tokens_per_lane": 2500,
+  "max_output_tokens_synthesis": 3500,
+  "max_estimated_cost_usd": 0.08,
+  "known_estimated_daily_spend_before_mission_usd": 0,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": "media-source-ingress-v1",
+  "status": "BOUNDED_MULTI_SOURCE_RSS_INBOX_IMPLEMENTED",
+  "live_daemon_enabled": false,
+  "daemon_implementation": "scripts/media_source_daemon.py",
+  "systemd_service_template": "deploy/systemd/hf-site-agent-media-source.service",
+  "purpose": "Poll fixed official feeds into a deduplicated preparation inbox; never start rendering directly from a feed item.",
+  "max_response_bytes": 2097152,
+  "max_items_per_feed": 100,
+  "request_timeout_seconds": 8,
+  "poll_interval_seconds": 300,
+  "stale_after_seconds": 600,
+  "feeds": [
+    {
+      "feed_id": "openai-news",
+      "url": "https://openai.com/news/rss.xml",
+      "allowed_hosts": [
+        "openai.com"
+      ],
+      "enabled": true,
+      "purpose": "Official OpenAI newsroom updates",
+      "priority": 0
+    },
+    {
+      "feed_id": "google-deepmind",
+      "url": "https://deepmind.google/blog/rss.xml",
+      "allowed_hosts": [
+        "deepmind.google"
+      ],
+      "enabled": true,
+      "purpose": "Official Google DeepMind research and product announcements",
+      "priority": 10
+    }
+  ],
+  "image_hosts": [
+    "openai.com",
+    "cdn.openai.com",
+    "images.ctfassets.net",
+    "deepmind.google"
+  ],
+  "max_article_image_bytes": 5000000,
+  "max_article_images": 8,
+  "inbox_state_before_preparation": "PREPARATION_REQUIRED",
+  "external_feed_text_is_untrusted": true,
+  "enqueue_only_after_prepared_media_manifest": true,
+  "stable_source_id": "SHA256_FEED_ID_AND_GUID_OR_CANONICAL_LINK",
+  "publisher_enabled": false
+}

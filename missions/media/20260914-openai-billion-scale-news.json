@@ -1,0 +1,25 @@
+{
+  "schema":"voicevox-dialogue-mission-v3",
+  "title":"チャットジーピーティー10億人を支える裏側",
+  "intent":"VIDEO_CREATION_CURRENT_NEWS",
+  "generated_image_ai_allowed":false,
+  "generated_video_ai_allowed":false,
+  "public_publish":false,
+  "source_refs":[
+    "https://openai.com/index/scaling-storage-one-billion-users-part-one/"
+  ],
+  "dialogue":[
+    {"id":1,"speaker":"ずんだもん","emotion":"curious","text":"今日のエーアイニュース。チャットジーピーティー、10億人規模の裏側です。"},
+    {"id":2,"speaker":"四国めたん","emotion":"serious","text":"オープンエーアイは9月11日、10億人を超えるチャットジーピーティー利用者を支える保存基盤の仕組みを公開しました。"},
+    {"id":3,"speaker":"ずんだもん","emotion":"surprised","text":"10億人って、サーバーはどうなってるの？"},
+    {"id":4,"speaker":"四国めたん","emotion":"explainer","text":"中心のサービスはハビタット。旧パイソン版は、ピーク時に毎秒2000万件を超えるリクエストを処理していたそうです。"},
+    {"id":5,"speaker":"ずんだもん","emotion":"curious","text":"それでも作り直したの？"},
+    {"id":6,"speaker":"四国めたん","emotion":"explainer","text":"2026年の第2四半期に、2人のエンジニアがコーデックスとジーピーティー5.5を使い、サービス全体をラスト言語へ書き換えました。"},
+    {"id":7,"speaker":"ずんだもん","emotion":"surprised","text":"で、どれくらい効率化したの？"},
+    {"id":8,"speaker":"四国めたん","emotion":"explainer","text":"新しいラスト版は本番リクエストの95パーセントを担当し、中央処理装置の効率は6倍、メモリー効率は15倍としています。"},
+    {"id":9,"speaker":"ずんだもん","emotion":"curious","text":"保存量もすごそう。"},
+    {"id":10,"speaker":"四国めたん","emotion":"serious","text":"次回公開予定の保存層では、500ペタバイト超、毎秒7000万件超を扱うと予告しています。"},
+    {"id":11,"speaker":"ずんだもん","emotion":"relieved","text":"エーアイの進化って、モデルだけじゃないんだね。"},
+    {"id":12,"speaker":"四国めたん","emotion":"summary","text":"そう。10億人規模では、裏側の基盤を速く、安く、壊れにくくする技術も競争になっています。"}
+  ]
+}

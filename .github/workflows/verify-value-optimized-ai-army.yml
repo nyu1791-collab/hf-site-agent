@@ -1,0 +1,60 @@
+name: Verify value-optimized AI Army
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: value-optimized-ai-army-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Compile value runtime
+        run: |
+          python -m py_compile \
+            scripts/value_optimized_routing.py \
+            scripts/value_learning_loop.py \
+            scripts/value_opportunity_planner.py \
+            scripts/value_optimized_scheduler.py \
+            scripts/independent_agent_scheduler.py \
+            scripts/independent_agent_runtime_v4.py \
+            scripts/replaceable_agent_scheduler_v4.py
+      - name: Validate policies
+        run: |
+          python -m json.tool config/value_optimized_ai_army.json >/dev/null
+          python -m json.tool config/replaceable_agent_organization.json >/dev/null
+      - name: Run value routing tests
+        run: |
+          python -m unittest \
+            tests.test_value_optimized_routing \
+            tests.test_value_learning_loop \
+            tests.test_value_opportunity_planner \
+            tests.test_value_optimized_scheduler -v
+      - name: Verify no authority expansion
+        run: |
+          python - <<'PY'
+          from scripts.value_optimized_routing import load_value_config
+          p = load_value_config()
+          h = p['hard_boundaries']
+          assert h['merge_requires_human_approval'] is True
+          assert h['deploy_requires_human_approval'] is True
+          assert h['publish_requires_human_approval'] is True
+          assert h['secret_mutation_requires_human_approval'] is True
+          assert p['cost_governor']['paid_specialist_allowlist'] == ['deepseek']
+          assert p['cost_governor']['paid_specialist_requires_explicit_mission_authorization'] is True
+          assert p['escalation']['automatic_paid_escalation'] is False
+          print('VALUE_AUTHORITY_BOUNDARIES=PASS')
+          PY

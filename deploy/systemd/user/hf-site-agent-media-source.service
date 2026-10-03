@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll official media RSS feeds into the persistent preparation queue
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/hf-site-agent
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m scripts.media_source_daemon --db %h/hf-site-agent/runtime/media-queue.sqlite3 --once
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+TimeoutStartSec=60

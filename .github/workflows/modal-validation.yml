@@ -1,0 +1,105 @@
+name: Modal compute validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type MODAL_VALIDATION to permit bounded auth/billing validation"
+        required: true
+        default: ""
+        type: string
+      billing_cycle:
+        description: "Explicit official Modal billing cycle; do not guess"
+        required: false
+        default: ""
+        type: string
+      shared_ledger_ready:
+        description: "Informational local-store flag; it never proves durable cross-runner readiness"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: modal-compute-validation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout without write credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run deterministic regression before any optional live check
+        run: python -m unittest discover -s tests -p 'test_*.py' -q
+
+      - name: Generate redacted Modal preflight plan (no compute)
+        run: |
+          set -euo pipefail
+          python scripts/live_probe_plan.py --provider modal --max-total-requests 24 --output artifacts/live_probe_plan.json
+          python -m json.tool artifacts/live_probe_plan.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          plan = json.loads(Path("artifacts/live_probe_plan.json").read_text(encoding="utf-8"))
+          assert plan["final"]["state"] == "LIVE_PROBE_PLAN_READY"
+          assert plan["plans"][0]["estimated_requests"] == 3
+          assert plan["plans"][0]["estimated_tokens"] == 0
+          assert plan["plans"][0]["estimated_cost"] == "UNKNOWN"
+          assert plan["plans"][0]["compute_jobs_included"] == 0
+          assert plan["auto_execution_allowed"] is False
+          assert plan["safety"]["compute_jobs_started"] == 0
+          assert plan["safety"]["paid_calls"] == 0
+          print(json.dumps({"estimated_requests": 3, "estimated_tokens": 0, "estimated_cost": "UNKNOWN", "compute_jobs": 0, "live_probe_enabled": False}))
+          PY
+      - name: Install Modal SDK only for explicitly confirmed validation
+        if: inputs.confirm == 'MODAL_VALIDATION'
+        run: |
+          python -m pip install --disable-pip-version-check --no-input modal
+          python - <<'PY'
+          import modal
+          print("modal_sdk_available=true")
+          print("modal_sdk_version=" + str(getattr(modal, "__version__", "VERSION_UNAVAILABLE"))[:80])
+          PY
+
+      - name: Run redacted Modal validation
+        shell: bash
+        env:
+          CONFIRM_INPUT: ${{ inputs.confirm }}
+          BILLING_CYCLE_INPUT: ${{ inputs.billing_cycle }}
+          MODAL_LEDGER_SHARED: ${{ inputs.shared_ledger_ready }}
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: |
+          set -euo pipefail
+          args=(--output artifacts/modal_validation_report.json --ledger artifacts/modal_cost_ledger.json)
+          if [[ "$CONFIRM_INPUT" == "MODAL_VALIDATION" ]]; then
+            args+=(--network --confirm "$CONFIRM_INPUT")
+          fi
+          if [[ -n "$BILLING_CYCLE_INPUT" ]]; then
+            args+=(--billing-cycle "$BILLING_CYCLE_INPUT")
+          fi
+          python scripts/modal_validation.py "${args[@]}"
+          python -m json.tool artifacts/modal_validation_report.json >/dev/null
+
+      - name: Preserve redacted validation report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: modal-validation-report-${{ github.run_id }}
+          path: artifacts/modal_validation_report.json
+          if-no-files-found: ignore
+          retention-days: 7
