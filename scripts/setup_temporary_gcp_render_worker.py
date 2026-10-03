@@ -6,6 +6,8 @@ SSH host keys come from authenticated VM sessions, not an unverified key scan.
 """
 from __future__ import annotations
 import argparse
+from contextlib import contextmanager
+import fcntl
 import ipaddress
 import json
 import os
@@ -22,6 +24,29 @@ COORDINATOR = "instance-20261001-071545"
 WORKER = "hf-render-worker"
 SOURCE_DIR = "/home/n_yu1791/hf-site-agent"
 PORT = 18765
+
+
+@contextmanager
+def operation_lock():
+    """Serialize Cloud Shell invocations so a repeated paste cannot race key setup."""
+    lock_dir = Path.home() / ".cache" / "hf-site-agent"
+    lock_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = lock_dir.lstat()
+    if not __import__("stat").S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise RuntimeError("temporary renderer operation lock directory is not private")
+    lock_path = lock_dir / "temporary-render-operation.lock"
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        state = os.fstat(fd)
+        if not __import__("stat").S_ISREG(state.st_mode) or state.st_uid != os.getuid() or state.st_mode & 0o077:
+            raise RuntimeError("temporary renderer operation lock file is not private")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise RuntimeError("another temporary renderer operation is already running") from exc
+        yield
+    finally:
+        os.close(fd)
 
 
 def command(args, check=True):
@@ -292,13 +317,7 @@ def drain(coordinator, worker, stop_vm):
         print(json.dumps({"vm_stopped": WORKER, "vm_deleted": False}))
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--operation", choices=["probe", "setup", "reboot-check", "drain", "stop", "resume"], default="probe")
-    parser.add_argument("--provision-render-auth", action="store_true")
-    parser.add_argument("--complete-e2e", action="store_true")
-    args = parser.parse_args()
+def run_operation(args):
     inventory = json.loads(command(["gcloud", "compute", "instances", "list", "--project", args.project, "--format=json"]).stdout)
     selected = {}
     for name in (COORDINATOR, WORKER):
@@ -323,6 +342,17 @@ def main():
         worker_control(worker, "resume")
         worker.ssh("sudo -n systemctl start hf-render-worker.service hf-render-worker-tunnel.service")
         wait_ready(coordinator)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--project", required=True)
+    parser.add_argument("--operation", choices=["probe", "setup", "reboot-check", "drain", "stop", "resume"], default="probe")
+    parser.add_argument("--provision-render-auth", action="store_true")
+    parser.add_argument("--complete-e2e", action="store_true")
+    args = parser.parse_args()
+    with operation_lock():
+        run_operation(args)
 
 
 if __name__ == "__main__":

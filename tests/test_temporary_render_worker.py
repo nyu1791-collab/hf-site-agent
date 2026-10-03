@@ -46,6 +46,15 @@ class TemporaryWorkerTests(unittest.TestCase):
         self.assertIn("VOICEVOX_REMOTE_TUNNEL=0", command)
         self.assertNotIn("media.env", command)
 
+    def test_cloud_shell_operation_lock_rejects_duplicate_setup_process(self):
+        with tempfile.TemporaryDirectory() as td, patch.object(setup.Path, "home", return_value=Path(td)):
+            with setup.operation_lock():
+                with self.assertRaisesRegex(RuntimeError, "already running"):
+                    with setup.operation_lock():
+                        pass
+            with setup.operation_lock():
+                pass
+
     def test_lock_excludes_another_writer_and_drain_preserves_existing_results(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

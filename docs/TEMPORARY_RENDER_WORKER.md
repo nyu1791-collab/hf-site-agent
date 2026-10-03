@@ -9,11 +9,13 @@ update and test the coordinator without changing `main`. The user-operated Cloud
 Shell installer discovers the two existing VMs; it never creates, resizes or
 deletes an instance, opens a firewall, changes paid routes or replaces secrets.
 
-Initial render-only credentials do not currently exist. Setup therefore requires
-the user to explicitly invoke `--provision-render-auth`. It provisions a random
-render token in protected files and a restricted tunnel key without printing either.
+For an unconfigured VM pair, setup requires the user to explicitly invoke
+`--provision-render-auth`. It provisions a random render token in protected files
+and a restricted tunnel key without printing either.
 The coordinator SSH host key is obtained from an authenticated GCP SSH session.
 An existing auth/config file causes setup to stop instead of replacing it.
+The Cloud Shell installer serializes invocations with a private file lock so a
+repeated command cannot race GCP SSH key creation.
 
 ```bash
 python3 setup_temporary_gcp_render_worker.py --project PROJECT_ID --operation setup --provision-render-auth --complete-e2e
@@ -25,6 +27,13 @@ success on the coordinator, waits for the worker to be idle, reboots it and wait
 for authenticated health with a changed boot ID. It then renders the second job.
 No human SSH action is required after the reboot. The receipt is saved at
 `runtime/temporary-render-e2e/reboot-e2e-receipt.json` on the coordinator.
+
+If auth and services are already installed and the first attempt stopped during
+VOICEVOX preparation, retry the same fixed job without reprovisioning credentials:
+
+```bash
+python3 setup_temporary_gcp_render_worker.py --project PROJECT_ID --operation reboot-check
+```
 
 The fixture is private infrastructure acceptance material. Its abstract authored
 character layers and explanatory diagrams are owned by the repository; they are
@@ -57,3 +66,8 @@ starts the worker/tunnel; starting a stopped VM remains an explicit GCP operatio
 The local FFmpeg smoke uses mock PCM only and is not evidence of GCP VM reboot or
 live VOICEVOX E2E. Only the saved live acceptance receipt and verified MP4s establish
 completion of the user-requested temporary-worker phase.
+
+If initial setup has already installed both services and the render-only auth but
+the first fixture did not finish, use the same script with
+`--operation reboot-check`; do not provision credentials again. The operation lock
+also prevents accidental duplicate reboot/E2E invocations.
