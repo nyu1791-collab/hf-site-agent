@@ -24,7 +24,7 @@ def require(value: bool, message: str) -> None:
 
 def main() -> int:
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    require(policy.get("status") == "ACTIVE_SCOPED_PAID_EXCEPTION", "Jev exception inactive")
+    require(policy.get("status") == "ACTIVE_FREE_ONLY", "Jev free-only policy inactive")
     auth = policy.get("user_authorization") or {}
     require(auth.get("authorized") is True, "Jev not authorized")
     require(auth.get("persistent_across_chat_tabs") is True, "Jev authorization not persistent")
@@ -33,12 +33,14 @@ def main() -> int:
     provider = policy.get("provider") or {}
     require(provider.get("canonical_model_alias") == "~typesafe/jev-latest", "Jev latest alias drift")
     require(provider.get("last_known_good_model") == "typesafe/jev-1.13", "Jev last-known-good pin drift")
-    require(provider.get("automatic_latest_migration") is True, "Jev auto latest migration disabled")
+    require(provider.get("automatic_latest_migration") is False, "Jev automatic latest migration must stay disabled without exact zero-price evidence")
 
     guard = policy.get("cost_guard") or {}
-    require(guard.get("cost_is_not_primary_optimization_target_for_jev") is True, "Jev cost became primary optimizer")
-    require(float(guard.get("hard_emergency_price_ceiling_prompt_usd_per_million", 0)) == 1.0, "Jev emergency prompt ceiling drift")
-    require(float(guard.get("hard_emergency_price_ceiling_completion_usd_per_million", 0)) == 1.0, "Jev emergency completion ceiling drift")
+    require(guard.get("require_zero_prompt_and_completion_price") is True, "Jev zero-price requirement missing")
+    require(guard.get("openrouter_paid_execution_authorized") is False, "Jev paid OpenRouter execution authorized")
+    require(float(guard.get("hard_emergency_price_ceiling_prompt_usd_per_million", -1)) == 0.0, "Jev prompt price ceiling must be zero")
+    require(float(guard.get("hard_emergency_price_ceiling_completion_usd_per_million", -1)) == 0.0, "Jev completion price ceiling must be zero")
+    require(guard.get("missing_normal_catalog_entry_is_not_a_block_for_authorized_jev_family") is False, "Jev may use missing price evidence")
     require(int(guard.get("max_records_per_decisions_request", 0)) == 20, "Jev batch size must remain 20")
     require(int(guard.get("max_parallel_decision_batches", 0)) == 5, "Jev parallel batch ceiling must remain five")
     require(guard.get("auto_top_up") is False, "Jev auto top-up enabled")
@@ -145,7 +147,7 @@ def main() -> int:
     require((multi.get("routing") or {}).get("jev_default_for_nontrivial_model_and_fanout_choice") is True, "Jev not default for nontrivial routing choice")
     exceptions = (multi.get("security_and_permissions") or {}).get("preauthorized_paid_execution_exceptions") or []
     jev_ex = [x for x in exceptions if isinstance(x, dict) and x.get("role") == "FAST_DECISION_PLANE"]
-    require(len(jev_ex) == 1, "Jev paid exception must be exactly one")
+    require(len(jev_ex) == 0, "Jev must not remain a preauthorized paid exception")
 
     org = json.loads(ORG.read_text(encoding="utf-8"))
     plane = (org.get("hierarchy") or {}).get("decision_plane") or {}
@@ -159,7 +161,8 @@ def main() -> int:
         "role": "FAST_DECISION_PLANE",
         "model_alias": provider.get("canonical_model_alias"),
         "last_known_good": provider.get("last_known_good_model"),
-        "emergency_prompt_price_ceiling_per_million": guard.get("hard_emergency_price_ceiling_prompt_usd_per_million"),
+        "required_prompt_price_per_million": guard.get("hard_emergency_price_ceiling_prompt_usd_per_million"),
+        "openrouter_paid_execution_authorized": False,
         "max_records_per_request": guard.get("max_records_per_decisions_request"),
         "max_parallel_batches": guard.get("max_parallel_decision_batches"),
         "routine_shape_route_questions": shape_contract.get("routine_question_count"),
