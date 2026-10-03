@@ -871,18 +871,48 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                     payload["max_completion_tokens"]=int(free_policy["maximum_completion_tokens"])
                     payload["usage"]={"include":True}
                     response=request_fn(payload,free_key)
+                    if not isinstance(response,Mapping):
+                        raise OpenRouterRequestUnknown(
+                            "OpenRouter response shape was invalid; automatic retry disabled",
+                            reason_code="RESPONSE_NOT_OBJECT")
                     if response.get("model")!=model:
-                        raise RuntimeError("OpenRouter free response model does not match verified free model")
+                        raise OpenRouterRequestUnknown(
+                            "OpenRouter response model did not match the verified free model",
+                            reason_code="RESPONSE_MODEL_MISMATCH")
                     choices=response.get("choices")
-                    content=choices[0]["message"]["content"] if isinstance(choices,list) and choices else ""
-                    story=validate_story(json.loads(content),str(article["text"]))
+                    if not isinstance(choices,list) or not choices or not isinstance(choices[0],Mapping):
+                        raise OpenRouterRequestUnknown(
+                            "OpenRouter response had no usable choice; automatic retry disabled",
+                            reason_code="RESPONSE_CHOICES_INVALID")
+                    message=choices[0].get("message")
+                    if not isinstance(message,Mapping):
+                        raise OpenRouterRequestUnknown(
+                            "OpenRouter response message was invalid; automatic retry disabled",
+                            reason_code="RESPONSE_MESSAGE_INVALID")
+                    content=message.get("content")
+                    if isinstance(content,list):
+                        content="".join(str(part.get("text") or "") for part in content
+                            if isinstance(part,Mapping) and part.get("type")=="text")
+                    if not isinstance(content,str) or not content.strip():
+                        raise OpenRouterRequestUnknown(
+                            "OpenRouter response content was not text; automatic retry disabled",
+                            reason_code="RESPONSE_CONTENT_INVALID")
+                    parsed_story=json.loads(content)
+                    if not isinstance(parsed_story,Mapping):
+                        raise OpenRouterRequestUnknown(
+                            "OpenRouter response did not contain a JSON object; automatic retry disabled",
+                            reason_code="RESPONSE_JSON_INVALID")
+                    story=validate_story(parsed_story,str(article["text"]))
+                    usage=response.get("usage")
+                    if not isinstance(usage,Mapping):
+                        usage={}
                     record={"schema_version":"media-news-script-v2","status":"SCRIPT_READY","provider":"openrouter",
                       "model_id":model,"source_sha256":source_sha256,"request_count":1,
                       "free_gate_reason":gate.reason,"free_gate_verified_at":gate.verified_at,
                       "free_gate_evidence_source":gate.evidence_source,
                       "free_gate_prompt_price":gate.prompt_price,"free_gate_completion_price":gate.completion_price,
-                      "input_tokens":(response.get("usage") or {}).get("prompt_tokens"),
-                      "output_tokens":(response.get("usage") or {}).get("completion_tokens"),
+                      "input_tokens":usage.get("prompt_tokens"),
+                      "output_tokens":usage.get("completion_tokens"),
                       "estimated_cost_usd":"0","actual_cost_usd":"0","story":story}
                     if checkpoint_path is not None:
                         _write_text_atomic(checkpoint_path,json.dumps(record,ensure_ascii=False,indent=2)+"\n")
