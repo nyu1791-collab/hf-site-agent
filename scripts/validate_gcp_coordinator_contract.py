@@ -182,6 +182,12 @@ def validate(root: Path = ROOT) -> list[str]:
         runner.get("workflow_is_manual_only") is True
         and runner.get("runner_service_required_after_reboot") is True
         and runner.get("reboot_audit_operation") == "reboot_audit"
+        and runner.get("live_e2e_operation") == "e2e_once"
+        and {
+            "ONE_RSS_QUEUE_ITEM_ONLY","PUBLIC_PUBLISH_DISABLED","REGISTERED_INTERNAL_E2E_VISUALS_ONLY",
+            "PROTECTED_ENV_VALUES_HIDDEN","REMOTE_RENDER_ONLY","FFPROBE_VERIFIED_BEFORE_COMPLETED",
+            "UNKNOWN_RESULT_NEVER_AUTO_RESENT",
+        }.issubset(set(runner.get("live_e2e_requirements") or []))
         and verification.get("current_e2e_completion_requires_connected_worker_fingerprint_match") is True
         and "CURRENT_CONNECTED_WORKER_STACK_FINGERPRINT_MATCH"
             in set(verification.get("saved_e2e_result_requires") or [])
