@@ -1,0 +1,108 @@
+name: Temp VOICEVOX News Narration
+
+on:
+  push:
+    branches:
+      - ai-army/framework-adapter-v1
+    paths:
+      - .github/workflows/temp-voicevox-news.yml
+
+permissions:
+  contents: write
+
+jobs:
+  synthesize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ai-army/framework-adapter-v1
+
+      - name: Generate VOICEVOX Zundamon narration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, subprocess, time, urllib.parse, urllib.request
+
+          texts = [
+              "9月11日の世界ニュースなのだ。まず中東。AP通信によると、アメリカとイスラエルの対イラン戦争は続いているのだ。ホルムズ海峡などの混乱で、国際指標のブレント原油は今週1バレル100ドルを超え、物価への影響も警戒されているのだ。",
+              "次はウクライナ。ロイターによると、ロシアのドローン攻撃でキーウのガソリンスタンドが攻撃され、2人が死亡、12人が負傷したのだ。ウクライナ側もロシア国内の製油所や物流拠点などへのドローン攻撃を続けているのだ。",
+              "そしてインドのニューデリー。9月12日から13日のBRICS首脳会議を前に、モディ首相とプーチン大統領が会談。エネルギー、防衛、中東とウクライナをめぐる情勢について協議したのだ。BRICS内の結束も注目なのだ。",
+              "最後にアメリカ。2001年9月11日の同時多発テロから今日で25年。ニューヨーク、ペンタゴン、ペンシルベニアなどで、犠牲者を追悼する式典や黙とうが行われているのだ。",
+              "以上、9月11日の世界ニュースまとめなのだ。音声はVOICEVOX、ずんだもんなのだ。",
+          ]
+
+          out = pathlib.Path("tmp/voicevox_news_segments")
+          out.mkdir(parents=True, exist_ok=True)
+          mp3s = []
+
+          def get_json(url):
+              req = urllib.request.Request(url, headers={"User-Agent": "AI-Army-VOICEVOX-News/1.0"})
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as r:
+                      return json.load(r)
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode("utf-8", "replace")
+                  try:
+                      data = json.loads(body)
+                  except Exception:
+                      raise
+                  if e.code == 429:
+                      return data
+                  raise
+
+          for idx, text in enumerate(texts, 1):
+              params = urllib.parse.urlencode({"speaker": 3, "text": text})
+              synth_url = "https://api.tts.quest/v3/voicevox/synthesis?" + params
+              data = None
+              for attempt in range(5):
+                  data = get_json(synth_url)
+                  if data.get("success"):
+                      break
+                  retry = int(data.get("retryAfter") or 15)
+                  time.sleep(min(max(retry, 3), 60))
+              if not data or not data.get("success"):
+                  raise RuntimeError(f"VOICEVOX request failed for segment {idx}: {data}")
+              if "ずんだもん" not in data.get("speakerName", ""):
+                  raise RuntimeError(f"Unexpected speaker for segment {idx}: {data.get('speakerName')}")
+
+              status_url = data["audioStatusUrl"]
+              for _ in range(80):
+                  status = get_json(status_url)
+                  if status.get("isAudioReady"):
+                      break
+                  if status.get("isAudioError"):
+                      raise RuntimeError(f"VOICEVOX synthesis error for segment {idx}: {status}")
+                  time.sleep(3)
+              else:
+                  raise TimeoutError(f"VOICEVOX synthesis timed out for segment {idx}")
+
+              target = out / f"segment_{idx:02d}.mp3"
+              req = urllib.request.Request(data["mp3DownloadUrl"], headers={"User-Agent": "AI-Army-VOICEVOX-News/1.0"})
+              with urllib.request.urlopen(req, timeout=60) as r, open(target, "wb") as f:
+                  f.write(r.read())
+              if target.stat().st_size < 1000:
+                  raise RuntimeError(f"Segment {idx} is unexpectedly small")
+              mp3s.append(target)
+              time.sleep(3)
+
+          concat = out / "concat.txt"
+          concat.write_text("".join(f"file '{p.resolve()}'\n" for p in mp3s), encoding="utf-8")
+          final = pathlib.Path("tmp/zundamon_news_20260911.mp3")
+          subprocess.run([
+              "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat),
+              "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ar", "48000", "-ac", "1",
+              "-c:a", "libmp3lame", "-b:a", "160k", str(final)
+          ], check=True)
+          print(f"Generated {final} ({final.stat().st_size} bytes)")
+          PY
+
+      - name: Commit temporary narration for Descript import
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tmp/zundamon_news_20260911.mp3
+          git commit -m "chore: temporary Zundamon narration asset"
+          git push origin HEAD:ai-army/framework-adapter-v1

@@ -1,0 +1,13 @@
+{
+  "schema_version": "deepseek-framework-adapter-review-trigger-v1",
+  "requested_model": "deepseek-flash",
+  "lanes": ["control-plane", "media-rights", "failure-ci"],
+  "max_parallel": 3,
+  "max_calls_per_lane": 1,
+  "max_estimated_cost_usd_total": 0.15,
+  "auto_top_up": false,
+  "main_push": false,
+  "merge": false,
+  "deploy": false,
+  "publish": false
+}

@@ -1,0 +1,73 @@
+{
+  "schema_version": "paid-deepseek-route-v1",
+  "active": true,
+  "provider": "deepseek",
+  "base_url": "https://api.deepseek.com",
+  "api_key_env": "DEEPSEEK_API_KEY",
+  "primary_model": "deepseek-v4-flash",
+  "primary_model_version": "DeepSeek-V4-Flash-0731",
+  "pro_model": "deepseek-v4-pro",
+  "pro_model_version": "DeepSeek-V4-Pro-0813",
+  "routing_mode": "EXPLICIT_PAID_SPECIALIST_ONLY",
+  "parallel_with_top_commander": true,
+  "max_parallel_calls": 3,
+  "allowed_roles": [
+    "CODING_DEEP",
+    "DEBUGGING",
+    "CODE_REVIEW",
+    "ARCHITECTURE",
+    "TEST_STRATEGY",
+    "INTEGRATION_REVIEW"
+  ],
+  "primary_effort_by_role": {
+    "CODING_DEEP": "high",
+    "DEBUGGING": "max",
+    "CODE_REVIEW": "high",
+    "ARCHITECTURE": "max",
+    "TEST_STRATEGY": "high",
+    "INTEGRATION_REVIEW": "high"
+  },
+  "pro_escalation": {
+    "enabled": true,
+    "automatic": false,
+    "confirmation_token": "DEEPSEEK_V4_PRO",
+    "allowed_when": [
+      "FLASH_FAILED_CRITICAL_TASK",
+      "TOP_COMMANDER_EXPLICIT_ESCALATION"
+    ]
+  },
+  "budget": {
+    "max_calls_per_batch": 3,
+    "max_estimated_cost_usd_per_call": 0.05,
+    "max_estimated_cost_usd_per_batch": 0.15,
+    "max_output_tokens_per_call": 8192,
+    "use_peak_price_for_preflight_guard": true,
+    "stop_before_budget_exceeded": true,
+    "auto_top_up": false
+  },
+  "peak_price_usd_per_million_tokens": {
+    "deepseek-v4-flash": {
+      "input_cache_hit": 0.014,
+      "input_cache_miss": 0.44,
+      "output": 1.32
+    },
+    "deepseek-v4-pro": {
+      "input_cache_hit": 0.044,
+      "input_cache_miss": 1.32,
+      "output": 3.96
+    }
+  },
+  "authority": {
+    "advisory_only": true,
+    "repository_write": false,
+    "main_push": false,
+    "merge": false,
+    "deploy": false,
+    "publish": false,
+    "secret_readback": false,
+    "secret_mutation": false,
+    "production_routing_change": false,
+    "generic_paid_fallback": false,
+    "auto_top_up": false
+  }
+}

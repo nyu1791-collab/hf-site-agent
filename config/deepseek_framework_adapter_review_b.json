@@ -1,0 +1,33 @@
+{
+  "schema_version": "deepseek-targeted-review-v1",
+  "focus_id": "MEDIA_RIGHTS_VOICE_FFMPEG_PIPELINE",
+  "paid_execution_approved": true,
+  "max_calls": 1,
+  "max_parallel_calls": 1,
+  "max_estimated_cost_usd": 0.05,
+  "task": {
+    "task_id": "media-rights-ffmpeg-review",
+    "role": "INTEGRATION_REVIEW",
+    "objective": "Adversarially review the news Shorts media pipeline. Find concrete defects or missing implementation in rights-safe real-photo handling, Asset Rights Ledger, attribution, voice handoff, subtitle timing, scene timeline validation, FFmpeg photo motion/editing, crossfade/BGM/SFX, independent multimodal QA and human publish gating. Reuse existing scripts/real_photo_asset_selector.py and scripts/free_voice_router.py instead of inventing duplicate policy. Identify the smallest safe implementation that makes an end-to-end dry-run possible without paid video generation AI and without publishing. Return compact JSON sections: confirmed_defects, exact_patch_targets, rights_risks, ffmpeg_risks, missing_tests, end_to_end_acceptance_tests, implementation_order. Do not authorize unknown-license assets, auto-purchase, publish, deploy, main write, secret access, auto top-up or generic paid fallback."
+  },
+  "context_markers": {
+    "scripts/media_pipeline.py": ["PIPELINE", "def export_voice_handoff", "def build_media_gate"],
+    "scripts/asset_rights_ledger.py": ["def validate_asset", "def register_asset", "def publish_rights_gate"],
+    "scripts/ffmpeg_renderer.py": ["def build_render_plan", "def render"],
+    "scripts/real_photo_asset_selector.py": ["def select_assets", "def build_download_manifest", "def attribution_lines"],
+    "scripts/free_voice_router.py": ["def select_voice_route", "hard_boundaries"],
+    "config/media_source_policy.json": ["\"unknown_rights_blocked\"", "\"publish_requires_rights_manifest\""],
+    "config/free_voice_routes.json": ["\"free_only\"", "\"unknown_voice_license_blocks\""],
+    "tests/test_media_pipeline_safety.py": ["test_"]
+  },
+  "safety_boundary": {
+    "repository_write": false,
+    "merge": false,
+    "deploy": false,
+    "publish": false,
+    "secret_mutation": false,
+    "production_routing": false,
+    "generic_paid_fallback": false,
+    "auto_top_up": false
+  }
+}

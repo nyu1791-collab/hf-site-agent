@@ -1,0 +1,33 @@
+{
+  "schema_version": "deepseek-targeted-review-v1",
+  "focus_id": "FRAMEWORK_ADAPTER_CONTROL_PLANE_AND_CHECKPOINT",
+  "paid_execution_approved": true,
+  "max_calls": 1,
+  "max_parallel_calls": 1,
+  "max_estimated_cost_usd": 0.05,
+  "task": {
+    "task_id": "framework-adapter-control-plane-review",
+    "role": "CODE_REVIEW",
+    "objective": "Adversarially review the new Framework Adapter Layer as a subordinate execution-engine layer under the existing AI Army Control Plane. Find concrete defects in fail-closed authority, CommandEnvelope/ReportEnvelope conversion, route/model/framework selection order, shadow-only promotion, cancellation isolation, and especially LangGraph checkpoint/resume durability. Compare the new LangGraph adapter with the existing scripts/langgraph_checkpoint_backend.py and identify the smallest safe integration so the new adapter does not create a second checkpoint truth. Return compact JSON sections: confirmed_defects, unsafe_assumptions, exact_patch_targets, missing_tests, regression_risks, implementation_order. Preserve Native as authoritative control plane. Do not propose merge/deploy/publish/main write/secret access/auto top-up/generic paid fallback."
+  },
+  "context_markers": {
+    "scripts/framework_adapter_base.py": ["class FrameworkAdapter", "def checkpoint", "def resume", "def build_report_envelope"],
+    "scripts/framework_adapter_registry.py": ["class FrameworkAdapterRegistry", "def select", "def champion_eligible"],
+    "scripts/framework_adapter_langgraph.py": ["class LangGraphFrameworkAdapter", "def prepare", "def execute"],
+    "scripts/langgraph_checkpoint_backend.py": ["def open_checkpointer", "def backend_status", "def checkpoint_config"],
+    "config/langgraph_checkpoint.json": ["\"default_backend\"", "\"cross_runner_durable\"", "\"automatic_paid_database_provisioning\""],
+    "tests/test_framework_adapter_base.py": ["test_"],
+    "tests/test_framework_adapter_registry.py": ["test_"],
+    "tests/test_framework_adapter_safety.py": ["test_langgraph_failure_preserves_checkpoint_for_bounded_resume"]
+  },
+  "safety_boundary": {
+    "repository_write": false,
+    "merge": false,
+    "deploy": false,
+    "publish": false,
+    "secret_mutation": false,
+    "production_routing": false,
+    "generic_paid_fallback": false,
+    "auto_top_up": false
+  }
+}

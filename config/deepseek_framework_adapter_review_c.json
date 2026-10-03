@@ -1,0 +1,33 @@
+{
+  "schema_version": "deepseek-targeted-review-v1",
+  "focus_id": "FAILURE_INJECTION_CI_AND_OUTCOME_MEMORY",
+  "paid_execution_approved": true,
+  "max_calls": 1,
+  "max_parallel_calls": 1,
+  "max_estimated_cost_usd": 0.05,
+  "task": {
+    "task_id": "framework-adapter-ci-failure-review",
+    "role": "TEST_STRATEGY",
+    "objective": "Review the Framework Adapter Layer tests, CI workflow, failure-injection coverage and framework Outcome Memory. Diagnose why a GitHub Actions job can fail before any steps run, distinguish workflow/configuration issues from hosted-runner/platform issues, and identify deterministic tests still missing for the required completion criteria. Audit outcome telemetry for framework dimension, privacy, duplicate suppression, Champion/Challenger sample gating and user-correction metrics. Return compact JSON sections: likely_ci_failure_causes, confirmed_test_gaps, exact_patch_targets, outcome_memory_risks, failure_injection_matrix, acceptance_commands, implementation_order. Prefer deterministic offline CI. Do not request secret values or authorize merge/deploy/publish/main write/auto top-up/generic paid fallback."
+  },
+  "context_markers": {
+    ".github/workflows/framework-adapter-ci.yml": ["deterministic-safety", "Run adapter unit and failure-injection tests", "Assert no external framework package is required"],
+    "scripts/framework_outcome_memory.py": ["def ", "framework"],
+    "scripts/framework_adapter_registry.py": ["def champion_eligible", "def outcome_key"],
+    "tests/test_framework_adapter_base.py": ["test_"],
+    "tests/test_framework_adapter_registry.py": ["test_"],
+    "tests/test_framework_adapter_safety.py": ["test_"],
+    "tests/test_media_pipeline_safety.py": ["test_"],
+    "scripts/value_learning_loop.py": ["def build_outcome_ledger", "def statistically_guarded_challenger_decision"]
+  },
+  "safety_boundary": {
+    "repository_write": false,
+    "merge": false,
+    "deploy": false,
+    "publish": false,
+    "secret_mutation": false,
+    "production_routing": false,
+    "generic_paid_fallback": false,
+    "auto_top_up": false
+  }
+}
