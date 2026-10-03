@@ -1819,10 +1819,11 @@ def _process_claimed_source(conn: sqlite3.Connection, workspace: Path, row: sqli
                 "http_status":http_status,"provider_reason":provider_reason,
                 "request_sent":True,"automatic_retry":False,"will_try_next_source":not provider_paused,
                 "queue_preserved":True,"public_publish_enabled":False}
-        except PaidMediaPreflightUnavailable:
+        except PaidMediaPreflightUnavailable as exc:
             set_source_execution_state(conn,row["source_id"],"RETRYABLE")
             return {"status":"BLOCKED_PAID_MODEL_PREFLIGHT","source_id":row["source_id"],
-                "request_sent":False,"will_retry_next_tick":True,"public_publish_enabled":False}
+                "request_sent":False,"will_retry_next_tick":True,
+                "preflight_reason":str(exc)[:200],"public_publish_enabled":False}
         except ArticleSourceBlocked as exc:
             set_source_execution_state(conn,row["source_id"],"BLOCKED_PROVIDER")
             conn.execute("UPDATE source_inbox SET state='SCRIPT_BLOCKED',updated_at=? WHERE source_id=?",
@@ -2060,9 +2061,43 @@ def _render_minimal_local_e2e(package: Path, assets: list[Mapping[str, Any]],
     return result
 
 
+def _read_e2e_script_evidence(package: Path) -> dict[str, Any]:
+    try:
+        raw=json.loads((package/"script-generation.json").read_text(encoding="utf-8"))
+        return {key:raw[key] for key in (
+            "provider","model_id","status","request_count","input_tokens","output_tokens",
+            "retry_count","estimated_cost_usd","actual_cost_usd","actual_cost_upper_bound_usd",
+            "free_gate_reason","free_gate_evidence_source","free_gate_verified_at",
+            "free_gate_prompt_price","free_gate_completion_price",
+        ) if key in raw}
+    except (OSError,ValueError,TypeError):
+        return {"status":"UNAVAILABLE"}
+
+
+def _e2e_script_uses_authorized_native_route(script: Mapping[str, Any]) -> bool:
+    if script.get("status")!="SCRIPT_READY":
+        return False
+    provider=str(script.get("provider") or "")
+    model=str(script.get("model_id") or "")
+    if provider=="openrouter":
+        try:
+            from decimal import Decimal, InvalidOperation
+            return bool(
+                model
+                and script.get("free_gate_evidence_source")
+                and script.get("free_gate_verified_at")
+                and Decimal(str(script.get("free_gate_prompt_price")))==0
+                and Decimal(str(script.get("free_gate_completion_price")))==0
+            )
+        except (InvalidOperation,TypeError,ValueError):
+            return False
+    return provider=="deepseek_official" and model==DEEPSEEK_PAID_MODEL
+
+
 def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
                            min_seconds: int, max_seconds: int,
-                           worker_url: str | None = None) -> dict[str, Any]:
+                           worker_url: str | None = None,
+                           allow_preview_fallback: bool = False) -> dict[str, Any]:
     prepared={}
     skipped_sources=[]
     for _attempt in range(8):
@@ -2079,6 +2114,10 @@ def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
         prepared={"status":prepared["state"],"source_id":source_id,
                   "resumed_existing_package":True,"public_publish_enabled":False}
     if prepared.get("status")=="BLOCKED_PAID_MODEL_PREFLIGHT" and source_id:
+        if not allow_preview_fallback:
+            return {"status":"BLOCKED_TARGET_STACK_LLM_ROUTE","source_id":source_id,
+                "stage_result":prepared,"script_generation_origin":"NOT_GENERATED",
+                "public_publish_enabled":False,"automatic_retry":False}
         _materialize_deterministic_e2e_mission(conn,workspace,source_id)
         package=_resolve_news_package(workspace,source_id)
         synthesize_voice(package,min_seconds=min(int(min_seconds),45),max_seconds=max_seconds)
@@ -2093,6 +2132,14 @@ def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
         return {"status":"E2E_NOT_COMPLETED","stage_result":prepared,
                 "public_publish_enabled":False,"automatic_retry":False}
     package=_resolve_news_package(workspace,source_id)
+    script=_read_e2e_script_evidence(package)
+    if not allow_preview_fallback and not _e2e_script_uses_authorized_native_route(script):
+        row=conn.execute("SELECT state,execution_state FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()
+        return {"status":"BLOCKED_TARGET_STACK_LLM_ROUTE","source_id":source_id,
+            "legacy_queue_state":row["state"] if row else "MISSING",
+            "execution_state":row["execution_state"] if row else "MISSING",
+            "provider_evidence":script,"deterministic_script_fallback_used":deterministic_script_used,
+            "public_publish_enabled":False,"automatic_retry":False}
     assets=_prepare_internal_e2e_assets(package)
     conn.execute("UPDATE source_inbox SET state='ASSET_REVIEW_REQUIRED',updated_at=? WHERE source_id=?",
                  (time.time(),source_id))
@@ -2109,6 +2156,17 @@ def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
     try:
         rendered=_render_package(args,conn)
     except RenderTransportError as exc:
+        if not allow_preview_fallback:
+            row=conn.execute("SELECT state,execution_state FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()
+            return {"status":"BLOCKED_TARGET_STACK_REMOTE_RENDERER","source_id":source_id,
+                "legacy_queue_state":row["state"] if row else "MISSING",
+                "execution_state":row["execution_state"] if row else "MISSING",
+                "provider_evidence":script,"asset_evidence":assets,
+                "render":{"status":"RENDER_WAITING","render_route":"SSH_REVERSE_TUNNEL",
+                          "remote_render_error_type":type(exc).__name__},
+                "deterministic_script_fallback_used":deterministic_script_used,
+                "local_fallback_attempted":False,"public_publish_enabled":False,
+                "automatic_retry":False}
         timing=json.loads((package/"timing.json").read_text(encoding="utf-8"))
         rendered=_render_minimal_local_e2e(package,
             select_render_assets(json.loads((package/"image-candidates.json").read_text(encoding="utf-8")),
@@ -2118,19 +2176,17 @@ def _run_internal_e2e_once(conn: sqlite3.Connection, workspace: Path, *,
                      (time.time(),source_id))
         set_source_execution_state(conn,source_id,"COMPLETED")
         rendered["remote_render_error_type"]=type(exc).__name__
-    script={}
-    try:
-        raw=json.loads((package/"script-generation.json").read_text(encoding="utf-8"))
-        for key in ("provider","model_id","status","request_count","input_tokens","output_tokens",
-                    "retry_count","estimated_cost_usd","actual_cost_usd","actual_cost_upper_bound_usd",
-                    "free_gate_reason","free_gate_evidence_source"):
-            if key in raw:
-                script[key]=raw[key]
-    except (OSError,ValueError,TypeError):
-        script={"status":"UNAVAILABLE"}
     row=conn.execute("SELECT state,execution_state FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()
+    target_stack_complete=(
+        _e2e_script_uses_authorized_native_route(script)
+        and rendered.get("status")=="READY_TO_PUBLISH"
+        and rendered.get("render_route")=="SSH_REVERSE_TUNNEL"
+        and row is not None and row["state"]=="READY_TO_PUBLISH"
+        and row["execution_state"]=="COMPLETED"
+    )
     return {
-        "status":"COMPLETED" if row and row["execution_state"]=="COMPLETED" else "E2E_NOT_COMPLETED",
+        "status":("TARGET_STACK_COMPLETE" if target_stack_complete else
+                  "PREVIEW_E2E_COMPLETE" if row and row["execution_state"]=="COMPLETED" else "E2E_NOT_COMPLETED"),
         "source_id":source_id,
         "legacy_queue_state":row["state"] if row else "MISSING",
         "execution_state":row["execution_state"] if row else "MISSING",
@@ -2161,6 +2217,8 @@ def main() -> int:
     e2e.add_argument("--min-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][0])
     e2e.add_argument("--max-seconds",type=int,default=PIPELINE_POLICY["default_duration_seconds"][1])
     e2e.add_argument("--worker-url",help="loopback endpoint; defaults to MEDIA_RENDER_WORKER_URL or 127.0.0.1:18765")
+    e2e.add_argument("--allow-preview-fallback",action="store_true",
+        help="explicitly allow deterministic script/local-render fallback for preview only")
     visual = sub.add_parser("add-source-visual", help="attach a source-attributed web image or social-post screenshot")
     visual.add_argument("--package",type=Path,required=True)
     visual.add_argument("--file",type=Path)
@@ -2204,7 +2262,8 @@ def main() -> int:
             elif args.action == "e2e-once":
                 env_status=_load_protected_e2e_environment()
                 result = _run_internal_e2e_once(conn,args.workspace,min_seconds=args.min_seconds,
-                    max_seconds=args.max_seconds,worker_url=args.worker_url)
+                    max_seconds=args.max_seconds,worker_url=args.worker_url,
+                    allow_preview_fallback=args.allow_preview_fallback)
                 result["protected_environment"]=env_status
             elif args.action == "add-source-visual":
                 package=_validate_existing_package(args.workspace,args.package)
@@ -2225,7 +2284,7 @@ def main() -> int:
             else:
                 result = _render_package(args,conn)
         print(json.dumps(result,ensure_ascii=True))
-        if args.action == "e2e-once" and result.get("status") != "COMPLETED":
+        if args.action == "e2e-once" and result.get("status") not in {"TARGET_STACK_COMPLETE","PREVIEW_E2E_COMPLETE"}:
             return 2
         return 0
     finally:
