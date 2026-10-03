@@ -92,7 +92,13 @@ Factual current-event, product, numeric, offer and policy claims use claim-level
 
 ## 4. Video delivery
 
-Use the speed-first policy at the beginning of this rulebook. For a current factual topic, use the minimum source check needed to avoid a material false statement. Reuse cleared assets or omit them. Public release and commercial commitments follow the existing approval boundary.
+Use the speed-first policy at the beginning of this rulebook. For a current factual topic, use the minimum source check needed to avoid a material false statement.
+
+For **non-public drafting/rendering**, the fast visual path may use official article images, source-backed web images, user-provided screenshots, and screenshots of official social announcements including X posts. Do not force a per-image license lookup before this non-public render. The minimum intake contract is a traceable HTTPS source URL, a source/account credit, a regular supported raster file, bounded size, and SHA-256 integrity. An attributed official-post screenshot may preserve the full post frame when that frame is the useful evidence/context. Extra visual candidates are allowed so batch production does not stop on one bad image.
+
+This fast path records provenance; it does **not** infer publication authorization from attribution. Public release remains a separate approval/rights gate. Runtime commands are `add-source-visual` for one visual and `add-source-visual-batch` for up to 24 candidates at once. Machine authority is `config/media_news_pipeline_policy.json#/visual_source_policy`.
+
+Public release and commercial commitments follow the existing approval boundary.
 
 ## 5. Clipping and repurposing
 
