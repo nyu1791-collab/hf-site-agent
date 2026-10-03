@@ -67,11 +67,16 @@ jobs:
                   json.loads(path.read_text(encoding='utf-8'))
           print('JSON_VALIDATION=PASS')
           PY
+      - name: Enforce OpenRouter free-only dispatch contract
+        run: |
+          python scripts/validate_openrouter_free_only.py
+          python -m unittest tests.test_openrouter_free_gate tests.test_provider_adapters -v
       - name: Enforce bounded CI control plane
         run: python scripts/ci_control_plane_guard.py
       - name: Run bounded core regression set
         run: |
           python -m unittest \
+            tests.test_openrouter_free_gate \
             tests.test_model_registry \
             tests.test_agent_runtime \
             tests.test_agent_delegation \
