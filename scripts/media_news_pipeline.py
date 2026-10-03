@@ -342,6 +342,44 @@ def add_source_visual_batch(package: Path, manifest_path: Path) -> dict[str, Any
     }
 
 
+
+def capture_social_screenshot(package: Path, *, source_url: str, credit: str,
+                              selected: bool = True) -> dict[str, Any]:
+    """Capture one public X/Twitter announcement in a local headless browser.
+
+    This is a non-public drafting helper. The captured page keeps its source URL
+    and credit in the render manifest; publication authorization is not inferred.
+    """
+    source_url=_source_https_url(source_url)
+    host=(urllib.parse.urlsplit(source_url).hostname or "").lower()
+    if host not in {"x.com","www.x.com","twitter.com","www.twitter.com"}:
+        raise ValueError("automatic social screenshot currently supports public X/Twitter URLs only")
+    configured=os.environ.get("MEDIA_SCREENSHOT_BROWSER","").strip()
+    browser=configured if configured else next(
+        (value for name in ("chromium","chromium-browser","google-chrome","google-chrome-stable")
+         if (value:=shutil.which(name))),""
+    )
+    if not browser:
+        raise RuntimeError("headless browser is unavailable; use add-source-visual with a supplied screenshot")
+    with tempfile.TemporaryDirectory(prefix="hf-social-shot-") as td:
+        shot=Path(td)/"source.png"
+        command=[
+            browser,"--headless=new","--disable-extensions","--disable-sync",
+            "--disable-background-networking","--metrics-recording-only","--no-first-run",
+            "--disable-default-apps","--hide-scrollbars","--window-size=1200,1600",
+            f"--screenshot={shot}",source_url,
+        ]
+        subprocess.run(command,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,timeout=30,check=True)
+        if not shot.is_file() or shot.stat().st_size<=0:
+            raise RuntimeError("headless browser did not produce a screenshot")
+        return add_source_visual(
+            package,source_url=source_url,credit=credit,
+            mode="OFFICIAL_ANNOUNCEMENT_SCREENSHOT",
+            local_file=shot,selected=selected,
+        )
+
+
 class _AllowHostsRedirect(urllib.request.HTTPRedirectHandler):
     def __init__(self, hosts: set[str]):
         super().__init__()
@@ -1950,6 +1988,11 @@ def main() -> int:
     visual_batch=sub.add_parser("add-source-visual-batch",help="attach up to 24 source-attributed visuals from one JSON manifest")
     visual_batch.add_argument("--package",type=Path,required=True)
     visual_batch.add_argument("--manifest",type=Path,required=True)
+    social_shot=sub.add_parser("capture-social-screenshot",help="capture one public X/Twitter announcement as an attributed source visual")
+    social_shot.add_argument("--package",type=Path,required=True)
+    social_shot.add_argument("--source-url",required=True)
+    social_shot.add_argument("--credit",required=True)
+    social_shot.add_argument("--candidate-only",action="store_true")
     retry_voice = sub.add_parser("retry-voice", help="requeue a VOICE_BLOCKED package after repairing its VOICEVOX connection")
     retry_voice.add_argument("--source-id", required=True)
     resume_provider = sub.add_parser("resume-paid-provider",
@@ -1987,6 +2030,10 @@ def main() -> int:
             elif args.action == "add-source-visual-batch":
                 package=_validate_existing_package(args.workspace,args.package)
                 result=add_source_visual_batch(package,args.manifest)
+            elif args.action == "capture-social-screenshot":
+                package=_validate_existing_package(args.workspace,args.package)
+                result=capture_social_screenshot(package,source_url=args.source_url,credit=args.credit,
+                    selected=not args.candidate_only)
             elif args.action == "retry-voice":
                 result = _requeue_voice(conn,args.workspace,args.source_id)
             elif args.action == "resume-paid-provider":
