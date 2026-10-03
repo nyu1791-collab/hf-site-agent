@@ -202,7 +202,7 @@ class JevDecisionEngineTests(unittest.TestCase):
             entries=[catalog_entry("typesafe/jev-1.13")],
         )
         self.assertTrue(ok)
-        self.assertEqual(evidence["reason"], "ZERO_PRICE_VERIFIED")
+        self.assertEqual(evidence["reason"], "FREE_CONFIRMED")
         self.assertEqual(evidence["observed_prompt_usd_per_million"], 0.0)
         bad, blocked = price_guard_allows(
             "typesafe/jev-1.13",
@@ -210,7 +210,7 @@ class JevDecisionEngineTests(unittest.TestCase):
             entries=[catalog_entry("typesafe/jev-1.13", prompt="0.000000042")],
         )
         self.assertFalse(bad)
-        self.assertEqual(blocked["reason"], "NONZERO_PRICE_BLOCKED")
+        self.assertEqual(blocked["reason"], "BLOCKED_PAID_OPENROUTER")
 
     def test_one_hundred_jobs_become_five_parallel_batches(self):
         records = [
@@ -293,7 +293,7 @@ class JevDecisionEngineTests(unittest.TestCase):
             entries=[],
         )
         self.assertFalse(ok)
-        self.assertEqual(evidence["reason"], "PRICE_EVIDENCE_UNAVAILABLE")
+        self.assertEqual(evidence["reason"], "BLOCKED_UNVERIFIED_PRICE")
 
     def test_fast_route_routine_uses_three_questions_per_record(self):
         policy = load_policy()
