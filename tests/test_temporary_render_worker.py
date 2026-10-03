@@ -36,6 +36,16 @@ class TemporaryWorkerTests(unittest.TestCase):
             remote_worker.put.assert_not_called()
             token.assert_not_called()
 
+    def test_fixture_uses_persistent_local_voicevox_environment_only(self):
+        from unittest.mock import Mock
+        coordinator = Mock()
+        setup.coordinator_run(coordinator, "scripts.media_render_e2e", "--job first")
+        command = coordinator.ssh.call_args.args[0]
+        self.assertIn("VOICEVOX_ENGINE_DIR=/home/n_yu1791/.local/share/voicevox_engine/linux-cpu-x64", command)
+        self.assertIn("VOICEVOX_CACHE_DIR=/home/n_yu1791/hf-site-agent/runtime/voice-cache", command)
+        self.assertIn("VOICEVOX_REMOTE_TUNNEL=0", command)
+        self.assertNotIn("media.env", command)
+
     def test_lock_excludes_another_writer_and_drain_preserves_existing_results(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -140,6 +150,26 @@ class TemporaryWorkerTests(unittest.TestCase):
             with sqlite3.connect(db) as conn:
                 self.assertEqual(conn.execute("SELECT * FROM existing_jobs").fetchall(), [(1, "waiting")])
                 self.assertEqual(conn.execute("SELECT status FROM render_e2e_jobs").fetchone()[0], "waiting")
+
+    def test_voicevox_failure_becomes_retryable_without_losing_fixture_job(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "queue.sqlite3"
+            with sqlite3.connect(db) as conn:
+                conn.execute("CREATE TABLE existing_jobs (id INTEGER PRIMARY KEY, state TEXT)")
+                conn.execute("INSERT INTO existing_jobs VALUES (1, 'pending')")
+            failure = __import__("subprocess").CalledProcessError(2, ["voicevox"])
+            with patch.object(e2e, "prepare_package", side_effect=failure):
+                result = e2e.run_e2e(db, root, "first")
+            self.assertEqual(result["queue_status"], "waiting")
+            self.assertEqual(result["stage"], "VOICE_PREPARATION")
+            self.assertEqual(result["paid_llm_requests"], 0)
+            self.assertIs(result["script_regeneration"], False)
+            with sqlite3.connect(db) as conn:
+                self.assertEqual(conn.execute("SELECT * FROM existing_jobs").fetchall(), [(1, "pending")])
+                row = conn.execute("SELECT status,metadata FROM render_e2e_jobs").fetchone()
+            self.assertEqual(row[0], "waiting")
+            self.assertEqual(json.loads(row[1])["failure_type"], "CalledProcessError")
 
 
 if __name__ == "__main__":

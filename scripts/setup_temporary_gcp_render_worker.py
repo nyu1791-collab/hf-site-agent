@@ -156,7 +156,14 @@ print(json.dumps({'coordinator_setup':'installed','commit':sha,'queue_reinitiali
 
 
 def coordinator_run(coordinator, module, arguments=""):
-    shell = f"cd {SOURCE_DIR} && set -a && . /home/n_yu1791/.config/hf-site-agent/media-render.env && set +a && python3 -m {module} {arguments}"
+    # Match the persistent user service's local, on-demand VOICEVOX runtime.
+    # Do not source media.env here: that file also contains paid API credentials
+    # that this fixed fixture must never need or inherit.
+    shell = (f"cd {SOURCE_DIR} && set -a && . /home/n_yu1791/.config/hf-site-agent/media-render.env && set +a && "
+             "export VOICEVOX_ENGINE_DIR=/home/n_yu1791/.local/share/voicevox_engine/linux-cpu-x64 "
+             f"VOICEVOX_CACHE_DIR={SOURCE_DIR}/runtime/voice-cache "
+             "VOICEVOX_URL=http://127.0.0.1:50021 VOICEVOX_REMOTE_TUNNEL=0 VV_CPU_NUM_THREADS=1 && "
+             f"python3 -m {module} {arguments}")
     return coordinator.ssh("sudo -n -u n_yu1791 bash -c " + shlex.quote(shell))
 
 

@@ -119,7 +119,16 @@ def run_e2e(db: Path, workspace: Path, job_id: str) -> dict:
             return {**result, "job_id": job_id, "queue_status": "success", "reused": True, "paid_llm_requests": 0}
         conn.execute("INSERT INTO render_e2e_jobs VALUES (?, 'preparing', NULL, '{}', ?) ON CONFLICT(job_id) DO UPDATE SET status='preparing',updated_at=excluded.updated_at", (job_id, time.time()))
         conn.commit()
-        package, inputs = prepare_package(workspace.resolve(), job_id)
+        try:
+            package, inputs = prepare_package(workspace.resolve(), job_id)
+        except Exception as exc:
+            failure = {"stage": "VOICE_PREPARATION", "failure_type": type(exc).__name__,
+                       "reason": str(exc)[:320], "paid_llm_requests": 0,
+                       "script_regeneration": False}
+            conn.execute("UPDATE render_e2e_jobs SET status='waiting',metadata=?,updated_at=? WHERE job_id=?",
+                         (json.dumps(failure), time.time(), job_id))
+            conn.commit()
+            return {"job_id": job_id, "queue_status": "waiting", **failure}
         try:
             if (package / "final.mp4").exists() or (package / "remote-render-report.json").exists():
                 result = verify_saved_remote_render(package=package, source_id=inputs["source_id"], expected_duration=inputs["duration_seconds"])
