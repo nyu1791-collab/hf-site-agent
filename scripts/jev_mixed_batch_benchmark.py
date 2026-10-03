@@ -26,6 +26,7 @@ from scripts.jev_decision_engine import (
     build_fast_route_batch_request,
     load_policy,
     parse_fast_route_response,
+    price_guard_allows,
 )
 from scripts.jev_lean_router import (
     build_lean_route_batch_request,
@@ -165,6 +166,9 @@ def _grouped_once(api_key: str, policy: Mapping[str,Any], groups: Sequence[Seque
     }
 
 def _request(body: Mapping[str,Any], api_key: str, timeout: float=10.0) -> tuple[dict[str,Any],float]:
+    allowed,evidence=price_guard_allows(str(body.get("model") or ""),policy=load_policy(),entries=MODEL_CATALOG)
+    if not allowed:
+        return {"status":evidence.get("reason","BLOCKED_UNVERIFIED_PRICE"),"request_sent":False},0.0
     status,payload,latency_ms=_json_request(
         DECISIONS_URL,method="POST",api_key=api_key,body=body,timeout_seconds=timeout
     )
