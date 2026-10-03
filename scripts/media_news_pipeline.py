@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from scripts.durable_media_runner import connect
-from scripts.media_render_transport import dispatch_remote_render, verify_saved_remote_render, RenderTransportError
+from scripts.media_render_transport import dispatch_remote_render, verify_saved_remote_render, verify_local_render, RenderTransportError
 from scripts.media_source_ingress import (claim_source, init_inbox, load_policy, mark_source_running, release_source_claim, set_source_execution_state)
 from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model, decide_openrouter_free_model
 from scripts.provider_route_matrix import approved_fallback
@@ -1159,6 +1159,7 @@ def _render_package(args, conn: sqlite3.Connection) -> dict[str, Any]:
     audio = package / "audio.wav"
     visual = Path(visuals[0]["file"])
     duration = float(timing["total_duration"])
+    set_source_execution_state(conn,mission["source_id"],"RENDERING")
     if getattr(args, "remote_render", False):
         destination = package / "final.mp4"
         report_destination = package / "remote-render-report.json"
@@ -1174,6 +1175,7 @@ def _render_package(args, conn: sqlite3.Connection) -> dict[str, Any]:
                     worker_url=getattr(args, "worker_url", None),
                 )
             except RenderTransportError as exc:
+                set_source_execution_state(conn,mission["source_id"],"RETRYABLE")
                 _write_text_atomic(package / "render-waiting.json", json.dumps({
                     "status": "RENDER_WAITING", "source_id": mission["source_id"],
                     "reason": str(exc), "resume_stage": "RENDER_ONLY",
@@ -1184,16 +1186,27 @@ def _render_package(args, conn: sqlite3.Connection) -> dict[str, Any]:
                 raise
         conn.execute("UPDATE source_inbox SET state='READY_TO_PUBLISH',updated_at=? WHERE source_id=?",
             (time.time(), mission["source_id"]))
+        set_source_execution_state(conn,mission["source_id"],"COMPLETED")
+        result=dict(result)
+        result["queue_execution_state"]="COMPLETED"
         return result
     if args.shell is None or args.font is None:
         raise ValueError("local render requires both --shell and --font; use --remote-render for the SSH worker")
     cmd = [sys.executable,"-m","scripts.render_reusable_short","--audio",str(audio),"--timing",str(render_timing_path),
         "--shell",str(args.shell.resolve()),"--font",str(args.font.resolve()),"--visual",str(visual),
         "--output",str(package/"final.mp4"),"--presentation",str(presentation_path),"--start","0","--duration",str(duration)]
-    subprocess.run(cmd, cwd=ROOT, check=True, timeout=1800)
+    try:
+        subprocess.run(cmd, cwd=ROOT, check=True, timeout=1800)
+        probe=verify_local_render(package/"final.mp4",duration)
+    except (subprocess.SubprocessError, OSError, RenderTransportError):
+        set_source_execution_state(conn,mission["source_id"],"RETRYABLE")
+        raise
     conn.execute("UPDATE source_inbox SET state='READY_TO_PUBLISH',updated_at=? WHERE source_id=?", (time.time(), mission["source_id"]))
-    return {"status":"READY_TO_PUBLISH", "video":str(package/"final.mp4"), "duration_seconds":duration,
-        "public_publish_enabled":False}
+    set_source_execution_state(conn,mission["source_id"],"COMPLETED")
+    return {"status":"READY_TO_PUBLISH", "video":str(package/"final.mp4"),
+        "duration_seconds":probe["duration_seconds"], "file_size":probe["bytes"],
+        "streams":probe["streams"], "width":probe["width"], "height":probe["height"],
+        "queue_execution_state":"COMPLETED", "public_publish_enabled":False}
 
 
 def _next_preparation_candidate(conn: sqlite3.Connection) -> sqlite3.Row | None:
