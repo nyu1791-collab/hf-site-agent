@@ -43,14 +43,14 @@ Repositoryへ保存してあるKnow-howは「置いてあるだけ」にしな�
 
 ## 常駐監視・ニュース動画の自動準備
 
-現在の24時間稼働対象は既存Google Compute Engine VMで、`docs/GCP_SMALL_HOST_DEPLOYMENT.md` と `docs/DURABLE_MEDIA_AUTOMATION.md` を正本とする。GCP VMはCoordinator/Monitor/Queue/Agent処理とprivate self-hosted Runnerを担当し、動画レンダーは行わない。`scripts/media_source_daemon.py` とsystemd user timerは5分ごとに公式RSSをSQLite inboxへ取得し、対象記事があれば1件ずつ台本・VOICEVOX音声・画像候補まで進める。台本用の有料APIはOpenRouterの `deepseek/deepseek-v4.1-flash` のみで、1回0.05 USD、1日予約0.10 USD、UTC月0.50 USD、1日5回を上限とする。ChatGPT API、別有料モデルへのフォールバック、自動トップアップは不要。画像の権利確認前に停止し、承認後の最終レンダーは外部render workerへ渡す。公開は無効。Runner接続・サービス化はprivate VM control経路で確認済みだが、最新PR HEADの実機同期、再起動後の継続稼働、RSS/API/VOICEVOX/外部renderのE2E完走はライブ確認するまで未確認として扱う。
+現在の24時間稼働対象は既存Google Compute Engine VMで、`docs/GCP_SMALL_HOST_DEPLOYMENT.md` と `docs/DURABLE_MEDIA_AUTOMATION.md` を正本とする。GCP VMはCoordinator/Monitor/Queue/Agent処理とprivate self-hosted Runnerを担当し、動画レンダーは行わない。`scripts/media_source_daemon.py` とsystemd user timerは5分ごとに公式RSSをSQLite inboxへ取得し、対象記事があれば1件ずつ台本・VOICEVOX音声・画像候補まで進める。台本の通常経路は現行カタログで価格0と検証したOpenRouterの正確な `:free` モデルに限定する。無料経路が使えない場合は `https://api.deepseek.com` のDeepSeek公式API (`DEEPSEEK_API_KEY`) へ直接切り替える。OpenRouter有料モデル/有料fallbackは無効。DeepSeek公式APIは人工的な費用・回数上限を設けず、結果不明の再送とAuto Top-Upは禁止する。画像の権利確認前に停止し、承認後の最終レンダーは外部render workerへ渡す。公開は無効。Runner接続・サービス化はprivate VM control経路で確認済みだが、最新PR HEADの実機同期、再起動後の継続稼働、RSS/API/VOICEVOX/外部renderのE2E完走はライブ確認するまで未確認として扱う。
 
 記事RSS監視・ニュース動画自動化では新タブ開始時に `config/media_command_read_gate.json` の `if_user_requests_article_rss_or_resident_news_video_automation` を解決し、列挙された現行Policy・Runner・systemd設定を読む。画像は自動取得後も権利未確認で停止し、選択した全画像に利用根拠・根拠URL・クレジットが揃うまでレンダーしない。ステータス確認ではfeedの鮮度と未処理キューの滞留時間を表示する。公開投稿は別境界で扱い、成功状態は `READY_TO_PUBLISH` で止める。
 
 ## AI Army の固定境界
 
 - ChatGPT / Work がTop Commanderかつ最終判断者。
-- 有料DeepSeekは `config/deepseek_paid_supervisor_policy.json` のExecutive Supervisor範囲と、ユーザーが許可した常駐公式RSS台本の正確なDeepSeek V4.1 Flashルートに限る。後者はテキスト台本専用で、固定費用上限は `config/media_news_pipeline_policy.json#/paid_script_generation` に定義する。
+- 有料DeepSeekは `config/deepseek_paid_supervisor_policy.json` のExecutive Supervisor範囲、およびユーザーが許可した常駐公式RSS台本の公式API直接経路に限る。後者はテキスト台本専用で、人工的な費用上限は設けない。
 - DeepSeekはWorking Managerとして、調査、Evidence Triage、台本/レポート草案、Task Packaging、下位作業の割当設計・査読、関連する低リスク事務作業まで担当できる。ただし明確に速く正確なDeterministic Toolを置き換えない。
 - Deterministic ToolまたはSingle Agentで十分ならそれを優先する。
 - Single Writerを維持し、同一mutable targetの並列変更にはTask Leaseを要求する。

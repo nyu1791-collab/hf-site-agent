@@ -79,11 +79,11 @@
       "policy": "config/media_news_pipeline_policy.json",
       "stages": [
         "OFFICIAL_RSS_ARTICLE_FETCH",
-        "ONE_EXACT_DEEPSEEK_V4_1_FLASH_OPENROUTER_PAID_TEXT_SCRIPT_DRAFT",
+        "OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL_TEXT_SCRIPT",
         "LOCAL_OR_SSH_LOOPBACK_TUNNEL_VOICEVOX",
         "OFFICIAL_ARTICLE_IMAGE_CANDIDATES"
       ],
-      "daily_model_call_cap": 20,
+      "daily_model_call_cap": null,
       "provider_fallback_allowed": false,
       "auto_top_up": false,
       "image_generation_allowed": false,
@@ -120,11 +120,10 @@
       "minimum_free_disk_bytes": 2147483648,
       "automatic_artifact_deletion": false,
       "final_ffmpeg_render_offloaded": true,
-      "per_call_reserved_cost_cap_usd": "0.05",
-      "daily_reserved_cost_cap_usd": "1.00",
-      "monthly_reserved_cost_cap_usd": "10.00",
-      "script_route": "deepseek/deepseek-v4.1-flash",
-      "script_provider": "openrouter",
+      "per_call_reserved_cost_cap_usd": null,
+      "daily_reserved_cost_cap_usd": null,
+      "script_route": "OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL",
+      "script_provider": "OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL",
       "chatgpt_api_required": false,
       "paid_fallback": false,
       "paid_image_or_video_generation": false,
@@ -154,7 +153,11 @@
         "required_for_final_video_completion": true
       },
       "rss_source_timer_is_enabled_on_activation": true,
-      "external_render_handoff_implemented": true
+      "external_render_handoff_implemented": true,
+      "deepseek_base_url": "https://api.deepseek.com",
+      "deepseek_artificial_cost_caps_removed": true,
+      "openrouter_paid_models_allowed": false,
+      "openrouter_paid_fallback_allowed": false
     }
   },
   "durable_execution": {

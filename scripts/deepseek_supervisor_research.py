@@ -20,6 +20,7 @@ import os
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -126,20 +127,12 @@ def _validate_mission(policy: dict[str, Any], mission: dict[str, Any]) -> dict[s
         int(mission.get("max_output_tokens_synthesis", policy["budget"]["max_output_tokens_for_supervisor_synthesis"])),
         int(policy["budget"]["max_output_tokens_for_supervisor_synthesis"]),
     )
-    mission_budget = min(
-        float(mission.get("max_estimated_cost_usd", policy["budget"]["max_estimated_cost_usd_per_mission"])),
-        float(policy["budget"]["max_estimated_cost_usd_per_mission"]),
-    )
-    if mission_budget <= 0:
-        raise ValueError("max_estimated_cost_usd must be positive")
-
     return {
         "lanes": normalized,
         "max_parallel": max_parallel,
         "synthesize": synthesize,
         "max_lane_tokens": max_lane_tokens,
         "max_synth_tokens": max_synth_tokens,
-        "mission_budget": mission_budget,
         "expanded": expanded,
     }
 
@@ -235,9 +228,6 @@ def run(mission_path: Path, output_path: Path) -> dict[str, Any]:
         synthetic = lane_system + "\nSYNTHESIS=combine lane findings, resolve contradictions, rank actions by measured value."
         reservations.append(_estimate_reserved_cost(synthetic, cfg["max_synth_tokens"], pricing))
     reserved = sum(reservations)
-    if reserved > cfg["mission_budget"]:
-        raise RuntimeError(f"PAID_PREFLIGHT_BLOCKED reserve={reserved:.8f} budget={cfg['mission_budget']:.8f}")
-
     def call_lane(idx: int, lane: dict[str, str]) -> dict[str, Any]:
         prompt = f"LANE={lane['id']}\nOBJECTIVE={lane['objective']}\nAudit this lane independently. Return JSON only."
         try:
@@ -273,9 +263,6 @@ def run(mission_path: Path, output_path: Path) -> dict[str, Any]:
     lane_results.sort(key=lambda x: order[x["lane"]])
 
     known_cost = sum(float(x.get("estimated_peak_cost_usd") or 0) for x in lane_results if x["status"] == "READY")
-    if known_cost > cfg["mission_budget"]:
-        raise RuntimeError("measured successful-call estimate exceeded mission budget")
-
     synthesis: dict[str, Any] | None = None
     usable = [x for x in lane_results if x["status"] == "READY"]
     if cfg["synthesize"] and usable:
@@ -285,31 +272,39 @@ def run(mission_path: Path, output_path: Path) -> dict[str, Any]:
             "Return one JSON object with keys: executive_summary, highest_value_changes, rejected_or_deferred, contradictions, experiment_plan, risks, final_recommendation."
         )
         synth_user = "LANE_RESULTS=" + json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
-        remaining = cfg["mission_budget"] - known_cost
         synth_reserve = _estimate_reserved_cost(synth_system + synth_user, cfg["max_synth_tokens"], pricing)
-        if synth_reserve <= remaining:
-            try:
-                obj, latency_ms = _request(api_key, base_url, model, synth_system, synth_user, cfg["max_synth_tokens"])
-                parsed = _visible_json(obj)
-                usage = obj.get("usage") or {}
-                cost = _usage_cost(usage, pricing)
-                synthesis = {
-                    "status": "READY",
-                    "latency_ms": latency_ms,
-                    "requested_model": model,
-                    "response_model": obj.get("model"),
-                    "usage": usage,
-                    "estimated_peak_cost_usd": round(cost, 8),
-                    "result": parsed,
-                }
-                known_cost += cost
-            except Exception as exc:
-                synthesis = {"status": "FAILED", "error_class": type(exc).__name__, "detail": str(exc)[:300]}
-        else:
-            synthesis = {"status": "BLOCKED_BUDGET", "required_reserve_usd": round(synth_reserve, 8), "remaining_budget_usd": round(remaining, 8)}
+        try:
+            obj, latency_ms = _request(api_key, base_url, model, synth_system, synth_user, cfg["max_synth_tokens"])
+            parsed = _visible_json(obj)
+            usage = obj.get("usage") or {}
+            cost = _usage_cost(usage, pricing)
+            synthesis = {
+                "status": "READY",
+                "latency_ms": latency_ms,
+                "requested_model": model,
+                "response_model": obj.get("model"),
+                "usage": usage,
+                "estimated_peak_cost_usd": round(cost, 8),
+                "reserved_peak_cost_usd": round(synth_reserve, 8),
+                "result": parsed,
+            }
+            known_cost += cost
+        except Exception as exc:
+            synthesis = {"status": "FAILED", "error_class": type(exc).__name__, "detail": str(exc)[:300]}
 
+    attempted_calls = len(lane_results) + int(bool(cfg["synthesize"] and usable))
+    successful = [*usable]
+    if synthesis and synthesis.get("status") == "READY":
+        successful.append(synthesis)
+    usages = [item.get("usage") or {} for item in successful]
+    cache_hit_tokens = sum(int(usage.get("prompt_cache_hit_tokens") or 0) for usage in usages)
+    cache_miss_tokens = sum(int(usage.get("prompt_cache_miss_tokens") or 0) for usage in usages)
+    input_tokens = sum(int(usage.get("prompt_tokens") or 0) for usage in usages)
+    output_tokens = sum(int(usage.get("completion_tokens") or 0) for usage in usages)
     report = {
         "schema_version": "deepseek-supervisor-research-report-v1",
+        "provider": "deepseek_official",
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "mission_id": mission.get("mission_id"),
         "status": "READY" if len(usable) == len(lane_results) and (not cfg["synthesize"] or synthesis and synthesis.get("status") == "READY") else ("PARTIAL" if usable else "FAILED"),
         "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
@@ -318,6 +313,13 @@ def run(mission_path: Path, output_path: Path) -> dict[str, Any]:
         "expanded_fanout": cfg["expanded"],
         "lane_count": len(lane_results),
         "usable_lane_count": len(usable),
+        "request_count": attempted_calls,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "cache_hit_tokens": cache_hit_tokens,
+        "cache_miss_tokens": cache_miss_tokens,
+        "actual_cost_usd": None,
+        "retry_count": 0,
         "max_parallel_calls": cfg["max_parallel"],
         "reserved_peak_cost_usd": round(reserved, 8),
         "known_successful_peak_cost_estimate_usd": round(known_cost, 8),

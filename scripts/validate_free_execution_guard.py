@@ -89,32 +89,27 @@ def main() -> int:
 
     resident_news = ((guard.get("narrow_preauthorized_exceptions") or {}).get("resident_news_script") or {})
     require(resident_news.get("enabled") is True, "resident RSS DeepSeek script route is not explicitly authorized")
-    require(resident_news.get("exact_model") == "deepseek/deepseek-v4.1-flash", "resident RSS route changed exact model")
-    require(resident_news.get("provider") == "openrouter", "resident RSS provider drift")
-    require(resident_news.get("per_call_estimate_cap_usd") == "0.05", "resident RSS per-call cap drift")
-    require(resident_news.get("reserved_daily_cost_cap_usd") == "1.00", "resident RSS daily cap drift")
-    require(resident_news.get("reserved_monthly_cost_cap_usd") == "10.00", "resident RSS monthly cap drift")
-    require(resident_news.get("max_paid_calls_per_utc_day") == 20, "resident RSS daily call cap drift")
+    require(resident_news.get("provider") == "deepseek_official", "resident RSS paid provider must be DeepSeek direct")
+    require(resident_news.get("base_url") == "https://api.deepseek.com", "resident RSS DeepSeek endpoint drift")
+    require(resident_news.get("exact_model") == "deepseek-flash", "resident RSS direct model drift")
+    require(resident_news.get("openrouter_free_only") is True, "OpenRouter free-only gate missing")
+    require(resident_news.get("openrouter_paid_models_allowed") is False, "OpenRouter paid models enabled")
+    require(resident_news.get("openrouter_paid_fallback") is False, "OpenRouter paid fallback enabled")
+    for key in ("per_call_estimate_cap_usd", "reserved_daily_cost_cap_usd", "reserved_monthly_cost_cap_usd", "max_paid_calls_per_utc_day"):
+        require(resident_news.get(key) is None, f"artificial DeepSeek cap remains: {key}")
     for key in ("paid_fallback", "provider_fallback", "paid_sibling_substitution", "auto_top_up",
                 "paid_video_or_image_generation", "paid_tts_or_editing", "auto_publish"):
         require(resident_news.get(key) is False, f"resident RSS route expanded: {key}")
     news_policy = load("config/media_news_pipeline_policy.json")
     paid_news = news_policy.get("paid_script_generation") or {}
-    free_review = news_policy.get("free_script_review") or {}
-    require(paid_news.get("model") == resident_news.get("exact_model"), "RSS script model policy mismatch")
-    require(paid_news.get("maximum_estimated_cost_per_call_usd") == "0.05", "RSS script per-call budget drift")
-    require(paid_news.get("maximum_reserved_cost_per_utc_day_usd") == "1.00", "RSS script daily budget drift")
-    require(paid_news.get("maximum_reserved_cost_per_utc_month_usd") == "10.00", "RSS script monthly budget drift")
-    require(paid_news.get("automatic_retry_after_request") is False, "RSS paid request retry enabled")
-    require(paid_news.get("automatic_paid_fallback") is False, "RSS paid fallback enabled")
+    free_route = news_policy.get("openrouter_routing") or {}
+    require(paid_news.get("provider") == "deepseek_official", "RSS paid script must use DeepSeek direct")
+    require(paid_news.get("base_url") == "https://api.deepseek.com", "RSS paid script endpoint drift")
+    require(paid_news.get("automatic_retry_after_unknown_result") is False, "unknown paid result retry enabled")
     require(paid_news.get("automatic_top_up") is False, "RSS auto top-up enabled")
-    require(free_review.get("route_requirement") == "EXACT_ZERO_COST_FREE_MODEL_ONLY", "RSS advisory reviewer is not exact-free")
-    require(free_review.get("advisory_only") is True, "free reviewer may block paid script")
-    require(free_review.get("may_rewrite_script") is False, "free reviewer may rewrite the paid script")
-    require((guard.get("media_boundary") or {}).get("paid_or_freemium_video_generation") is False,
-            "resident script exception expanded to paid video generation")
-    require((guard.get("media_boundary") or {}).get("paid_caption_or_tts_service") is False,
-            "resident script exception expanded to paid caption/TTS")
+    require(free_route.get("free_only") is True and free_route.get("paid_models_allowed") is False,
+            "OpenRouter free-only gate drift")
+    require(free_route.get("paid_fallback_allowed") is False, "OpenRouter paid fallback enabled")
 
     continuity = guard.get("cross_tab_continuity") or {}
     for key in (

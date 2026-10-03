@@ -71,6 +71,12 @@ class ProviderAdapterTests(unittest.TestCase):
             adapter.generate("example/model:free", [{"role": "user", "content": "x"}])
         self.assertEqual(caught.exception.error_class, "PROVIDER_NOT_ACTIVE")
 
+    def test_openrouter_rejects_paid_model_before_dispatch(self):
+        adapter = OpenAICompatibleAdapter(self.registry, "openrouter", network_enabled=True)
+        with self.assertRaises(ProviderAdapterError) as caught:
+            adapter._chat("deepseek/deepseek-v4.1-flash", [{"role":"user","content":"x"}])
+        self.assertEqual(caught.exception.error_class, "OPENROUTER_FREE_ONLY_MODEL_REQUIRED")
+
     def test_probe_rejects_model_mismatch_without_fallback(self):
         registry = copy.deepcopy(self.registry)
         adapter = OpenAICompatibleAdapter(registry, "openrouter", network_enabled=True)

@@ -111,25 +111,31 @@ def validate(root: Path = ROOT) -> list[str]:
     if not {"VOICE_BLOCKED", "ASSET_REVIEW_REQUIRED", "NO_CLEARED_IMAGES"}.issubset(pause_states):
         blockers.append("HUMAN_OR_FAILURE_PAUSE_STATES_INVALID")
 
+    openrouter = pipeline.get("openrouter_routing") or {}
+    free_script = pipeline.get("free_script_generation") or {}
     if not (
-        pipeline.get("primary_script_route") == "PAID_SCOPED_DEEPSEEK_V4_1_FLASH"
+        pipeline.get("primary_script_route") == "OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL"
+        and openrouter.get("free_only") is True
+        and openrouter.get("paid_models_allowed") is False
+        and openrouter.get("paid_fallback_allowed") is False
+        and free_script.get("model_id_must_end_with") == ":free"
         and paid.get("enabled") is True
-        and paid.get("provider") == "openrouter"
-        and paid.get("model") == "deepseek/deepseek-v4.1-flash"
-        and paid.get("maximum_estimated_cost_per_call_usd") == "0.05"
-        and paid.get("maximum_reserved_cost_per_utc_day_usd") == "1.00"
-        and paid.get("maximum_reserved_cost_per_utc_month_usd") == "10.00"
-        and paid.get("maximum_calls_per_utc_day") == 20
+        and paid.get("provider") == "deepseek_official"
+        and paid.get("base_url") == "https://api.deepseek.com"
+        and paid.get("api_key_env") == "DEEPSEEK_API_KEY"
+        and paid.get("model") == "deepseek-flash"
+        and paid.get("artificial_per_call_cap_usd") is None
+        and paid.get("artificial_daily_cap_usd") is None
+        and paid.get("artificial_monthly_cap_usd") is None
+        and paid.get("artificial_daily_call_cap") is None
         and paid.get("automatic_paid_fallback") is False
-        and paid.get("automatic_provider_fallback") is False
-        and paid.get("automatic_paid_sibling_substitution") is False
-        and paid.get("automatic_retry_after_request") is False
         and paid.get("automatic_top_up") is False
         and paid.get("per_source_paid_attempt_once") is True
-        and pipeline.get("provider_fallback_allowed") is False
+        and paid.get("unknown_outcome_state") == "UNKNOWN_RESULT"
+        and paid.get("balance_exhaustion_state") == "BLOCKED_BALANCE"
         and pipeline.get("auto_top_up") is False
     ):
-        blockers.append("RESIDENT_NEWS_COST_AND_ROUTE_BOUNDARY_INVALID")
+        blockers.append("RESIDENT_NEWS_PROVIDER_ROUTING_BOUNDARY_INVALID")
 
     if not (
         transport.get("outer_channel") == "SSH_REVERSE_TUNNEL"

@@ -57,7 +57,7 @@ jobs:
           test -f "$path"
           echo "path=$path" >> "$GITHUB_OUTPUT"
 
-      - name: Fail-closed mission and daily-estimate preflight
+      - name: Fail-closed mission and bounded-fanout preflight
         env:
           MISSION_PATH: ${{ steps.mission.outputs.path }}
         run: |
@@ -78,11 +78,6 @@ jobs:
           ids=[x.get('id') for x in lanes]
           assert 1 <= len(lanes) <= policy['research_fanout']['expansion_ceiling']['max_distinct_research_lanes']
           assert len(ids)==len(set(ids)), 'duplicate lane ids'
-          mission_cap=float(mission['max_estimated_cost_usd'])
-          prior=float(mission['known_estimated_daily_spend_before_mission_usd'])
-          assert 0 < mission_cap <= float(policy['budget']['max_estimated_cost_usd_per_mission'])
-          assert prior >= 0
-          assert prior + mission_cap <= float(policy['budget']['max_estimated_cost_usd_per_day']), 'daily estimated budget would be exceeded'
           parallel=int(mission.get('max_parallel_calls', policy['research_fanout']['default_max_parallel_deepseek_calls']))
           assert 1 <= parallel <= policy['research_fanout']['expansion_ceiling']['max_parallel_deepseek_calls']
           default_lanes=int(policy['research_fanout']['default_max_distinct_research_lanes'])
@@ -91,7 +86,7 @@ jobs:
               assert str(mission.get('expansion_reason') or '').strip(), 'expanded fanout needs expansion_reason'
           print('DeepSeek supervisor mission preflight: PASS')
           print('Mission:', mission['mission_id'])
-          print('Lanes:', len(lanes), 'Parallel:', parallel, 'Mission cap USD:', mission_cap)
+          print('Lanes:', len(lanes), 'Parallel:', parallel)
           PY
 
       - name: Verify resilient JSON guard without paid calls

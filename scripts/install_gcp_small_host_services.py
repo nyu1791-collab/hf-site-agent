@@ -244,23 +244,26 @@ def preflight(
         blockers.append("WORKTREE_MUST_BE_CLEAN")
     if pipeline.get("public_publish_enabled") is not False or host.get("execution", {}).get("public_publish_enabled", False):
         blockers.append("PUBLIC_PUBLISH_MUST_REMAIN_DISABLED")
-    if pipeline.get("auto_top_up") is not False or pipeline.get("provider_fallback_allowed") is not False:
+    route_policy = pipeline.get("openrouter_routing") or {}
+    if (pipeline.get("auto_top_up") is not False
+            or route_policy.get("paid_fallback_allowed") is not False
+            or route_policy.get("paid_models_allowed") is not False):
         blockers.append("PAID_FALLBACK_AND_TOP_UP_MUST_REMAIN_DISABLED")
 
     paid = pipeline.get("paid_script_generation") or {}
+    openrouter = pipeline.get("openrouter_routing") or {}
     route_ok = (
-        pipeline.get("primary_script_route") == "PAID_SCOPED_DEEPSEEK_V4_1_FLASH"
-        and paid.get("enabled") is True
-        and paid.get("provider") == "openrouter"
-        and paid.get("model") == "deepseek/deepseek-v4.1-flash"
-        and paid.get("maximum_estimated_cost_per_call_usd") == "0.05"
-        and paid.get("maximum_reserved_cost_per_utc_day_usd") == "1.00"
-        and paid.get("maximum_reserved_cost_per_utc_month_usd") == "10.00"
-        and paid.get("maximum_calls_per_utc_day") == 20
-        and paid.get("automatic_paid_fallback") is False
-        and paid.get("automatic_provider_fallback") is False
-        and paid.get("automatic_paid_sibling_substitution") is False
-        and paid.get("automatic_retry_after_request") is False
+        pipeline.get("primary_script_route") == "OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL"
+        and openrouter.get("free_only") is True
+        and openrouter.get("paid_models_allowed") is False
+        and openrouter.get("paid_fallback_allowed") is False
+        and paid.get("provider") == "deepseek_official"
+        and paid.get("base_url") == "https://api.deepseek.com"
+        and paid.get("model") == "deepseek-flash"
+        and paid.get("artificial_per_call_cap_usd") is None
+        and paid.get("artificial_daily_cap_usd") is None
+        and paid.get("artificial_monthly_cap_usd") is None
+        and paid.get("artificial_daily_call_cap") is None
         and paid.get("automatic_top_up") is False
         and paid.get("per_source_paid_attempt_once") is True
     )
@@ -311,8 +314,8 @@ def preflight(
             blockers.append("PROTECTED_MEDIA_ENV_PERMISSIONS_INVALID")
         else:
             values = _env_file_values(env_path)
-            if not values.get("OPENROUTER_API_KEY"):
-                blockers.append("OPENROUTER_CREDENTIAL_STATUS_MISSING")
+            if not values.get("OPENROUTER_API_KEY") and not values.get("DEEPSEEK_API_KEY"):
+                blockers.append("NO_PROVIDER_CREDENTIAL_CONFIGURED")
             engine = Path(values.get("VOICEVOX_ENGINE_DIR", str(home / ".local/share/voicevox_engine/linux-cpu-x64"))).expanduser()
             remote_mode = values.get("VOICEVOX_REMOTE_TUNNEL", "0")
             if remote_mode == "1":

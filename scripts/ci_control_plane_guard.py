@@ -171,8 +171,6 @@ def main() -> int:
         "config/deepseek_paid_supervisor_policy.json",
         "scripts/deepseek_supervisor_research.py",
         "chatgpt_final_adjudication_required",
-        "max_estimated_cost_usd",
-        "known_estimated_daily_spend_before_mission_usd",
         "generic_paid_fallback",
         "auto_top_up",
         "repository_write",
@@ -203,8 +201,9 @@ def main() -> int:
     _require(int(paid_policy.get("default_max_parallel_calls") or 0) == int(fanout.get("default_max_parallel_deepseek_calls") or -1), "default DeepSeek parallel cap mismatch")
     _require(int(paid_policy.get("expansion_hard_max_calls") or 0) == int(expansion.get("max_deepseek_calls_per_mission") or -1), "expanded DeepSeek call cap mismatch")
     _require(int(paid_policy.get("expansion_hard_max_parallel_calls") or 0) == int(expansion.get("max_parallel_deepseek_calls") or -1), "expanded DeepSeek parallel cap mismatch")
-    _require(float(paid_policy.get("max_estimated_cost_usd_per_mission") or 0) == float(budget.get("max_estimated_cost_usd_per_mission") or -1), "DeepSeek mission budget mismatch")
-    _require(float(paid_policy.get("max_estimated_cost_usd_per_day") or 0) == float(budget.get("max_estimated_cost_usd_per_day") or -1), "DeepSeek daily budget mismatch")
+    _require(budget.get("artificial_per_mission_spending_cap") is False, "DeepSeek artificial mission spending cap enabled")
+    _require(budget.get("artificial_daily_spending_cap") is False, "DeepSeek artificial daily spending cap enabled")
+    _require(budget.get("artificial_monthly_spending_cap") is False, "DeepSeek artificial monthly spending cap enabled")
     _require(paid_policy.get("generic_paid_fallback") is False and safety.get("generic_paid_fallback") is False, "generic paid fallback must remain disabled")
     _require(paid_policy.get("auto_top_up") is False and budget.get("auto_top_up") is False, "auto top-up must remain disabled")
     _require(paid_policy.get("other_paid_providers_authorized") is False, "DeepSeek exception expanded to another paid provider")

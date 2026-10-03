@@ -319,6 +319,10 @@ class OpenAICompatibleAdapter(ProviderAdapter):
     def _chat(self, model_id: str, messages: Sequence[Mapping[str, Any]], *, tools: Sequence[Mapping[str, Any]] = (), **options: Any) -> AdapterResponse:
         if not isinstance(model_id, str) or not model_id.strip():
             raise ProviderAdapterError("MODEL_ID_REQUIRED")
+        if self.provider_id == "openrouter":
+            normalized_model = model_id.strip()
+            if normalized_model != "openrouter/free" and not normalized_model.endswith(":free"):
+                raise ProviderAdapterError("OPENROUTER_FREE_ONLY_MODEL_REQUIRED")
         if not messages or len(messages) > 64:
             raise ProviderAdapterError("INPUT_INVALID")
         payload: dict[str, Any] = {

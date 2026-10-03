@@ -243,5 +243,16 @@
     "HTTP_429_RETRIED_AUTOMATICALLY",
     "FIXED_SINGLE_MODEL_POLICY_IGNORES_CLEAR_PARALLEL_VALUE",
     "PARALLEL_FANOUT_WITHOUT_RECORDED_EXPECTED_VALUE_JUSTIFICATION"
-  ]
+  ],
+  "routing_enforcement": {
+    "free_only": true,
+    "paid_models_allowed": false,
+    "paid_fallback_allowed": false,
+    "allowed_model_forms": [
+      "EXACT_MODEL_ID_SUFFIX_FREE",
+      "openrouter/free",
+      "MODEL_CATALOG_PROMPT_AND_COMPLETION_PRICE_EXACTLY_ZERO"
+    ],
+    "reject_before_request_when_unverified": true
+  }
 }

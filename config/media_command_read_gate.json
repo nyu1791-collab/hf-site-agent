@@ -380,16 +380,17 @@
   "media_speed_quality_is_speed_first_minimum_viable_delivery": true,
   "jev_is_optional_for_deterministic_video": true,
   "resident_news_script_exception": {
-    "provider": "openrouter",
-    "exact_model": "deepseek/deepseek-v4.1-flash",
-    "scope": "OFFICIAL_RSS_NEWS_SCRIPT_DRAFTING_TEXT_ONLY",
-    "monthly_reserved_cost_cap_usd": "10.00",
-    "daily_reserved_cost_cap_usd": "1.00",
-    "per_call_estimated_cost_cap_usd": "0.05",
-    "max_calls_per_utc_day": 20,
-    "chatgpt_api_required": false,
-    "automatic_fallback": false,
+    "route": "OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL",
+    "openrouter_free_only": true,
+    "openrouter_paid_models_allowed": false,
+    "openrouter_paid_fallback": false,
+    "deepseek_provider": "deepseek_official",
+    "deepseek_base_url": "https://api.deepseek.com",
+    "deepseek_api_key_env": "DEEPSEEK_API_KEY",
+    "deepseek_artificial_caps_removed": true,
     "auto_top_up": false,
-    "automatic_public_publish": false
-  }
+    "unknown_result_retry": false,
+    "scope": "OFFICIAL_RSS_NEWS_SCRIPT_DRAFTING_TEXT_ONLY"
+  },
+  "deepseek_for_video": "The user authorizes paid text-only DeepSeek for resident official RSS after an exact free-only OpenRouter attempt. DeepSeek must be called directly at https://api.deepseek.com using DEEPSEEK_API_KEY; OpenRouter paid models and paid fallbacks are disabled. DeepSeek artificial per-call, daily, monthly, and request-count caps are removed; Auto Top-Up and retry after unknown outcome stay disabled."
 }

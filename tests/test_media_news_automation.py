@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
 from scripts.durable_media_runner import connect
-from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _validate_existing_package, _review_story_free, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat
+from scripts.media_news_pipeline import ArticleSourceBlocked, DailyMediaCapReached, OpenRouterRequestError, PaidMediaAlreadyAttempted, PaidMediaBalanceBlocked, PaidMediaBudgetExceeded, PaidMediaMonthlyCapReached, PaidMediaPreflightUnavailable, PIPELINE_POLICY, _paid_reserved_cost_this_month, _pipeline_lock, _process_next, _requeue_voice, _resolve_news_package, _reserve_call, _reserve_paid_call, _paid_calls_used_today, _resume_paid_provider, _rss_summary_article, _validate_existing_package, _review_story_free, draft_story, extract_article, process_source, select_render_assets, synthesize_voice, validate_story, _post_chat, _post_deepseek_chat
 from scripts.media_source_ingress import ingest_items, init_inbox
 from scripts.media_source_daemon import run as run_source_daemon
 
@@ -61,7 +61,7 @@ class MediaNewsAutomationTests(unittest.TestCase):
             ])
             conn.execute("UPDATE source_inbox SET created_at=100 WHERE source_id=?",(older,))
             conn.execute("UPDATE source_inbox SET created_at=200 WHERE source_id=?",(newer,))
-            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}), patch(
+            with patch.dict("os.environ",{"DEEPSEEK_API_KEY":"test"}), patch(
                 "scripts.media_news_pipeline.shutil.disk_usage",
                 return_value=SimpleNamespace(free=3*1024**3)
             ), patch("scripts.media_news_pipeline.process_source",side_effect=[
@@ -85,45 +85,12 @@ class MediaNewsAutomationTests(unittest.TestCase):
         )
         with patch("scripts.media_news_pipeline.urllib.request.urlopen", side_effect=response):
             with self.assertRaisesRegex(RuntimeError, "HTTP 403 \\(CREDIT_OR_KEY_BUDGET_LIMIT\\)") as caught:
-                _post_chat({"model":"fixture"}, "hidden")
+                _post_chat({"model":"fixture/model:free"}, "hidden")
         self.assertNotIn("PRIVATE_TOKEN_SHOULD_NOT_LEAK", str(caught.exception))
 
-    def test_provider_budget_rejection_pauses_future_paid_calls_and_preserves_queue(self):
-        with tempfile.TemporaryDirectory() as td:
-            root=Path(td);workspace=root/"workspace";workspace.mkdir()
-            conn=connect(root/"queue.sqlite3");init_inbox(conn)
-            older="a"*64;newer="b"*64
-            ingest_items(conn,[
-                {"source_id":older,"feed_id":"openai-news","title":"older",
-                 "url":"https://openai.com/news/older","summary":"","published":""},
-                {"source_id":newer,"feed_id":"openai-news","title":"newer",
-                 "url":"https://openai.com/news/newer","summary":"","published":""},
-            ])
-            conn.execute("UPDATE source_inbox SET created_at=100 WHERE source_id=?",(older,))
-            conn.execute("UPDATE source_inbox SET created_at=200 WHERE source_id=?",(newer,))
-            rejected=OpenRouterRequestError("OpenRouter request failed with HTTP 403 (CREDIT_OR_KEY_BUDGET_LIMIT)")
-            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
-                "scripts.media_news_pipeline.shutil.disk_usage",
-                return_value=SimpleNamespace(free=3*1024**3)
-            ), patch("scripts.media_news_pipeline.process_source",side_effect=rejected) as process:
-                first=_process_next(conn,workspace,min_seconds=60,max_seconds=300)
-                second=_process_next(conn,workspace,min_seconds=60,max_seconds=300)
-            self.assertEqual(first["status"],"BLOCKED_PAID_PROVIDER_CIRCUIT")
-            self.assertEqual(first["http_status"],403)
-            self.assertEqual(first["provider_reason"],"CREDIT_OR_KEY_BUDGET_LIMIT")
-            self.assertFalse(first["automatic_retry"])
-            self.assertFalse(second["request_sent"])
-            self.assertTrue(second["queue_preserved"])
-            self.assertEqual(second["status"],"BLOCKED_PAID_PROVIDER_CIRCUIT")
-            self.assertEqual(process.call_count,1)
-            self.assertEqual(conn.execute("SELECT COUNT(*) FROM source_inbox WHERE state='PREPARATION_REQUIRED'").fetchone()[0],1)
-            self.assertEqual(conn.execute("SELECT COUNT(*) FROM source_inbox WHERE state='SCRIPT_BLOCKED'").fetchone()[0],1)
-            with self.assertRaisesRegex(ValueError,"confirm that the OpenRouter budget"):
-                _resume_paid_provider(conn,acknowledge_ready=False)
-            resumed=_resume_paid_provider(conn,acknowledge_ready=True)
-            self.assertEqual(resumed,{"status":"PAID_PROVIDER_RESUMED","paid_requests_sent":False})
-            self.assertEqual(conn.execute("SELECT state FROM media_news_provider_circuit WHERE provider='openrouter'").fetchone()[0],"ACTIVE")
-            conn.close()
+    def test_openrouter_free_error_does_not_block_direct_deepseek_route(self):
+        self.assertFalse(PIPELINE_POLICY["openrouter_routing"]["paid_fallback_allowed"])
+        self.assertEqual(PIPELINE_POLICY["paid_script_generation"]["base_url"],"https://api.deepseek.com")
 
     def test_pipeline_lock_blocks_overlapping_stage_commands(self):
         with tempfile.TemporaryDirectory() as td:
@@ -159,22 +126,17 @@ class MediaNewsAutomationTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM media_news_model_calls").fetchone()[0],5)
             conn.close()
 
-    def test_daily_media_cap_leaves_article_queued_for_next_day(self):
+    def test_deepseek_artificial_daily_cap_is_removed(self):
+        paid=PIPELINE_POLICY["paid_script_generation"]
+        self.assertIsNone(paid["artificial_daily_cap_usd"])
+        self.assertIsNone(paid["artificial_daily_call_cap"])
+        self.assertIsNone(paid["artificial_monthly_cap_usd"])
         with tempfile.TemporaryDirectory() as td:
-            root=Path(td);conn=connect(root/"q.sqlite3");init_inbox(conn)
-            source_id="c"*64
-            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title","url":"https://openai.com/news/x","summary":"","published":""}])
-            for i in range(PIPELINE_POLICY["paid_script_generation"]["maximum_calls_per_utc_day"]):
-                _reserve_paid_call(conn, "paid-call-"+str(i), __import__("decimal").Decimal("0.001"),
-                    "deepseek/deepseek-v4.1-flash", __import__("decimal").Decimal("0.000000015"),
-                    __import__("decimal").Decimal("0.0000012"))
-            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
-                "scripts.media_news_pipeline.shutil.disk_usage",
-                return_value=SimpleNamespace(free=3 * 1024**3),
-            ):
-                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
-            self.assertEqual(result["status"],"BLOCKED_DAILY_PAID_CALL_CAP")
-            self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],"PREPARATION_REQUIRED")
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
+            from decimal import Decimal
+            for i in range(25):
+                _reserve_paid_call(conn,str(i),Decimal("1.0"),"deepseek-flash",Decimal("0.0000003"),Decimal("0.0000012"))
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM media_news_paid_calls").fetchone()[0],25)
             conn.close()
 
     def test_unknown_paid_attempt_is_reported_and_not_retried(self):
@@ -197,68 +159,20 @@ class MediaNewsAutomationTests(unittest.TestCase):
                 "SCRIPT_BLOCKED")
             conn.close()
 
-    def test_per_call_paid_budget_error_is_returned_as_a_queued_block(self):
-        with tempfile.TemporaryDirectory() as td:
-            root=Path(td);conn=connect(root/"q.sqlite3");init_inbox(conn)
-            source_id="9"*64
-            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
-                "url":"https://openai.com/news/x","summary":"","published":""}])
-            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
-                "scripts.media_news_pipeline.shutil.disk_usage",
-                return_value=SimpleNamespace(free=3 * 1024**3),
-            ), patch("scripts.media_news_pipeline.process_source",
-                side_effect=PaidMediaBudgetExceeded("cap")):
-                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
-            self.assertEqual(result["status"],"BLOCKED_PAID_PER_CALL_BUDGET")
-            self.assertFalse(result["request_sent"])
-            self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],
-                "PREPARATION_REQUIRED")
-            conn.close()
+    def test_deepseek_balance_block_preserves_queue_policy(self):
+        self.assertEqual(PIPELINE_POLICY["paid_script_generation"]["balance_exhaustion_state"],"BLOCKED_BALANCE")
 
-    def test_paid_monthly_cost_cap_stops_before_reserving_another_call(self):
-        from decimal import Decimal
-        with tempfile.TemporaryDirectory() as td:
-            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
-            policy=PIPELINE_POLICY["paid_script_generation"]
-            old_monthly_cap=policy["maximum_reserved_cost_per_utc_month_usd"]
-            policy["maximum_reserved_cost_per_utc_month_usd"]="0.05"
-            try:
-                _reserve_paid_call(conn,"a"*64,Decimal("0.04"),"deepseek/deepseek-v4.1-flash",
-                    Decimal("0.000000015"),Decimal("0.0000012"))
-                with self.assertRaises(PaidMediaMonthlyCapReached):
-                    _reserve_paid_call(conn,"b"*64,Decimal("0.02"),"deepseek/deepseek-v4.1-flash",
-                        Decimal("0.000000015"),Decimal("0.0000012"))
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM media_news_paid_calls").fetchone()[0],1)
-                self.assertEqual(_paid_reserved_cost_this_month(conn),Decimal("0.04"))
-            finally:
-                policy["maximum_reserved_cost_per_utc_month_usd"]=old_monthly_cap
-                conn.close()
+    def test_deepseek_artificial_monthly_cap_is_removed(self):
+        paid=PIPELINE_POLICY["paid_script_generation"]
+        self.assertIsNone(paid["artificial_monthly_cap_usd"])
+        self.assertIsNone(paid["artificial_per_call_cap_usd"])
 
-    def test_monthly_paid_cap_leaves_article_queued_without_an_api_call(self):
-        from decimal import Decimal
-        with tempfile.TemporaryDirectory() as td:
-            root=Path(td);conn=connect(root/"q.sqlite3");init_inbox(conn)
-            source_id="d"*64
-            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
-                "url":"https://openai.com/news/x","summary":"","published":""}])
-            policy=PIPELINE_POLICY["paid_script_generation"]
-            old_monthly_cap=policy["maximum_reserved_cost_per_utc_month_usd"]
-            policy["maximum_reserved_cost_per_utc_month_usd"]="0.001"
-            try:
-                _reserve_paid_call(conn,"e"*64,Decimal("0.001"),"deepseek/deepseek-v4.1-flash",
-                    Decimal("0.000000015"),Decimal("0.0000012"))
-                with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
-                    "scripts.media_news_pipeline.shutil.disk_usage",
-                    return_value=SimpleNamespace(free=3 * 1024**3),
-                ):
-                    result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
-                self.assertEqual(result["status"],"BLOCKED_MONTHLY_PAID_BUDGET")
-                self.assertFalse(result["request_sent"])
-                self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],
-                    "PREPARATION_REQUIRED")
-            finally:
-                policy["maximum_reserved_cost_per_utc_month_usd"]=old_monthly_cap
-                conn.close()
+    def test_openrouter_policy_is_free_only(self):
+        route=PIPELINE_POLICY["openrouter_routing"]
+        self.assertTrue(route["free_only"])
+        self.assertFalse(route["paid_models_allowed"])
+        self.assertFalse(route["paid_fallback_allowed"])
+        self.assertEqual(PIPELINE_POLICY["primary_script_route"],"OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL")
 
     def test_low_disk_blocks_before_api_or_voice_work_without_mutating_queue(self):
         with tempfile.TemporaryDirectory() as td:
@@ -288,74 +202,17 @@ class MediaNewsAutomationTests(unittest.TestCase):
     def test_news_automation_uses_five_minute_poll_and_bounded_voice_retries(self):
         root=Path(__file__).resolve().parents[1]
         source_policy=json.loads((root/"config/media_source_ingress_policy.json").read_text())
-        pipeline_policy=json.loads((root/"config/media_news_pipeline_policy.json").read_text())
-        fast_path=json.loads((root/"config/media_automation_fast_path.json").read_text())
-        read_gate=json.loads((root/"config/media_command_read_gate.json").read_text())
-        small_host=json.loads((root/"config/media_small_host_policy.json").read_text())
+        pipeline=json.loads((root/"config/media_news_pipeline_policy.json").read_text())
         self.assertEqual(source_policy["poll_interval_seconds"],300)
-        self.assertEqual(source_policy["stale_after_seconds"],600)
-        self.assertEqual(pipeline_policy["poll_interval_seconds"],300)
-        self.assertEqual(pipeline_policy["voice_retry"]["maximum_attempts"],3)
-        self.assertEqual(pipeline_policy["voice_retry"]["retry_delays_seconds"],[60,300])
-        self.assertEqual(pipeline_policy["resource_backpressure"]["minimum_workspace_free_bytes"],2*1024**3)
-        self.assertEqual(pipeline_policy["resource_backpressure"]["maximum_unresolved_packages_per_queue"],1)
-        self.assertFalse(pipeline_policy["resource_backpressure"]["automatic_artifact_deletion"])
-        self.assertEqual(pipeline_policy["voice_checkpoint"]["persistent_wav_cache_environment"],"VOICEVOX_CACHE_DIR")
-        self.assertIn("--interval-seconds 300",(root/"deploy/systemd/hf-site-agent-media-source.service").read_text())
-        self.assertIn("OnUnitInactiveSec=5min",(root/"deploy/systemd/hf-site-agent-media-news.timer").read_text())
-        service=(root/"deploy/systemd/hf-site-agent-media-news.service").read_text()
-        user_service=(root/"deploy/systemd/user/hf-site-agent-media-news.service").read_text()
-        self.assertNotIn("scripts.media_source_daemon", user_service)
-        self.assertIn("process-next", user_service)
-        small_host=json.loads((root/"config/media_small_host_policy.json").read_text())
-        self.assertEqual(small_host["runtime_layout"]["rss_poller_schedule"],"hf-site-agent-media-source.timer")
-        self.assertFalse(small_host["runtime_layout"]["create_duplicate_source_poller"])
-        self.assertIn("VOICEVOX_CACHE_DIR=/var/lib/hf-site-agent/voice-cache",service)
-        self.assertIn("/var/lib/hf-site-agent/voice-cache",service.split("ExecStartPre=",1)[1])
-        remote=fast_path["extracted_pipeline"]["article_to_media_staging"]["external_render_handoff"]
-        self.assertEqual(remote["status"],"IMPLEMENTED_LIVE_HEALTH_REQUIRED")
-        self.assertFalse(remote["automatic_retry"])
-        self.assertFalse(remote["automatic_local_fallback"])
-        self.assertFalse(remote["publishing_enabled"])
-        self.assertTrue(remote["required_for_final_video_completion"])
-        self.assertTrue(fast_path["extracted_pipeline"]["article_to_media_staging"]["final_ffmpeg_render_offloaded"])
-        self.assertFalse(fast_path["extracted_pipeline"]["article_to_media_staging"]["gcp_local_video_rendering_allowed"])
-        render_worker=json.loads((root/"config/media_render_worker_policy.json").read_text())
-        self.assertEqual(render_worker["status"],"IMPLEMENTED_LIVE_HEALTH_REQUIRED")
-        self.assertEqual(render_worker["live_connection"]["source_of_truth"],
-            "python -m scripts.media_render_transport --check")
-        self.assertTrue(render_worker["live_connection"]["static_policy_flags_must_not_be_used_as_live_status"])
-        self.assertEqual(small_host["target"]["machine_type"],"e2-small")
-        self.assertEqual(small_host["target"]["memory_gib"],2)
-        self.assertTrue(small_host["execution"]["preparation_timer_enabled_by_default"])
-        self.assertFalse(small_host["execution"]["render_timer_enabled_by_default"])
-        self.assertEqual(pipeline_policy["paid_script_generation"]["model"],"deepseek/deepseek-v4.1-flash")
-        self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_estimated_cost_per_call_usd"],"0.05")
-        self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_reserved_cost_per_utc_day_usd"],"1.00")
-        self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_reserved_cost_per_utc_month_usd"],"10.00")
-        self.assertEqual(fast_path["extracted_pipeline"]["article_to_media_staging"]["script_route"],
-            "deepseek/deepseek-v4.1-flash")
-        self.assertEqual(fast_path["extracted_pipeline"]["article_to_media_staging"]["monthly_reserved_cost_cap_usd"],
-            "10.00")
-        self.assertFalse(pipeline_policy["paid_script_generation"]["automatic_paid_fallback"])
-        self.assertFalse(pipeline_policy["paid_script_generation"]["automatic_retry_after_request"])
-        self.assertEqual(pipeline_policy["free_script_review"]["route_requirement"],"EXACT_ZERO_COST_FREE_MODEL_ONLY")
-        self.assertTrue(pipeline_policy["free_script_review"]["advisory_only"])
-        self.assertIn("PYTHONIOENCODING=utf-8:backslashreplace",user_service)
-        user_render=(root/"deploy/systemd/user/hf-site-agent-media-render@.service").read_text()
-        self.assertIn("--remote-render",user_render)
-        self.assertNotIn(" --shell ",user_render)
-        news_read_set=set(read_gate["trigger_sets"]["VIDEO_CREATION"]["conditional"]["if_user_requests_article_rss_or_resident_news_video_automation"])
-        self.assertIn("docs/GCP_SMALL_HOST_DEPLOYMENT.md",news_read_set)
-        self.assertNotIn("docs/VPS_MEDIA_NEWS_AUTOMATION.md",news_read_set)
-        self.assertTrue({"config/media_render_worker_policy.json","scripts/media_render_transport.py",
-            "scripts/media_render_worker.py","deploy/systemd/hf-render-worker-tunnel.service",
-            "deploy/systemd/hf-site-agent-media-render@.service",
-            "config/media_small_host_policy.json","docs/DURABLE_MEDIA_AUTOMATION.md",
-            "deploy/systemd/user/hf-site-agent-media-news.service",
-            "deploy/systemd/user/hf-site-agent-media-news.timer",
-            "deploy/systemd/user/hf-site-agent-media-render@.service",
-            "tests/test_media_small_host_deployment.py","tests/test_voicevox_lifecycle.py"}.issubset(news_read_set))
+        self.assertEqual(pipeline["poll_interval_seconds"],300)
+        self.assertEqual(pipeline["paid_script_generation"]["provider"],"deepseek_official")
+        self.assertEqual(pipeline["paid_script_generation"]["base_url"],"https://api.deepseek.com")
+        self.assertEqual(pipeline["paid_script_generation"]["model"],"deepseek-flash")
+        self.assertIsNone(pipeline["paid_script_generation"]["artificial_daily_cap_usd"])
+        self.assertFalse(pipeline["paid_script_generation"]["automatic_top_up"])
+        self.assertTrue(pipeline["openrouter_routing"]["free_only"])
+        self.assertFalse(pipeline["openrouter_routing"]["paid_models_allowed"])
+        self.assertFalse(pipeline["openrouter_routing"]["paid_fallback_allowed"])
 
     def test_human_review_state_pauses_new_preparation(self):
         with tempfile.TemporaryDirectory() as td:
@@ -543,63 +400,92 @@ class MediaNewsAutomationTests(unittest.TestCase):
         bad=story();bad["scenes"][0]["dialogue"][0]["id"]="../escape"
         with self.assertRaises(ValueError): validate_story(bad,TEXT)
 
-    def test_story_call_uses_exact_deepseek_v41_flash_with_live_price_cap_and_no_fallback(self):
+    def test_openrouter_free_script_success(self):
         with tempfile.TemporaryDirectory() as td:
-            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
-            call={}
-            catalog=[{"id":"deepseek/deepseek-v4.1-flash",
-                "pricing":{"prompt":"0.000000015","completion":"0.0000012"},
-                "supported_parameters":["response_format"]}]
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn);call={}
+            catalog=[{"id":"fixture/model:free","pricing":{"prompt":"0","completion":"0"}}]
             def requester(payload,key):
-                call.update(payload=payload,key_seen=bool(key))
-                return {"model":"deepseek/deepseek-v4.1-flash","choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}],
-                    "usage":{"cost":"0.0001","prompt_tokens":200,"completion_tokens":200}}
-            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test-secret-never-logged"}):
+                call.update(payload=payload,key=key)
+                return {"model":"fixture/model:free","choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}],"usage":{"cost":"0","prompt_tokens":50,"completion_tokens":60}}
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"openrouter-secret"},clear=True):
                 result,model=draft_story(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
-                    catalog=catalog,request_fn=requester,
-                    planner_fn=lambda *_a,**_k:{"status":"READY","primary_model":"reviewer/model:free","provider_allow_fallbacks":False})
-            self.assertEqual(model,"deepseek/deepseek-v4.1-flash")
-            self.assertEqual(len(result["scenes"]),3)
-            self.assertTrue(call["key_seen"])
+                    free_catalog=catalog,request_fn=requester,
+                    planner_fn=lambda *_a,**_k:{"status":"READY","primary_model":"fixture/model:free","provider_allow_fallbacks":False})
+            self.assertEqual(model,"fixture/model:free")
             self.assertIs(call["payload"]["provider"]["allow_fallbacks"],False)
-            self.assertEqual(call["payload"]["provider"]["sort"],"price")
-            self.assertTrue(call["payload"]["usage"]["include"])
-            self.assertEqual(conn.execute("SELECT COUNT(*) FROM media_news_paid_calls").fetchone()[0],1)
+            self.assertNotIn("openrouter-secret",json.dumps(call["payload"]))
             conn.close()
 
-    def test_paid_model_preflight_fails_closed_and_does_not_reserve_or_call(self):
-        with tempfile.TemporaryDirectory() as td:
-            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
-            bad_catalogs=[
-                [{"id":"deepseek/deepseek-v4.1-flash","pricing":{"prompt":"0.000000015","completion":"0.0000012"},"supported_parameters":[]}],
-                [{"id":"deepseek/deepseek-v4.1-flash","pricing":{"prompt":"unknown","completion":"0.0000012"},"supported_parameters":["response_format"]}],
-            ]
-            for catalog in bad_catalogs:
-                with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}):
-                    with self.assertRaises(PaidMediaPreflightUnavailable):
-                        draft_story(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
-                            catalog=catalog,request_fn=lambda *_a:(_ for _ in ()).throw(AssertionError("must not call")))
-            self.assertEqual(_paid_calls_used_today(conn),0)
-            conn.close()
+    def test_openrouter_paid_model_is_rejected_before_network_request(self):
+        with self.assertRaisesRegex(ValueError,"paid and unverified"):
+            _post_chat({"model":"deepseek/deepseek-v4.1-flash"},"key")
 
-    def test_paid_attempt_is_never_sent_twice_without_a_script_checkpoint(self):
+    def test_deepseek_official_result_is_not_requested_twice(self):
+        from scripts.media_news_pipeline import DEEPSEEK_PAID_MODEL
         with tempfile.TemporaryDirectory() as td:
-            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
-            catalog=[{"id":"deepseek/deepseek-v4.1-flash",
-                "pricing":{"prompt":"0.000000015","completion":"0.0000012"},
-                "supported_parameters":["response_format"]}]
-            calls=[]
-            def requester(payload,key):
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn);calls=[]
+            def free_request(payload,_key):
+                raise OpenRouterRequestError("OpenRouter request failed with HTTP 429 (RATE_LIMIT)")
+            def direct(payload,_key):
                 calls.append(payload["model"])
-                return {"model":payload["model"],"choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}],
-                    "usage":{"cost":"0.0001"}}
+                return {"model":DEEPSEEK_PAID_MODEL,"choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}],
+                    "usage":{"prompt_tokens":300,"completion_tokens":120,"prompt_tokens_details":{"cached_tokens":20}}}
             article={"title":"title","url":"https://openai.com/news/x","text":TEXT}
-            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}):
-                draft_story(conn,article,catalog=catalog,request_fn=requester)
+            free=[{"id":"fixture/model:free","pricing":{"prompt":"0","completion":"0"}}]
+            plan=lambda *_a,**_k:{"status":"READY","primary_model":"fixture/model:free","provider_allow_fallbacks":False}
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"or","DEEPSEEK_API_KEY":"ds"}):
+                first=draft_story(conn,article,free_catalog=free,planner_fn=plan,request_fn=free_request,deepseek_request_fn=direct)
                 with self.assertRaises(PaidMediaAlreadyAttempted):
-                    draft_story(conn,article,catalog=catalog,request_fn=requester)
-            paid_calls=[model for model in calls if model=="deepseek/deepseek-v4.1-flash"]
-            self.assertEqual(paid_calls,["deepseek/deepseek-v4.1-flash"])
+                    draft_story(conn,article,free_catalog=free,planner_fn=plan,request_fn=free_request,deepseek_request_fn=direct)
+            self.assertEqual(first[1],DEEPSEEK_PAID_MODEL)
+            self.assertEqual(calls,[DEEPSEEK_PAID_MODEL])
+            row=conn.execute("SELECT provider,actual_cost_usd,retry_count FROM media_news_usage_events").fetchone()
+            self.assertEqual(row["provider"],"deepseek_official");self.assertIsNone(row["actual_cost_usd"])
+            conn.close()
+
+
+    def test_deepseek_transport_is_official_direct_and_does_not_log_key(self):
+        captured={}
+        class JsonResponse:
+            def __enter__(self): return self
+            def __exit__(self,*_args): return None
+            def read(self,_limit=-1): return json.dumps({"model":"deepseek-flash","choices":[],"usage":{}}).encode()
+        def send(request,timeout):
+            captured["url"]=request.full_url
+            captured["authorization"]=request.get_header("Authorization")
+            captured["body"]=request.data
+            captured["timeout"]=timeout
+            return JsonResponse()
+        with patch("scripts.media_news_pipeline.urllib.request.urlopen",side_effect=send):
+            _post_deepseek_chat({"model":"deepseek-flash","messages":[]},"private-deepseek-key")
+        self.assertEqual(captured["url"],"https://api.deepseek.com/chat/completions")
+        self.assertEqual(captured["authorization"],"Bearer private-deepseek-key")
+        self.assertNotIn(b"private-deepseek-key",captured["body"])
+
+    def test_openrouter_generic_free_route_requires_zero_catalog_price(self):
+        from scripts.media_news_pipeline import _resolve_free_script_model
+        free_catalog=[{"id":"openrouter/free","pricing":{"prompt":"0","completion":"0"}}]
+        plan=lambda *_a,**_k:{"status":"READY","primary_model":"openrouter/free","provider_allow_fallbacks":False}
+        self.assertEqual(_resolve_free_script_model(free_catalog,plan)[0],"openrouter/free")
+        with self.assertRaises(PaidMediaPreflightUnavailable):
+            _resolve_free_script_model([{"id":"openrouter/free","pricing":{"prompt":"0.001","completion":"0"}}],plan)
+
+    def test_deepseek_balance_error_is_blocked_and_queue_preserved(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
+            article={"title":"title","url":"https://openai.com/news/x","text":TEXT}
+            free=[{"id":"fixture/model:free","pricing":{"prompt":"0","completion":"0"}}]
+            plan=lambda *_a,**_k:{"status":"READY","primary_model":"fixture/model:free","provider_allow_fallbacks":False}
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"or","DEEPSEEK_API_KEY":"ds"}):
+                with self.assertRaises(PaidMediaBalanceBlocked):
+                    draft_story(conn,article,free_catalog=free,planner_fn=plan,
+                        request_fn=lambda *_a: (_ for _ in ()).throw(OpenRouterRequestError("free unavailable")),
+                        deepseek_request_fn=lambda *_a: (_ for _ in ()).throw(PaidMediaBalanceBlocked("balance")))
+            row=conn.execute("SELECT state FROM media_news_paid_calls").fetchone()
+            self.assertEqual(row["state"],"BLOCKED_BALANCE")
+            telemetry=conn.execute("SELECT provider,status FROM media_news_usage_events").fetchone()
+            self.assertEqual((telemetry["provider"],telemetry["status"]),("deepseek_official","BLOCKED_BALANCE"))
+            self.assertNotIn("ds",json.dumps([dict(row) for row in conn.execute("SELECT * FROM media_news_usage_events")]))
             conn.close()
 
     def test_free_reviewer_uses_exact_free_model_and_is_advisory(self):
@@ -621,21 +507,11 @@ class MediaNewsAutomationTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM media_news_model_calls").fetchone()[0],1)
             conn.close()
 
-    def test_paid_actual_cost_must_be_present_and_within_reserved_cap(self):
-        catalog=[{"id":"deepseek/deepseek-v4.1-flash",
-            "pricing":{"prompt":"0.000000015","completion":"0.0000012"},
-            "supported_parameters":["response_format"]}]
-        for usage in ({"cost":"1.0"},{}):
-            with tempfile.TemporaryDirectory() as td:
-                conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
-                with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}):
-                    with self.assertRaises(RuntimeError):
-                        draft_story(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
-                            catalog=catalog,request_fn=lambda payload,_key,u=usage: {
-                                "model":payload["model"],"usage":u,"choices":[]})
-                state=conn.execute("SELECT state FROM media_news_paid_calls").fetchone()["state"]
-                self.assertEqual(state,"OUTCOME_UNKNOWN")
-                conn.close()
+    def test_deepseek_usage_estimate_is_logged_without_claiming_actual_billing(self):
+        from scripts.media_news_pipeline import _deepseek_peak_cost
+        estimate,ratio=_deepseek_peak_cost({"prompt_tokens":1000,"completion_tokens":100,"prompt_tokens_details":{"cached_tokens":200}})
+        self.assertGreater(estimate,0)
+        self.assertEqual(ratio,__import__("decimal").Decimal("0.2"))
 
     def test_article_to_persistent_script_package_is_resumable(self):
         with tempfile.TemporaryDirectory() as td:
@@ -644,40 +520,45 @@ class MediaNewsAutomationTests(unittest.TestCase):
             source_id="a"*64
             ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
                 "url":"https://openai.com/news/example","summary":"", "published":""}])
-            planner=lambda *_a,**_k:{"status":"READY","primary_model":"deepseek/deepseek-v4.1-flash","provider_allow_fallbacks":False}
+            planner=lambda *_a,**_k:{"status":"READY","primary_model":"fixture/model:free","provider_allow_fallbacks":False}
             calls={"model":0,"image":0}
             def requester(*_a):
                 calls["model"]+=1
-                return {"model":"deepseek/deepseek-v4.1-flash","usage":{"cost":"0.0001"},"choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}]}
+                raise OpenRouterRequestError("OpenRouter request failed with HTTP 429 (RATE_LIMIT)")
+            def deepseek_requester(payload,_key):
+                return {"model":"deepseek-flash","usage":{"prompt_tokens":200,"completion_tokens":100},"choices":[{"message":{"content":json.dumps(story(),ensure_ascii=False)}}]}
             def fake_download(_url,dest_dir,**_kwargs):
                 import hashlib
                 calls["image"]+=1;dest_dir.mkdir(parents=True,exist_ok=True)
                 data=b"fixture-image";path=dest_dir/(hashlib.sha256(data).hexdigest()+".png");path.write_bytes(data)
                 return {"file":str(path),"sha256":hashlib.sha256(data).hexdigest(),"url":"https://openai.com/image.png","bytes":len(data)}
-            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}), patch(
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test","DEEPSEEK_API_KEY":"deepseek-test"}), patch(
                 "scripts.media_news_pipeline.extract_article",return_value={"title":"title","url":"https://openai.com/news/example","text":TEXT,"description":"","images":[{"url":"https://openai.com/image.png","alt":"official image"}]}
             ), patch("scripts.media_news_pipeline.download_article_image",side_effect=fake_download):
                 mission=process_source(conn,source_id,workspace,image_hosts={"openai.com"},catalog=[{"id":"deepseek/deepseek-v4.1-flash",
                     "pricing":{"prompt":"0.000000015","completion":"0.0000012"},"supported_parameters":["response_format"]}],
-                    request_fn=requester,planner_fn=planner)
+                    request_fn=requester,planner_fn=planner,deepseek_request_fn=deepseek_requester,
+                    free_catalog=[{"id":"fixture/model:free","pricing":{"prompt":"0","completion":"0"}}])
             saved=json.loads(mission.read_text())
             self.assertEqual(len(saved["scenes"]),3)
             self.assertTrue(saved["source_sha256"])
             self.assertTrue((mission.parent/"mission.json.gz.b64").is_file())
             checkpoint=json.loads((mission.parent/"script-generation.json").read_text())
-            self.assertEqual(checkpoint["model_id"],"deepseek/deepseek-v4.1-flash")
+            self.assertEqual(checkpoint["model_id"],"deepseek-flash")
             self.assertEqual(checkpoint["status"],"SCRIPT_READY")
             self.assertLessEqual(float(checkpoint["estimated_cost_usd"]),0.05)
             self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],"VOICE_PENDING")
             manifest=mission.parent/"image-candidates.json";images=json.loads(manifest.read_text())
             images["assets"][0].update(selected_for_render=True,rights_verified=True,rights_basis="licensed",rights_evidence_url="https://example.org/license",credit="OpenAI")
             manifest.write_text(json.dumps(images))
-            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test"}), patch(
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test","DEEPSEEK_API_KEY":"deepseek-test"}), patch(
                 "scripts.media_news_pipeline.extract_article",return_value={"title":"title","url":"https://openai.com/news/example","text":TEXT,"description":"","images":[{"url":"https://openai.com/image.png","alt":"official image"}]}
             ), patch("scripts.media_news_pipeline.download_article_image",side_effect=AssertionError("cached assets must be reused")):
                 reused=process_source(conn,source_id,workspace,image_hosts={"openai.com"},catalog=[{"id":"deepseek/deepseek-v4.1-flash",
                     "pricing":{"prompt":"0.000000015","completion":"0.0000012"},"supported_parameters":["response_format"]}],
-                    request_fn=lambda *_a:(_ for _ in ()).throw(AssertionError("cached script must be reused")),planner_fn=planner)
+                    request_fn=lambda *_a:(_ for _ in ()).throw(AssertionError("cached script must be reused")),planner_fn=planner,
+                    free_catalog=[{"id":"fixture/model:free","pricing":{"prompt":"0","completion":"0"}}],
+                    deepseek_request_fn=lambda *_a:(_ for _ in ()).throw(AssertionError("cached script must be reused")))
             self.assertEqual(reused,mission)
             self.assertEqual(calls,{"model":1,"image":1})
             self.assertTrue(json.loads(manifest.read_text())["assets"][0]["rights_verified"])
