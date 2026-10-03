@@ -836,6 +836,7 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
         request_fn = _post_chat
     free_key=os.environ.get("OPENROUTER_API_KEY","")
     free_error=None
+    free_http_error: OpenRouterRequestError | None = None
     if free_key:
         try:
             if free_catalog is None:
@@ -879,6 +880,7 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                 except OpenRouterRequestUnknown:
                     raise
                 except OpenRouterRequestError as exc:
+                    free_http_error=exc
                     match=re.fullmatch(r"OpenRouter request failed with HTTP (\d+) \(([A-Z_]+)\)",str(exc))
                     if match is not None and int(match.group(1))>=500:
                         raise OpenRouterRequestUnknown("OpenRouter request result is unknown; automatic retry disabled") from None
@@ -909,6 +911,8 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
         raise PaidMediaPreflightUnavailable("BLOCKED_NO_APPROVED_FALLBACK")
     deepseek_key=os.environ.get("DEEPSEEK_API_KEY","")
     if not deepseek_key:
+        if free_http_error is not None:
+            raise free_http_error
         detail = f"; OpenRouter free route unavailable ({str(free_error)[:100]})" if free_error else ""
         raise PaidMediaPreflightUnavailable("DEEPSEEK_API_KEY is not configured" + detail)
     from decimal import Decimal
