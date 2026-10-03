@@ -31,7 +31,7 @@ from scripts.media_render_transport import (
     MAX_OUTPUT_ARCHIVE_BYTES, MAX_REPORT_BYTES, MAX_SELECTED_IMAGES, PACKAGE_POLICY, PROTOCOL,
     TRANSPORT_POLICY, VERIFY_POLICY, WORKER_LOOPBACK, WORKER_PORT, HEALTH_ROUTE, HTTP_ROUTE,
     MAX_UNCOMPRESSED_INPUT_BYTES, RenderTransportError, _bounded_decompress, _sha256_file,
-    _shared_access_token, _worker_code_hashes,
+    _shared_access_token, _worker_code_hashes, _ALLOWED_VISUAL_SOURCE_MODES,
 )
 
 
@@ -423,23 +423,30 @@ def _parse_manifest(raw: bytes) -> dict[str, Any]:
     if len({str(item.get("id") or "") for item in visuals if isinstance(item, dict)}) != len(visuals):
         raise WorkerJobError("DUPLICATE_VISUALS")
     for item in visuals:
-        if (not isinstance(item, dict) or not _safe_name(str(item.get("path") or "")) or
-                item.get("rights_verified") is not True or
-                not str(item.get("rights_basis") or "").strip() or
-                not str(item.get("credit") or "").strip() or
-                not _safe_https_url(item.get("rights_evidence_url"))):
+        if not isinstance(item,dict) or not _safe_name(str(item.get("path") or "")):
             raise WorkerJobError("UNSAFE_VISUAL_PATH")
-        asset_id = str(item.get("id") or "")
-        if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", asset_id):
+        mode=str(item.get("visual_source_mode") or ("LICENSE_CLEARED" if item.get("rights_verified") is True else "")).upper()
+        source_url=str(item.get("source_url") or item.get("rights_evidence_url") or "").strip()
+        credit=str(item.get("credit") or "").strip()
+        if mode not in _ALLOWED_VISUAL_SOURCE_MODES or not credit or not _safe_https_url(source_url):
+            raise WorkerJobError("INVALID_VISUAL_PROVENANCE")
+        if mode=="LICENSE_CLEARED" and (
+                item.get("rights_verified") is not True
+                or not str(item.get("rights_basis") or "").strip()
+                or not _safe_https_url(item.get("rights_evidence_url"))):
+            raise WorkerJobError("INVALID_LICENSE_CLEARED_VISUAL")
+        asset_id=str(item.get("id") or "")
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}",asset_id):
             raise WorkerJobError("INVALID_VISUAL_ID")
-        if (len(str(item.get("rights_basis") or "")) > 2000 or
-                len(str(item.get("rights_evidence_url") or "")) > 2048 or
-                len(str(item.get("credit") or "")) > 500):
-            raise WorkerJobError("RIGHTS_METADATA_TOO_LARGE")
-        if item.get("path") not in files or files[item["path"]].get("sha256") != item.get("sha256"):
+        if (len(str(item.get("rights_basis") or ""))>2000
+                or len(str(item.get("rights_evidence_url") or ""))>2048
+                or len(source_url)>2048 or len(credit)>500):
+            raise WorkerJobError("VISUAL_PROVENANCE_TOO_LARGE")
+        if item.get("path") not in files or files[item["path"]].get("sha256")!=item.get("sha256"):
             raise WorkerJobError("VISUAL_HASH_NOT_IN_FILE_MANIFEST")
-        if item.get("path") != f"images/{item['sha256']}{PurePosixPath(item['path']).suffix.lower()}":
+        if item.get("path")!=f"images/{item['sha256']}{PurePosixPath(item['path']).suffix.lower()}":
             raise WorkerJobError("VISUAL_PATH_HASH_MISMATCH")
+
     if len({item["sha256"] for item in visuals}) != len(visuals):
         raise WorkerJobError("DUPLICATE_VISUAL_CONTENT")
     image_files = {name for name in files if name.startswith("images/")}
