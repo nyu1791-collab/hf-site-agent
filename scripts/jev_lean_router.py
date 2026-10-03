@@ -243,7 +243,8 @@ def _request_once(
             "output_tokens": usage.get("output_tokens"),
             "cost": usage.get("cost"),
         },
-        "paid_execution": True,
+        "paid_execution": False,
+        "free_execution": True,
         "paid_fallback_to_other_family": False,
     }
 
@@ -273,7 +274,7 @@ def decide_lean_batch(
             continue
         ok, price = price_guard_allows(model, policy=policy, entries=catalog)
         if not ok:
-            errors.append({"model": model, "reason": "EMERGENCY_PRICE_GUARD_BLOCK", "price_evidence": price})
+            errors.append({"model": model, "reason": "FREE_ONLY_PRICE_GUARD_BLOCK", "price_evidence": price})
             continue
         try:
             result = _request_once(
