@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 13188)
-Total output lines: 768
-
 from __future__ import annotations
 
 import json
@@ -301,7 +298,193 @@ class MediaNewsAutomationTests(unittest.TestCase):
         self.assertEqual(pipeline_policy["paid_script_generation"]["maximum_reserved_cost_per_utc_month_usd"],"10.00")
         self.assertEqual(fast_path["extracted_pipeline"]["article_to_media_staging"]["script_route"],
             "deepseek/deepseek-v4.1-flash")
-        self.assertEqual(fast_path["extracted_pipeline"]["article_to_media_stagi…3188 tokens truncated… *_a, **_k: Response(markup))
+        self.assertEqual(fast_path["extracted_pipeline"]["article_to_media_staging"]["monthly_reserved_cost_cap_usd"],
+            "10.00")
+        self.assertFalse(pipeline_policy["paid_script_generation"]["automatic_paid_fallback"])
+        self.assertFalse(pipeline_policy["paid_script_generation"]["automatic_retry_after_request"])
+        self.assertEqual(pipeline_policy["free_script_review"]["route_requirement"],"EXACT_ZERO_COST_FREE_MODEL_ONLY")
+        self.assertTrue(pipeline_policy["free_script_review"]["advisory_only"])
+        self.assertIn("PYTHONIOENCODING=utf-8:backslashreplace",user_service)
+        user_render=(root/"deploy/systemd/user/hf-site-agent-media-render@.service").read_text()
+        self.assertIn("--remote-render",user_render)
+        self.assertNotIn(" --shell ",user_render)
+        news_read_set=set(read_gate["trigger_sets"]["VIDEO_CREATION"]["conditional"]["if_user_requests_article_rss_or_resident_news_video_automation"])
+        self.assertIn("docs/GCP_SMALL_HOST_DEPLOYMENT.md",news_read_set)
+        self.assertNotIn("docs/VPS_MEDIA_NEWS_AUTOMATION.md",news_read_set)
+        self.assertTrue({"config/media_render_worker_policy.json","scripts/media_render_transport.py",
+            "scripts/media_render_worker.py","deploy/systemd/hf-render-worker-tunnel.service",
+            "deploy/systemd/hf-site-agent-media-render@.service",
+            "config/media_small_host_policy.json","docs/DURABLE_MEDIA_AUTOMATION.md",
+            "deploy/systemd/user/hf-site-agent-media-news.service",
+            "deploy/systemd/user/hf-site-agent-media-news.timer",
+            "deploy/systemd/user/hf-site-agent-media-render@.service",
+            "tests/test_media_small_host_deployment.py","tests/test_voicevox_lifecycle.py"}.issubset(news_read_set))
+
+    def test_human_review_state_pauses_new_preparation(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            ids=["1"*64,"2"*64]
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":f"https://openai.com/news/{index}","summary":"","published":""}
+                for index,source_id in enumerate(ids)])
+            conn.execute("UPDATE source_inbox SET state='ASSET_REVIEW_REQUIRED' WHERE source_id=?",(ids[0],))
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.process_source",side_effect=AssertionError("must wait for review")
+            ):
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"BLOCKED_PENDING_HUMAN_ACTION")
+            self.assertEqual(result["source_id"],ids[0])
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox WHERE source_id=?",(ids[1],)).fetchone()["state"],"PREPARATION_REQUIRED")
+            conn.close()
+
+    def test_low_disk_pauses_before_api_or_voice_work_without_mutating_queue(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            source_id="3"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":"https://openai.com/news/x","summary":"","published":""}])
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",return_value=SimpleNamespace(free=1024**3)
+            ), patch("scripts.media_news_pipeline.process_source",side_effect=AssertionError("must wait for space")):
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"BLOCKED_LOW_DISK_SPACE")
+            self.assertEqual(result["minimum_free_bytes"],2*1024**3)
+            self.assertFalse(result["automatic_deletion"])
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox WHERE source_id=?",(source_id,)).fetchone()["state"],"PREPARATION_REQUIRED")
+            conn.close()
+
+    def test_render_assets_require_selection_rights_basis_and_credit(self):
+        with tempfile.TemporaryDirectory() as td:
+            package=Path(td);images=package/"images";images.mkdir()
+            assets=[]
+            for i in range(6):
+                data=f"image-{i}".encode();path=images/f"{i}.png";path.write_bytes(data)
+                import hashlib
+                assets.append({"id":str(i),"downloaded":True,"selected_for_render":True,
+                    "rights_verified":True,"rights_basis":"CC BY 4.0","rights_evidence_url":"https://example.org/license",
+                    "credit":"Author","url":"https://openai.com/media/image.png","file":str(path),
+                    "sha256":hashlib.sha256(data).hexdigest()})
+            self.assertEqual(len(select_render_assets({"assets":assets},3,package)),6)
+            for field,value in (("rights_verified",False),("rights_basis",""),("credit",""),("rights_evidence_url","")):
+                broken=[dict(x) for x in assets];broken[0][field]=value
+                with self.assertRaises(RuntimeError): select_render_assets({"assets":broken},3,package)
+            with self.assertRaises(RuntimeError): select_render_assets({"assets":assets[:5]},3,package)
+            with self.assertRaises(RuntimeError): select_render_assets({"assets":assets+[dict(assets[0],id="extra")]},3,package)
+            duplicated=[dict(x) for x in assets];duplicated[1]["sha256"]=duplicated[0]["sha256"]
+            with self.assertRaises(RuntimeError): select_render_assets({"assets":duplicated},3,package)
+            escaped=[dict(x) for x in assets];escaped[0]["file"]="/etc/passwd"
+            with self.assertRaises(RuntimeError): select_render_assets({"assets":escaped},3,package)
+            linked=images/"linked.png";linked.symlink_to(images/"0.png")
+            symlinked=[dict(x) for x in assets];symlinked[0]["file"]=str(linked)
+            with self.assertRaisesRegex(RuntimeError,"symbolic link"):
+                select_render_assets({"assets":symlinked},3,package)
+
+    def test_rss_summary_fallback_is_bounded_and_requires_enough_source_text(self):
+        row={"url":"https://openai.com/news/example","title":"Official update","summary":TEXT * 4}
+        article=_rss_summary_article(row)
+        self.assertEqual(article["article_text_origin"],"CONFIGURED_RSS_SUMMARY_FALLBACK")
+        self.assertEqual(article["url"],row["url"])
+        self.assertGreaterEqual(len(article["text"]),300)
+        with self.assertRaises(ArticleSourceBlocked):
+            _rss_summary_article({**row,"summary":"Too short."})
+
+    def test_high_priority_feed_is_prepared_before_older_low_priority_backlog(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            openai_id="a"*64
+            deepmind_id="b"*64
+            ingest_items(conn,[
+                {"source_id":openai_id,"feed_id":"openai-news","title":"OpenAI article",
+                 "url":"https://openai.com/news/x","summary":TEXT*4,"published":""},
+                {"source_id":deepmind_id,"feed_id":"google-deepmind","title":"DeepMind article",
+                 "url":"https://deepmind.google/blog/x","summary":TEXT*4,"published":""},
+            ])
+            conn.execute("UPDATE source_inbox SET created_at=1 WHERE source_id=?",(deepmind_id,))
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.load_policy",
+                return_value={"feeds":[
+                    {"feed_id":"openai-news","enabled":True,"priority":0},
+                    {"feed_id":"google-deepmind","enabled":True,"priority":10},
+                ]},
+            ), patch(
+                "scripts.media_news_pipeline.process_source",
+                side_effect=ArticleSourceBlocked(
+                    "article page could not be fetched and RSS summary is too short"
+                ),
+            ) as process_source, patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=3*1024**3),
+            ):
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"ARTICLE_SOURCE_BLOCKED")
+            self.assertEqual(result["source_id"],deepmind_id)
+            self.assertEqual(result["reason"],"ARTICLE_PAGE_FETCH_FAILED_RSS_SUMMARY_TOO_SHORT")
+            self.assertFalse(result["request_sent"])
+            self.assertEqual(process_source.call_args.args[1],deepmind_id)
+            blocked=json.loads((root/"workspace"/"media-news"/deepmind_id/"blocked.json").read_text())
+            self.assertEqual(blocked["reason_code"],result["reason"])
+            self.assertFalse(blocked["request_sent"])
+            self.assertEqual(conn.execute(
+                "SELECT state FROM source_inbox WHERE source_id=?",(deepmind_id,)
+            ).fetchone()["state"],"SCRIPT_BLOCKED")
+            self.assertEqual(conn.execute(
+                "SELECT state FROM source_inbox WHERE source_id=?",(openai_id,)
+            ).fetchone()["state"],"PREPARATION_REQUIRED")
+            conn.close()
+
+    def test_article_redirect_failure_uses_bounded_rss_summary(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);workspace=root/"workspace";workspace.mkdir()
+            conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            source_id="e"*64
+            summary=TEXT*4
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"google-deepmind","title":"Official update",
+                "url":"https://deepmind.google/blog/example","summary":summary,"published":""}])
+            draft=story()
+            for scene in draft["scenes"]:
+                scene["image_search_hint"]="official update"
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.extract_article",
+                side_effect=urllib.error.URLError("redirect left configured HTTPS hosts"),
+            ), patch(
+                "scripts.media_news_pipeline.draft_story",
+                return_value=(draft,"fixture/news:free"),
+            ) as draft_story:
+                mission=process_source(conn,source_id,workspace,image_hosts={"deepmind.google"})
+            article=json.loads((mission.parent/"article.json").read_text(encoding="utf-8"))
+            self.assertEqual(article["article_text_origin"],"CONFIGURED_RSS_SUMMARY_FALLBACK")
+            self.assertEqual(article["text"],summary)
+            self.assertEqual(draft_story.call_args.args[1]["text"],summary)
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],"VOICE_PENDING")
+            conn.close()
+
+    def test_inaccessible_article_with_short_summary_is_skipped_without_retry_loop(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);conn=connect(root/"queue.sqlite3");init_inbox(conn)
+            source_id="d"*64
+            ingest_items(conn,[{"source_id":source_id,"feed_id":"openai-news","title":"title",
+                "url":"https://openai.com/news/x","summary":"Too short.","published":""}])
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"configured"}), patch(
+                "scripts.media_news_pipeline.extract_article",
+                side_effect=urllib.error.URLError("redirect left configured HTTPS hosts"),
+            ), patch(
+                "scripts.media_news_pipeline.shutil.disk_usage",
+                return_value=SimpleNamespace(free=3 * 1024**3),
+            ):
+                result=_process_next(conn,root/"workspace",min_seconds=60,max_seconds=300)
+            self.assertEqual(result["status"],"ARTICLE_SOURCE_BLOCKED")
+            self.assertTrue(result["will_try_next_source"])
+            self.assertEqual(conn.execute("SELECT state FROM source_inbox").fetchone()["state"],"SCRIPT_BLOCKED")
+            conn.close()
+
+    def test_article_parser_extracts_text_and_only_allowlisted_image_urls(self):
+        body = (TEXT + " ") * 3
+        markup = ("<html><head><title>Official news</title><meta property='og:image' "
+                  "content='https://images.ctfassets.net/openai/hero.png'></head><body>" + body +
+                  "<img src='https://openai.com/media/slide.jpg'><img src='https://evil.invalid/a.jpg'>"
+                  "<script>not article content</script></body></html>").encode()
+        article = extract_article("https://openai.com/news/example", allowed_hosts={"openai.com","images.ctfassets.net"},
+                                  opener=lambda *_a, **_k: Response(markup))
         self.assertIn("OpenAI announced", article["text"])
         self.assertNotIn("not article content", article["text"])
         self.assertEqual(len(article["images"]),2)
