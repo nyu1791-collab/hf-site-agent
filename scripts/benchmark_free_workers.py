@@ -22,6 +22,7 @@ import urllib.error
 import urllib.request
 
 from scripts.worker_benchmark_ranking import rank_benchmarked_workers, select_benchmarked_worker
+from scripts.openrouter_free_gate import OpenRouterFreeGateError, assert_openrouter_free_model
 
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 TIMEOUT_SECONDS = 35
@@ -71,6 +72,10 @@ def _decimal(value: Any) -> Decimal | None:
 
 
 def _safe_json_request(model: str, api_key: str, prompt: str) -> tuple[int, dict[str, Any] | None, str, float]:
+    try:
+        assert_openrouter_free_model(model, api_key=api_key)
+    except OpenRouterFreeGateError as exc:
+        return 0, None, exc.reason, 0.0
     body = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
