@@ -637,6 +637,28 @@ class MediaNewsAutomationTests(unittest.TestCase):
             self.assertIs(call["payload"]["provider"]["allow_fallbacks"],False)
             self.assertNotIn("response_format",call["payload"])
             self.assertNotIn("openrouter-secret",json.dumps(call["payload"]))
+            self.health.assert_called_once()
+            self.assertEqual(self.health.call_args.args[-1],"success")
+            self.assertTrue(self.health.call_args.kwargs["verifier_pass"])
+            conn.close()
+
+    def test_free_429_updates_health_and_uses_one_free_standby(self):
+        with tempfile.TemporaryDirectory() as td:
+            conn=connect(Path(td)/"q.sqlite3");init_inbox(conn)
+            catalog=[{"id":model,"pricing":{"prompt":"0","completion":"0"},"context_length":context}
+                     for model,context in [("fixture/primary:free",100000),("fixture/standby:free",50000)]]
+            calls=[]
+            def request(payload,_key):
+                calls.append(payload["model"])
+                if len(calls)==1:
+                    raise OpenRouterRequestError("OpenRouter request failed with HTTP 429 (RATE_LIMIT)")
+                return {"model":payload["model"],"choices":[{"message":{"content":json.dumps(story())}}]}
+            with patch.dict("os.environ",{"OPENROUTER_API_KEY":"test-only"},clear=True), patch("time.sleep"):
+                _result,model=draft_story(conn,{"title":"title","url":"https://openai.com/news/x","text":TEXT},
+                    free_catalog=catalog,request_fn=request)
+            self.assertEqual(calls,["fixture/primary:free","fixture/standby:free"])
+            self.assertEqual(model,"fixture/standby:free")
+            self.assertEqual([call.args[-1] for call in self.health.call_args_list],["rate_limit","success"])
             conn.close()
 
     def test_media_script_route_uses_shared_jev_coordinator_and_final_guard(self):

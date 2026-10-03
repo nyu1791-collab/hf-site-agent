@@ -1142,7 +1142,9 @@ def draft_story(conn: sqlite3.Connection, article: Mapping[str, Any], *, catalog
                 except DailyMediaCapReached as exc:
                     free_error=type(exc).__name__;break
                 except OpenRouterRequestUnknown as exc:
-                    _record_script_worker_health(model,source_sha256,len(openrouter_attempts),started,"transport_failure" if exc.reason_code in {"OSERROR","TIMEOUTERROR","CONNECTIONERROR","CONNECTIONRESETERROR","REMOTE DISCONNECTED"} else "quality_failure")
+                    _record_script_worker_health(model,source_sha256,len(openrouter_attempts),started,"transport_failure" if exc.reason_code in {"OSERROR","TIMEOUT","TIMEOUTERROR","CONNECTIONERROR","CONNECTIONRESETERROR",
+                        "REMOTEDISCONNECTED","URL_ERROR","GAIERROR","ECONNRESET","ECONNREFUSED",
+                        "ETIMEDOUT","EHOSTUNREACH","ENETUNREACH","EPIPE"} else "quality_failure")
                     if openrouter_attempts:
                         openrouter_attempts[-1].update(status="UNKNOWN_RESULT", reason_code=exc.reason_code)
                         _save_openrouter_attempt_checkpoint(
