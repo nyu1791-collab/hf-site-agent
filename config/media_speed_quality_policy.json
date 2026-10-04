@@ -141,7 +141,9 @@
     "scene_stills_and_audio_are_prepared_before_encode": true,
     "no_per_scene_video_encode_on_fast_path": true,
     "fast_start_required": true,
-    "longform_scene_checkpoint_policy_remains_authoritative": true
+    "longform_scene_checkpoint_policy_remains_authoritative": true,
+    "bounded_video_uses_one_final_encode": true,
+    "fast_path_default_orientation": "LANDSCAPE_16_9"
   },
   "jev_media_planning": {
     "enabled": true,
@@ -257,7 +259,7 @@
       "AUDIO_AND_VIDEO_STREAMS_PRESENT"
     ],
     "full_decode_pass_required": false,
-    "preparation_lanes_max": 3,
+    "preparation_lanes_max": 2,
     "target_minutes": 5,
     "target_status": "MEASURE_EACH_RUN; BEST_EFFORT_NOT_GUARANTEED",
     "reuse_first": [
@@ -412,7 +414,8 @@
     },
     "critical_path_rules": [
       "reuse_unchanged_measured_audio_and_native_character_variants",
-      "prepare_independent_audio_and_cleared_visual_assets_in_parallel",
+      "run_preparation_sequentially_by_default",
+      "use_two_preparation_lanes_only_when_independent_and_expected_wall_clock_savings_are_at_least_ten_seconds",
       "encode_once_with_approved_layout_characters_and_captions",
       "skip_optional_effects_and_reviews",
       "never_remove_approved_characters_or_change_format_to_meet_deadline"
@@ -487,7 +490,7 @@
       "TIKTOK",
       "EXPLICIT_USER_REQUEST"
     ],
-    "reference_video_is_structure_reference_not_style_copy": false,
+    "reference_video_is_structure_reference_not_style_copy": true,
     "originality_contract": {
       "copy_reference_background": false,
       "copy_reference_decorations": false,
