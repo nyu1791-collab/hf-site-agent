@@ -52,7 +52,9 @@
     "longform-video-preflight.yml",
     "organization-nvidia-audit.yml",
     "collect-zm-shell-assets.yml",
-    "build-ai-slowdown-voicevox-v3.yml"
+    "build-ai-slowdown-voicevox-v3.yml",
+    "build-gemini4-argon-cloud-video.yml",
+    "repair-gemini4-expression.yml"
   ],
   "one_off_workflow_lifecycle": {
     "one_time_carrier_is_not_long_lived_automation": true,
@@ -110,5 +112,10 @@
     "paid_fallback": false,
     "auto_top_up": false,
     "vertex_ai_required": false
-  }
+  },
+  "max_bounded_media_workflows": 2,
+  "bounded_media_workflows": [
+    "build-gemini4-argon-longform.yml",
+    "durable-gemini4-media.yml"
+  ]
 }
