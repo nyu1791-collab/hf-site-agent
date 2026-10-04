@@ -1,11 +1,6 @@
 name: Repair Gemini 4 Argon expression coverage
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - .github/workflows/repair-gemini4-expression.yml
   workflow_dispatch:
 
 permissions:
