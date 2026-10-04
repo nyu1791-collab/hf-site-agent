@@ -10,17 +10,25 @@ def validate(root=ROOT):
         return json.loads((root / path).read_text(encoding='utf-8'))
 
     profile = load('config/approved_video_template.json')
+    landscape = load('config/approved_landscape_video_template.json')
     handoff = load('config/current_media_quality_handoff.json')
     gate = load('config/media_command_read_gate.json')
     manifest = load('config/permanent_standards_manifest.json')
     admission = load('config/video_creation_admission_policy.json')
 
-    assert profile['status'] == 'USER_APPROVED_PRODUCTION_BASELINE'
+    assert profile['status'] == 'USER_APPROVED_PORTRAIT_SHORTFORM_BASELINE'
+    assert landscape['status'] == 'USER_DIRECTED_LONGFORM_BASELINE'
+    assert (landscape['layout']['width'], landscape['layout']['height'], landscape['layout']['fps']) == (1280, 720, 15)
+    assert landscape['layout']['caption_colors'] == {'ずんだもん': '#B8E6C8', '四国めたん': '#F2C4D7'}, 'landscape pale palette regression'
+    assert landscape['characters']['required'] == ['ずんだもん', '四国めたん']
+    assert landscape['characters']['both_speak'] is True
+    assert landscape['acting']['native_layers_required'] and landscape['acting']['silent_and_listener_mouth_closed']
+    assert (root / 'scripts/render_reusable_landscape.py').is_file()
     assert profile['layout']['caption_colors'] == {'ずんだもん': '#B8E6C8', '四国めたん': '#F2C4D7'}, 'pale palette regression'
     assert (root / profile['longform_renderer']).is_file()
     assert profile['execution_contract']['same_visual_and_acting_standard_for_short_and_long']
     assert profile['execution_contract']['media_region_only_boolean_required_for_each_visual']
-    assert admission['character_output_contract']['longform_renderer'] == profile['longform_renderer']
+    assert admission['character_output_contract']['longform_renderer'] == 'scripts/render_reusable_landscape.py'
     assert profile['acting']['native_layers_required'] and profile['acting']['silent_and_listener_mouth_closed']
     assert profile['acting']['expressions_from_authored_cues_not_topic_keyword_matching']
 
@@ -63,7 +71,8 @@ def validate(root=ROOT):
     caption_contract = admission.get('caption_contract') or {}
     caption_renderers = caption_contract.get('renderers') or {}
     assert caption_renderers.get('shortform') == profile['renderer'], 'approved shortform renderer drift'
-    assert isinstance(caption_renderers.get('longform'), str) and (root / caption_renderers['longform']).is_file(), 'admitted longform renderer missing'
+    assert caption_renderers.get('longform') == 'scripts/render_reusable_landscape.py', 'approved landscape longform renderer drift'
+    assert (root / caption_renderers['longform']).is_file(), 'admitted longform renderer missing'
     assert caption_contract['speaker_colors'] == profile['layout']['caption_colors']
 
     speed_reads = set((gate.get('speed_first_delivery_override') or {}).get('read_set') or [])
@@ -72,24 +81,32 @@ def validate(root=ROOT):
     for path in [
         'config/current_media_quality_handoff.json',
         'config/approved_video_template.json',
+        'config/approved_landscape_video_template.json',
         'docs/VIDEO_PRODUCTION_BASELINE.md',
+        'docs/VIDEO_SPEED_ENGINEERING_RULES.md',
     ]:
         assert path in reachable, f'not reachable after tab change: {path}'
 
     assert manifest['media_command_gate']['approved_video_template'] == 'config/approved_video_template.json'
-    for path in ['AGENTS.md', profile['renderer'], profile['playbook'], profile['presentation_example'], 'scripts/restore_video_context.py']:
+    assert manifest['media_command_gate']['approved_landscape_video_template'] == 'config/approved_landscape_video_template.json'
+    assert manifest['media_command_gate']['native_dynamic_longform_renderer'] == 'scripts/render_reusable_landscape.py'
+    for path in ['AGENTS.md', profile['renderer'], profile['playbook'], profile['presentation_example'], 'config/approved_landscape_video_template.json', 'scripts/render_reusable_landscape.py', 'scripts/restore_video_context.py']:
         assert (root / path).is_file(), f'missing baseline entry: {path}'
 
     recovered = ' '.join(gate['know_how_that_must_be_recovered']['common'])
     assert 'remain static by default' not in recovered, 'retired default returned to startup'
     assert 'without mouth animation' not in recovered
     renderer = (root / profile['renderer']).read_text(encoding='utf-8')
+    landscape_renderer = (root / 'scripts/render_reusable_landscape.py').read_text(encoding='utf-8')
     assert '2104993966043320759' not in renderer and 'DevDay 2026' not in renderer, 'topic baked into reusable renderer'
+    assert 'Gemini 4' not in landscape_renderer and 'DevDay 2026' not in landscape_renderer, 'topic baked into landscape renderer'
     assert "r.get('emotion','NORMAL')" in renderer
+    assert 'one H.264 encode' in landscape_renderer or 'one final' in landscape_renderer.lower()
 
     return {
         'status': 'PASS',
-        'baseline': profile['schema_version'],
+        'baseline': landscape['schema_version'],
+        'portrait_shortform_baseline': profile['schema_version'],
         'cross_tab_entry': 'AGENTS.md',
         'restore_path': 'SPEED_OVERRIDE_OR_VIDEO_CREATION_GATE',
         'minimum_completion_only': True,
