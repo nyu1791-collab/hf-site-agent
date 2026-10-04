@@ -33,7 +33,9 @@ def validate():
     assert speed['no_cosmetic_revision_or_extra_performance_generation'] is True
     assert speed['review_loops'] == 0
     assert speed['final_encode_passes'] == 1
-    assert speed['max_independent_preparation_lanes'] == 3
+    assert speed['max_independent_preparation_lanes'] == 2
+    assert speed['default_parallel_lanes'] == 1
+    assert speed['parallel_requires_expected_savings_seconds_at_least'] >= 10
 
     verification = p.get('verification') or {}
     assert verification.get('minimum_completion_only') is True
