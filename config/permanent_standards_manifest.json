@@ -424,7 +424,6 @@
     "free_route_failure_never_silently_becomes_paid": true,
     "session_stream_resilience_policy": "config/session_stream_resilience_policy.json",
     "long_running_media_must_not_depend_on_single_chat_response_stream": true,
-    "media_speed_uses_at_most_three_independent_preparation_lanes": true,
     "media_speed_uses_one_pass_final_encode_for_bounded_shortform": true,
     "zundamon_news60_template": "config/zundamon_news60_template.json",
     "zundamon_news60_prompt": "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
@@ -445,7 +444,7 @@
     "video_platform_delivery_playbook": "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md",
     "platform_profiles_must_preserve_ad_vs_organic_scope": true,
     "volatile_platform_specs_must_be_checked_before_upload": true,
-    "native_dynamic_longform_renderer": "scripts/render_reusable_longform.py",
+    "native_dynamic_longform_renderer": "scripts/render_reusable_landscape.py",
     "concise_editorial_policy": "config/approved_video_template.json#/editorial",
     "media_speed_target_is_aspirational_five_minutes": true,
     "video_research_and_script_default": "PYTHON_GATE_THEN_JEV_WHEN_EXACT_ZERO_PRICE_PASSES; ONE_OPENROUTER_FREE_WORKER; DETERMINISTIC_COORDINATOR_FALLBACK_WHILE_JEV_IS_BLOCKED; DEEPSEEK_OFFICIAL_ONLY_WHEN_FREE_IS_INSUFFICIENT_OR_CRITICAL_PATH_IMPROVES",
@@ -465,7 +464,11 @@
     "optional_style_profiles_scope": "ONLY_ON_USER_REQUEST_FOR_MATCHING_STYLE",
     "paid_text_only_rss_script_exception": "config/media_news_pipeline_policy.json#/paid_script_generation; does not include paid video/image/TTS or public publishing",
     "resident_news_script_exception_survives_tab_change": true,
-    "gcp_operations_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md"
+    "gcp_operations_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
+    "media_speed_defaults_to_one_execution_lane": true,
+    "media_speed_uses_at_most_two_independent_preparation_lanes": true,
+    "media_speed_parallel_requires_expected_savings_seconds_at_least": 10,
+    "approved_landscape_video_template": "config/approved_landscape_video_template.json"
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
