@@ -1,0 +1,65 @@
+{
+  "schema_version": "gemini4-argon-1min-v1",
+  "mission_id": "20261005-gemini4-argon-1min-landscape",
+  "title": "Gemini 4 Argonを1分で",
+  "source_url": "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/",
+  "source_credit": "Google official Gemini 4 Argon announcement · Sep 30, 2026",
+  "dialogue": [
+    {
+      "id": "g4s-01",
+      "speaker": "ずんだもん",
+      "emotion": "HAPPY",
+      "visual_id": "intro",
+      "voice_text": "Gemini 4 Argonは、短い質問に答えるだけでなく、長く複雑な仕事を最後まで進めることを狙った新しいフロンティアモデルなのだ。"
+    },
+    {
+      "id": "g4s-02",
+      "speaker": "四国めたん",
+      "emotion": "NORMAL",
+      "visual_id": "intro",
+      "voice_text": "つまり、普通のチャットよりも、調査して、試して、直すような長い仕事を任せる方向なのね。"
+    },
+    {
+      "id": "g4s-03",
+      "speaker": "ずんだもん",
+      "emotion": "HAPPY",
+      "visual_id": "one_m",
+      "voice_text": "大きな特徴は1Mトークン級。長い文脈を保ちながら、何段階もの推論を続けやすくなっているのだ。"
+    },
+    {
+      "id": "g4s-04",
+      "speaker": "四国めたん",
+      "emotion": "SERIOUS",
+      "visual_id": "one_m",
+      "voice_text": "ただし、長く考えられることと、必ず正しいことは別。重要な仕事では検証も必要ね。"
+    },
+    {
+      "id": "g4s-05",
+      "speaker": "ずんだもん",
+      "emotion": "NORMAL",
+      "visual_id": "uses",
+      "voice_text": "Googleは、コーディング、財務や法務の調査、そしてサイバー防御のような長期ワークフローを代表例に挙げているのだ。"
+    },
+    {
+      "id": "g4s-06",
+      "speaker": "四国めたん",
+      "emotion": "HAPPY",
+      "visual_id": "uses",
+      "voice_text": "得意なのは、一発回答よりも、複数工程をつないで進める仕事というわけね。"
+    },
+    {
+      "id": "g4s-07",
+      "speaker": "ずんだもん",
+      "emotion": "SERIOUS",
+      "visual_id": "rollout",
+      "voice_text": "でも今は広い一般提供ではなく、Fairwind Programの信頼されたサイバー防御担当者から段階的に展開中なのだ。"
+    },
+    {
+      "id": "g4s-08",
+      "speaker": "四国めたん",
+      "emotion": "HAPPY",
+      "visual_id": "rollout",
+      "voice_text": "結論、Gemini 4は速さだけではなく、長い仕事を安全にやり切る方向へ進んだモデルとして見ると分かりやすいわ。"
+    }
+  ]
+}
