@@ -2,11 +2,6 @@ name: Build Gemini 4 Argon cloud video without external device
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - .video-run-request-gemini4
 
 permissions:
   contents: read
@@ -18,7 +13,6 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[render-gemini4-longform]')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
