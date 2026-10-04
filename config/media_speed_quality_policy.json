@@ -17,7 +17,7 @@
   "renderer": "scripts/render_reusable_short.py",
   "execution_graph": {
     "single_writer_per_run": true,
-    "max_independent_preparation_lanes": 3,
+    "max_independent_preparation_lanes": 2,
     "parallelism_is_bounded_by_existing_media_ceiling": true,
     "parallel_lanes": [
       "VOICE_AND_MEASURED_TIMING",
@@ -30,7 +30,13 @@
     "independent_parallel_lanes_use_separate_cache_namespaces": true,
     "chatgpt_escalation_blocks_all_execution_waves": true,
     "retry_smallest_failed_stage_and_true_dependents_only": true,
-    "unrelated_successful_stage_must_not_be_rebuilt": true
+    "unrelated_successful_stage_must_not_be_rebuilt": true,
+    "default_parallel_lanes": 1,
+    "parallelism_rule": "SEQUENTIAL_BY_DEFAULT; USE_TWO_LANES_ONLY_FOR_PROVABLY_INDEPENDENT_IO_OR_PREPARATION",
+    "never_parallelize_shared_voicevox_engine": true,
+    "never_parallelize_ffmpeg_encoders": true,
+    "parallelism_requires_expected_wall_clock_savings_seconds_at_least": 10,
+    "parallelism_must_not_compete_for_same_cpu_gpu_disk_cache_or_local_service": true
   },
   "stage_graph": {
     "admission_and_script_lock": [],
@@ -513,5 +519,95 @@
     "avoid_mechanical_sentence_by_sentence_alternation": true,
     "both_speakers_participate_in_main_sections": true
   },
-  "content_contract_validator": "scripts/validate_video_content_contract.py"
+  "content_contract_validator": "scripts/validate_video_content_contract.py",
+  "critical_path_speed_contract": {
+    "objective": "Reach a complete deliverable inside the five-minute work target by removing repeated setup and repeated encoding, not by launching many competing workers.",
+    "default_execution": "SEQUENTIAL_CRITICAL_PATH",
+    "maximum_independent_lanes": 2,
+    "cpu_heavy_concurrency": 1,
+    "ffmpeg_encoder_concurrency": 1,
+    "voicevox_shared_engine_concurrency": 1,
+    "io_only_parallelism_max": 2,
+    "preflight_before_heavy_bootstrap": [
+      "PYTHON_SYNTAX_COMPILE",
+      "MISSION_JSON_PARSE",
+      "TEMPLATE_JSON_PARSE",
+      "REQUIRED_FILE_EXISTENCE",
+      "OUTPUT_CONTRACT_SANITY"
+    ],
+    "preflight_failure_action": "FAIL_FAST_BEFORE_APT_DOCKER_VOICEVOX_ASSET_DOWNLOAD_OR_RENDER",
+    "persistent_runtime_priority": [
+      "ALREADY_RUNNING_GCP_LOCAL_RUNTIME_AND_CACHE",
+      "LOCAL_INSTALLED_VOICEVOX_ENGINE",
+      "LOCALLY_CACHED_CONTAINER_OR_ASSET",
+      "GITHUB_HOSTED_FALLBACK"
+    ],
+    "toolchain_rules": {
+      "do_not_upgrade_pip_on_video_critical_path": true,
+      "install_only_missing_packages": true,
+      "do_not_pull_voicevox_container_when_healthy_engine_exists": true,
+      "do_not_redownload_verified_character_shell": true,
+      "reuse_content_addressed_voicevox_wav": true,
+      "reuse_verified_visual_assets": true,
+      "reuse_character_variant_cache": true
+    },
+    "render_rules": {
+      "one_final_video_encode": true,
+      "per_scene_h264_encode_then_concat_prohibited_on_fast_path": true,
+      "copy_concat_is_allowed_only_for_recovery_of_already_encoded_verified_chunks": true,
+      "prefer_shared_renderer_over_topic_specific_renderer": true,
+      "frame_state_cache_enabled": true,
+      "mouth_state_update_hz": 10,
+      "caption_layout_must_be_resolved_before_encode": true
+    },
+    "retry_rules": {
+      "retry_only_failed_stage_and_true_dependents": true,
+      "do_not_restart_voice_or_asset_work_after_concat_or_manifest_only_failure": true,
+      "syntax_or_manifest_bug_must_be_caught_before_runtime_bootstrap": true
+    },
+    "agent_rules": {
+      "no_multi_agent_review_on_critical_path": true,
+      "no_parallel_agents_editing_same_video_files": true,
+      "codex_or_code_agent_scope": "STATIC_CODE_OPTIMIZATION_AND_TESTS_ONLY; DO_NOT ADD_REVIEW_PASSES_OR_EXTRA_RUNTIME_SERVICES"
+    }
+  },
+  "measured_video_review_findings_20261005": {
+    "source_artifact": "Gemini4_Argon_1min_landscape.mp4",
+    "retain": [
+      "SCRIPT_AND_DIALOGUE_CONTENT",
+      "LANDSCAPE_16_9",
+      "TWO_HOST_STRUCTURE",
+      "CENTRAL_EVIDENCE_STAGE",
+      "TOP_TOPIC_BAR",
+      "PALE_SPEAKER_CAPTIONS"
+    ],
+    "fix_next": [
+      "CAPTION_TEXT_MUST_STAY_INSIDE_LOWER_THIRD_SAFE_AREA",
+      "VOICEVOX_OUTPUT_MUST_NOT_REMAIN_TOO_QUIET",
+      "CURRENT_NEWS_VIDEO_SHOULD_INCLUDE_AT_LEAST_ONE_PRIMARY_SOURCE_SCREENSHOT_WHEN_AVAILABLE",
+      "USE_ORIGINAL_DIAGRAMS_AS_EXPLANATION_NOT_AS_THE_ONLY_VISUAL_TYPE",
+      "REDUCE_STATIC_REPEAT_WITH_CROP_ZOOM_OR_EVIDENCE_CHANGE_ON_SEMANTIC_BEATS",
+      "KEEP_CHARACTERS_LARGE_ENOUGH_TO_READ_EXPRESSIONS_WITHOUT_COVERING_EVIDENCE"
+    ],
+    "audio_measurement": {
+      "observed_integrated_lufs": -24.47,
+      "observed_true_peak_db": -3.52,
+      "fast_path_target_integrated_lufs_range": [
+        -18,
+        -16
+      ],
+      "true_peak_ceiling_db": -1.5,
+      "normalization_strategy": "FIXED_VOICEVOX_GAIN_PLUS_LIMITER_DURING_THE_SINGLE_FINAL_ENCODE; NO_EXTRA_FULL_AUDIO_PASS"
+    },
+    "caption_safe_area": {
+      "max_lines": 3,
+      "minimum_bottom_margin_px": 34,
+      "caption_box_must_contain_all_glyphs": true,
+      "auto_shrink_font_before_clipping": true
+    },
+    "primary_source_visual_rule": {
+      "current_claim_bearing_video": "USE_AT_LEAST_ONE_OFFICIAL_OR_PRIMARY_SOURCE_SCREENSHOT_IF_AVAILABLE_AND_RIGHTS/PROVENANCE_GATE_PASSES",
+      "original_diagram_role": "EXPLANATION_ONLY_NOT_FAKE_EVIDENCE"
+    }
+  }
 }
