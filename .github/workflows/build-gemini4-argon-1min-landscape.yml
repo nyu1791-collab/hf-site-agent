@@ -31,28 +31,76 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Install fast local toolchain
+      - name: Fail-fast static preflight
         run: |
           set -euo pipefail
-          sudo apt-get update -y
-          sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
-          python -m pip install --upgrade pip
-          python -m pip install pillow
-          mkdir -p "$OUT" .media-cache/assets
+          python3 -m py_compile scripts/build_gemini4_landscape_1min.py scripts/render_reusable_landscape.py
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for path in (
+              Path("missions/media/20261005-gemini4-argon-1min.json"),
+              Path("config/approved_landscape_video_template.json"),
+              Path("config/media_speed_quality_policy.json"),
+          ):
+              value=json.loads(path.read_text(encoding="utf-8"))
+              assert isinstance(value,dict), path
+          profile=json.loads(Path("config/approved_landscape_video_template.json").read_text(encoding="utf-8"))
+          assert profile["canvas"]["longform_default"]["aspect_ratio"]=="16:9"
+          assert profile["performance"]["maximum_independent_preparation_lanes"]==2
+          assert profile["performance"]["ffmpeg_encoder_concurrency"]==1
+          print("STATIC_VIDEO_PREFLIGHT_OK")
+          PY
 
-      - name: Start local VOICEVOX
+      - name: Restore reusable media cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .media-cache/assets
+            .media-cache/voicevox-wav
+          key: video-fast-v2-${{ runner.os }}-zm-shell-20230806
+          restore-keys: |
+            video-fast-v2-${{ runner.os }}-
+
+      - name: Install only missing local tools
         run: |
           set -euo pipefail
-          docker pull voicevox/voicevox_engine:cpu-ubuntu20.04-latest
-          docker run -d --name voicevox -p 50021:50021 voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          missing=()
+          command -v ffmpeg >/dev/null || missing+=(ffmpeg)
+          fc-match 'Noto Sans CJK JP' 2>/dev/null | grep -qi 'Noto' || missing+=(fonts-noto-cjk fontconfig)
+          if (( ${#missing[@]} )); then
+            sudo apt-get update -y
+            sudo apt-get install -y "${missing[@]}"
+          fi
+          python3 - <<'PY' || python3 -m pip install --disable-pip-version-check pillow
+          import PIL
+          print(PIL.__version__)
+          PY
+          mkdir -p "$OUT" .media-cache/assets .media-cache/voicevox-wav
+
+      - name: Start or reuse one local VOICEVOX engine
+        run: |
+          set -euo pipefail
+          if curl -fsS http://127.0.0.1:50021/version >/dev/null 2>&1; then
+            echo "VOICEVOX_REUSED_RUNNING_ENGINE"
+            exit 0
+          fi
+          LOCAL_ENGINE="$HOME/.local/share/voicevox_engine/linux-cpu-x64/run"
+          if [[ -x "$LOCAL_ENGINE" ]]; then
+            nohup "$LOCAL_ENGINE" --host 127.0.0.1 --port 50021 >"$RUNNER_TEMP/voicevox.log" 2>&1 &
+          else
+            IMAGE=voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+            docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE"
+            docker run -d --name voicevox -p 50021:50021 "$IMAGE"
+          fi
           for i in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
               curl -fsS http://127.0.0.1:50021/version
               exit 0
             fi
-            sleep 2
+            sleep 1
           done
-          docker logs voicevox || true
+          docker logs voicevox 2>/dev/null || cat "$RUNNER_TEMP/voicevox.log" 2>/dev/null || true
           exit 1
 
       - name: Resolve approved character shell
