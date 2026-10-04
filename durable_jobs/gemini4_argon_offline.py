@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import concurrent.futures, hashlib, json, math, os, shutil, subprocess, sys, time, urllib.request, wave
+import concurrent.futures, hashlib, json, math, os, shutil, subprocess, sys, time, urllib.parse, urllib.request, wave
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
@@ -10,13 +10,13 @@ BASE.mkdir(parents=True,exist_ok=True)
 STATE=BASE/"state.json"
 FINAL=BASE/"Gemini4_Argon_10min.mp4"
 SOURCE_ID="35c346966e8d41f13b52346766af37340b0ecfae1adef59cace453b1815a9765"
-SOURCE_RUNTIME=ROOT/"runtime/gemini4-argon-video-20261005"/SOURCE_ID
+MISSION_TEMPLATE=BASE/"mission-template.json"
 SOURCE_URL="https://blog.google/intl/ja-jp/company-news/technology/gemini4argon/"
 FONT=Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")
 BOLD=Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc")
 SHELL=Path(os.environ.get("AI_ARMY_CHARACTER_SHELL") or str(ROOT/".media-cache/assets/characters/zm_shell_20230806/extracted/Shikokumetan_Zundamon_Shell(20230806)"))
-TOOLS=BASE/"tools"; MODELS=BASE/"models"; VOICE=BASE/"voice"; FRAMES=BASE/"frames"; CLIPS=BASE/"clips"; VIS=BASE/"visuals"
-for p in (TOOLS,MODELS,VOICE,FRAMES,CLIPS,VIS): p.mkdir(parents=True,exist_ok=True)
+TOOLS=BASE/"tools"; VOICE=BASE/"voice"; FRAMES=BASE/"frames"; CLIPS=BASE/"clips"; VIS=BASE/"visuals"
+for p in (TOOLS,VOICE,FRAMES,CLIPS,VIS): p.mkdir(parents=True,exist_ok=True)
 
 def save_state(status,**kw):
     value={"status":status,"updated_at":time.time(),**kw}
@@ -63,19 +63,39 @@ def ensure_inputs():
     ensure_shell()
     return json.loads(mission.read_text(encoding="utf-8"))
 
-def ensure_piper():
-    p=TOOLS/"piper"/"bin"/"piper-plus"
-    if not p.exists():
-        archive=TOOLS/"piper-linux-x64.tar.gz"
-        get("https://github.com/ayutaz/piper-plus/releases/download/v1.13.0/piper-linux-x64.tar.gz",archive)
-        run(["tar","xzf",str(archive),"-C",str(TOOLS)])
-    if not p.exists(): raise RuntimeError("piper-plus executable missing after extraction")
-    p.chmod(0o755)
-    get("https://huggingface.co/ayousanz/piper-plus-tsukuyomi-chan/resolve/main/tsukuyomi-chan-6lang-fp16.onnx",MODELS/"tsukuyomi.onnx")
-    get("https://huggingface.co/ayousanz/piper-plus-tsukuyomi-chan/resolve/main/config.json",MODELS/"tsukuyomi.json")
-    get("https://huggingface.co/kizuna-intelligence/piper-plus-mera-multilingual/resolve/main/mera-multilingual.onnx",MODELS/"mera.onnx")
-    get("https://huggingface.co/kizuna-intelligence/piper-plus-mera-multilingual/resolve/main/config.json",MODELS/"mera.json")
-    return p
+def _json_request(url,obj=None):
+    data=None if obj is None else json.dumps(obj,ensure_ascii=False).encode("utf-8")
+    req=urllib.request.Request(url,data=data,headers={"Content-Type":"application/json"},method="GET" if obj is None else "POST")
+    with urllib.request.urlopen(req,timeout=120) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+def ensure_voicevox():
+    base="http://127.0.0.1:50021"
+    try:
+        urllib.request.urlopen(base+"/version",timeout=3).read()
+    except Exception:
+        engine=Path("/home/n_yu1791/.local/share/voicevox_engine/linux-cpu-x64/run")
+        if not engine.exists(): raise RuntimeError("VOICEVOX Engine executable is missing")
+        log=(BASE/"voicevox.log").open("ab")
+        subprocess.Popen([str(engine),"--host","127.0.0.1","--port","50021"],stdout=log,stderr=log,start_new_session=True)
+        for _ in range(60):
+            try:
+                urllib.request.urlopen(base+"/version",timeout=3).read()
+                break
+            except Exception:
+                time.sleep(2)
+        else:
+            raise RuntimeError("VOICEVOX Engine did not become healthy")
+    speakers=_json_request(base+"/speakers")
+    ids={}
+    for name in ("ずんだもん","四国めたん"):
+        sp=next((x for x in speakers if x.get("name")==name),None)
+        if not sp: raise RuntimeError(f"VOICEVOX speaker missing: {name}")
+        styles=sp.get("styles") or []
+        normal=next((x for x in styles if x.get("name") in ("ノーマル","Normal","normal")),None) or styles[0]
+        ids[name]=int(normal["id"])
+    if ids["ずんだもん"]==ids["四国めたん"]: raise RuntimeError("VOICEVOX speaker IDs must be distinct")
+    return base,ids
 
 OFFICIAL=[
 ("official-keyart","https://storage.googleapis.com/gweb-uniblog-publish-prod/images/g4_30-09-26_key-art_blog.width-200.format-webp.webp"),
@@ -124,18 +144,23 @@ def flatten(mission):
             rows.append({"scene_index":si,"scene_id":scene["scene_id"],"scene_title":scene["title"],**line})
     return rows
 
-def synth_one(piper,row):
+def synth_one(engine,style_ids,row):
     out=VOICE/(row["id"]+".wav")
     if out.exists() and out.stat().st_size>1000:return out
-    model="tsukuyomi" if row["speaker"]=="ずんだもん" else "mera"
-    tmp=VOICE/(row["id"]+".raw.wav")
-    cmd=[str(piper),"--model",str(MODELS/(model+".onnx")),"--config",str(MODELS/(model+".json")),
-         "--text",row["voice_text"],"--language","ja-en-zh-es-fr-pt","--length-scale","1.32",
-         "--sentence-silence","0.08","--quiet","-f",str(tmp)]
-    env=os.environ.copy(); env.pop("PIPER_PLUS_OFFLINE_MODE",None); env["PIPER_PLUS_AUTO_DOWNLOAD_DICT"]="1"
-    run(cmd,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-    run(["ffmpeg","-y","-v","error","-i",str(tmp),"-ar","48000","-ac","1","-c:a","pcm_s16le",str(out)])
-    tmp.unlink(missing_ok=True)
+    sid=style_ids[row["speaker"]]
+    params=urllib.parse.urlencode({"text":row["voice_text"],"speaker":sid})
+    req=urllib.request.Request(engine+"/audio_query?"+params,data=b"",method="POST")
+    with urllib.request.urlopen(req,timeout=120) as r:
+        query=json.loads(r.read().decode("utf-8"))
+    query["speedScale"]=1.18
+    query["intonationScale"]=1.0
+    body=json.dumps(query,ensure_ascii=False).encode("utf-8")
+    req=urllib.request.Request(engine+f"/synthesis?speaker={sid}",data=body,headers={"Content-Type":"application/json"},method="POST")
+    raw=VOICE/(row["id"]+".raw.wav")
+    with urllib.request.urlopen(req,timeout=180) as r:
+        raw.write_bytes(r.read())
+    run(["ffmpeg","-y","-v","error","-i",str(raw),"-ar","48000","-ac","1","-c:a","pcm_s16le",str(out)])
+    raw.unlink(missing_ok=True)
     return out
 
 def wrap(draw,text,font,width,max_lines=5):
@@ -217,12 +242,12 @@ def main():
     if FINAL.exists():
         meta=verify(FINAL); save_state("COMPLETE",reused=True,final=str(FINAL),**meta); return
     save_state("PREPARING")
-    mission=ensure_inputs(); visuals=ensure_visuals(); piper=ensure_piper(); rows=flatten(mission)
+    mission=ensure_inputs(); visuals=ensure_visuals(); engine,style_ids=ensure_voicevox(); rows=flatten(mission)
     production_start=time.monotonic()
     save_state("SYNTHESIZING",line_count=len(rows))
     audios={}
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
-        fut={ex.submit(synth_one,piper,r):r for r in rows}
+        fut={ex.submit(synth_one,engine,style_ids,r):r for r in rows}
         for f,r in [(f,fut[f]) for f in fut]: audios[r["id"]]=f.result()
     total=sum(duration(a)+0.12 for a in audios.values())
     save_state("RENDERING",audio_seconds=total)
@@ -248,7 +273,7 @@ def main():
     meta=verify(FINAL)
     elapsed=time.monotonic()-production_start
     report={"status":"COMPLETE","production_seconds":round(elapsed,2),"target_production_seconds":300,
-            "target_result":"PASS" if elapsed<=300 else "NEEDS_OPTIMIZATION","tts":"Piper Plus local two-voice speed-validation route",
+            "target_result":"PASS" if elapsed<=300 else "NEEDS_OPTIMIZATION","tts":"VOICEVOX local two-speaker production route",
             "character_visuals":"approved Zundamon/Shikoku Metan shell","source":SOURCE_URL,
             "public_publish":False,**meta}
     (BASE/"report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n")
