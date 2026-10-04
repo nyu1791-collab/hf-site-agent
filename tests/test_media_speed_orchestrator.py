@@ -60,10 +60,26 @@ class MediaSpeedOrchestratorTests(unittest.TestCase):
         self.assertEqual(plan["status"], "READY")
         self.assertEqual(plan["final_encode"]["count"], 1)
         self.assertEqual(plan["final_encode"]["scene_video_intermediate_encodes"], 0)
-        self.assertLessEqual(max(map(len, plan["parallel_waves"])), 3)
-        self.assertEqual(plan["execution_profile"], "PARALLEL_PREP")
+        self.assertLessEqual(max(map(len, plan["parallel_waves"])), 1)
+        self.assertEqual(plan["execution_profile"], "FULL_REBUILD")
         self.assertEqual(plan["parallel_waves"][0], ["admission_and_script_lock"])
         self.assertEqual(set(sum(plan["parallel_waves"], [])), set(plan["stages_to_run"]))
+
+
+    def test_parallelism_requires_explicit_measured_benefit(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            no_evidence = plan_media_run(_inputs(root), use_jev=False)
+        self.assertFalse(no_evidence["parallelism"]["parallel_evidence_ok"])
+        self.assertEqual(no_evidence["parallelism"]["planned_parallel_lanes"], 1)
+        self.assertEqual(no_evidence["execution_shape"], "SINGLE")
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            evidenced = plan_media_run(_inputs(root), use_jev=False, parallel_benefit_seconds=20)
+        self.assertTrue(evidenced["parallelism"]["parallel_evidence_ok"])
+        self.assertEqual(evidenced["parallelism"]["planned_parallel_lanes"], 2)
+        self.assertEqual(evidenced["execution_shape"], "PARALLEL_PAIR")
 
     def test_caption_change_reuses_voice_and_assets(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -97,7 +113,7 @@ class MediaSpeedOrchestratorTests(unittest.TestCase):
             }
 
         with tempfile.TemporaryDirectory() as raw:
-            plan = plan_media_run(_inputs(Path(raw)), jev_decider=fake_jev)
+            plan = plan_media_run(_inputs(Path(raw)), jev_decider=fake_jev, parallel_benefit_seconds=20)
         self.assertEqual(plan["execution_profile"], "PARALLEL_PREP")
         self.assertEqual(plan["profile_source"], "JEV_TYPED_PROFILE_THEN_PYTHON_ADMISSION")
         self.assertEqual(plan["jev"]["admission"], "ACCEPTED_TYPED_PROFILE")
@@ -143,7 +159,7 @@ class MediaSpeedOrchestratorTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as raw:
             plan = plan_media_run(_inputs(Path(raw)), jev_decider=fake_jev)
-        self.assertEqual(plan["execution_profile"], "PARALLEL_PREP")
+        self.assertEqual(plan["execution_profile"], "FULL_REBUILD")
         self.assertEqual(plan["jev"]["status"], "JEV_LEAN_DECISION_OK")
         self.assertEqual(plan["quality_gates"]["paid_or_freemium_media"], False)
 
@@ -206,7 +222,7 @@ class MediaSpeedOrchestratorTests(unittest.TestCase):
             }
 
         with tempfile.TemporaryDirectory() as raw:
-            plan = plan_media_run(_inputs(Path(raw)), jev_decider=fake_jev)
+            plan = plan_media_run(_inputs(Path(raw)), jev_decider=fake_jev, parallel_benefit_seconds=20)
         self.assertEqual(plan["parallelism"]["planned_parallel_lanes"], 2)
         self.assertEqual(plan["parallel_waves"][1], ["voice_and_measured_timing", "rights_verified_visual_assets"])
         self.assertEqual(plan["parallel_waves"][2], ["character_shell_and_toolchain_prep"])
