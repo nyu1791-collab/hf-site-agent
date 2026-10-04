@@ -415,6 +415,10 @@ def _assess_jev_media_decision(
         reasons.append("PROFILE_NOT_PREVALIDATED")
     if shape not in ROUTE_SHAPES:
         reasons.append("ROUTE_SHAPE_NOT_PREVALIDATED")
+    if shape == "PARALLEL_PAIR" and independent_lane_count < 2:
+        reasons.append("PARALLEL_PAIR_WITHOUT_ADMITTED_SAVINGS")
+    if shape == "PARALLEL_TRIPLE":
+        reasons.append("PARALLEL_TRIPLE_DISABLED_FOR_ROUTINE_VIDEO")
     if str(decision.get("action") or "") != "EXECUTE":
         reasons.append("ACTION_NOT_EXECUTE")
     if decision.get("low_confidence") is not False:
@@ -492,6 +496,7 @@ def plan_media_run(
     jev_decider: Callable[..., Mapping[str, Any]] | None = None,
     high_risk: bool = False,
     shared_mutable_state: bool = False,
+    parallel_benefit_seconds: float = 0.0,
 ) -> dict[str, Any]:
     policy = policy or load_policy()
     if policy.get("status") != "ENFORCED_PERMANENT_STANDARD":
@@ -513,9 +518,17 @@ def plan_media_run(
         "rights_verified_visual_assets",
         "character_shell_and_toolchain_prep",
     ))
-    deterministic = deterministic_profile(changed, pending, independent_count, high_risk=high_risk)
+    graph_policy = policy.get("execution_graph") or {}
+    savings_threshold = float(graph_policy.get("parallelism_requires_expected_wall_clock_savings_seconds_at_least") or 10)
+    parallel_evidence_ok = (
+        not shared_mutable_state
+        and independent_count >= 2
+        and float(parallel_benefit_seconds) >= savings_threshold
+    )
+    admitted_independent_count = min(independent_count, 2) if parallel_evidence_ok else min(independent_count, 1)
+    deterministic = deterministic_profile(changed, pending, admitted_independent_count, high_risk=high_risk)
     profile = deterministic
-    execution_shape = _deterministic_shape(independent_count, shared_mutable_state=shared_mutable_state)
+    execution_shape = _deterministic_shape(admitted_independent_count, shared_mutable_state=shared_mutable_state)
     jev_info: dict[str, Any] = {
         "status": "JEV_SKIPPED",
         "reason": "DISABLED_BY_CALLER" if not use_jev else "NO_AUTHORIZED_KEY_OR_PROFILE_DECISION",
@@ -531,7 +544,7 @@ def plan_media_run(
         }
         jev_info = _jev_profile_decision(
             task_summary=(
-                "Choose a prevalidated media execution profile for a claim-bearing vertical video. "
+                "Choose a prevalidated media execution profile for a claim-bearing landscape video. "
                 "Use quality 20%, speed 80%: prefer cached presets and minimum viable immediate delivery. "
                 f"Changed inputs: {', '.join(changed) or 'none'}. "
                 f"Pending stages: {', '.join(pending) or 'none'}. "
@@ -548,7 +561,7 @@ def plan_media_run(
             policy=policy,
             changed=changed,
             pending=pending,
-            independent_lane_count=independent_count,
+            independent_lane_count=admitted_independent_count,
         )
         if accepted:
             profile = candidate
@@ -569,8 +582,8 @@ def plan_media_run(
         profile = deterministic
         jev_info["admission"] = "CACHE_PROFILE_REJECTED_PENDING_STAGES_REMAIN"
 
-    max_lanes = int((policy.get("execution_graph") or {}).get("max_independent_preparation_lanes") or 3)
-    if not 1 <= max_lanes <= 3:
+    max_lanes = int((policy.get("execution_graph") or {}).get("max_independent_preparation_lanes") or 2)
+    if not 1 <= max_lanes <= 2:
         raise MediaSpeedPlanError("parallel_lane_ceiling_out_of_bounds")
     planned_max_lanes = _shape_lane_limit(
         execution_shape,
@@ -618,7 +631,11 @@ def plan_media_run(
             "max_independent_lanes": max_lanes,
             "planned_parallel_lanes": planned_max_lanes,
             "observed_wave_widths": [len(wave) for wave in waves],
-            "independent_preparation_lanes": independent_count,
+            "independent_preparation_lanes_discovered": independent_count,
+            "independent_preparation_lanes_admitted": admitted_independent_count,
+            "parallel_benefit_seconds": float(parallel_benefit_seconds),
+            "parallel_savings_threshold_seconds": savings_threshold,
+            "parallel_evidence_ok": parallel_evidence_ok,
             "shared_mutable_state": shared_mutable_state,
             "shared_mutable_state_forces_sequential": True,
         },
@@ -678,6 +695,7 @@ def main() -> int:
     parser.add_argument("--plan-out", required=True)
     parser.add_argument("--use-jev", action="store_true")
     parser.add_argument("--high-risk", action="store_true")
+    parser.add_argument("--parallel-benefit-seconds", type=float, default=0.0)
     args = parser.parse_args()
 
     inputs = {
@@ -685,10 +703,10 @@ def main() -> int:
         "source_claim_lock": args.source_claim_lock or "MISSING",
         "voice_and_pronunciation": args.voice_contract or {"mission": args.mission, "engine": "VOICEVOX_LOCAL", "speed_scale": "1.20"},
         "measured_audio_timing": {"producer": "VOICEVOX_FFPROBE", "contract": "MEASURED_AUDIO_TIMING_V1"},
-        "caption_and_font": {"caption_contract": "FULL_SPOKEN_TEXT", "renderer_hash": file_fingerprint(ROOT / "scripts/render_reusable_short.py")},
+        "caption_and_font": {"caption_contract": "FULL_SPOKEN_TEXT", "renderer_hash": file_fingerprint(ROOT / "scripts/render_reusable_landscape.py")},
         "rights_verified_visual_assets": args.asset_request or {"manifest": args.asset_manifest or "MISSING"},
         "character_shell_and_anchor": args.character_request or {"inventory": args.static_inventory or "MISSING"},
-        "renderer_font_policy_or_output_contract": {"renderer_hash": file_fingerprint(ROOT / "scripts/render_reusable_short.py"), "output": "720x1280-h264-yuv420p-aac48k"},
+        "renderer_font_policy_or_output_contract": {"renderer_hash": file_fingerprint(ROOT / "scripts/render_reusable_landscape.py"), "output": "1280x720-h264-yuv420p-aac48k", "profile": "config/approved_landscape_video_template.json"},
         "cache_root": args.cache_root or "MISSING",
     }
     previous = _load_json(args.previous_plan)
@@ -698,6 +716,7 @@ def main() -> int:
         use_jev=args.use_jev,
         high_risk=args.high_risk,
         shared_mutable_state=args.shared_mutable_state,
+        parallel_benefit_seconds=args.parallel_benefit_seconds,
         api_key=os.environ.get("OPENROUTER_API_KEY"),
     )
     output = Path(args.plan_out)
