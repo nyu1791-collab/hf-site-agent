@@ -1,7 +1,7 @@
 {
   "schema_version": "approved-video-template-v1",
-  "effective_date_jst": "2026-09-30",
-  "status": "USER_APPROVED_PRODUCTION_BASELINE",
+  "effective_date_jst": "2026-10-05",
+  "status": "USER_APPROVED_PORTRAIT_SHORTFORM_BASELINE",
   "approval": {
     "reference_video": "DevDay2026_corrected_47s.mp4",
     "user_quote": "めちゃくちゃいい出来です。これをしっかりルールブックや型に落とし込んでください。",
@@ -15,6 +15,11 @@
       "user_quote": "動画自体はとても良かった",
       "acceptance_scope": "PRESENTATION_AND_ACTING_ONLY_CONTENT_REQUIRES_MORE_CONCISE_EXPLANATION",
       "reviewed_on_jst": "2026-09-30"
+    },
+    "latest_format_instruction": {
+      "date_jst": "2026-10-05",
+      "instruction": "Longform should be landscape. Adopt only the reference video's useful information hierarchy; do not copy its background or visual identity.",
+      "landscape_profile": "config/approved_landscape_video_template.json"
     }
   },
   "renderer": "scripts/render_reusable_short.py",
@@ -116,7 +121,16 @@
     "reference_duration_seconds": 47.301334,
     "resolution_is_fast_baseline_not_universal_maximum": true,
     "longform_duration_policies_preserved": true,
-    "publication_and_paid_permissions_unchanged": true
+    "publication_and_paid_permissions_unchanged": true,
+    "primary_use": [
+      "SHORTS",
+      "REELS",
+      "TIKTOK",
+      "EXPLICIT_PORTRAIT_REQUEST"
+    ],
+    "longform_default": false,
+    "longform_default_profile": "config/approved_landscape_video_template.json",
+    "longform_landscape_rule": "All explanatory/news longform defaults to 16:9 landscape unless the user explicitly requests portrait."
   },
   "platform_delivery": {
     "profile_registry": "config/video_platform_delivery_profiles.json",
