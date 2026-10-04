@@ -324,7 +324,7 @@
     "unknown_cost_route": "BLOCK",
     "paid_or_freemium_media_generation_is_permanently_disabled": true,
     "free_route_unavailable_blocks_without_paid_substitution": true,
-    "fast_image_longform_renderer": "scripts/render_reusable_short.py"
+    "fast_image_longform_renderer": "scripts/render_reusable_landscape.py"
   },
   "clipping_fixed_rules": {
     "authorized_creator_repurposing_and_official_clipping_adopted": true,
@@ -553,7 +553,7 @@
   },
   "mandatory_approved_video_references": {
     "scope": "READ_ON_EVERY_NEW_VIDEO_TAB",
-    "template": "config/approved_video_template.json",
+    "template": "config/approved_landscape_video_template.json",
     "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md"
   },
   "durable_media_runtime_reality": {
