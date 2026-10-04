@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import subprocess
+import time
 import urllib.parse
 import urllib.request
 import wave
@@ -160,6 +161,7 @@ def assemble_audio(parts: list[Path], out: Path, pause_seconds: float = 0.08) ->
 
 
 def build(args: argparse.Namespace) -> None:
+    total_started = time.monotonic()
     mission = json.loads(args.mission.read_text(encoding="utf-8"))
     args.output_dir.mkdir(parents=True, exist_ok=True)
     voice_dir = args.output_dir / "voice"
@@ -167,9 +169,12 @@ def build(args: argparse.Namespace) -> None:
     voice_dir.mkdir(exist_ok=True)
     visual_dir.mkdir(exist_ok=True)
 
+    visual_started = time.monotonic()
     for vid in ("intro", "one_m", "uses", "rollout"):
         visual_card(vid, visual_dir / f"{vid}.png", args.font, args.bold_font)
+    visual_seconds = time.monotonic() - visual_started
 
+    voice_started = time.monotonic()
     speaker_ids = voicevox_ids(args.engine)
     records = []
     parts = []
@@ -198,6 +203,7 @@ def build(args: argparse.Namespace) -> None:
 
     audio = args.output_dir / "audio.wav"
     assemble_audio(parts, audio, pause_seconds=pause)
+    voice_seconds = time.monotonic() - voice_started
     total = wav_duration(audio)
 
     source_url = mission["source_url"]
@@ -249,6 +255,7 @@ def build(args: argparse.Namespace) -> None:
     presentation_path.write_text(json.dumps(presentation, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     timing_path.write_text(json.dumps(timing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
+    render_started = time.monotonic()
     run(
         [
             "python3",
@@ -277,6 +284,7 @@ def build(args: argparse.Namespace) -> None:
             str(args.output),
         ]
     )
+    render_seconds = time.monotonic() - render_started
 
     probe = json.loads(
         subprocess.check_output(
@@ -300,6 +308,12 @@ def build(args: argparse.Namespace) -> None:
         "source": source_url,
         "style_profile": "config/approved_landscape_video_template.json",
         "canonical_renderer": "scripts/render_reusable_landscape.py",
+        "stage_seconds": {
+            "visual_prep": round(visual_seconds, 3),
+            "voice_and_audio": round(voice_seconds, 3),
+            "one_pass_render": round(render_seconds, 3),
+            "total": round(time.monotonic() - total_started, 3)
+        }
     }
     args.output.with_suffix(".report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False))
