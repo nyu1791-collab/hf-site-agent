@@ -62,6 +62,8 @@ def main() -> int:
     require(voice.get("target_max_segments_for_16_minutes") == 16 and voice.get("avoid_sentence_level_synthesis_calls") is True, "long-form voice batching rule missing")
     require((ROOT / fast["default_renderer"]).is_file(), "fast long-form renderer file missing")
     require((ROOT / fast["default_profile"]).is_file(), "fast long-form profile missing")
+    profile = load(ROOT / fast["default_profile"])
+    require(int((profile.get("layout") or {}).get("fps") or 0) == 15, "routine landscape fps must remain 15 for speed path")
     source_policy = load(SOURCE_POLICY)
     require(source_policy.get("generated_images_enabled_for_video") is False, "image generation is enabled for video")
     source_rules = source_policy.get("factual_video_visual_rules") or {}
