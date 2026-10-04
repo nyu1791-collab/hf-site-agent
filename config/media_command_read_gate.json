@@ -65,10 +65,14 @@
         "config/video_creation_admission_policy.json",
         "scripts/video_creation_admission.py",
         "config/approved_video_template.json",
-        "docs/VIDEO_PRODUCTION_BASELINE.md"
+        "docs/VIDEO_PRODUCTION_BASELINE.md",
+        "config/approved_landscape_video_template.json",
+        "docs/VIDEO_SPEED_ENGINEERING_RULES.md",
+        "scripts/render_reusable_landscape.py"
       ],
       "conditional": {
         "if_user_explicitly_requests_longform": [
+          "scripts/render_reusable_landscape.py",
           "scripts/render_reusable_short.py",
           "scripts/render_reusable_longform.py"
         ],
@@ -203,7 +207,7 @@
   "parallel_execution_standard": {
     "independent_read_only_lanes_may_start_concurrently": true,
     "independent_media_jobs_may_start_concurrently_after_admission": true,
-    "max_direct_parallel_corps": 3,
+    "max_direct_parallel_corps": 2,
     "dependency_join_required": true,
     "same_mutable_output_requires_single_writer": true,
     "rights_and_claim_gates_cannot_be_skipped_for_speed": true,
@@ -220,7 +224,11 @@
       "rights_or_claim_check_only_when_needed",
       "deterministic_automation_or_asset_preparation_when_independent"
     ],
-    "backpressure_must_reduce_parallelism_before_relaxing_required_rights_or_claim_gates": true
+    "backpressure_must_reduce_parallelism_before_relaxing_required_rights_or_claim_gates": true,
+    "routine_video_default_parallel_lanes": 1,
+    "routine_video_max_independent_preparation_lanes": 2,
+    "routine_video_parallel_requires_expected_savings_seconds_at_least": 10,
+    "shared_voicevox_and_ffmpeg_are_single_lane": true
   },
   "know_how_that_must_be_recovered": {
     "common": [
@@ -353,7 +361,8 @@
       "scripts/video_creation_admission.py",
       "config/approved_video_template.json",
       "docs/VIDEO_PRODUCTION_BASELINE.md",
-      "scripts/validate_video_content_contract.py"
+      "scripts/validate_video_content_contract.py",
+      "config/approved_landscape_video_template.json"
     ],
     "do_not_load_optional_video_QA_and_polish_guides_for_routine_delivery": true,
     "routine_delivery_uses_override_instead_of_legacy_media_read_sets": true,
@@ -376,7 +385,10 @@
       "ONE_FINAL_VIDEO_ENCODE_NO_PER_SCENE_H264_FAST_PATH"
     ],
     "editorial_authority": "config/media_speed_quality_policy.json#/script_clarity_contract",
-    "visual_authority": "config/media_speed_quality_policy.json#/visual_density_contract"
+    "visual_authority": "config/media_speed_quality_policy.json#/visual_density_contract",
+    "default_parallel_lanes": 1,
+    "max_independent_preparation_lanes": 2,
+    "parallel_requires_expected_savings_seconds_at_least": 10
   },
   "default_media_research_and_script_pair_is_chatgpt_plus_deepseek": false,
   "default_video_research_and_script_owner": "AI_ARMY_ROUTED_EXACT_FREE_WORKER_WITH_CHATGPT_FINAL_AUTHORITY",
