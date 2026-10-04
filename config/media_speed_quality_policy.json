@@ -1,9 +1,9 @@
 {
   "schema_version": "media-speed-quality-v1",
-  "effective_date_jst": "2026-09-30",
+  "effective_date_jst": "2026-10-05",
   "status": "ENFORCED_PERMANENT_STANDARD",
   "decision_owner": "chatgpt-top-commander",
-  "purpose": "Speed first, quality 20% and speed 80%. Reuse the approved baseline and deliver the minimum usable video immediately.",
+  "purpose": "Speed first, quality 20% and speed 80%. Longform defaults to the approved original 16:9 landscape briefing layout; portrait is reserved for short-form/social or explicit user request.",
   "historical_local_baseline_minutes": 40,
   "target_wall_clock_minutes": [
     5,
@@ -255,6 +255,7 @@
     "target_minutes": 5,
     "target_status": "MEASURE_EACH_RUN; BEST_EFFORT_NOT_GUARANTEED",
     "reuse_first": [
+      "APPROVED_LANDSCAPE_LONGFORM_LAYOUT",
       "APPROVED_LAYOUT",
       "CHARACTER_PRESETS",
       "FONTS_AND_TOOLCHAIN",
@@ -352,7 +353,10 @@
       "prefer_a_new_relevant_image_or_visual_each_beat": true,
       "avoid_repeating_one_still_as_filler": true,
       "use_visuals_to_explain_the_current_narration": true,
-      "reused_visual_must_remain_relevant_to_its_new_section": true
+      "reused_visual_must_remain_relevant_to_its_new_section": true,
+      "keep_primary_evidence_centered_and_legible_in_landscape": true,
+      "use_chapter_title_lineup_evidence_and_summary_scene_variety": true,
+      "characters_must_not_obscure_primary_evidence": true
     },
     "speed_rules": {
       "check_official_visual_cache_first": true,
@@ -364,7 +368,8 @@
       "reuse_verified_assets_and_capture_each_source_once": true,
       "asset_research_is_limited_to_official_visuals_needed_for_required_coverage": false,
       "visual_count_does_not_trigger_routine_preview_or_review": true,
-      "asset_research_is_limited_to_relevant_images_needed_for_coverage": true
+      "asset_research_is_limited_to_relevant_images_needed_for_coverage": true,
+      "reuse_landscape_layout_without_redesign_per_video": true
     },
     "rights_and_factuality": {
       "external_assets_require_source_page_locator_and_license_or_public_domain_state": true,
@@ -385,9 +390,9 @@
     "target_is_measured_for_each_run": true,
     "target_is_not_a_guarantee_when_inputs_or_local_hardware_are_unready": true,
     "minimum_realtime_factor_for_encode_stage": 3.2,
-    "default_canvas": "APPROVED_TEMPLATE_720x1280",
+    "default_canvas": "APPROVED_LANDSCAPE_1920x1080",
     "default_renderer": "scripts/render_reusable_short.py",
-    "default_profile": "config/approved_video_template.json",
+    "default_profile": "config/approved_landscape_video_template.json",
     "one_video_encode_only": true,
     "full_decode_passes": 0,
     "completion_probe": "ffprobe_streams_duration_and_size_only",
@@ -418,11 +423,25 @@
       "artifact_duration_must_match_latest_explicit_video_length_request": true,
       "if_only_creation_deadline_is_corrected_preserve_last_explicit_video_length": true,
       "preserve_approved_format_unless_user_explicitly_changes_it": true
-    }
+    },
+    "landscape_layout_required": true,
+    "portrait_longform_fallback_allowed": false,
+    "reference_structure_only_no_visual_copy": true,
+    "speed_fallback_canvas": "1280x720",
+    "shortform_portrait_profile": "config/approved_video_template.json",
+    "layout_rules": [
+      "persistent_top_header_with_series_and_current_topic",
+      "large_central_evidence_stage",
+      "zundamon_lower_left_and_metan_lower_right_outside_evidence_stage",
+      "wide_lower_third_caption_with_speaker_identity",
+      "compact_source_footer",
+      "chapter_title_lineup_evidence_table_and_summary_scene_types",
+      "do_not_copy_reference_background_palette_decorations_borders_typography_or_brand_identity"
+    ]
   },
   "approved_baseline_contract": {
     "mandatory_read_on_every_video_tab": true,
-    "template": "config/approved_video_template.json",
+    "template": "config/approved_landscape_video_template.json",
     "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md",
     "default_presentation": "USER_APPROVED_CHARACTER_VIDEO",
     "visible_characters": [
@@ -435,7 +454,25 @@
     "speed_20_80_does_not_authorize_baseline_removal": true,
     "static_card_renderer_requires_explicit_user_format_request": true,
     "visual_only_repair_reuses_measured_narration": true,
-    "actual_two_speaker_dialogue_required": true
+    "actual_two_speaker_dialogue_required": true,
+    "longform_template": "config/approved_landscape_video_template.json",
+    "shortform_template": "config/approved_video_template.json",
+    "longform_default_orientation": "LANDSCAPE_16_9",
+    "portrait_allowed_only_for": [
+      "SHORTS",
+      "REELS",
+      "TIKTOK",
+      "EXPLICIT_USER_REQUEST"
+    ],
+    "reference_video_is_structure_reference_not_style_copy": true,
+    "originality_contract": {
+      "copy_reference_background": false,
+      "copy_reference_palette": false,
+      "copy_reference_decorations": false,
+      "copy_reference_branding": false,
+      "copy_reference_exact_geometry": false,
+      "adopt_information_hierarchy_only": true
+    }
   },
   "dialogue_contract": {
     "required_speakers": [
