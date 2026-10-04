@@ -172,7 +172,8 @@
       "validator": "scripts/validate_media_speed_quality.py",
       "checkpoint_sealer": "scripts/seal_media_speed_checkpoint.py",
       "priority": 0,
-      "purpose": "MANDATORY_20_80_SPEED_FIRST_VIDEO_DELIVERY_NO_ROUTINE_REVIEW_OR_POLISH"
+      "purpose": "MANDATORY_20_80_SPEED_FIRST_VIDEO_DELIVERY_WITH_BOUNDED_PARALLELISM_FAIL_FAST_PREFLIGHT_AND_ONE_FINAL_ENCODE",
+      "human_doc": "docs/VIDEO_SPEED_ENGINEERING_RULES.md"
     },
     {
       "id": "media-character-performance-compact-orchestration",
@@ -673,7 +674,9 @@
     "existing_gcp_small_host_preflight_survives_tab_change": true,
     "live_billing_credit_must_be_rechecked_before_persistent_activation": true,
     "resident_news_deepseek_route_survives_tab_change": true,
-    "existing_gcp_coordinator_is_runtime_target": true
+    "existing_gcp_coordinator_is_runtime_target": true,
+    "video_speed_engineering_rules_survive_tab_change": true,
+    "video_parallelism_defaults_to_one_lane": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",
