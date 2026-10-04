@@ -191,8 +191,15 @@ jobs:
               })
 
           counters={k:0 for k in scene_visuals}
+          dialogue_by_id={
+              line['id']:line
+              for scene in mission['scenes']
+              for line in scene.get('dialogue',[])
+          }
           for row in timing['records']:
               row['voicevox_speaker_id']=int(row['style_id'])
+              authored=dialogue_by_id[row['id']]
+              row['emotion']=str(authored.get('emotion') or 'NORMAL').upper()
               ids=scene_visuals[row['scene_id']]
               row['visual_id']=ids[counters[row['scene_id']]%2]
               counters[row['scene_id']]+=1
