@@ -56,7 +56,7 @@
     "legacy_shortform_replay_requires_explicit_flag": "allow_legacy_emphasis_replay=true; archived replay only"
   },
   "speed": {
-    "max_independent_preparation_lanes": 3,
+    "max_independent_preparation_lanes": 2,
     "audio_and_asset_fetch_may_run_in_parallel": true,
     "mouth_and_caption_timing_wait_for_measured_wav": true,
     "cache_inputs": [
@@ -87,14 +87,16 @@
     "delivery_policy": "config/media_speed_quality_policy.json#/speed_first_delivery",
     "no_micro_refinement": true,
     "review_loops": 0,
-    "final_encode_passes": 1
+    "final_encode_passes": 1,
+    "default_parallel_lanes": 1,
+    "parallel_requires_expected_savings_seconds_at_least": 10
   },
   "agents": {
     "commander": "ChatGPT",
     "typed_routing": "Jev when authenticated and authorized",
     "deterministic_owner": "Python",
     "default_active_specialists": 1,
-    "max_complementary_specialists": 3,
+    "max_complementary_specialists": 2,
     "parallel_only_independent_owned_outputs": true,
     "routine_duplicate_review_or_majority_vote": false,
     "high_uncertainty_research_or_failure_analysis": "DeepSeek only if currently authorized and available",
