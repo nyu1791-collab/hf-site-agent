@@ -1,0 +1,280 @@
+name: Build Gemini 4 Argon longform offline-safe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - missions/media/20261005-gemini4-argon.json
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: gemini4-argon-longform-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      OUT: artifacts/gemini4-argon-20261005
+      MISSION: missions/media/20261005-gemini4-argon.json
+      CACHE: .media-cache/assets
+      VOICE_CACHE: .media-cache/voicevox-wav
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install deterministic local toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
+          python -m pip install --upgrade pip
+          python -m pip install pillow
+          mkdir -p "$OUT/voice-parts" "$OUT/visuals" "$CACHE" "$VOICE_CACHE"
+
+      - name: Start local VOICEVOX
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          docker run -d --name voicevox -p 50021:50021 voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              curl -fsS http://127.0.0.1:50021/version
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs voicevox || true
+          exit 1
+
+      - name: Validate production policy
+        run: |
+          set -euo pipefail
+          python scripts/validate_media_speed_quality.py
+
+      - name: Resolve approved character shell
+        run: |
+          set -euo pipefail
+          python scripts/media_asset_resolver.py             --asset-id zm_shell_20230806             --cache-root "$CACHE"             --allow-network             --max-workers 1             --manifest-out "$OUT/character-shell.json"
+          RAW=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('artifacts/gemini4-argon-20261005/character-shell.json').read_text())
+          p=m['results'][0].get('extracted_path')
+          assert p and Path(p).is_dir(), p
+          print(p)
+          PY
+          )
+          python scripts/character_shell_root.py "$RAW" > "$OUT/character-shell-root.txt"
+          test -d "$(cat "$OUT/character-shell-root.txt")"
+
+      - name: Pack mission and synthesize two-speaker VOICEVOX
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64,gzip,json
+          from pathlib import Path
+          p=Path('missions/media/20261005-gemini4-argon.json')
+          raw=p.read_bytes()
+          Path('artifacts/gemini4-argon-20261005/mission.json.gz.b64').write_text(
+              base64.b64encode(gzip.compress(raw,mtime=0)).decode('ascii')+'\n'
+          )
+          PY
+          SYNTH_START=$(date +%s)
+          python scripts/synthesize_longform_voicevox.py             --mission-b64 "$OUT/mission.json.gz.b64"             --output-dir "$OUT/voice-parts"             --timing-out "$OUT/timing.json"             --engine http://127.0.0.1:50021             --voice-cache-dir "$VOICE_CACHE"             --min-seconds 480             --max-seconds 720             --speed-scale 1.18
+          echo "SYNTH_SECONDS=$(($(date +%s)-SYNTH_START))" >> "$GITHUB_ENV"
+
+      - name: Build continuous audio, diagrams and render manifests
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import array, json, wave
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont
+
+          root=Path('artifacts/gemini4-argon-20261005')
+          mission=json.loads(Path('missions/media/20261005-gemini4-argon.json').read_text(encoding='utf-8'))
+          timing=json.loads((root/'timing.json').read_text(encoding='utf-8'))
+          parts=root/'voice-parts'
+
+          # Assemble exact continuous mono PCM16 narration.
+          with wave.open(str(root/'audio.wav'),'wb') as out:
+              out.setnchannels(1); out.setsampwidth(2); out.setframerate(48000)
+              for row in timing['records']:
+                  with wave.open(str(parts/row['wav_file']),'rb') as src:
+                      assert (src.getnchannels(),src.getsampwidth(),src.getframerate()) == (2,2,48000)
+                      samples=array.array('h',src.readframes(src.getnframes()))
+                  mono=array.array('h',(int((samples[i]+samples[i+1])/2) for i in range(0,len(samples),2)))
+                  out.writeframes(mono.tobytes())
+                  out.writeframes(b'\0\0' * int(round(float(row.get('pause_after',0))*48000)))
+
+          # Ten original explanatory diagrams: two per main section.
+          font_path='/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'
+          bold_path='/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'
+          F=ImageFont.truetype(font_path,34); FB=ImageFont.truetype(bold_path,52); FS=ImageFont.truetype(font_path,25)
+          cards={
+            'overview-a':('Gemini 4 Argon','長時間の複雑作業へ','1Mトークン級 / 段階提供'),
+            'overview-b':('今すぐ全員？','まだ段階提供','Fairwind → API / AI Ultra → broader'),
+            'long-a':('64K → 1M','長い推論の余裕','調査 → 実行 → 検証 → 修正'),
+            'long-b':('長い = 正しい？','検証は必要','テスト・根拠確認・人間レビュー'),
+            'work-a':('Google社内','300+ TiB 解放','将来 500 TiB〜1 PiB 見込み'),
+            'work-b':('コード移行','C/C++ → Rust','libgav1: Rust版比 2.7×'),
+            'cyber-a':('Cyber Defense','CWE-bench v1: 68%','脆弱性発見 → 検証 → 修正'),
+            'cyber-b':('安全策','段階公開','権限制限 / 監査 / Injection対策'),
+            'avail-a':('導入価格','Input $2 / Output $10','100万トークンあたり'),
+            'avail-b':('導入後','Input $4 / Output $20','Cached input: 95% off')
+          }
+          visdir=root/'visuals'; visdir.mkdir(exist_ok=True)
+          def wrap(draw,text,font,maxw):
+              lines=[]; cur=''
+              for ch in text:
+                  if cur and draw.textlength(cur+ch,font=font)>maxw:
+                      lines.append(cur); cur=''
+                  cur+=ch
+              if cur: lines.append(cur)
+              return lines
+          for idx,(vid,(title,big,small)) in enumerate(cards.items()):
+              im=Image.new('RGB',(1200,675),(239,246,252)); d=ImageDraw.Draw(im)
+              d.rounded_rectangle((45,40,1155,635),radius=36,fill=(255,255,255),outline=(196,216,232),width=4)
+              d.rounded_rectangle((80,75,1120,165),radius=22,fill=(25,43,67))
+              tw=d.textlength(title,font=F); d.text(((1200-tw)/2,98),title,font=F,fill='white')
+              accent=(57,130,246) if idx%2==0 else (100,86,210)
+              d.rounded_rectangle((120,220,1080,445),radius=30,fill=(235,242,255),outline=accent,width=5)
+              lines=wrap(d,big,FB,870); y=260
+              for line in lines:
+                  w=d.textlength(line,font=FB); d.text(((1200-w)/2,y),line,font=FB,fill=(35,54,78)); y+=76
+              lines=wrap(d,small,FS,920); y=490
+              for line in lines:
+                  w=d.textlength(line,font=FS); d.text(((1200-w)/2,y),line,font=FS,fill=(68,83,103)); y+=43
+              d.text((90,590),'Source facts: Google official Gemini 4 Argon announcement',font=ImageFont.truetype(font_path,18),fill=(92,105,120))
+              im.save(visdir/f'{vid}.png')
+
+          source='https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/'
+          scene_visuals={
+            'overview':['overview-a','overview-b'],
+            'long_horizon':['long-a','long-b'],
+            'workflows':['work-a','work-b'],
+            'cyber_safety':['cyber-a','cyber-b'],
+            'availability':['avail-a','avail-b'],
+          }
+          visuals=[]
+          titles={
+            'overview-a':'Gemini 4 Argonとは','overview-b':'提供は段階的',
+            'long-a':'1Mトークン級','long-b':'長い推論と検証',
+            'work-a':'Google社内の実例','work-b':'大規模コード移行',
+            'cyber-a':'サイバー防御','cyber-b':'安全策',
+            'avail-a':'導入価格','avail-b':'提供と価格'
+          }
+          for vid in cards:
+              visuals.append({
+                'id':vid,'file':f'visuals/{vid}.png','title':titles[vid],
+                'source_url':source,'source_credit':'Original diagram · Source: Google Sep 30 2026',
+                'media_region_only':True,'kind':'ORIGINAL_EXPLANATORY_DIAGRAM','generated':False,
+                'asset_locator':f'original:{vid}','license':'Original explanatory diagram based on Google official facts',
+                'visual_source_mode':'ORIGINAL_EXPLANATORY_DIAGRAM'
+              })
+
+          sections=[]
+          scene_map={s['scene_id']:s for s in mission['scenes']}
+          for scene in mission['scenes']:
+              sections.append({
+                'id':scene['scene_id'],'heading':scene['title'],
+                'main_point':scene['main_point'],'plain_explanation':scene['plain_explanation'],'is_main':True
+              })
+
+          counters={k:0 for k in scene_visuals}
+          for row in timing['records']:
+              row['voicevox_speaker_id']=int(row['style_id'])
+              ids=scene_visuals[row['scene_id']]
+              row['visual_id']=ids[counters[row['scene_id']]%2]
+              counters[row['scene_id']]+=1
+          (root/'timing.json').write_text(json.dumps(timing,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+          presentation={
+            'title':'Gemini 4 Argon 解説',
+            'source_url':source,
+            'source_credit':'Google official Gemini 4 Argon announcement',
+            'voice_credit':'VOICEVOX:ずんだもん・四国めたん',
+            'media_region_only':True,
+            'sections':sections,
+            'visuals':visuals
+          }
+          (root/'presentation.json').write_text(json.dumps(presentation,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print({'duration':timing['total_duration'],'lines':len(timing['records']),'visuals':len(visuals)})
+          PY
+
+      - name: Validate dialogue and visual coverage
+        run: |
+          set -euo pipefail
+          python scripts/validate_video_content_contract.py             --policy config/media_speed_quality_policy.json             --presentation "$OUT/presentation.json"             --timing "$OUT/timing.json"
+
+      - name: Render one-pass animated longform
+        run: |
+          set -euo pipefail
+          SHELL_ROOT=$(cat "$OUT/character-shell-root.txt")
+          FONT=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
+          DURATION=$(python - <<'PY'
+          import json
+          print(json.load(open('artifacts/gemini4-argon-20261005/timing.json'))['total_duration'])
+          PY
+          )
+          RENDER_START=$(date +%s)
+          python scripts/render_reusable_short.py             --audio "$OUT/audio.wav"             --timing "$OUT/timing.json"             --shell "$SHELL_ROOT"             --font "$FONT"             --visual "$OUT/visuals/overview-a.png"             --presentation "$OUT/presentation.json"             --profile config/approved_video_template.json             --cache-root "$OUT/reusable-assets"             --start 0             --duration "$DURATION"             --output "$OUT/Gemini4_Argon_約10分_ずんだもん四国めたん.mp4"
+          echo "RENDER_SECONDS=$(($(date +%s)-RENDER_START))" >> "$GITHUB_ENV"
+
+      - name: Mechanical final gate and metrics
+        run: |
+          set -euo pipefail
+          FINAL="$OUT/Gemini4_Argon_約10分_ずんだもん四国めたん.mp4"
+          test -s "$FINAL"
+          ffprobe -v error -show_streams -show_format -of json "$FINAL" > "$OUT/ffprobe.json"
+          python - <<'PY'
+          import json, hashlib, os
+          from pathlib import Path
+          root=Path('artifacts/gemini4-argon-20261005')
+          p=root/'Gemini4_Argon_約10分_ずんだもん四国めたん.mp4'
+          probe=json.loads((root/'ffprobe.json').read_text())
+          streams={x.get('codec_type') for x in probe['streams']}
+          assert {'video','audio'} <= streams, streams
+          dur=float(probe['format']['duration'])
+          assert 480 <= dur <= 720, dur
+          result={
+            'status':'READY_TO_PUBLISH',
+            'public_publish':False,
+            'duration_seconds':dur,
+            'size_bytes':p.stat().st_size,
+            'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),
+            'synthesis_seconds':int(os.environ.get('SYNTH_SECONDS','0')),
+            'render_seconds':int(os.environ.get('RENDER_SECONDS','0')),
+            'generated_image_ai_used':False,
+            'generated_video_ai_used':False,
+            'source':'Google official Gemini 4 Argon announcement',
+            'remote_desktop_required':False,
+            'gcp_required':False
+          }
+          (root/'completion.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(result,ensure_ascii=False))
+          PY
+
+      - name: Upload finished video and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini4-argon-longform-${{ github.run_id }}
+          path: |
+            artifacts/gemini4-argon-20261005/Gemini4_Argon_約10分_ずんだもん四国めたん.mp4
+            artifacts/gemini4-argon-20261005/completion.json
+            artifacts/gemini4-argon-20261005/ffprobe.json
+            artifacts/gemini4-argon-20261005/presentation.json
+            artifacts/gemini4-argon-20261005/timing.json
+            artifacts/gemini4-argon-20261005/*.report.json
+          if-no-files-found: warn
+          retention-days: 7
