@@ -7,8 +7,11 @@ on:
     paths:
       - 'AGENTS.md'
       - 'config/approved_video_template.json'
+      - 'config/approved_landscape_video_template.json'
       - 'docs/VIDEO_PRODUCTION_BASELINE.md'
       - 'scripts/render_reusable_short.py'
+      - 'scripts/render_reusable_landscape.py'
+      - 'scripts/build_gemini4_landscape_1min.py'
       - 'scripts/restore_video_context.py'
       - 'scripts/validate_approved_video_baseline.py'
       - 'tests/test_approved_video_continuity.py'
@@ -305,6 +308,8 @@ jobs:
             scripts/validate_media_speed_quality.py \
             scripts/validate_zundamon_news60_template.py \
             scripts/render_static_speaker_color_longform.py \
+            scripts/render_reusable_landscape.py \
+            scripts/build_gemini4_landscape_1min.py \
             scripts/synthesize_longform_voicevox.py \
             scripts/seal_media_speed_checkpoint.py \
             scripts/validate_semantic_recall_and_commerce_precision.py \
@@ -370,6 +375,7 @@ jobs:
           python -m json.tool config/provider_registry.json >/dev/null
           python -m json.tool config/model_registry.json >/dev/null
           python -m json.tool config/video_creation_admission_policy.json >/dev/null
+          python -m json.tool config/approved_landscape_video_template.json >/dev/null
           python -m json.tool config/media_command_read_gate.json >/dev/null
           python -m json.tool config/media_speed_quality_policy.json >/dev/null
           python -m json.tool config/session_stream_resilience_policy.json >/dev/null
