@@ -50,6 +50,7 @@ def main() -> int:
     require(fast.get("applies_to_requested_longform_up_to_seconds") == 960, "fast long-form scope must cover 16 minutes")
     require(fast.get("wall_clock_target_minutes") == 5 and fast.get("target_is_measured_for_each_run") is True, "long-form five-minute target must be measured per run")
     require(fast.get("default_renderer") == "scripts/render_reusable_landscape.py" and fast.get("one_video_encode_only") is True, "fast landscape one-encode renderer missing")
+    require(policy.get("renderer") == fast.get("default_renderer"), "top-level renderer pointer drift")
     baseline = policy.get("approved_baseline_contract") or {}
     require(baseline.get("visible_characters") == ["ずんだもん", "四国めたん"] and baseline.get("native_character_layers_required") is True and baseline.get("mouth_motion_required") is True, "approved visible characters or native motion removed")
     require(baseline.get("static_card_renderer_requires_explicit_user_format_request") is True, "static-card format may silently override approved template")
@@ -72,6 +73,7 @@ def main() -> int:
     require(int(policy.get("historical_local_baseline_minutes") or 0) == 40, "historical baseline drifted")
 
     delivery = policy.get("speed_first_delivery") or {}
+    require(int(delivery.get("preparation_lanes_max") or 0) == 2, "speed-first delivery lane ceiling drift")
     quality = policy.get("minimum_delivery_contract") or {}
     require(delivery.get("quality_weight") == 0.2 and delivery.get("speed_weight") == 0.8, "delivery weights must be 20:80")
     require(delivery.get("mandatory_read_on_new_tab") is True, "speed delivery contract must persist across tabs")
