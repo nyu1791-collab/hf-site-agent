@@ -35,6 +35,7 @@ jobs:
           BASE=/home/n_yu1791/ai-army-durable/gemini4-argon-20261005
           mkdir -p "$BASE"
           install -m 0755 durable_jobs/gemini4_argon_offline.py "$BASE/job.py"
+          install -m 0644 missions/media/20261005-gemini4-argon.json "$BASE/mission-template.json"
 
           if sudo -n true 2>/dev/null; then
             cat > "$RUNNER_TEMP/ai-army-durable-gemini4.service" <<'EOF'
