@@ -127,7 +127,8 @@ def main() -> int:
     require(media_speed.get("quality_weight") == 0.2, "handoff media quality weight drift")
     require(media_speed.get("speed_weight") == 0.8, "handoff media speed weight drift")
     require(media_speed.get("target_wall_clock_minutes") == [5, 5], "handoff media five-minute target drift")
-    require(media_speed.get("max_independent_preparation_lanes") == 3, "handoff media lane ceiling drift")
+    require(media_speed.get("max_independent_preparation_lanes") == 2, "handoff media lane ceiling drift")
+    require(media_speed.get("default_parallel_lanes") == 1, "handoff media default parallelism drift")
     require(media_speed.get("user_confirmation_required") is False, "handoff routine confirmation re-enabled")
     require(media_speed.get("manual_visual_review_required") is False, "handoff routine manual review re-enabled")
 
