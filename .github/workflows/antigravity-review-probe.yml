@@ -1,0 +1,52 @@
+name: Probe Antigravity Gemini review route
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/workflows/antigravity-review-probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  probe:
+    runs-on: self-hosted
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Probe Antigravity CLI without secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/antigravity-probe.txt"
+          {
+            echo "PATH_CHECK"
+            command -v agy || true
+            test -x /home/n_yu1791/.local/bin/agy && echo "AGY_EXECUTABLE_PRESENT=yes" || echo "AGY_EXECUTABLE_PRESENT=no"
+            test -x /home/n_yu1791/.local/bin/ai-army-antigravity && echo "WRAPPER_PRESENT=yes" || echo "WRAPPER_PRESENT=no"
+            echo
+            echo "AGY_HELP"
+            /home/n_yu1791/.local/bin/agy --help 2>&1 || true
+            echo
+            echo "WRAPPER_HELP"
+            /home/n_yu1791/.local/bin/ai-army-antigravity --help 2>&1 || true
+            echo
+            echo "MODEL_PROBES"
+            /home/n_yu1791/.local/bin/agy models 2>&1 || true
+            /home/n_yu1791/.local/bin/agy model list 2>&1 || true
+          } | sed -E 's/(AIza[0-9A-Za-z_-]{20,}|[A-Za-z0-9_-]{32,})/[REDACTED]/g' | tee "$OUT"
+
+      - name: Upload probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: antigravity-review-probe
+          path: ${{ runner.temp }}/antigravity-probe.txt
+          retention-days: 1
