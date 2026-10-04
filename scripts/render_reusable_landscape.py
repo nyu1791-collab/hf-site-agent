@@ -6,6 +6,7 @@ It performs one H.264 encode and does not synthesize narration or generate image
 """
 from __future__ import annotations
 import argparse, hashlib, json, math, re, subprocess, wave
+from collections import OrderedDict
 from array import array
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
@@ -123,25 +124,55 @@ def render(args):
     caption_font=ImageFont.truetype(str(args.font),layout["caption_font_size"])
     small=ImageFont.truetype(str(args.font),layout["source_font_size"])
     out=args.output; out.parent.mkdir(parents=True,exist_ok=True)
+    audio_fast=profile.get("audio_fast_path") or {}
+    gain_db=float(audio_fast.get("fixed_gain_db",0.0))
+    limiter=float(audio_fast.get("true_peak_limiter_linear",0.84))
+    audio_filter=f"volume={gain_db}dB,alimiter=limit={limiter}" if gain_db else f"alimiter=limit={limiter}"
     cmd=["ffmpeg","-v","error","-y","-f","rawvideo","-pix_fmt","rgb24","-s",f"{W}x{H}","-r",str(FPS),"-i","pipe:0",
          "-i",str(args.audio),"-c:v","libx264","-preset","ultrafast","-threads","2","-crf","24","-pix_fmt","yuv420p",
-         "-c:a","aac","-b:a","128k","-ar","48000","-movflags","+faststart","-shortest",str(out)]
+         "-af",audio_filter,"-c:a","aac","-b:a","128k","-ar","48000","-movflags","+faststart","-shortest",str(out)]
     process=subprocess.Popen(cmd,stdin=subprocess.PIPE)
 
     resized={}; mouth_seen={k:set() for k in variants}; expr_seen={k:set() for k in variants}
+    performance=profile.get("performance") or {}
+    mouth_hz=max(1.0,float(performance.get("mouth_update_hz",10)))
+    mouth_step=max(1,int(round(FPS/mouth_hz)))
+    cache_limit=max(1,int(performance.get("frame_state_cache_entries",24)))
+    frame_cache=OrderedDict()
+    cache_hits=0; cache_misses=0
     current_visual=default_visual
+    record_idx=0
+    mouth=0
     for i in range(math.ceil(args.duration*FPS)):
         t=i/FPS
-        r=next((x for x in records if x["start"]<=t<x["end"]),None)
+        while record_idx+1<len(records) and t>=records[record_idx]["end"]:
+            record_idx += 1
+        candidate=records[record_idx] if record_idx<len(records) else None
+        r=candidate if candidate and candidate["start"]<=t<candidate["end"] else None
         if r: current_visual=r.get("visual_id",default_visual)
-        frame=backgrounds[current_visual].copy(); d=ImageDraw.Draw(frame)
         speaker=r["speaker"] if r else None
         expression=r.get("emotion","NORMAL") if r else "NORMAL"
-        chunk=samples[int(t*rate):int((t+acting["window_seconds"])*rate)]
-        rms=math.sqrt(sum(x*x for x in chunk)/len(chunk))/32768 if chunk else 0
-        mouth=0 if rms<acting["closed_threshold"] else (1 if rms<acting["wide_threshold"] else 2)
 
-        # Reference grammar: Metan left, Zundamon right; characters flank the board.
+        if not r:
+            mouth=0
+        elif i % mouth_step == 0:
+            chunk=samples[int(t*rate):int((t+acting["window_seconds"])*rate)]
+            rms=math.sqrt(sum(x*x for x in chunk)/len(chunk))/32768 if chunk else 0
+            mouth=0 if rms<acting["closed_threshold"] else (1 if rms<acting["wide_threshold"] else 2)
+
+        caption=""
+        if r:
+            clauses=[x for x in re.split(r"(?<=[。！？])",r["caption_text"]) if x]
+            lengths=[len(x) for x in clauses]
+            pos=(t-r["start"])/max(0.001,r["end"]-r["start"])*sum(lengths)
+            acc=0; caption=clauses[-1]
+            for c in clauses:
+                acc+=len(c)
+                if pos<acc:
+                    caption=c
+                    break
+
+        char_states=[]
         for name,side in (("四国めたん","left"),("ずんだもん","right")):
             active=name==speaker
             state=mouth if active else 0
@@ -149,6 +180,19 @@ def render(args):
             if active and expression=="HAPPY" and r and t-r["start"]>acting["happiness_hold_seconds"]:
                 expr="NORMAL"
             mouth_seen[name].add(state); expr_seen[name].add(expr)
+            char_states.append((name,side,active,state,expr))
+
+        frame_key=(current_visual,speaker,expression,mouth,caption,tuple((x[0],x[2],x[3],x[4]) for x in char_states))
+        cached=frame_cache.get(frame_key)
+        if cached is not None:
+            cache_hits += 1
+            frame_cache.move_to_end(frame_key)
+            process.stdin.write(cached)
+            continue
+
+        cache_misses += 1
+        frame=backgrounds[current_visual].copy(); d=ImageDraw.Draw(frame)
+        for name,side,active,state,expr in char_states:
             key=(name,expr,state,active)
             if key not in resized:
                 target_h=layout["character_active_height"] if active else layout["character_inactive_height"]
@@ -159,26 +203,30 @@ def render(args):
             frame.paste(char_img,(x,y),char_img)
 
         if r:
-            clauses=[x for x in re.split(r"(?<=[。！？])",r["caption_text"]) if x]
-            lengths=[len(x) for x in clauses]
-            pos=(t-r["start"])/max(0.001,r["end"]-r["start"])*sum(lengths)
-            acc=0; caption=clauses[-1]
-            for c in clauses:
-                acc+=len(c)
-                if pos<acc: caption=c; break
             x1,y1,x2,y2=layout["zones"]["caption"]
             palette=layout["caption_colors"]; accent=palette[speaker]
             d.rounded_rectangle((x1,y1,x2,y2),radius=18,fill=layout["caption_backplate"],outline=accent,width=4)
             d.rounded_rectangle((x1+18,y1+15,x1+150,y1+48),radius=13,fill=accent)
             d.text((x1+31,y1+21),speaker,font=small,fill="#17202F")
-            f,lines=fit_text(caption,args.font,layout["caption_font_size"],22,x2-x1-60,3)
+            max_lines=int(layout.get("caption_max_lines",3))
+            f,lines=fit_text(caption,args.font,layout["caption_font_size"],20,x2-x1-60,max_lines)
+            available=max(1,y2-(y1+58)-12)
+            while f.size>20 and len(lines)*(f.size+8)>available:
+                f,lines=fit_text(caption,args.font,f.size-2,20,x2-x1-60,max_lines)
+            if len(lines)*(f.size+8)>available:
+                raise ValueError("caption would clip outside approved lower-third safe area")
             yy=y1+58
             for line in lines:
                 tw=f.getlength(line)
                 d.text(((W-tw)/2,yy),line,font=f,fill=accent)
                 yy += f.size+8
 
-        process.stdin.write(frame.tobytes())
+        raw=frame.tobytes()
+        frame_cache[frame_key]=raw
+        frame_cache.move_to_end(frame_key)
+        while len(frame_cache)>cache_limit:
+            frame_cache.popitem(last=False)
+        process.stdin.write(raw)
 
     process.stdin.close()
     if process.wait(): raise RuntimeError("landscape encode failed")
@@ -192,7 +240,10 @@ def render(args):
       "expressions":{k:sorted(v) for k,v in expr_seen.items()},
       "character_positions":{"四国めたん":"LEFT","ずんだもん":"RIGHT"},
       "reference_grammar":"TECH_NEWS_INFORMATION_HIERARCHY_ONLY_NO_MORNING_SHOW_COPY",
-      "voice_reused":True,"one_final_encode":True,"visual_sha256":visual_hashes,"character_keys":char_keys
+      "voice_reused":True,"one_final_encode":True,"visual_sha256":visual_hashes,"character_keys":char_keys,
+      "audio_fast_path":{"gain_db":gain_db,"limiter_linear":limiter},
+      "mouth_update_hz":mouth_hz,
+      "frame_state_cache":{"limit":cache_limit,"hits":cache_hits,"misses":cache_misses}
     }
     out.with_suffix(".report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     print(json.dumps(report,ensure_ascii=False))
