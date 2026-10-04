@@ -117,12 +117,24 @@ def ensure_visuals():
     result=[]
     for ident,url in OFFICIAL:
         p=VIS/(ident+".png")
+        credit="Google official Gemini 4 Argon announcement"
         if not p.exists():
             raw=VIS/(ident+".raw")
-            get(url,raw)
-            im=Image.open(raw); im.seek(0); im=ImageOps.contain(im.convert("RGB"),(760,360),Image.Resampling.LANCZOS)
-            c=Image.new("RGB",(800,400),"white"); c.paste(im,((800-im.width)//2,(400-im.height)//2)); c.save(p)
-        result.append((ident,p,"Google official Gemini 4 Argon announcement"))
+            try:
+                get(url,raw)
+                im=Image.open(raw); im.seek(0); im=ImageOps.contain(im.convert("RGB"),(760,360),Image.Resampling.LANCZOS)
+                c=Image.new("RGB",(800,400),"white"); c.paste(im,((800-im.width)//2,(400-im.height)//2)); c.save(p)
+            except Exception:
+                im=Image.new("RGB",(800,400),(239,244,252)); d=ImageDraw.Draw(im)
+                f1=ImageFont.truetype(str(BOLD),42); f2=ImageFont.truetype(str(FONT),25)
+                d.rounded_rectangle((35,35,765,365),radius=32,fill="white",outline=(74,116,201),width=4)
+                title="Gemini 4 Argon"
+                d.text(((800-d.textlength(title,font=f1))/2,125),title,font=f1,fill=(35,55,88))
+                msg="公式画像取得不可 → ローカル図解で継続"
+                d.text(((800-d.textlength(msg,font=f2))/2,215),msg,font=f2,fill=(64,84,116))
+                im.save(p)
+                credit="Original fallback diagram based on Google official announcement"
+        result.append((ident,p,credit))
     for ident,big,subs in CARDS:
         p=VIS/(ident+".png")
         if not p.exists():
