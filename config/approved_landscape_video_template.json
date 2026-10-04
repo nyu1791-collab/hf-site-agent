@@ -107,7 +107,7 @@
     "header_background": "#17233A",
     "evidence_panel": "#FFFFFF",
     "caption_backplate": "#17202F",
-    "caption_font_size": 30,
+    "caption_font_size": 28,
     "title_font_size": 30,
     "source_font_size": 15,
     "caption_colors": {
@@ -140,10 +140,10 @@
         476
       ],
       "caption": [
-        215,
-        505,
-        1065,
-        660
+        205,
+        492,
+        1075,
+        674
       ],
       "metan_anchor": [
         36,
@@ -159,9 +159,12 @@
       ]
     },
     "inactive_opacity": 0.72,
-    "character_active_height": 270,
-    "character_inactive_height": 250,
-    "character_side_margin": 28
+    "character_active_height": 285,
+    "character_inactive_height": 260,
+    "character_side_margin": 28,
+    "caption_safe_bottom_margin_px": 34,
+    "caption_max_lines": 3,
+    "caption_auto_shrink_before_clip": true
   },
   "screen_grammar": {
     "allowed_scene_types": [
@@ -235,7 +238,9 @@
     "lineup_card_optional": true,
     "benchmark_or_table_zoom_to_relevant_rows": true,
     "official_source_visuals_first": true,
-    "original_diagrams_for_explanation_not_fake_evidence": true
+    "original_diagrams_for_explanation_not_fake_evidence": true,
+    "primary_source_screenshot_for_current_claims_when_available": true,
+    "original_diagram_must_not_be_only_visual_type_when_primary_source_visual_is_available": true
   },
   "speed_first": {
     "creation_wall_clock_target_minutes": 5,
@@ -265,5 +270,26 @@
     "expressions_from_authored_cues_not_topic_keyword_matching": true,
     "happiness_hold_seconds": 4,
     "no_synthetic_mouth_over_existing_mouth": true
+  },
+  "audio_fast_path": {
+    "input_type": "VOICEVOX_MONO_PCM16",
+    "measured_test_input_lufs": -24.47,
+    "fixed_gain_db": 6.5,
+    "true_peak_limiter_linear": 0.84,
+    "target_integrated_lufs_range": [
+      -18,
+      -16
+    ],
+    "no_second_loudness_pass": true
+  },
+  "performance": {
+    "default_execution_lanes": 1,
+    "maximum_independent_preparation_lanes": 2,
+    "ffmpeg_encoder_concurrency": 1,
+    "voicevox_shared_engine_concurrency": 1,
+    "mouth_update_hz": 10,
+    "frame_state_cache_entries": 24,
+    "preflight_before_heavy_bootstrap": true,
+    "one_final_encode": true
   }
 }
