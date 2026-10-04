@@ -112,6 +112,7 @@ def main() -> int:
     require(speed.get("quality_weight") == 0.2 and speed.get("speed_weight") == 0.8, "media 20:80 speed contract drift")
     require(speed.get("user_confirmation_required") is False, "routine confirmation re-enabled")
     require(speed.get("manual_visual_review_required") is False, "routine manual review re-enabled")
+    require(int(speed.get("preparation_lanes_max") or 0) == 2, "speed-first lane ceiling drift")
     require(int((media_speed.get("execution_graph") or {}).get("max_independent_preparation_lanes") or 0) == 2, "media lane ceiling drift")
     require(int((media_speed.get("execution_graph") or {}).get("default_parallel_lanes") or 0) == 1, "media default parallelism drift")
     require((media_speed.get("encode_contract") or {}).get("no_per_scene_video_encode_on_fast_path") is True, "fast-path per-scene encode regression")
