@@ -1,0 +1,107 @@
+name: Durable Gemini 4 media job
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - durable_jobs/gemini4_argon_offline.py
+      - .github/workflows/durable-gemini4-media.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: durable-gemini4-argon-media
+  cancel-in-progress: false
+
+jobs:
+  launch-and-collect:
+    runs-on: self-hosted
+    timeout-minutes: 100
+    steps:
+      - name: Checkout control files without touching the live worktree
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ai-army/provider-v3
+
+      - name: Install persistent job controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=/home/n_yu1791/ai-army-durable/gemini4-argon-20261005
+          mkdir -p "$BASE"
+          install -m 0755 durable_jobs/gemini4_argon_offline.py "$BASE/job.py"
+
+          if sudo -n true 2>/dev/null; then
+            cat > "$RUNNER_TEMP/ai-army-durable-gemini4.service" <<'EOF'
+          [Unit]
+          Description=AI Army durable Gemini 4 media production
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=simple
+          User=n_yu1791
+          WorkingDirectory=/home/n_yu1791/ai-army-durable/gemini4-argon-20261005
+          Environment=HOME=/home/n_yu1791
+          Environment=PYTHONUNBUFFERED=1
+          ExecStart=/usr/bin/python3 /home/n_yu1791/ai-army-durable/gemini4-argon-20261005/job.py
+          Restart=on-failure
+          RestartSec=15
+          StartLimitIntervalSec=600
+          StartLimitBurst=8
+          Nice=5
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+            sudo install -m 0644 "$RUNNER_TEMP/ai-army-durable-gemini4.service" /etc/systemd/system/ai-army-durable-gemini4.service
+            sudo systemctl daemon-reload
+            sudo systemctl enable ai-army-durable-gemini4.service
+            sudo systemctl restart ai-army-durable-gemini4.service
+            echo "launcher=systemd" > "$BASE/launcher.env"
+          else
+            nohup setsid /usr/bin/python3 "$BASE/job.py" > "$BASE/job.log" 2>&1 < /dev/null &
+            echo "launcher=nohup-setsid" > "$BASE/launcher.env"
+          fi
+
+      - name: Wait for durable result
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=/home/n_yu1791/ai-army-durable/gemini4-argon-20261005
+          for i in $(seq 1 270); do
+            if [[ -f "$BASE/state.json" ]]; then
+              STATUS="$(python3 -c 'import json; print(json.load(open("/home/n_yu1791/ai-army-durable/gemini4-argon-20261005/state.json")).get("status",""))')"
+              echo "durable_status=$STATUS"
+              if [[ "$STATUS" == "COMPLETE" ]]; then
+                break
+              fi
+              if [[ "$STATUS" == "FAILED" ]]; then
+                cat "$BASE/state.json"
+                exit 1
+              fi
+            fi
+            sleep 20
+          done
+          test -s "$BASE/Gemini4_Argon_10min.mp4"
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_type,codec_name,width,height -of json "$BASE/Gemini4_Argon_10min.mp4"
+          cp "$BASE/Gemini4_Argon_10min.mp4" "$RUNNER_TEMP/Gemini4_Argon_10min.mp4"
+          cp "$BASE/state.json" "$RUNNER_TEMP/state.json"
+          if [[ -f "$BASE/report.json" ]]; then cp "$BASE/report.json" "$RUNNER_TEMP/report.json"; fi
+
+      - name: Upload completed MP4 and report
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gemini4-Argon-10min-video
+          path: |
+            ${{ runner.temp }}/Gemini4_Argon_10min.mp4
+            ${{ runner.temp }}/state.json
+            ${{ runner.temp }}/report.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
