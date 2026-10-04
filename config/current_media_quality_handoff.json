@@ -124,7 +124,7 @@
       "human_docs": [
         "docs/LONGFORM_VIDEO_OBJECTIVES.md",
         "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
-        "scripts/render_reusable_short.py"
+        "scripts/render_reusable_landscape.py"
       ],
       "duration": "USER_SPECIFIED",
       "YMM4_guides_are_not_implied": true
@@ -180,7 +180,7 @@
   "approved_baseline_recovery": {
     "required_on_every_new_video_tab": true,
     "root_cause": "Speed optimization replaced the approved native character template with a static-card profile that disabled character layers.",
-    "fix": "Restore approved visible Zundamon and Metan, mouth motion, pale captions, bright background and original format. Optimize reuse and encoding only.",
+    "fix": "Restore approved visible Zundamon and Metan, mouth motion, pale captions and the approved 16:9 landscape layout for explanatory/news video. Optimize reuse and encoding only.",
     "authority": "config/media_speed_quality_policy.json#/approved_baseline_contract",
     "video_runtime_target_minutes": [
       8,
@@ -190,8 +190,10 @@
   },
   "mandatory_approved_video_references": {
     "scope": "READ_ON_EVERY_NEW_VIDEO_TAB",
-    "template": "config/approved_video_template.json",
-    "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md"
+    "longform_template": "config/approved_landscape_video_template.json",
+    "shortform_portrait_template": "config/approved_video_template.json",
+    "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md",
+    "speed_rules": "docs/VIDEO_SPEED_ENGINEERING_RULES.md"
   },
   "latest_content_feedback": {
     "required_on_every_new_video_tab": true,
