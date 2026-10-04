@@ -1,0 +1,117 @@
+name: Build Gemini 4 one-minute landscape
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - missions/media/20261005-gemini4-argon-1min.json
+      - scripts/build_gemini4_landscape_1min.py
+      - .github/workflows/build-gemini4-argon-1min-landscape.yml
+      - config/approved_landscape_video_template.json
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: gemini4-argon-1min-landscape
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OUT: artifacts/gemini4-argon-1min-landscape
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install fast local toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
+          python -m pip install --upgrade pip
+          python -m pip install pillow
+          mkdir -p "$OUT" .media-cache/assets
+
+      - name: Start local VOICEVOX
+        run: |
+          set -euo pipefail
+          docker pull voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          docker run -d --name voicevox -p 50021:50021 voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              curl -fsS http://127.0.0.1:50021/version
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs voicevox || true
+          exit 1
+
+      - name: Resolve approved character shell
+        run: |
+          set -euo pipefail
+          python scripts/media_asset_resolver.py             --asset-id zm_shell_20230806             --cache-root .media-cache/assets             --allow-network             --max-workers 1             --manifest-out "$OUT/character-shell.json"
+          RAW=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('artifacts/gemini4-argon-1min-landscape/character-shell.json').read_text())
+          p=m['results'][0].get('extracted_path')
+          assert p and Path(p).is_dir(), p
+          print(p)
+          PY
+          )
+          python scripts/character_shell_root.py "$RAW" > "$OUT/character-shell-root.txt"
+
+      - name: Render new one-minute landscape video
+        run: |
+          set -euo pipefail
+          START=$(date +%s)
+          SHELL_ROOT=$(cat "$OUT/character-shell-root.txt")
+          python scripts/build_gemini4_landscape_1min.py             --mission missions/media/20261005-gemini4-argon-1min.json             --shell "$SHELL_ROOT"             --output-dir "$OUT/work"             --output "$OUT/Gemini4_Argon_1min_landscape.mp4"
+          echo "BUILD_SECONDS=$(($(date +%s)-START))" >> "$GITHUB_ENV"
+
+      - name: Mechanical final gate
+        run: |
+          set -euo pipefail
+          FINAL="$OUT/Gemini4_Argon_1min_landscape.mp4"
+          test -s "$FINAL"
+          ffprobe -v error -show_streams -show_format -of json "$FINAL" > "$OUT/ffprobe.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path('artifacts/gemini4-argon-1min-landscape')
+          d=json.loads((root/'ffprobe.json').read_text())
+          v=next(x for x in d['streams'] if x['codec_type']=='video')
+          a=next(x for x in d['streams'] if x['codec_type']=='audio')
+          dur=float(d['format']['duration'])
+          assert 45 <= dur <= 75, dur
+          assert int(v['width'])==1280 and int(v['height'])==720, (v['width'],v['height'])
+          assert v['codec_name']=='h264', v['codec_name']
+          assert a['codec_name']=='aac', a['codec_name']
+          report=json.loads((root/'Gemini4_Argon_1min_landscape.report.json').read_text())
+          report['build_seconds']=int(os.environ.get('BUILD_SECONDS','0'))
+          (root/'completion.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(report,ensure_ascii=False))
+          PY
+
+      - name: Upload MP4
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gemini4-Argon-1min-landscape
+          path: |
+            artifacts/gemini4-argon-1min-landscape/Gemini4_Argon_1min_landscape.mp4
+            artifacts/gemini4-argon-1min-landscape/completion.json
+            artifacts/gemini4-argon-1min-landscape/ffprobe.json
+            artifacts/gemini4-argon-1min-landscape/Gemini4_Argon_1min_landscape.report.json
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 0
