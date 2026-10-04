@@ -14,7 +14,7 @@
   ],
   "authoritative_runtime": "scripts/media_speed_orchestrator.py",
   "authoritative_validator": "scripts/validate_media_speed_quality.py",
-  "renderer": "scripts/render_reusable_short.py",
+  "renderer": "scripts/render_reusable_landscape.py",
   "execution_graph": {
     "single_writer_per_run": true,
     "max_independent_preparation_lanes": 2,
