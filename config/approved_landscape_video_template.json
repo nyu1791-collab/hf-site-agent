@@ -27,15 +27,14 @@
     ],
     "atmosphere_similarity_desired": true,
     "atmosphere_to_adopt": [
-      "bright friendly morning-news energy",
-      "approachable weekly AI briefing feeling",
-      "playful but organized presentation",
+      "friendly AI news and explainer program feeling",
+      "approachable but modern technology presentation",
       "two-character conversational hosting",
       "central evidence-first storytelling",
       "clean chapter-to-chapter rhythm",
-      "light broadcast-like structure without copying broadcast branding"
+      "light broadcast-like structure without morning-show styling or copied branding"
     ],
-    "copy_boundary": "Match the overall mood, pacing, friendliness, information hierarchy and hosting feel; do not reproduce identifiable background art, exact palette, decorative motifs, logos, title bars, borders or brand identity."
+    "copy_boundary": "Match the overall friendliness, pacing, information hierarchy, two-host rhythm and evidence-first presentation; do not reproduce identifiable background art, exact palette, decorative motifs, logos, title bars, borders, morning-show styling or brand identity."
   },
   "canvas": {
     "longform_default": {
@@ -75,13 +74,14 @@
     },
     "avoid_visual_similarity_to_reference": false,
     "background_rules": [
-      "Keep the same bright, friendly, lightly playful news-program atmosphere.",
-      "Use an original cool-neutral or soft pastel studio background rather than duplicating the reference cream/orange set.",
-      "Use simple geometric accents or subtle gradients instead of the reference plants and ornaments.",
-      "Maintain high visual warmth and approachability even with an original palette.",
+      "Keep a friendly, modern AI-news atmosphere without morning-show styling.",
+      "Use an original cool-neutral, blue-gray, soft lavender, or restrained pastel technology-studio background.",
+      "Avoid sunrise, breakfast-show, morning-clock, cheerful TV-morning motifs, cream/orange studio styling, plants copied from the reference, or decorative broadcast clutter.",
+      "Use simple geometric accents, soft gradients, restrained grid lines, and clean content panels.",
+      "Maintain approachability without becoming childish or overly corporate.",
       "Do not reproduce exact badges, frames, tickers, border shapes, logos, or title bars."
     ],
-    "mood_target": "BRIGHT_FRIENDLY_AI_NEWS_BRIEFING",
+    "mood_target": "FRIENDLY_MODERN_AI_NEWS_BRIEFING",
     "reference_mood_similarity": "HIGH",
     "exact_visual_identity_similarity": "LOW",
     "originality_rule": "Atmosphere may be close; concrete visual assets and distinctive graphic identity must remain original."
@@ -176,7 +176,8 @@
       "chapter_card_then_evidence_then_dialogue": true,
       "frequent_but_not_frenetic_visual_changes": true,
       "friendly_host_reaction_beats": true,
-      "avoid_dead_static_sections": true
+      "avoid_dead_static_sections": true,
+      "morning_show_pacing_or_gimmicks": false
     }
   },
   "characters": {
