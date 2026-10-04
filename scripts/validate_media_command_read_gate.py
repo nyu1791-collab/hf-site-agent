@@ -92,11 +92,13 @@ def main() -> int:
         "config/media_source_policy.json",
         "config/video_creation_admission_policy.json",
         "scripts/video_creation_admission.py",
-        "config/approved_video_template.json",
+        "config/approved_landscape_video_template.json",
         "docs/VIDEO_PRODUCTION_BASELINE.md",
+        "docs/VIDEO_SPEED_ENGINEERING_RULES.md",
+        "scripts/render_reusable_landscape.py",
     }.issubset(video_required), "video creation lost current fast-path foundation")
     video_conditional = video.get("conditional") or {}
-    require("scripts/render_reusable_longform.py" in set(video_conditional.get("if_user_explicitly_requests_longform") or []), "longform renderer not conditionally reachable")
+    require({"scripts/render_reusable_landscape.py", "scripts/render_reusable_longform.py"}.issubset(set(video_conditional.get("if_user_explicitly_requests_longform") or [])), "landscape longform renderer not conditionally reachable")
     require("docs/VOICEVOX_RUNTIME.md" in set(video_conditional.get("if_voicevox_engine_startup_or_recovery_is_needed") or []), "VOICEVOX recovery doc not conditionally reachable")
     require("config/zundamon_news60_template.json" in set(video_conditional.get("if_user_requests_55_to_60_second_zundamon_news_short") or []), "news60 template not conditionally reachable")
     require("config/video_platform_delivery_profiles.json" in set(video_conditional.get("if_user_requests_platform_specific_export_or_delivery") or []), "platform profiles not conditionally reachable")
@@ -159,7 +161,10 @@ def main() -> int:
     parallel = gate.get("parallel_execution_standard") or {}
     require(parallel.get("independent_read_only_lanes_may_start_concurrently") is True, "independent media reads serialized")
     require(parallel.get("independent_media_jobs_may_start_concurrently_after_admission") is True, "independent media jobs serialized")
-    require(int(parallel.get("max_direct_parallel_corps") or 0) == 3, "media direct parallel ceiling must remain 3")
+    require(int(parallel.get("max_direct_parallel_corps") or 0) == 2, "media direct parallel ceiling must remain 2")
+    require(int(parallel.get("routine_video_default_parallel_lanes") or 0) == 1, "routine video default parallelism must remain one lane")
+    require(int(parallel.get("routine_video_max_independent_preparation_lanes") or 0) == 2, "routine video preparation lane ceiling drift")
+    require(int(parallel.get("routine_video_parallel_requires_expected_savings_seconds_at_least") or 0) >= 10, "routine video parallelism lacks a minimum measured benefit")
     require(parallel.get("same_mutable_output_requires_single_writer") is True, "single-writer guarantee lost")
     require(parallel.get("rights_and_claim_gates_cannot_be_skipped_for_speed") is True, "speed may bypass rights/claim gates")
     require(parallel.get("deterministic_mechanical_work_prefers_tools_over_agent_debate") is True, "mechanical work regressed to agent debate")
@@ -182,6 +187,8 @@ def main() -> int:
     require("config/free_execution_guard.json" in speed_reads, "routine speed path lost free execution guard")
     require("config/media_speed_quality_policy.json" in speed_reads, "routine speed path lost speed policy")
     require("config/video_creation_admission_policy.json" in speed_reads, "routine speed path lost video admission")
+    require("config/approved_landscape_video_template.json" in speed_reads, "routine speed path lost landscape template")
+    require("docs/VIDEO_SPEED_ENGINEERING_RULES.md" in speed_reads, "routine speed path lost speed engineering rules")
     require(speed.get("do_not_load_optional_video_QA_and_polish_guides_for_routine_delivery") is True, "routine polish overhead re-enabled")
     require(speed.get("routine_delivery_uses_override_instead_of_legacy_media_read_sets") is True, "legacy read set restored to routine path")
     contract = set(speed.get("routine_contract") or [])
@@ -210,7 +217,7 @@ def main() -> int:
         "status": "PASS",
         "common_read_count": len(common),
         "max_parallel_reads": int(restore.get("max_parallel_repository_reads") or 0),
-        "max_direct_parallel_corps": 3,
+        "max_direct_parallel_corps": 2,
         "routine_judgment_agents": 1,
         "legacy_polish_on_hot_path": False,
     }, sort_keys=True))
