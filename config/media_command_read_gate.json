@@ -346,6 +346,7 @@
       "config/media_command_read_gate.json",
       "config/current_media_quality_handoff.json",
       "config/media_speed_quality_policy.json",
+      "docs/VIDEO_SPEED_ENGINEERING_RULES.md",
       "scripts/media_speed_orchestrator.py",
       "config/media_source_policy.json",
       "config/video_creation_admission_policy.json",
@@ -369,7 +370,10 @@
       "PRESERVE_APPROVED_VISIBLE_CHARACTERS_NATIVE_MOUTH_MOTION_LAYOUT_AND_PALETTE",
       "ACTUAL_TWO_VOICE_DIALOGUE_NOT_JUST_VISIBLE_CHARACTERS",
       "AT_LEAST_TWO_DISTINCT_RELEVANT_IMAGES_OR_DIAGRAMS_PER_MAIN_SECTION",
-      "PLAIN_LANGUAGE_TOPIC_HEADING_MAIN_POINT_AND_EXPLANATION"
+      "PLAIN_LANGUAGE_TOPIC_HEADING_MAIN_POINT_AND_EXPLANATION",
+      "DEFAULT_ONE_EXECUTION_LANE_MAX_TWO_ONLY_FOR_INDEPENDENT_PREPARATION",
+      "STATIC_PREFLIGHT_BEFORE_APT_DOCKER_VOICEVOX_OR_RENDER",
+      "ONE_FINAL_VIDEO_ENCODE_NO_PER_SCENE_H264_FAST_PATH"
     ],
     "editorial_authority": "config/media_speed_quality_policy.json#/script_clarity_contract",
     "visual_authority": "config/media_speed_quality_policy.json#/visual_density_contract"
