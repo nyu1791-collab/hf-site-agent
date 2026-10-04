@@ -135,10 +135,14 @@ def preflight_caption_metadata(mission: dict) -> dict:
             terms = deterministic_emphasis_terms(line, caption)
             if spans and terms:
                 raise ValueError("use semantic spans or legacy terms, not both")
+            emotion = str(line.get("emotion") or "NORMAL").upper()
+            if emotion not in {"NORMAL", "HAPPY", "SERIOUS"}:
+                raise ValueError(f"invalid emotion: {emotion}")
             lines[line_id] = line
-            metadata[line_id] = (caption, source, spans, terms)
+            metadata[line_id] = (caption, source, spans, terms, emotion)
             records.append({"id":line_id, "caption_text":caption,
-                            "caption_emphasis_spans":spans, "caption_emphasis_terms":terms})
+                            "caption_emphasis_spans":spans, "caption_emphasis_terms":terms,
+                            "emotion":emotion})
     validate_shortform_emphasis(mission, records, lines)
     return metadata
 
@@ -204,7 +208,7 @@ def main():
                 raw.unlink(missing_ok=True)
                 store_voice(args.voice_cache_dir,cache_key,final)
             d=duration(final)
-            caption_text, caption_source, caption_spans, caption_terms = caption_metadata[str(lid)]
+            caption_text, caption_source, caption_spans, caption_terms, emotion = caption_metadata[str(lid)]
             coverage = 1.0
             is_last=idx==len(scene["dialogue"])-1
             pause=0.34 if is_last else 0.12
@@ -227,6 +231,7 @@ def main():
                 "caption_emphasis_terms":caption_terms,
                 "caption_emphasis_spans":caption_spans,
                 "caption_coverage_ratio":round(coverage, 4),
+                "emotion":emotion,
             })
             t += d+pause
 
