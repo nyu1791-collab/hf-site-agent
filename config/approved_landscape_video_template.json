@@ -2,7 +2,7 @@
   "schema_version": "approved-landscape-video-template-v1",
   "effective_date_jst": "2026-10-05",
   "status": "USER_DIRECTED_LONGFORM_BASELINE",
-  "purpose": "Landscape explanatory/news videos that adopt the reference video's information hierarchy without copying its background, colors, decorations, typography, or brand identity.",
+  "purpose": "Landscape AI-news/explainer videos that strongly adopt the reference video's pacing, information density, host/evidence/subtitle hierarchy and friendly tech-news atmosphere, while keeping the actual background, graphic assets, frame geometry and typography original.",
   "reference_abstraction": {
     "reference_media": "user-provided 174662.mp4",
     "copy_prohibited": true,
@@ -27,19 +27,26 @@
     ],
     "atmosphere_similarity_desired": true,
     "atmosphere_to_adopt": [
-      "friendly AI news and explainer program feeling",
-      "approachable but modern technology presentation",
+      "approachable weekly AI-news / tech-briefing feeling",
+      "playful but organized presentation",
       "two-character conversational hosting",
       "central evidence-first storytelling",
       "clean chapter-to-chapter rhythm",
-      "light broadcast-like structure without morning-show styling or copied branding"
+      "compact broadcast-like information structure without morning-show framing"
     ],
-    "copy_boundary": "Match the overall friendliness, pacing, information hierarchy, two-host rhythm and evidence-first presentation; do not reproduce identifiable background art, exact palette, decorative motifs, logos, title bars, borders, morning-show styling or brand identity."
+    "copy_boundary": "Match the overall tech-news mood, pacing, friendliness, information hierarchy, information density and two-host presentation feel. Do not reproduce the morning-program framing or identifiable background art, exact palette, decorative motifs, logos, title bars, borders or brand identity.",
+    "must_not_adopt": [
+      "morning-show or breakfast-program framing",
+      "fake clock or time-of-day presentation",
+      "morning greeting language",
+      "breakfast-TV style labels or jingles",
+      "reference background art, plants, ornaments, exact frames, title bars or typography"
+    ]
   },
   "canvas": {
     "longform_default": {
-      "width": 1920,
-      "height": 1080,
+      "width": 1280,
+      "height": 720,
       "aspect_ratio": "16:9",
       "fps": 30
     },
@@ -54,11 +61,17 @@
       "REELS",
       "TIKTOK",
       "EXPLICIT_USER_REQUEST"
-    ]
+    ],
+    "quality_master": {
+      "width": 1920,
+      "height": 1080,
+      "aspect_ratio": "16:9",
+      "fps": 30
+    }
   },
   "visual_identity": {
-    "name": "AI Briefing Studio",
-    "background": "COOL_NEUTRAL_TECH_STUDIO",
+    "name": "AI Tech Briefing Studio",
+    "background": "ORIGINAL_BRIGHT_TECH_STUDIO",
     "base_palette": {
       "background": "#EAF0F7",
       "panel": "#FFFFFF",
@@ -74,63 +87,81 @@
     },
     "avoid_visual_similarity_to_reference": false,
     "background_rules": [
-      "Keep a friendly, modern AI-news atmosphere without morning-show styling.",
-      "Use an original cool-neutral, blue-gray, soft lavender, or restrained pastel technology-studio background.",
-      "Avoid sunrise, breakfast-show, morning-clock, cheerful TV-morning motifs, cream/orange studio styling, plants copied from the reference, or decorative broadcast clutter.",
-      "Use simple geometric accents, soft gradients, restrained grid lines, and clean content panels.",
-      "Maintain approachability without becoming childish or overly corporate.",
-      "Do not reproduce exact badges, frames, tickers, border shapes, logos, or title bars."
+      "Keep the same friendly, information-rich, lightly playful AI-news atmosphere as the reference.",
+      "Do not create a morning-program or breakfast-TV feeling.",
+      "Use an original cool-neutral/light tech studio background with blue-gray, teal, muted lavender and cream accents.",
+      "Use simple geometric or subtle circuit/grid accents instead of the reference plants and room ornaments.",
+      "Keep the board, characters, captions and topic bar visually separated and instantly scannable.",
+      "Do not reproduce exact badges, frames, tickers, border shapes, logos, title bars or typography."
     ],
-    "mood_target": "FRIENDLY_MODERN_AI_NEWS_BRIEFING",
-    "reference_mood_similarity": "HIGH",
+    "mood_target": "FRIENDLY_MODERN_AI_TECH_BRIEFING",
+    "reference_mood_similarity": "HIGH_EXCEPT_MORNING_SHOW_ELEMENTS",
     "exact_visual_identity_similarity": "LOW",
     "originality_rule": "Atmosphere may be close; concrete visual assets and distinctive graphic identity must remain original."
   },
   "layout": {
-    "safe_margin_px_1920x1080": 48,
-    "top_header_zone": [
-      48,
-      30,
-      1872,
-      118
-    ],
-    "central_evidence_zone": [
-      250,
-      145,
-      1670,
-      690
-    ],
-    "left_character_zone": [
-      42,
-      610,
-      420,
-      1020
-    ],
-    "right_character_zone": [
-      1500,
-      610,
-      1878,
-      1020
-    ],
-    "caption_zone": [
-      400,
-      735,
-      1520,
-      985
-    ],
-    "source_footer_zone": [
-      48,
-      1010,
-      1872,
-      1060
-    ],
-    "characters_must_not_cover_evidence": true,
-    "caption_must_not_cover_evidence": true,
-    "content_stage_target_screen_area_ratio": [
-      0.52,
-      0.68
-    ],
-    "character_visual_weight": "SUPPORTING_NOT_DOMINANT"
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "background": "#E9EEF5",
+    "header_background": "#17233A",
+    "evidence_panel": "#FFFFFF",
+    "caption_backplate": "#17202F",
+    "caption_font_size": 30,
+    "title_font_size": 30,
+    "source_font_size": 15,
+    "caption_colors": {
+      "ずんだもん": "#B8E6C8",
+      "四国めたん": "#F2C4D7"
+    },
+    "zones": {
+      "header": [
+        24,
+        18,
+        1256,
+        76
+      ],
+      "title": [
+        46,
+        31
+      ],
+      "evidence": [
+        225,
+        92,
+        1055,
+        448
+      ],
+      "source_credit": [
+        238,
+        454
+      ],
+      "source_url": [
+        238,
+        476
+      ],
+      "caption": [
+        215,
+        505,
+        1065,
+        660
+      ],
+      "metan_anchor": [
+        36,
+        697
+      ],
+      "zundamon_anchor": [
+        1244,
+        697
+      ],
+      "voice_credit": [
+        24,
+        696
+      ]
+    },
+    "inactive_opacity": 0.72,
+    "character_active_height": 270,
+    "character_inactive_height": 250,
+    "character_side_margin": 28
   },
   "screen_grammar": {
     "allowed_scene_types": [
@@ -154,7 +185,8 @@
       "left": "series_or_video_identity",
       "center": "current_chapter_or_topic",
       "right": "compact_context_or_source_label",
-      "avoid_fake_live_clock_or_broadcast_branding": true
+      "avoid_fake_live_clock_or_broadcast_branding": true,
+      "forbid_morning_show_time_of_day_elements": true
     },
     "caption": {
       "full_spoken_text": true,
@@ -189,7 +221,7 @@
     "native_mouth_motion": true,
     "authored_expression_changes": true,
     "listener_reaction_required": true,
-    "default_positioning": "LOWER_LEFT_AND_LOWER_RIGHT_OUTSIDE_EVIDENCE_STAGE",
+    "default_positioning": "四国めたん=LOWER_LEFT / ずんだもん=LOWER_RIGHT / both outside central evidence stage",
     "active_speaker_emphasis": "SMALL_SCALE_OR_OPACITY_CHANGE_ONLY",
     "do_not_block_primary_visual": true
   },
@@ -214,6 +246,24 @@
     "no_routine_preview": true,
     "no_cosmetic_rerender": true,
     "one_final_encode": true,
-    "if_only_visual_style_changes_reuse_measured_audio_and_timing": true
+    "if_only_visual_style_changes_reuse_measured_audio_and_timing": true,
+    "preferred_resolution": "1280x720",
+    "quality_master_only_when_explicit_or_already_cached": "1920x1080"
+  },
+  "acting": {
+    "native_layers_required": true,
+    "mouth_method": "RMS_APPROXIMATION",
+    "closed_threshold": 0.014,
+    "wide_threshold": 0.07,
+    "window_seconds": 0.03,
+    "silent_and_listener_mouth_closed": true,
+    "expressions": [
+      "NORMAL",
+      "HAPPY",
+      "SERIOUS"
+    ],
+    "expressions_from_authored_cues_not_topic_keyword_matching": true,
+    "happiness_hold_seconds": 4,
+    "no_synthetic_mouth_over_existing_mouth": true
   }
 }
