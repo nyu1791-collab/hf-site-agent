@@ -3,7 +3,7 @@
   "effective_date_jst": "2026-10-05",
   "status": "ENFORCED_PERMANENT_STANDARD",
   "decision_owner": "chatgpt-top-commander",
-  "purpose": "Speed first, quality 20% and speed 80%. Longform defaults to the approved original 16:9 landscape briefing layout; portrait is reserved for short-form/social or explicit user request.",
+  "purpose": "Speed first, quality 20% and speed 80%. Longform defaults to the approved original 16:9 AI-tech briefing layout, strongly matching the reference atmosphere/pacing/information hierarchy but excluding morning-show framing and concrete visual copying.",
   "historical_local_baseline_minutes": 40,
   "target_wall_clock_minutes": [
     5,
@@ -278,7 +278,7 @@
     "unrequested_polish_allowed": false,
     "latest_explicit_user_duration_wins_over_prior_conflicting_duration": true
   },
-  "longform_renderer": "scripts/render_reusable_short.py",
+  "longform_renderer": "scripts/render_reusable_landscape.py",
   "minimum_delivery_contract": {
     "no_routine_visual_review": true,
     "no_full_decode_or_loudness_sweep": true,
@@ -390,8 +390,8 @@
     "target_is_measured_for_each_run": true,
     "target_is_not_a_guarantee_when_inputs_or_local_hardware_are_unready": true,
     "minimum_realtime_factor_for_encode_stage": 3.2,
-    "default_canvas": "APPROVED_LANDSCAPE_1920x1080",
-    "default_renderer": "scripts/render_reusable_short.py",
+    "default_canvas": "APPROVED_LANDSCAPE_1280x720",
+    "default_renderer": "scripts/render_reusable_landscape.py",
     "default_profile": "config/approved_landscape_video_template.json",
     "one_video_encode_only": true,
     "full_decode_passes": 0,
@@ -430,15 +430,14 @@
     "speed_fallback_canvas": "1280x720",
     "shortform_portrait_profile": "config/approved_video_template.json",
     "layout_rules": [
-      "persistent_top_header_with_series_and_current_topic",
+      "persistent_top_topic_bar_without_fake_clock_or_morning_show_framing",
       "large_central_evidence_stage",
-      "zundamon_lower_left_and_metan_lower_right_outside_evidence_stage",
+      "metan_lower_left_and_zundamon_lower_right_outside_evidence_stage",
       "wide_lower_third_caption_with_speaker_identity",
       "compact_source_footer",
       "chapter_title_lineup_evidence_table_and_summary_scene_types",
-      "match_reference_friendly_two_host_rhythm_and_evidence_first_pacing",
-      "do_not_copy_reference_background_palette_decorations_borders_typography_or_brand_identity",
-      "do_not_use_morning_show_clocks_breakfast_sunrise_or_morning_program_gimmicks"
+      "match_reference_atmosphere_pacing_information_density_and_hosting_grammar",
+      "do_not_copy_reference_background_decorations_exact_frames_typography_or_brand_identity"
     ],
     "reference_inspiration_contract": {
       "atmosphere_similarity": "HIGH",
@@ -450,6 +449,11 @@
       "exact_decorative_identity_similarity": "PROHIBITED",
       "morning_show_feel": "PROHIBITED",
       "target_mood": "FRIENDLY_MODERN_AI_NEWS_BRIEFING"
+    },
+    "visual_revision_rules": {
+      "visual_style_feedback_does_not_rewrite_successful_script_or_voice": true,
+      "reuse_measured_audio_and_timing_when_narration_is_unchanged": true,
+      "change_only_visual_composition_and_required_render_dependents": true
     }
   },
   "approved_baseline_contract": {
@@ -477,19 +481,20 @@
       "TIKTOK",
       "EXPLICIT_USER_REQUEST"
     ],
-    "reference_video_is_structure_reference_not_style_copy": true,
+    "reference_video_is_structure_reference_not_style_copy": false,
     "originality_contract": {
       "copy_reference_background": false,
-      "copy_reference_palette": false,
       "copy_reference_decorations": false,
       "copy_reference_branding": false,
       "copy_reference_exact_geometry": false,
-      "copy_reference_morning_show_identity": false,
-      "adopt_information_hierarchy": true,
-      "adopt_overall_friendly_program_atmosphere": true,
-      "adopt_two_host_conversational_rhythm": true,
-      "adopt_evidence_first_pacing": true
-    }
+      "copy_reference_typography": false,
+      "copy_reference_morning_show_framing": false,
+      "adopt_reference_atmosphere": true,
+      "adopt_reference_information_hierarchy": true,
+      "adopt_reference_pacing_and_information_density": true,
+      "adopt_two_host_central_board_lower_caption_grammar": true
+    },
+    "reference_atmosphere_similarity": "HIGH_EXCEPT_MORNING_SHOW_ELEMENTS"
   },
   "dialogue_contract": {
     "required_speakers": [
