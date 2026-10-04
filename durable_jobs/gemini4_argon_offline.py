@@ -14,7 +14,7 @@ SOURCE_RUNTIME=ROOT/"runtime/gemini4-argon-video-20261005"/SOURCE_ID
 SOURCE_URL="https://blog.google/intl/ja-jp/company-news/technology/gemini4argon/"
 FONT=Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")
 BOLD=Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc")
-SHELL=ROOT/".media-cache/assets/characters/zm_shell_20230806/extracted/Shikokumetan_Zundamon_Shell(20230806)"
+SHELL=Path(os.environ.get("AI_ARMY_CHARACTER_SHELL") or str(ROOT/".media-cache/assets/characters/zm_shell_20230806/extracted/Shikokumetan_Zundamon_Shell(20230806)"))
 TOOLS=BASE/"tools"; MODELS=BASE/"models"; VOICE=BASE/"voice"; FRAMES=BASE/"frames"; CLIPS=BASE/"clips"; VIS=BASE/"visuals"
 for p in (TOOLS,MODELS,VOICE,FRAMES,CLIPS,VIS): p.mkdir(parents=True,exist_ok=True)
 
@@ -35,14 +35,32 @@ def get(url,path):
 def duration(path):
     return float(subprocess.check_output(["ffprobe","-v","error","-show_entries","format=duration","-of","default=nw=1:nk=1",str(path)],text=True).strip())
 
+def ensure_shell():
+    global SHELL
+    if (SHELL/"Zundamon").is_dir() and (SHELL/"Metan").is_dir():
+        return
+    archive=BASE/"Shikokumetan_Zundamon_Shell(20230806).zip"
+    get("https://nightwork.sakura.ne.jp/ukagaka/shell/Shikokumetan_Zundamon_Shellkit/Shikokumetan_Zundamon_Shell%2820230806%29.zip",archive)
+    target=BASE/"character-shell"
+    marker=target/".extracted"
+    if not marker.exists():
+        target.mkdir(parents=True,exist_ok=True)
+        with zipfile.ZipFile(archive) as z: z.extractall(target)
+        marker.write_text("ok\\n")
+    matches=[p for p in target.rglob("*") if p.is_dir() and (p/"Zundamon").is_dir() and (p/"Metan").is_dir()]
+    if not matches: raise RuntimeError("downloaded character shell layout is unsupported")
+    SHELL=matches[0]
+
 def ensure_inputs():
     mission=BASE/"mission.json"
     if not mission.exists():
         src=SOURCE_RUNTIME/"mission.json"
-        if not src.exists(): raise RuntimeError("Gemini 4 mission checkpoint is missing")
-        shutil.copy2(src,mission)
+        fallback=ROOT/"durable_jobs/gemini4_argon_mission.json"
+        source=src if src.exists() else fallback
+        if not source.exists(): raise RuntimeError("Gemini 4 mission checkpoint is missing")
+        shutil.copy2(source,mission)
     if not FONT.exists() or not BOLD.exists(): raise RuntimeError("Noto CJK fonts are missing")
-    if not (SHELL/"Zundamon").is_dir() or not (SHELL/"Metan").is_dir(): raise RuntimeError("approved character shell cache is missing")
+    ensure_shell()
     return json.loads(mission.read_text(encoding="utf-8"))
 
 def ensure_piper():
