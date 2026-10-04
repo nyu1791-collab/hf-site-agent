@@ -8,6 +8,7 @@ import gzip
 import hashlib
 import json
 import subprocess
+import time
 import urllib.request
 import wave
 from pathlib import Path
@@ -244,6 +245,7 @@ def _prepare_visuals(raw: dict, out: Path, timing: dict) -> tuple[Path, Path]:
 
 
 def main() -> int:
+    total_started = time.monotonic()
     p = argparse.ArgumentParser()
     p.add_argument("--mission", type=Path, required=True)
     p.add_argument("--shell-root", type=Path, required=True)
@@ -256,10 +258,15 @@ def main() -> int:
     mission = _mission_for_voice(raw)
     (args.output_dir / "mission.json").write_text(json.dumps(mission, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
+    voice_started = time.monotonic()
     voice, timing_path = _synthesize(mission, args.output_dir, args.voicevox_url)
     audio = args.output_dir / "audio.wav"
     timing = _assemble_audio(voice, timing_path, audio)
+    voice_seconds = time.monotonic() - voice_started
+
+    visual_started = time.monotonic()
     presentation, first_visual = _prepare_visuals(raw, args.output_dir, timing)
+    visual_seconds = time.monotonic() - visual_started
 
     subprocess.run([
         "python", "scripts/validate_video_content_contract.py",
@@ -269,9 +276,10 @@ def main() -> int:
     ], cwd=ROOT, check=True)
 
     _, font_path = _font(30)
-    output = args.output_dir / "Gemini4_Argon_10min.mp4"
+    output = args.output_dir / "Gemini4_Argon_10min_landscape.mp4"
+    render_started = time.monotonic()
     subprocess.run([
-        "python", "scripts/render_reusable_longform.py",
+        "python", "scripts/render_reusable_landscape.py",
         "--audio", str(audio),
         "--timing", str(args.output_dir / "timing.json"),
         "--shell", str(args.shell_root),
@@ -280,8 +288,11 @@ def main() -> int:
         "--presentation", str(presentation),
         "--output", str(output),
         "--cache-root", str(args.output_dir / "reusable-assets"),
-        "--profile", "config/approved_video_template.json",
+        "--profile", "config/approved_landscape_video_template.json",
+        "--start", "0",
+        "--duration", str(float(timing["total_duration"])),
     ], cwd=ROOT, check=True)
+    render_seconds = time.monotonic() - render_started
 
     probe = json.loads(subprocess.check_output([
         "ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(output)
@@ -295,13 +306,22 @@ def main() -> int:
         "duration_seconds": duration,
         "source_url": SOURCE_URL,
         "external_device_required": False,
-        "render_route": "GITHUB_HOSTED_RUNNER_LOCAL_VOICEVOX_FFMPEG",
+        "render_route": "GITHUB_HOSTED_RUNNER_LOCAL_VOICEVOX_CANONICAL_LANDSCAPE_ONE_PASS",
+        "canvas": "1280x720",
+        "fps": 15,
+        "final_video_encode_count": 1,
         "generated_image_service_required": False,
         "fal_used": False,
         "nano_banana_required": False,
         "public_publish": False,
         "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
         "bytes": output.stat().st_size,
+        "stage_seconds": {
+            "voice_and_audio": round(voice_seconds, 3),
+            "visual_prep": round(visual_seconds, 3),
+            "one_pass_render": round(render_seconds, 3),
+            "total": round(time.monotonic() - total_started, 3)
+        }
     }
     (args.output_dir / "completion.json").write_text(json.dumps(completion, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(completion, ensure_ascii=False))
