@@ -222,8 +222,7 @@ def build(args):
         "image_generation_used":False,
         "morning_show_elements":False
     }
-    args.output.with_suffix(".report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2)+"
-",encoding="utf-8")
+    args.output.with_suffix(".report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\\n",encoding="utf-8")
     print(json.dumps(report,ensure_ascii=False))
 
 if __name__=="__main__":
