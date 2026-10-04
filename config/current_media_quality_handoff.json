@@ -41,7 +41,7 @@
       "AUDIO_AND_VIDEO_STREAMS_PRESENT"
     ],
     "full_decode_pass_required": false,
-    "preparation_lanes_max": 3,
+    "preparation_lanes_max": 2,
     "target_minutes": 5,
     "target_status": "MEASURE_EACH_RUN; BEST_EFFORT_NOT_GUARANTEED",
     "reuse_first": [
@@ -79,11 +79,22 @@
     "visual_density_authority": "config/media_speed_quality_policy.json#/visual_density_contract",
     "visual_beats_per_main_section": "2_TO_4_OFFICIAL_OR_RIGHTS_CLEARED_IMAGES_PER_MAIN_SECTION; NO_IMAGE_GENERATION",
     "longform_up_to_16_minutes_is_measured_against_five_minute_work_target": true,
-    "longform_renderer": "scripts/render_reusable_short.py",
-    "longform_default_canvas": "APPROVED_TEMPLATE_720x1280",
+    "longform_renderer": "scripts/render_reusable_landscape.py",
+    "longform_default_canvas": "APPROVED_LANDSCAPE_1280x720",
     "image_generation_allowed_for_video": false,
     "official_primary_visuals_preferred": true,
-    "duration_contract": "config/media_speed_quality_policy.json#/fast_longform_delivery/requested_video_duration_contract"
+    "duration_contract": "config/media_speed_quality_policy.json#/fast_longform_delivery/requested_video_duration_contract",
+    "parallelism_default": 1,
+    "parallelism_policy": "ONE_LANE_DEFAULT; MAX_TWO_ONLY_FOR_INDEPENDENT_PREPARATION",
+    "video_speed_engineering_rules": "docs/VIDEO_SPEED_ENGINEERING_RULES.md",
+    "fast_path_quality_fixes": {
+      "caption_safe_bottom_margin_px": 34,
+      "caption_max_lines": 3,
+      "voicevox_lufs_target": "-18_TO_-16_APPROX_WITH_FIXED_GAIN_AND_LIMITER_IN_SINGLE_ENCODE",
+      "official_primary_visual_when_available": true,
+      "one_final_encode": true,
+      "per_scene_h264_fast_path": false
+    }
   },
   "approved_reference": {
     "output": "DevDay2026_corrected_47s.mp4",
