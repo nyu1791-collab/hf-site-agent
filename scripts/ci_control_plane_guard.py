@@ -59,6 +59,7 @@ def _enforce_exhaustive_trigger_allowlist(policy: dict) -> None:
     allowed = set(policy.get("automatic_workflows") or ())
     allowed.update(policy.get("bounded_internal_carrier_workflows") or ())
     allowed.update(policy.get("bounded_paid_supervisor_workflows") or ())
+    allowed.update(policy.get("bounded_media_workflows") or ())
 
     violations: list[str] = []
     for path in sorted(list(WORKFLOWS.glob("*.yml")) + list(WORKFLOWS.glob("*.yaml"))):
@@ -150,6 +151,18 @@ def main() -> int:
         ):
             if required not in text:
                 raise SystemExit(f"bounded carrier guard missing {required}: {name}")
+
+    media_workflows = list(policy.get("bounded_media_workflows") or ())
+    media_limit = int(policy.get("max_bounded_media_workflows") or 0)
+    _require(1 <= len(media_workflows) <= media_limit <= 2, "bounded media workflow fan-out limit violated")
+    for name in media_workflows:
+        text = _text(name)
+        _require(_has_automatic_trigger(text, "push"), f"bounded media workflow needs push trigger: {name}")
+        _require("missions/media/" in text, f"bounded media workflow must be media-mission path scoped: {name}")
+        _require("contents: read" in text and "contents: write" not in text,
+            f"bounded media workflow must remain repository read-only: {name}")
+        _require("workflow_dispatch:" in text, f"bounded media workflow needs manual recovery dispatch: {name}")
+        _require("upload-artifact" in text, f"bounded media workflow must preserve a durable artifact: {name}")
 
     paid_supervisors = list(policy.get("bounded_paid_supervisor_workflows") or ())
     paid_limit = int(policy.get("max_bounded_paid_supervisor_workflows") or 0)
