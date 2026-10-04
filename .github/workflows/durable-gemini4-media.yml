@@ -53,8 +53,7 @@ jobs:
           ExecStart=/usr/bin/python3 /home/n_yu1791/ai-army-durable/gemini4-argon-20261005/job.py
           Restart=on-failure
           RestartSec=15
-          StartLimitIntervalSec=600
-          StartLimitBurst=8
+          StartLimitIntervalSec=0
           Nice=5
 
           [Install]
