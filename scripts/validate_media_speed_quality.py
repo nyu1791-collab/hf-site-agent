@@ -85,13 +85,24 @@ def main() -> int:
 
     graph = policy.get("execution_graph") or {}
     require(graph.get("single_writer_per_run") is True, "media speed path lost single-writer rule")
-    require(int(graph.get("max_independent_preparation_lanes") or 0) == 2, "media speed lane ceiling drifted")\n    require(int(graph.get("default_parallel_lanes") or 0) == 1, "media speed default parallelism must remain one lane")
+    require(int(graph.get("max_independent_preparation_lanes") or 0) == 2, "media speed lane ceiling drifted")
+    require(int(graph.get("default_parallel_lanes") or 0) == 1, "media speed default parallelism must remain one lane")
     require(graph.get("parallel_wave_requires_admission_pass") is True, "parallel media wave may bypass admission")
     require(graph.get("dependency_join_required") is True, "media speed path lost dependency join")
     require(graph.get("shared_mutable_state_forces_sequential_execution") is True, "shared state may be parallelized")
     require(graph.get("independent_parallel_lanes_use_separate_cache_namespaces") is True, "parallel lanes may share mutable cache state")
     require(graph.get("chatgpt_escalation_blocks_all_execution_waves") is True, "escalated plan may still execute")
     require(graph.get("retry_smallest_failed_stage_and_true_dependents_only") is True, "media retries may rebuild unrelated stages")
+
+    critical = policy.get("critical_path_speed_contract") or {}
+    require(critical.get("default_execution") == "SEQUENTIAL_CRITICAL_PATH", "video critical path must default to sequential execution")
+    require(int(critical.get("maximum_independent_lanes") or 0) == 2, "video critical path lane ceiling drifted")
+    require(int(critical.get("cpu_heavy_concurrency") or 0) == 1, "CPU-heavy video work must remain single-lane")
+    require(int(critical.get("ffmpeg_encoder_concurrency") or 0) == 1, "FFmpeg encoder concurrency must remain one")
+    require(int(critical.get("voicevox_shared_engine_concurrency") or 0) == 1, "shared VOICEVOX concurrency must remain one")
+    require((critical.get("render_rules") or {}).get("per_scene_h264_encode_then_concat_prohibited_on_fast_path") is True, "per-scene H.264 fast path returned")
+    require((critical.get("toolchain_rules") or {}).get("do_not_upgrade_pip_on_video_critical_path") is True, "pip upgrade returned to video critical path")
+    require((critical.get("retry_rules") or {}).get("syntax_or_manifest_bug_must_be_caught_before_runtime_bootstrap") is True, "fail-fast preflight guard missing")
 
     stages = policy.get("stage_graph") or {}
     expected = {
@@ -210,7 +221,8 @@ def main() -> int:
     require(media_speed_handoff.get("jev_media_planning") is True and media_speed_handoff.get("jev_required_by_default") is False, "Jev must remain optional for deterministic video work")
     require(media_speed_handoff.get("media_speed_quality_policy") == "config/media_speed_quality_policy.json", "media quality handoff speed pointer missing")
     require(media_speed_handoff.get("media_speed_checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "media quality handoff checkpoint sealer missing")
-    require(media_speed_handoff.get("longform_renderer") == fast.get("default_renderer"), "media handoff fast long-form renderer pointer drifted")\n    require(media_speed_handoff.get("preparation_lanes_max") == 2, "media handoff lane ceiling drifted")
+    require(media_speed_handoff.get("longform_renderer") == fast.get("default_renderer"), "media handoff fast long-form renderer pointer drifted")
+    require(media_speed_handoff.get("preparation_lanes_max") == 2, "media handoff lane ceiling drifted")
 
     print(json.dumps({
         "status": "PASS",
