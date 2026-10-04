@@ -463,7 +463,9 @@
       "visual_style_feedback_does_not_rewrite_successful_script_or_voice": true,
       "reuse_measured_audio_and_timing_when_narration_is_unchanged": true,
       "change_only_visual_composition_and_required_render_dependents": true
-    }
+    },
+    "default_fps": 15,
+    "quality_master_fps": 30
   },
   "approved_baseline_contract": {
     "mandatory_read_on_every_video_tab": true,
@@ -561,7 +563,9 @@
       "prefer_shared_renderer_over_topic_specific_renderer": true,
       "frame_state_cache_enabled": true,
       "mouth_state_update_hz": 10,
-      "caption_layout_must_be_resolved_before_encode": true
+      "caption_layout_must_be_resolved_before_encode": true,
+      "routine_fps": 15,
+      "quality_master_fps": 30
     },
     "retry_rules": {
       "retry_only_failed_stage_and_true_dependents": true,
