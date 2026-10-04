@@ -200,7 +200,7 @@ def build(args):
         run(["ffmpeg","-y","-v","error","-loop","1","-framerate","15","-i",str(closed),"-loop","1","-framerate","15","-i",str(opened),"-i",str(wav),"-filter_complex",filt,"-map","[v]","-map","2:a:0","-shortest","-c:v","libx264","-preset","ultrafast","-crf","25","-threads","2","-c:a","aac","-b:a","112k","-ar","48000",str(clip)])
         clip_list.append(clip)
     listing=args.output_dir/"concat.txt"
-    listing.write_text("".join("file '" + str(p.resolve()).replace("'", "'\\''") + "'\\n" for p in clip_list), encoding="utf-8")
+    listing.write_text("".join("file '" + str(p.resolve()) + "'" + chr(10) for p in clip_list), encoding="utf-8")
     temp=args.output.with_suffix(".partial.mp4")
     run(["ffmpeg","-y","-v","error","-f","concat","-safe","0","-i",str(listing),"-c","copy",str(temp)])
     run(["ffmpeg","-y","-v","error","-i",str(temp),"-c","copy","-movflags","+faststart",str(args.output)])
@@ -222,7 +222,7 @@ def build(args):
         "image_generation_used":False,
         "morning_show_elements":False
     }
-    args.output.with_suffix(".report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\\n",encoding="utf-8")
+    args.output.with_suffix(".report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2)+chr(10),encoding="utf-8")
     print(json.dumps(report,ensure_ascii=False))
 
 if __name__=="__main__":
