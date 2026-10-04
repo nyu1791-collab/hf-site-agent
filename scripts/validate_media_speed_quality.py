@@ -49,7 +49,7 @@ def main() -> int:
     require(duration_contract.get("if_only_creation_deadline_is_corrected_preserve_last_explicit_video_length") is True, "cross-tab video duration continuity rule missing")
     require(fast.get("applies_to_requested_longform_up_to_seconds") == 960, "fast long-form scope must cover 16 minutes")
     require(fast.get("wall_clock_target_minutes") == 5 and fast.get("target_is_measured_for_each_run") is True, "long-form five-minute target must be measured per run")
-    require(fast.get("default_renderer") == "scripts/render_reusable_short.py" and fast.get("one_video_encode_only") is True, "fast long-form one-encode renderer missing")
+    require(fast.get("default_renderer") == "scripts/render_reusable_landscape.py" and fast.get("one_video_encode_only") is True, "fast landscape one-encode renderer missing")
     baseline = policy.get("approved_baseline_contract") or {}
     require(baseline.get("visible_characters") == ["ずんだもん", "四国めたん"] and baseline.get("native_character_layers_required") is True and baseline.get("mouth_motion_required") is True, "approved visible characters or native motion removed")
     require(baseline.get("static_card_renderer_requires_explicit_user_format_request") is True, "static-card format may silently override approved template")
@@ -57,7 +57,7 @@ def main() -> int:
     require(policy.get("dialogue_contract", {}).get("both_must_have_substantive_spoken_turns") is True, "actual two-speaker dialogue missing")
     require(policy.get("visual_density_contract", {}).get("text_only_cards_do_not_count_as_image_coverage") is True, "text-only cards may masquerade as image coverage")
     require((ROOT / policy["content_contract_validator"]).is_file(), "content contract validator missing")
-    require("validate_content_contract(content_policy,presentation,timing)" in (ROOT / "scripts/render_reusable_short.py").read_text(), "renderer omits pre-encode content contract")
+    require("validate_content_contract(policy,presentation,timing)" in (ROOT / "scripts/render_reusable_landscape.py").read_text(), "landscape renderer omits pre-encode content contract")
     voice = fast.get("voice_segmenting") or {}
     require(voice.get("target_max_segments_for_16_minutes") == 16 and voice.get("avoid_sentence_level_synthesis_calls") is True, "long-form voice batching rule missing")
     require((ROOT / fast["default_renderer"]).is_file(), "fast long-form renderer file missing")
@@ -85,7 +85,7 @@ def main() -> int:
 
     graph = policy.get("execution_graph") or {}
     require(graph.get("single_writer_per_run") is True, "media speed path lost single-writer rule")
-    require(int(graph.get("max_independent_preparation_lanes") or 0) == 3, "media speed lane ceiling drifted")
+    require(int(graph.get("max_independent_preparation_lanes") or 0) == 2, "media speed lane ceiling drifted")\n    require(int(graph.get("default_parallel_lanes") or 0) == 1, "media speed default parallelism must remain one lane")
     require(graph.get("parallel_wave_requires_admission_pass") is True, "parallel media wave may bypass admission")
     require(graph.get("dependency_join_required") is True, "media speed path lost dependency join")
     require(graph.get("shared_mutable_state_forces_sequential_execution") is True, "shared state may be parallelized")
@@ -196,7 +196,7 @@ def main() -> int:
     require(media_speed.get("longform_fast_renderer") == fast.get("default_renderer"), "handoff fast long-form renderer pointer drifted")
     require(media_speed.get("quality_weight") == 0.2 and media_speed.get("speed_weight") == 0.8, "handoff weights drifted")
     require(media_speed.get("deliver_completed_video_immediately") is True, "handoff delivery rule missing")
-    require(media_speed.get("max_independent_preparation_lanes") == 3, "handoff lane ceiling drifted")
+    require(media_speed.get("max_independent_preparation_lanes") == 2, "handoff lane ceiling drifted")
     require(media_speed.get("one_pass_final_encode") is True, "handoff one-pass encode rule missing")
     require(media_speed.get("jev_typed_profile_and_shape_decision") is True, "handoff Jev media decision rule missing")
 
@@ -210,7 +210,7 @@ def main() -> int:
     require(media_speed_handoff.get("jev_media_planning") is True and media_speed_handoff.get("jev_required_by_default") is False, "Jev must remain optional for deterministic video work")
     require(media_speed_handoff.get("media_speed_quality_policy") == "config/media_speed_quality_policy.json", "media quality handoff speed pointer missing")
     require(media_speed_handoff.get("media_speed_checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "media quality handoff checkpoint sealer missing")
-    require(media_speed_handoff.get("longform_renderer") == fast.get("default_renderer"), "media handoff fast long-form renderer pointer drifted")
+    require(media_speed_handoff.get("longform_renderer") == fast.get("default_renderer"), "media handoff fast long-form renderer pointer drifted")\n    require(media_speed_handoff.get("preparation_lanes_max") == 2, "media handoff lane ceiling drifted")
 
     print(json.dumps({
         "status": "PASS",
