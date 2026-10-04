@@ -1,0 +1,175 @@
+name: Repair Gemini 4 Argon expression coverage
+
+on:
+  push:
+    branches:
+      - ai-army/provider-v3
+    paths:
+      - .github/workflows/repair-gemini4-expression.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: gemini4-expression-repair
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OUT: repaired-gemini4
+      SOURCE_RUN: "37214290012"
+      SOURCE_ARTIFACT: gemini4-argon-longform-37214290012
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install repair toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
+          python -m pip install --upgrade pip
+          python -m pip install pillow
+          mkdir -p "$OUT/source" "$OUT/overlays" "$OUT/cache"
+
+      - name: Restore completed first-pass MP4
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.SOURCE_ARTIFACT }}
+          path: ${{ env.OUT }}/source
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ env.SOURCE_RUN }}
+
+      - name: Resolve approved character shell
+        run: |
+          set -euo pipefail
+          python scripts/media_asset_resolver.py             --asset-id zm_shell_20230806             --cache-root .media-cache/assets             --allow-network             --max-workers 1             --manifest-out "$OUT/character-shell.json"
+          RAW=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('repaired-gemini4/character-shell.json').read_text())
+          p=m['results'][0].get('extracted_path')
+          assert p and Path(p).is_dir(), p
+          print(p)
+          PY
+          )
+          python scripts/character_shell_root.py "$RAW" > "$OUT/character-shell-root.txt"
+
+      - name: Build authored Metan expression overlays
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, sys
+          from pathlib import Path
+          from PIL import Image
+          sys.path.insert(0,'scripts')
+          from render_reusable_short import character_variants
+
+          root=Path('repaired-gemini4')
+          timing=json.loads((root/'source/timing.json').read_text(encoding='utf-8'))
+          by_id={r['id']:r for r in timing['records']}
+          required={'g4-004':'SERIOUS','g4-008':'HAPPY'}
+          for rid in required:
+              assert rid in by_id and by_id[rid]['speaker']=='四国めたん', rid
+
+          shell=Path((root/'character-shell-root.txt').read_text().strip())
+          variants,_=character_variants(shell/'Metan','Metan',root/'cache')
+          W,H=720,1280
+          for expr in ('SERIOUS','HAPPY'):
+              for mouth in (0,1,2):
+                  char=variants[expr,mouth].copy()
+                  char.thumbnail((255,410))
+                  canvas=Image.new('RGBA',(W,H),(0,0,0,0))
+                  canvas.alpha_composite(char,(428,1215-char.height))
+                  canvas.save(root/'overlays'/f'metan-{expr.lower()}-{mouth}.png')
+
+          repair={
+              'schema':'gemini4-expression-repair-v1',
+              'source_video':'Gemini4_Argon_約10分_ずんだもん四国めたん.mp4',
+              'turns':{
+                  rid:{'expression':expr,'start':by_id[rid]['start'],'end':by_id[rid]['end']}
+                  for rid,expr in required.items()
+              }
+          }
+          (root/'repair-plan.json').write_text(json.dumps(repair,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(repair,ensure_ascii=False))
+          PY
+
+      - name: Apply expression-only visual repair
+        run: |
+          set -euo pipefail
+          SRC="$OUT/source/Gemini4_Argon_約10分_ずんだもん四国めたん.mp4"
+          test -s "$SRC"
+          read HS HE SS SE DUR <<<"$(python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          p=json.loads(Path('repaired-gemini4/repair-plan.json').read_text())
+          h=p['turns']['g4-008']; s=p['turns']['g4-004']
+          dur=float(subprocess.check_output([
+              'ffprobe','-v','error','-show_entries','format=duration',
+              '-of','default=nw=1:nk=1',
+              'repaired-gemini4/source/Gemini4_Argon_約10分_ずんだもん四国めたん.mp4'
+          ],text=True).strip())
+          print(h['start'],h['end'],s['start'],s['end'],dur)
+          PY
+          )"
+
+          ffmpeg -y -v error             -i "$SRC"             -loop 1 -i "$OUT/overlays/metan-happy-0.png"             -loop 1 -i "$OUT/overlays/metan-happy-1.png"             -loop 1 -i "$OUT/overlays/metan-happy-2.png"             -loop 1 -i "$OUT/overlays/metan-serious-0.png"             -loop 1 -i "$OUT/overlays/metan-serious-1.png"             -loop 1 -i "$OUT/overlays/metan-serious-2.png"             -filter_complex "
+              [0:v][1:v]overlay=0:0:enable='between(t,${HS},${HE})*lt(mod(t-${HS},0.36),0.12)'[v1];
+              [v1][2:v]overlay=0:0:enable='between(t,${HS},${HE})*between(mod(t-${HS},0.36),0.12,0.24)'[v2];
+              [v2][3:v]overlay=0:0:enable='between(t,${HS},${HE})*gte(mod(t-${HS},0.36),0.24)'[v3];
+              [v3][4:v]overlay=0:0:enable='between(t,${SS},${SE})*lt(mod(t-${SS},0.36),0.12)'[v4];
+              [v4][5:v]overlay=0:0:enable='between(t,${SS},${SE})*between(mod(t-${SS},0.36),0.12,0.24)'[v5];
+              [v5][6:v]overlay=0:0:enable='between(t,${SS},${SE})*gte(mod(t-${SS},0.36),0.24)'[vout]
+            "             -map "[vout]" -map 0:a:0 -t "$DUR"             -c:v libx264 -preset ultrafast -threads 2 -crf 23 -pix_fmt yuv420p             -c:a copy -movflags +faststart             "$OUT/Gemini4_Argon_8分43秒_完成版.mp4"
+
+      - name: Verify final repaired MP4
+        run: |
+          set -euo pipefail
+          FINAL="$OUT/Gemini4_Argon_8分43秒_完成版.mp4"
+          ffprobe -v error -show_streams -show_format -of json "$FINAL" > "$OUT/ffprobe.json"
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('repaired-gemini4')
+          p=root/'Gemini4_Argon_8分43秒_完成版.mp4'
+          d=json.loads((root/'ffprobe.json').read_text())
+          kinds={x.get('codec_type') for x in d['streams']}
+          assert {'video','audio'} <= kinds, kinds
+          dur=float(d['format']['duration'])
+          assert 522 <= dur <= 524, dur
+          report={
+              'status':'READY_TO_PUBLISH',
+              'public_publish':False,
+              'duration_seconds':dur,
+              'size_bytes':p.stat().st_size,
+              'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),
+              'source_run_id':37214290012,
+              'repair':'Metan authored SERIOUS and HAPPY expression turns overlaid without regenerating narration',
+              'voice':'VOICEVOX:ずんだもん・四国めたん',
+              'audio_regenerated':False,
+              'full_video_script_regenerated':False
+          }
+          (root/'completion.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(report,ensure_ascii=False))
+          PY
+
+      - name: Upload repaired final MP4
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gemini4-Argon-final-repaired
+          path: |
+            repaired-gemini4/Gemini4_Argon_8分43秒_完成版.mp4
+            repaired-gemini4/completion.json
+            repaired-gemini4/ffprobe.json
+            repaired-gemini4/repair-plan.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
