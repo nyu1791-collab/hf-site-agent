@@ -210,3 +210,14 @@ ChatGPT chat sessions, Desktop Commander, a phone, tablet, or an operator workst
 A GitHub-hosted Actions workflow is the independent fallback render path for approved media missions when the GCP/self-hosted runner or Remote Desktop control plane is unavailable. It must use local VOICEVOX for Zundamon and Shikoku Metan, approved/cached character assets, local FFmpeg/Pillow rendering, and an uploaded MP4 artifact. External image generation is never a hard dependency. Official visuals may be used when available; acquisition failure falls back to original local explanatory diagrams without blocking completion.
 
 Durable media services use `Restart=on-failure` with systemd start-rate limiting disabled for the persistent job controller, so a prolonged dependency outage does not permanently abandon the job. Successful completion exits cleanly and does not loop. Publishing remains disabled; unattended execution stops at a verified `READY_TO_PUBLISH` artifact.
+
+
+## 2026-10-05 長尺動画・横画面の恒久ルール
+
+長尺の解説・AIニュース動画は、明示的な縦指定がない限り **16:9横画面** を正本とする。機械プロファイルは `config/approved_landscape_video_template.json`。既存の縦型 `config/approved_video_template.json` はShorts/Reels/TikTok等の短尺縦動画用として残す。
+
+ユーザー提示の参考動画は、背景やデザインをそのままコピーするための素材ではなく、**雰囲気・テンポ・情報階層・二人の掛け合い・中央資料の見せ方**を学ぶ基準とする。親しみやすいAIニュース番組感、上部のトピック表示、中央の大きな証拠/資料領域、左右下のキャラクター、下部の広い会話字幕、出典フッター、章タイトル→証拠→会話→要約のリズムは積極的に採用する。
+
+ただし **朝番組感は採用しない**。時計、朝の挨拶、日の出・朝食モチーフ、朝番組風の過度な明るさやギミックは禁止。参考動画固有の背景、クリーム/オレンジ配色、植物装飾、ロゴ、枠形状、タイトルバー、フォントをそのまま再現しない。目標は「参考動画に近い親しみやすさとテンポを持つ、独自の現代的AIブリーフィング番組」。
+
+背景は寒色ニュートラル、ブルーグレー、淡いラベンダー等を基本に、控えめなグリッド・幾何学・グラデーションで独自化する。キャラは主役ではなくホストとして、中央資料を隠さない。表情・口パク・聞き手リアクションは維持する。ビジュアルだけの変更では音声を再生成せず、既存の実測VOICEVOX音声・タイミングを再利用する。
