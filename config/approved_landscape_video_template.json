@@ -48,13 +48,13 @@
       "width": 1280,
       "height": 720,
       "aspect_ratio": "16:9",
-      "fps": 30
+      "fps": 15
     },
     "speed_fallback": {
       "width": 1280,
       "height": 720,
       "aspect_ratio": "16:9",
-      "fps": 30
+      "fps": 15
     },
     "portrait_allowed_only_for": [
       "SHORTS",
@@ -102,7 +102,7 @@
   "layout": {
     "width": 1280,
     "height": 720,
-    "fps": 30,
+    "fps": 15,
     "background": "#E9EEF5",
     "header_background": "#17233A",
     "evidence_panel": "#FFFFFF",
@@ -290,6 +290,9 @@
     "mouth_update_hz": 10,
     "frame_state_cache_entries": 24,
     "preflight_before_heavy_bootstrap": true,
-    "one_final_encode": true
+    "one_final_encode": true,
+    "routine_fps": 15,
+    "quality_master_fps": 30,
+    "reason": "STATIC_EVIDENCE_PLUS_CHARACTER_EXPLAINER; 15FPS_HALVES_FRAME_PIPE_COST_WHILE_RETAINING_READABLE_MOUTH_MOTION"
   }
 }
