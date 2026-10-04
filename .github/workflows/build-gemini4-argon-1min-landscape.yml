@@ -2,14 +2,6 @@ name: Build Gemini 4 one-minute landscape
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - missions/media/20261005-gemini4-argon-1min.json
-      - scripts/build_gemini4_landscape_1min.py
-      - .github/workflows/build-gemini4-argon-1min-landscape.yml
-      - config/approved_landscape_video_template.json
 
 permissions:
   contents: read
