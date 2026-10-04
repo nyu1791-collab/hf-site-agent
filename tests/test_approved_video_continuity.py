@@ -21,6 +21,7 @@ class ContinuityTests(unittest.TestCase):
             'config/evidence_visual_static_character_policy.json',
             'scripts/render_reusable_short.py',
             'scripts/render_reusable_longform.py',
+            'scripts/render_reusable_landscape.py',
             'scripts/render_fast_image_longform.py',
             'scripts/restore_video_context.py',
             'examples/approved_video_presentation.json',
@@ -39,14 +40,17 @@ class ContinuityTests(unittest.TestCase):
             self.assertEqual(first['reference'],second['reference'])
             self.assertEqual(second['head_sha'],'b'*40)
             profile=self._pack_json(second,'config/approved_video_template.json')
+            landscape=self._pack_json(second,'config/approved_landscape_video_template.json')
             self.assertEqual(profile['layout']['caption_colors']['ずんだもん'],'#B8E6C8')
+            self.assertEqual((landscape['layout']['width'],landscape['layout']['height'],landscape['layout']['fps']),(1280,720,15))
             self.assertTrue(second['files'][0]['content'])
             self.assertTrue(profile['editorial']['answer_first'])
             self.assertFalse(profile['editorial']['caveats']['repeat_generic_warning_per_chapter'])
             self.assertTrue(profile['execution_contract']['media_region_only_boolean_required_for_each_visual'])
             self.assertEqual(profile['longform_renderer'],'scripts/render_reusable_longform.py')
             self.assertTrue(second['baseline']['reuse_existing_approved_layout_and_assets'])
-            self.assertEqual(second['baseline']['optional_template'],'config/approved_video_template.json')
+            self.assertEqual(second['baseline']['optional_template'],'config/approved_landscape_video_template.json')
+            self.assertEqual(second['baseline']['shortform_portrait_template'],'config/approved_video_template.json')
 
     def test_changed_policy_invalidates_content_hash(self):
         with tempfile.TemporaryDirectory() as td:
