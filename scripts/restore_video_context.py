@@ -41,7 +41,9 @@ def restore(root=ROOT, head=None):
             'must_read_contents_before_production': True,
             'reference': handoff['approved_reference'],
             'baseline': {'reuse_existing_approved_layout_and_assets': True,
-                         'optional_template': 'config/approved_video_template.json',
+                         'default_landscape_template': 'config/approved_landscape_video_template.json',
+                         'shortform_portrait_template': 'config/approved_video_template.json',
+                         'optional_template': 'config/approved_landscape_video_template.json',
                          'speed_first_delivery': speed}, 'files': files}
 
 
