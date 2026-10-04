@@ -5,7 +5,7 @@ This renderer reuses native Zundamon/Metan layers and measured VOICEVOX audio.
 It performs one H.264 encode and does not synthesize narration or generate images.
 """
 from __future__ import annotations
-import argparse, hashlib, json, math, re, subprocess, wave
+import argparse, hashlib, json, math, re, subprocess, wave, time
 from collections import OrderedDict
 from array import array
 from pathlib import Path
@@ -84,6 +84,7 @@ def build_backgrounds(profile, presentation, presentation_path, font_path):
 
 
 def render(args):
+    render_started=time.monotonic()
     profile=json.loads(args.profile.read_text(encoding="utf-8"))
     presentation=json.loads(args.presentation.read_text(encoding="utf-8"))
     layout=profile["layout"]; acting=profile["acting"]
@@ -243,7 +244,9 @@ def render(args):
       "voice_reused":True,"one_final_encode":True,"visual_sha256":visual_hashes,"character_keys":char_keys,
       "audio_fast_path":{"gain_db":gain_db,"limiter_linear":limiter},
       "mouth_update_hz":mouth_hz,
-      "frame_state_cache":{"limit":cache_limit,"hits":cache_hits,"misses":cache_misses}
+      "frame_state_cache":{"limit":cache_limit,"hits":cache_hits,"misses":cache_misses},
+      "render_wall_seconds":round(time.monotonic()-render_started,3),
+      "render_realtime_factor":round(args.duration/max(0.001,time.monotonic()-render_started),3)
     }
     out.with_suffix(".report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     print(json.dumps(report,ensure_ascii=False))
