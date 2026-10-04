@@ -436,8 +436,21 @@
       "wide_lower_third_caption_with_speaker_identity",
       "compact_source_footer",
       "chapter_title_lineup_evidence_table_and_summary_scene_types",
-      "do_not_copy_reference_background_palette_decorations_borders_typography_or_brand_identity"
-    ]
+      "match_reference_friendly_two_host_rhythm_and_evidence_first_pacing",
+      "do_not_copy_reference_background_palette_decorations_borders_typography_or_brand_identity",
+      "do_not_use_morning_show_clocks_breakfast_sunrise_or_morning_program_gimmicks"
+    ],
+    "reference_inspiration_contract": {
+      "atmosphere_similarity": "HIGH",
+      "pacing_similarity": "HIGH",
+      "hosting_feel_similarity": "HIGH",
+      "information_hierarchy_similarity": "HIGH",
+      "exact_background_similarity": "PROHIBITED",
+      "exact_palette_similarity": "PROHIBITED",
+      "exact_decorative_identity_similarity": "PROHIBITED",
+      "morning_show_feel": "PROHIBITED",
+      "target_mood": "FRIENDLY_MODERN_AI_NEWS_BRIEFING"
+    }
   },
   "approved_baseline_contract": {
     "mandatory_read_on_every_video_tab": true,
@@ -471,7 +484,11 @@
       "copy_reference_decorations": false,
       "copy_reference_branding": false,
       "copy_reference_exact_geometry": false,
-      "adopt_information_hierarchy_only": true
+      "copy_reference_morning_show_identity": false,
+      "adopt_information_hierarchy": true,
+      "adopt_overall_friendly_program_atmosphere": true,
+      "adopt_two_host_conversational_rhythm": true,
+      "adopt_evidence_first_pacing": true
     }
   },
   "dialogue_contract": {
