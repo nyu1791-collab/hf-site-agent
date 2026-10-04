@@ -34,13 +34,14 @@ class VideoCreationAdmissionTests(unittest.TestCase):
             target = self.root / path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.touch()
-        for path in ("scripts/render_reusable_short.py", "scripts/render_fast_image_longform.py"):
+        for path in ("scripts/render_reusable_short.py", "scripts/render_reusable_landscape.py"):
             target = self.root / path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.touch()
 
         gate = {"speed_first_delivery_override": {"read_set": self.read_set}}
         speed = {
+            "longform_renderer": "scripts/render_reusable_landscape.py",
             "speed_first_delivery": {
                 "automatic_completion_check": [
                     "ENCODER_EXIT_SUCCESS",
@@ -54,7 +55,7 @@ class VideoCreationAdmissionTests(unittest.TestCase):
             "fast_longform_delivery": {
                 "wall_clock_target_minutes": 5,
                 "applies_to_requested_longform_up_to_seconds": 960,
-                "default_renderer": "scripts/render_fast_image_longform.py",
+                "default_renderer": "scripts/render_reusable_landscape.py",
                 "one_video_encode_only": True,
                 "voice_segmenting": {"target_max_segments_for_16_minutes": 16, "avoid_sentence_level_synthesis_calls": True},
             },
@@ -89,7 +90,7 @@ class VideoCreationAdmissionTests(unittest.TestCase):
                 "caption_contract_name": "FULL_SPOKEN_TEXT",
                 "renderers": {
                     "shortform": "scripts/render_reusable_short.py",
-                    "longform": "scripts/render_fast_image_longform.py",
+                    "longform": "scripts/render_reusable_landscape.py",
                 },
             },
             "visual_asset_contract": {
@@ -138,7 +139,7 @@ class VideoCreationAdmissionTests(unittest.TestCase):
         self.assertEqual(report["status"], "PASS", report["failures"])
         self.assertEqual(report["required_read_set"], self.read_set)
         self.assertEqual(len(report["routine_output_checks"]), 3)
-        self.assertEqual(report["caption_renderers"]["longform"], "scripts/render_fast_image_longform.py")
+        self.assertEqual(report["caption_renderers"]["longform"], "scripts/render_reusable_landscape.py")
 
 
     def test_visual_density_is_pinned_to_speed_policy(self):
