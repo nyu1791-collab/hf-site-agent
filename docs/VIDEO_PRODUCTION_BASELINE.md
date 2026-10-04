@@ -21,3 +21,18 @@ The user-provided reference video is a **mood, pacing and information-hierarchy 
 **Do not add morning-show styling.** No morning clock, sunrise/breakfast motifs, cheerful TV-morning gimmicks, or reference-specific cream/orange set dressing. Do not copy its background art, exact palette, plants/decorations, borders, title bars, logos or typography. The target is a modern AI briefing show with similar friendliness and rhythm but an original visual identity.
 
 Longform characters stay visible without covering the evidence stage: Zundamon lower-left and Shikoku Metan lower-right by default, with native mouth movement, authored expressions and listener reactions. Visual-only redesigns must reuse unchanged measured narration/timing whenever possible to preserve the five-minute speed target.
+
+
+## 2026-10-05 Speed engineering + measured review fixes
+
+Read `docs/VIDEO_SPEED_ENGINEERING_RULES.md` before routine video execution. The fast path is **sequential by default**. Use at most two preparation lanes, and only for genuinely independent preparation or I/O. Shared VOICEVOX, FFmpeg encoding, shared cache writers and final artifact writers stay single-lane. More workers are not treated as faster by default.
+
+Run Python compile + mission/template JSON preflight **before** apt, Docker, VOICEVOX startup, asset download or render. A syntax or manifest bug must fail in seconds. Reuse a healthy local VOICEVOX engine, verified character shell, cached WAV/timing, cleared visuals, fonts and character variants. Do not upgrade pip on the video critical path; install only missing dependencies.
+
+Routine landscape video uses one final H.264 encode. Per-scene H.264 encode followed by concat is prohibited on the fast path; encoded scene chunks are recovery-only.
+
+Measured review of `Gemini4_Argon_1min_landscape.mp4` produced permanent fixes:
+- keep subtitle text fully inside the lower-third safe area, max 3 lines, >=34 px bottom margin, shrink font before clipping;
+- the test measured about -24.47 LUFS, so fast VOICEVOX output should target approximately -18 to -16 LUFS using fixed gain + true-peak limiter **inside the single final encode**, not a second loudness render pass;
+- for current claim-bearing videos, include at least one official/primary-source screenshot when available and provenance/rights gates pass; original diagrams explain but do not impersonate evidence;
+- avoid holding identical composition as filler; change crop/zoom/evidence at semantic beats without adding review/rerender loops.
