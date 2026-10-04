@@ -1,0 +1,195 @@
+{
+  "schema_version": "approved-landscape-video-template-v1",
+  "effective_date_jst": "2026-10-05",
+  "status": "USER_DIRECTED_LONGFORM_BASELINE",
+  "purpose": "Landscape explanatory/news videos that adopt the reference video's information hierarchy without copying its background, colors, decorations, typography, or brand identity.",
+  "reference_abstraction": {
+    "reference_media": "user-provided 174662.mp4",
+    "copy_prohibited": true,
+    "extract_only": [
+      "persistent top program/section header",
+      "large central evidence/content stage",
+      "characters anchored outside the evidence stage",
+      "wide bottom dialogue/caption zone with clear speaker identity",
+      "persistent compact source/footer information",
+      "chapter cards, lineup cards, evidence screenshots and comparison tables as distinct scene types",
+      "consistent visual hierarchy and repeated screen grammar"
+    ],
+    "must_not_copy": [
+      "orange/yellow news palette",
+      "cream framed background",
+      "plant/decorative motifs",
+      "exact border geometry",
+      "exact header/footer labels",
+      "exact typography",
+      "exact character placement proportions",
+      "exact transitions or graphic ornaments"
+    ]
+  },
+  "canvas": {
+    "longform_default": {
+      "width": 1920,
+      "height": 1080,
+      "aspect_ratio": "16:9",
+      "fps": 30
+    },
+    "speed_fallback": {
+      "width": 1280,
+      "height": 720,
+      "aspect_ratio": "16:9",
+      "fps": 30
+    },
+    "portrait_allowed_only_for": [
+      "SHORTS",
+      "REELS",
+      "TIKTOK",
+      "EXPLICIT_USER_REQUEST"
+    ]
+  },
+  "visual_identity": {
+    "name": "AI Briefing Studio",
+    "background": "COOL_NEUTRAL_TECH_STUDIO",
+    "base_palette": {
+      "background": "#EAF0F7",
+      "panel": "#FFFFFF",
+      "header": "#17233A",
+      "line": "#CBD6E4",
+      "primary_accent": "#5A7DFF",
+      "secondary_accent": "#7B5CE6",
+      "success_accent": "#71C7A5"
+    },
+    "speaker_colors": {
+      "ずんだもん": "#B8E6C8",
+      "四国めたん": "#F2C4D7"
+    },
+    "avoid_visual_similarity_to_reference": true,
+    "background_rules": [
+      "Use clean blue-gray or cool-neutral surfaces rather than cream/orange.",
+      "Use subtle grid, soft gradient, or geometric panels; never duplicate the reference background.",
+      "Decoration must support hierarchy and remain secondary to evidence.",
+      "Do not reproduce reference plants, frames, badges, ticker shapes, or corner ornaments."
+    ]
+  },
+  "layout": {
+    "safe_margin_px_1920x1080": 48,
+    "top_header_zone": [
+      48,
+      30,
+      1872,
+      118
+    ],
+    "central_evidence_zone": [
+      250,
+      145,
+      1670,
+      690
+    ],
+    "left_character_zone": [
+      42,
+      610,
+      420,
+      1020
+    ],
+    "right_character_zone": [
+      1500,
+      610,
+      1878,
+      1020
+    ],
+    "caption_zone": [
+      400,
+      735,
+      1520,
+      985
+    ],
+    "source_footer_zone": [
+      48,
+      1010,
+      1872,
+      1060
+    ],
+    "characters_must_not_cover_evidence": true,
+    "caption_must_not_cover_evidence": true,
+    "content_stage_target_screen_area_ratio": [
+      0.52,
+      0.68
+    ],
+    "character_visual_weight": "SUPPORTING_NOT_DOMINANT"
+  },
+  "screen_grammar": {
+    "allowed_scene_types": [
+      "OPENING_HOOK",
+      "LINEUP_OVERVIEW",
+      "CHAPTER_TITLE",
+      "OFFICIAL_SCREENSHOT",
+      "PRODUCT_OR_UI_CAPTURE",
+      "BENCHMARK_TABLE",
+      "COMPARISON_CARD",
+      "ORIGINAL_EXPLANATORY_DIAGRAM",
+      "SUMMARY"
+    ],
+    "opening": {
+      "max_seconds_before_main_point": 15,
+      "show_main_question_and_answer_first": true,
+      "avoid_long_brand_intro": true
+    },
+    "header": {
+      "persistent": true,
+      "left": "series_or_video_identity",
+      "center": "current_chapter_or_topic",
+      "right": "compact_context_or_source_label",
+      "avoid_fake_live_clock_or_broadcast_branding": true
+    },
+    "caption": {
+      "full_spoken_text": true,
+      "speaker_tab_or_name_required": true,
+      "max_lines_target": 3,
+      "max_lines_hard": 4,
+      "wide_lower_third": true,
+      "pale_speaker_color": true,
+      "do_not_use_word_by_word_highlighting": true
+    },
+    "evidence_stage": {
+      "one_primary_visual_at_a_time": true,
+      "crop_unnecessary_browser_or_player_chrome": true,
+      "tables_and_text_must_be_legible_at_mobile_playback_size": true,
+      "switch_visual_when_narrative_beat_changes": true
+    }
+  },
+  "characters": {
+    "required": [
+      "ずんだもん",
+      "四国めたん"
+    ],
+    "both_speak": true,
+    "native_mouth_motion": true,
+    "authored_expression_changes": true,
+    "listener_reaction_required": true,
+    "default_positioning": "LOWER_LEFT_AND_LOWER_RIGHT_OUTSIDE_EVIDENCE_STAGE",
+    "active_speaker_emphasis": "SMALL_SCALE_OR_OPACITY_CHANGE_ONLY",
+    "do_not_block_primary_visual": true
+  },
+  "editorial_visual_sync": {
+    "question_answer_reaction_pattern_preferred": true,
+    "visual_change_per_semantic_beat": true,
+    "chapter_title_card_seconds_range": [
+      1,
+      2.5
+    ],
+    "lineup_card_optional": true,
+    "benchmark_or_table_zoom_to_relevant_rows": true,
+    "official_source_visuals_first": true,
+    "original_diagrams_for_explanation_not_fake_evidence": true
+  },
+  "speed_first": {
+    "creation_wall_clock_target_minutes": 5,
+    "quality_weight": 0.2,
+    "speed_weight": 0.8,
+    "reuse_layout_and_character_variants": true,
+    "reuse_cached_official_visuals": true,
+    "no_routine_preview": true,
+    "no_cosmetic_rerender": true,
+    "one_final_encode": true,
+    "if_only_visual_style_changes_reuse_measured_audio_and_timing": true
+  }
+}
