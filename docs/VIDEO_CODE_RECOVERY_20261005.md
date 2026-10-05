@@ -78,6 +78,12 @@ completed media were preserved. No render was started on the small VM.
 
 Shared cache: `/home/n_yu1791/.cache/hf-site-agent`.
 Runtime pointer: `~/.local/state/hf-site-agent/video-runtime.json`.
+Latest installed runtime (2026-10-05 11:04 UTC):
+`c6371581bbebc9ea0f908728aaa0e9a61bba175d`, at
+`/home/n_yu1791/hf-site-agent-runs/speed-runtime-c6371581bbebc9ea0f908728aaa0e9a61bba175d/code`.
+Independent VM [Run37300527910](https://github.com/nyu1791-collab/-hf-vm-control/actions/runs/37300527910)
+passed 27 relevant tests and confirmed resident VOICEVOX readiness. The pointer
+now selects this revision; previous runtime worktrees were retained.
 For new production explicitly select that pinned code; installing a worktree
 does not change existing running processes or the canonical branch's workflow.
 GitHub account `nyu1791-collab` has verified primary email `n.yu1791@gmail.com`;
