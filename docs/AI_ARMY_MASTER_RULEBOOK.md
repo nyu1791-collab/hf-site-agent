@@ -235,7 +235,7 @@ Durable media services use `Restart=on-failure` with systemd start-rate limiting
 
 ただし **朝番組感は採用しない**。時計、朝の挨拶、日の出・朝食モチーフ、朝番組風の過度な明るさやギミックは禁止。参考動画固有の背景、クリーム/オレンジ配色、植物装飾、ロゴ、枠形状、タイトルバー、フォントをそのまま再現しない。目標は「参考動画に近い親しみやすさとテンポを持つ、独自の現代的AIブリーフィング番組」。
 
-背景は寒色ニュートラル、ブルーグレー、淡いラベンダー等を基本に、控えめなグリッド・幾何学・グラデーションで独自化する。キャラは主役ではなくホストとして、中央資料を隠さない。表情・口パク・聞き手リアクションは維持する。ビジュアルだけの変更では音声を再生成せず、既存の実測VOICEVOX音声・タイミングを再利用する。
+背景は寒色ニュートラル、ブルーグレー、淡いラベンダー等を基本に、控えめなグリッド・幾何学・グラデーションで独自化する。キャラは主役ではなくホストとして、中央資料を隠さない。表情・口パク・聞き手リアクションは維持する。同じJob内でビジュアルだけを変更する場合は音声を再生成せず、そのJobの実測VOICEVOX音声・タイミングを再利用する。新動画へ過去Jobの音声を流用しない。
 
 
 ## 2026-10-05 動画制作速度の恒久ルール
@@ -244,7 +244,7 @@ Durable media services use `Restart=on-failure` with systemd start-rate limiting
 
 重い処理の前に、Python構文コンパイル、mission JSON、template/policy JSON、必須ファイル、出力契約を先に検証する。構文・manifestの不具合でapt、Docker pull、VOICEVOX起動、素材DL、レンダーを一度でも無駄に開始しない。
 
-再利用優先順位は、常駐GCP/ローカルキャッシュ → ローカルVOICEVOX Engine → キャッシュ済みコンテナ/素材 → GitHub hosted fallback。pip upgradeは禁止し、不足パッケージだけを導入する。未変更のVOICEVOX WAV、実測タイミング、キャラ素材、表情/口パクvariant、フォント、公式/許諾済み素材を再利用する。
+再利用優先順位は、常駐GCP/ローカルキャッシュ → ローカルVOICEVOX Engine → キャッシュ済みコンテナ/素材 → GitHub hosted fallback。pip upgradeは禁止し、不足パッケージだけを導入する。キャラ素材、表情/口パクvariant、フォント、公式/許諾済み素材を再利用する。新動画の解析・台本・VOICEVOX WAVはcontent_run_idで分離して新規作成する。WAVと実測タイミングの再利用は同じJobの復旧時に限る。
 
 通常の高速経路ではH.264最終エンコードは1回。シーンごとにH.264へ書き出して最後にconcatする方式は通常経路では禁止し、障害復旧用checkpointのみに限定する。共通横画面Rendererを優先し、話題ごとの専用Rendererを増やさない。
 
@@ -260,3 +260,10 @@ VM接続・24時間運用・障害復旧の依頼では `docs/VM_CONNECTIVITY_RE
 既存接続サービスはsystemdのRestart=always / RestartSec=30と毎分watchdogで復帰させ、lingerとboot enableを維持する。既存資格情報・SSH検証・ネットワーク境界を変更しない。保守停止は明示pauseで尊重する。常時オンラインは運用目標であり、VM停止・ネットワーク障害・クラウド側障害まで保証したとは報告しない。ローカルactive、クラウド側Online、実コマンド成功、独立Runner操作成功を分けて確認する。
 
 動画は接続sessionに依存しないdurable Jobで実行し、STATEを保存する。新しい動画は `docs/VIDEO_FRESH_CONTENT_POLICY_20261005.md` に従い、土台・型・Renderer・キャラ素材のみ再利用し、情報収集・解析・台本・音声は毎回一から作る。同一ジョブの障害復帰時のみ今回のcheckpointを使う。
+
+
+## 2026-10-05 コード担当と実機検証
+
+ユーザー指定によりコード修正・検証はCodex 6.1 Solが担当し、Commanderが運用設定・一次情報・事実確認・成果物と完了条件を統合する。同一コード対象のSingle Writerを維持する。別AIによる重複レビューは増やさない。担当委任だけでは実行・検証完了と扱わない。
+
+VMのDesktop Commander direct shell/write、systemd enabled/active、Linger=yes、毎分watchdogとprivate Runner修復Run37272663789の成功を実機で確認済み。現状と未検証項目はdocs/VM_CONNECTIVITY_RECOVERY.mdを正本とする。端末を閉じても常駐VM処理は継続する設定だが、VM停止やクラウド障害時の無停止を保証しない。
