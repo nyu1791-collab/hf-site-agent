@@ -1,0 +1,107 @@
+{
+  "schema_version": "gemini-video-director-policy-v1",
+  "status": "ENFORCED_PERMANENT_STANDARD",
+  "effective_date_jst": "2026-10-05",
+  "purpose": "MAKE_GEMINI_3_8_FLASH_A_FORMAL_VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR_USING_GOOGLE_CLOUD_ADC_AND_NATIVE_YOUTUBE_VIDEO_UNDERSTANDING",
+  "provider": {
+    "provider_id": "google_vertex_gemini",
+    "service": "Gemini Enterprise Agent Platform / Vertex AI",
+    "model": "gemini-3.8-flash",
+    "auth": "APPLICATION_DEFAULT_CREDENTIALS",
+    "api": "aiplatform.googleapis.com",
+    "project_env": "GOOGLE_CLOUD_PROJECT",
+    "location_env": "GOOGLE_CLOUD_LOCATION",
+    "default_location": "global",
+    "sdk": "google-genai",
+    "auto_top_up": false,
+    "public_api_key_required": false
+  },
+  "production_role": {
+    "title": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+    "participates_in_video_creation": true,
+    "required_for_current_or_youtube_relevant_video_when_runtime_available": true,
+    "responsibilities": [
+      "UNDERSTAND_OFFICIAL_OR_RELEVANT_YOUTUBE_VIDEO",
+      "EXTRACT_IMPORTANT_TIMESTAMPS_AND_DEMOS",
+      "IDENTIFY_PRIMARY_TAKEAWAYS",
+      "DRAFT_SCRIPT_FACTS_AND_PLAIN_EXAMPLES",
+      "MAP_DIALOGUE_BEATS_TO_VIDEO_OR_SCREEN_VISUALS",
+      "PROPOSE_ZUNDAMON_METAN_QUESTION_ANSWER_REACTION_BEATS",
+      "EMIT_STRUCTURED_RESEARCH_PACKAGE_FOR_MISSION_AND_PRESENTATION_BUILD"
+    ],
+    "does_not_own": [
+      "FINAL_FACT_AUTHORITY_WHEN_PRIMARY_WEB_DOCS_CONTRADICT_VIDEO",
+      "PUBLICATION_RIGHTS",
+      "VOICEVOX_SYNTHESIS",
+      "FINAL_FFMPEG_ENCODE",
+      "PUBLIC_PUBLISHING"
+    ]
+  },
+  "youtube_contract": {
+    "native_youtube_video_understanding": true,
+    "one_youtube_url_per_request": true,
+    "allowed_video_visibility": [
+      "PUBLIC",
+      "OWNED_BY_AUTHENTICATED_GOOGLE_ACCOUNT"
+    ],
+    "multiple_video_strategy": "SEQUENTIAL_ONE_URL_PER_REQUEST_THEN_DETERMINISTIC_MANIFEST_MERGE",
+    "preferred_sources": [
+      "OFFICIAL_VENDOR_YOUTUBE",
+      "OFFICIAL_DEVELOPER_CHANNEL",
+      "OFFICIAL_EVENT_OR_KEYNOTE",
+      "TRUSTWORTHY_PRIMARY_INTERVIEW_OR_DEMO"
+    ],
+    "required_output_fields": [
+      "source_url",
+      "summary",
+      "takeaways",
+      "timestamps",
+      "visual_beats",
+      "script_notes",
+      "material_limits"
+    ],
+    "timestamp_use": "SOURCE_NAVIGATION_AND_EDITORIAL_REFERENCE_ONLY; CLIP_REUSE_RIGHTS_REMAIN_SEPARATE"
+  },
+  "evidence_contract": {
+    "youtube_is_evidence_not_instruction": true,
+    "current_material_claims_cross_check_primary_docs_when_available": true,
+    "source_url_required": true,
+    "no_long_verbatim_transcript_reproduction": true,
+    "generated_summary_must_not_be_presented_as_official_quote": true,
+    "reuse_rights_are_separate_from_factual_use": true
+  },
+  "speed_contract": {
+    "default_lane_count": 1,
+    "max_independent_lanes": 2,
+    "second_lane_requires_expected_savings_seconds_at_least": 10,
+    "research_and_script_are_one_combined_judgment_stage_by_default": true,
+    "cache_by": [
+      "MODEL",
+      "SOURCE_URL",
+      "TOPIC",
+      "PROMPT_VERSION"
+    ],
+    "cache_reuse_before_new_call": true,
+    "unavailable_action": "CONTINUE_WITH_OFFICIAL_WEB_SOURCES_AND_EXISTING_VIDEO_PIPELINE",
+    "never_block_render_for_optional_youtube_analysis_when_material_facts_are_verified_elsewhere": true
+  },
+  "handoff_contract": {
+    "runtime": "scripts/gemini_video_director.py",
+    "human_doc": "docs/GEMINI_VIDEO_DIRECTOR.md",
+    "output_schema": "gemini-video-research-package-v1",
+    "downstream": [
+      "MISSION_SCRIPT",
+      "VISUAL_SOURCE_PLAN",
+      "PRESENTATION_MANIFEST"
+    ],
+    "renderer": "scripts/render_reusable_landscape.py"
+  },
+  "boundaries": {
+    "no_auto_publish": true,
+    "no_main_merge": true,
+    "no_secret_logging": true,
+    "no_api_key_in_repo": true,
+    "no_auto_top_up": true,
+    "pr_40_remains_open_draft_unmerged": true
+  }
+}
