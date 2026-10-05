@@ -7,6 +7,7 @@ import base64
 import gzip
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import time
@@ -108,7 +109,8 @@ def _mission_for_voice(raw: dict) -> dict:
             })
         scenes.append({"scene_id": scene["scene_id"], "title": scene["title"], "dialogue": dialogue})
     return {
-        "mission_id": "gemini4-argon-cloud-20261005",
+        "mission_id": "gemini4-argon-" + raw["content_run_id"],
+        "content_run_id": raw["content_run_id"],
         "source_id": source_id,
         "source_sha256": hashlib.sha256(raw["source_url"].encode("utf-8")).hexdigest(),
         "title": raw["title"],
@@ -132,7 +134,8 @@ def _synthesize(mission: dict, out: Path, voicevox_url: str) -> tuple[Path, Path
         "--output-dir", str(voice),
         "--timing-out", str(timing),
         "--engine", voicevox_url,
-        "--min-seconds", "420",
+        "--voice-cache-dir", str(out / "voice-cache" / mission["content_run_id"]),
+        "--min-seconds", "480",
         "--max-seconds", "720",
         "--speed-scale", "1.20",
     ], cwd=ROOT, check=True)
@@ -245,17 +248,48 @@ def _prepare_visuals(raw: dict, out: Path, timing: dict) -> tuple[Path, Path]:
     return presentation_path, Path(visuals[0]["file"])
 
 
+
+def _completed_job(out: Path, content_run_id: str, mission_sha256: str) -> dict | None:
+    checkpoint = out / "completion.json"
+    if not checkpoint.is_file():
+        existing = out / "mission.json"
+        if existing.is_file() and json.loads(existing.read_text(encoding="utf-8")).get("content_run_id") != content_run_id:
+            raise RuntimeError("output directory belongs to another content run; use a fresh directory")
+        return None
+    completion = json.loads(checkpoint.read_text(encoding="utf-8"))
+    if completion.get("content_run_id") != content_run_id or completion.get("mission_sha256") != mission_sha256:
+        raise RuntimeError("completed output belongs to another content run or mission; use a fresh directory")
+    if completion.get("status") != "READY_TO_PUBLISH_INTERNAL_ONLY":
+        raise RuntimeError("invalid completed-job checkpoint")
+    output = out / "Gemini4_Argon_landscape.mp4"
+    if not output.is_file() or output.stat().st_size <= 0:
+        raise RuntimeError("completed-job artifact is missing; automatic re-encoding is disabled")
+    return completion
+
+
 def main() -> int:
     total_started = time.monotonic()
     p = argparse.ArgumentParser()
     p.add_argument("--mission", type=Path, required=True)
+    p.add_argument("--content-run-id", required=True, help="Unique new-video ID; reuse only when resuming this job.")
     p.add_argument("--shell-root", type=Path, required=True)
     p.add_argument("--output-dir", type=Path, required=True)
     p.add_argument("--voicevox-url", default="http://127.0.0.1:50021")
     args = p.parse_args()
 
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", args.content_run_id):
+        raise RuntimeError("invalid content run ID")
+    source_bytes = args.mission.read_bytes()
+    mission_sha256 = hashlib.sha256(source_bytes).hexdigest()
+    raw = json.loads(source_bytes)
+    if raw.get("content_run_id", args.content_run_id) != args.content_run_id:
+        raise RuntimeError("mission content run ID does not match the job")
+    raw["content_run_id"] = args.content_run_id
+    completed = _completed_job(args.output_dir, args.content_run_id, mission_sha256)
+    if completed is not None:
+        print(json.dumps(completed, ensure_ascii=False))
+        return 0
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    raw = json.loads(args.mission.read_text(encoding="utf-8"))
     mission = _mission_for_voice(raw)
     (args.output_dir / "mission.json").write_text(json.dumps(mission, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -277,7 +311,7 @@ def main() -> int:
     ], cwd=ROOT, check=True)
 
     _, font_path = _font(30)
-    output = args.output_dir / "Gemini4_Argon_10min_landscape.mp4"
+    output = args.output_dir / "Gemini4_Argon_landscape.mp4"
     render_started = time.monotonic()
     subprocess.run([
         sys.executable, "scripts/render_reusable_landscape.py",
@@ -303,6 +337,9 @@ def main() -> int:
         raise RuntimeError("final MP4 lacks audio or video stream")
     completion = {
         "status": "READY_TO_PUBLISH_INTERNAL_ONLY",
+        "content_run_id": args.content_run_id,
+        "mission_sha256": mission_sha256,
+        "output_path": str(output.resolve()),
         "title": raw["title"],
         "duration_seconds": duration,
         "source_url": SOURCE_URL,
