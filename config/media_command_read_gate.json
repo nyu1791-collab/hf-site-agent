@@ -218,8 +218,7 @@
     "duplicate_agents_for_majority_vote_by_default": false,
     "parallelism_requires_expected_wall_clock_gain_above_coordination_overhead": true,
     "default_judgmental_media_pair": [
-      "ChatGPT",
-      "Gemini 3.8 Flash when YouTube/multimodal research materially helps"
+      "ChatGPT"
     ],
     "research_and_script_are_one_combined_judgment_stage_by_default": true,
     "avoid_small_agent_handoffs_for_routine_script_work": true,
@@ -232,7 +231,14 @@
     "routine_video_default_parallel_lanes": 1,
     "routine_video_max_independent_preparation_lanes": 2,
     "routine_video_parallel_requires_expected_savings_seconds_at_least": 10,
-    "shared_voicevox_and_ffmpeg_are_single_lane": true
+    "shared_voicevox_and_ffmpeg_are_single_lane": true,
+    "conditional_video_research_director": {
+      "agent": "Gemini 3.8 Flash",
+      "activate_when": "YOUTUBE_OR_MULTIMODAL_VIDEO_UNDERSTANDING_MATERIALLY_HELPS",
+      "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+      "mandatory_for_every_video": false,
+      "extra_review_pass": false
+    }
   },
   "know_how_that_must_be_recovered": {
     "common": [
