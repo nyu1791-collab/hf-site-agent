@@ -16,6 +16,9 @@ MANIFEST = ROOT / "config/permanent_standards_manifest.json"
 HANDOFF = ROOT / "config/current_commander_handoff.json"
 MEDIA_HANDOFF = ROOT / "config/current_media_quality_handoff.json"
 SOURCE_POLICY = ROOT / "config/media_source_policy.json"
+GEMINI_POLICY = ROOT / "config/gemini_video_director_policy.json"
+GEMINI_RUNTIME = ROOT / "scripts/gemini_video_director.py"
+GEMINI_DOC = ROOT / "docs/GEMINI_VIDEO_DIRECTOR.md"
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -32,6 +35,7 @@ def require(condition: bool, message: str) -> None:
 
 def main() -> int:
     policy = load(POLICY)
+    gemini = load(GEMINI_POLICY)
     gate = load(GATE)
     manifest = load(MANIFEST)
     handoff = load(HANDOFF)
@@ -179,11 +183,25 @@ def main() -> int:
     require("final_encode_count" in source or '"count": 1' in source, "media final encode count is not represented")
     require(VALIDATOR.is_file(), "media speed validator missing")
     require(CHECKPOINT_SEALER.is_file(), "verified media checkpoint sealer missing")
+    gemini_speed = policy.get("gemini_video_director") or {}
+    require(gemini_speed.get("policy") == "config/gemini_video_director_policy.json", "speed policy lost Gemini video director pointer")
+    require(gemini_speed.get("runtime") == "scripts/gemini_video_director.py", "speed policy lost Gemini video director runtime")
+    require(gemini_speed.get("model") == "gemini-3.8-flash", "Gemini video model drifted")
+    require(gemini_speed.get("youtube_native_understanding") is True and gemini_speed.get("one_youtube_url_per_request") is True, "Gemini YouTube contract drifted")
+    require(gemini_speed.get("auto_top_up") is False, "Gemini video route enabled auto top-up")
+    require(gemini.get("status") == "ENFORCED_PERMANENT_STANDARD", "Gemini video director policy not enforced")
+    require((gemini.get("provider") or {}).get("auth") == "APPLICATION_DEFAULT_CREDENTIALS", "Gemini video route must use ADC")
+    require((gemini.get("provider") or {}).get("model") == "gemini-3.8-flash", "Gemini video policy model drifted")
+    require((gemini.get("production_role") or {}).get("participates_in_video_creation") is True, "Gemini no longer participates in video creation")
+    require((gemini.get("youtube_contract") or {}).get("one_youtube_url_per_request") is True, "Gemini YouTube one-URL rule missing")
+    require(GEMINI_RUNTIME.is_file() and GEMINI_DOC.is_file(), "Gemini video director runtime or guide missing")
+    require("gemini_video_research" in source and "--gemini-research" in source, "media orchestrator is not wired to Gemini research")
 
     read_set = gate.get("speed_first_delivery_override", {}).get("read_set") or []
     require(read_set[:4] == ["README.md", "config/current_commander_handoff.json", "config/permanent_standards_manifest.json", "docs/AI_ARMY_MASTER_RULEBOOK.md"], "routine video read order drifted")
     require("config/media_speed_quality_policy.json" in read_set and "scripts/media_speed_orchestrator.py" in read_set, "routine video read set lost speed policy or runtime")
     require("config/current_media_quality_handoff.json" in read_set, "routine video read set lost cross-tab media handoff")
+    require("config/gemini_video_director_policy.json" in read_set and "scripts/gemini_video_director.py" in read_set and "docs/GEMINI_VIDEO_DIRECTOR.md" in read_set, "routine video read set lost Gemini video director")
     require("config/approved_video_template.json" in read_set and "docs/VIDEO_PRODUCTION_BASELINE.md" in read_set, "mandatory approved baseline recall missing")
     require(gate.get("speed_first_delivery_override", {}).get("routine_delivery_uses_override_instead_of_legacy_media_read_sets") is True, "routine delivery does not bypass legacy media guides")
     longform_reads = (gate.get("trigger_sets") or {}).get("VIDEO_CREATION", {}).get("conditional", {}).get("if_user_explicitly_requests_longform", [])
@@ -198,8 +216,13 @@ def main() -> int:
     require(item.get("runtime") == "scripts/media_speed_orchestrator.py", "manifest lost media speed runtime")
     require(item.get("validator") == "scripts/validate_media_speed_quality.py", "manifest lost media speed validator")
     require(item.get("checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "manifest lost verified media checkpoint sealer")
+    gemini_item = standards.get("gemini-video-director") or {}
+    require(gemini_item.get("machine_policy") == "config/gemini_video_director_policy.json", "manifest lost Gemini video policy")
+    require(gemini_item.get("runtime") == "scripts/gemini_video_director.py", "manifest lost Gemini video runtime")
+    require(gemini_item.get("priority") == 0, "Gemini video director must be priority-zero video knowledge")
     cross_tab = manifest.get("cross_tab_behavior") or {}
     require(cross_tab.get("media_speed_quality_policy_survives_tab_change") is True, "media speed policy does not survive tab changes")
+    require(cross_tab.get("gemini_video_director_survives_tab_change") is True, "Gemini video director does not survive tab changes")
 
     active = handoff.get("active_standards") or {}
     require(active.get("media_speed_quality_policy") == "config/media_speed_quality_policy.json", "commander handoff lost speed policy pointer")
@@ -213,6 +236,8 @@ def main() -> int:
     require(media_speed.get("deliver_completed_video_immediately") is True, "handoff delivery rule missing")
     require(media_speed.get("max_independent_preparation_lanes") == 2, "handoff lane ceiling drifted")
     require(media_speed.get("one_pass_final_encode") is True, "handoff one-pass encode rule missing")
+    require(media_speed.get("gemini_3_8_flash_is_formal_video_production_member") is True, "commander handoff lost Gemini video member")
+    require(media_speed.get("gemini_video_director_runtime") == "scripts/gemini_video_director.py", "commander handoff lost Gemini runtime")
     require(media_speed.get("jev_typed_profile_and_shape_decision") is True, "handoff Jev media decision rule missing")
 
     media_speed_handoff = media_handoff.get("speed_first_video_delivery") or {}
@@ -227,6 +252,10 @@ def main() -> int:
     require(media_speed_handoff.get("media_speed_checkpoint_sealer") == "scripts/seal_media_speed_checkpoint.py", "media quality handoff checkpoint sealer missing")
     require(media_speed_handoff.get("longform_renderer") == fast.get("default_renderer"), "media handoff fast long-form renderer pointer drifted")
     require(media_speed_handoff.get("preparation_lanes_max") == 2, "media handoff lane ceiling drifted")
+    gemini_handoff = media_speed_handoff.get("gemini_video_director") or {}
+    require(gemini_handoff.get("status") == "FORMAL_PRODUCTION_MEMBER", "media handoff lost Gemini production role")
+    require(gemini_handoff.get("model") == "gemini-3.8-flash", "media handoff Gemini model drifted")
+    require(gemini_handoff.get("one_youtube_url_per_request") is True, "media handoff lost Gemini YouTube contract")
 
     print(json.dumps({
         "status": "PASS",
