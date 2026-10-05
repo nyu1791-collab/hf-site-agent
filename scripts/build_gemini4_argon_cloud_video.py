@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -22,9 +23,11 @@ from PIL import Image, ImageDraw, ImageFont
 try:
     from .gemini_video_director import save_json
     from .video_build_job import build_job
+    from .synthesize_longform_voicevox import preflight_caption_metadata
 except ImportError:
     from gemini_video_director import save_json
     from video_build_job import build_job
+    from synthesize_longform_voicevox import preflight_caption_metadata
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_URL = "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/"
@@ -481,7 +484,28 @@ def main() -> int:
         p.error("mission content run ID does not match the job")
     mission_hash = hashlib.sha256(source_bytes).hexdigest()
     with build_job(args.output_dir, args.cache_root, args.content_run_id, mission_hash) as job:
+        # Finished/encoded checkpoints can be delivered without engine or shell setup.
+        if not (args.output_dir / "completion.json").exists() and not job.reusable("FINAL_ENCODE"):
+            _preflight_inputs(raw, args)
         return _build(args, job)
+
+
+def _preflight_inputs(raw, args):
+    scenes = raw.get("scenes")
+    if not isinstance(scenes, list) or not scenes:
+        raise ValueError("source mission requires scenes")
+    ids = [scene.get("scene_id") for scene in scenes]
+    if any(not isinstance(sid, str) or sid not in OFFICIAL_VISUALS or sid not in DIAGRAMS for sid in ids):
+        raise ValueError("unsupported scene ID; configure visuals before voice generation")
+    if len(set(ids)) != len(ids):
+        raise ValueError("duplicate source scene ID")
+    preflight_caption_metadata(_mission_for_voice({**raw, "content_run_id": args.content_run_id}))
+    for tool in ("ffmpeg", "ffprobe"):
+        if shutil.which(tool) is None:
+            raise RuntimeError("required media tool missing: " + tool)
+    if any(not (args.shell_root / name).is_dir() for name in ("Zundamon", "Metan")):
+        raise ValueError("approved Zundamon/Metan shell required before voice generation")
+    _font(30)
 
 
 if __name__ == "__main__":

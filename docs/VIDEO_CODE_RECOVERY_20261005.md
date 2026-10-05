@@ -95,3 +95,39 @@ mission construction and dispatch to final render are not completed by this patc
 
 No IAM/ADC changes, main changes, PR #40 merge, public upload, renderer rewrite,
 completed-source reanalysis or completed-video re-encode are part of this change.
+
+## Additional failure-boundary hardening
+
+The streaming encoder now closes and reaps its child on exceptions, Ctrl-C and
+CLI SIGTERM; a child that ignores termination is killed after a bounded grace
+period. A stalled final flush times out rather than hanging the job indefinitely.
+Frame generation, composition and FFmpeg settings are unchanged (the frame-loop
+AST was compared before/after). This is a process-lifecycle fix, not a visual or
+render-quality revision.
+
+WAV cache receipt generation and restoration now use the same in-memory byte
+snapshot. Replacing the shared file after validation cannot cause unverified
+bytes to be copied. Cache files use flush/fsync and atomic replacement.
+
+Mission IDs, dialogue IDs/text, supported cast, distinct scenes, finite duration
+bounds, required media tools, font and character shell are checked before voice
+generation. Invalid later dialogue cannot waste synthesis on earlier lines.
+Already completed/encoded jobs bypass voice/shell preflight and recover delivery.
+
+Cached/live Gemini JSON is checked for the existing required field shapes and
+source/model identity. Invalid saved results stop without a new provider call.
+The prompt and cache-key version are unchanged; existing valid analyses are
+preserved. This is a schema gate, not another AI review or factual adjudication.
+
+Related tests: 80 PASS, including actual small child-process lifecycle tests,
+cache replacement races and early-input rejection. No cloud calls, voice
+generation or real video rendering were required for these tests.
+
+Implementation references consulted:
+
+- [Python subprocess](https://docs.python.org/3/library/subprocess.html): explicit
+  termination, timeout handling, closing pipes and reaping child processes.
+- [Python os](https://docs.python.org/3/library/os.html): flush/fsync and POSIX
+  atomic replacement semantics.
+- [Python wave](https://docs.python.org/3/library/wave.html): PCM frame counts and
+  file-like input for validating the exact byte snapshot.

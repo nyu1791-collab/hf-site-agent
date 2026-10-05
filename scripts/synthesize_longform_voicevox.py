@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, base64, gzip, hashlib, json, os, re, subprocess, sys, urllib.parse, urllib.request, wave
+import argparse, base64, gzip, hashlib, json, math, os, re, subprocess, sys, urllib.parse, urllib.request, wave
 from pathlib import Path
 
 try:
@@ -123,11 +123,26 @@ def preflight_caption_metadata(mission: dict) -> dict:
         from .validate_video_caption_contract import validate_shortform_emphasis
     except ImportError:
         from validate_video_caption_contract import validate_shortform_emphasis
+    if not isinstance(mission.get("mission_id"), str) or not mission["mission_id"].strip():
+        raise ValueError("mission_id required before voice generation")
+    if not isinstance(mission.get("scenes"), list) or not mission["scenes"]:
+        raise ValueError("nonempty scenes required before voice generation")
     metadata = {}
     lines = {}
     records = []
+    scene_ids = set()
     for scene in mission["scenes"]:
+        scene_id = scene.get("scene_id")
+        if not isinstance(scene_id, str) or not scene_id.strip() or scene_id in scene_ids:
+            raise ValueError("distinct nonempty scene IDs required")
+        scene_ids.add(scene_id)
+        if not isinstance(scene.get("dialogue"), list) or not scene["dialogue"]:
+            raise ValueError("nonempty scene dialogue required")
         for line in scene["dialogue"]:
+            if line.get("speaker") not in STANDARD_CAST:
+                raise ValueError("mission speaker is outside standard cast")
+            if not isinstance(line.get("voice_text"), str) or not line["voice_text"].strip():
+                raise ValueError("nonempty narration text required")
             line_id = str(line["id"])
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", line_id):
                 raise ValueError("dialogue id must be path-safe")
@@ -164,6 +179,9 @@ def main():
     ap.add_argument("--max-seconds",type=float,default=720)
     ap.add_argument("--speed-scale",type=float,default=DEFAULT_SPEED_SCALE)
     args=ap.parse_args()
+    if not (math.isfinite(args.min_seconds) and math.isfinite(args.max_seconds)
+            and 0 <= args.min_seconds <= args.max_seconds):
+        ap.error("duration bounds must be finite and satisfy 0 <= min <= max")
     if not (0.5 <= args.speed_scale <= 2.0):
         raise SystemExit(f"invalid VOICEVOX speed scale: {args.speed_scale}")
 

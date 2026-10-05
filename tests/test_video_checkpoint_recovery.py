@@ -29,14 +29,19 @@ class VideoCheckpointRecoveryTests(unittest.TestCase):
         cache = self.job / "cache/gemini-video-director"
         analyses = []
         for url in json.loads(self.plan.read_text())["items"][0]["youtube_urls"]:
-            analysis = {"source_url": url, "model": director.DEFAULT_MODEL, "summary": "cached"}
+            analysis = {"source_url": url, "model": director.DEFAULT_MODEL, "summary": "cached",
+                        **{field: [] for field in ("takeaways", "timestamps", "visual_beats", "script_notes", "material_limits")}}
             analyses.append(analysis)
             key = director.stable_cache_key(model=director.DEFAULT_MODEL, source_url=url,
                                             topic="Topic", item_id="topic")
             director.save_json(cache / "sources" / (key + ".json"), analysis)
         key = director.synthesis_cache_key(model=director.DEFAULT_MODEL, topic="Topic",
                                            item_id="topic", analyses=analyses)
-        director.save_json(cache / "synthesis" / (key + ".json"), {"editorial_summary": "cached"})
+        director.save_json(cache / "synthesis" / (key + ".json"), self.synthesis())
+
+    def synthesis(self):
+        return {"editorial_summary": "cached", **{field: [] for field in (
+            "selected_takeaways", "best_source_moments", "dialogue_plan", "scene_plan", "conflicts_or_uncertainty")}}
 
     def test_all_cached_recovery_needs_no_client_or_provider(self):
         self.seed_cache()
@@ -55,7 +60,7 @@ class VideoCheckpointRecoveryTests(unittest.TestCase):
         for path in (self.job / "cache/gemini-video-director/synthesis").iterdir():
             path.unlink()
         with mock.patch.object(director, "create_client", return_value=object()) as client, \
-             mock.patch.object(director, "synthesize_item", return_value={"editorial_summary": "new"}) as synthesis, \
+             mock.patch.object(director, "synthesize_item", return_value=self.synthesis()) as synthesis, \
              mock.patch.object(director, "analyze_one", side_effect=AssertionError("do not reanalyze")):
             self.assertEqual(worker.run_job(self.job)["state"], "RESEARCH_READY")
         client.assert_called_once()
@@ -109,6 +114,22 @@ class VideoCheckpointRecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "recover explicitly"):
             _completed_job(self.root, "test-run", "mission")
         self.assertEqual(output.read_bytes(), b"preserve")
+
+    def test_malformed_saved_analysis_stops_without_provider_call(self):
+        self.seed_cache()
+        cached = next((self.job / "cache/gemini-video-director/sources").iterdir())
+        director.save_json(cached, [])
+        with mock.patch.object(director, "create_client", side_effect=AssertionError("no automatic reanalysis")):
+            self.assertEqual(worker.run_job(self.job)["state"], "FAILED")
+
+    def test_wrong_saved_source_identity_stops_without_provider_call(self):
+        self.seed_cache()
+        cached = next((self.job / "cache/gemini-video-director/sources").iterdir())
+        data = json.loads(cached.read_text())
+        data["source_url"] = "https://youtu.be/different"
+        director.save_json(cached, data)
+        with mock.patch.object(director, "create_client", side_effect=AssertionError("no automatic reanalysis")):
+            self.assertEqual(worker.run_job(self.job)["state"], "FAILED")
 
 
 if __name__ == "__main__":
