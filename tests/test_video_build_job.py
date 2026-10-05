@@ -97,6 +97,69 @@ class VideoBuildJobTests(unittest.TestCase):
         with mock.patch("subprocess.check_output", side_effect=AssertionError("no ffprobe")):
             self.assertEqual(duration(path), 1.0)
 
+    def test_voice_checkpoint_survives_visual_failure_without_engine_access(self):
+        from scripts import build_gemini4_argon_cloud_video as builder
+        from scripts.gemini_video_director import save_json
+        import hashlib
+        self.output.mkdir()
+        mission = self.root / "mission.json"
+        save_json(mission, {"title": "Topic", "content_run_id": "one"})
+        digest = hashlib.sha256(mission.read_bytes()).hexdigest()
+        audio = self.output / "audio.wav"
+        audio.write_bytes(b"prepared")
+        timing = self.output / "voice-timing.json"
+        save_json(timing, {"total_duration": 600, "records": []})
+        args = SimpleNamespace(mission=mission, output_dir=self.output, cache_root=self.cache,
+                               content_run_id="one", voicevox_url="http://127.0.0.1:50021")
+        with build_job(self.output, self.cache, "one", digest) as job:
+            job.checkpoint("VOICE_AUDIO", [audio, timing])
+            with mock.patch.object(builder, "_mission_for_voice", return_value={"content_run_id": "one"}), \
+                 mock.patch.object(builder, "_synthesize", side_effect=AssertionError("no engine access")), \
+                 mock.patch.object(builder, "_prepare_visuals", side_effect=RuntimeError("visual failure")):
+                with self.assertRaisesRegex(RuntimeError, "visual failure"):
+                    builder._build(args, job)
+            self.assertTrue(job.reusable("VOICE_AUDIO"))
+
+    def test_encode_checkpoint_resumes_delivery_without_encoder_or_preparation(self):
+        from scripts import build_gemini4_argon_cloud_video as builder
+        from scripts.gemini_video_director import save_json
+        import hashlib
+        self.output.mkdir()
+        mission = self.root / "mission.json"
+        save_json(mission, {"title": "Topic", "content_run_id": "one"})
+        digest = hashlib.sha256(mission.read_bytes()).hexdigest()
+        output = self.output / "Gemini4_Argon_landscape.mp4"
+        output.write_bytes(b"finished encode")
+        args = SimpleNamespace(mission=mission, output_dir=self.output, content_run_id="one")
+        probe = {"format": {"duration": "600"}, "streams": [
+            {"codec_type": "video", "width": 1280, "height": 720}, {"codec_type": "audio"}]}
+        with build_job(self.output, self.cache, "one", digest) as job:
+            job.checkpoint("FINAL_ENCODE", [output])
+            with mock.patch.object(builder.subprocess, "run", side_effect=AssertionError("no encoder")), \
+                 mock.patch.object(builder, "_mission_for_voice", side_effect=AssertionError("no preparation")), \
+                 mock.patch.object(builder.subprocess, "check_output", return_value=json.dumps(probe)) as ffprobe, \
+                 mock.patch("builtins.print"):
+                self.assertEqual(builder._build(args, job), 0)
+                self.assertEqual(builder._build(args, job), 0)
+                ffprobe.assert_called_once()
+        completion = json.loads((self.output / "completion.json").read_text())
+        self.assertTrue(completion["recovered_after_encode"])
+        self.assertEqual(completion["final_video_encode_count"], 1)
+
+    def test_official_image_cache_reuses_verified_bytes_across_jobs(self):
+        from scripts import build_gemini4_argon_cloud_video as builder
+        from PIL import Image
+        import io
+        data = io.BytesIO()
+        Image.new("RGB", (10, 10), "white").save(data, format="PNG")
+        first = self.root / "first.png"
+        second = self.root / "second.png"
+        with mock.patch.object(builder.urllib.request, "urlopen", return_value=io.BytesIO(data.getvalue())) as request:
+            self.assertTrue(builder._download_official("https://example.com/official.png", first, self.cache))
+            self.assertTrue(builder._download_official("https://example.com/official.png", second, self.cache))
+            request.assert_called_once()
+        self.assertEqual(first.read_bytes(), second.read_bytes())
+
 
 if __name__ == "__main__":
     unittest.main()

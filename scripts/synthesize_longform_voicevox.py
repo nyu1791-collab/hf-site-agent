@@ -4,9 +4,11 @@ import argparse, base64, gzip, hashlib, json, os, re, subprocess, sys, urllib.pa
 from pathlib import Path
 
 try:
+    from .gemini_video_director import save_json
     from .media_performance_plan import validate_emphasis
     from .media_voice_cache import voice_cache_key, restore_voice, store_voice
 except ImportError:
+    from gemini_video_director import save_json
     from media_performance_plan import validate_emphasis
     from media_voice_cache import voice_cache_key, restore_voice, store_voice
 
@@ -242,7 +244,7 @@ def main():
         "records":records,
         "total_duration":t,
         "line_count":len(records),
-        "audio_source":"VOICEVOX_LOCAL_AND_FFPROBE_ACTUAL_GENERATED_WAV",
+        "audio_source":"VOICEVOX_LOCAL_AND_PCM_WAV_HEADER_ACTUAL_GENERATED_WAV",
         "subtitle_narration_coverage_ratio":1.0,
         "caption_contract": "FULL_SPOKEN_TEXT",
         "caption_coverage_ratio": min((float(record["caption_coverage_ratio"]) for record in records), default=1.0),
@@ -254,7 +256,7 @@ def main():
         "voicevox_credit":["VOICEVOX:ずんだもん","VOICEVOX:四国めたん"],
     }
     args.timing_out.parent.mkdir(parents=True,exist_ok=True)
-    args.timing_out.write_text(json.dumps(timing,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    save_json(args.timing_out, timing)
     print(json.dumps({"line_count":len(records),"total_duration":t,"speed_scale":args.speed_scale,
         "voice_cache_hits":cache_hits,
         "voice_cache_misses":len(records)-cache_hits,

@@ -44,6 +44,25 @@ gate. Those implementations and the successful renderer are preserved.
   paths before runtime bootstrap, uses the neutral output name, has no external
   `/usr/bin/time` dependency and never cancels an active build to start another.
   Finished MP4 upload uses zero compression and 30-day retention.
+- Voice/audio has its own immutable timing checkpoint, so visual failure can
+  resume without contacting the engine. An encode-success hash checkpoint is
+  committed before the delivery gate; delivery failure resumes only ffprobe and
+  completion saving, never the encoder. MP4s without either encode-success or
+  completion proof still stop safely and remain untouched.
+- Official image caches verify source URL and PNG SHA before reuse. Shared
+  image entries are reused for up to 24 hours; the same-job saved image remains
+  available during recovery. Timing and image receipts use atomic writes.
+- Cloud job checkpoints are keyed by job ID plus mission SHA and saved after
+  success/failure. A completed recovered job bypasses tool installation, engine
+  startup, character preparation and build. The workflow collects the builder's
+  existing completion result instead of running a second ffprobe.
+- The legacy fixed-job VM workflow is manual recovery only. Code pushes no
+  longer automatically restart that old production job on the small VM.
+
+The latest recovery changes pass 49 related runtime tests and four workflow
+contract tests, including embedded shell/Python syntax. No real video has been
+rendered again for this maintenance task. VM Git push authentication remains the
+user's task; no credential or SSH-key changes are made here.
 
 ## Deployment limits
 

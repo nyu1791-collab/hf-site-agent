@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import time
+import tempfile
 import urllib.request
 import wave
 from pathlib import Path
@@ -85,20 +86,66 @@ def _diagram(path: Path, title: str, main: str, sub: str) -> None:
     im.save(path)
 
 
-def _download_official(url: str, destination: Path) -> bool:
+def _download_official(url: str, destination: Path, cache_root: Path | None = None) -> bool:
+    receipt_path = destination.with_suffix(".download.json")
+    def verified(path, receipt, *, fresh=False):
+        try:
+            data = json.loads(receipt.read_text())
+            return (data["source_url"] == url and path.is_file()
+                    and data["sha256"] == _file_sha256(path)
+                    and (not fresh or 0 <= time.time() - data["saved_at"] < 86400))
+        except (OSError, ValueError, KeyError, TypeError):
+            return False
+    if verified(destination, receipt_path):
+        return True
+    cache_path = cache_receipt = None
+    if cache_root is not None:
+        key = hashlib.sha256(url.encode()).hexdigest()
+        cache_path = cache_root / (key + ".png")
+        cache_receipt = cache_path.with_suffix(".json")
+        if verified(cache_path, cache_receipt, fresh=True):
+            _atomic_image_bytes(destination, cache_path.read_bytes())
+            save_json(receipt_path, json.loads(cache_receipt.read_text()))
+            return True
     raw = destination.with_suffix(".source")
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=30) as response:
-            raw.write_bytes(response.read(20_000_000))
+            data = response.read(20_000_001)
+            if len(data) > 20_000_000:
+                raise ValueError("official image exceeds download limit")
+            raw.write_bytes(data)
         with Image.open(raw) as im:
             im.seek(0)
-            im.convert("RGB").save(destination)
+            # Preserve a prior finished PNG if conversion is interrupted.
+            fd, temporary = tempfile.mkstemp(prefix=".official-", dir=destination.parent)
+            os.close(fd)
+            try:
+                im.convert("RGB").save(temporary, format="PNG")
+                os.replace(temporary, destination)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
+        receipt = {"source_url": url, "sha256": _file_sha256(destination), "saved_at": time.time()}
+        save_json(receipt_path, receipt)
+        if cache_path is not None:
+            _atomic_image_bytes(cache_path, destination.read_bytes())
+            save_json(cache_receipt, receipt)
         raw.unlink(missing_ok=True)
         return True
     except Exception:
         raw.unlink(missing_ok=True)
         return False
+
+
+def _atomic_image_bytes(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".official-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 def _mission_for_voice(raw: dict) -> dict:
@@ -167,7 +214,7 @@ def _assemble_audio(voice: Path, timing_path: Path, destination: Path) -> dict:
     return timing
 
 
-def _prepare_visuals(raw: dict, out: Path, timing: dict) -> tuple[Path, Path]:
+def _prepare_visuals(raw: dict, out: Path, timing: dict, cache_root: Path | None = None) -> tuple[Path, Path]:
     images = out / "images"
     images.mkdir(parents=True, exist_ok=True)
     visuals = []
@@ -175,7 +222,7 @@ def _prepare_visuals(raw: dict, out: Path, timing: dict) -> tuple[Path, Path]:
     for scene in raw["scenes"]:
         sid = scene["scene_id"]
         official = images / f"{sid}-official.png"
-        downloaded = _download_official(OFFICIAL_VISUALS[sid], official)
+        downloaded = _download_official(OFFICIAL_VISUALS[sid], official, cache_root)
         if downloaded:
             visuals.append({
                 "id": f"{sid}-official",
@@ -265,10 +312,10 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _completed_job(out: Path, content_run_id: str, mission_sha256: str) -> dict | None:
+def _completed_job(out: Path, content_run_id: str, mission_sha256: str, *, encoded_checkpoint: bool = False) -> dict | None:
     checkpoint = out / "completion.json"
     if not checkpoint.is_file():
-        if (out / "Gemini4_Argon_landscape.mp4").exists():
+        if (out / "Gemini4_Argon_landscape.mp4").exists() and not encoded_checkpoint:
             raise RuntimeError("MP4 exists without a completion checkpoint; preserve it and recover explicitly before encoding")
         existing = out / "mission.json"
         if existing.is_file() and json.loads(existing.read_text(encoding="utf-8")).get("content_run_id") != content_run_id:
@@ -291,15 +338,21 @@ def _build(args, job) -> int:
     total_started = time.monotonic()
     source_bytes = args.mission.read_bytes()
     mission_sha256 = hashlib.sha256(source_bytes).hexdigest()
+    if mission_sha256 != job.state["mission_sha256"]:
+        raise RuntimeError("mission changed after job registration")
     raw = json.loads(source_bytes)
     if raw.get("content_run_id", args.content_run_id) != args.content_run_id:
         raise RuntimeError("mission content run ID does not match the job")
     raw["content_run_id"] = args.content_run_id
-    completed = _completed_job(args.output_dir, args.content_run_id, mission_sha256)
+    encoded = job.reusable("FINAL_ENCODE")
+    completed = _completed_job(args.output_dir, args.content_run_id, mission_sha256, encoded_checkpoint=encoded)
     if completed is not None:
         job.complete()
         print(json.dumps(completed, ensure_ascii=False))
         return 0
+    if encoded:
+        return _finalize(args, job, raw, mission_sha256, total_started,
+                         job.state.get("stage_seconds", {}), recovered=True)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     mission = _mission_for_voice(raw)
     save_json(args.output_dir / "mission.json", mission)
@@ -311,15 +364,22 @@ def _build(args, job) -> int:
         presentation = args.output_dir / "presentation.json"
         first_visual = Path(json.loads(presentation.read_text())["visuals"][0]["file"])
     else:
-        job.stage("VOICEVOX")
         voice_started = time.monotonic()
-        voice, timing_path = _synthesize(mission, args.output_dir, args.voicevox_url, args.cache_root)
-        timing = _assemble_audio(voice, timing_path, audio)
+        voice_timing = args.output_dir / "voice-timing.json"
+        if job.reusable("VOICE_AUDIO"):
+            timing = json.loads(voice_timing.read_text())
+            save_json(args.output_dir / "timing.json", timing)
+        else:
+            job.stage("VOICEVOX")
+            voice, timing_path = _synthesize(mission, args.output_dir, args.voicevox_url, args.cache_root)
+            timing = _assemble_audio(voice, timing_path, audio)
+            save_json(voice_timing, timing)
+            job.checkpoint("VOICE_AUDIO", [audio, voice_timing])
         voice_seconds = time.monotonic() - voice_started
 
         job.stage("VISUAL_PREPARATION")
         visual_started = time.monotonic()
-        presentation, first_visual = _prepare_visuals(raw, args.output_dir, timing)
+        presentation, first_visual = _prepare_visuals(raw, args.output_dir, timing, args.cache_root / "official-assets")
         visual_seconds = time.monotonic() - visual_started
         visual_files = [Path(row["file"]) for row in json.loads(presentation.read_text())["visuals"]]
         job.checkpoint("PREPARATION", [audio, args.output_dir / "timing.json", presentation, *visual_files])
@@ -351,7 +411,16 @@ def _build(args, job) -> int:
         "--duration", str(float(timing["total_duration"])),
     ], cwd=ROOT, check=True)
     render_seconds = time.monotonic() - render_started
+    stage_seconds = {"voice_and_audio": round(voice_seconds, 3),
+                     "visual_prep": round(visual_seconds, 3),
+                     "one_pass_render": round(render_seconds, 3)}
+    job.state["stage_seconds"] = stage_seconds
+    job.checkpoint("FINAL_ENCODE", [output])
+    return _finalize(args, job, raw, mission_sha256, total_started, stage_seconds)
 
+
+def _finalize(args, job, raw, mission_sha256, total_started, stage_seconds, *, recovered=False):
+    output = args.output_dir / "Gemini4_Argon_landscape.mp4"
     job.stage("DELIVERY_GATE")
     probe = json.loads(subprocess.check_output([
         "ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(output)
@@ -379,14 +448,13 @@ def _build(args, job) -> int:
         "fal_used": False,
         "nano_banana_required": False,
         "public_publish": False,
-        "sha256": _file_sha256(output),
+        "sha256": job.state["checkpoints"]["FINAL_ENCODE"][output.name],
         "bytes": output.stat().st_size,
         "stage_seconds": {
-            "voice_and_audio": round(voice_seconds, 3),
-            "visual_prep": round(visual_seconds, 3),
-            "one_pass_render": round(render_seconds, 3),
+            **stage_seconds,
             "total": round(time.monotonic() - total_started, 3)
-        }
+        },
+        "recovered_after_encode": recovered,
     }
     save_json(args.output_dir / "completion.json", completion)
     job.complete()
