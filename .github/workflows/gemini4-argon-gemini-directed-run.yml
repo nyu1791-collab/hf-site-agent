@@ -1,0 +1,160 @@
+name: Fresh Gemini-directed Argon speed build
+
+on:
+  push:
+    branches:
+      - run/gemini4-argon-fresh-20261005-0807
+    paths:
+      - missions/media/20261005-gemini4-argon-fresh-0807.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: gemini4-argon-fresh-20261005-0807
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/run/gemini4-argon-fresh-20261005-0807'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CONTENT_RUN_ID: gemini4-argon-fresh-20261005-0807
+      OUT: artifacts/gemini4-argon-fresh-20261005-0807
+      CACHE: .media-cache/assets
+      MISSION: missions/media/20261005-gemini4-argon-fresh-0807.json
+      ARTIFACT_NAME: gemini4-argon-fresh-20261005-0807
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Protect completed jobs and validate fresh input before setup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/build_gemini4_argon_cloud_video.py scripts/synthesize_longform_voicevox.py scripts/render_reusable_landscape.py scripts/validate_video_content_contract.py
+          python3 -m json.tool config/approved_landscape_video_template.json >/dev/null
+          python3 - <<'PY'
+          import json, os, urllib.parse, urllib.request
+          from pathlib import Path
+          mission=json.loads(Path(os.environ["MISSION"]).read_text())
+          assert mission.get("content_run_id") == os.environ["CONTENT_RUN_ID"]
+          assert mission.get("title") and mission.get("source_url") and mission.get("scenes")
+          assert {line["speaker"] for scene in mission["scenes"] for line in scene["dialogue"]} == {"ずんだもん", "四国めたん"}
+          name=urllib.parse.quote(os.environ["ARTIFACT_NAME"], safe="")
+          url=f'https://api.github.com/repos/{os.environ["GITHUB_REPOSITORY"]}/actions/artifacts?name={name}&per_page=100'
+          request=urllib.request.Request(url,headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"Accept":"application/vnd.github+json"})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              artifacts=json.load(response)["artifacts"]
+          if any(not row["expired"] for row in artifacts):
+              raise SystemExit("This content run already has an uploaded artifact; automatic rebuilding is disabled.")
+          PY
+
+      - name: Restore reusable character assets only
+        uses: actions/cache@v4
+        with:
+          path: .media-cache/assets
+          key: character-shell-only-v1-${{ runner.os }}-zm-shell-20230806
+
+      - name: Install missing media tools
+        run: |
+          set -euo pipefail
+          missing=()
+          command -v ffmpeg >/dev/null || missing+=(ffmpeg)
+          fc-match 'Noto Sans CJK JP' 2>/dev/null | grep -qi 'Noto' || missing+=(fonts-noto-cjk fontconfig)
+          if (( ${#missing[@]} )); then
+            sudo apt-get update -y
+            sudo apt-get install -y "${missing[@]}"
+          fi
+          python3 - <<'PY' || python3 -m pip install --disable-pip-version-check --no-input pillow
+          import PIL
+          print(PIL.__version__)
+          PY
+          mkdir -p "$OUT" "$CACHE"
+
+      - name: Resolve reusable character shell
+        run: |
+          set -euo pipefail
+          python3 scripts/media_asset_resolver.py --asset-id zm_shell_20230806 --cache-root "$CACHE" --allow-network --max-workers 1 --manifest-out "$OUT/character-shell.json"
+          RAW="$(python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          manifest=json.loads((Path(os.environ["OUT"])/"character-shell.json").read_text())
+          path=manifest["results"][0].get("extracted_path")
+          assert path and Path(path).is_dir()
+          print(path)
+          PY
+          )"
+          python3 scripts/character_shell_root.py "$RAW" > "$OUT/character-shell-root.txt"
+
+      - name: Start private VOICEVOX on the independent render worker
+        run: |
+          set -euo pipefail
+          IMAGE=voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE"
+          docker run -d --name voicevox -p 127.0.0.1:50021:50021 -e VV_CPU_NUM_THREADS=1 "$IMAGE"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 2 http://127.0.0.1:50021/version >/dev/null; then
+              curl -fsS --max-time 2 http://127.0.0.1:50021/version
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs voicevox || true
+          exit 1
+
+      - name: Generate fresh audio and encode the final MP4 once
+        run: |
+          set -euo pipefail
+          SHELL_ROOT="$(cat "$OUT/character-shell-root.txt")"
+          python3 scripts/build_gemini4_argon_cloud_video.py --mission "$MISSION" --content-run-id "$CONTENT_RUN_ID" --shell-root "$SHELL_ROOT" --output-dir "$OUT" --voicevox-url http://127.0.0.1:50021
+
+      - name: Minimum delivery gate
+        run: |
+          set -euo pipefail
+          FINAL="$OUT/Gemini4_Argon_landscape.mp4"
+          test -s "$FINAL"
+          ffprobe -v error -show_streams -show_format -of json "$FINAL" > "$OUT/ffprobe.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          data=json.loads((Path(os.environ["OUT"])/"ffprobe.json").read_text())
+          video=[row for row in data["streams"] if row["codec_type"]=="video"]
+          audio=[row for row in data["streams"] if row["codec_type"]=="audio"]
+          assert video and audio
+          assert (int(video[0]["width"]),int(video[0]["height"])) == (1280,720)
+          assert float(data["format"]["duration"]) > 0
+          print({"status":"PASS","duration_seconds":float(data["format"]["duration"])})
+          PY
+
+      - name: Upload completed internal video
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: |
+            ${{ env.OUT }}/Gemini4_Argon_landscape.mp4
+            ${{ env.OUT }}/completion.json
+            ${{ env.OUT }}/ffprobe.json
+            ${{ env.OUT }}/presentation.json
+            ${{ env.OUT }}/timing.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload failed-job diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini4-argon-fresh-diagnostics-${{ github.run_id }}
+          path: |
+            ${{ env.OUT }}/mission.json
+            ${{ env.OUT }}/timing.json
+            ${{ env.OUT }}/presentation.json
+            ${{ env.OUT }}/character-shell.json
+          if-no-files-found: warn
+          retention-days: 7
