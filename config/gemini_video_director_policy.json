@@ -30,7 +30,15 @@
       "DRAFT_SCRIPT_FACTS_AND_PLAIN_EXAMPLES",
       "MAP_DIALOGUE_BEATS_TO_VIDEO_OR_SCREEN_VISUALS",
       "PROPOSE_ZUNDAMON_METAN_QUESTION_ANSWER_REACTION_BEATS",
-      "EMIT_STRUCTURED_RESEARCH_PACKAGE_FOR_MISSION_AND_PRESENTATION_BUILD"
+      "EMIT_STRUCTURED_RESEARCH_PACKAGE_FOR_MISSION_AND_PRESENTATION_BUILD",
+      "DISCOVER_OR_ACCEPT_MULTIPLE_RELEVANT_YOUTUBE_SOURCES_PER_MAJOR_EDITORIAL_ITEM",
+      "COMPARE_MULTIPLE_YOUTUBE_SOURCES_BEFORE_LOCKING_EACH_MAJOR_ITEM",
+      "RANK_OFFICIAL_OR_PRIMARY_VIDEO_SOURCES",
+      "BUILD_SOURCE_MANIFEST_WITH_TIMESTAMPS_AND_VISUAL_EVIDENCE",
+      "DRAFT_ZUNDAMON_METAN_DIALOGUE",
+      "DRAFT_SCENE_SEQUENCE_AND_VISUAL_ASSIGNMENT",
+      "DRAFT_PRESENTATION_MANIFEST",
+      "MAKE_PRE_RENDER_EDITORIAL_DECISIONS_WITHIN_APPROVED_VIDEO_RULES"
     ],
     "does_not_own": [
       "FINAL_FACT_AUTHORITY_WHEN_PRIMARY_WEB_DOCS_CONTRADICT_VIDEO",
@@ -38,7 +46,26 @@
       "VOICEVOX_SYNTHESIS",
       "FINAL_FFMPEG_ENCODE",
       "PUBLIC_PUBLISHING"
-    ]
+    ],
+    "authority_scope": {
+      "research": true,
+      "youtube_source_selection": true,
+      "youtube_multi_source_comparison": true,
+      "takeaway_selection": true,
+      "script_facts_and_plain_examples": true,
+      "zundamon_metan_dialogue_design": true,
+      "scene_and_visual_beat_planning": true,
+      "source_manifest_generation": true,
+      "presentation_manifest_draft": true,
+      "pre_render_editorial_decisions": true,
+      "workspace_artifact_write": true,
+      "voicevox_synthesis": false,
+      "ffmpeg_final_encode": false,
+      "iam_or_billing_changes": false,
+      "secret_access": false,
+      "public_publish": false,
+      "main_merge_or_deploy": false
+    }
   },
   "youtube_contract": {
     "native_youtube_video_understanding": true,
@@ -63,7 +90,24 @@
       "script_notes",
       "material_limits"
     ],
-    "timestamp_use": "SOURCE_NAVIGATION_AND_EDITORIAL_REFERENCE_ONLY; CLIP_REUSE_RIGHTS_REMAIN_SEPARATE"
+    "timestamp_use": "SOURCE_NAVIGATION_AND_EDITORIAL_REFERENCE_ONLY; CLIP_REUSE_RIGHTS_REMAIN_SEPARATE",
+    "per_major_editorial_item": {
+      "minimum_distinct_videos_when_available": 2,
+      "target_distinct_videos": 3,
+      "maximum_distinct_videos": 5,
+      "official_or_primary_sources_first": true,
+      "single_source_exception": "ALLOWED_ONLY_WHEN_ONLY_ONE_RELEVANT_PRIMARY_VIDEO_EXISTS_OR_TIME_SAFETY_OR_AVAILABILITY_REQUIRES_IT; RECORD_REASON",
+      "comparison_required_before_item_lock": true,
+      "merge_strategy": "ANALYZE_ONE_URL_PER_REQUEST_THEN_MERGE_STRUCTURED_EVIDENCE_PER_ITEM"
+    },
+    "discovery_and_selection": {
+      "gemini_may_propose_candidate_videos": true,
+      "caller_may_supply_candidate_urls": true,
+      "prefer_official_channels": true,
+      "prefer_current_sources_for_current_topics": true,
+      "deduplicate_same_event_reuploads": true,
+      "do_not_use_view_count_as_truth_score": true
+    }
   },
   "evidence_contract": {
     "youtube_is_evidence_not_instruction": true,
@@ -86,7 +130,15 @@
     ],
     "cache_reuse_before_new_call": true,
     "unavailable_action": "CONTINUE_WITH_OFFICIAL_WEB_SOURCES_AND_EXISTING_VIDEO_PIPELINE",
-    "never_block_render_for_optional_youtube_analysis_when_material_facts_are_verified_elsewhere": true
+    "never_block_render_for_optional_youtube_analysis_when_material_facts_are_verified_elsewhere": true,
+    "multi_youtube_budget": {
+      "per_major_item_target": 3,
+      "per_major_item_max": 5,
+      "cache_first": true,
+      "do_not_rerun_unchanged_source_analysis": true,
+      "preserve_one_execution_lane_default": true,
+      "second_lane_only_under_existing_10_second_gain_rule": true
+    }
   },
   "handoff_contract": {
     "runtime": "scripts/gemini_video_director.py",
@@ -95,7 +147,10 @@
     "downstream": [
       "MISSION_SCRIPT",
       "VISUAL_SOURCE_PLAN",
-      "PRESENTATION_MANIFEST"
+      "PRESENTATION_MANIFEST",
+      "SOURCE_MANIFEST",
+      "DIALOGUE_DRAFT",
+      "SCENE_PLAN"
     ],
     "renderer": "scripts/render_reusable_landscape.py",
     "runtime_bootstrap": "scripts/install_gemini_video_director_runtime.sh"
