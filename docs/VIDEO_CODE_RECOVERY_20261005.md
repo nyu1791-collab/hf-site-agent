@@ -48,9 +48,23 @@ gate. Those implementations and the successful renderer are preserved.
 ## Deployment limits
 
 Offline regression tests use saved JSON, mock clients and mock engine processes;
-they do not consume Gemini calls, synthesize voice or render a video. These tests
-prove code behavior, not live VM deployment. The managed `/workspace` environment
-is distinct from `instance-20261001-071545`; no VM service deployment is claimed.
+they do not consume Gemini calls, synthesize voice or render a video. Local
+related tests: 46 PASS. On 2026-10-05 at 10:49 UTC, independent VM-control
+Run [37299011898](https://github.com/nyu1791-collab/-hf-vm-control/actions/runs/37299011898)
+installed pinned runtime `daae0491ffd3dd2b3e1a9ff785e3367baaf59475` in
+`/home/n_yu1791/hf-site-agent-runs/speed-runtime-daae0491ffd3dd2b3e1a9ff785e3367baaf59475/code`.
+It passed 24 relevant offline tests on the actual VM and confirmed resident
+VOICEVOX enabled/active, Restart=always/3s. Existing working directories, jobs and
+completed media were preserved. No render was started on the small VM.
+
+Shared cache: `/home/n_yu1791/.cache/hf-site-agent`.
+Runtime pointer: `~/.local/state/hf-site-agent/video-runtime.json`.
+For new production explicitly select that pinned code; installing a worktree
+does not change existing running processes or the canonical branch's workflow.
+GitHub account `nyu1791-collab` has verified primary email `n.yu1791@gmail.com`;
+new commits use it. The VM OS user is `n_yu1791`, home `/home/n_yu1791`, shell
+`/bin/bash`. Runner operation is verified; direct SSH login remains unverified.
+
 The existing research worker still stops at `RESEARCH_READY`; automatic editorial
 mission construction and dispatch to final render are not completed by this patch.
 
