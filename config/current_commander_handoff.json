@@ -303,7 +303,12 @@
     "default_parallel_lanes": 1,
     "parallelism_policy": "SEQUENTIAL_BY_DEFAULT; MAX_TWO_INDEPENDENT_PREPARATION_LANES",
     "preflight_before_heavy_bootstrap": true,
-    "per_scene_h264_fast_path": false
+    "per_scene_h264_fast_path": false,
+    "gemini_video_director_policy": "config/gemini_video_director_policy.json",
+    "gemini_video_director_runtime": "scripts/gemini_video_director.py",
+    "gemini_3_8_flash_is_formal_video_production_member": true,
+    "gemini_youtube_research_feeds_script_and_visual_plan": true,
+    "gemini_youtube_one_url_per_request": true
   },
   "legacy_cleanup_fixed_rules": {
     "legacy_registry": "config/legacy_deepseek_compatibility.json",
