@@ -109,7 +109,8 @@
       ],
       "fallback": "CONTINUE_EXISTING_PIPELINE_IF_MATERIAL_FACTS_VERIFIED_ELSEWHERE",
       "no_extra_review_pass": true
-    }
+    },
+    "gemini_video_research_stage": "USE_FOR_CURRENT_OR_YOUTUBE_RELEVANT_VIDEO_WHEN_ADC_RUNTIME_AVAILABLE; CACHE_RESULT; ONE_URL_PER_REQUEST; NO_EXTRA_REVIEW_PASS"
   },
   "approved_reference": {
     "output": "DevDay2026_corrected_47s.mp4",
@@ -247,5 +248,27 @@
     "extra_candidates_allowed": true,
     "renderer_uses_first_required_candidates_deterministically": true,
     "batch_goal": "MANY_VIDEOS_WITH_VARIED_VISUALS_AND_MINIMAL_MANUAL_REVIEW"
+  },
+  "gemini_video_director": {
+    "status": "PERMANENT_VIDEO_PRODUCTION_MEMBER",
+    "model": "gemini-3.8-flash",
+    "provider": "GOOGLE_CLOUD_VERTEX_AGENT_PLATFORM",
+    "auth": "ADC",
+    "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+    "policy": "config/gemini_video_director_policy.json",
+    "runtime": "scripts/gemini_video_director.py",
+    "guide": "docs/GEMINI_VIDEO_DIRECTOR.md",
+    "responsibilities": [
+      "YOUTUBE_VIDEO_UNDERSTANDING",
+      "IMPORTANT_TIMESTAMPS_AND_DEMOS",
+      "THREE_TO_FIVE_TAKEAWAYS",
+      "SCRIPT_AND_PLAIN_EXAMPLE_INPUTS",
+      "ZUNDAMON_METAN_DIALOGUE_BEATS",
+      "VISUAL_BEAT_MAPPING"
+    ],
+    "one_youtube_url_per_request": true,
+    "cache_reuse_required": true,
+    "video_creation_participant": true,
+    "unavailable_behavior": "CONTINUE_WITH_VERIFIED_OFFICIAL_WEB_SOURCES; DO_NOT_BLOCK_RENDER"
   }
 }
