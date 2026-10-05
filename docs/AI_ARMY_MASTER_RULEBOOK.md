@@ -251,3 +251,12 @@ Durable media services use `Restart=on-failure` with systemd start-rate limiting
 2026-10-05のGemini 4 1分版レビューから、字幕は最大3行・下34px以上の安全余白・はみ出す前に縮小、VOICEVOXは約-18〜-16 LUFSを目標として固定gain+limiterを最終1回のencode内で適用する。また現在情報を扱う動画は、利用可能なら一次情報の公式スクリーンショットを最低1つ入れ、自作図解だけで画面を埋めない。意味の切替に合わせて資料・crop・zoomを変えるが、任意の見直しや再レンダーは増やさない。
 
 詳細は `docs/VIDEO_SPEED_ENGINEERING_RULES.md` を正本の人間向け実装規則とし、機械側は `config/media_speed_quality_policy.json#/critical_path_speed_contract` を権威とする。
+
+
+## VM常時接続と代替操作経路（2026-10-05）
+
+VM接続・24時間運用・障害復旧の依頼では `docs/VM_CONNECTIVITY_RECOVERY.md` を必読する。通常のDesktop CommanderがOfflineでも、private repository `nyu1791-collab/-hf-vm-control` の既存self-hosted RunnerからVMを操作できる。両方が停止した場合はGoogle Cloud Console/Cloud Shell SSHへ進む。Offline表示だけでVM停止・Gemini/VOICEVOX/Renderer故障と判断しない。
+
+既存接続サービスはsystemdのRestart=always / RestartSec=30と毎分watchdogで復帰させ、lingerとboot enableを維持する。既存資格情報・SSH検証・ネットワーク境界を変更しない。保守停止は明示pauseで尊重する。常時オンラインは運用目標であり、VM停止・ネットワーク障害・クラウド側障害まで保証したとは報告しない。ローカルactive、クラウド側Online、実コマンド成功、独立Runner操作成功を分けて確認する。
+
+動画は接続sessionに依存しないdurable Jobで実行し、STATEを保存する。新しい動画は `docs/VIDEO_FRESH_CONTENT_POLICY_20261005.md` に従い、土台・型・Renderer・キャラ素材のみ再利用し、情報収集・解析・台本・音声は毎回一から作る。同一ジョブの障害復帰時のみ今回のcheckpointを使う。
