@@ -62,6 +62,14 @@ COMPONENT_TO_STAGES = {
         "one_pass_final_encode",
         "machine_qa_and_visual_rereview",
     ],
+    "gemini_research_package": [
+        "admission_and_script_lock",
+        "rights_verified_visual_assets",
+        "scene_composition",
+        "risk_triggered_visual_preview",
+        "one_pass_final_encode",
+        "machine_qa_and_visual_rereview",
+    ],
     "source_claim_lock": [
         "admission_and_script_lock",
         "rights_verified_visual_assets",
@@ -197,6 +205,7 @@ def stage_fingerprints(manifest: Mapping[str, Any], policy: Mapping[str, Any]) -
         "mission": _manifest_value(manifest, "mission_or_script"),
         "gemini": _manifest_value(manifest, "gemini_video_research"),
         "source": _manifest_value(manifest, "source_claim_lock"),
+        "gemini": _manifest_value(manifest, "gemini_research_package"),
         "voice": _manifest_value(manifest, "voice_and_pronunciation"),
         "timing": _manifest_value(manifest, "measured_audio_timing"),
         "caption": _manifest_value(manifest, "caption_and_font"),
