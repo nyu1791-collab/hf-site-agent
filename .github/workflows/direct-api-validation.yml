@@ -1,0 +1,163 @@
+name: Direct API validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DIRECT_API_VALIDATION to permit bounded live probes"
+        required: true
+        type: string
+      provider:
+        description: "Validate one commander provider or all three"
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - google
+          - nvidia
+          - groq
+      capabilities:
+        description: "Optional: run structured/tool/command-schema gates (may add requests)"
+        required: true
+        default: false
+        type: boolean
+      missions:
+        description: "Optional: run a very small commander mission sample (may add requests)"
+        required: true
+        default: false
+        type: boolean
+      allow_trial_credits:
+        description: "Permit NVIDIA trial-credit probes; keep false unless separately approved"
+        required: true
+        default: false
+        type: boolean
+      max_candidates:
+        description: "Maximum exact candidates per provider (bounded to 1 or 2)"
+        required: true
+        default: "1"
+        type: choice
+        options:
+          - "1"
+          - "2"
+      max_missions:
+        description: "Maximum mission types per candidate when missions are enabled"
+        required: true
+        default: "2"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "4"
+      max_requests:
+        description: "Hard live request budget; never exceeds 24"
+        required: true
+        default: "12"
+        type: choice
+        options:
+          - "6"
+          - "12"
+          - "24"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: direct-api-validation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout without write credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install bounded test dependency
+        run: python -m pip install --disable-pip-version-check --no-input "openai>=1.0,<2"
+
+      - name: Run deterministic regression before live requests
+        run: python -m unittest discover -s tests -p 'test_*.py' -q
+
+      - name: Generate redacted pre-live plan (no network)
+        shell: bash
+        env:
+          PROVIDER_INPUT: ${{ inputs.provider }}
+          CAPABILITIES_INPUT: ${{ inputs.capabilities }}
+          MISSIONS_INPUT: ${{ inputs.missions }}
+          MAX_CANDIDATES_INPUT: ${{ inputs.max_candidates }}
+          MAX_MISSIONS_INPUT: ${{ inputs.max_missions }}
+          MAX_REQUESTS_INPUT: ${{ inputs.max_requests }}
+        run: |
+          set -euo pipefail
+          args=(--max-candidates "$MAX_CANDIDATES_INPUT" --max-missions "$MAX_MISSIONS_INPUT" --max-total-requests "$MAX_REQUESTS_INPUT" --output artifacts/live_probe_plan.json)
+          if [[ "$PROVIDER_INPUT" == "all" ]]; then
+            args+=(--provider google --provider nvidia --provider groq)
+          else
+            args+=(--provider "$PROVIDER_INPUT")
+          fi
+          if [[ "$CAPABILITIES_INPUT" == "true" ]]; then args+=(--capabilities); fi
+          if [[ "$MISSIONS_INPUT" == "true" ]]; then args+=(--missions); fi
+          python scripts/live_probe_plan.py "${args[@]}"
+          python -m json.tool artifacts/live_probe_plan.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          plan = json.loads(Path("artifacts/live_probe_plan.json").read_text(encoding="utf-8"))
+          assert plan["final"]["state"] == "LIVE_PROBE_PLAN_READY"
+          assert all(item["estimated_cost"] == "UNKNOWN" for item in plan["plans"])
+          assert plan["auto_execution_allowed"] is False
+          assert plan["safety"]["cost_unknown_blocks_auto_execution"] is True
+          assert plan["safety"]["paid_calls"] == 0
+          assert plan["safety"]["production_routing_changed"] is False
+          print(json.dumps({"estimated_requests": plan["budget"]["estimated_requests"], "estimated_cost": "UNKNOWN", "live_probe_enabled": False}))
+          PY
+      - name: Run explicitly confirmed direct validation
+        shell: bash
+        env:
+          CONFIRM_INPUT: ${{ inputs.confirm }}
+          PROVIDER_INPUT: ${{ inputs.provider }}
+          CAPABILITIES_INPUT: ${{ inputs.capabilities }}
+          MISSIONS_INPUT: ${{ inputs.missions }}
+          ALLOW_TRIAL_CREDITS_INPUT: ${{ inputs.allow_trial_credits }}
+          MAX_CANDIDATES_INPUT: ${{ inputs.max_candidates }}
+          MAX_MISSIONS_INPUT: ${{ inputs.max_missions }}
+          MAX_REQUESTS_INPUT: ${{ inputs.max_requests }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GOOGLE_CANDIDATE_MODELS: ${{ vars.GOOGLE_CANDIDATE_MODELS }}
+          NVIDIA_CANDIDATE_MODELS: ${{ vars.NVIDIA_CANDIDATE_MODELS }}
+          GROQ_CANDIDATE_MODELS: ${{ vars.GROQ_CANDIDATE_MODELS }}
+        run: |
+          set -euo pipefail
+          args=(--network --confirm "$CONFIRM_INPUT"
+            --max-candidates "$MAX_CANDIDATES_INPUT"
+            --max-missions "$MAX_MISSIONS_INPUT"
+            --max-total-requests "$MAX_REQUESTS_INPUT"
+            --output artifacts/direct_api_report.json)
+          if [[ "$PROVIDER_INPUT" != "all" ]]; then args+=(--provider "$PROVIDER_INPUT"); fi
+          if [[ "$CAPABILITIES_INPUT" == "true" ]]; then args+=(--capabilities); fi
+          if [[ "$MISSIONS_INPUT" == "true" ]]; then args+=(--missions); fi
+          if [[ "$ALLOW_TRIAL_CREDITS_INPUT" == "true" ]]; then args+=(--allow-trial-credits); fi
+          python scripts/direct_api_validation.py "${args[@]}"
+          python -m json.tool artifacts/direct_api_report.json >/dev/null
+
+      - name: Preserve redacted validation report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: direct-api-validation-report-${{ github.run_id }}
+          path: artifacts/direct_api_report.json
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,63 @@
+{
+  "mission_id": "zundamon-metan-shortform-editing-audit-20260913",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Act as a paid editorial and creative Executive Supervisor under ChatGPT. Research, critique, and optimize a Japanese vertical short-form news/information format using VOICEVOX Zundamon and Shikoku Metan as dialogue characters. This is RESEARCH ONLY: do not render, generate media, publish, deploy, merge, change secrets, or perform irreversible actions. The user's target style is energetic but intelligible: characters appear/exit in sync with dialogue rather than permanently occupying the screen; captions are large and semantically chunked; important words may change size/color/weight; sound effects are a first-class editorial layer; background prose/headline walls are prohibited; contextual images/evidence visuals should change with the spoken semantic flow. Search-engine image results are discovery only and actual assets must have verified rights/license at the original source. Assess the format against viewer retention, comprehension/cognitive load, trust, originality/monetization risk, audio intelligibility, production scalability, and series identity. Distinguish official/platform or research-backed principles from creator heuristics. Reject cargo-cult rules such as mandatory fixed cut intervals, effect-on-every-word editing, or unsupported '3 second' absolutes. Propose a coherent visual/audio grammar with one dominant attention target at a time, character-role conventions, caption hierarchy, SFX hierarchy including strategic silence, image/evidence switching triggers, and measurable A/B tests. Return ADOPT / EXPERIMENT / DEMOTE / REJECT recommendations, evidence confidence, expected benefit, failure mode, measurable hypothesis, and rollback criterion. ChatGPT will independently verify primary sources and make final adjudication.",
+  "shared_evidence": [
+    {
+      "source": "user creative direction 2026-09-13",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T17:10:00+09:00",
+      "summary": "Use Zundamon and Shikoku Metan; synchronize character appearance with dialogue; enlarge captions; emphasize key phrases with size/color; treat SFX as critical; prohibit prose in the background; switch contextual images along the spoken flow; research broadly and optimize before production. User explicitly said not to produce the video yet."
+    },
+    {
+      "source": "config/media_command_read_gate.json + docs/AI_ARMY_MASTER_RULEBOOK.md",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T17:10:00+09:00",
+      "summary": "Canonical media policy requires evidence/provenance, semantic rather than fixed cadence rules, free deterministic production routes, bounded workflows, rights hygiene, and machine QA. Paid DeepSeek is permitted only as a bounded supervisor exception."
+    },
+    {
+      "source": "reference upload 174022.mp4",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-13T17:10:00+09:00",
+      "summary": "Reference vertical short uses energetic anime/character layouts and prominent captions. It is inspiration only; the requested output should improve attention hierarchy, semantic visual switching, subtitle legibility, dialogue timing, and sound design rather than clone it."
+    }
+  ],
+  "lanes": [
+    {
+      "id": "retention-cognition",
+      "objective": "Audit the format through attention, multimedia learning, cognitive-load, narrative pacing, and vertical-short retention principles. Determine how many simultaneously competing elements are tolerable, when the dominant visual should be contextual evidence versus character reaction versus caption, how semantic beat changes should drive visual changes, and which common high-energy editing practices create overload. Avoid universal timing claims; label heuristics and propose measurable experiments."
+    },
+    {
+      "id": "character-dialogue-direction",
+      "objective": "Design a repeatable but non-mechanical character grammar for Zundamon and Shikoku Metan. Evaluate speaker-turn entrances/exits, fixed screen-side consistency, reaction shots/poses, role division (viewer question/emotion versus explanation/correction), occasional role reversal to prevent predictability, and how character timing can function as visual punctuation without constant bouncing. Include series-identity benefits and failure modes."
+    },
+    {
+      "id": "caption-sfx-audio",
+      "objective": "Audit caption hierarchy and sound design. Propose semantic chunking, 1-2 line legibility, a limited three-level emphasis system, color plus size/weight so meaning is not color-only, and safe-zone considerations. For SFX, define event classes such as character entry, transition, evidence reveal, numeric/statistical cue, warning, comedic reaction, impact, and intentional silence/drop. Preserve narration intelligibility; reject SFX spam and every-word kinetic captions. Give testable density/mix hypotheses rather than fake universal thresholds."
+    },
+    {
+      "id": "images-rights-originality",
+      "objective": "Audit contextual image switching, evidence visuals, search-engine discovery, rights/provenance, and originality/monetization risk. Create a hierarchy for official/source screenshots, licensed press assets, Wikimedia/CC assets, and representative B-roll; clearly distinguish evidence from illustrative imagery. Recommend a per-asset ledger with original URL, author/source, license, attribution, retrieval date, and transformation notes. Assess how original dialogue, commentary, sequencing, motion treatment and source context reduce generic slideshow/template risk without overstating platform guarantees."
+    },
+    {
+      "id": "redteam-experiment-plan",
+      "objective": "Aggressively red-team the proposed energetic style. Identify where large captions, bright emphasis, character pop-ins, image changes, zooms and SFX can become fatiguing, childish, misleading, or visually chaotic. Produce the minimum coherent ADOPT set and separate uncertain techniques into EXPERIMENT. Propose single-variable tests using early hold, average percentage viewed, completion, rewatches, shares/saves/comments where available, while warning against causal claims from uncontrolled comparisons."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 7,
+  "max_output_tokens_per_lane": 4096,
+  "max_output_tokens_synthesis": 6144,
+  "max_estimated_cost_usd": 0.35,
+  "known_estimated_daily_spend_before_mission_usd": 2.60,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}

@@ -1,0 +1,106 @@
+{
+  "schema_version": "free-audio-source-registry-v1",
+  "effective_date_jst": "2026-09-13",
+  "status": "ENFORCED_SOURCE_REGISTRY",
+  "purpose": "Track currently verified free BGM/SFX sources, their usage constraints, attribution requirements and acquisition limits so future media work can build a large reusable audio pool without violating site rules or silently becoming paid.",
+  "reverify_before_new_download_batch": true,
+  "already_downloaded_assets_may_continue_only_if_original_license_allows_it": true,
+  "sources": [
+    {
+      "id": "youtube-audio-library",
+      "name": "YouTube Audio Library",
+      "url": "https://www.youtube.com/audiolibrary",
+      "current_status": "VERIFIED_FREE_FOR_YOUTUBE_VIDEO_USE",
+      "commercial_or_monetized_use": true,
+      "bgm": true,
+      "sfx": true,
+      "attribution": "TRACK_DEPENDENT",
+      "automation": "LOGIN_OR_STUDIO_INTERACTION_MAY_BE_REQUIRED",
+      "notes": "YouTube states Audio Library music and sound effects are copyright-safe for YouTube; Creative Commons tracks require attribution, while some standard-license tracks do not. Recheck track-level terms before use and do not assume the same rights outside YouTube."
+    },
+    {
+      "id": "dova-syndrome",
+      "name": "DOVA-SYNDROME / OpenTracks transition",
+      "url": "https://dova-s.jp/",
+      "current_status": "VERIFIED_FREE_WITH_LICENSE_CONDITIONS",
+      "commercial_or_monetized_use": true,
+      "bgm": true,
+      "sfx": true,
+      "attribution": "GENERALLY_NOT_REQUIRED_BUT_CREATOR_CONDITIONS_MAY_APPLY",
+      "automation": "NO_BOT_BULK_COLLECTION",
+      "notes": "Audio may be used as background under the site license, including YouTube/TikTok, but creator-specific conditions may apply. Site terms prohibit bot/programmatic collection. Download manually or by a user-directed non-bot flow and preserve the license snapshot. Downloaded tracks may remain usable after later removal when the license permits."
+    },
+    {
+      "id": "soundeffect-lab",
+      "name": "効果音ラボ",
+      "url": "https://soundeffect-lab.info/",
+      "current_status": "VERIFIED_FREE_WITH_LICENSE_CONDITIONS",
+      "commercial_or_monetized_use": true,
+      "bgm": false,
+      "sfx": true,
+      "attribution": "NOT_REQUIRED",
+      "automation": "CHECK_CURRENT_SITE_RULES_BEFORE_BATCH_ACQUISITION",
+      "notes": "Commercial use is currently allowed without credit. Redistribution of raw or modified sound files is prohibited. Store locally only for production use and never expose a raw downloadable sound library to end users."
+    },
+    {
+      "id": "otologic",
+      "name": "OtoLogic",
+      "url": "https://otologic.jp/",
+      "current_status": "VERIFIED_FREE_CC_BY_4_0",
+      "commercial_or_monetized_use": true,
+      "bgm": true,
+      "sfx": true,
+      "attribution": "REQUIRED_OtoLogic",
+      "automation": "CHECK_CURRENT_SITE_RULES_BEFORE_BATCH_ACQUISITION",
+      "notes": "Materials are currently offered under CC BY 4.0; commercial use and modification are allowed with attribution. Preserve attribution metadata with each asset."
+    },
+    {
+      "id": "musmus",
+      "name": "MusMus",
+      "url": "https://musmus.main.jp/",
+      "current_status": "VERIFIED_FREE_WITH_ATTRIBUTION",
+      "commercial_or_monetized_use": true,
+      "bgm": true,
+      "sfx": true,
+      "attribution": "REQUIRED_FOR_FREE_USE",
+      "automation": "CHECK_CURRENT_SITE_RULES_BEFORE_BATCH_ACQUISITION",
+      "notes": "Commercial and monetized YouTube use is currently allowed for BGM use. Copyright/credit display is required for free use. Do not redistribute the music itself or register the music into Content ID."
+    }
+  ],
+  "asset_record_required_fields": [
+    "asset_id",
+    "source_id",
+    "title",
+    "creator",
+    "source_url",
+    "downloaded_at_jst",
+    "license_type",
+    "license_snapshot_or_url",
+    "commercial_use_allowed",
+    "attribution_required",
+    "attribution_text",
+    "redistribution_allowed",
+    "platform_scope",
+    "sha256",
+    "file_format",
+    "duration_seconds",
+    "usage_class",
+    "mood_or_semantic_role"
+  ],
+  "selection_priority": [
+    "ALREADY_DOWNLOADED_AND_LICENSE_LOCKED",
+    "OFFICIAL_PLATFORM_LIBRARY_FOR_SAME_PLATFORM",
+    "VERIFIED_FREE_THIRD_PARTY_SOURCE_WITH_CLEAR_LICENSE",
+    "PROCEDURALLY_GENERATED_ORIGINAL_AUDIO",
+    "BLOCK_IF_RIGHTS_OR_FREE_STATUS_UNCLEAR"
+  ],
+  "prohibited": [
+    "SCRAPE_DOVA_WITH_BOT",
+    "DOWNLOAD_RANDOM_FREE_MUSIC_FROM_UNVERIFIED_YOUTUBE_CHANNELS",
+    "USE_AUDIO_WITH_MISSING_LICENSE_EVIDENCE",
+    "AUTO_BUY_LICENSE_OR_SUBSCRIPTION",
+    "AUTO_FALLBACK_TO_PAID_AUDIO",
+    "REDISTRIBUTE_RAW_THIRD_PARTY_AUDIO",
+    "REGISTER_THIRD_PARTY_LIBRARY_TRACKS_IN_CONTENT_ID"
+  ]
+}

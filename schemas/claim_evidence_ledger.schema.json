@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nyu1791-collab/hf-site-agent/schemas/claim_evidence_ledger.schema.json",
+  "title": "Claim Evidence Ledger",
+  "description": "Claim-level factual provenance and freshness ledger. Asset origin/rights are intentionally separate from factual verification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "artifact_id", "generated_at", "claims"],
+  "properties": {
+    "schema_version": {"const": "claim-evidence-ledger-v1"},
+    "artifact_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claims": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim_id", "normalized_claim", "claim_type", "source_refs", "source_tier", "source_independence_group", "retrieved_at", "status", "contradiction_status", "script_span_ids", "scene_ids", "caption_span_ids", "last_rechecked_at"],
+        "properties": {
+          "claim_id": {"type": "string", "minLength": 1, "maxLength": 160},
+          "normalized_claim": {"type": "string", "minLength": 1, "maxLength": 12000},
+          "claim_type": {"enum": ["NUMERIC", "DATE_TIME", "ENTITY_ROLE", "EVENT", "PRODUCT_CAPABILITY", "OFFER", "POLICY_OR_LAW", "OTHER_FACTUAL"]},
+          "source_refs": {"type": "array", "minItems": 1, "maxItems": 30, "items": {"type": "string", "minLength": 1, "maxLength": 4000}},
+          "source_tier": {"enum": ["T1", "T2", "T3", "T4", "PRIMARY", "PEER_REVIEWED_OR_OFFICIAL_RESEARCH", "REPUTABLE_SECONDARY", "HEURISTIC"]},
+          "source_independence_group": {"type": "string", "minLength": 1, "maxLength": 300},
+          "published_or_observed_at": {"type": ["string", "null"], "format": "date-time"},
+          "retrieved_at": {"type": "string", "format": "date-time"},
+          "freshness_ttl_seconds": {"type": ["integer", "null"], "minimum": 0},
+          "expires_at": {"type": ["string", "null"], "format": "date-time"},
+          "status": {"enum": ["VERIFIED", "CONTESTED", "UNKNOWN", "EXPIRED", "NOT_APPLICABLE"]},
+          "contradiction_status": {"enum": ["NONE_FOUND", "CONTRADICTED", "PARTIALLY_CONTRADICTED", "NOT_CHECKED", "NOT_APPLICABLE"]},
+          "blocking_for_publish": {"type": "boolean", "default": false},
+          "script_span_ids": {"type": "array", "maxItems": 200, "items": {"type": "string", "maxLength": 200}},
+          "scene_ids": {"type": "array", "maxItems": 200, "items": {"type": "string", "maxLength": 200}},
+          "caption_span_ids": {"type": "array", "maxItems": 500, "items": {"type": "string", "maxLength": 200}},
+          "last_rechecked_at": {"type": "string", "format": "date-time"},
+          "notes": {"type": "string", "maxLength": 4000}
+        },
+        "anyOf": [
+          {"required": ["freshness_ttl_seconds"]},
+          {"required": ["expires_at"]}
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,206 @@
+{
+  "schema_version": "framework-adapter-layer-v1",
+  "mission": "Keep the native AI Army V4 scheduler as the authority-preserving control plane while allowing replaceable execution frameworks to be plugged in behind one common task/result contract. Prefer strong consolidated ownership over unnecessary agent fragmentation.",
+  "control_plane": {
+    "native_scheduler": "AI_ARMY_V4_VALUE_OPTIMIZED",
+    "native_routing_remains_authoritative": true,
+    "frameworks_are_execution_engines_not_commanders": true,
+    "frameworks_cannot_expand_authority": true,
+    "single_writer_final_integration": true,
+    "strong_generalist_or_framework_may_own_multiple_adjacent_stages": true
+  },
+  "policy": {
+    "free_only_default": true,
+    "generic_paid_fallback": false,
+    "auto_top_up": false,
+    "external_framework_repository_write": false,
+    "external_framework_secret_mutation": false,
+    "external_framework_deploy": false,
+    "external_framework_publish": false,
+    "external_framework_payment": false,
+    "unverified_framework_can_execute": false,
+    "unverified_model_route_can_execute": false,
+    "prefer_native_when_no_framework_preference": true,
+    "external_auto_selection_max_risk": "MEDIUM",
+    "framework_result_must_normalize_to_agent_contract": true,
+    "framework_health_gate_required": true,
+    "framework_api_contract_gate_required": true,
+    "framework_evidence_ttl_seconds": 3600,
+    "framework_evidence_max_future_skew_seconds": 120,
+    "trusted_framework_evidence_sources": ["FRAMEWORK_HEALTH_CONTROLLER_V1"],
+    "external_replay_cache_max_entries": 256,
+    "prefer_consolidated_ownership": true,
+    "avoid_micro_agent_fragmentation": true,
+    "max_primary_frameworks_per_mission": 2,
+    "max_external_framework_hops_per_task": 1,
+    "max_handoffs_before_consolidation_review": 3,
+    "reuse_ready_primary_framework_bonus": 0.14,
+    "new_framework_handoff_penalty": 0.10,
+    "split_only_for": [
+      "CAPABILITY_GAP",
+      "INDEPENDENT_REVIEW",
+      "CLEAR_PARALLEL_SPEEDUP",
+      "FAULT_ISOLATION",
+      "HARD_BOUNDARY"
+    ],
+    "independent_final_review_preferred": true,
+    "independent_review_must_not_force_full_pipeline_fragmentation": true
+  },
+  "parallel_batch": {
+    "enabled": true,
+    "max_items": 4,
+    "default_parallel_items": 4,
+    "independent_items_have_distinct_write_scopes": true,
+    "item_root_slot": "OPERATIONS_LEAD",
+    "final_join_slot": "RESULT_SYNTHESIZER",
+    "final_join_requires_all_items": true,
+    "single_writer_final_join": true,
+    "max_frameworks_per_batch": 2,
+    "prefer_same_primary_framework_for_similar_items": true
+  },
+  "adapters": {
+    "NATIVE_V4": {
+      "kind": "native",
+      "enabled": true,
+      "priority": 100,
+      "execution_hook": "native_handler",
+      "capabilities": [
+        "dag",
+        "parallel_dispatch",
+        "dependency_join",
+        "bounded_delegation",
+        "failover",
+        "result_confidence_contract",
+        "repository_context",
+        "general"
+      ],
+      "requires": ["runtime_present"],
+      "model_route_free_verification_required": false,
+      "can_auto_select": true,
+      "max_parallel": 6,
+      "multi_stage_ownership_preferred": true
+    },
+    "LANGGRAPH": {
+      "kind": "python_framework",
+      "enabled": true,
+      "priority": 92,
+      "package": "langgraph",
+      "execution_hook": "langgraph",
+      "capabilities": [
+        "graph_workflow",
+        "branching",
+        "checkpoint",
+        "durable_state",
+        "parallel_subgraphs",
+        "human_review",
+        "tool_use",
+        "agent"
+      ],
+      "requires": ["framework_installed", "api_contract_verified", "runtime_present", "model_route_free_verified", "framework_health_ready"],
+      "model_route_free_verification_required": true,
+      "can_auto_select": true,
+      "max_parallel": 3,
+      "multi_stage_ownership_preferred": true,
+      "best_for": ["STATEFUL_PIPELINE", "LONG_RUNNING_WORKFLOW", "COMPLEX_DAG", "RECOVERY_WORKFLOW"]
+    },
+    "MICROSOFT_AGENT_FRAMEWORK": {
+      "kind": "python_framework",
+      "enabled": true,
+      "priority": 90,
+      "package": "agent-framework",
+      "execution_hook": "microsoft_agent_framework",
+      "capabilities": [
+        "agent_protocol",
+        "multi_agent_workflow",
+        "workflow",
+        "session_state",
+        "middleware",
+        "human_review",
+        "checkpoint",
+        "a2a",
+        "tool_use",
+        "agent"
+      ],
+      "requires": ["framework_installed", "api_contract_verified", "runtime_present", "model_route_free_verified", "framework_health_ready"],
+      "model_route_free_verification_required": true,
+      "can_auto_select": true,
+      "max_parallel": 3,
+      "multi_stage_ownership_preferred": true,
+      "best_for": ["MULTI_AGENT_WORKFLOW", "AGENT_INTEROP", "MIDDLEWARE_GOVERNANCE", "AUTOGEN_MIGRATION"]
+    },
+    "AUTOGEN": {
+      "kind": "python_framework",
+      "enabled": true,
+      "priority": 88,
+      "package": "autogen-agentchat",
+      "execution_hook": "autogen",
+      "capabilities": [
+        "multi_agent_conversation",
+        "debate",
+        "delegation",
+        "parallel_agents",
+        "tool_use",
+        "agent"
+      ],
+      "requires": ["framework_installed", "api_contract_verified", "runtime_present", "model_route_free_verified", "framework_health_ready"],
+      "model_route_free_verification_required": true,
+      "can_auto_select": true,
+      "max_parallel": 3,
+      "multi_stage_ownership_preferred": true,
+      "best_for": ["MULTI_AGENT_COUNCIL", "ADVERSARIAL_REVIEW", "ARCHITECTURE_REVIEW", "DEBUGGING_COUNCIL"]
+    },
+    "CREWAI": {
+      "kind": "python_framework",
+      "enabled": true,
+      "priority": 86,
+      "package": "crewai",
+      "execution_hook": "crewai",
+      "capabilities": [
+        "role_crew",
+        "delegation",
+        "sequential_flow",
+        "parallel_agents",
+        "tool_use",
+        "agent"
+      ],
+      "requires": ["framework_installed", "api_contract_verified", "runtime_present", "model_route_free_verified", "framework_health_ready"],
+      "model_route_free_verification_required": true,
+      "can_auto_select": true,
+      "max_parallel": 3,
+      "multi_stage_ownership_preferred": true,
+      "best_for": ["RESEARCH", "NEWSROOM", "CONTENT_PIPELINE", "MEDIA_PREPRODUCTION"]
+    },
+    "GITHUB_COPILOT": {
+      "kind": "connector",
+      "enabled": true,
+      "priority": 72,
+      "execution_hook": "github_copilot",
+      "capabilities": [
+        "coding",
+        "repository_context",
+        "agent_mode",
+        "tool_use"
+      ],
+      "requires": [
+        "connector_present",
+        "api_contract_verified",
+        "runtime_present",
+        "billing_safe_verified",
+        "model_route_free_verified",
+        "framework_health_ready"
+      ],
+      "model_route_free_verification_required": true,
+      "can_auto_select": false,
+      "max_parallel": 1,
+      "multi_stage_ownership_preferred": true,
+      "best_for": ["CODING", "TEST_REPAIR", "REPOSITORY_ANALYSIS", "REFACTOR_PROPOSAL"]
+    }
+  },
+  "result_contract": {
+    "allowed_statuses": ["COMPLETED", "FAILED", "BLOCKED", "CANCELLED"],
+    "required_fields": ["status", "summary"],
+    "framework_provenance_in_output": true,
+    "raw_secret_material_forbidden": true,
+    "raw_framework_credentials_forbidden": true
+  }
+}

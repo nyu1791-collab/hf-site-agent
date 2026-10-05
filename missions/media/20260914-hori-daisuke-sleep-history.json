@@ -1,0 +1,44 @@
+{
+  "schema": "media-dialogue-mission-v1",
+  "mission_id": "20260914-hori-daisuke-sleep-history",
+  "title": "1日30分睡眠・堀大輔はどうしてこうなった？短眠の歴史と科学",
+  "format": "VERTICAL_SHORT_EXPLAINER",
+  "target_duration_seconds": [80, 105],
+  "cast": ["ずんだもん", "四国めたん"],
+  "editorial_contract": {
+    "separate_self_claims_from_medical_evidence": true,
+    "do_not_state_30_minute_sleep_is_medically_proven_safe": true,
+    "do_not_encourage_viewers_to_copy_extreme_sleep_restriction": true,
+    "medical_consensus_has_priority_for_general_health_guidance": true,
+    "final_visual_qa_required": true,
+    "mouth_full_face_fixture_required": true,
+    "caption_semantic_chunking_required": true,
+    "bright_explainer_panels_required": true
+  },
+  "sources": [
+    {"id":"S1","tier":"PRIMARY_SELF_OR_ORG","source":"日本ショートスリーパー育成協会 講師の紹介","claim":"堀大輔は1983年生まれで同協会代表理事。"},
+    {"id":"S2","tier":"PRIMARY_SELF_OR_ORG","source":"日本ショートスリーパー育成協会 団体概要","claim":"協会の設立年月日は2016年4月。"},
+    {"id":"S3","tier":"PRIMARY_SELF_OR_ORG","source":"日本ショートスリーパー育成協会 2017-11-10記事","claim":"2017年のMBS密着時は45分睡眠として紹介。"},
+    {"id":"S4","tier":"PRIMARY_SELF_PUBLISHING","source":"本人YouTubeチャンネル/2026-08-29ライブ","claim":"現在のチャンネル名・本人発信では1日30分睡眠を掲げている。"},
+    {"id":"S5","tier":"PEER_REVIEWED_OR_OFFICIAL_RESEARCH","source":"UCSF natural short sleep research","claim":"DEC2などに関連する自然短眠は4〜6時間程度で、少なくとも一部は遺伝的要因が関与する。"},
+    {"id":"S6","tier":"MEDICAL_CONSENSUS","source":"AASM/SRS adult sleep duration consensus","claim":"成人は健康のため定期的に7時間以上の睡眠が推奨される。"},
+    {"id":"S7","tier":"PRIMARY_SELF_OR_ORG","source":"日本ショートスリーパー育成協会 現行トップページ","claim":"現行プログラムは無理な睡眠制限を行わず、強い眠気や体調不良では休息・医療相談を優先すると明記。"}
+  ],
+  "dialogue": [
+    {"id":1,"speaker":"ずんだもん","voice_text":"1日たった30分しか寝ない人って、本当にいるのだ？","caption_text":"1日30分しか寝ない人？","emotion":"surprise","visual_beat":"巨大な30分タイマーと睡眠アイコン","source_claim_ids":["S4"]},
+    {"id":2,"speaker":"四国めたん","voice_text":"堀大輔さんは、現在『1日30分睡眠』を掲げて発信している人物です。ただし、ここからは本人側の主張と医学研究を分けて見ます。","caption_text":"本人の主張と医学研究は分けて見る","emotion":"serious","visual_beat":"画面を『本人側の発信』『医学研究』の2列に分割","source_claim_ids":["S1","S4"]},
+    {"id":3,"speaker":"ずんだもん","voice_text":"最初から30分だったわけじゃないのだ？","caption_text":"最初から30分ではない？","emotion":"question","visual_beat":"タイムラインが左から右へ伸びる","source_claim_ids":["S3","S4"]},
+    {"id":4,"speaker":"四国めたん","voice_text":"協会は2016年4月に設立。2017年の公式記事では、堀さんは『45分睡眠』としてテレビ密着を受けたと紹介されています。","caption_text":"2016年 協会設立 → 2017年 45分睡眠","emotion":"explain","visual_beat":"明るい青の年表カード 2016→2017","source_claim_ids":["S2","S3"]},
+    {"id":5,"speaker":"ずんだもん","voice_text":"そこから今は30分を掲げている。かなり極端なのだ。","caption_text":"現在は『1日30分睡眠』を掲げる","emotion":"surprise","visual_beat":"45分から30分へ縮む時計表示","source_claim_ids":["S4"]},
+    {"id":6,"speaker":"四国めたん","voice_text":"でも、ここで大事なのは『本人がそう発信している』ことと、『30分睡眠の安全性が医学的に証明された』ことは別、という点です。","caption_text":"発信の事実 ≠ 医学的な安全性の証明","emotion":"serious","visual_beat":"イコール記号が×に変わる比較カード","source_claim_ids":["S4","S6"]},
+    {"id":7,"speaker":"ずんだもん","voice_text":"じゃあ、本物のショートスリーパーって存在しないのだ？","caption_text":"自然なショートスリーパーはいる？","emotion":"question","visual_beat":"DNAアイコンとベッド","source_claim_ids":["S5"]},
+    {"id":8,"speaker":"四国めたん","voice_text":"存在します。UCSFの研究では、DEC2などの遺伝子変異に関連する『自然短眠』が報告され、4時間から6時間ほどでも自然に目覚める人が研究されています。","caption_text":"自然短眠：4〜6時間ほどの例が研究対象","emotion":"explain","visual_beat":"DNA→4h→5h→6hの明るい図","source_claim_ids":["S5"]},
+    {"id":9,"speaker":"ずんだもん","voice_text":"4時間から6時間と、30分じゃ全然違うのだ！","caption_text":"4〜6時間 と 30分は別物","emotion":"emphasis","visual_beat":"左右比較 4〜6h vs 0.5h","source_claim_ids":["S4","S5"]},
+    {"id":10,"speaker":"四国めたん","voice_text":"その通り。しかも一般成人について、アメリカ睡眠医学会などの合意文書は、健康のため定期的に7時間以上の睡眠を推奨しています。","caption_text":"一般成人：定期的に7時間以上を推奨","emotion":"serious","visual_beat":"7h+の大きな数字と医療コンセンサス表示","source_claim_ids":["S6"]},
+    {"id":11,"speaker":"ずんだもん","voice_text":"じゃあ、動画を見て『自分も30分にしよう』は危ないのだ。","caption_text":"見よう見まねの極端な睡眠削減はしない","emotion":"warning","visual_beat":"警告三角と睡眠ゲージ","source_claim_ids":["S6","S7"]},
+    {"id":12,"speaker":"四国めたん","voice_text":"協会の現在の案内でも、無理な睡眠制限は行わず、強い眠気や体調不良があれば休息を優先し、必要なら医療機関へ相談するよう記載されています。","caption_text":"現行案内：無理に削らず、体調不良なら休息・相談","emotion":"calm","visual_beat":"明るい緑の安全カード","source_claim_ids":["S7"]},
+    {"id":13,"speaker":"ずんだもん","voice_text":"つまり面白いのは、『30分睡眠の人がいる』だけじゃなく、45分から30分へと発信が変わってきた歴史と、自然短眠の研究が別の話だってことなのだ。","caption_text":"45分→30分の発信史 と 自然短眠研究は別","emotion":"summary","visual_beat":"歴史ラインとDNAラインが並走して最後に分離","source_claim_ids":["S3","S4","S5"]},
+    {"id":14,"speaker":"四国めたん","voice_text":"特殊な事例として観察するのは興味深い。でも一般の健康判断は、個人の発信ではなく医学的な根拠を基準にする。ここが一番大切です。","caption_text":"特殊な事例と、一般の健康判断は分ける","emotion":"conclusion","visual_beat":"明るい白〜青の結論カード","source_claim_ids":["S5","S6","S7"]}
+  ],
+  "public_publish": false
+}

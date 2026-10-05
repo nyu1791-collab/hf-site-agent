@@ -1,0 +1,51 @@
+{
+  "schema_version": "media-batch-command-v1",
+  "output_dir": "../artifacts/media-batch-command-center",
+  "jobs": [
+    {
+      "job_id": "clip-a",
+      "input_path": "../inputs/source-a.mp4",
+      "rights_verified": true,
+      "start_seconds": 12.0,
+      "duration_seconds": 18.0,
+      "output_name": "clip-a.mp4",
+      "layout": "vertical-fit",
+      "resource_demand": {
+        "cpu_slots": 1,
+        "memory_mb": 1024,
+        "disk_mb": 2048,
+        "provider_slots": 0
+      }
+    },
+    {
+      "job_id": "clip-b",
+      "input_path": "../inputs/source-b.mp4",
+      "rights_verified": true,
+      "start_seconds": 35.0,
+      "duration_seconds": 20.0,
+      "output_name": "clip-b.mp4",
+      "layout": "vertical-crop",
+      "resource_demand": {
+        "cpu_slots": 1,
+        "memory_mb": 1024,
+        "disk_mb": 2048,
+        "provider_slots": 0
+      }
+    },
+    {
+      "job_id": "clip-c",
+      "input_path": "../inputs/source-c.mp4",
+      "rights_verified": true,
+      "start_seconds": 5.0,
+      "duration_seconds": 15.0,
+      "output_name": "clip-c.mp4",
+      "layout": "vertical-fit",
+      "resource_demand": {
+        "cpu_slots": 1,
+        "memory_mb": 1024,
+        "disk_mb": 2048,
+        "provider_slots": 0
+      }
+    }
+  ]
+}

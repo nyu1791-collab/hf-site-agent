@@ -1,0 +1,41 @@
+{
+  "schema_version": "framework-adapter-health-v1",
+  "policy": {
+    "free_only": true,
+    "paid_observation_blocks": true,
+    "unknown_contract_blocks": true,
+    "shadow_before_promotion": true,
+    "min_shadow_samples": 5,
+    "max_observation_age_seconds": 86400,
+    "max_malformed_observation_fraction": 0.20,
+    "min_success_rate": 0.80,
+    "min_success_wilson_lower_bound": 0.55,
+    "min_validator_pass_rate": 0.80,
+    "min_validator_wilson_lower_bound": 0.55,
+    "min_average_quality": 0.75,
+    "max_failure_rate": 0.20,
+    "max_consecutive_failures": 3,
+    "max_p95_latency_ms": 120000,
+    "promotion_requires_native_baseline": true,
+    "min_quality_delta_vs_native": -0.02,
+    "circuit_open_blocks_execution": true,
+    "auto_reenable_after_cooldown": false
+  },
+  "adapter_ids": [
+    "LANGGRAPH",
+    "MICROSOFT_AGENT_FRAMEWORK",
+    "AUTOGEN",
+    "CREWAI",
+    "GITHUB_COPILOT"
+  ],
+  "required_observation_fields": [
+    "timestamp_epoch",
+    "success",
+    "validator_pass",
+    "quality_score",
+    "latency_ms",
+    "free_verified",
+    "contract_verified",
+    "paid"
+  ]
+}

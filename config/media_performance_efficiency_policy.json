@@ -1,0 +1,154 @@
+{
+  "schema_version": "media-performance-efficiency-v1",
+  "effective_date_jst": "2026-09-30",
+  "status": "OPTIONAL_PROFILE_REFERENCE",
+  "scope": "ONLY_EXPLICIT_ZUNDAMON_METAN_NEWS60_OR_CHARACTER_PERFORMANCE_REQUESTS",
+  "runtime": "scripts/media_performance_plan.py",
+  "route_guard": "scripts/media_performance_route.py",
+  "authority": "Use only when the user explicitly requests this Zundamon/Metan performance style; routine delivery follows the speed-first minimum-delivery policy.",
+  "character_performance": {
+    "mode": "SPEAKING_MOUTH_SYNC_PLUS_SPARSE_SEMANTIC_EXPRESSION",
+    "mouth_states": [
+      "CLOSED",
+      "HALF",
+      "OPEN"
+    ],
+    "expression_states": [
+      "NORMAL",
+      "HAPPY",
+      "SURPRISED",
+      "SERIOUS",
+      "SAD",
+      "CURIOUS",
+      "THOUGHTFUL",
+      "RELIEVED"
+    ],
+    "idle_listener_mouth": "CLOSED",
+    "measured_silence_mouth": "CLOSED",
+    "expression_source": "AUTHORED_BEAT_OR_JEV_CHOICE_OVER_PREVALIDATED_ENUMS",
+    "audio_timing_source": "FINAL_MEASURED_WAV",
+    "phoneme_timing_only_when_verified_against_final_wav": true,
+    "rms_fallback_is_approximate_not_phoneme_lipsync": true,
+    "mouth_and_expression_layers_are_separate": true,
+    "aligned_assets_required_before_actual_render": true,
+    "no_reaction_asset_regeneration_per_video": true,
+    "longform_research_explainer_profile": "ymm4_research_explainer",
+    "static_character_route_for_explicit_motion_request": false,
+    "require_character_state_assets_verified_before_render": true,
+    "require_visible_expression_changes_in_final_preview": false,
+    "no_claim_of_actual_animation_from_sidecar_only": true
+  },
+  "caption_emphasis": {
+    "unit": "SEMANTIC_PHRASE_OR_CLAUSE",
+    "selection": "AUTHORED_SPAN_OR_JEV_CHOICE_OF_PRECOMPUTED_CANDIDATE_ID",
+    "offset_owner": "PYTHON",
+    "single_keyword_selection": false,
+    "keyword_box_card_or_brackets": false,
+    "automatic_keyword_highlighting": false,
+    "paint_every_occurrence": false,
+    "phrase_may_wrap_without_text_loss": true,
+    "maximum_per_short": 3,
+    "maximum_per_semantic_beat": 1,
+    "default_count": 0,
+    "reason_required": true,
+    "speech_text_never_contains_color_tags": true,
+    "legacy_emphasis_terms_is_compatibility_only": true,
+    "legacy_shortform_replay_requires_explicit_flag": "allow_legacy_emphasis_replay=true; archived replay only"
+  },
+  "speed": {
+    "max_independent_preparation_lanes": 2,
+    "audio_and_asset_fetch_may_run_in_parallel": true,
+    "mouth_and_caption_timing_wait_for_measured_wav": true,
+    "cache_inputs": [
+      "audio_sha256",
+      "engine_version",
+      "speaker_style",
+      "speed",
+      "planner_settings",
+      "asset_sha256",
+      "anchor_revision",
+      "expression_preset_revision"
+    ],
+    "caption_color_change_invalidates_audio": false,
+    "expression_change_invalidates_audio": false,
+    "audio_change_invalidates_mouth_and_timing": true,
+    "no_asr_for_known_verified_tts": true,
+    "shortform_final_encode_count": 1,
+    "longform_scene_checkpoints_preserved": true,
+    "record_cold_and_warm_wall_clock_separately": true,
+    "no_unmeasured_speedup_claim": true,
+    "persistent_voice_cache": "scripts/media_voice_cache.py; default .media-cache/voicevox-wav",
+    "persistent_mouth_cache": "measure_mouth_cached; production caller supplies mouth_cache_dir",
+    "voice_identity_includes_pronunciation_dictionary": true,
+    "cache_hit_skips_audio_query_synthesis_and_conversion": true,
+    "reuse_before_regeneration_required": true,
+    "delivery_authority": "config/media_speed_quality_policy.json#/speed_first_delivery",
+    "no_cosmetic_revision_or_extra_performance_generation": true,
+    "delivery_policy": "config/media_speed_quality_policy.json#/speed_first_delivery",
+    "no_micro_refinement": true,
+    "review_loops": 0,
+    "final_encode_passes": 1,
+    "default_parallel_lanes": 1,
+    "parallel_requires_expected_savings_seconds_at_least": 10
+  },
+  "agents": {
+    "commander": "ChatGPT",
+    "typed_routing": "Jev when authenticated and authorized",
+    "deterministic_owner": "Python",
+    "default_active_specialists": 1,
+    "max_complementary_specialists": 2,
+    "parallel_only_independent_owned_outputs": true,
+    "routine_duplicate_review_or_majority_vote": false,
+    "high_uncertainty_research_or_failure_analysis": "DeepSeek only if currently authorized and available",
+    "provider_unavailable": "DETERMINISTIC_CLEAR_ROUTE_OR_COMMANDER; no paid fallback",
+    "single_writer_join_required": true,
+    "reuse_successful_evidence": true
+  },
+  "ymm4": {
+    "csv_carries": [
+      "speaker",
+      "voice_text"
+    ],
+    "csv_does_not_auto_apply_expression_or_external_wav_timing": true,
+    "external_wav_uses_plain_srt_text_items": "NO >> character prefix",
+    "color_tag_channel": "CAPTION_TEXT_ONLY_AFTER_WINDOWS_FIXTURE",
+    "baseline_and_psd_mouth_presets_require_windows_verification": true,
+    "python_plan_is_not_completed_editor_application": true,
+    "hardware_encode": "OPTIONAL_IDENTICAL_FIXTURE_AB; preserve software fallback",
+    "research_explainer_auto_routes_to_expression_and_mouth_sync": false,
+    "sidecar_requires_verified_application_adapter": true,
+    "static_still_renderer_is_not_a_valid_final_adapter_for_motion_profile": true
+  },
+  "verification": {
+    "minimum_completion_only": true,
+    "manual_visual_review_required": false
+  },
+  "sources": [
+    {
+      "url": "https://manjubox.net/ymm4/faq/立ち絵機能/psd/",
+      "supports": "PSD mouth layer ordering and expression setup"
+    },
+    {
+      "url": "https://manjubox.net/ymm4/release/4.41.0.0/",
+      "supports": "RMS mouth-volume calculation; our window/hysteresis values are local tuning proposals"
+    },
+    {
+      "url": "https://manjubox.net/ymm4/faq/editing/text_control_tags/",
+      "supports": "Inline text color controls; caption-only adapter still needs Windows fixture"
+    },
+    {
+      "url": "https://manjubox.net/ymm4/faq/editing/item-from-subtitle-file/",
+      "supports": "SRT timing and distinction between voice and text items"
+    },
+    {
+      "url": "https://github.com/VOICEVOX/voicevox_engine",
+      "supports": "audio_query and synthesis; apply speed before measuring output"
+    }
+  ],
+  "precedence": {
+    "applies_only_when_user_requests_matching_profile": true,
+    "speed_first_delivery_remains_authoritative": true,
+    "no_routine_visual_review_or_micro_correction": true
+  },
+  "precedence_note": "The profile describes optional character performance. It does not add a mandatory visual review, increase routine quality work, or set duration."
+}

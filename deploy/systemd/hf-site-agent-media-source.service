@@ -1,0 +1,24 @@
+[Unit]
+Description=hf-site-agent bounded official media source poller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hf-site-agent
+Group=hf-site-agent
+WorkingDirectory=/opt/hf-site-agent
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m scripts.media_source_daemon --db /var/lib/hf-site-agent/media-queue.sqlite3 --interval-seconds 300
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hf-site-agent
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nyu1791-collab/hf-site-agent/schemas/untrusted_content_envelope.schema.json",
+  "title": "Untrusted Content Envelope",
+  "description": "Portable provenance/taint envelope for external or model-produced content. The envelope marks data origin; it never grants instruction authority or permissions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "content_id", "source_kind", "source_ref", "retrieved_at", "trust", "authority", "content", "may_expand_permissions", "may_request_secret_disclosure"],
+  "properties": {
+    "schema_version": {"const": "untrusted-content-envelope-v1"},
+    "content_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "source_kind": {"enum": ["WEB", "SEARCH", "EMAIL_OR_MESSAGE", "TOOL_OUTPUT", "REPOSITORY_NONCANONICAL", "EXTERNAL_FILE", "MODEL_OUTPUT", "OTHER_EXTERNAL"]},
+    "source_ref": {"type": "string", "minLength": 1, "maxLength": 4000},
+    "retrieved_at": {"type": "string", "format": "date-time"},
+    "content_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "trust": {"const": "UNTRUSTED_DATA"},
+    "authority": {"const": "EVIDENCE_ONLY_NOT_INSTRUCTION"},
+    "content": {"type": "string"},
+    "may_expand_permissions": {"const": false},
+    "may_request_secret_disclosure": {"const": false},
+    "derived_urls": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {"type": "string", "maxLength": 4000}
+    },
+    "handoff_chain": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["actor", "observed_at"],
+        "properties": {
+          "actor": {"type": "string", "minLength": 1, "maxLength": 200},
+          "observed_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    }
+  }
+}

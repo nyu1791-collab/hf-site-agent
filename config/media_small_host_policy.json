@@ -1,0 +1,183 @@
+{
+  "schema_version": "media-small-host-policy-v1",
+  "status": "GCP_24H_COORDINATOR_REPOSITORY_CONFIGURED_LIVE_VERIFICATION_REQUIRED",
+  "target": {
+    "provider": "GOOGLE_CLOUD_COMPUTE_ENGINE",
+    "machine_type": "e2-small",
+    "memory_gib": 2,
+    "sustained_vcpu": 0.5,
+    "gpu_required": false,
+    "region": "KEEP_CURRENT_VM_REGION",
+    "expected_instance_name": "instance-20261001-071545"
+  },
+  "runtime_layout": {
+    "repository": "~/hf-site-agent",
+    "database": "~/hf-site-agent/runtime/media-queue.sqlite3",
+    "workspace": "~/hf-site-agent/runtime",
+    "voice_cache": "~/hf-site-agent/runtime/voice-cache",
+    "rss_poller_schedule": "hf-site-agent-media-source.timer",
+    "create_duplicate_source_poller": false,
+    "move_or_reinitialize_existing_database": false
+  },
+  "worktree_preflight": {
+    "allowed_untracked_roots": [
+      ".media-cache/",
+      "runtime/",
+      "scripts/__pycache__/",
+      "tests/__pycache__/"
+    ],
+    "tracked_changes_block": true,
+    "unknown_untracked_block": true
+  },
+  "execution": {
+    "coordinator_and_local_renderer_share_one_vm": false,
+    "coordinator_only_for_video_rendering": true,
+    "external_llm_calls_are_remote": true,
+    "voicevox_lifecycle": "START_ONLY_DURING_VOICE_SYNTHESIS_AND_STOP_IF_WRAPPER_OWNS_PROCESS",
+    "voicevox_cpu_threads": 1,
+    "voicevox_remote_mode": "OPTIONAL_EXISTING_PRIVATE_SSH_LOOPBACK_TUNNEL",
+    "remote_voicevox_preflight": "REQUIRE_LIVE_EXPECTED_VERSION_AND_STANDARD_CAST_NO_LOCAL_INSTALLATION_REQUIRED",
+    "render_lifecycle": "EXTERNAL_WORKER_ONLY_AFTER_HUMAN_RIGHTS_REVIEW",
+    "external_render_worker_required_for_video_completion": true,
+    "media_jobs_per_vm_at_a_time": 1,
+    "database_single_writer_lock_required": true,
+    "render_timer_enabled_by_default": false,
+    "preparation_timer_enabled_by_default": true,
+    "public_publish_enabled": false,
+    "preparation_timer_activation": "AUTHORIZED_AFTER_READ_ONLY_PREFLIGHT",
+    "activation_script": "scripts/install_gcp_small_host_services.py",
+    "public_publish_requires_destination_and_account_scope": true,
+    "preserve_existing_sqlite_queue": true,
+    "gcp_local_render_unit_allowed": false,
+    "external_render_live_health_required": true,
+    "external_render_live_status_must_not_come_from_repository_boolean": true
+  },
+  "resource_controls": {
+    "service_memory_high_mib": 1300,
+    "service_memory_max_mib": 1700,
+    "minimum_workspace_free_bytes": 2147483648,
+    "maximum_unresolved_packages_per_queue": 1,
+    "automatic_artifact_deletion": false,
+    "stop_service_on_oom": true,
+    "allow_parallel_voice_and_render": false,
+    "local_video_rendering_on_gcp_allowed": false,
+    "performance_measurement_required_before_claiming_five_minute_sla": true
+  },
+  "runner_control_plane": {
+    "repository": "nyu1791-collab/-hf-vm-control",
+    "runner_name": "hf-site-agent-vm",
+    "runner_service_required_after_reboot": true,
+    "workflow_is_manual_only": true,
+    "status_operation_must_report_runner_timer_queue_and_blockers": true,
+    "registration_token_must_never_be_committed_or_logged": true,
+    "reboot_audit_operation": "reboot_audit",
+    "reboot_audit_requires": [
+      "NEW_BOOT_ID",
+      "LINGER_ENABLED",
+      "RUNNER_ENABLED_AND_ACTIVE",
+      "PREPARATION_TIMER_ENABLED_AND_ACTIVE",
+      "LATEST_REMOTE_HEAD",
+      "CLEAN_WORKTREE",
+      "AUTHORITATIVE_RSS_TIMER_ENABLED_AND_ACTIVE",
+      "AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT"
+    ],
+    "readiness_verdicts": [
+      "coordinator_runtime_ready",
+      "reboot_persistence_verified",
+      "coordinator_24h_ready",
+      "external_render_ready",
+      "e2e_infrastructure_ready",
+      "e2e_completion_verified"
+    ],
+    "live_status_source": "nyu1791-collab/-hf-vm-control status/reboot_audit",
+    "repository_live_status_is_authoritative": false,
+    "live_e2e_operation": "e2e_once",
+    "live_e2e_requirements": [
+      "ONE_RSS_QUEUE_ITEM_ONLY",
+      "PUBLIC_PUBLISH_DISABLED",
+      "REGISTERED_INTERNAL_E2E_VISUALS_ONLY",
+      "PROTECTED_ENV_VALUES_HIDDEN",
+      "REMOTE_RENDER_ONLY",
+      "FFPROBE_VERIFIED_BEFORE_COMPLETED",
+      "UNKNOWN_RESULT_NEVER_AUTO_RESENT"
+    ]
+  },
+  "provider_and_cost_gates": {
+    "paid_fallback_allowed": false,
+    "automatic_top_up": false,
+    "image_generation_allowed": false,
+    "gcp_credits_must_not_be_treated_as_openrouter_credit": true,
+    "gpu_vm_needed_for_initial_configuration": false,
+    "resident_news_script_route": "OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL",
+    "resident_news_script_route_policy": "config/media_news_pipeline_policy.json#/paid_script_generation",
+    "resident_news_paid_route_is_scoped_and_budget_capped": false,
+    "generic_paid_fallback_allowed": false,
+    "openrouter_paid_models_allowed": false,
+    "openrouter_paid_fallback_allowed": false,
+    "deepseek_direct_base_url": "https://api.deepseek.com",
+    "deepseek_artificial_daily_cap_usd": null,
+    "deepseek_artificial_monthly_cap_usd": null,
+    "deepseek_artificial_per_call_cap_usd": null,
+    "resident_news_paid_route_has_artificial_caps": false
+  },
+  "verification": {
+    "engine_health_required_before_synthesis": true,
+    "approved_shell_and_font_required_before_render": true,
+    "rights_evidence_and_credit_required_before_render": true,
+    "ffprobe_output_check_required": true,
+    "live_vm_status": "LIVE_PROBE_REQUIRED",
+    "service_enablement": "FINISH_SETUP_ENABLES_AFTER_PREFLIGHT",
+    "reboot_persistence_requires_new_boot_id_and_live_runner_timer_checks": true,
+    "external_renderer_requires_authenticated_live_health_check": true,
+    "saved_e2e_result_requires": [
+      "READY_TO_PUBLISH",
+      "NONEMPTY_FINAL_MP4",
+      "VERIFIED_REMOTE_RENDER_REPORT",
+      "MATCHING_SOURCE_ID",
+      "FFPROBE_SUCCESS",
+      "CURRENT_CONNECTED_WORKER_STACK_FINGERPRINT_MATCH"
+    ],
+    "coordinator_24h_ready_requires": [
+      "CURRENT_TESTED_COMMIT",
+      "CLEAN_WORKTREE",
+      "LINGER_ENABLED",
+      "RUNNER_ENABLED_AND_ACTIVE",
+      "PREPARATION_TIMER_ENABLED_AND_ACTIVE",
+      "MINIMUM_FREE_DISK",
+      "QUEUE_READABLE",
+      "AUTHORITATIVE_RSS_TIMER_ENABLED_AND_ACTIVE",
+      "AUTHORITATIVE_RSS_ALL_ENABLED_FEEDS_FRESH",
+      "AUTHORITATIVE_RSS_OBSERVED_AFTER_CURRENT_BOOT",
+      "REBOOT_OBSERVED_AFTER_CURRENT_COMMIT_BASELINE"
+    ],
+    "authoritative_rss_ingress_requires_all_enabled_feeds_fresh": true,
+    "authoritative_rss_ingress_policy": "config/media_source_ingress_policy.json",
+    "preparation_service_must_not_run_source_poller": true,
+    "current_e2e_completion_requires_connected_worker_fingerprint_match": true,
+    "authoritative_rss_must_be_observed_after_current_boot": true
+  },
+  "billing_preflight": {
+    "authorized_project_credit_ceiling_jpy": 47000,
+    "forecast_must_be_below_available_credit_and_authorized_ceiling": true,
+    "actual_remaining_credit_may_exceed_authorized_ceiling": true,
+    "billing_evidence_file": "~/.config/hf-site-agent/cloud-budget.json",
+    "must_be_verified_within_hours": 24,
+    "required_fields": [
+      "project_id",
+      "billing_status",
+      "remaining_credit_jpy",
+      "credit_expires_at",
+      "forecast_next_30d_jpy",
+      "verified_at",
+      "source",
+      "auto_top_up_enabled"
+    ],
+    "required_billing_status": "ACTIVE",
+    "source": "GOOGLE_CLOUD_BILLING_CONSOLE",
+    "auto_top_up_enabled": false,
+    "unknown_or_stale_action": "BLOCK_TIMER_ACTIVATION",
+    "allow_existing_vm_preparation_when_forecast_unavailable": true,
+    "forecast_unavailable_status": "UNAVAILABLE_INSUFFICIENT_HISTORY",
+    "forecast_unavailable_scope": "Existing configured VM only; no VM creation or resize, paid model fallback, auto top-up, or public publishing."
+  }
+}

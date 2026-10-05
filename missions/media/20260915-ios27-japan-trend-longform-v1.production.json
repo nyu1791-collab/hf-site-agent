@@ -1,0 +1,61 @@
+{
+  "schema_version": "longform-production-manifest-v1",
+  "mission_id": "20260915-ios27-japan-trend-longform-v1",
+  "generated_at": "2026-09-15T11:22:37+00:00",
+  "canonical_branch": "ai-army/provider-v3",
+  "source_claim_ledger": "missions/media/20260915-ios27-japan-trend-longform-v1.claims.json",
+  "mission_file": "missions/media/20260915-ios27-japan-trend-longform-v1.json",
+  "state": "SCRIPT_LOCK_CANDIDATE",
+  "public_publish": false,
+  "stage_status": {
+    "research_and_evidence": "COMPLETE_FOR_INTERNAL_RENDER",
+    "script": "LOCK_CANDIDATE",
+    "asset_rights": "PENDING_MATERIALIZATION",
+    "voice": "PENDING_VOICEVOX",
+    "measured_timeline": "BLOCKED_ON_VOICE",
+    "captions": "STRUCTURED_TEXT_READY_TIMING_PENDING",
+    "scene_render": "PENDING",
+    "final_concat": "PENDING",
+    "mechanical_qa": "PENDING",
+    "visual_rereview": "PENDING"
+  },
+  "render_contract": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "pixel_format": "yuv420p",
+    "video_codec": "h264",
+    "audio_codec": "aac",
+    "audio_sample_rate_hz": 48000,
+    "movflags": "+faststart",
+    "subtitle_coverage_ratio": 1.0
+  },
+  "scene_ids": ["S01","S02","S03","S04","S05","S06","S07","S08","S09","S10"],
+  "recovery": {
+    "render_unit": "SCENE",
+    "atomic_scene_promotion": true,
+    "partial_is_checkpoint": false,
+    "voice_duration_source": "FFPROBE_ACTUAL_GENERATED_WAV",
+    "smallest_affected_stage_rerun": true,
+    "default_scene_encode_parallelism": 1
+  },
+  "visual_contract": {
+    "caption_body": "white",
+    "zundamon_outer_accent": "bright_green",
+    "metan_outer_accent": "bright_pink_magenta",
+    "large_black_caption_box_default": false,
+    "thin_dark_inner_stroke_allowed": true,
+    "whole_diagram_vertical_drift": false,
+    "active_speaker_scale_heuristic": [1.06, 1.12],
+    "listener_scale_heuristic": [0.98, 1.00],
+    "speaker_transition_ms_heuristic": [160, 280],
+    "full_face_preview_required_if_mouth_geometry_changes": true
+  },
+  "audio_contract": {
+    "voice_engine": "VOICEVOX",
+    "cast": ["ずんだもん","四国めたん"],
+    "bgm": "NONE_UNLESS_LICENSE_LOCKED_CACHED_ASSET_IS_AVAILABLE",
+    "sfx": "SPARSE_SEMANTIC_ONLY"
+  },
+  "blocking_reason_for_final_mp4": "VOICEVOX execution and measured WAV timing have not yet run in the current tool environment."
+}

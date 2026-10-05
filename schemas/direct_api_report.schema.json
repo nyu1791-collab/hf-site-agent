@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nyu1791-collab/hf-site-agent/schemas/direct_api_report.schema.json",
+  "title": "Direct API Validation Report",
+  "description": "Redacted, bounded evidence for the direct commander validation phase. It never activates a provider.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "phase",
+    "checked_at",
+    "network_enabled",
+    "providers",
+    "openrouter",
+    "safety",
+    "final"
+  ],
+  "properties": {
+    "schema_version": { "const": "direct-api-report-v1" },
+    "phase": { "const": "DIRECT_API_VALIDATION" },
+    "checked_at": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "base_sha": { "type": "string", "maxLength": 80 },
+    "pull_request": { "type": "string", "maxLength": 20 },
+    "network_requested": { "type": "boolean" },
+    "network_enabled": { "type": "boolean" },
+    "confirmation_ok": { "type": "boolean" },
+    "providers": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["provider", "provider_tier", "free_access_type", "status", "secret_present", "model_results", "paid_calls"],
+        "properties": {
+          "provider": { "enum": ["google", "nvidia", "groq"] },
+          "provider_tier": { "const": "COMMANDER_PROVIDER" },
+          "free_access_type": { "enum": ["FREE_TIER", "FREE_PLAN", "TRIAL_CREDITS", "FREE_ENDPOINT", "FREE_MODEL_ENDPOINT", "PAID", "UNKNOWN"] },
+          "status": { "type": "string", "maxLength": 80 },
+          "secret_present": { "type": "boolean" },
+          "model_results": { "type": "array", "maxItems": 3 },
+          "paid_calls": { "const": 0 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "openrouter": {
+      "type": "object",
+      "required": ["status", "commander_validation", "paid_credits_used"],
+      "properties": {
+        "status": { "const": "NOT_RUN_WORKER_ONLY" },
+        "commander_validation": { "const": false },
+        "paid_credits_used": { "const": 0 }
+      },
+      "additionalProperties": true
+    },
+    "safety": {
+      "type": "object",
+      "required": ["paid_calls", "paid_fallback", "auto_top_up", "secret_values_emitted", "registry_changed", "production_routing_changed"],
+      "properties": {
+        "paid_calls": { "const": 0 },
+        "paid_fallback": { "const": false },
+        "auto_top_up": { "const": false },
+        "secret_values_emitted": { "const": false },
+        "registry_changed": { "const": false },
+        "production_routing_changed": { "const": false }
+      },
+      "additionalProperties": true
+    },
+    "final": {
+      "type": "object",
+      "required": ["GOOGLE_READY", "NVIDIA_READY", "GROQ_READY", "OPENROUTER_WORKERS_READY", "DIRECT_ARMY_READY", "state"],
+      "properties": {
+        "GOOGLE_READY": { "type": "boolean" },
+        "NVIDIA_READY": { "type": "boolean" },
+        "GROQ_READY": { "type": "boolean" },
+        "OPENROUTER_WORKERS_READY": { "type": "boolean" },
+        "DIRECT_ARMY_READY": { "type": "boolean" },
+        "state": { "const": "DIRECT_API_VALIDATED_AWAITING_ACTIVATION" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

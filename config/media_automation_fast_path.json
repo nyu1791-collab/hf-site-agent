@@ -1,0 +1,211 @@
+{
+  "schema_version": "media-automation-fast-path-v1",
+  "effective_date_jst": "2026-10-01",
+  "status": "ENFORCED_SPEED_FIRST_STANDARD",
+  "purpose": "Extract only the useful parts of a conventional multi-agent content pipeline and integrate them into the existing AI Army without adding unnecessary agent hops.",
+  "priority_order": [
+    "WALL_CLOCK_SPEED",
+    "REUSE_AND_RECOVERY",
+    "MINIMUM_FATAL_SAFETY",
+    "MINIMUM_MATERIAL_ACCURACY"
+  ],
+  "integration": {
+    "canonical_router": "scripts/ai_army_routing_facade.py",
+    "durable_runner": "scripts/durable_media_runner.py",
+    "deterministic_media_engine": "scripts/media_batch_command_center.py",
+    "jev_policy": "config/jev_decision_engine_policy.json",
+    "stream_resilience_policy": "config/session_stream_resilience_policy.json"
+  },
+  "extracted_pipeline": {
+    "source_ingress": {
+      "implementation": "DETERMINISTIC_RSS_OR_WEB_ADAPTER_OUTSIDE_AGENT_COUNT",
+      "rule": "Fetch and normalize new text, assign a stable source_id, then enqueue only typed work. Do not create a dedicated AI agent just to poll feeds.",
+      "dedupe_owner": "SQLITE_UNIQUE_SOURCE_INBOX_AND_JOB_KEY",
+      "runtime": "scripts/media_source_daemon.py",
+      "runtime_policy": "config/media_source_ingress_policy.json",
+      "runtime_status": "LIVE_STATUS_NOT_PERSISTED_IN_REPOSITORY",
+      "must_stop_at": "ASSET_REVIEW_REQUIRED_UNTIL_SELECTED_IMAGES_HAVE_VERIFIED_RIGHTS_AND_CREDIT",
+      "one_shot_runtime": "scripts/media_source_ingress.py",
+      "service_template": "deploy/systemd/user/hf-site-agent-media-source.service",
+      "scheduled_source_timer": "deploy/systemd/user/hf-site-agent-media-source.timer",
+      "scheduled_preparation_timer": "deploy/systemd/user/hf-site-agent-media-news.timer",
+      "poll_interval_seconds": 300,
+      "stale_after_seconds": 600,
+      "live_scheduler": "GCP_SYSTEMD_USER_SOURCE_TIMER_LIVE_STATUS_REQUIRED",
+      "live_status_source": "PRIVATE_VM_CONTROL_STATUS_AND_REBOOT_AUDIT"
+    },
+    "script_and_tone": {
+      "implementation": "ONE_COMBINED_JUDGMENT_PASS",
+      "default_owner": "CURRENT_AI_ARMY_ROUTER",
+      "rule": "Research/script/tone should stay in one compact pass unless current evidence shows decomposition materially reduces wall clock.",
+      "hardcoded_61_to_70_seconds": false,
+      "hardcoded_300_to_350_japanese_characters": false,
+      "platform_duration_and_length_rule": "RESOLVE_FROM_CURRENT_PLATFORM_PROFILE_OR_USER_REQUEST_AT_EXECUTION_TIME"
+    },
+    "fact_and_compliance": {
+      "implementation": "CONDITIONAL_GATE_NOT_ALWAYS_ON_AGENT",
+      "activate_when": [
+        "CURRENT_OR_TIME_SENSITIVE_CLAIM",
+        "MATERIAL_FACTUAL_CLAIM",
+        "RIGHTS_OR_PLATFORM_POLICY_DEPENDENCY",
+        "COMMERCE_OR_MONETIZATION_CLAIM"
+      ],
+      "routine_low_risk_behavior": "SKIP_EXTRA_AGENT_REVIEW; USE_MINIMUM_PRIMARY_SOURCE_OR_DETERMINISTIC_GATE"
+    },
+    "parallel_media_and_metadata": {
+      "implementation": "PARALLEL_WHEN_INDEPENDENT",
+      "max_media_preparation_lanes": 3,
+      "media_lane": "VOICEVOX_ASSET_PREP_RENDER_USING_EXISTING_DETERMINISTIC_PIPELINE",
+      "metadata_lane": "TITLE_DESCRIPTION_HASHTAG_DRAFT_ONLY_WHEN_REQUESTED_OR_PUBLISH_HANDOFF_EXISTS",
+      "join_rule": "JOIN_BEFORE_FINAL_READY_STATE"
+    },
+    "supervisor": {
+      "default": "MACHINE_GATE_ONLY",
+      "ai_supervisor_only_when": [
+        "MACHINE_GATE_FAILS",
+        "HIGH_RISK_AMBIGUITY",
+        "CONFLICTING_EVIDENCE",
+        "USER_EXPLICITLY_REQUESTS_REVIEW"
+      ],
+      "rule": "Do not add a routine supervisor agent to every video."
+    },
+    "analytics_and_feedback": {
+      "implementation": "ASYNCHRONOUS_POST_PUBLISH_LOOP",
+      "critical_path": false,
+      "rule": "Analytics collection must never block creation or publish readiness; feed later measurements into prompts/policy only after enough samples exist."
+    },
+    "article_to_media_staging": {
+      "implementation": "scripts/media_news_pipeline.py",
+      "policy": "config/media_news_pipeline_policy.json",
+      "stages": [
+        "OFFICIAL_RSS_ARTICLE_FETCH",
+        "OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL_TEXT_SCRIPT",
+        "LOCAL_OR_SSH_LOOPBACK_TUNNEL_VOICEVOX",
+        "OFFICIAL_ARTICLE_IMAGE_CANDIDATES"
+      ],
+      "daily_model_call_cap": null,
+      "provider_fallback_allowed": false,
+      "auto_top_up": false,
+      "image_generation_allowed": false,
+      "image_rights_review_required": true,
+      "automated_publish": false,
+      "service_template": "deploy/systemd/hf-site-agent-media-news.service",
+      "status": "REPOSITORY_IMPLEMENTED_LIVE_RUNTIME_STATE_NOT_PERSISTED",
+      "per_queue_single_writer_lock": true,
+      "atomic_stage_checkpoints": true,
+      "unchanged_article_script_and_rights_annotation_reuse": true,
+      "source_and_package_paths_workspace_bound": true,
+      "render_revalidates_source_image_hash": true,
+      "rights_evidence_url_required": true,
+      "queue_health_command": "python -m scripts.media_source_ingress --db <queue.db> status",
+      "source_poll_interval_seconds": 300,
+      "voice_retry_limit": 3,
+      "voice_retry_delays_seconds": [
+        60,
+        300
+      ],
+      "voice_audio_and_timing_checkpoint_reuse": true,
+      "persistent_voice_cache_environment": "VOICEVOX_CACHE_DIR",
+      "remote_voicevox_transport": "SSH_REVERSE_TUNNEL_TO_LOOPBACK_ONLY",
+      "small_host_profile": "config/media_small_host_policy.json",
+      "small_host_operations_doc": "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
+      "small_host_target": "EXISTING_GOOGLE_COMPUTE_ENGINE_COORDINATOR",
+      "single_host_user_services": [
+        "deploy/systemd/user/hf-site-agent-media-news.service",
+        "deploy/systemd/user/hf-site-agent-media-news.timer"
+      ],
+      "local_voicevox_process_is_job_scoped": true,
+      "resource_backpressure_policy": "config/media_news_pipeline_policy.json#/resource_backpressure",
+      "one_unresolved_package_at_human_gate": true,
+      "minimum_free_disk_bytes": 2147483648,
+      "automatic_artifact_deletion": false,
+      "final_ffmpeg_render_offloaded": true,
+      "per_call_reserved_cost_cap_usd": null,
+      "daily_reserved_cost_cap_usd": null,
+      "script_route": "OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL",
+      "script_provider": "OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL",
+      "chatgpt_api_required": false,
+      "paid_fallback": false,
+      "paid_image_or_video_generation": false,
+      "paid_tts_or_editing": false,
+      "automatic_publish": false,
+      "gcp_preparation_timer_expected_after_activation": true,
+      "gcp_local_video_rendering_allowed": false,
+      "reviewed_remote_render_user_service": "deploy/systemd/user/hf-site-agent-media-render@.service",
+      "external_render_handoff": {
+        "policy": "config/media_render_worker_policy.json",
+        "coordinator_transport": "scripts/media_render_transport.py",
+        "worker": "scripts/media_render_worker.py",
+        "worker_service_templates": [
+          "deploy/systemd/hf-render-worker.service",
+          "deploy/systemd/hf-render-worker-check.service",
+          "deploy/systemd/hf-render-worker-tunnel.service",
+          "deploy/systemd/hf-site-agent-media-render@.service",
+          "deploy/systemd/hf-site-agent-media-render-check.service"
+        ],
+        "status": "IMPLEMENTED_LIVE_HEALTH_REQUIRED",
+        "explicit_human_trigger_required": true,
+        "automatic_retry": false,
+        "automatic_local_fallback": false,
+        "publishing_enabled": false,
+        "live_status_is_repository_state": false,
+        "runtime_health_source": "AUTHENTICATED_LOOPBACK_HEALTH_CHECK",
+        "required_for_final_video_completion": true
+      },
+      "rss_source_timer_is_enabled_on_activation": true,
+      "external_render_handoff_implemented": true,
+      "deepseek_base_url": "https://api.deepseek.com",
+      "deepseek_artificial_cost_caps_removed": true,
+      "openrouter_paid_models_allowed": false,
+      "openrouter_paid_fallback_allowed": false
+    }
+  },
+  "durable_execution": {
+    "queue": "SQLITE_WAL",
+    "typed_job_kind": "MEDIA_BATCH_RUN",
+    "default_poll_seconds": 0.2,
+    "default_lease_seconds": 120,
+    "default_max_attempts": 2,
+    "checkpoint_reuse": true,
+    "resume_after_process_or_chat_disconnect": true,
+    "same_source_payload_deduped": true,
+    "public_publish_state": "READY_TO_PUBLISH",
+    "workspace_single_runner_lock": true,
+    "manifest_snapshot_before_execution": true,
+    "manifest_and_input_hash_bound": true,
+    "lease_expiry_fences_heartbeat_and_terminal_writes": true,
+    "successful_handler_module_launch": true,
+    "one_shot_rss_ingress_to_preparation_inbox": true,
+    "scheduled_polling_implemented_as_repository_template": true,
+    "article_script_voice_image_candidate_stages_implemented": true,
+    "rights_review_required_before_render": true,
+    "rss_poll_interval_seconds": 300,
+    "news_preparation_timer_interval_seconds": 300,
+    "voice_checkpoint_reuse": true,
+    "voice_retry_limit": 3,
+    "voice_retry_delays_seconds": [
+      60,
+      300
+    ],
+    "status": "REPOSITORY_POLICY_ONLY_LIVE_RUNTIME_STATE_NOT_PERSISTED",
+    "auto_publish_enabled": false,
+    "live_status_source": "nyu1791-collab/-hf-vm-control status/reboot_audit",
+    "persist_live_runtime_booleans": false
+  },
+  "minimum_fatal_gates_that_speed_may_not_remove": [
+    "NO_ARBITRARY_COMMAND_EXECUTION",
+    "NO_SECRET_VALUES_IN_JOB_PAYLOADS",
+    "NO_WORKSPACE_PATH_ESCAPE",
+    "NO_DUPLICATE_ACTIVE_LEASE",
+    "NO_SILENT_PAID_FALLBACK",
+    "NO_PUBLIC_PUBLISH_WITHOUT_ACTIVE_AUTHORIZATION_BOUNDARY"
+  ],
+  "intentionally_not_adopted": [
+    "FIVE_ALWAYS_ON_AI_AGENTS",
+    "ROUTINE_SUPERVISOR_REVIEW",
+    "ROUTINE_SECOND_FACT_AGENT_FOR_LOW_RISK_STATIC_CONTENT",
+    "ANALYTICS_ON_CREATION_CRITICAL_PATH",
+    "FRAME_PERFECT_REVIEW_LOOPS",
+    "PLATFORM_LENGTH_RULES_HARDCODED_AS_UNIVERSAL_LAW"
+  ]
+}

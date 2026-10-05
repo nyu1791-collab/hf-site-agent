@@ -1,0 +1,284 @@
+name: Build AI slowdown longform speaker-color v4
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ai-slowdown-longform-speaker-color-v4
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      OUT: artifacts/ai-slowdown-longform-speaker-color-v4
+      CHECKPOINT: artifacts/ai-slowdown-longform-v2
+      CACHE: .media-cache/assets
+      REVISED_MISSION: artifacts/ai-slowdown-longform-v2/mission-revised.json.gz.b64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install deterministic media toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk fontconfig
+          python -m pip install --upgrade pip
+          python -m pip install pillow
+          mkdir -p "$OUT" "$CACHE"
+
+      - name: Validate current mandatory media standard
+        run: |
+          python -m py_compile scripts/render_static_speaker_color_longform.py
+          python -m py_compile scripts/validate_evidence_visual_static_character_standard.py
+          python -m py_compile scripts/character_shell_root.py
+          python -m py_compile scripts/media_asset_resolver.py
+          python scripts/validate_evidence_visual_static_character_standard.py
+          python scripts/media_asset_resolver.py --validate-only
+
+      - name: Restore verified 1.20x voice checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: ai-slowdown-longform-v2-34982814053
+          path: artifacts/ai-slowdown-longform-v2
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 34982814053
+
+      - name: Verify voice and continuous pacing checkpoint
+        run: |
+          test -s "$REVISED_MISSION"
+          test -s "$CHECKPOINT/timing.json"
+          test -d "$CHECKPOINT/voice"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          t=json.loads(Path('artifacts/ai-slowdown-longform-v2/timing.json').read_text())
+          records=t['records']; dur=float(t['total_duration'])
+          assert 360 <= dur <= 720, dur
+          assert len(records)==61, len(records)
+          assert float(t['subtitle_narration_coverage_ratio'])==1.0
+          assert max(float(r.get('pause_after',0)) for r in records) <= 0.45
+          assert sum(float(r.get('pause_after',0)) for r in records) < 12.0
+          root=Path('artifacts/ai-slowdown-longform-v2/voice')
+          missing=[r['wav_file'] for r in records if not (root/r['wav_file']).is_file()]
+          assert not missing, missing[:5]
+          print({'checkpoint':'PASS','duration_seconds':dur,'line_count':len(records),'max_pause':max(float(r.get('pause_after',0)) for r in records),'pause_sum':sum(float(r.get('pause_after',0)) for r in records)})
+          PY
+
+      - name: Resolve static character shell once
+        run: |
+          python scripts/media_asset_resolver.py \
+            --asset-id zm_shell_20230806 \
+            --cache-root "$CACHE" \
+            --allow-network \
+            --max-workers 1 \
+            --manifest-out "$OUT/character-shell.json"
+          RAW=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('artifacts/ai-slowdown-longform-speaker-color-v4/character-shell.json').read_text())
+          p=m['results'][0].get('extracted_path')
+          assert p and Path(p).is_dir(), p
+          print(p)
+          PY
+          )
+          python scripts/character_shell_root.py "$RAW" > "$OUT/character-source-resolved.txt"
+
+      - name: Build static portraits only
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+          root=Path('artifacts/ai-slowdown-longform-speaker-color-v4/character-source-resolved.txt').read_text().strip()
+          root=Path(root)
+          out_root=Path('artifacts/ai-slowdown-longform-speaker-color-v4/static-portraits')
+          out_root.mkdir(parents=True,exist_ok=True)
+          records=[]
+          for source_char,target_char in [('Zundamon','zundamon'),('Metan','metan')]:
+              candidates=sorted((root/source_char).rglob('All.png'), key=lambda p:(len(p.parts),p.as_posix()))
+              assert candidates, source_char
+              src=candidates[0]
+              with Image.open(src) as im:
+                  rgba=im.convert('RGBA')
+                  if rgba.getchannel('A').getextrema()==(255,255):
+                      corner=rgba.getpixel((0,0))
+                      if max(corner[:3])<=8:
+                          px=rgba.load()
+                          for y in range(rgba.height):
+                              for x in range(rgba.width):
+                                  r,g,b,a=px[x,y]
+                                  if r<=8 and g<=8 and b<=8:
+                                      px[x,y]=(r,g,b,0)
+                  dst=out_root/f'{target_char}.png'
+                  rgba.save(dst)
+              records.append({'character':target_char,'category':'full_body','path':str(dst.resolve())})
+          Path('artifacts/ai-slowdown-longform-speaker-color-v4/static_inventory.json').write_text(json.dumps({'schema':'static-character-inventory-v1','records':records},ensure_ascii=False,indent=2)+'\n')
+          print({'static_portraits':'PASS','records':len(records)})
+          PY
+
+      - name: Resolve rights-registered real photos with bounded continuation
+        run: |
+          python - <<'PY'
+          import json,time
+          from pathlib import Path
+          from scripts import media_asset_resolver as mar
+          standard=mar.load_standard(Path('config/media_reusable_asset_standard.json'))
+          mar.validate_standard(standard)
+          mapping={str(a['asset_id']):a for a in standard['assets']}
+          ids=[
+              'openai_hq_1515_third_street',
+              'dario_amodei_tc_disrupt_2023',
+              'sam_altman_ted_2025',
+              'datacenter_server_racks_22370909788',
+              'csiro_server_racks_2042',
+              'cyberport_network_operations_centre',
+          ]
+          results=[]; failures=[]; cache=Path('.media-cache/assets')
+          for index,aid in enumerate(ids):
+              asset=dict(mapping[aid])
+              url=str(asset['download_url'])
+              if 'commons.wikimedia.org/wiki/Special:Redirect/file/' in url:
+                  sep='&' if '?' in url else '?'
+                  asset['download_url']=f'{url}{sep}width=960'
+              try:
+                  result=mar.materialize_asset(standard,asset,cache,allow_network=True)
+                  result['acquisition_variant']='REGISTERED_REAL_PHOTO_960_SERIAL'
+                  result['registered_source_page']=asset['source_page']
+                  results.append(result)
+                  print({'asset_id':aid,'status':result['status'],'index':index+1})
+              except Exception as exc:
+                  failures.append({'asset_id':aid,'error':str(exc)[:240]})
+                  print({'asset_id':aid,'status':'SKIPPED_AFTER_BOUNDED_FAILURE','index':index+1})
+              if index+1 < len(ids):
+                  time.sleep(8.0)
+          assert len(results) >= 3, {'successful_real_photos':len(results),'failures':failures}
+          manifest={
+              'schema':'media-asset-materialization-manifest-v1',
+              'cache_root':str(cache),
+              'asset_count':len(results),
+              'requested_asset_count':len(ids),
+              'real_photo_count':len(results),
+              'generated_image_count':0,
+              'search_performed':False,
+              'parallel_downloads':False,
+              'failures':failures,
+              'results':results,
+          }
+          Path('artifacts/ai-slowdown-longform-speaker-color-v4/visual_assets.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+          print({'real_photos':len(results),'generated_images':0,'failed_registered_downloads':len(failures)})
+          PY
+
+      - name: Preview speaker-color and photo-first layout
+        run: |
+          rm -rf "$OUT/preview"
+          python scripts/render_static_speaker_color_longform.py \
+            --mission-b64 "$REVISED_MISSION" \
+            --timing "$CHECKPOINT/timing.json" \
+            --static-inventory "$OUT/static_inventory.json" \
+            --asset-manifest "$OUT/visual_assets.json" \
+            --voice-root "$CHECKPOINT/voice" \
+            --output-dir "$OUT/preview" \
+            --preview-only
+          test -s "$OUT/preview/representative_contact_sheet.jpg"
+
+      - name: Render 6-12 minute longform
+        run: |
+          rm -rf "$OUT/final"
+          python scripts/render_static_speaker_color_longform.py \
+            --mission-b64 "$REVISED_MISSION" \
+            --timing "$CHECKPOINT/timing.json" \
+            --static-inventory "$OUT/static_inventory.json" \
+            --asset-manifest "$OUT/visual_assets.json" \
+            --voice-root "$CHECKPOINT/voice" \
+            --output-dir "$OUT/final"
+
+      - name: Mechanical final gate
+        run: |
+          FINAL="$OUT/final/ai-slowdown-longform-speaker-color.mp4"
+          test -s "$FINAL"
+          ffprobe -v error -show_streams -show_format -of json "$FINAL" > "$OUT/final/ffprobe.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('artifacts/ai-slowdown-longform-speaker-color-v4/final/ffprobe.json').read_text())
+          v=next(x for x in d['streams'] if x['codec_type']=='video')
+          a=next(x for x in d['streams'] if x['codec_type']=='audio')
+          dur=float(d['format']['duration'])
+          assert 360 <= dur <= 720, dur
+          assert (int(v['width']),int(v['height']))==(1080,1920)
+          assert v['codec_name']=='h264' and v.get('pix_fmt')=='yuv420p'
+          assert a['codec_name']=='aac' and int(a['sample_rate'])==48000
+          t=json.loads(Path('artifacts/ai-slowdown-longform-v2/timing.json').read_text())
+          assert len(t['records'])==61
+          assert float(t['subtitle_narration_coverage_ratio'])==1.0
+          assert max(float(r.get('pause_after',0)) for r in t['records']) <= 0.45
+          print({'duration_seconds':dur,'video':'h264/yuv420p','audio':'aac/48k','coverage':1.0})
+          PY
+          ffmpeg -v error -i "$FINAL" -f null - 2> "$OUT/final/decode-errors.log"
+          test ! -s "$OUT/final/decode-errors.log"
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('artifacts/ai-slowdown-longform-speaker-color-v4/final/ai-slowdown-longform-speaker-color.mp4')
+          b=p.read_bytes()[:8_000_000]
+          moov=b.find(b'moov'); mdat=b.find(b'mdat')
+          assert moov>0 and mdat>0 and moov<mdat, (moov,mdat)
+          print({'faststart':True})
+          PY
+
+      - name: Extract visual QA samples and completion manifest
+        run: |
+          FINAL="$OUT/final/ai-slowdown-longform-speaker-color.mp4"
+          DUR=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$FINAL")
+          python - "$DUR" <<'PY'
+          import hashlib,json,subprocess,sys
+          from pathlib import Path
+          from PIL import Image
+          dur=float(sys.argv[1]); root=Path('artifacts/ai-slowdown-longform-speaker-color-v4/final')
+          samples=root/'visual-samples'; samples.mkdir(parents=True,exist_ok=True)
+          fractions=(.03,.16,.30,.44,.58,.72,.86,.97)
+          for i,f in enumerate(fractions,1):
+              subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',str(dur*f),'-i',str(root/'ai-slowdown-longform-speaker-color.mp4'),'-frames:v','1',str(samples/f'sample-{i}.jpg')],check=True)
+          files=sorted(samples.glob('*.jpg'))
+          sheet=Image.new('RGB',(270*4,480*2),(235,240,244))
+          for i,p in enumerate(files):
+              im=Image.open(p).convert('RGB'); im.thumbnail((270,480)); sheet.paste(im,((i%4)*270,(i//4)*480))
+          sheet.save(root/'final-contact-sheet.jpg',quality=90)
+          mp4=root/'ai-slowdown-longform-speaker-color.mp4'
+          assets=json.loads(Path('artifacts/ai-slowdown-longform-speaker-color-v4/visual_assets.json').read_text())
+          completion={
+              'schema':'longform-finished-artifact-v2',
+              'mission_id':'20260915-ai-slowdown-longform-v1-reused-voice',
+              'build_variant':'speaker_color_static_photo_first_v4',
+              'status':'MACHINE_GATES_PASS_VISUAL_REREVIEW_PENDING',
+              'duration_seconds':dur,
+              'voice_speed_scale':1.20,
+              'voice_line_count':61,
+              'subtitle_narration_coverage_ratio':1.0,
+              'speaker_colored_caption_text':True,
+              'mouth_animation':False,
+              'active_speaker_scale':1.08,
+              'inactive_listener_opacity_percent':55,
+              'real_photo_count':assets['real_photo_count'],
+              'generated_image_count':0,
+              'sha256':hashlib.sha256(mp4.read_bytes()).hexdigest(),
+              'bytes':mp4.stat().st_size,
+              'public_publish':False,
+          }
+          (root/'completion.json').write_text(json.dumps(completion,ensure_ascii=False,indent=2)+'\n')
+          PY
+
+      - name: Upload longform artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-slowdown-longform-speaker-color-v4-${{ github.run_id }}
+          path: artifacts/ai-slowdown-longform-speaker-color-v4
+          if-no-files-found: warn
+          retention-days: 7

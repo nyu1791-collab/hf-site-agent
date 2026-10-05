@@ -1,0 +1,60 @@
+name: Verify framework adapter layer
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: framework-adapter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Compile framework adapter modules
+        run: |
+          python -m py_compile \
+            scripts/framework_adapter_layer.py \
+            scripts/framework_plugin_registry.py \
+            scripts/framework_adapter_health.py \
+            scripts/framework_consolidation_policy.py \
+            scripts/parallel_framework_batch.py
+      - name: Validate framework adapter config
+        run: python -m json.tool config/framework_adapter_layer.json >/dev/null
+      - name: Run framework adapter tests
+        run: |
+          python -m unittest \
+            tests.test_framework_adapter_layer \
+            tests.test_framework_plugin_registry \
+            tests.test_framework_adapter_health \
+            tests.test_framework_consolidation_policy \
+            tests.test_parallel_framework_batch -v
+      - name: Verify hard boundaries
+        run: |
+          python - <<'PY'
+          from scripts.framework_adapter_layer import load_config
+          cfg = load_config()
+          p = cfg['policy']
+          assert p['free_only_default'] is True
+          assert p['generic_paid_fallback'] is False
+          assert p['auto_top_up'] is False
+          assert p['external_framework_repository_write'] is False
+          assert p['external_framework_secret_mutation'] is False
+          assert p['external_framework_deploy'] is False
+          assert p['external_framework_publish'] is False
+          assert p['external_framework_payment'] is False
+          assert p['prefer_consolidated_ownership'] is True
+          assert p['avoid_micro_agent_fragmentation'] is True
+          print('FRAMEWORK_BOUNDARIES=PASS')
+          PY

@@ -1,0 +1,52 @@
+{
+  "schema_version": "legacy-deepseek-compatibility-v1",
+  "effective_date_jst": "2026-09-12",
+  "status": "HISTORICAL_COMPATIBILITY_ONLY",
+  "canonical_policy": "config/deepseek_paid_supervisor_policy.json",
+  "canonical_runner": "scripts/deepseek_supervisor_research.py",
+  "canonical_workflow": ".github/workflows/deepseek-supervisor-research.yml",
+  "canonical_router": "scripts/ai_army_routing_facade.py",
+  "rules": {
+    "legacy_artifact_is_not_routing_authority": true,
+    "legacy_enabled_flag_does_not_authorize_execution": true,
+    "legacy_model_alias_does_not_override_canonical_request_model": true,
+    "old_paid_engineering_workflows_must_not_remain_active": true,
+    "old_specialist_experiments_must_not_be_auto_dispatched": true,
+    "historical_files_may_remain_for_regression_evidence": true,
+    "new_missions_must_use_canonical_supervisor_contract": true
+  },
+  "historical_configs": [
+    "config/deepseek_paid_autonomy.json",
+    "config/deepseek_paid_parallel.json",
+    "config/deepseek_v41_paid_parallel.json",
+    "config/deepseek_specialist_routing.json",
+    "config/deepseek_specialist_trial.json",
+    "config/deepseek_targeted_review.json"
+  ],
+  "historical_scripts": [
+    "scripts/deepseek_paid_parallel.py",
+    "scripts/deepseek_v41_paid_parallel.py",
+    "scripts/deepseek_specialist_trial.py",
+    "scripts/deepseek_specialist_trial_v2.py",
+    "scripts/deepseek_specialist_trial_v3.py",
+    "scripts/deepseek_specialist_trial_v4.py",
+    "scripts/deepseek_targeted_review.py",
+    "scripts/deepseek_role_mode_benchmark.py",
+    "scripts/deepseek_priority_implementation_review.py"
+  ],
+  "retired_active_workflows": [
+    ".github/workflows/deepseek-paid-parallel.yml",
+    ".github/workflows/deepseek-paid-full-system-peer-review.yml",
+    ".github/workflows/deepseek-paid-peer-review-recovery.yml",
+    ".github/workflows/deepseek-specialist-trial.yml",
+    ".github/workflows/deepseek-role-mode-benchmark.yml",
+    ".github/workflows/deepseek-targeted-review.yml",
+    ".github/workflows/deepseek-priority-implementation-review.yml"
+  ],
+  "model_registry_legacy_role": {
+    "role": "ROLE_ENGINEERING_COMMANDER",
+    "expected_active": false,
+    "expected_routing_enabled": false,
+    "meaning": "Historical free/OpenRouter DeepSeek engineering commander role; never the paid executive supervisor."
+  }
+}

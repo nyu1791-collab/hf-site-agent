@@ -1,0 +1,298 @@
+{
+  "schema_version": "approved-landscape-video-template-v1",
+  "effective_date_jst": "2026-10-05",
+  "status": "USER_DIRECTED_LONGFORM_BASELINE",
+  "purpose": "Landscape AI-news/explainer videos that strongly adopt the reference video's pacing, information density, host/evidence/subtitle hierarchy and friendly tech-news atmosphere, while keeping the actual background, graphic assets, frame geometry and typography original.",
+  "reference_abstraction": {
+    "reference_media": "user-provided 174662.mp4",
+    "copy_prohibited": true,
+    "extract_only": [
+      "persistent top program/section header",
+      "large central evidence/content stage",
+      "characters anchored outside the evidence stage",
+      "wide bottom dialogue/caption zone with clear speaker identity",
+      "persistent compact source/footer information",
+      "chapter cards, lineup cards, evidence screenshots and comparison tables as distinct scene types",
+      "consistent visual hierarchy and repeated screen grammar"
+    ],
+    "must_not_copy": [
+      "orange/yellow news palette",
+      "cream framed background",
+      "plant/decorative motifs",
+      "exact border geometry",
+      "exact header/footer labels",
+      "exact typography",
+      "exact character placement proportions",
+      "exact transitions or graphic ornaments"
+    ],
+    "atmosphere_similarity_desired": true,
+    "atmosphere_to_adopt": [
+      "approachable weekly AI-news / tech-briefing feeling",
+      "playful but organized presentation",
+      "two-character conversational hosting",
+      "central evidence-first storytelling",
+      "clean chapter-to-chapter rhythm",
+      "compact broadcast-like information structure without morning-show framing"
+    ],
+    "copy_boundary": "Match the overall tech-news mood, pacing, friendliness, information hierarchy, information density and two-host presentation feel. Do not reproduce the morning-program framing or identifiable background art, exact palette, decorative motifs, logos, title bars, borders or brand identity.",
+    "must_not_adopt": [
+      "morning-show or breakfast-program framing",
+      "fake clock or time-of-day presentation",
+      "morning greeting language",
+      "breakfast-TV style labels or jingles",
+      "reference background art, plants, ornaments, exact frames, title bars or typography"
+    ]
+  },
+  "canvas": {
+    "longform_default": {
+      "width": 1280,
+      "height": 720,
+      "aspect_ratio": "16:9",
+      "fps": 15
+    },
+    "speed_fallback": {
+      "width": 1280,
+      "height": 720,
+      "aspect_ratio": "16:9",
+      "fps": 15
+    },
+    "portrait_allowed_only_for": [
+      "SHORTS",
+      "REELS",
+      "TIKTOK",
+      "EXPLICIT_USER_REQUEST"
+    ],
+    "quality_master": {
+      "width": 1920,
+      "height": 1080,
+      "aspect_ratio": "16:9",
+      "fps": 30
+    }
+  },
+  "visual_identity": {
+    "name": "AI Tech Briefing Studio",
+    "background": "ORIGINAL_BRIGHT_TECH_STUDIO",
+    "base_palette": {
+      "background": "#EAF0F7",
+      "panel": "#FFFFFF",
+      "header": "#17233A",
+      "line": "#CBD6E4",
+      "primary_accent": "#5A7DFF",
+      "secondary_accent": "#7B5CE6",
+      "success_accent": "#71C7A5"
+    },
+    "speaker_colors": {
+      "ずんだもん": "#B8E6C8",
+      "四国めたん": "#F2C4D7"
+    },
+    "avoid_visual_similarity_to_reference": false,
+    "background_rules": [
+      "Keep the same friendly, information-rich, lightly playful AI-news atmosphere as the reference.",
+      "Do not create a morning-program or breakfast-TV feeling.",
+      "Use an original cool-neutral/light tech studio background with blue-gray, teal, muted lavender and cream accents.",
+      "Use simple geometric or subtle circuit/grid accents instead of the reference plants and room ornaments.",
+      "Keep the board, characters, captions and topic bar visually separated and instantly scannable.",
+      "Do not reproduce exact badges, frames, tickers, border shapes, logos, title bars or typography."
+    ],
+    "mood_target": "FRIENDLY_MODERN_AI_TECH_BRIEFING",
+    "reference_mood_similarity": "HIGH_EXCEPT_MORNING_SHOW_ELEMENTS",
+    "exact_visual_identity_similarity": "LOW",
+    "originality_rule": "Atmosphere may be close; concrete visual assets and distinctive graphic identity must remain original."
+  },
+  "layout": {
+    "width": 1280,
+    "height": 720,
+    "fps": 15,
+    "background": "#E9EEF5",
+    "header_background": "#17233A",
+    "evidence_panel": "#FFFFFF",
+    "caption_backplate": "#17202F",
+    "caption_font_size": 28,
+    "title_font_size": 30,
+    "source_font_size": 15,
+    "caption_colors": {
+      "ずんだもん": "#B8E6C8",
+      "四国めたん": "#F2C4D7"
+    },
+    "zones": {
+      "header": [
+        24,
+        18,
+        1256,
+        76
+      ],
+      "title": [
+        46,
+        31
+      ],
+      "evidence": [
+        225,
+        92,
+        1055,
+        448
+      ],
+      "source_credit": [
+        238,
+        454
+      ],
+      "source_url": [
+        238,
+        476
+      ],
+      "caption": [
+        205,
+        492,
+        1075,
+        674
+      ],
+      "metan_anchor": [
+        36,
+        697
+      ],
+      "zundamon_anchor": [
+        1244,
+        697
+      ],
+      "voice_credit": [
+        24,
+        696
+      ]
+    },
+    "inactive_opacity": 0.72,
+    "character_active_height": 285,
+    "character_inactive_height": 260,
+    "character_side_margin": 28,
+    "caption_safe_bottom_margin_px": 34,
+    "caption_max_lines": 3,
+    "caption_auto_shrink_before_clip": true
+  },
+  "screen_grammar": {
+    "allowed_scene_types": [
+      "OPENING_HOOK",
+      "LINEUP_OVERVIEW",
+      "CHAPTER_TITLE",
+      "OFFICIAL_SCREENSHOT",
+      "PRODUCT_OR_UI_CAPTURE",
+      "BENCHMARK_TABLE",
+      "COMPARISON_CARD",
+      "ORIGINAL_EXPLANATORY_DIAGRAM",
+      "SUMMARY"
+    ],
+    "opening": {
+      "max_seconds_before_main_point": 15,
+      "show_main_question_and_answer_first": true,
+      "avoid_long_brand_intro": true
+    },
+    "header": {
+      "persistent": true,
+      "left": "series_or_video_identity",
+      "center": "current_chapter_or_topic",
+      "right": "compact_context_or_source_label",
+      "avoid_fake_live_clock_or_broadcast_branding": true,
+      "forbid_morning_show_time_of_day_elements": true
+    },
+    "caption": {
+      "full_spoken_text": true,
+      "speaker_tab_or_name_required": true,
+      "max_lines_target": 3,
+      "max_lines_hard": 4,
+      "wide_lower_third": true,
+      "pale_speaker_color": true,
+      "do_not_use_word_by_word_highlighting": true
+    },
+    "evidence_stage": {
+      "one_primary_visual_at_a_time": true,
+      "crop_unnecessary_browser_or_player_chrome": true,
+      "tables_and_text_must_be_legible_at_mobile_playback_size": true,
+      "switch_visual_when_narrative_beat_changes": true
+    },
+    "pacing": {
+      "reference_like_rhythm": true,
+      "chapter_card_then_evidence_then_dialogue": true,
+      "frequent_but_not_frenetic_visual_changes": true,
+      "friendly_host_reaction_beats": true,
+      "avoid_dead_static_sections": true,
+      "morning_show_pacing_or_gimmicks": false
+    }
+  },
+  "characters": {
+    "required": [
+      "ずんだもん",
+      "四国めたん"
+    ],
+    "both_speak": true,
+    "native_mouth_motion": true,
+    "authored_expression_changes": true,
+    "listener_reaction_required": true,
+    "default_positioning": "四国めたん=LOWER_LEFT / ずんだもん=LOWER_RIGHT / both outside central evidence stage",
+    "active_speaker_emphasis": "SMALL_SCALE_OR_OPACITY_CHANGE_ONLY",
+    "do_not_block_primary_visual": true
+  },
+  "editorial_visual_sync": {
+    "question_answer_reaction_pattern_preferred": true,
+    "visual_change_per_semantic_beat": true,
+    "chapter_title_card_seconds_range": [
+      1,
+      2.5
+    ],
+    "lineup_card_optional": true,
+    "benchmark_or_table_zoom_to_relevant_rows": true,
+    "official_source_visuals_first": true,
+    "original_diagrams_for_explanation_not_fake_evidence": true,
+    "primary_source_screenshot_for_current_claims_when_available": true,
+    "original_diagram_must_not_be_only_visual_type_when_primary_source_visual_is_available": true
+  },
+  "speed_first": {
+    "creation_wall_clock_target_minutes": 5,
+    "quality_weight": 0.2,
+    "speed_weight": 0.8,
+    "reuse_layout_and_character_variants": true,
+    "reuse_cached_official_visuals": true,
+    "no_routine_preview": true,
+    "no_cosmetic_rerender": true,
+    "one_final_encode": true,
+    "if_only_visual_style_changes_reuse_measured_audio_and_timing": true,
+    "preferred_resolution": "1280x720",
+    "quality_master_only_when_explicit_or_already_cached": "1920x1080"
+  },
+  "acting": {
+    "native_layers_required": true,
+    "mouth_method": "RMS_APPROXIMATION",
+    "closed_threshold": 0.014,
+    "wide_threshold": 0.07,
+    "window_seconds": 0.03,
+    "silent_and_listener_mouth_closed": true,
+    "expressions": [
+      "NORMAL",
+      "HAPPY",
+      "SERIOUS"
+    ],
+    "expressions_from_authored_cues_not_topic_keyword_matching": true,
+    "happiness_hold_seconds": 4,
+    "no_synthetic_mouth_over_existing_mouth": true
+  },
+  "audio_fast_path": {
+    "input_type": "VOICEVOX_MONO_PCM16",
+    "measured_test_input_lufs": -24.47,
+    "fixed_gain_db": 6.5,
+    "true_peak_limiter_linear": 0.84,
+    "target_integrated_lufs_range": [
+      -18,
+      -16
+    ],
+    "no_second_loudness_pass": true
+  },
+  "performance": {
+    "default_execution_lanes": 1,
+    "maximum_independent_preparation_lanes": 2,
+    "ffmpeg_encoder_concurrency": 1,
+    "voicevox_shared_engine_concurrency": 1,
+    "mouth_update_hz": 10,
+    "frame_state_cache_entries": 24,
+    "preflight_before_heavy_bootstrap": true,
+    "one_final_encode": true,
+    "routine_fps": 15,
+    "quality_master_fps": 30,
+    "reason": "STATIC_EVIDENCE_PLUS_CHARACTER_EXPLAINER; 15FPS_HALVES_FRAME_PIPE_COST_WHILE_RETAINING_READABLE_MOUTH_MOTION"
+  }
+}

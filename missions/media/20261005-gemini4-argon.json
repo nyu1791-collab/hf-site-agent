@@ -1,0 +1,428 @@
+{
+  "schema_version": "gemini4-argon-video-mission-v1",
+  "mission_id": "20261005-gemini4-argon-longform",
+  "title": "Gemini 4 Argon：何が変わる？長期推論・実例・料金を10分で解説",
+  "caption_text_mode": "VOICE_TEXT_FULL",
+  "source_ledger": [
+    {
+      "source_url": "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/",
+      "source_name": "Google official Gemini 4 Argon announcement",
+      "published_date": "2026-09-30"
+    },
+    {
+      "source_url": "https://blog.google/innovation-and-ai/technology/ai/google-ai-updates-september-2026/",
+      "source_name": "Google September 2026 AI updates",
+      "published_date": "2026-10-02"
+    }
+  ],
+  "pronunciation_dictionary": [
+    {
+      "surface_term": "Gemini 4 Argon",
+      "voice_reading": "ジェミニ フォー アルゴン",
+      "caption_spelling": "Gemini 4 Argon"
+    },
+    {
+      "surface_term": "Fairwind Program",
+      "voice_reading": "フェアウィンド プログラム",
+      "caption_spelling": "Fairwind Program"
+    },
+    {
+      "surface_term": "Google AI Ultra",
+      "voice_reading": "グーグル エーアイ ウルトラ",
+      "caption_spelling": "Google AI Ultra"
+    },
+    {
+      "surface_term": "DeepSWE v1.1",
+      "voice_reading": "ディープ エス ダブリュー イー バージョン ワン ポイント ワン",
+      "caption_spelling": "DeepSWE v1.1"
+    },
+    {
+      "surface_term": "AutomationBench",
+      "voice_reading": "オートメーション ベンチ",
+      "caption_spelling": "AutomationBench"
+    },
+    {
+      "surface_term": "LVBench",
+      "voice_reading": "エルブイ ベンチ",
+      "caption_spelling": "LVBench"
+    },
+    {
+      "surface_term": "CWE-bench v1",
+      "voice_reading": "シーダブリューイー ベンチ バージョン ワン",
+      "caption_spelling": "CWE-bench v1"
+    },
+    {
+      "surface_term": "Fuchsia",
+      "voice_reading": "フューシャ",
+      "caption_spelling": "Fuchsia"
+    },
+    {
+      "surface_term": "Zircon",
+      "voice_reading": "ジルコン",
+      "caption_spelling": "Zircon"
+    },
+    {
+      "surface_term": "Rust",
+      "voice_reading": "ラスト",
+      "caption_spelling": "Rust"
+    },
+    {
+      "surface_term": "Flash",
+      "voice_reading": "フラッシュ",
+      "caption_spelling": "Flash"
+    },
+    {
+      "surface_term": "Wiz",
+      "voice_reading": "ウィズ",
+      "caption_spelling": "Wiz"
+    },
+    {
+      "surface_term": "Scan for Good",
+      "voice_reading": "スキャン フォー グッド",
+      "caption_spelling": "Scan for Good"
+    }
+  ],
+  "scenes": [
+    {
+      "scene_id": "overview",
+      "title": "Gemini 4 Argonとは",
+      "main_point": "短い回答より、長時間の複雑な仕事を最後まで進めることを狙った新しいフロンティアモデル。",
+      "plain_explanation": "一般提供済みと誤解せず、段階公開と用途の違いから理解する。",
+      "dialogue": [
+        {
+          "id": "g4-001",
+          "speaker": "ずんだもん",
+          "voice_text": "まず結論から。Gemini 4 Argonは、短い質問へ一瞬で答えるだけのモデルではなく、何段階も続く複雑な仕事を長く考えながら進めるために設計された、Googleの新しいフロンティアモデルなのだ。",
+          "emotion": "HAPPY"
+        },
+        {
+          "id": "g4-002",
+          "speaker": "四国めたん",
+          "voice_text": "つまり、普段のGeminiが少し賢くなったというより、調査、判断、実行、修正まで続く仕事を一つの流れで任せる方向へ進んだ、と見る方が近いのね。",
+          "emotion": "HAPPY"
+        },
+        {
+          "id": "g4-003",
+          "speaker": "ずんだもん",
+          "voice_text": "そうなのだ。Googleは2026年9月30日にArgonを発表し、まずFairwind Programを通じて信頼されたサイバー防御担当者へ段階的に提供すると説明しているのだ。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-004",
+          "speaker": "四国めたん",
+          "voice_text": "じゃあ今、普通のGeminiアプリを開けば、誰でもGemini 4 Argonを選べるわけではないのね。",
+          "emotion": "SERIOUS"
+        },
+        {
+          "id": "g4-005",
+          "speaker": "ずんだもん",
+          "voice_text": "そこは大事なのだ。現時点では広い一般提供ではない。Googleは早期テスターから評価を集め、安全策を強化してから開発者、企業、一般利用者へ広げる方針なのだ。",
+          "emotion": "SERIOUS"
+        },
+        {
+          "id": "g4-006",
+          "speaker": "四国めたん",
+          "voice_text": "新モデルの名前だけ見て、もう全員が使えると受け取るのは早い。性能と同時に、誰がどの条件で使えるのかを見る必要があるわね。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-007",
+          "speaker": "ずんだもん",
+          "voice_text": "広い提供の最初の対象として、Googleは有料API利用者とGoogle AI Ultra加入者を挙げている。ただし、発表時点では一般開始日を固定していないのだ。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-008",
+          "speaker": "四国めたん",
+          "voice_text": "今回のポイントは三つね。何が強くなったのか、実際の仕事でどんな結果が出たのか、そして自分が使えるのはいつなのか。",
+          "emotion": "HAPPY"
+        },
+        {
+          "id": "g4-009",
+          "speaker": "ずんだもん",
+          "voice_text": "その三つで見ていくのだ。派手な数字だけで判断せず、Google社内の実例、外部ベンチマーク、まだ段階公開中という制約をセットで見るのが重要なのだ。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-010",
+          "speaker": "四国めたん",
+          "voice_text": "高速なFlash系と全部置き換えるというより、難しい仕事だけArgonに任せる使い分けが前提になりそうね。",
+          "emotion": "HAPPY"
+        }
+      ]
+    },
+    {
+      "scene_id": "long_horizon",
+      "title": "1Mトークン級の長期推論",
+      "main_point": "長い出力余地で、調査と修正を何度も続ける仕事を一つの軌跡で扱いやすくする。",
+      "plain_explanation": "1Mという数字は正しさの保証ではなく、検証可能な仕組みと組み合わせる必要がある。",
+      "dialogue": [
+        {
+          "id": "g4-011",
+          "speaker": "四国めたん",
+          "voice_text": "一番目立つ数字は1Mトークンだけど、ここは何が変わったの？ただ長文が書けるだけなら、そこまで大きな変化には聞こえないわ。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-012",
+          "speaker": "ずんだもん",
+          "voice_text": "Googleの発表本文では、Argonの出力上限を従来の64Kから1Mトークンへ大幅に拡張したと説明しているのだ。長い推論や大量の生成を、一つの軌跡で続けられる余裕を増やしたわけなのだ。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-013",
+          "speaker": "四国めたん",
+          "voice_text": "重要なのは長さそのものより、途中で観察して、試して、失敗したら直すという何段階もの仕事を切らずに続けやすいことね。",
+          "emotion": "HAPPY"
+        },
+        {
+          "id": "g4-014",
+          "speaker": "ずんだもん",
+          "voice_text": "その通りなのだ。例えば大きなコードベースを調べ、原因候補を作り、修正し、テスト結果を見て、また直す。こうした長いループを一つの仕事として扱う狙いなのだ。",
+          "emotion": "HAPPY"
+        },
+        {
+          "id": "g4-015",
+          "speaker": "四国めたん",
+          "voice_text": "人間で言えば、一問一答の助手より、資料を抱えて数時間かかる案件を最後まで追う担当者に近づくイメージね。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-016",
+          "speaker": "ずんだもん",
+          "voice_text": "Googleの9月まとめでは1Mトークンのコンテキストウィンドウとも紹介され、発表本文では1Mの出力上限拡張が強調されている。どちらにせよ、長い仕事を維持する設計が中心なのだ。",
+          "emotion": "SERIOUS"
+        },
+        {
+          "id": "g4-017",
+          "speaker": "四国めたん",
+          "voice_text": "ただし、長く考えられることと、最後の答えが正しいことは別。間違った方向へ長く進む可能性もあるわ。",
+          "emotion": "SERIOUS"
+        },
+        {
+          "id": "g4-018",
+          "speaker": "ずんだもん",
+          "voice_text": "そこが重要な制約なのだ。1Mという上限は能力を保証する数字ではない。重要な作業ではテスト、外部データの確認、人間レビューなど、途中で結果を検証できる仕組みが必要なのだ。",
+          "emotion": "SERIOUS"
+        },
+        {
+          "id": "g4-019",
+          "speaker": "四国めたん",
+          "voice_text": "だからArgonの価値は、一回で巨大な文章を書くことより、調査、比較、修正、再検証を長く続ける仕事で出やすいと考えた方が分かりやすいわね。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-020",
+          "speaker": "ずんだもん",
+          "voice_text": "財務調査、法務文書作成、長い動画の理解なども代表例として挙げられている。大量の資料を読むだけでなく、読んだ後に判断して行動するところまでが主戦場なのだ。",
+          "emotion": "HAPPY"
+        }
+      ]
+    },
+    {
+      "scene_id": "workflows",
+      "title": "Google社内と実務の結果",
+      "main_point": "研究、データセンター、コード移行、業務自動化などで具体的な成果が報告されている。",
+      "plain_explanation": "社内事例とベンチマークは有力な証拠だが、自社環境で同じ成果を保証するものではない。",
+      "dialogue": [
+        {
+          "id": "g4-021",
+          "speaker": "ずんだもん",
+          "voice_text": "次は、実際に何ができたのかを見るのだ。GoogleはArgonを、日常のデバッグから大規模コード移行、アルゴリズム設計、財務や法務まで幅広い仕事で使っていると説明しているのだ。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-022",
+          "speaker": "四国めたん",
+          "voice_text": "研究の世界だけじゃなく、Googleの実システムでも使われているの？",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-023",
+          "speaker": "ずんだもん",
+          "voice_text": "量子計算の研究では、重要なサブルーチンの時空間リソースを最適化し、公開されていた基準を40パーセント上回った例をGoogleが紹介しているのだ。",
+          "emotion": "HAPPY"
+        },
+        {
+          "id": "g4-024",
+          "speaker": "四国めたん",
+          "voice_text": "もっと大規模な運用の例もある？",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-025",
+          "speaker": "ずんだもん",
+          "voice_text": "データセンターのプロファイル情報をArgonエージェント群が解析し、導入済みの最適化で300ティビバイト以上のメモリを解放したという。将来の総削減見込みは500ティビバイトから1ペビバイトとしているのだ。",
+          "emotion": "HAPPY"
+        },
+        {
+          "id": "g4-026",
+          "speaker": "四国めたん",
+          "voice_text": "コードの書き換えではどうなの？大きな移行作業は長時間推論と相性が良さそうだけど。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-027",
+          "speaker": "ずんだもん",
+          "voice_text": "GoogleはCやC++からRustへの大規模移行にArgonエージェントを使っている。規模は数万行のライブラリから、FuchsiaのZirconカーネルでは80万行を超えると説明しているのだ。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-028",
+          "speaker": "四国めたん",
+          "voice_text": "libgav1の例も印象的ね。既存Rust版のSIMDコード三万二千行を置き換え、同じ映像出力を保ちながら、そのRust版より2.7倍高速になったとGoogleは報告している。",
+          "emotion": "HAPPY"
+        },
+        {
+          "id": "g4-029",
+          "speaker": "ずんだもん",
+          "voice_text": "ベンチマークでも、長期ソフトウェア開発を測るDeepSWE v1.1で77.9パーセント、業務自動化のAutomationBenchで51.3パーセント、長い動画理解のLVBenchで91.7パーセントと報告されているのだ。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-030",
+          "speaker": "四国めたん",
+          "voice_text": "ただし、社内事例やベンチマークが、そのまま自分の会社で同じ成果になる保証ではない。データ、ツール、テスト体制、権限設計で結果は大きく変わるわね。",
+          "emotion": "SERIOUS"
+        }
+      ]
+    },
+    {
+      "scene_id": "cyber_safety",
+      "title": "サイバー防御と安全策",
+      "main_point": "脆弱性の発見から修正まで強い一方、能力が高いほど段階公開とガードレールが重要になる。",
+      "plain_explanation": "性能だけでなく、権限制限、監査、プロンプトインジェクション対策などをセットで見る。",
+      "dialogue": [
+        {
+          "id": "g4-031",
+          "speaker": "四国めたん",
+          "voice_text": "Argonで特に強調されているのがサイバー防御よね。ここは普通の汎用モデルと何が違うの？",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-032",
+          "speaker": "ずんだもん",
+          "voice_text": "GoogleはArgonを、脆弱性を見つけ、検証し、修正まで進める防御用途に強く訓練したとしているのだ。信頼された防御担当者には、より広い能力を使える形で提供しているのだ。",
+          "emotion": "SERIOUS"
+        },
+        {
+          "id": "g4-033",
+          "speaker": "四国めたん",
+          "voice_text": "性能を数字で見ると？",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-034",
+          "speaker": "ずんだもん",
+          "voice_text": "脆弱性修正を測るCWE-bench v1では68パーセントで首位タイ。Google内部の評価では、20のプログラミング言語にまたがる複雑なコードから幅広い脆弱性を見つけたとしているのだ。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-035",
+          "speaker": "四国めたん",
+          "voice_text": "WizのScan for Goodでも使われ、病院で使われる医療ソフトに関係する重大な脆弱性を見つけた例が紹介されているわね。",
+          "emotion": "SERIOUS"
+        },
+        {
+          "id": "g4-036",
+          "speaker": "ずんだもん",
+          "voice_text": "そうなのだ。ただ、能力が強くなるほど悪用リスクも高くなる。Googleが一般公開を急がず、段階的に提供している理由の一つがここなのだ。",
+          "emotion": "SERIOUS"
+        },
+        {
+          "id": "g4-037",
+          "speaker": "四国めたん",
+          "voice_text": "具体的にはどんな安全策を強化しているの？",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-038",
+          "speaker": "ずんだもん",
+          "voice_text": "Googleは、悪用防止、間接プロンプトインジェクションへの防御、ユーザー意図から外れる行動の監視、そして高リスク評価を行うサンドボックス環境の強化という四つの領域を挙げているのだ。",
+          "emotion": "SERIOUS"
+        },
+        {
+          "id": "g4-039",
+          "speaker": "四国めたん",
+          "voice_text": "長時間動くエージェントほど外部文書やWebページに触れる機会が増えるから、途中に紛れた悪意ある命令へ引っ張られない設計が重要になるわけね。",
+          "emotion": "SERIOUS"
+        },
+        {
+          "id": "g4-040",
+          "speaker": "ずんだもん",
+          "voice_text": "その通りなのだ。強いモデルほど自由な権限を与えるのではなく、必要最小限の権限、監査ログ、サンドボックス、人間の承認を組み合わせる方が安全で実用的なのだ。",
+          "emotion": "HAPPY"
+        }
+      ]
+    },
+    {
+      "scene_id": "availability",
+      "title": "料金・提供時期・結論",
+      "main_point": "導入価格は明示されたが、一般提供日は固定されていない。難しい仕事だけArgonへ回す使い分けが現実的。",
+      "plain_explanation": "料金と提供範囲が確定してから、実コストと安定性を見て導入判断する。",
+      "dialogue": [
+        {
+          "id": "g4-041",
+          "speaker": "ずんだもん",
+          "voice_text": "最後に、料金と『自分はいつ使えるのか』を整理するのだ。発表された導入価格は、入力100万トークンあたり2ドル、出力100万トークンあたり10ドルなのだ。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-042",
+          "speaker": "四国めたん",
+          "voice_text": "ずっとその価格ではないのね。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-043",
+          "speaker": "ずんだもん",
+          "voice_text": "導入期間が終わると、入力は100万トークンあたり4ドル、出力は20ドルになる予定とGoogleは注記している。キャッシュ済み入力は、入力料金から95パーセント引きと説明されているのだ。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-044",
+          "speaker": "四国めたん",
+          "voice_text": "長時間推論で大量に出力するほど、出力側の料金が効いてくる。難しい仕事だけArgonへ回す設計が重要になりそうね。",
+          "emotion": "SERIOUS"
+        },
+        {
+          "id": "g4-045",
+          "speaker": "ずんだもん",
+          "voice_text": "その通りなのだ。定型処理や大量の軽い仕事はFlash系、失敗コストが高く何段階も考える仕事はArgon、といった役割分担が速度とコストの両面で現実的なのだ。",
+          "emotion": "HAPPY"
+        },
+        {
+          "id": "g4-046",
+          "speaker": "四国めたん",
+          "voice_text": "一般ユーザーは今すぐ乗り換えを考える必要はない？",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-047",
+          "speaker": "ずんだもん",
+          "voice_text": "今の時点では急がなくていいのだ。まず信頼されたテスター、その後に有料API利用者とGoogle AI Ultra加入者から広げる計画なので、実際の提供条件が確定してから判断すればいいのだ。",
+          "emotion": "NORMAL"
+        },
+        {
+          "id": "g4-048",
+          "speaker": "四国めたん",
+          "voice_text": "今日の結論を一言で言うなら？",
+          "emotion": "HAPPY"
+        },
+        {
+          "id": "g4-049",
+          "speaker": "ずんだもん",
+          "voice_text": "Gemini 4 Argonは、答えを速く返す競争から、長く複雑な仕事を安全に最後まで進める競争へ重心を移すモデルなのだ。強みは大きい。でも今は、性能と同じくらい提供範囲と安全策を見る段階なのだ。",
+          "emotion": "HAPPY"
+        },
+        {
+          "id": "g4-050",
+          "speaker": "四国めたん",
+          "voice_text": "見るべきポイントは、一般提供時期、実利用での安定性、そして長時間推論を使った時の実コスト。この三つが揃ってから、本当の評価が始まるわね。",
+          "emotion": "HAPPY"
+        }
+      ]
+    }
+  ],
+  "build_revision": "expression-timing-fix-1"
+}

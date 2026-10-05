@@ -15,22 +15,35 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any
-
-from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
+from typing import Any, Mapping
 
 try:
-    from scripts.model_registry import load_registry, role_candidates, role_config
+    from scripts.model_registry import load_registry, role_config
     from scripts.free_quota import FreeQuotaBlocked, FreeUsageLedger, is_explicit_free_model
     from scripts.agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
+    from scripts.provider_adapters import GuardedProviderAdapter, OpenAICompatibleAdapter, ProviderAdapterError
+    from scripts.provider_controls import QuotaGuardError, ledger_from_registry
+    from scripts.provider_registry import load_provider_registry, provider_config
+    from scripts.worker_selection import worker_role_for_specialist
 except ModuleNotFoundError:  # pragma: no cover - when invoked from scripts/
-    from model_registry import load_registry, role_candidates, role_config
+    from model_registry import load_registry, role_config
     from free_quota import FreeQuotaBlocked, FreeUsageLedger, is_explicit_free_model
     from agent_runtime import AgentRegistry, ReportEnvelope, make_command, project_context, stable_hash, stable_id
+    from provider_adapters import GuardedProviderAdapter, OpenAICompatibleAdapter, ProviderAdapterError
+    from provider_controls import QuotaGuardError, ledger_from_registry
+    from provider_registry import load_provider_registry, provider_config
+    from worker_selection import worker_role_for_specialist
 
 
 ROLE_TO_SPECIALIST = {
     "research": "research-specialist",
+    "data": "data-specialist",
+    "media": "media-specialist",
+    "long_context": "long-context-specialist",
+    "long-context": "long-context-specialist",
+    "fact_check": "fact-check-specialist",
+    "fact-check": "fact-check-specialist",
+    "planning": "planning-specialist",
     "product": "product-specialist",
     "content": "content-specialist",
     "video": "video-specialist",
@@ -41,6 +54,12 @@ ROLE_TO_SPECIALIST = {
     "specialist_commander": "product-specialist",
 }
 
+PARENT_ROLE_BY_AGENT = {
+    "google-general-commander": "ROLE_GOOGLE_GENERAL_COMMANDER",
+    "nvidia-engineering-commander": "ROLE_NVIDIA_ENGINEERING_COMMANDER",
+    "groq-rapid-commander": "ROLE_GROQ_RAPID_EXECUTION_COMMANDER",
+}
+
 MAX_INSTRUCTION = 5000
 MAX_CONTEXT = 6000
 MAX_ACCEPTANCE = 3000
@@ -49,7 +68,6 @@ MAX_MODEL_CHARS = 160
 MAX_TOKENS = 500
 TIMEOUT_SECONDS = 15.0
 MAX_NEXT_TASKS = 4
-BASE_URL = "https://openrouter.ai/api/v1"
 MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,160}$")
 FREE_MODEL_RE = re.compile(r"^[A-Za-z0-9._/-]+:free$")
 SECRET_PATTERNS = (
@@ -109,11 +127,14 @@ def bounded_identifier(value: str, fallback: str) -> str:
 
 
 def parse_output(response: Any) -> dict[str, Any]:
-    choices = getattr(response, "choices", None) or []
-    if not choices:
-        fail("Agent returned no choices.")
-    message = getattr(choices[0], "message", None)
-    raw = getattr(message, "content", "") if message is not None else ""
+    if isinstance(response, Mapping):
+        raw = response.get("text", "")
+    else:
+        choices = getattr(response, "choices", None) or []
+        if not choices:
+            fail("Agent returned no choices.")
+        message = getattr(choices[0], "message", None)
+        raw = getattr(message, "content", "") if message is not None else ""
     safe = redact(str(raw or ""))[:MAX_OUTPUT_CHARS]
     if not safe:
         fail("Agent returned an empty response.")
@@ -127,65 +148,114 @@ def parse_output(response: Any) -> dict[str, Any]:
     return parsed if isinstance(parsed, dict) else {"text": safe, "format": "text"}
 
 
+def load_verified_worker_model(role: str, requested_model: str = "") -> str:
+    """Resolve one exact worker from a separately generated probe report."""
+    probe_path_value = os.environ.get("WORKER_PROBE_PATH", "artifacts/free_worker_probe.json").strip()
+    probe_path = Path(probe_path_value)
+    if probe_path.is_absolute() or ".." in probe_path.parts:
+        fail("Worker probe path must stay inside the workspace.")
+    try:
+        report = json.loads(probe_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        fail("A current exact Worker probe report is required.")
+    if not isinstance(report, Mapping) or report.get("registry_changed") is not False:
+        fail("Worker probe report is invalid or changed the registry.")
+    if report.get("provider_allow_fallbacks") is not False or report.get("paid_fallback") is not False:
+        fail("Worker probe did not prove the no-fallback free policy.")
+    worker_role = worker_role_for_specialist(role)
+    selections = report.get("selections")
+    selection = selections.get(worker_role) if isinstance(selections, Mapping) else None
+    model = str(selection.get("model") or "").strip() if isinstance(selection, Mapping) else ""
+    if not isinstance(selection, Mapping) or selection.get("status") != "ready" or selection.get("provider") != "openrouter":
+        fail("No verified free Worker is available for this specialist role.")
+    if selection.get("generic_router") is True or selection.get("paid_fallback") is not False:
+        fail("The selected Worker is outside the free Worker policy.")
+    if requested_model and requested_model != model:
+        fail("The requested Worker model does not match the current exact probe.")
+    if not MODEL_RE.fullmatch(model) or not FREE_MODEL_RE.fullmatch(model):
+        fail("The exact Worker probe returned an invalid model ID.")
+    results = report.get("results")
+    evidence = next(
+        (item for item in results if isinstance(item, Mapping) and item.get("requested_model") == model),
+        None,
+    ) if isinstance(results, list) else None
+    if not isinstance(evidence, Mapping):
+        fail("The selected Worker has no exact probe evidence.")
+    if (
+        evidence.get("status") != "FREE_ACTIVE"
+        or evidence.get("response_model") != model
+        or str(evidence.get("usage_cost")) not in {"0", "0.0", "0.00"}
+        or evidence.get("fallback_used") is not False
+        or evidence.get("credits_unchanged") is not True
+        or evidence.get("provider_allow_fallbacks") is not False
+    ):
+        fail("The selected Worker did not satisfy the exact free endpoint contract.")
+    return model
+
+
 def call_agent(model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
     if not is_explicit_free_model(model):
         fail("Only an explicit :free endpoint may be called.")
-    ledger = FreeUsageLedger()
     mission_id = os.environ.get("MISSION_ID", "MISSION-UNASSIGNED")
     agent_id = os.environ.get("AGENT_ID", "specialist-worker")
     request_id = hashlib.sha256(
         f"{mission_id}|{agent_id}|{model}|{system_prompt}|{user_prompt}".encode("utf-8")
     ).hexdigest()[:32]
+    free_ledger = FreeUsageLedger()
     try:
-        ledger.before_request(
+        reservation = free_ledger.before_request(
             request_id=request_id,
             mission_id=mission_id,
             agent_id=agent_id,
             model=model,
         )
-    except FreeQuotaBlocked as exc:
-        fail(f"Free quota blocked: {exc.reason}")
-    try:
-        client = OpenAI(
-            api_key=os.environ["AI_API_KEY"],
-            base_url=BASE_URL,
-            timeout=TIMEOUT_SECONDS,
-            max_retries=0,
+        if reservation.get("allowed") is not True:
+            fail("Duplicate worker request was blocked by the OpenRouter ledger.")
+        provider_registry = load_provider_registry()
+        provider_ledger = ledger_from_registry(
+            "openrouter",
+            provider_registry,
+            os.environ.get("PROVIDER_USAGE_LEDGER_PATH", "artifacts/provider_usage_ledger.json"),
         )
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
+        adapter = GuardedProviderAdapter(
+            OpenAICompatibleAdapter(provider_registry, "openrouter", network_enabled=True, timeout_seconds=TIMEOUT_SECONDS),
+            provider_ledger,
+        )
+        response = adapter.generate(
+            model,
+            [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.2,
             max_tokens=MAX_TOKENS,
-            stream=False,
+            require_zero_cost=True,
+            request_id=request_id,
+            mission_id=mission_id,
+            agent_id=agent_id,
         )
-        ledger.record_response(request_id, success=True, http_status=200)
+        free_ledger.record_response(request_id, success=True, http_status=200)
         return parse_output(response)
-    except KeyError:
-        ledger.record_response(request_id, success=False, http_status=None)
-        fail("AI_API_KEY secret is not configured.")
-    except APITimeoutError:
-        ledger.record_response(request_id, success=False, http_status=408)
-        fail("Specialist agent timed out.", 408)
-    except APIConnectionError:
-        ledger.record_response(request_id, success=False, http_status=None)
-        fail("Specialist agent connection failed.")
-    except APIStatusError as exc:
-        status = getattr(exc, "status_code", None)
-        ledger.record_response(request_id, success=False, http_status=status if isinstance(status, int) else None)
-        if status == 402:
+    except FreeQuotaBlocked as exc:
+        fail(f"Free quota blocked: {exc.reason}")
+    except QuotaGuardError as exc:
+        free_ledger.record_response(request_id, success=False, http_status=None)
+        fail(f"OpenRouter quota blocked: {exc.reason}")
+    except ProviderAdapterError as exc:
+        free_ledger.record_response(request_id, success=False, http_status=exc.http_status)
+        if exc.error_class == "CREDIT_EXHAUSTED":
             fail("OpenRouter free credit is unavailable; no paid fallback was attempted.", 402)
-        if status in (401, 403):
-            fail("OpenRouter credentials or permission were rejected.", status)
-        if status == 429:
-            ledger.mark_429(request_id)
+        if exc.error_class in {"AUTH_ERROR", "PERMISSION_ERROR", "AUTH_NOT_CONFIGURED"}:
+            fail("OpenRouter credentials or permission were rejected.", exc.http_status)
+        if exc.error_class == "RATE_LIMITED":
             fail("OpenRouter free endpoint rate limit reached; no automatic retry was attempted.", 429)
-        fail("OpenRouter returned a non-success response.", status if isinstance(status, int) else None)
+        if exc.error_class == "NETWORK_TIMEOUT":
+            fail("Specialist agent timed out.", 408)
+        fail(f"OpenRouter worker request blocked: {exc.error_class}", exc.http_status)
+    except KeyError:
+        free_ledger.record_response(request_id, success=False, http_status=None)
+        fail("OpenRouter worker configuration is incomplete.")
     except Exception:
-        ledger.record_response(request_id, success=False, http_status=None)
+        free_ledger.record_response(request_id, success=False, http_status=None)
         fail("Specialist agent request failed without exposing provider details.")
 
 
@@ -216,7 +286,10 @@ def build_specialist_envelope(
     registry = AgentRegistry()
     child_agent_id = specialist_for_role(role)
     child = registry.get(child_agent_id)
-    parent_agent_id = bounded_identifier(os.environ.get("PARENT_AGENT_ID", ""), child.parent_agent_id or "glm-general-commander")
+    parent_agent_id = bounded_identifier(
+        os.environ.get("PARENT_AGENT_ID", ""),
+        child.parent_agent_id or "google-general-commander",
+    )
     mission_id = bounded_identifier(
         os.environ.get("MISSION_ID", ""),
         stable_id("MISSION", {"task_id": task_id, "instruction": instruction, "context": context}),
@@ -312,34 +385,48 @@ def write_packet(packet: dict[str, Any]) -> str:
 
 
 def main() -> int:
-    if not os.environ.get("AI_API_KEY"):
-        fail("AI_API_KEY secret is not configured.")
+    if not (os.environ.get("OPENROUTER_API_KEY") or os.environ.get("AI_API_KEY")):
+        fail("OpenRouter API secret is not configured.")
     role = clean(os.environ.get("TASK_ROLE", "specialist"), 80) or "specialist"
     task_id = clean(os.environ.get("TASK_ID", "commander-task"), 100) or "commander-task"
     instruction = clean(os.environ.get("TASK_INSTRUCTION", ""), MAX_INSTRUCTION)
     context = clean(os.environ.get("TASK_CONTEXT", ""), MAX_CONTEXT)
     acceptance = clean(os.environ.get("TASK_ACCEPTANCE", ""), MAX_ACCEPTANCE)
-    model = os.environ.get("AI_MODEL", "").strip()
-    parent_agent_id = bounded_identifier(os.environ.get("PARENT_AGENT_ID", ""), "glm-general-commander")
+    requested_model = os.environ.get("AI_MODEL", "").strip()
+    parent_agent_id = bounded_identifier(os.environ.get("PARENT_AGENT_ID", ""), "google-general-commander")
     if not instruction:
         fail("Task instruction is required.")
-    if not MODEL_RE.fullmatch(model) or not FREE_MODEL_RE.fullmatch(model):
-        fail("AI_MODEL must be an explicitly free model ID.")
-    if len(model) > MAX_MODEL_CHARS:
-        fail("AI_MODEL is too long.")
+    try:
+        expected_parent = AgentRegistry().get(specialist_for_role(role)).parent_agent_id
+    except Exception:
+        fail("Specialist role is not present in the finite agent hierarchy.")
+    if expected_parent != parent_agent_id:
+        fail("Specialist role is not owned by the selected provider commander.")
     try:
         registry = load_registry(os.environ.get("MODEL_REGISTRY_PATH") or None)
     except Exception:
         fail("Model registry is invalid or unavailable.")
-    parent_role = (
-        "ROLE_ENGINEERING_COMMANDER"
-        if parent_agent_id == "deepseek-engineering-commander"
-        else "ROLE_GENERAL_COMMANDER"
-    )
+    parent_role = PARENT_ROLE_BY_AGENT.get(parent_agent_id)
+    if parent_role is None:
+        fail("PARENT_AGENT_ID must be an approved provider commander.")
     if role_config(registry, parent_role).get("active") is not True:
         fail("Parent commander role is inactive pending commander approval.")
-    if not role_candidates(registry, parent_role, model):
-        fail("AI_MODEL is not an approved same-role registry candidate.")
+    if role_config(registry, "ROLE_OPENROUTER_WORKER").get("active") is not True:
+        fail("OpenRouter Worker role is inactive pending commander approval.")
+    try:
+        provider_registry = load_provider_registry()
+        openrouter = provider_config(provider_registry, "openrouter")
+    except Exception:
+        fail("Provider registry is invalid or unavailable.")
+    if (
+        openrouter.get("enabled") is not True
+        or openrouter.get("activation_approved") is not True
+        or openrouter.get("probe_status") != "PROBE_OK"
+        or openrouter.get("health_status") != "HEALTHY"
+        or openrouter.get("circuit_state") != "CLOSED"
+    ):
+        fail("OpenRouter Worker provider is inactive pending probe and approval.")
+    model = load_verified_worker_model(role, requested_model)
 
     system_prompt = (
         "あなたは司令部から一件だけ委任された専門エージェントです。"
@@ -468,4 +555,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

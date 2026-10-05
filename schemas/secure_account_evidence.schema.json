@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hf-site-agent.example/schemas/secure-account-evidence.schema.json",
+  "title": "Secure Account Evidence Bundle",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "secure_runner",
+    "secret_safe_execution",
+    "secret_values_in_bundle",
+    "observed_at",
+    "expires_at",
+    "evidence_generation",
+    "providers"
+  ],
+  "properties": {
+    "schema_version": {"const": "secure-account-evidence-v1"},
+    "secure_runner": {"const": true},
+    "secret_safe_execution": {"const": true},
+    "secret_values_in_bundle": {"const": false},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "evidence_generation": {"type": "integer", "minimum": 1},
+    "provider_count": {"type": "integer", "minimum": 0, "maximum": 4},
+    "providers": {
+      "type": "object",
+      "propertyNames": {"enum": ["google", "groq", "nvidia", "openrouter"]},
+      "additionalProperties": {"type": "object"}
+    }
+  },
+  "additionalProperties": true
+}

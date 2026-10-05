@@ -1,0 +1,118 @@
+{
+  "schema": "media-mission-checkpoint-v1",
+  "mission_id": "20260915-ios27-japan-trend-longform-v1",
+  "recorded_jst_date": "2026-09-15",
+  "status": "INTERNAL_RENDER_PASS_CANONICAL_CHARACTER_FIXTURE_RERUN_PENDING",
+  "canonical_branch": "ai-army/provider-v3",
+  "pr_number": 40,
+  "pr_must_remain": {
+    "open": true,
+    "draft": true,
+    "unmerged": true
+  },
+  "voice_checkpoint": {
+    "workflow_run_id": 34963651287,
+    "workflow_name": "Build iOS27 longform VOICEVOX timing v1",
+    "conclusion": "success",
+    "artifact_id": 10394214690,
+    "artifact_name": "ios27-longform-voice-v1",
+    "artifact_sha256": "1ca3dd8d486cce3ea4455471421dff1901089913512bdde82e9b7ebba032c90c",
+    "utterance_count": 57,
+    "total_duration_seconds": 610.98,
+    "duration_gate": "PASS_8_TO_12_MIN",
+    "reuse_without_regeneration": true,
+    "scene_durations_seconds": {
+      "S01": 42.768,
+      "S02": 44.859,
+      "S03": 63.619,
+      "S04": 61.432,
+      "S05": 54.168,
+      "S06": 65.688,
+      "S07": 71.576,
+      "S08": 70.157,
+      "S09": 58.232,
+      "S10": 78.481
+    }
+  },
+  "character_fixture": {
+    "previous_workflow_run_id": 34963810964,
+    "previous_conclusion": "failure",
+    "previous_artifacts": 0,
+    "confirmed_failure": "prepare_character_reaction_pack.py received the extraction directory, but Zundamon and Metan were below one or more wrapper directories",
+    "registered_asset_id": "zm_shell_20230806",
+    "observed_source_sha256_from_failed_run": "e54467c53bb95398b29e427dbc2cfd740fd494186c803a338f19ec0c0ccee658",
+    "fix": {
+      "resolver_path": "scripts/character_shell_root.py",
+      "resolver_commit": "754a800575da6d8a9dc2fdb3b1dfbd6a322bff4d",
+      "regression_test_path": "tests/test_character_shell_root.py",
+      "regression_test_commit": "a822983515d0a43ec6c940a1c6706a10ccf073cd",
+      "workflow_path": ".github/workflows/prepare-ios27-character-assets-v1.yml",
+      "workflow_fix_commit": "0dc8280e8d2f4584ffd2b07fe721eb79f2f90345",
+      "resolution_policy": "accept exactly one local directory that directly contains both Zundamon and Metan; fail closed on zero or multiple candidates; do not traverse symlinked directories; bound directory scan",
+      "local_regression_tests": {
+        "passed": 5,
+        "failed": 0
+      }
+    },
+    "canonical_fixture_rerun": {
+      "verified": false,
+      "reason": "The current GitHub connector does not expose workflow_dispatch, and the registered shell binary host was not directly accessible from the local container. No temporary push trigger was introduced.",
+      "next_required_verification": "Run the existing workflow_dispatch-only prepare-ios27-character-assets-v1 workflow on the current branch and verify the reaction geometry contact sheet plus mouth/eyes/brows/full_body counts."
+    }
+  },
+  "internal_render_fallback": {
+    "used": true,
+    "purpose": "Finish and visually QA the internal review video without falsely claiming the canonical shell fixture rerun passed.",
+    "character_source": "derivative full-face/upper-body states captured from a prior visually-QA'd internal Zundamon + Shikoku Metan production in the user Library",
+    "new_external_character_download": false,
+    "raw_character_shell_redistributed": false,
+    "full_face_A_B_states_visually_reviewed": true,
+    "voice_regenerated": false
+  },
+  "workflow_trigger_policy": {
+    "build_ios27_longform_voice_v1": "workflow_dispatch_only",
+    "prepare_ios27_character_assets_v1": "workflow_dispatch_only",
+    "temporary_push_trigger_must_not_be_reintroduced": true
+  },
+  "final_render": {
+    "completed": false,
+    "internal_review_render_completed": true,
+    "final_mp4_verified": true,
+    "final_visual_qa_completed": true,
+    "canonical_shell_mouth_full_face_fixture_verified": false,
+    "derived_full_face_state_fixture_verified": true,
+    "artifact_filename": "iOS27_Japan_Update_ずんだもん四国めたん_10m11s_INTERNAL.mp4",
+    "artifact_sha256": "da787f3509ffa80f378bf5f33a394e206cbc6fa05ac2dd5e1d1c4d6478f37c87",
+    "artifact_size_bytes": 33488157,
+    "duration_seconds": 610.972,
+    "scene_decode_pass": "10/10",
+    "full_decode_pass": true,
+    "video_contract": {
+      "codec": "h264",
+      "profile": "High",
+      "codec_tag": "avc1",
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "pixel_format": "yuv420p",
+      "color_range": "tv",
+      "color_space": "bt709"
+    },
+    "audio_contract": {
+      "codec": "aac",
+      "profile": "LC",
+      "sample_rate_hz": 48000,
+      "channels": 1
+    },
+    "fast_start_verified": true,
+    "caption_coverage_ratio": 1.0,
+    "storyboard_instruction_text_removed_from_viewer_copy": true,
+    "publish_performed": false,
+    "youtube_upload_performed": false
+  },
+  "publication_guard": {
+    "character_asset_rights_must_be_rechecked_before_publication": true,
+    "do_not_claim_canonical_completion_until_character_fixture_rerun_passes": true,
+    "public_publish_authorized": false
+  }
+}

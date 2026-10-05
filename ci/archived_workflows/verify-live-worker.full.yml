@@ -1,0 +1,682 @@
+name: Verify live Worker and source
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "worker/index.js"
+      - ".github/workflows/verify-live-worker.yml"
+      - ".github/workflows/sync-worker-admin-password.yml"
+      - "hf-space/app.js"
+      - "hf-space/index.html"
+      - ".github/workflows/sync-hf-space.yml"
+      - ".github/workflows/connect-hf-inference.yml"
+      - "worker/ai-ops-audit.mjs"
+      - "docs/AI_COMMANDER_OPERATING_RULES.md"
+      - "scripts/provider_smoke.py"
+      - ".github/workflows/check-openai-compatible-provider.yml"
+      - ".github/workflows/design-council.yml"
+      - ".github/workflows/agent-delegation.yml"
+      - ".github/workflows/agent-execution.yml"
+      - "scripts/design_council.py"
+      - "scripts/agent_delegation.py"
+      - "scripts/agent_executor.py"
+      - "docs/PRODUCT_DISCOVERY.md"
+      - "docs/OSS_OPTIMIZATION_PLAN.md"
+      - "docs/MEDIA_PIPELINE.md"
+      - "schemas/commander_packet.schema.json"
+      - "schemas/agent_task_packet.schema.json"
+      - "schemas/media_pipeline_plan.schema.json"
+      - "scripts/validate_agent_packets.py"
+      - "tests/fixtures/commander_packet.example.json"
+      - "tests/fixtures/agent_task_packet.example.json"
+      - "tests/fixtures/media_pipeline_plan.example.json"
+      - "docs/SETUP_FLOW.md"
+  push:
+    branches:
+      - main
+    paths:
+      - "worker/index.js"
+      - ".github/workflows/verify-live-worker.yml"
+      - ".github/workflows/sync-worker-admin-password.yml"
+      - "hf-space/app.js"
+      - "hf-space/index.html"
+      - ".github/workflows/sync-hf-space.yml"
+      - ".github/workflows/connect-hf-inference.yml"
+      - "worker/ai-ops-audit.mjs"
+      - "docs/AI_COMMANDER_OPERATING_RULES.md"
+      - "scripts/provider_smoke.py"
+      - ".github/workflows/check-openai-compatible-provider.yml"
+      - ".github/workflows/design-council.yml"
+      - ".github/workflows/agent-delegation.yml"
+      - ".github/workflows/agent-execution.yml"
+      - "scripts/design_council.py"
+      - "scripts/agent_delegation.py"
+      - "scripts/agent_executor.py"
+      - "docs/PRODUCT_DISCOVERY.md"
+      - "docs/OSS_OPTIMIZATION_PLAN.md"
+      - "docs/MEDIA_PIPELINE.md"
+      - "schemas/commander_packet.schema.json"
+      - "schemas/agent_task_packet.schema.json"
+      - "schemas/media_pipeline_plan.schema.json"
+      - "scripts/validate_agent_packets.py"
+      - "tests/fixtures/commander_packet.example.json"
+      - "tests/fixtures/agent_task_packet.example.json"
+      - "tests/fixtures/media_pipeline_plan.example.json"
+      - "docs/SETUP_FLOW.md"
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check Worker source syntax
+        uses: actions/checkout@v6
+
+      - name: Run Node syntax check
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check worker/index.js
+
+      - name: Check read-only AI operations audit script
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check worker/ai-ops-audit.mjs
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync("worker/ai-ops-audit.mjs", "utf8");
+          for (const marker of [
+            "async function fetchJson",
+            "ADMIN_PASSWORD",
+            "秘密値そのものは出力しません"
+          ]) {
+            if (!source.includes(marker)) throw new Error(`Audit script is missing: ${marker}`);
+          }
+          if (source.includes("console.log(process.env.")) {
+            throw new Error("Audit script must not print environment secrets.");
+          }
+          console.log("Read-only AI operations audit script check passed.");
+          NODE
+
+      - name: Check admin-secret migration workflow safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync(".github/workflows/sync-worker-admin-password.yml", "utf8");
+          if (!source.includes("on:\n  workflow_dispatch:\n")) {
+            throw new Error("Admin-secret migration must remain manually dispatchable.");
+          }
+          if (/^  push:\s*$/m.test(source)) {
+            throw new Error("Admin-secret migration must not run automatically on code pushes.");
+          }
+          if (!source.includes("uses: actions/checkout@v6")) {
+            throw new Error("Admin-secret migration checkout action must use the Node 24 runtime.");
+          }
+          if (!source.includes("inputs.confirm == 'MIGRATE'") || !source.includes("github.ref == 'refs/heads/main'")) {
+            throw new Error("Admin-secret migration requires the main-branch MIGRATE confirmation gate.");
+          }
+          if (!source.includes("persist-credentials: false")) {
+            throw new Error("Admin-secret migration checkout credentials must not persist.");
+          }
+          const jobHeader = source.slice(0, source.indexOf("\n    steps:"));
+          if (jobHeader.includes("secrets.")) {
+            throw new Error("Admin-secret migration must not expose secrets at job scope.");
+          }
+          console.log("Admin-secret migration workflow safety check passed.");
+          NODE
+
+      - name: Check Hugging Face connection workflow safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync(".github/workflows/connect-hf-inference.yml", "utf8");
+          for (const required of [
+            "secrets.HF_TOKEN",
+            'name:"HF_TOKEN"',
+            'name":"HF_INFERENCE_ENABLED"',
+            "free-credit-only review lane",
+            "Hugging Face free credits are exhausted",
+            "workers/scripts/$WORKER_NAME/secrets",
+            "Verify Hugging Face token inference permission before Cloudflare changes",
+            "Make calls to Inference Providers",
+            "no Cloudflare secret was changed",
+            "(.inference | {provider,freeCreditOnly,codeReview})"
+          ]) {
+            if (!source.includes(required)) throw new Error(`HF connection workflow is missing: ${required}`);
+          }
+          if (!source.includes("github.event_name == 'workflow_dispatch'") ||
+              !source.includes("inputs.confirm == 'CONNECT'") ||
+              !source.includes("github.ref == 'refs/heads/main'")) {
+            throw new Error("HF connection workflow must require explicit main-branch CONNECT dispatch.");
+          }
+          if (source.includes("echo \"$HF_TOKEN_VALUE\"")) {
+            throw new Error("HF token must never be printed.");
+          }
+          const preflight = source.indexOf("Verify Hugging Face token inference permission before Cloudflare changes");
+          const store = source.indexOf("Store encrypted Hugging Face token");
+          if (preflight < 0 || store < 0 || preflight > store) {
+            throw new Error("HF token permission preflight must run before Cloudflare secret writes.");
+          }
+          if (!source.includes("(.inference | {provider,freeCreditOnly,codeReview})")) {
+            throw new Error("Health output must project nested inference fields correctly.");
+          }
+          console.log("Hugging Face connection workflow safety contract passed.");
+          NODE
+
+      - name: Check Hugging Face frontend safety contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check hf-space/app.js
+          node <<'NODE'
+          const fs = require("node:fs");
+          const app = fs.readFileSync("hf-space/app.js", "utf8");
+          const page = fs.readFileSync("hf-space/index.html", "utf8");
+          const checkboxCheck = app.indexOf('if (!$("confirmed").checked)');
+          const publishFlag = app.indexOf("confirmPublish: true");
+          if (checkboxCheck < 0 || publishFlag < checkboxCheck) {
+            throw new Error("HF publish confirmation must follow the checked review box.");
+          }
+          if (app.includes("allowPaidResearch") || app.includes("approve-paid") || page.includes("paid-approval")) {
+            throw new Error("Paid-search controls must remain removed from the HF frontend.");
+          }
+          if (!page.includes("課金検索は実行しません")) {
+            throw new Error("HF frontend must clearly state that paid search is disabled.");
+          }
+          for (const marker of ["id=\"template\"", "id=\"plan\"", "id=\"plan-research\"", "前回内容を再利用", "端末内指標"]) {
+            if (!page.includes(marker)) throw new Error("HF frontend is missing product loop control: " + marker);
+          }
+          for (const marker of ["TEMPLATES", "localStorage", "updateReuseCount", "content-plan", "citation", "new URL"]) {
+            if (!app.includes(marker)) throw new Error("HF frontend is missing product loop implementation: " + marker);
+          }
+          console.log("Hugging Face frontend safety contract passed.");
+          NODE
+
+      - name: Check Hugging Face Space write-token safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync(".github/workflows/sync-hf-space.yml", "utf8");
+          for (const marker of [
+            "HF_SPACE_WRITE_TOKEN",
+            "steps.gate.outputs.should_sync == 'true'",
+            "confirm=SYNC",
+            "automatic Space sync is safely skipped",
+            "persist-credentials: false"
+          ]) {
+            if (!source.includes(marker)) throw new Error("Space sync gate is missing: " + marker);
+          }
+          if (source.includes("secrets.HF_TOKEN")) {
+            throw new Error("Inference-only HF_TOKEN must not be used for Space writes.");
+          }
+          if (!source.includes("workflow_dispatch:")) throw new Error("Space sync must remain manually dispatchable.");
+          console.log("Hugging Face Space write-token safety contract passed.");
+          NODE
+
+      - name: Check preset and workflow documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const docs = fs.readFileSync("docs/SETUP_FLOW.md", "utf8");
+          const inference = fs.readFileSync(".github/workflows/connect-hf-inference.yml", "utf8");
+          const space = fs.readFileSync(".github/workflows/sync-hf-space.yml", "utf8");
+          const provider = fs.readFileSync(".github/workflows/check-openai-compatible-provider.yml", "utf8");
+          const council = fs.readFileSync(".github/workflows/design-council.yml", "utf8");
+          for (const marker of [
+            "Preset: **Inference**",
+            "Preset: **Write**",
+            "HF_TOKEN",
+            "HF_SPACE_WRITE_TOKEN",
+            "AI_API_KEY",
+            "confirm=CONNECT",
+            "confirm=SYNC",
+            "confirm=DESIGN",
+            "openrouter/free",
+            "YouTube投稿"
+          ]) {
+            if (!docs.includes(marker)) throw new Error("Setup flow documentation is missing: " + marker);
+          }
+          for (const [source, markers] of [
+            [inference, ["Inference preset", "inputs.confirm"]],
+            [space, ["HF_SPACE_WRITE_TOKEN", "Write preset", "inputs.confirm"]],
+            [provider, ["docs/SETUP_FLOW.md", "openrouter/free"]],
+            [council, ["openrouter/free", "DESIGN"]]
+          ]) {
+            for (const marker of markers) if (!source.includes(marker)) throw new Error("Workflow preset guidance is missing: " + marker);
+          }
+          if (space.includes("secrets.HF_TOKEN")) throw new Error("Inference token must not be reused for Space writes.");
+          console.log("Preset and workflow documentation contract passed.");
+          NODE
+
+      - name: Check Hugging Face review integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'https://router.huggingface.co/v1/chat/completions' worker/index.js
+          grep -q 'async function deepseekReview' worker/index.js
+          grep -q 'url.pathname === "/command/review"' worker/index.js
+          grep -q 'HF_INFERENCE_ENABLED=true' worker/index.js
+          node --check worker/index.js
+
+      - name: Check provider adapter and smoke workflow safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            scripts/provider_smoke.py \
+            scripts/probe_providers.py \
+            scripts/provider_adapters.py \
+            scripts/provider_registry.py
+          python3 - <<'PY'
+          from pathlib import Path
+
+          compatibility = Path("scripts/provider_smoke.py").read_text(encoding="utf-8")
+          probe = Path("scripts/probe_providers.py").read_text(encoding="utf-8")
+          adapter = Path("scripts/provider_adapters.py").read_text(encoding="utf-8")
+          workflow = Path(".github/workflows/check-openai-compatible-provider.yml").read_text(encoding="utf-8")
+          for marker in [
+              "PROBE_MODEL_ENVS",
+              "network_enabled: bool = False",
+              '"retry_count": 0',
+              '"paid_fallback": False',
+              '"registry_changed": False',
+              "timeout_seconds: float = 8.0",
+              "probe_timeout = 60.0",
+              'model == "openrouter/free"',
+          ]:
+              if marker not in compatibility + probe + adapter:
+                  raise SystemExit(f"provider probe is missing: {marker}")
+          for marker in [
+              'headers[header_name] = f"Bearer {credential}" if header_name.lower() == "authorization" else credential',
+              '"provider"] = {"allow_fallbacks": False}',
+              'LIMITED_STAGING_MAX_OUTPUT_TOKENS = 8',
+              'status in {429}',
+              '"RATE_LIMITED"',
+              '"FREE_COST_UNVERIFIED"',
+              '"FREE_COST_NONZERO"',
+              'self.config.get("generate_path")',
+              'LIMITED_BOOTSTRAP_MAX_OUTPUT_TOKENS = 256',
+              'chat_template_kwargs',
+          ]:
+              if marker not in adapter:
+                  raise SystemExit(f"provider adapter is missing: {marker}")
+          for marker in [
+              "workflow_dispatch:",
+              "event_name == 'workflow_dispatch'",
+              "github.event.inputs.confirm",
+              "github.event.inputs.provider",
+              "github.event.inputs.model",
+              'if [[ "$REF_NAME" != "main" ]]; then',
+              'if [[ "$CONFIRM" != "CHECK" ]]; then',
+              "actions/setup-python@v6",
+              "secrets.AI_API_KEY",
+              "no automatic fallback",
+              "scripts/probe_providers.py --network",
+          ]:
+              if marker not in workflow:
+                  raise SystemExit(f"provider workflow is missing: {marker}")
+          for forbidden in ["print(response", "message.content", "print(api_key", "print(os.getenv", "print(os.environ"]:
+              if forbidden in compatibility + probe + adapter:
+                  raise SystemExit(f"provider probe may expose response or secret data: {forbidden}")
+          print("Provider adapter and smoke workflow safety contract passed.")
+          PY
+
+      - name: Check read-only design council safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/design_council.py
+          node <<'NODE'
+          const fs = require("node:fs");
+          const script = fs.readFileSync("scripts/design_council.py", "utf8");
+          const workflow = fs.readFileSync(".github/workflows/design-council.yml", "utf8");
+          const docs = fs.readFileSync("docs/PRODUCT_DISCOVERY.md", "utf8");
+          for (const marker of [
+            "OpenAI(",
+            "max_retries=0",
+            "timeout=15.0",
+            "max_tokens=500",
+            "status == 402",
+            "no automatic fallback",
+            "redact(raw)"
+          ]) {
+            if (!script.includes(marker)) throw new Error("Design council script is missing: " + marker);
+          }
+          for (const marker of [
+            "workflow_dispatch:",
+            "inputs:",
+            "inputs.confirm",
+            "DESIGN",
+            "secrets.AI_API_KEY",
+            "openrouter/free",
+            "persist-credentials: false",
+            "permissions:\n  contents: read"
+          ]) {
+            if (!workflow.includes(marker)) throw new Error("Design council workflow is missing: " + marker);
+          }
+          for (const forbidden of ["permissions: write", "wrangler deploy", "github-token:"]) {
+            if (workflow.includes(forbidden)) throw new Error("Design council must remain read-only: " + forbidden);
+          }
+          for (const forbidden of ["print(api_key", "print(os.environ", "print(response)"]) {
+            if (script.includes(forbidden)) throw new Error("Design council may expose secret/provider data: " + forbidden);
+          }
+          if (!docs.includes("YouTube投稿") || !docs.includes("端末内")) {
+            throw new Error("Product discovery rules must keep YouTube disabled and metrics local-first.");
+          }
+          console.log("Read-only design council safety contract passed.");
+          NODE
+
+      - name: Check disabled legacy delegation safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/agent_delegation.py
+          node <<'NODE'
+          const fs = require("node:fs");
+          const script = fs.readFileSync("scripts/agent_delegation.py", "utf8");
+          const workflow = fs.readFileSync(".github/workflows/agent-delegation.yml", "utf8");
+          const docs = fs.readFileSync("docs/SETUP_FLOW.md", "utf8");
+          for (const marker of [
+            "MAX_TOKENS_PER_CALL = 320",
+            "TIMEOUT_SECONDS = 12.0",
+            "max_retries=0",
+            "FREE_MODEL_RE",
+            "load_registry",
+            "status == 402",
+            "status == 429",
+            "redact(",
+            "Legacy commander lane is disabled; use provider commander routing.",
+            '"paid_search": "disabled"'
+          ]) {
+            if (!script.includes(marker)) throw new Error("Legacy delegation script is missing: " + marker);
+          }
+          for (const marker of [
+            "workflow_dispatch:",
+            "DELEGATE",
+            "Legacy commander handoff (disabled pending provider migration)",
+            "Legacy compatibility input",
+            "scripts/preflight_openrouter_models.py",
+            "secrets.AI_API_KEY",
+            "permissions:\n  contents: read",
+            "persist-credentials: false",
+            "paid_fallback"
+          ]) {
+            if (!workflow.includes(marker)) throw new Error("Legacy delegation workflow is missing: " + marker);
+          }
+          for (const marker of [
+            "confirm=DELEGATE",
+            "有料検索はこの自動保守では実行しません",
+            "YouTube"
+          ]) {
+            if (!docs.includes(marker)) throw new Error("Delegation setup docs are missing: " + marker);
+          }
+          for (const forbidden of [
+            "permissions: write",
+            "wrangler deploy",
+            "secrets.HF_TOKEN"
+          ]) {
+            if (workflow.includes(forbidden)) throw new Error("Legacy delegation must remain read-only: " + forbidden);
+          }
+          for (const forbidden of [
+            "print(api_key",
+            "print(os.environ",
+            "print(response)"
+          ]) {
+            if (script.includes(forbidden)) throw new Error("Legacy delegation may expose secret data: " + forbidden);
+          }
+          console.log("Disabled legacy delegation safety contract passed.");
+          NODE
+
+      - name: Check commander handoff and specialist execution safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          needle='\'
+          needle="${needle}$"
+          needle="${needle}{{"
+          for workflow in .github/workflows/agent-delegation.yml .github/workflows/agent-execution.yml; do
+            if grep -Fq "$needle" "$workflow"; then
+              echo "Workflow contains an escaped GitHub expression: $workflow" >&2
+              exit 1
+            fi
+          done
+          python3 -m py_compile scripts/agent_executor.py
+          node <<'NODE'
+          const fs = require("node:fs");
+          const delegation = fs.readFileSync("scripts/agent_delegation.py", "utf8");
+          const executor = fs.readFileSync("scripts/agent_executor.py", "utf8");
+          const delegationWorkflow = fs.readFileSync(".github/workflows/agent-delegation.yml", "utf8");
+          const executionWorkflow = fs.readFileSync(".github/workflows/agent-execution.yml", "utf8");
+          const docs = fs.readFileSync("docs/SETUP_FLOW.md", "utf8");
+          const escapedExpression = "\\" + "$" + "{{";
+          if (delegationWorkflow.includes(escapedExpression) || executionWorkflow.includes(escapedExpression)) {
+            throw new Error("Workflow contains an escaped GitHub expression.");
+          }
+          for (const marker of [
+            "planner_critic_with_downstream_handoff",
+            "COMMANDER_PACKET_PATH",
+            "execution_allowed",
+            "requires_commander_approval",
+            "artifact"
+          ]) {
+            if (!delegation.includes(marker)) throw new Error("Delegation handoff is missing: " + marker);
+          }
+          for (const marker of [
+            "commander_approved_specialist_draft",
+            "AGENT_PACKET_PATH",
+            "execution_allowed",
+            "next_tasks",
+            "GuardedProviderAdapter",
+            "require_zero_cost=True",
+            "RATE_LIMITED"
+          ]) {
+            if (!executor.includes(marker)) throw new Error("Specialist agent contract is missing: " + marker);
+          }
+          for (const marker of [
+            "COMMANDER_APPROVE",
+            "scripts/agent_executor.py",
+            "upload-artifact@v6",
+            "permissions:\n  contents: read",
+            "persist-credentials: false"
+          ]) {
+            if (!executionWorkflow.includes(marker)) throw new Error("Commander workflow is missing: " + marker);
+          }
+          for (const forbidden of ["permissions: write", "actions: write", "secrets.HF_TOKEN", "wrangler deploy"]) {
+            if (executionWorkflow.includes(forbidden)) throw new Error("Specialist workflow must remain bounded: " + forbidden);
+          }
+          if (!docs.includes("COMMANDER_APPROVE") || !docs.includes("司令部")) {
+            throw new Error("Commander handoff documentation is missing.");
+          }
+          console.log("Commander handoff and specialist execution safety contract passed.");
+          NODE
+
+      - name: Check log redaction and external timeout guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync("worker/index.js", "utf8");
+          for (const required of [
+            "function redactLogText",
+            "function safeLogData",
+            "async function fetchWithTimeout",
+            "GROQ_TIMEOUT_MS",
+            "TAVILY_TIMEOUT_MS",
+            "GITHUB_TIMEOUT_MS"
+          ]) {
+            if (!source.includes(required)) throw new Error(`Missing safety guard: ${required}`);
+          }
+          if (source.includes("console.log(JSON.stringify({ event, ...data }))")) {
+            throw new Error("Raw structured logging must not bypass redaction.");
+          }
+          if (!source.includes("safeLogData(data)")) {
+            throw new Error("The log helper must sanitize event data.");
+          }
+          console.log("Log redaction and external timeout guards passed.");
+          NODE
+
+      - name: Check quota guard source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync("worker/index.js", "utf8");
+          const expected = "const month = /^\\d{4}-\\d{2}$/.test";
+          const broken = "const month = /^\\\\d{4}-\\\\d{2}$/.test";
+          if (!source.includes(expected) || source.includes(broken)) {
+            throw new Error("Tavily quota month validation is malformed.");
+          }
+          console.log("Quota guard source check passed.");
+          NODE
+      - name: Check public health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error --retry 2 --retry-all-errors             --connect-timeout 10 --max-time 20             https://groq-github-site-agent.n-yu1791.workers.dev/health)"
+          printf '%s' "$response" | jq -e '
+            .ok == true and
+            .service == "groq-github-site-agent" and
+            .research.sourcesPerRequest == 10
+          ' >/dev/null
+          echo "Health check passed."
+
+      - name: Check approval-gated content pipeline source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync("worker/index.js", "utf8");
+          if (source.includes("allowPaidResearch")) throw new Error("Paid Tavily authorization path must remain removed.");
+          if (!source.includes("async function createContentPlan")) throw new Error("Content plan must support asynchronous citation search.");
+          if (!source.includes("citationPolicy") || !source.includes("citations")) throw new Error("Citation policy and sanitized citations are missing.");
+          if (!source.includes("payload.research === true")) throw new Error("Citation search must require an explicit request.");
+          if (!source.includes("freeOnly: true") || !source.includes('paidSearch: "disabled"')) throw new Error("Citation plan must remain free-only.");
+          if (!source.includes("/command/content-plan")) throw new Error("Content plan route is missing.");
+          if (!source.includes('paidOperations: "disabled"')) throw new Error("Paid operations are not disabled in the pipeline.");
+          const publishStart = source.indexOf('if (url.pathname === "/publish")');
+          const publishEnd = source.indexOf('return fail("Unknown path."', publishStart);
+          const publishRoute = source.slice(publishStart, publishEnd);
+          const confirmationIndex = publishRoute.indexOf("payload.confirmPublish !== true");
+          const validationIndex = publishRoute.indexOf("verifySite(payload.site, env)");
+          const publishIndex = publishRoute.indexOf("await publish(site, env, id)");
+          if (publishStart < 0 || publishEnd < 0 || confirmationIndex < 0) {
+            throw new Error("Explicit publish confirmation gate is missing.");
+          }
+          if (confirmationIndex > validationIndex || confirmationIndex > publishIndex) {
+            throw new Error("Publish confirmation must be checked before validation and repository writes.");
+          }
+          if (!publishRoute.includes("new HttpError(428")) {
+            throw new Error("Missing publish confirmation must return HTTP 428.");
+          }
+          console.log("Approval-gated content pipeline source check passed.");
+          NODE
+
+
+      - name: Check authenticated content plan safety gates
+        env:
+          ADMIN_PASSWORD: ${{ secrets.WORKER_ADMIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ADMIN_PASSWORD"
+          response="$(curl --fail --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 20 \
+            -H 'Origin: https://yu-179191-groq-github-site-agent.hf.space' \
+            -H 'content-type: application/json' \
+            -H "x-admin-password: $ADMIN_PASSWORD" \
+            --data '{"goal":"安全なコンテンツ制作計画のランタイム検証"}' \
+            https://groq-github-site-agent.n-yu1791.workers.dev/command/content-plan)"
+          printf '%s' "$response" | jq -e '
+            .content.pipeline.paidOperations == "disabled" and
+            .content.pipeline.maxSources == 10 and
+            .content.controls.paidSearch == "disabled" and
+            .content.controls.youtubeUpload == "not_connected" and
+            .content.controls.publicPublish == "explicit_confirmation_required"
+          ' >/dev/null
+          echo "Content plan safety-gate runtime check passed."
+
+      - name: Check authenticated commander status after deployment
+        if: github.event_name == 'push'
+        env:
+          ADMIN_PASSWORD: ${{ secrets.WORKER_ADMIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ADMIN_PASSWORD"
+          for attempt in $(seq 1 20); do
+            response="$(curl --fail --silent --show-error --retry 2 --retry-all-errors \
+              --connect-timeout 10 --max-time 20 \
+              -H 'Origin: https://yu-179191-groq-github-site-agent.hf.space' \
+              -H 'content-type: application/json' \
+              -H "x-admin-password: $ADMIN_PASSWORD" \
+              --data '{}' \
+              https://groq-github-site-agent.n-yu1791.workers.dev/command/status || true)"
+            if printf '%s' "$response" | jq -e '
+              .commander.specialists.web_research.implementation == "wired" and
+              .commander.specialists.code_review.implementation == "wired" and
+              .commander.specialists.vision_review.implementation == "planned" and
+              .commander.specialists.image_generation.implementation == "planned" and
+              .commander.specialists.video_generation.implementation == "planned"
+            ' >/dev/null 2>&1; then
+              echo "Commander status check passed on the deployed Worker."
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Deployed Worker did not expose the Hugging Face review integration." >&2
+          exit 1
+
+
+      - name: Check OSS-informed typed packet contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/validate_agent_packets.py
+          python3 scripts/validate_agent_packets.py \
+            --schema schemas/commander_packet.schema.json \
+            --schema schemas/agent_task_packet.schema.json \
+            --schema schemas/media_pipeline_plan.schema.json \
+            --commander tests/fixtures/commander_packet.example.json \
+            --agent tests/fixtures/agent_task_packet.example.json \
+            --media tests/fixtures/media_pipeline_plan.example.json
+          node <<'NODE'
+          const fs = require("node:fs");
+          const oss = fs.readFileSync("docs/OSS_OPTIMIZATION_PLAN.md", "utf8");
+          const media = fs.readFileSync("docs/MEDIA_PIPELINE.md", "utf8");
+          for (const marker of [
+            "MoneyPrinterTurbo",
+            "smolagents",
+            "Pydantic",
+            "FFmpeg",
+            "権利マニフェスト",
+            "月数百円"
+          ]) {
+            if (!oss.includes(marker)) throw new Error("OSS plan is missing: " + marker);
+          }
+          for (const marker of [
+            "Rights manifest",
+            "Whisper",
+            "yt-dlp",
+            "9:16",
+            "YouTube投稿"
+          ]) {
+            if (!media.includes(marker)) throw new Error("Media pipeline plan is missing: " + marker);
+          }
+          console.log("OSS-informed typed packet and media design contract passed.");
+          NODE

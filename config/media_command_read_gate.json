@@ -1,0 +1,459 @@
+{
+  "schema_version": "media-command-read-gate-v13",
+  "effective_date_jst": "2026-10-03",
+  "status": "ENFORCED_STANDARD",
+  "decision_owner": "chatgpt-top-commander",
+  "purpose": "RESTORE_ONLY_CURRENT_INTENT_RELEVANT_MEDIA_KNOW_HOW_THEN_PARALLELIZE_ONLY_WHEN_EXPECTED_WALL_CLOCK_GAIN_EXCEEDS_COORDINATION_OVERHEAD_WITH_SINGLE_WRITER_INTEGRATION",
+  "source_of_truth": "CURRENT_REPOSITORY_AT_EXACT_HEAD",
+  "semantic_triggering": {
+    "classify_by_meaning_not_literal_keywords": true,
+    "mixed_intents_are_additive": true,
+    "compound_shop_clipping_must_expand_to_both_shop_and_clipping": true,
+    "generic_shopping_or_product_selling_requires_platform_resolution": true,
+    "platform_specific_rules_are_not_universal_cross_platform_law": true,
+    "supported_intents": [
+      "VIDEO_CREATION",
+      "CLIPPING_REPURPOSING",
+      "TIKTOK_SHOP_COMMERCE"
+    ]
+  },
+  "execution_gate": {
+    "must_resolve_required_read_set_before_planning": true,
+    "must_finish_required_read_set_before_external_side_effects": true,
+    "must_use_current_repository_versions": true,
+    "stale_summary_cannot_replace_repository_policy": true,
+    "machine_policy_overrides_conflicting_human_prose": true,
+    "missing_required_file": "BLOCK_RELEVANT_MEDIA_EXECUTION",
+    "latest_speed_contract_overrides_legacy_quality_review_and_polish_requirements": true,
+    "speed_delivery_authority": "config/media_speed_quality_policy.json#/speed_first_delivery"
+  },
+  "knowledge_restore_execution": {
+    "resolve_required_paths_as_union": true,
+    "deduplicate_paths_before_read": true,
+    "repository_reads_may_run_in_parallel": true,
+    "max_parallel_repository_reads": 4,
+    "machine_policies_before_human_playbooks": true,
+    "exact_same_head_and_blob_cache_allowed": true,
+    "cache_scope": "ACTIVE_MEDIA_TASK_OR_SESSION",
+    "cache_key_fields": [
+      "repository",
+      "head_sha",
+      "path",
+      "blob_sha"
+    ],
+    "invalidate_cache_on_head_or_blob_change": true,
+    "do_not_open_same_blob_twice_in_one_gate_run": true,
+    "longform_sources_only_when_longform_intent": true,
+    "claim_governance_only_when_claim_bearing_or_commerce_or_current_factual": true,
+    "shop_clipping_must_union_shop_and_clipping_knowhow": true,
+    "commerce_clipping_precision_overlay_required_for_relevant_intents": true
+  },
+  "common_media_read_set": [
+    "config/free_execution_guard.json",
+    "config/media_speed_quality_policy.json",
+    "scripts/media_speed_orchestrator.py",
+    "config/media_source_policy.json",
+    "config/video_creation_admission_policy.json",
+    "scripts/video_creation_admission.py"
+  ],
+  "trigger_sets": {
+    "VIDEO_CREATION": {
+      "required": [
+        "config/media_speed_quality_policy.json",
+        "scripts/media_speed_orchestrator.py",
+        "config/media_source_policy.json",
+        "config/video_creation_admission_policy.json",
+        "scripts/video_creation_admission.py",
+        "config/approved_video_template.json",
+        "docs/VIDEO_PRODUCTION_BASELINE.md",
+        "config/approved_landscape_video_template.json",
+        "docs/VIDEO_SPEED_ENGINEERING_RULES.md",
+        "scripts/render_reusable_landscape.py",
+        "config/gemini_video_director_policy.json",
+        "docs/GEMINI_VIDEO_DIRECTOR.md",
+        "scripts/gemini_video_director.py"
+      ],
+      "conditional": {
+        "if_user_explicitly_requests_longform": [
+          "scripts/render_reusable_landscape.py",
+          "scripts/render_reusable_short.py",
+          "scripts/render_reusable_longform.py"
+        ],
+        "if_user_explicitly_requests_ymm4": [
+          "config/ymm4_research_explainer_profile.json",
+          "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
+          "examples/ymm4_research_explainer_script_template.json",
+          "scripts/prepare_ymm4_research_explainer_package.py"
+        ],
+        "if_voicevox_engine_startup_or_recovery_is_needed": [
+          "docs/VOICEVOX_RUNTIME.md",
+          "scripts/with_local_voicevox.sh"
+        ],
+        "if_user_requests_55_to_60_second_zundamon_news_short": [
+          "config/zundamon_news60_template.json",
+          "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+          "scripts/validate_zundamon_news60_template.py"
+        ],
+        "if_user_requests_platform_specific_export_or_delivery": [
+          "config/video_platform_delivery_profiles.json",
+          "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md"
+        ],
+        "if_claim_bearing_or_current_factual_content": [
+          "config/cross_source_knowhow_evidence_matrix.json",
+          "config/cross_domain_measurement_registry.json",
+          "config/cross_source_second_pass_policy.json",
+          "config/second_pass_artifact_contracts.json"
+        ],
+        "if_user_requests_approved_template": [
+          "config/approved_video_template.json",
+          "docs/VIDEO_PRODUCTION_BASELINE.md"
+        ],
+        "if_user_requests_article_rss_or_resident_news_video_automation": [
+          "config/media_automation_fast_path.json",
+          "config/media_news_pipeline_policy.json",
+          "config/media_render_worker_policy.json",
+          "config/media_source_ingress_policy.json",
+          "scripts/media_source_ingress.py",
+          "scripts/media_source_daemon.py",
+          "scripts/media_news_pipeline.py",
+          "scripts/media_render_transport.py",
+          "scripts/media_render_worker.py",
+          "scripts/durable_media_runner.py",
+          "docs/DURABLE_MEDIA_AUTOMATION.md",
+          "deploy/systemd/hf-site-agent-media-source.service",
+          "deploy/systemd/hf-site-agent-media-news.service",
+          "deploy/systemd/hf-site-agent-media-news.timer",
+          "deploy/systemd/hf-render-worker.service",
+          "deploy/systemd/hf-render-worker-check.service",
+          "deploy/systemd/hf-render-worker-tunnel.service",
+          "deploy/systemd/hf-site-agent-media-render@.service",
+          "deploy/systemd/hf-site-agent-media-render-check.service",
+          "deploy/systemd/user/hf-site-agent-media-news.service",
+          "deploy/systemd/user/hf-site-agent-media-news.timer",
+          "deploy/systemd/user/hf-site-agent-media-source.service",
+          "deploy/systemd/user/hf-site-agent-media-source.timer",
+          "deploy/systemd/user/hf-site-agent-media-render@.service",
+          "docs/VOICEVOX_RUNTIME.md",
+          "scripts/with_local_voicevox.sh",
+          "scripts/synthesize_longform_voicevox.py",
+          "tests/test_media_news_automation.py",
+          "tests/test_media_small_host_deployment.py",
+          "tests/test_voicevox_lifecycle.py",
+          "config/free_execution_guard.json",
+          "scripts/validate_free_execution_guard.py",
+          "config/permanent_standards_manifest.json",
+          "config/current_commander_handoff.json",
+          "docs/AI_ARMY_MASTER_RULEBOOK.md",
+          "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
+          "config/media_small_host_policy.json"
+        ]
+      }
+    },
+    "CLIPPING_REPURPOSING": {
+      "required": [
+        "config/authorized_clipping_monetization_policy.json",
+        "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
+        "config/commerce_clipping_precision_overlay.json",
+        "docs/COMMERCE_CLIPPING_PRECISION_REFRESH_2026-09-15.md",
+        "config/batch_media_orchestration_policy.json",
+        "docs/BATCH_MEDIA_ORCHESTRATION.md",
+        "docs/MEDIA_BATCH_COMMAND_CENTER.md",
+        "config/media_source_policy.json"
+      ],
+      "conditional": {
+        "if_claim_bearing_or_current_factual_content": [
+          "config/cross_source_knowhow_evidence_matrix.json",
+          "config/cross_domain_measurement_registry.json",
+          "config/cross_source_second_pass_policy.json",
+          "config/second_pass_artifact_contracts.json"
+        ]
+      }
+    },
+    "TIKTOK_SHOP_COMMERCE": {
+      "required": [
+        "config/tiktok_shop_influence_policy.json",
+        "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
+        "config/commerce_clipping_precision_overlay.json",
+        "docs/COMMERCE_CLIPPING_PRECISION_REFRESH_2026-09-15.md",
+        "config/cross_source_knowhow_evidence_matrix.json",
+        "config/cross_domain_measurement_registry.json",
+        "config/cross_source_second_pass_policy.json",
+        "config/second_pass_artifact_contracts.json",
+        "config/media_source_policy.json"
+      ],
+      "conditional": {
+        "if_existing_or_third_party_media_is_repurposed": [
+          "config/authorized_clipping_monetization_policy.json",
+          "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
+          "config/batch_media_orchestration_policy.json",
+          "docs/BATCH_MEDIA_ORCHESTRATION.md",
+          "docs/MEDIA_BATCH_COMMAND_CENTER.md"
+        ]
+      }
+    }
+  },
+  "mixed_intent_expansions": {
+    "SHOP_CLIPPING": [
+      "TIKTOK_SHOP_COMMERCE",
+      "CLIPPING_REPURPOSING"
+    ],
+    "SHOP_VIDEO": [
+      "TIKTOK_SHOP_COMMERCE",
+      "VIDEO_CREATION"
+    ],
+    "SHOP_CLIPPING_VIDEO": [
+      "TIKTOK_SHOP_COMMERCE",
+      "CLIPPING_REPURPOSING",
+      "VIDEO_CREATION"
+    ]
+  },
+  "parallel_execution_standard": {
+    "independent_read_only_lanes_may_start_concurrently": true,
+    "independent_media_jobs_may_start_concurrently_after_admission": true,
+    "max_direct_parallel_corps": 2,
+    "dependency_join_required": true,
+    "same_mutable_output_requires_single_writer": true,
+    "rights_and_claim_gates_cannot_be_skipped_for_speed": true,
+    "deterministic_mechanical_work_prefers_tools_over_agent_debate": true,
+    "duplicate_agents_for_majority_vote_by_default": false,
+    "parallelism_requires_expected_wall_clock_gain_above_coordination_overhead": true,
+    "default_judgmental_media_pair": [
+      "ChatGPT"
+    ],
+    "research_and_script_are_one_combined_judgment_stage_by_default": true,
+    "avoid_small_agent_handoffs_for_routine_script_work": true,
+    "recommended_independent_lanes": [
+      "single_chatgpt_research_and_script",
+      "rights_or_claim_check_only_when_needed",
+      "deterministic_automation_or_asset_preparation_when_independent"
+    ],
+    "backpressure_must_reduce_parallelism_before_relaxing_required_rights_or_claim_gates": true,
+    "routine_video_default_parallel_lanes": 1,
+    "routine_video_max_independent_preparation_lanes": 2,
+    "routine_video_parallel_requires_expected_savings_seconds_at_least": 10,
+    "shared_voicevox_and_ffmpeg_are_single_lane": true,
+    "conditional_video_research_director": {
+      "agent": "Gemini 3.8 Flash",
+      "activate_when": "YOUTUBE_OR_MULTIMODAL_VIDEO_UNDERSTANDING_MATERIALLY_HELPS",
+      "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+      "mandatory_for_every_video": false,
+      "extra_review_pass": false
+    },
+    "gemini_video_research_is_production_stage": true,
+    "gemini_youtube_default": "ONE_URL_PER_REQUEST_SEQUENTIAL_MERGE"
+  },
+  "know_how_that_must_be_recovered": {
+    "common": [
+      "ChatGPT remains final commander and makes routine media decisions in one compact pass.",
+      "Use existing cleared assets when suitable; do not add asset hunting, downloads or style changes when they do not help deliver the requested video.",
+      "Do not invent material factual claims. Check sources only for current or material factual claims.",
+      "Unknown-cost and paid media routes are blocked; free-route failure never silently becomes paid.",
+      "Rights and cost checks remain active even when all optional review and polish are skipped.",
+      "Use deterministic tools for mechanical rendering and one writer for each output.",
+      "DeepSeek and Jev are optional; do not add an agent or model hop unless requested or it shortens a material bottleneck.",
+      "Use several distinct, topic-matched images or diagrams in each section; reuse only cleared visuals that still fit the narration and retain rights provenance."
+    ],
+    "video_creation": {
+      "required": [
+        "config/media_speed_quality_policy.json",
+        "scripts/media_speed_orchestrator.py",
+        "config/media_source_policy.json",
+        "config/video_creation_admission_policy.json",
+        "scripts/video_creation_admission.py",
+        "config/approved_video_template.json",
+        "docs/VIDEO_PRODUCTION_BASELINE.md"
+      ],
+      "conditional": {
+        "if_user_explicitly_requests_longform_or_ymm4": [
+          "config/longform_video_objectives.json",
+          "config/longform_video_reliability_policy.json",
+          "docs/LONGFORM_VIDEO_OBJECTIVES.md",
+          "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+          "config/ymm4_research_explainer_profile.json",
+          "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md",
+          "examples/ymm4_research_explainer_script_template.json",
+          "scripts/prepare_ymm4_research_explainer_package.py"
+        ],
+        "if_claim_bearing_or_current_factual_content": [
+          "config/cross_source_knowhow_evidence_matrix.json",
+          "config/cross_domain_measurement_registry.json",
+          "config/cross_source_second_pass_policy.json",
+          "config/second_pass_artifact_contracts.json"
+        ],
+        "if_user_requests_approved_template": [
+          "config/approved_video_template.json",
+          "docs/VIDEO_PRODUCTION_BASELINE.md"
+        ]
+      }
+    },
+    "clipping_repurposing": [
+      "source rights and platform monetization eligibility are separate gates",
+      "permission does not guarantee YouTube reused-content monetization eligibility",
+      "commercial rights to all material audio and visual elements must be resolved for monetized YouTube output",
+      "context integrity is blocking: do not reverse, materially distort or overstate source meaning",
+      "publishable third-party clips retain a transformation manifest describing source range, context and original value added",
+      "channel-level mass-template and reused-content risk is reviewed rather than judging each clip in isolation",
+      "ASR/alignment, candidate scoring, duplicate suppression, sentence boundaries, reframe, captions and machine QA form the clipping pipeline",
+      "known TTS timing may bypass unnecessary ASR",
+      "mechanical trim/cut/concat/reframe/caption burn/ffprobe work is deterministic rather than multi-agent debate"
+    ],
+    "tiktok_shop_commerce": [
+      "generic shopping intent first resolves the target platform; TikTok-specific rules are not universal commerce law",
+      "ingest and verify product-page evidence before final script claims",
+      "map every material product claim to evidence",
+      "reverify volatile price, coupon, stock, shipping, return and commission claims near publish time",
+      "commercial relationship disclosure and claim truth are separate blocking checks",
+      "Japan commercial disclosure must be clear in the overall presentation when applicable and must not be hidden only in a reply or remote description",
+      "TikTok Shop exact product/listing match, current affiliate qualification and current platform policy snapshot are required",
+      "TikTok Shop paid-media/ad-use authorization is separate from organic posting and is never mass-enabled automatically",
+      "if current TikTok Shop AIGC sources conflict, retrieve both at publish time and block AIGC publish handoff until resolved",
+      "persona and purchase motive are hypotheses to test, not invented facts",
+      "hooks and creative variants are experiments with measurable outcomes"
+    ]
+  },
+  "forbidden_shortcuts": [
+    "SKIP_REQUIRED_INTENT_PLAYBOOK",
+    "SHOP_CLIP_WITHOUT_BOTH_SHOP_AND_CLIPPING_KNOWHOW",
+    "SHOP_OR_CLIP_WITHOUT_COMMERCE_CLIPPING_PRECISION_OVERLAY",
+    "TREAT_TIKTOK_SHOP_RULE_AS_UNIVERSAL_SHOPPING_RULE",
+    "ASSUME_PERMISSION_EQUALS_PLATFORM_MONETIZATION_ELIGIBILITY",
+    "CLIP_WITHOUT_CONTEXT_INTEGRITY_CHECK",
+    "DISCLOSURE_ONLY_IN_REPLY_OR_HIDDEN_DESCRIPTION_AS_DEFAULT",
+    "AUTO_ENABLE_MASS_PAID_MEDIA_AUTHORIZATION",
+    "LOAD_LONGFORM_STACK_FOR_EVERY_SHORTFORM_TASK",
+    "REOPEN_IDENTICAL_BLOB_REPEATEDLY_IN_ONE_GATE_RUN",
+    "RESEARCH_REGISTERED_REUSABLE_ASSET_AGAIN_BEFORE_CHECKING_CACHE",
+    "REDOWNLOAD_VERIFIED_CACHED_ASSET_WITHOUT_REASON",
+    "PRESENT_GENERATED_IMAGE_AS_FACTUAL_EVIDENCE",
+    "PARALLEL_WRITE_TO_SAME_OUTPUT",
+    "RIGHTS_GATE_BYPASS_FOR_SPEED",
+    "CLAIM_GATE_BYPASS_FOR_SPEED",
+    "MULTI_AGENT_DEBATE_FOR_DETERMINISTIC_MEDIA_STAGES",
+    "SPLIT_ROUTINE_MEDIA_RESEARCH_AND_SCRIPT_INTO_MANY_SMALL_AGENT_HANDOFFS",
+    "ADD_SPECIALIST_AGENT_WITHOUT_MATERIAL_EXPECTED_INFORMATION_GAIN",
+    "TREAT_SEARCH_RESULT_AS_LICENSE",
+    "AUTO_PAID_FALLBACK",
+    "TREAT_STYLE_REFERENCE_AS_FACTUAL_EVIDENCE"
+  ],
+  "retired_references": {
+    "forbidden_paths": [
+      "config/shortform_edit_profile.json"
+    ],
+    "reason": "SUPERSEDED_BY_MEDIA_AUDIO_MOTION_RETENTION_POLICY_AND_INTENT_SPECIFIC_PLAYBOOKS"
+  },
+  "new_session_behavior": {
+    "permanent_manifest_must_point_to_this_policy": true,
+    "speed_first_delivery_contract_must_be_reread_on_every_video_tab": true,
+    "use_speed_first_delivery_override_read_set_for_routine_video": true,
+    "load_extra_video_guides_only_for_explicit_longform_YMM4_clipping_or_commerce_requests": true,
+    "check_sources_only_for_current_or_material_factual_claims": true,
+    "rights_and_cost_gates_remain_mandatory": true,
+    "do_not_rely_on_prior_tab_summary_as_substitute": true,
+    "same_head_and_blob_cache_may_satisfy_repeat_read_within_active_task": true,
+    "approved_character_baseline_must_be_reread_on_every_video_tab": true
+  },
+  "speed_first_delivery_override": {
+    "authority": "config/media_speed_quality_policy.json#/speed_first_delivery",
+    "priority": "HIGHEST_FOR_VIDEO_CREATION",
+    "apply_before_legacy_media_knowhow": true,
+    "read_set": [
+      "README.md",
+      "config/current_commander_handoff.json",
+      "config/permanent_standards_manifest.json",
+      "docs/AI_ARMY_MASTER_RULEBOOK.md",
+      "config/free_execution_guard.json",
+      "AGENTS.md",
+      "config/media_command_read_gate.json",
+      "config/current_media_quality_handoff.json",
+      "config/media_speed_quality_policy.json",
+      "docs/VIDEO_SPEED_ENGINEERING_RULES.md",
+      "scripts/media_speed_orchestrator.py",
+      "config/media_source_policy.json",
+      "config/video_creation_admission_policy.json",
+      "scripts/video_creation_admission.py",
+      "config/approved_video_template.json",
+      "docs/VIDEO_PRODUCTION_BASELINE.md",
+      "scripts/validate_video_content_contract.py",
+      "config/approved_landscape_video_template.json",
+      "config/gemini_video_director_policy.json",
+      "docs/GEMINI_VIDEO_DIRECTOR.md",
+      "scripts/gemini_video_director.py"
+    ],
+    "do_not_load_optional_video_QA_and_polish_guides_for_routine_delivery": true,
+    "routine_delivery_uses_override_instead_of_legacy_media_read_sets": true,
+    "triggered_only_for_routine_delivery": true,
+    "routine_contract": [
+      "ONE_EXPORT_THEN_IMMEDIATE_SUBMISSION",
+      "NO_ROUTINE_PREVIEW_OR_REVIEW",
+      "DURATION_FOLLOWS_USER_REQUEST",
+      "SOURCE_CHECK_ONLY_FOR_CURRENT_OR_MATERIAL_CLAIMS",
+      "USE_ONLY_CLEARED_ASSETS_OR_SIMPLE_ORIGINAL_VISUALS",
+      "UNKNOWN_COST_AND_PAID_MEDIA_ROUTES_BLOCKED",
+      "PUBLICATION_MERGE_DEPLOY_AND_SECRET_ACTIONS_KEEP_SEPARATE_AUTHORIZATION",
+      "USE_2_TO_4_DISTINCT_RELEVANT_VISUAL_BEATS_PER_MAIN_SECTION_WHEN_AVAILABLE",
+      "PRESERVE_APPROVED_VISIBLE_CHARACTERS_NATIVE_MOUTH_MOTION_LAYOUT_AND_PALETTE",
+      "ACTUAL_TWO_VOICE_DIALOGUE_NOT_JUST_VISIBLE_CHARACTERS",
+      "AT_LEAST_TWO_DISTINCT_RELEVANT_IMAGES_OR_DIAGRAMS_PER_MAIN_SECTION",
+      "PLAIN_LANGUAGE_TOPIC_HEADING_MAIN_POINT_AND_EXPLANATION",
+      "DEFAULT_ONE_EXECUTION_LANE_MAX_TWO_ONLY_FOR_INDEPENDENT_PREPARATION",
+      "STATIC_PREFLIGHT_BEFORE_APT_DOCKER_VOICEVOX_OR_RENDER",
+      "ONE_FINAL_VIDEO_ENCODE_NO_PER_SCENE_H264_FAST_PATH",
+      "USE_GEMINI_3_8_FLASH_AS_VIDEO_RESEARCH_EDITORIAL_DIRECTOR_WHEN_YOUTUBE_OR_MULTIMODAL_SOURCE_UNDERSTANDING_MATERIALLY_HELPS",
+      "GEMINI_3_8_FLASH_PARTICIPATES_IN_YOUTUBE_OR_CURRENT_VIDEO_RESEARCH_AND_EDITORIAL_SYNTHESIS_WHEN_ADC_RUNTIME_IS_AVAILABLE",
+      "GEMINI_MULTI_YOUTUBE_RESEARCH_AND_EDITORIAL_PRODUCTION_STAGE"
+    ],
+    "editorial_authority": "config/media_speed_quality_policy.json#/script_clarity_contract",
+    "visual_authority": "config/media_speed_quality_policy.json#/visual_density_contract",
+    "default_parallel_lanes": 1,
+    "max_independent_preparation_lanes": 2,
+    "parallel_requires_expected_savings_seconds_at_least": 10
+  },
+  "default_media_research_and_script_pair_is_chatgpt_plus_deepseek": false,
+  "default_video_research_and_script_owner": "AI_ARMY_ROUTED_EXACT_FREE_WORKER_WITH_CHATGPT_FINAL_AUTHORITY",
+  "chatgpt_remains_final_script_adjudicator": true,
+  "media_ai_routing_runtime": "scripts/jev_routing_coordinator.py",
+  "deepseek_for_video_is_optional": "DeepSeek official deepseek-flash is used directly only when the exact-free OpenRouter route is insufficient or a material critical-path gain justifies it. No artificial DeepSeek per-call, daily, monthly, or request-count cap is imposed. Auto Top-Up and retry after unknown outcome remain disabled; paid media generation remains unauthorized.",
+  "media_speed_quality_is_speed_first_minimum_viable_delivery": true,
+  "jev_is_optional_for_deterministic_video": true,
+  "resident_news_script_exception": {
+    "route": "OPENROUTER_FREE_THEN_DEEPSEEK_OFFICIAL",
+    "openrouter_free_only": true,
+    "openrouter_paid_models_allowed": false,
+    "openrouter_paid_fallback": false,
+    "deepseek_provider": "deepseek_official",
+    "deepseek_base_url": "https://api.deepseek.com",
+    "deepseek_api_key_env": "DEEPSEEK_API_KEY",
+    "deepseek_artificial_caps_removed": true,
+    "auto_top_up": false,
+    "unknown_result_retry": false,
+    "scope": "OFFICIAL_RSS_NEWS_SCRIPT_DRAFTING_TEXT_ONLY"
+  },
+  "deepseek_for_video": "The user authorizes paid text-only DeepSeek deepseek-flash for resident official RSS after an exact-free OpenRouter attempt. DeepSeek must be called directly at https://api.deepseek.com using DEEPSEEK_API_KEY; OpenRouter paid models and paid fallbacks are disabled. DeepSeek artificial per-call, daily, monthly, and request-count caps are removed; Auto Top-Up and retry after unknown outcome stay disabled.",
+  "gemini_video_director": {
+    "policy": "config/gemini_video_director_policy.json",
+    "runtime": "scripts/gemini_video_director.py",
+    "human_doc": "docs/GEMINI_VIDEO_DIRECTOR.md",
+    "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+    "participates_in_video_creation": true,
+    "one_youtube_url_per_request": true,
+    "default_parallelism": "SEQUENTIAL; DO_NOT_SWARM_YOUTUBE_URLS",
+    "fallback": "OFFICIAL_WEB_SOURCES_AND_EXISTING_PIPELINE_WHEN_FACTS_ARE_VERIFIED",
+    "production_stage": true,
+    "broad_video_workspace_authority": true,
+    "per_major_item_youtube_min_when_available": 2,
+    "per_major_item_youtube_target": 3,
+    "per_major_item_youtube_max": 5,
+    "one_url_per_request": true,
+    "synthesis_after_item_sources": true,
+    "required_outputs": [
+      "SOURCE_MANIFEST",
+      "MISSION_SCRIPT",
+      "DIALOGUE_DRAFT",
+      "SCENE_PLAN",
+      "VISUAL_SOURCE_PLAN",
+      "PRESENTATION_MANIFEST"
+    ],
+    "not_a_review_pass": true,
+    "fallback_if_unavailable": "OFFICIAL_WEB_SOURCES_AND_EXISTING_PIPELINE_WHEN_MATERIAL_FACTS_VERIFIED"
+  }
+}

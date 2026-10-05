@@ -1,0 +1,169 @@
+{
+  "schema_version": "platform-program-evidence-v2",
+  "effective_date_jst": "2026-09-13",
+  "status": "PERMANENT_VERSIONED_EVIDENCE_REGISTRY",
+  "purpose": "Store current official evidence for creator monetization programs without treating volatile availability, thresholds, payouts or incentives as permanent facts.",
+  "global_rules": {
+    "current_official_primary_source_required_for_program_specific_action": true,
+    "account_level_eligibility_must_be_checked_in_platform_ui_when_possible": true,
+    "program_availability_can_change_without_repository_change": true,
+    "every_program_requires_reverify_at_execution": true,
+    "temporary_incentive_is_not_baseline_economics": true,
+    "unknown_or_stale_eligibility_is_not_eligible": true,
+    "program_entry_is_not_income_guarantee": true,
+    "retrieved_at_jst": "2026-09-13T14:05:00+09:00"
+  },
+  "programs": [
+    {
+      "id": "YOUTUBE_YPP_ADS_PREMIUM",
+      "platform": "YOUTUBE",
+      "revenue_class": "PLATFORM_NATIVE_PAYOUT",
+      "japan_availability": "SUPPORTED_COUNTRY_SUBJECT_TO_ACCOUNT_ELIGIBILITY",
+      "current_2026_entry_snapshot": "1000 subscribers plus 4000 qualified public watch hours in 12 months OR 10M qualified Shorts views in 90 days, plus policy/account prerequisites",
+      "scheduled_change": "For new creators from 2027-02-01, official YouTube notice says ads/Premium entry changes to 8000 qualified watch hours or 20M qualified Shorts views, still with 1000 subscribers; existing YPP status is not impacted by that threshold change.",
+      "source_refs": ["https://support.google.com/youtube/answer/72851?hl=ja", "https://support.google.com/youtube/answer/12843009?hl=ja"],
+      "reverify_before": ["APPLICATION", "ELIGIBILITY_PLAN", "REVENUE_FORECAST"]
+    },
+    {
+      "id": "YOUTUBE_EARLY_MONETIZATION_AND_MEMBERSHIPS",
+      "platform": "YOUTUBE",
+      "revenue_class": "OWNED_OR_RECURRING_AUDIENCE_REVENUE",
+      "japan_availability": "SUPPORTED_SUBJECT_TO_FEATURE_AND_ACCOUNT_ELIGIBILITY",
+      "snapshot": "Expanded YPP early-access tier currently uses 500 subscribers, 3 public uploads in 90 days, and either 3000 qualified watch hours in 12 months or 3M qualified Shorts views in 90 days. Official 2027 update says these fan-funding/Shopping early thresholds are unchanged.",
+      "source_refs": ["https://support.google.com/youtube/answer/13429240?hl=ja", "https://support.google.com/youtube/answer/72857"],
+      "reverify_before": ["APPLICATION", "MEMBERSHIP_LAUNCH", "PRICING"]
+    },
+    {
+      "id": "YOUTUBE_SHOPPING_AFFILIATE_JP",
+      "platform": "YOUTUBE",
+      "revenue_class": "PLATFORM_INTERMEDIATED_MERCHANT_COMMISSION",
+      "japan_availability": "OFFICIALLY_LISTED_AS_OF_2026-09-13",
+      "snapshot": "Japan is listed among eligible countries. Channel must be in YPP and meet the YPP subscriber condition plus program-specific content restrictions. Merchant/brand sets commission and attribution window; commissions can be reversed for returns and are generally paid after transaction confirmation, currently 60-120 days after purchase. A temporary enhanced commission incentive is explicitly not a durable baseline.",
+      "source_refs": ["https://support.google.com/youtube/answer/13376398?hl=JA"],
+      "reverify_before": ["TAGGING_PRODUCTS", "COMMISSION_FORECAST", "PUBLISH"]
+    },
+    {
+      "id": "YOUTUBE_AFFILIATE_PARTNERSHIPS_BOOST",
+      "platform": "YOUTUBE",
+      "revenue_class": "PLATFORM_INTERMEDIATED_MERCHANT_COMMISSION",
+      "japan_availability": "LIMITED_CREATOR_AND_MARKET_AVAILABILITY_REVERIFY_IN_YOUTUBE_STUDIO",
+      "snapshot": "Eligible YouTube Shopping affiliate creators may be able to opt in so tagged sellers or brands can use eligible shopping videos in advertising. Qualifying purchases driven by those ads can generate affiliate commission for the creator. Availability is limited and must be verified for the current channel, market, video and seller before use.",
+      "temporary_incentive_snapshot": "A current invitation-only official promotion describes a 2026-08-22 through 2026-10-31 bonus for eligible boosted content. This is explicitly TEMPORARY_NOT_BASELINE_ECONOMICS and must not be used as the durable revenue assumption.",
+      "temporary_incentive_status": "TEMPORARY_NOT_BASELINE_ECONOMICS",
+      "temporary_incentive_expires_at": "2026-10-31",
+      "source_refs": ["https://support.google.com/youtube/answer/16984119?hl=ja", "https://support.google.com/youtube/answer/17105253?hl=ja"],
+      "reverify_before": ["OPT_IN", "AD_USE_OR_RIGHTS_CONSENT", "COMMISSION_FORECAST", "PUBLISH"]
+    },
+    {
+      "id": "YOUTUBE_CREATOR_PARTNERSHIPS_JP",
+      "platform": "YOUTUBE",
+      "revenue_class": "BRAND_DEAL_OR_MARKETPLACE_REVENUE",
+      "japan_availability": "OFFICIAL_JAPAN_HELP_PAGE_EXISTS_SUBJECT_TO_YPP_AND_FEATURE_ELIGIBILITY",
+      "snapshot": "Creator Partnerships lets eligible YPP creators be discovered/contacted by brands for brand deals. Feature availability and opportunity flow vary by country/account.",
+      "source_refs": ["https://support.google.com/youtube/answer/9385307?co=GENIE.CountryCode%3DJP&hl=ja"],
+      "reverify_before": ["PROGRAM_USE", "BRAND_DEAL_ACCEPTANCE"]
+    },
+    {
+      "id": "INSTAGRAM_CREATOR_MARKETPLACE_JP",
+      "platform": "INSTAGRAM",
+      "revenue_class": "BRAND_DEAL_OR_MARKETPLACE_REVENUE",
+      "japan_availability": "OFFICIALLY_EXPANDED_TO_JAPAN",
+      "snapshot": "Meta announced Creator Marketplace expansion to Japan. Creators join from the professional dashboard, can build portfolios and receive partnership opportunities; brands can use partnership ads after agreement.",
+      "source_refs": ["https://about.fb.com/ja/news/2024/02/creatormarketplace/"],
+      "reverify_before": ["JOIN", "PITCH_OR_PROJECT_ACCEPTANCE", "PARTNERSHIP_AD"]
+    },
+    {
+      "id": "INSTAGRAM_AFFILIATE_PRODUCT_TAGS_JP",
+      "platform": "INSTAGRAM",
+      "revenue_class": "PLATFORM_INTERMEDIATED_MERCHANT_COMMISSION",
+      "japan_availability": "ANNOUNCED_FOR_JAPAN_2026",
+      "snapshot": "Meta announced on 2026-06-18 that creators in Japan and other supported markets can add affiliate links and tag catalog products in Reels/feed posts and earn commissions through shared affiliate links.",
+      "source_refs": ["https://about.fb.com/ja/news/2026/06/discovery-into-purchase/"],
+      "reverify_before": ["AFFILIATE_TAGGING", "COMMISSION_FORECAST", "PUBLISH"]
+    },
+    {
+      "id": "INSTAGRAM_SUBSCRIPTIONS_JP",
+      "platform": "INSTAGRAM",
+      "revenue_class": "OWNED_OR_RECURRING_AUDIENCE_REVENUE",
+      "japan_availability": "OFFICIALLY_ROLLED_OUT_TO_JAPAN_HISTORICALLY_CURRENT_ACCOUNT_CHECK_REQUIRED",
+      "snapshot": "Meta announced creator subscriptions in Japan as recurring fan revenue. Current fees, account eligibility and product terms must be checked in the professional dashboard before launch.",
+      "source_refs": ["https://about.fb.com/ja/news/2023/11/giving-more-creators-around-the-world-ways-to-earn-money/"],
+      "reverify_before": ["LAUNCH", "PRICING", "REVENUE_FORECAST"]
+    },
+    {
+      "id": "TIKTOK_CREATOR_REWARDS_JP",
+      "platform": "TIKTOK",
+      "revenue_class": "PLATFORM_NATIVE_PAYOUT",
+      "japan_availability": "OFFICIAL_JAPANESE_PROGRAM_ANNOUNCEMENT_EXISTS_CURRENT_UI_CHECK_REQUIRED",
+      "snapshot": "Creator Rewards Program rewards eligible original, high-quality content and emphasizes videos longer than one minute. Current thresholds and per-account eligibility must be checked in TikTok Studio.",
+      "source_refs": ["https://newsroom.tiktok.com/tiktok-creator-rewards-program?lang=ja-JP"],
+      "reverify_before": ["APPLICATION", "CONTENT_STRATEGY", "REVENUE_FORECAST"]
+    },
+    {
+      "id": "TIKTOK_ONE",
+      "platform": "TIKTOK",
+      "revenue_class": "BRAND_DEAL_OR_MARKETPLACE_REVENUE",
+      "japan_availability": "REGION_DEPENDENT_CURRENT_UI_CHECK_REQUIRED",
+      "snapshot": "TikTok One supports creator/brand collaboration. Current general eligibility page lists good standing, age requirement, generally 10k followers, 1k post views in 30 days and 3 posts in 30 days, while noting regional requirements may differ.",
+      "source_refs": ["https://support.tiktok.com/ja/business-and-creator/tiktok-one"],
+      "reverify_before": ["JOIN", "PROJECT_APPLICATION", "RATE_OR_DELIVERABLE_COMMITMENT"]
+    },
+    {
+      "id": "TIKTOK_SERIES",
+      "platform": "TIKTOK",
+      "revenue_class": "OWNED_OR_RECURRING_AUDIENCE_REVENUE",
+      "japan_availability": "FEATURE_PAGE_AVAILABLE_CURRENT_ACCOUNT_CHECK_REQUIRED",
+      "snapshot": "Series allows paywalled premium collections of up to 80 videos, each currently 30 seconds to 20 minutes. General eligibility includes age, account age, posting/view/activity/originality requirements and usually 10k followers, with a lower-follower application path for creators who can show prior premium-content sales.",
+      "source_refs": ["https://support.tiktok.com/ja/business-and-creator/tiktok-series/about-tiktok-series"],
+      "reverify_before": ["APPLICATION", "SERIES_PRICING", "LAUNCH"]
+    },
+    {
+      "id": "X_ORIGINAL_CONTENT_REWARDS",
+      "platform": "X",
+      "revenue_class": "PLATFORM_NATIVE_PAYOUT",
+      "japan_availability": "OFFICIALLY_LISTS_JAPAN_AS_OF_2026-09-13",
+      "snapshot": "Creator Revenue Sharing stopped new enrollments on 2026-08-07 and retired on 2026-09-07. Original Content Rewards began rollout on 2026-09-08. Current eligibility includes 18+, good standing, Personal/Business account, active Premium-tier subscription, 500k Home Timeline impressions from verified users in 90 days, 500 verified followers, and active original posting. Program content is ineligible if created or posted using automated means, among other restrictions.",
+      "source_refs": ["https://help.x.com/en/using-x/original-content-rewards"],
+      "hard_guard": "DO_NOT_AUTOMATE_CREATION_OR_POSTING_FOR_THIS_REVENUE_PROGRAM",
+      "reverify_before": ["APPLICATION", "POSTING_STRATEGY", "REVENUE_FORECAST"]
+    },
+    {
+      "id": "X_SUBSCRIPTIONS",
+      "platform": "X",
+      "revenue_class": "OWNED_OR_RECURRING_AUDIENCE_REVENUE",
+      "japan_availability": "GLOBAL_PURCHASE_AND_CREATOR_APPLICATION_SUBJECT_TO_ELIGIBILITY",
+      "snapshot": "X Subscriptions provides recurring income from loyal followers. Current help states eligible creators globally can apply and purchases are available globally; current revenue terms and eligibility must be rechecked before launch. Minimum payout is currently stated as USD 50, and X says creators may receive up to 97% of subscription revenue after applicable platform fees under specified lifetime-earnings conditions.",
+      "source_refs": ["https://help.x.com/ja/using-x/subscriptions-creator"],
+      "reverify_before": ["APPLICATION", "PRICING", "REVENUE_FORECAST"]
+    },
+    {
+      "id": "FACEBOOK_CONTENT_MONETIZATION",
+      "platform": "FACEBOOK",
+      "revenue_class": "PLATFORM_NATIVE_PAYOUT",
+      "japan_availability": "ACCOUNT_AND_INVITE_DEPENDENT_VERIFY_AT_EXECUTION",
+      "snapshot": "Facebook Content Monetization pays eligible creators across Reels, longer videos, photos and text. Meta's March 2026 update says the program is invite-only while creators can express interest in the Professional Dashboard; metrics include qualified views and approximate earnings per 1,000 qualified views.",
+      "source_refs": ["https://about.fb.com/news/2024/10/monetize-content-facebooks-new-streamlined-program/", "https://about.fb.com/news/2026/03/creator-fast-track-grow-your-audience-earn-money-on-facebook/"],
+      "reverify_before": ["INTEREST_FORM", "ELIGIBILITY_PLAN", "REVENUE_FORECAST"]
+    },
+    {
+      "id": "FACEBOOK_CREATOR_FAST_TRACK",
+      "platform": "FACEBOOK",
+      "revenue_class": "PLATFORM_NATIVE_PAYOUT",
+      "japan_availability": "PROGRAM_EXISTS_MARKET_AND_ACCOUNT_ELIGIBILITY_MUST_BE_VERIFIED",
+      "snapshot": "Meta announced Creator Fast Track in March 2026 for established creators coming from other platforms, with three months of guaranteed pay for eligible participants and immediate Content Monetization access. Official announcement lists example follower thresholds and payments, but do not treat those as universally available or durable without current account/market verification.",
+      "source_refs": ["https://about.fb.com/news/2026/03/creator-fast-track-grow-your-audience-earn-money-on-facebook/"],
+      "reverify_before": ["APPLICATION", "ELIGIBILITY_PLAN", "REVENUE_FORECAST"]
+    }
+  ],
+  "originality_evidence": [
+    {"id": "YOUTUBE_INAUTHENTIC_CONTENT", "rule": "Mass-produced or repetitive inauthentic content is not a monetization strategy; original/authentic value is required.", "source": "https://support.google.com/youtube/answer/1311392?hl=ja"},
+    {"id": "FACEBOOK_ORIGINAL_CONTENT", "rule": "Minor edits, simple stitching, captions/speed changes or low-value reactions to others' work can be treated as unoriginal and deprioritized/demonetized; substantive new information, analysis or storyline improvement matters.", "source": "https://about.fb.com/news/2026/03/rewarding-original-creators-on-facebook/"},
+    {"id": "X_ORIGINAL_CONTENT_AUTOMATION", "rule": "Original Content Rewards excludes content created or posted using automated means; do not route AI Army into automated monetized X publishing.", "source": "https://help.x.com/en/using-x/original-content-rewards"}
+  ],
+  "japan_disclosure_evidence": {
+    "rule": "Commercial content must not conceal an advertiser-directed relationship where Japanese stealth-marketing rules apply; platform-specific paid partnership/affiliate disclosures are additional requirements, not substitutes for truthful presentation.",
+    "source": "https://www.caa.go.jp/policies/policy/representation/fair_labeling/stealth_marketing",
+    "effective_since": "2023-10-01",
+    "legal_interpretation_requires_current_context": true
+  }
+}

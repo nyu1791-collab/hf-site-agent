@@ -1,0 +1,79 @@
+{
+  "mission_id": "bulk-media-org-improvement-20260912",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Act as Executive Supervisor under ChatGPT. Produce an implementation-oriented improvement plan for the existing AI Army and media stack, with new emphasis on safely processing multiple independent clipping/video jobs in parallel (for example three clips at once) without turning the system into an unbounded swarm. Reuse existing successful research instead of repeating it. Identify concrete changes, additions, and removals that increase throughput, video quality, reliability, recoverability, and cost efficiency. Respect repository source-of-truth, current permanent policies, Single Writer, max delegation depth 2, bounded retries, checkpoint/idempotency/stale-write protection, default free routes except the authorized DeepSeek supervisor scope, and no deploy/publish/merge/secret changes. Recommendations must name measurable acceptance tests and should prefer deterministic batch orchestration for mechanical media work while allowing a bounded pool of specialized bulk workers only when they add measured value.",
+  "shared_evidence": [
+    {
+      "source": "config/current_commander_handoff.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-12T23:48:00+09:00",
+      "summary": "Repository is source of truth. ChatGPT is Top Commander. Paid DeepSeek is Executive Supervisor, not default bulk coder. Single Writer, max delegation depth 2, parallel direct corps safety ceiling 3, dynamic effective parallelism, checkpointing, failure classes, and permanent video/clipping/TikTok Shop policies are active. Prior DeepSeek peer review successful_usage_peak_equivalent_usd=0.05785508."
+    },
+    {
+      "source": "config/multi_agent_operating_policy.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-12T23:48:00+09:00",
+      "summary": "Permanent standard prefers single agent/deterministic tools when sufficient, central manager with specialists, no direct worker-to-worker delegation, single writer, leases for parallel mutation, dynamic concurrency below safety ceilings, backpressure on provider failure, shadow evaluation before promotion, and machine oracles over model vote."
+    },
+    {
+      "source": "config/longform_video_reliability_policy.json",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-12T23:48:00+09:00",
+      "summary": "Permanent video policy uses VOICEVOX Zundamon, Python/FFmpeg/ffprobe, scene-first rendering, atomic scene commit, content-addressed manifests, smallest-failed-unit resume, media-contract checks, full decode unless time budget forces recorded sampling, and no paid/freemium video SaaS."
+    },
+    {
+      "source": "config/authorized_clipping_monetization_policy.json + existing DeepSeek clipping review",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-12T23:48:00+09:00",
+      "summary": "Authorized clipping uses rights gates and a four-stage deterministic pipeline. Existing DeepSeek review recommended deterministic orchestration, content-addressed ASR/alignment, boundary refinement, signal contribution recording, duplicate suppression, per-clip rights checks, machine technical QA, and at most one independent verifier rather than debate-style multi-agent scoring."
+    },
+    {
+      "source": "user instruction 2026-09-12",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-12T23:48:00+09:00",
+      "summary": "User explicitly wants paid DeepSeek used to establish improvement goals and then wants the repository actually improved. They allow adding/removing unnecessary components and specifically want future ability to process multiple clipping jobs in parallel, e.g. three at once, potentially with additional bulk-processing AI workers."
+    }
+  ],
+  "lanes": [
+    {
+      "id": "bulk-media-execution",
+      "objective": "Design the safest high-throughput execution architecture for three or more independent clipping/video jobs at once. Distinguish job-level parallelism from stage-level parallelism. Specify worker-pool shape, queue/admission rules, leases, per-job Single Writer, resource tokens for CPU/RAM/disk/provider quotas, backpressure, cancellation isolation, checkpoint/resume, and deterministic-vs-AI boundaries. Recommend concrete repository changes and tests. Do not propose unbounded swarm behavior."
+    },
+    {
+      "id": "clip-quality",
+      "objective": "Find the highest-value improvements to clipping/video quality that are not redundant with existing policy: highlight candidate generation, boundary selection, speech/VAD alignment, captions, audio, reframing, duplicate suppression, hook/payoff quality, technical QA, and quality metrics. Separate machine-oracle checks from judgmental AI review and give measurable acceptance criteria."
+    },
+    {
+      "id": "organization-workers",
+      "objective": "Review the current AI Army topology specifically for adding a bounded bulk-processing capability. Decide whether to add named bulk worker roles/pools, how many logical workers to expose, when they should be deterministic processes versus free/low-cost specialist AI, and how ChatGPT/DeepSeek should supervise them. Identify existing roles or layers that should be demoted, merged, or removed to offset added complexity."
+    },
+    {
+      "id": "reliability-errors",
+      "objective": "Identify current error/recovery gaps most likely to hurt parallel media jobs or AI missions: race conditions, stale writes, resource exhaustion, 429/5xx storms, partial artifacts, cancellation leakage, duplicate work, schema drift, orphaned subprocesses, bad assets, and verifier false positives. Recommend concrete guards, failure classes, circuit breakers, and recovery tests."
+    },
+    {
+      "id": "implementation-pruning",
+      "objective": "Produce a repository-oriented change map: exact types of configs/scripts/tests/docs that should be added or modified, and what obsolete/redundant behavior should be removed or demoted. Prefer a small coherent patch over many speculative layers. Include migration order and rollback/compatibility considerations."
+    },
+    {
+      "id": "red-team-throughput",
+      "objective": "Red-team the proposed goal of three-way or higher parallel clipping. Look for ways extra workers could make throughput, quality, cost, or reliability worse. Define hard safety ceilings, admission criteria, kill switches, fairness, and benchmarks that must pass before increasing concurrency beyond three."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 8,
+  "max_output_tokens_per_lane": 4096,
+  "max_output_tokens_synthesis": 6144,
+  "max_estimated_cost_usd": 0.25,
+  "known_estimated_daily_spend_before_mission_usd": 0.05785508,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}

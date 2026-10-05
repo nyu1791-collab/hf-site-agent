@@ -1,0 +1,150 @@
+name: Build Gemini 4 Argon cloud video without external device
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: gemini4-argon-cloud-video
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OUT: artifacts/gemini4-argon-cloud
+      CACHE: .media-cache/assets
+      VOICE_CACHE: .media-cache/voicevox-wav
+      MISSION: missions/media/20261005-gemini4-argon-cloud-v1.json
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Fail-fast static preflight
+        run: |
+          set -euo pipefail
+          python3 -m py_compile             scripts/build_gemini4_argon_cloud_video.py             scripts/synthesize_longform_voicevox.py             scripts/render_reusable_landscape.py             scripts/validate_video_content_contract.py
+          python3 -m json.tool "$MISSION" >/dev/null
+          python3 -m json.tool config/approved_landscape_video_template.json >/dev/null
+          python3 -m json.tool config/media_speed_quality_policy.json >/dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          profile=json.loads(Path("config/approved_landscape_video_template.json").read_text())
+          assert profile["layout"]["width"] == 1280
+          assert profile["layout"]["height"] == 720
+          assert profile["layout"]["fps"] == 15
+          assert profile["performance"]["default_execution_lanes"] == 1
+          assert profile["performance"]["maximum_independent_preparation_lanes"] == 2
+          assert profile["performance"]["ffmpeg_encoder_concurrency"] == 1
+          print("STATIC_PREFLIGHT_OK")
+          PY
+
+      - name: Restore reusable media caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            .media-cache/assets
+            .media-cache/voicevox-wav
+          key: gemini4-landscape-v3-${{ runner.os }}-zm-shell-20230806
+          restore-keys: |
+            gemini4-landscape-v3-${{ runner.os }}-
+
+      - name: Install only missing media tools
+        run: |
+          set -euo pipefail
+          missing=()
+          command -v ffmpeg >/dev/null || missing+=(ffmpeg)
+          fc-match 'Noto Sans CJK JP' 2>/dev/null | grep -qi 'Noto' || missing+=(fonts-noto-cjk fontconfig)
+          if (( ${#missing[@]} )); then
+            sudo apt-get update -y
+            sudo apt-get install -y "${missing[@]}"
+          fi
+          python3 - <<'PY' || python3 -m pip install --disable-pip-version-check --no-input pillow
+          import PIL
+          print(PIL.__version__)
+          PY
+          mkdir -p "$OUT" "$CACHE" "$VOICE_CACHE"
+
+      - name: Resolve Zundamon and Metan shell cache-first
+        run: |
+          set -euo pipefail
+          python3 scripts/media_asset_resolver.py             --asset-id zm_shell_20230806             --cache-root "$CACHE"             --allow-network             --max-workers 1             --manifest-out "$OUT/character-shell.json"
+          RAW="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('artifacts/gemini4-argon-cloud/character-shell.json').read_text())
+          p=m['results'][0].get('extracted_path')
+          assert p and Path(p).is_dir(), p
+          print(p)
+          PY
+          )"
+          python3 scripts/character_shell_root.py "$RAW" > "$OUT/character-shell-root.txt"
+
+      - name: Start one local VOICEVOX engine
+        run: |
+          set -euo pipefail
+          if curl -fsS http://127.0.0.1:50021/version >/dev/null 2>&1; then
+            echo "VOICEVOX_ALREADY_READY"
+            exit 0
+          fi
+          IMAGE=voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+          docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE"
+          docker run -d --name voicevox -p 50021:50021 "$IMAGE"
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
+              curl -fsS http://127.0.0.1:50021/version
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs voicevox || true
+          exit 1
+
+      - name: Build Gemini 4 Argon longform through canonical one-pass renderer
+        env:
+          VOICEVOX_CACHE_DIR: .media-cache/voicevox-wav
+        run: |
+          set -euo pipefail
+          SHELL_ROOT="$(cat "$OUT/character-shell-root.txt")"
+          /usr/bin/time -f 'WALL_SECONDS=%e'             python3 scripts/build_gemini4_argon_cloud_video.py               --mission "$MISSION"               --shell-root "$SHELL_ROOT"               --output-dir "$OUT"               --voicevox-url http://127.0.0.1:50021
+
+      - name: Minimum mechanical delivery gate
+        run: |
+          set -euo pipefail
+          FINAL="$OUT/Gemini4_Argon_10min_landscape.mp4"
+          test -s "$FINAL"
+          ffprobe -v error -show_streams -show_format -of json "$FINAL" > "$OUT/ffprobe.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('artifacts/gemini4-argon-cloud/ffprobe.json').read_text())
+          v=[x for x in d['streams'] if x['codec_type']=='video']
+          a=[x for x in d['streams'] if x['codec_type']=='audio']
+          assert v and a
+          dur=float(d['format']['duration'])
+          assert 420 <= dur <= 720, dur
+          assert int(v[0].get('width',0)) == 1280 and int(v[0].get('height',0)) == 720
+          print({'status':'PASS','duration_seconds':dur,'video':v[0]['codec_name'],'audio':a[0]['codec_name']})
+          PY
+
+      - name: Upload finished MP4 and build report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini4-argon-10min-landscape-${{ github.run_id }}
+          path: |
+            artifacts/gemini4-argon-cloud/Gemini4_Argon_10min_landscape.mp4
+            artifacts/gemini4-argon-cloud/Gemini4_Argon_10min_landscape.report.json
+            artifacts/gemini4-argon-cloud/completion.json
+            artifacts/gemini4-argon-cloud/ffprobe.json
+            artifacts/gemini4-argon-cloud/presentation.json
+            artifacts/gemini4-argon-cloud/timing.json
+          if-no-files-found: warn
+          retention-days: 1

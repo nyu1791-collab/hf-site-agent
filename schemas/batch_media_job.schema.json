@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nyu1791-collab/hf-site-agent/schemas/batch_media_job.schema.json",
+  "title": "Bounded Batch Media Job",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["job_id", "input_ref", "input_sha256", "rights_verified", "resource_demand", "checkpoint_cursor", "status"],
+  "properties": {
+    "job_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,160}$"},
+    "input_ref": {"type": "string", "minLength": 1, "maxLength": 4096},
+    "input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "rights_verified": {"type": "boolean"},
+    "resource_demand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu_slots", "memory_mb", "disk_mb", "provider_slots"],
+      "properties": {
+        "cpu_slots": {"type": "integer", "minimum": 0, "maximum": 64},
+        "memory_mb": {"type": "integer", "minimum": 0, "maximum": 1048576},
+        "disk_mb": {"type": "integer", "minimum": 0, "maximum": 10485760},
+        "provider_slots": {"type": "integer", "minimum": 0, "maximum": 64}
+      }
+    },
+    "checkpoint_cursor": {"type": ["string", "null"], "maxLength": 512},
+    "status": {"enum": ["QUEUED", "RUNNING", "READY", "FAILED", "BLOCKED_RIGHTS", "BLOCKED_RESOURCE", "CANCELLED"]},
+    "base_manifest_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "output_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "failure_class": {"type": ["string", "null"], "enum": [null, "TRANSIENT_PROVIDER", "DETERMINISTIC_MEDIA", "RIGHTS_BLOCK", "RESOURCE_EXHAUSTED", "STALE_WRITE", "CANCELLED", "INVALID_JOB"]},
+    "attempts": {"type": "integer", "minimum": 0, "maximum": 16}
+  }
+}

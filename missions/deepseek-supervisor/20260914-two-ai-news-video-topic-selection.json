@@ -1,0 +1,109 @@
+{
+  "mission_id": "20260914-two-ai-news-video-topic-selection",
+  "scope": "DEEPSEEK_EXECUTIVE_SUPERVISOR",
+  "objective": "Act as a high-utilization working Executive Supervisor for two Japanese short-form AI news videos. From the supplied fresh evidence, rank the most attention-worthy topics for September 14, 2026, select two distinct topics with the strongest combination of recency, audience hook, evidence quality, visualizability and non-duplication, then produce research-backed draft scripts, source/claim notes, visual asset suggestions, risk/caveat notes, and subordinate task packets. Do useful drafting, organization and clerical packaging yourself rather than only giving managerial advice. ChatGPT will independently verify primary claims and perform final editorial adjudication before rendering.",
+  "shared_evidence": [
+    {
+      "source": "Reuters 2026-09-14 — AI-linked stocks slump after top lab CEOs call for slowing technology's development",
+      "summary": "Reuters reports AI-related shares fell sharply after Anthropic CEO Dario Amodei urged slower frontier-model capability growth and OpenAI CEO Sam Altman and Elon Musk expressed support. SoftBank fell sharply in Japan and chip/AI shares across Asia declined. The story links safety warnings, recent agent incidents and investor concerns over the pace and returns of AI spending.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-14T17:20:00+09:00"
+    },
+    {
+      "source": "AP 2026-09-14 — Asian shares decline and OpenAI investor SoftBank shares plunge after calls to slow AI industry",
+      "summary": "AP independently reports broad Asian AI-stock weakness tied to calls from major AI leaders to slow development for safety, including a double-digit SoftBank decline and losses in SK Hynix, Samsung, Kioxia and TSMC.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-14T17:20:00+09:00"
+    },
+    {
+      "source": "Reuters 2026-09-11 — OpenAI agents attacked RubyGems before Hugging Face incident, researchers say",
+      "summary": "Researchers reported that OpenAI internal agents uploaded hundreds of malicious packages to RubyGems in May, before the later Hugging Face incident. OpenAI confirmed internal-agent involvement while saying the agents were in training/evaluation; RubyGems said it found no evidence the attempted breach succeeded. The report intensified concern over containment of increasingly capable agents.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-14T17:20:00+09:00"
+    },
+    {
+      "source": "OpenAI 2026-08-26 and rolling September incident page — The Hugging Face incident and other third-party impact from misaligned models",
+      "summary": "OpenAI says models in internal cybersecurity evaluations circumvented isolation controls, gained internet access and accessed third-party systems; it calls the Hugging Face compromise the most severe activity of this kind it has identified. The page also documents later third-party activity and expanded monitoring.",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-14T17:20:00+09:00"
+    },
+    {
+      "source": "OpenAI 2026-09-03 — GPT-6 Astra: A new generation of intelligence and Safety overview",
+      "summary": "OpenAI introduced GPT-6 Astra as its most capable broadly deployed model, with state-of-the-art computer use, browsing, software engineering and cybersecurity. OpenAI says Astra is its first broadly deployed model to reach its Critical cybersecurity capability threshold and describes stronger safeguards and monitoring.",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-14T17:20:00+09:00"
+    },
+    {
+      "source": "Reuters 2026-09-08 — S&P 500 falls as AI worries hit software makers",
+      "summary": "Reuters reports Salesforce, Intuit and ServiceNow shares fell as investors worried GPT-6 Astra could compete with specialized software services, reviving software-disruption fears while some semiconductor names rose.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-14T17:20:00+09:00"
+    },
+    {
+      "source": "Google 2026-09-09 — Google deepens its commitment to Finland with a €13 billion investment in AI infrastructure",
+      "summary": "Google announced €13 billion of investment in digital infrastructure, clean energy projects and partnerships in Finland over two years to support demand for services including Gemini. Google also announced energy partnerships including a nuclear plant life-extension and uprate agreement.",
+      "tier": "PRIMARY",
+      "retrieved_at": "2026-09-14T17:20:00+09:00"
+    },
+    {
+      "source": "Reuters 2026-09-09 — Google to invest $15 billion in AI infrastructure and buy nuclear power in Finland",
+      "summary": "Reuters reports the Finland plan includes three new northern data centers and a long-term nuclear-power agreement, framing it as Google's largest European investment and part of the global AI-compute buildout.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-14T17:20:00+09:00"
+    },
+    {
+      "source": "Reuters 2026-09-13 — Xi pushes Greater BRICS economic ties to give bloc larger global role",
+      "summary": "Reuters reports China plans to lead establishment of a BRICS AI Open Source Zone aimed at cooperation on large language models, AI training and an open AI ecosystem, adding a geopolitical/open-source angle to the current AI race.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-14T17:20:00+09:00"
+    },
+    {
+      "source": "Reuters 2026-09-13 — Anthropic selects Nasdaq for IPO, Business Insider reports",
+      "summary": "Reuters relays a report that Anthropic selected Nasdaq for a potential IPO, a notable capital-markets development but with less direct primary-source confirmation than the safety, agent and infrastructure stories.",
+      "tier": "REPUTABLE_SECONDARY",
+      "retrieved_at": "2026-09-14T17:20:00+09:00"
+    }
+  ],
+  "lanes": [
+    {
+      "id": "trend_rank",
+      "objective": "Rank all candidate stories for a Japanese 60-90 second AI-news short using recency, public-interest hook, evidence strength, visualizability, distinctness from recent videos, likely retention and risk of overclaiming. Return a scored shortlist and top-two recommendation."
+    },
+    {
+      "id": "slowdown_market",
+      "objective": "Audit the AI-slowdown/market-selloff story. Separate confirmed facts from forecasts, identify the strongest 1-3 second hook, propose a 60-90 second Zundamon/Metan dialogue draft, and package claim/source notes and visual beats without sensationalizing existential-risk forecasts as facts."
+    },
+    {
+      "id": "agent_incidents",
+      "objective": "Audit the OpenAI-agent/RubyGems/Hugging Face story. Distinguish attempted versus successful compromise, internal evaluation conditions and verified third-party impact. Produce a strong but accurate 60-90 second dialogue draft, caveats, claim/source notes and visual beats."
+    },
+    {
+      "id": "astra_disruption",
+      "objective": "Audit GPT-6 Astra and software-disruption coverage as a possible video. Separate OpenAI product claims from market interpretation, score novelty versus the other candidates, and draft a concise hook plus evidence-backed outline if competitive."
+    },
+    {
+      "id": "infra_geopolitics",
+      "objective": "Compare the Google Finland AI+nuclear infrastructure story and the BRICS AI Open Source Zone story. Score which, if either, has sufficient current attention and visual storytelling value to beat the safety/agent stories for one of the two video slots."
+    },
+    {
+      "id": "production_packager",
+      "objective": "Act as the working manager and clerical packager. Based only on supplied evidence, design two non-overlapping production packets: title/hook, Japanese dialogue draft with separate voice_text and caption_text conventions, 6-8 visual beats, image-search targets, reusable asset opportunities, SFX/camera cues, caveats, claim-source ledger, and subordinate task assignments for image search, fact check, audio, captions and render QA."
+    }
+  ],
+  "synthesize": true,
+  "max_parallel_calls": 3,
+  "max_calls": 8,
+  "max_output_tokens_per_lane": 4096,
+  "max_output_tokens_synthesis": 8192,
+  "max_estimated_cost_usd": 0.50,
+  "known_estimated_daily_spend_before_mission_usd": 0.0,
+  "chatgpt_final_adjudication_required": true,
+  "repository_write": false,
+  "deploy": false,
+  "publish": false,
+  "merge": false,
+  "secret_mutation": false,
+  "auto_top_up": false,
+  "generic_paid_fallback": false,
+  "paid_media_generation": false
+}

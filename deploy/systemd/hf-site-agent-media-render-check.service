@@ -1,0 +1,22 @@
+[Unit]
+Description=Authenticated health check for the remote media renderer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=hf-site-agent
+Group=hf-site-agent
+WorkingDirectory=/opt/hf-site-agent
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=HOME=/var/lib/hf-site-agent/home
+Environment=TMPDIR=/var/lib/hf-site-agent/tmp
+EnvironmentFile=/etc/hf-site-agent/media-render.env
+ExecStart=/usr/bin/python3 -m scripts.media_render_transport --check
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077
+TimeoutStartSec=20

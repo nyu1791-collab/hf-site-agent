@@ -1,0 +1,293 @@
+{
+  "schema_version": "current-media-quality-handoff-v4",
+  "effective_date_jst": "2026-09-30",
+  "status": "CURRENT_CROSS_TAB_CONTINUITY_SUMMARY",
+  "authority": "POINTERS_AND_BRIEF_CONTINUITY_ONLY; MACHINE_POLICY_IS_AUTHORITATIVE",
+  "canonical_repository": "nyu1791-collab/hf-site-agent",
+  "canonical_branch": "ai-army/provider-v3",
+  "pull_request": 40,
+  "restore_rule": [
+    "read README.md, config/current_commander_handoff.json, config/permanent_standards_manifest.json, and docs/AI_ARMY_MASTER_RULEBOOK.md in that order",
+    "for routine video, read config/media_command_read_gate.json#/speed_first_delivery_override/read_set and apply the speed-first policy",
+    "read optional video guides only for the matching explicit request",
+    "reconfirm remote branch head and PR state before repository writes"
+  ],
+  "mandatory_routine_read_set": "config/media_command_read_gate.json#/speed_first_delivery_override/read_set",
+  "speed_first_video_delivery": {
+    "mode": "SPEED_FIRST_MINIMUM_VIABLE_DELIVERY",
+    "quality_weight": 0.2,
+    "speed_weight": 0.8,
+    "priority": "MINIMIZE_TIME_TO_DELIVERY_USING_THE_APPROVED_BASELINE",
+    "mandatory_read_on_new_tab": true,
+    "user_confirmation_required": false,
+    "manual_visual_review_required": false,
+    "routine_preview_required": false,
+    "duplicate_agent_review_required": false,
+    "deliver_completed_video_immediately": true,
+    "optional_quality_improvement_allowed": false,
+    "cosmetic_revision_allowed": false,
+    "micro_timing_or_frame_revision_allowed": false,
+    "optional_review_passes": 0,
+    "routine_final_encode_passes": 1,
+    "repair_only": [
+      "ENCODE_FAILED_OR_MISSING_OUTPUT",
+      "MISSING_AUDIO_OR_VIDEO_STREAM",
+      "UNUSABLE_AUDIO_OR_CAPTIONS",
+      "CONCRETE_MATERIAL_FACTUAL_ERROR"
+    ],
+    "automatic_completion_check": [
+      "ENCODER_EXIT_SUCCESS",
+      "NONEMPTY_OUTPUT_FILE",
+      "AUDIO_AND_VIDEO_STREAMS_PRESENT"
+    ],
+    "full_decode_pass_required": false,
+    "preparation_lanes_max": 2,
+    "target_minutes": 5,
+    "target_status": "MEASURE_EACH_RUN; BEST_EFFORT_NOT_GUARANTEED",
+    "reuse_first": [
+      "APPROVED_LAYOUT",
+      "CHARACTER_PRESETS",
+      "FONTS_AND_TOOLCHAIN",
+      "UNCHANGED_WAV_AND_TIMING",
+      "ALREADY_CLEARED_RELEVANT_ASSETS",
+      "SUCCESSFUL_SCENE_CHECKPOINTS"
+    ],
+    "skip": [
+      "STYLE_REDESIGN",
+      "EXTRA_EFFECTS",
+      "ASR_FOR_KNOWN_TTS",
+      "DUPLICATE_DRAFT_OR_REVIEW_ROUNDS",
+      "A_B_BENCHMARK_BEFORE_ROUTINE_DELIVERY",
+      "MICROSECOND_OR_PIXEL_POLISH",
+      "UNREQUESTED_PLATFORM_EXPORTS"
+    ],
+    "jev_use": "ONLY_WHEN_USER_REQUESTS_IT_OR_TYPED_JUDGMENT_CHANGES_THE_ROUTE; SKIP_FOR_DETERMINISTIC_PREPARATION",
+    "permission_scope": "DELIVERY_TO_REQUESTING_USER_ONLY; PUBLICATION_MERGE_DEPLOY_PAID_SCOPE_AND_SECRET_PERMISSIONS_ARE_SEPARATE",
+    "media_speed_quality_policy": "config/media_speed_quality_policy.json",
+    "media_speed_checkpoint_sealer": "scripts/seal_media_speed_checkpoint.py",
+    "jev_media_planning": true,
+    "jev_required_by_default": false,
+    "output_quality_floor": [
+      "ENCODER_SUCCESS",
+      "NONEMPTY_OUTPUT",
+      "AUDIO_AND_VIDEO_STREAMS_PRESENT",
+      "NO_INVENTED_MATERIAL_CLAIMS",
+      "NO_UNCLEARED_ASSETS"
+    ],
+    "targeted_user_requested_revision_allowed": true,
+    "unrequested_polish_allowed": false,
+    "visual_density_authority": "config/media_speed_quality_policy.json#/visual_density_contract",
+    "visual_beats_per_main_section": "2_TO_4_OFFICIAL_OR_RIGHTS_CLEARED_IMAGES_PER_MAIN_SECTION; NO_IMAGE_GENERATION",
+    "longform_up_to_16_minutes_is_measured_against_five_minute_work_target": true,
+    "longform_renderer": "scripts/render_reusable_landscape.py",
+    "longform_default_canvas": "APPROVED_LANDSCAPE_1280x720",
+    "image_generation_allowed_for_video": false,
+    "official_primary_visuals_preferred": true,
+    "duration_contract": "config/media_speed_quality_policy.json#/fast_longform_delivery/requested_video_duration_contract",
+    "parallelism_default": 1,
+    "parallelism_policy": "ONE_LANE_DEFAULT; MAX_TWO_ONLY_FOR_INDEPENDENT_PREPARATION",
+    "video_speed_engineering_rules": "docs/VIDEO_SPEED_ENGINEERING_RULES.md",
+    "fast_path_quality_fixes": {
+      "caption_safe_bottom_margin_px": 34,
+      "caption_max_lines": 3,
+      "voicevox_lufs_target": "-18_TO_-16_APPROX_WITH_FIXED_GAIN_AND_LIMITER_IN_SINGLE_ENCODE",
+      "official_primary_visual_when_available": true,
+      "one_final_encode": true,
+      "per_scene_h264_fast_path": false
+    },
+    "gemini_video_director": {
+      "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+      "model": "gemini-3.8-flash",
+      "runtime": "scripts/gemini_video_director.py",
+      "youtube_strength": "NATIVE_VIDEO_UNDERSTANDING_WITH_TIMESTAMPS_AND_VISUAL_BEATS",
+      "participates_in_video_creation": true,
+      "one_youtube_url_per_request": true,
+      "multiple_video_strategy": "SEQUENTIAL_THEN_DETERMINISTIC_MERGE",
+      "cache_reuse_before_new_call": true,
+      "optional_review_pass": false,
+      "non_blocking_when_primary_facts_are_verified_elsewhere": true,
+      "status": "FORMAL_PRODUCTION_MEMBER"
+    },
+    "gemini_video_research_stage": "USE_FOR_CURRENT_OR_YOUTUBE_RELEVANT_VIDEO_WHEN_ADC_RUNTIME_AVAILABLE; CACHE_RESULT; ONE_URL_PER_REQUEST; NO_EXTRA_REVIEW_PASS",
+    "gemini_multi_youtube_rule": "PER_MAJOR_ITEM_TARGET_3_MIN_2_WHEN_AVAILABLE_MAX_5; ONE_URL_PER_REQUEST; CACHE; ONE_ITEM_SYNTHESIS"
+  },
+  "approved_reference": {
+    "output": "DevDay2026_corrected_47s.mp4",
+    "user_feedback": "Presentation accepted; use the existing baseline when suitable.",
+    "baseline": "config/approved_video_template.json",
+    "reuse": [
+      "APPROVED_LAYOUT",
+      "EXISTING_CLEARED_ASSETS",
+      "UNCHANGED_AUDIO_AND_TIMING"
+    ]
+  },
+  "safety_boundaries": {
+    "paid_or_freemium_media_generation": false,
+    "unknown_cost_route": "BLOCK",
+    "free_route_failure": "BLOCK_WITHOUT_PAID_SUBSTITUTION",
+    "user_confirmation_for_routine_video": false,
+    "public_publish_requires_separate_authorization": true,
+    "merge_deploy_secret_mutation_or_disclosure_auto_top_up": false
+  },
+  "conditional_references": {
+    "longform": {
+      "scope": "ONLY_WHEN_USER_REQUESTS_LONGFORM_DURATION_OR_LONGFORM_FORMAT",
+      "machine_policy": [
+        "config/longform_video_objectives.json",
+        "config/longform_video_reliability_policy.json"
+      ],
+      "human_docs": [
+        "docs/LONGFORM_VIDEO_OBJECTIVES.md",
+        "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+        "scripts/render_reusable_landscape.py"
+      ],
+      "duration": "USER_SPECIFIED",
+      "YMM4_guides_are_not_implied": true
+    },
+    "ymm4": {
+      "scope": "ONLY_WHEN_USER_EXPLICITLY_REQUESTS_YMM4",
+      "machine_policy": "config/ymm4_research_explainer_profile.json",
+      "human_doc": "docs/YMM4_RESEARCH_EXPLAINER_PROFILE.md"
+    },
+    "voicevox_runtime": {
+      "scope": "ONLY_WHEN_ENGINE_STARTUP_OR_RECOVERY_IS_NEEDED",
+      "files": [
+        "docs/VOICEVOX_RUNTIME.md",
+        "scripts/with_local_voicevox.sh"
+      ]
+    },
+    "shortform": {
+      "scope": "ONLY_WHEN_USER_REQUESTS_55_TO_60_SECOND_ZUNDAMON_NEWS_SHORT",
+      "files": [
+        "config/zundamon_news60_template.json",
+        "docs/ZUNDAMON_NEWS60_TEMPLATE.md",
+        "scripts/validate_zundamon_news60_template.py"
+      ]
+    },
+    "platform_delivery": {
+      "scope": "ONLY_WHEN_USER_REQUESTS_PLATFORM_SPECIFIC_EXPORT_OR_DELIVERY",
+      "files": [
+        "config/video_platform_delivery_profiles.json",
+        "docs/VIDEO_PLATFORM_DELIVERY_PLAYBOOK.md"
+      ]
+    }
+  },
+  "editorial_defaults": {
+    "authority": "config/media_speed_quality_policy.json#/script_clarity_contract",
+    "topic_specific_headings": true,
+    "plain_language_and_main_point_first": true,
+    "omit_nonessential_detail_and_repeated_caveats": true,
+    "image_rich_visual_storytelling": true
+  },
+  "cross_tab_bug_recovery": {
+    "required_on_every_new_video_tab": true,
+    "symptom_observed": "A tab handoff can lose the distinction between a five-minute creation-time target and the requested long-form video length.",
+    "root_cause": "The production-time target was mistaken for the requested artifact duration, despite the earlier 8–12 minute video request.",
+    "permanent_fix": "Store video_runtime_target_minutes separately from wall_clock_work_target_minutes. “Make it in five minutes” refers to work time; preserve the latest explicit long-form video length across tabs.",
+    "authoritative_policy": "config/media_speed_quality_policy.json#/fast_longform_delivery/requested_video_duration_contract",
+    "mandatory_recall_via": "config/media_command_read_gate.json#/speed_first_delivery_override/read_set",
+    "active_task_video_duration_minutes": [
+      8,
+      12
+    ],
+    "active_task_wall_clock_target_minutes": 5
+  },
+  "approved_baseline_recovery": {
+    "required_on_every_new_video_tab": true,
+    "root_cause": "Speed optimization replaced the approved native character template with a static-card profile that disabled character layers.",
+    "fix": "Restore approved visible Zundamon and Metan, mouth motion, pale captions and the approved 16:9 landscape layout for explanatory/news video. Optimize reuse and encoding only.",
+    "authority": "config/media_speed_quality_policy.json#/approved_baseline_contract",
+    "video_runtime_target_minutes": [
+      8,
+      12
+    ],
+    "wall_clock_work_target_minutes": 5
+  },
+  "mandatory_approved_video_references": {
+    "scope": "READ_ON_EVERY_NEW_VIDEO_TAB",
+    "longform_template": "config/approved_landscape_video_template.json",
+    "shortform_portrait_template": "config/approved_video_template.json",
+    "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md",
+    "speed_rules": "docs/VIDEO_SPEED_ENGINEERING_RULES.md",
+    "gemini_video_director_policy": "config/gemini_video_director_policy.json",
+    "gemini_video_director_doc": "docs/GEMINI_VIDEO_DIRECTOR.md"
+  },
+  "latest_content_feedback": {
+    "required_on_every_new_video_tab": true,
+    "dialogue": "ずんだもんと四国めたんの双方が実際に発話する。聞き役の表示だけでは不可。",
+    "clarity": "見出し→要点→平易な説明→必要な具体例。モデル名や数値を並べるだけの説明を避ける。",
+    "authority": "config/media_speed_quality_policy.json",
+    "validator": "scripts/validate_video_content_contract.py",
+    "speed": "追加査読や全編見直しは不要。台本・音声・素材の入力契約を制作時に一度確認する。",
+    "image_rich_video": "公式画像限定ではなく、関連する写真・製品画面・スクリーンショット・図解を各主要章2〜4場面使う。文字だけのカードや同一画像の水増しは不可。画像生成は使わない。"
+  },
+  "source_attributed_visual_fast_path": {
+    "effective_date_jst": "2026-10-03",
+    "applies_to": "NON_PUBLIC_VIDEO_GENERATION_AND_INTERNAL_REVIEW",
+    "objective": "Prefer rapid, varied, source-backed visuals over license-metadata-only libraries.",
+    "accepted_visuals": [
+      "OFFICIAL_ARTICLE_IMAGE",
+      "OFFICIAL_ANNOUNCEMENT_SCREENSHOT",
+      "SOURCE_BACKED_WEB_IMAGE",
+      "USER_PROVIDED_SOURCE_SCREENSHOT",
+      "LICENSE_CLEARED",
+      "GENERATED_WITH_PROVENANCE"
+    ],
+    "minimum_visual_metadata": [
+      "SOURCE_URL",
+      "SOURCE_CREDIT",
+      "LOCAL_FILE_SHA256",
+      "SUPPORTED_RASTER_FORMAT"
+    ],
+    "official_x_post_screenshot_allowed": true,
+    "whole_official_social_post_screenshot_allowed": true,
+    "license_metadata_required_for_non_public_render": false,
+    "attribution_is_provenance_not_publication_authorization": true,
+    "public_publish_requires_separate_authorization": true,
+    "extra_candidates_allowed": true,
+    "renderer_uses_first_required_candidates_deterministically": true,
+    "batch_goal": "MANY_VIDEOS_WITH_VARIED_VISUALS_AND_MINIMAL_MANUAL_REVIEW"
+  },
+  "gemini_video_director": {
+    "status": "FORMAL_VIDEO_PRODUCTION_MEMBER",
+    "model": "gemini-3.8-flash",
+    "provider": "GOOGLE_CLOUD_VERTEX_AGENT_PLATFORM",
+    "auth": "ADC",
+    "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+    "policy": "config/gemini_video_director_policy.json",
+    "runtime": "scripts/gemini_video_director.py",
+    "guide": "docs/GEMINI_VIDEO_DIRECTOR.md",
+    "responsibilities": [
+      "YOUTUBE_VIDEO_UNDERSTANDING",
+      "IMPORTANT_TIMESTAMPS_AND_DEMOS",
+      "THREE_TO_FIVE_TAKEAWAYS",
+      "SCRIPT_AND_PLAIN_EXAMPLE_INPUTS",
+      "ZUNDAMON_METAN_DIALOGUE_BEATS",
+      "VISUAL_BEAT_MAPPING"
+    ],
+    "one_youtube_url_per_request": true,
+    "cache_reuse_required": true,
+    "video_creation_participant": true,
+    "unavailable_behavior": "CONTINUE_WITH_VERIFIED_OFFICIAL_WEB_SOURCES; DO_NOT_BLOCK_RENDER",
+    "participates_in_video_creation": true,
+    "broad_video_workspace_authority": true,
+    "per_major_item_youtube": {
+      "minimum_when_available": 2,
+      "target": 3,
+      "maximum": 5,
+      "one_url_per_request": true,
+      "synthesize_after_all_item_sources": true
+    },
+    "production_outputs": [
+      "SOURCE_MANIFEST",
+      "MISSION_SCRIPT",
+      "DIALOGUE_DRAFT",
+      "SCENE_PLAN",
+      "VISUAL_SOURCE_PLAN",
+      "PRESENTATION_MANIFEST"
+    ],
+    "no_extra_review_round": true,
+    "cache_before_new_call": true,
+    "vm_iam_role": "roles/aiplatform.user"
+  }
+}

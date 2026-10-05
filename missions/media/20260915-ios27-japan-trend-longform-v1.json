@@ -1,0 +1,117 @@
+{
+  "schema": "media-longform-dialogue-mission-v1",
+  "mission_id": "20260915-ios27-japan-trend-longform-v1",
+  "title": "iOS 27、今日入れて大丈夫？ Xで話題の新機能・Siri AI日本語・26.7との違いを整理",
+  "format": "VERTICAL_LONGFORM_EXPLAINER",
+  "target_duration_seconds": [480, 720],
+  "target_runtime_note": "Aim roughly 9-10.5 minutes after measured VOICEVOX WAV timing; 8-12 minutes is a guideline, not a padding quota.",
+  "cast": ["ずんだもん", "四国めたん"],
+  "public_publish": false,
+  "editorial_contract": {
+    "x_trend_is_discovery_signal_not_truth_source": true,
+    "current_apple_primary_sources_override_secondary_summaries": true,
+    "separate_os_compatibility_from_apple_intelligence_compatibility": true,
+    "device_specific_update_size_must_not_be_generalized": true,
+    "day_one_update_ui_issue_must_be_framed_as_reported_and_device_specific": true,
+    "recommendation_is_editorial_and_risk_based_not_medical_or_legal_advice": true,
+    "no_padding_to_hit_duration": true,
+    "final_visual_qa_required": true,
+    "mouth_full_face_fixture_required_if_geometry_changes": true,
+    "caption_semantic_chunking_required": true,
+    "bright_explainer_panels_required": true,
+    "white_caption_text": true,
+    "zundamon_caption_accent": "bright_green",
+    "metan_caption_accent": "bright_pink_magenta",
+    "large_black_caption_box_default": false,
+    "background_diagram_vertical_drift_forbidden": true,
+    "active_speaker_scale_semantic": true,
+    "listener_reaction_semantic": true
+  },
+  "pronunciation_dictionary": [
+    {"surface_term":"iOS 27","voice_reading":"アイオーエス・ニジュウナナ","caption_spelling":"iOS 27"},
+    {"surface_term":"iOS 26.7","voice_reading":"アイオーエス・ニジュウロクテンナナ","caption_spelling":"iOS 26.7"},
+    {"surface_term":"Siri AI","voice_reading":"シリ・エーアイ","caption_spelling":"Siri AI"},
+    {"surface_term":"Apple Intelligence","voice_reading":"アップル・インテリジェンス","caption_spelling":"Apple Intelligence"},
+    {"surface_term":"CVE","voice_reading":"シーブイイー","caption_spelling":"CVE"}
+  ],
+  "video_contract": {"width":1080,"height":1920,"fps":30,"pixel_format":"yuv420p","video_codec":"h264","audio_codec":"aac","audio_sample_rate_hz":48000,"movflags":"+faststart","subtitle_coverage_ratio":1.0},
+  "scenes": [
+    {"scene_id":"S01","title":"Hook：今日入れるべき？","goal":"Immediate promise: explain what is actually available today, why 26.7 also exists, and who should wait.","dialogue":[
+      {"speaker":"ずんだもん","voice_text":"アイオーエス・ニジュウナナ、今日きたのだ！ じゃあ今すぐ入れれば、話題のシリ・エーアイも日本語で全部使えるのだ？","caption_text":"iOS 27配信開始！\nSiri AIも日本語ですぐ使える？","emotion":"surprise","visual_beat":"iOS 27の大見出し＋『今すぐ？』の疑問符","source_claim_ids":["C01","C03"],"id":"S01-L01","scene_id":"S01","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"そこが今日いちばん誤解しやすいところ。アイオーエス・ニジュウナナは9月15日に日本で配信開始。でも、シリ・エーアイは英語からで、日本語はアップル公式の現行ページでは年内予定よ。","caption_text":"iOS 27：9月15日配信\nSiri AI日本語：年内予定","emotion":"correct","visual_beat":"『今日使えるOS』と『日本語Siri AIは年内』を2段表示","source_claim_ids":["C01","C03"],"id":"S01-L02","scene_id":"S01","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"しかも、アイオーエス・ニジュウロクテンナナも同時に出てるのだ。どっちを選べばいいのだ？","caption_text":"iOS 27 と iOS 26.7\nどっちを選ぶ？","emotion":"question","visual_beat":"27と26.7の分岐カード","source_claim_ids":["C07"],"id":"S01-L03","scene_id":"S01","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"今日はそこを10分くらいで整理するわ。新機能、対応機種、セキュリティ、初日のトラブル報告、そして『今上げる人・少し待つ人』まで一気に見ていきます。","caption_text":"新機能 → 対応機種 → セキュリティ → 初日注意点","emotion":"confident","visual_beat":"4項目ロードマップを左から順に点灯","source_claim_ids":[],"id":"S01-L04","scene_id":"S01","sfx_beat":"none"}
+    ]},
+    {"scene_id":"S02","title":"なぜ今日Xで話題？","goal":"Use X trend only as popularity signal, not factual authority.","dialogue":[
+      {"speaker":"ずんだもん","voice_text":"そもそも、本当に今日そんなに話題なのだ？","caption_text":"本当に今日の話題？","emotion":"question","visual_beat":"Xトレンド風の抽象カード。ロゴや投稿画像は転載せず文字だけ","source_claim_ids":["C02"],"id":"S02-L01","scene_id":"S02","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"Xの地域別トレンドを集計するTwittrendでは、アイオーエス・ニジュウナナが日本で朝5時13位、7時8位、8時10位、正午11位と長く残っていたわ。京都、名古屋、福岡などでも上位に入っています。","caption_text":"iOS27：朝からXトレンドに継続登場","emotion":"explain","visual_beat":"5時→7時→8時→12時の順位を時系列カードで表示","source_claim_ids":["C02"],"id":"S02-L02","scene_id":"S02","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"じゃあ、Xで見た反応をそのまま事実として使えばいいのだ？","caption_text":"Xの投稿＝事実？","emotion":"skeptical","visual_beat":"『話題の発見』と『事実確認』を分離","source_claim_ids":[],"id":"S02-L03","scene_id":"S02","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"それはダメ。Xは『何が気になっているか』を見つける入口。機能や対応機種はアップル公式、障害は提供会社の一次情報、セキュリティ件数は複数の報道と原資料の整合を見る。今回はその順番で確認しています。","caption_text":"Xは発見用\n事実は一次情報で確認","emotion":"serious","visual_beat":"X→Apple公式／事業者公式／検証記事の矢印","source_claim_ids":["C01","C03","C04","C06","C09"],"id":"S02-L04","scene_id":"S02","sfx_beat":"none"}
+    ]},
+    {"scene_id":"S03","title":"iOS 27で今日変わるもの","goal":"Explain real day-one features without overselling Siri AI.","dialogue":[
+      {"speaker":"ずんだもん","voice_text":"じゃあシリ・エーアイが日本語でまだなら、今日アップデートする意味は薄いのだ？","caption_text":"Siri AI日本語がまだなら\niOS 27の意味は薄い？","emotion":"question","visual_beat":"Siri AIカードを小さくし、OS全体のカードを広げる","source_claim_ids":["C03"],"id":"S03-L01","scene_id":"S03","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"そんなことはないわ。アイオーエス・ニジュウナナ自体には、デザインの調整、写真編集、メール検索、ネットワーク切り替え、システム基盤の改善など、シリ以外の変更もかなりある。","caption_text":"Siri以外にも多数の更新","emotion":"explain","visual_beat":"写真・Mail・Wi-Fi・CPUの4アイコンを静止配置し順にハイライト","source_claim_ids":["C05"],"id":"S03-L02","scene_id":"S03","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"見た目も変わるのだ？","caption_text":"見た目も変わる？","emotion":"curious","visual_beat":"透明度スライダーを模した自作UI図","source_claim_ids":["C05"],"id":"S03-L03","scene_id":"S03","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"アップルはLiquid Glassのコントラスト改善や、透明度と色の濃さを調整できる新しいスライダを案内しているわ。メールは検索結果の関連性を上げ、CPUスケジューラなど基盤側も改良すると説明しています。","caption_text":"Liquid Glass調整\nMail検索・システム基盤も改善","emotion":"explain","visual_beat":"自作スライダー→検索カード→CPUブロックを順に強調","source_claim_ids":["C05"],"id":"S03-L04","scene_id":"S03","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"アップルは速度もかなり上がるって言ってるのだ？","caption_text":"速度改善の主張も","emotion":"question","visual_beat":"30%・70%・80%の数字カードを『最大』付きで表示","source_claim_ids":["C05"],"id":"S03-L05","scene_id":"S03","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"公式ページでは、アプリ起動は最大30パーセント、写真の読み込みは最大70パーセント、AirDropは最大80パーセント高速と案内している。ただし全部『最大』の数字。機種や使い方で同じ伸びを保証する数字ではない点は覚えておきましょう。","caption_text":"Apple公称：最大30% / 70% / 80%\n※環境で変わる","emotion":"cautious","visual_beat":"各最大値の下に『最大・条件依存』を明示","source_claim_ids":["C05"],"id":"S03-L06","scene_id":"S03","sfx_beat":"none"}
+    ]},
+    {"scene_id":"S04","title":"Siri AI：日本語は今日ではない","goal":"Clarify availability and distinguish Siri AI from broader Apple Intelligence.","dialogue":[
+      {"speaker":"ずんだもん","voice_text":"でも一番気になるのはシリ・エーアイなのだ。今日、日本語で使えないってこと？","caption_text":"Siri AI日本語は今日から？","emotion":"question","visual_beat":"Siri AIの文字カード＋日本語ラベルをグレー表示","source_claim_ids":["C03"],"id":"S04-L01","scene_id":"S04","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"アップル日本の現行ページは『英語から対応を開始し、年内に日本語でも利用可能』と明記しているわ。だから9月15日の日本語環境で、紹介されているシリ・エーアイの全機能が同時解禁された、と言うのは正確じゃない。","caption_text":"Apple公式：英語から開始\n日本語は年内予定","emotion":"serious","visual_beat":"英語→先行、日本語→年内のタイムライン","source_claim_ids":["C03"],"id":"S04-L02","scene_id":"S04","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"じゃあ、日本語は具体的に何月からなのだ？","caption_text":"日本語は具体的にいつ？","emotion":"question","visual_beat":"年内のカレンダーに疑問符","source_claim_ids":["C03"],"id":"S04-L03","scene_id":"S04","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"今確認できるアップル日本の製品ページは『年内』まで。月や日をこの動画で勝手に断定しないで、正式な提供日が更新されたらその一次情報を基準にします。","caption_text":"Apple公式の現行表記は「年内」\n具体的な月日は断定しない","emotion":"correct","visual_beat":"『年内』のみを強調し、具体月は未確定表示","source_claim_ids":["C03"],"id":"S04-L04","scene_id":"S04","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"つまり、アップデートしただけで古いiPhoneまで急にAIスマホになるわけでもないのだ？","caption_text":"対応機種にも注意","emotion":"realize","visual_beat":"iOS対応とAI対応を別レーンに分割","source_claim_ids":["C04","C06"],"id":"S04-L05","scene_id":"S04","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"その通り。ここからが二つ目の大事な分岐。『アイオーエス・ニジュウナナが入る機種』と、『アップル・インテリジェンスやシリ・エーアイが使える機種』は同じ範囲ではありません。","caption_text":"OS対応 ≠ AI機能対応","emotion":"emphasis","visual_beat":"≠ を中央に大きく表示","source_claim_ids":["C04","C06"],"id":"S04-L06","scene_id":"S04","sfx_beat":"none"}
+    ]},
+    {"scene_id":"S05","title":"対応機種：OSとAIは別","goal":"Make hardware split explicit.","dialogue":[
+      {"speaker":"ずんだもん","voice_text":"アイオーエス・ニジュウナナ自体は、どこまで古い機種に入るのだ？","caption_text":"iOS 27の対応機種は？","emotion":"question","visual_beat":"iPhone世代の縦リストを簡略化","source_claim_ids":["C04"],"id":"S05-L01","scene_id":"S05","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"アップル公式ではiPhone 11シリーズまで対応。ホームボタンのiPhone SEは第2世代以降が対応よ。","caption_text":"iOS 27：iPhone 11以降\nSEは第2世代以降","emotion":"explain","visual_beat":"11→12→13→…の世代ライン＋SE2","source_claim_ids":["C04"],"id":"S05-L02","scene_id":"S05","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"じゃあiPhone 11でもシリ・エーアイ？","caption_text":"iPhone 11でもSiri AI？","emotion":"hopeful","visual_beat":"iPhone 11カードに疑問符","source_claim_ids":["C06"],"id":"S05-L03","scene_id":"S05","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"そこは違う。アップル・インテリジェンスとシリ・エーアイは、iPhone 16以降とiPhone 15 Pro、15 Pro Maxが対応範囲。新しい17や18世代も当然その『16以降』側に入るわ。","caption_text":"Apple Intelligence / Siri AI\niPhone 16以降＋15 Pro系","emotion":"correct","visual_beat":"OS対応の広い帯の中にAI対応の狭い帯を重ねる","source_claim_ids":["C06"],"id":"S05-L04","scene_id":"S05","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"同じアイオーエス・ニジュウナナでも、機種で体験がかなり違うのだ。","caption_text":"同じiOS 27でも機能差あり","emotion":"realize","visual_beat":"iPhone 11・15 Pro・17を3列比較","source_claim_ids":["C04","C06"],"id":"S05-L05","scene_id":"S05","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"そう。『アップデートできるか』と『目玉AI機能を使えるか』は別に確認する。ここを混ぜると、入れたのに期待した機能がない、という誤解が起きやすいわ。","caption_text":"更新可否とAI可否は別チェック","emotion":"summary","visual_beat":"チェック項目を2段に固定表示","source_claim_ids":["C04","C06"],"id":"S05-L06","scene_id":"S05","sfx_beat":"none"}
+    ]},
+    {"scene_id":"S06","title":"なぜ26.7も同時にある？","goal":"Explain security branch and counts carefully.","dialogue":[
+      {"speaker":"ずんだもん","voice_text":"じゃあ、アイオーエス・ニジュウロクテンナナは何のために出たのだ？","caption_text":"iOS 26.7は何のため？","emotion":"question","visual_beat":"26.7を『セキュリティ更新の選択肢』として配置","source_claim_ids":["C07"],"id":"S06-L01","scene_id":"S06","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"大きなOS変更を今すぐ入れたくない人にも、セキュリティ修正を届ける選択肢と考えると分かりやすい。当日のITmedia集計では、27は126件、26.7は82件のCVE修正が掲載され、75件が共通していると報じられています。","caption_text":"報道集計：iOS 27＝126件\n26.7＝82件 / 共通75件","emotion":"explain","visual_beat":"126・82・共通75のベン図風カード","source_claim_ids":["C07"],"id":"S06-L02","scene_id":"S06","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"じゃあ26.7の方が安全ってことではないのだ？","caption_text":"26.7の方が安全？","emotion":"skeptical","visual_beat":"『件数だけで安全性を単純比較しない』警告","source_claim_ids":["C07"],"id":"S06-L03","scene_id":"S06","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"件数だけで安全性を決めつけるのも違うわ。でも少なくとも『26.7があるから27のセキュリティ更新は不要』とも言えない。27側にはより多くの修正が掲載されている。","caption_text":"件数＝危険度の単純ランキングではない\n27側により多くの修正","emotion":"cautious","visual_beat":"数字の大小→単純な安全ランキングではないと×","source_claim_ids":["C07"],"id":"S06-L04","scene_id":"S06","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"つまり、新機能を取りに行く27と、環境を大きく変えずに修正を受ける26.7、という選び方ができるのだ。","caption_text":"新機能の27 / 保守的な26.7","emotion":"summary","visual_beat":"2レーン比較。ただし『どちらも更新』と表示","source_claim_ids":["C07"],"id":"S06-L05","scene_id":"S06","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"そう。ただし26.7を永久に使う前提ではなく、仕事用アプリや周辺サービスの確認が取れるまでの一時的な保守ルート、と考えるのが現実的ね。","caption_text":"26.7は“確認待ち”の一時ルートとして考える","emotion":"advice","visual_beat":"26.7→互換性確認→27の矢印","source_claim_ids":["C09"],"id":"S06-L06","scene_id":"S06","sfx_beat":"none"}
+    ]},
+    {"scene_id":"S07","title":"初日特有の混乱：容量と表示","goal":"Cover observed update size and device-specific UI bug without generalizing.","dialogue":[
+      {"speaker":"ずんだもん","voice_text":"Xで『容量がでかい』とか『26.7って出る』みたいな話も見かけるのだ。","caption_text":"初日報告：容量 / 表示の混乱","emotion":"concern","visual_beat":"ストレージゲージ＋更新画面を模した自作図","source_claim_ids":["C08","C10"],"id":"S07-L01","scene_id":"S07","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"容量は機種ごとに違うから一律の数字は言えない。ただ、ITmediaがiPhone 17 Proで確認した更新ファイルは21.05ギガバイトだった。これはその端末での観測値で、全機種共通ではありません。","caption_text":"iPhone 17 Proで21.05GBを観測\n※全機種共通ではない","emotion":"explain","visual_beat":"21.05GBカードの横に『17 Proでの観測』タグ","source_claim_ids":["C08"],"id":"S07-L02","scene_id":"S07","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"21ギガ級なら、空き容量ぎりぎりの人は準備した方がよさそうなのだ。","caption_text":"空き容量に余裕を","emotion":"concern","visual_beat":"ストレージ残量を増やす自作ゲージ","source_claim_ids":["C08","C11"],"id":"S07-L03","scene_id":"S07","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"そして表示の混乱。SBAPPはiPhone 14 Proで『iOS 27にアップグレード』を選んでも26.7と表示される現象を再現し、実際の更新後は27が入ったと報告しています。一方、iPhone 11 Proでは再現しなかった。","caption_text":"一部端末で更新表示の混乱報告\n14 Proで再現 / 11 Proでは再現せず","emotion":"cautious","visual_beat":"14 Pro＝報告あり、11 Pro＝未再現の比較カード","source_claim_ids":["C10"],"id":"S07-L04","scene_id":"S07","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"全iPhoneの不具合って決めつけちゃダメなのだ。","caption_text":"全機種共通と決めつけない","emotion":"realize","visual_beat":"『一部端末の再現報告』ラベルを固定","source_claim_ids":["C10"],"id":"S07-L05","scene_id":"S07","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"そう。初日の不具合情報は、端末、元のOS、アプリ、通信環境で条件が変わる。SNSの一件だけで一般化せず、再現条件と公式案内を確認するのが大事です。","caption_text":"初日情報は“条件”を見る","emotion":"summary","visual_beat":"端末・元OS・アプリ・通信の4条件カード","source_claim_ids":["C09","C10"],"id":"S07-L06","scene_id":"S07","sfx_beat":"none"}
+    ]},
+    {"scene_id":"S08","title":"実際に出た互換性問題","goal":"Use Docomo primary notice as concrete reason to check critical apps.","dialogue":[
+      {"speaker":"ずんだもん","voice_text":"『大事なアプリは待った方がいい』って、ただの慎重論じゃないのだ？","caption_text":"本当に互換性問題はある？","emotion":"question","visual_beat":"具体例に切り替える『一次情報』カード","source_claim_ids":["C09"],"id":"S08-L01","scene_id":"S08","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"今日、ドコモが具体的な注意を出しているわ。iOS 27で接続アシストがデフォルトONになり、条件がそろうと『あんしんセキュリティ』の危険サイト対策が正しく動かないことを確認した、と案内しています。","caption_text":"ドコモ公式：iOS 27で\n一部条件下の危険サイト対策に事象","emotion":"serious","visual_beat":"Wi-Fi＋接続アシスト＋あんしんセキュリティの条件図","source_claim_ids":["C09"],"id":"S08-L02","scene_id":"S08","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"条件がそろうと、危険サイトを正しくブロックできない可能性があるのだ？","caption_text":"特定条件でブロックが正しく動作しない","emotion":"warning","visual_beat":"危険サイト→通常ブロック／条件時の問題を2列表示","source_claim_ids":["C09"],"id":"S08-L03","scene_id":"S08","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"ドコモは対処として、iOS 27の『接続アシスト』をOFFにする手順まで公開している。重要なのは、OSそのものが危険という話ではなく、OS変更と特定サービスの組み合わせで互換性問題が出る例が初日からある、ということよ。","caption_text":"OS全体の危険ではない\n特定サービスとの組み合わせ問題","emotion":"correct","visual_beat":"『iOS27危険』に×、組み合わせ問題に○","source_claim_ids":["C09"],"id":"S08-L04","scene_id":"S08","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"仕事のVPN、決済、認証、セキュリティ、会社の管理アプリを使う人は、自分のアプリの対応情報を先に見るべきなのだ。","caption_text":"仕事・決済・認証・セキュリティは\n対応情報を先に確認","emotion":"advice","visual_beat":"4カテゴリのチェックリスト","source_claim_ids":["C09"],"id":"S08-L05","scene_id":"S08","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"その判断がいいわ。『新OSだから怖い』ではなく、『自分にとって止まると困るアプリが対応済みか』で決める。これなら過剰に怖がらず、初日リスクも減らせます。","caption_text":"判断軸：止まると困るアプリが対応済みか","emotion":"confident","visual_beat":"リスクベース判断の天秤","source_claim_ids":["C09"],"id":"S08-L06","scene_id":"S08","sfx_beat":"none"}
+    ]},
+    {"scene_id":"S09","title":"今すぐ27に上げる人／待つ人","goal":"Give balanced actionable recommendation.","dialogue":[
+      {"speaker":"ずんだもん","voice_text":"結局、ぼくなら今日アイオーエス・ニジュウナナに上げていいのだ？","caption_text":"結局、今日上げていい？","emotion":"question","visual_beat":"『今上げる』『少し待つ』の2列","source_claim_ids":[],"id":"S09-L01","scene_id":"S09","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"まず『今上げやすい人』。個人用端末で、必要アプリの対応を確認済み。バックアップがあり、空き容量にも余裕があって、新機能を試したい人。そういう人は27を選びやすいわ。","caption_text":"今上げやすい人\n対応確認済み＋バックアップ＋空き容量","emotion":"explain","visual_beat":"緑の3チェックカード","source_claim_ids":["C11"],"id":"S09-L02","scene_id":"S09","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"逆に待つ方がいい人は？","caption_text":"少し待つ方がいい人","emotion":"question","visual_beat":"注意側の3チェックカード","source_claim_ids":[],"id":"S09-L03","scene_id":"S09","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"仕事や生活で絶対に止めたくない端末。特定の業務アプリ、認証、VPN、決済、セキュリティ製品への依存が強い人。ベンダーのiOS 27対応確認がまだなら、26.7でセキュリティ修正を受けつつ確認を待つ選択肢がある。","caption_text":"止められない端末は\n26.7＋互換性確認も選択肢","emotion":"serious","visual_beat":"26.7→ベンダー確認→27の段階図","source_claim_ids":["C07","C09"],"id":"S09-L04","scene_id":"S09","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"バックアップは必須級なのだ？","caption_text":"アップデート前にバックアップ","emotion":"question","visual_beat":"iCloud／Mac・PCのバックアップアイコン風自作図","source_claim_ids":["C11"],"id":"S09-L05","scene_id":"S09","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"アップル自身も、アップデート前にiPhoneをバックアップするよう案内しているわ。電源とWi-Fiを確保して、バックアップ、空き容量、重要アプリの対応、この3つを見てから進めるのが安全です。","caption_text":"Apple公式：更新前にバックアップ\n＋空き容量＋重要アプリ確認","emotion":"advice","visual_beat":"3ステップを大きく表示","source_claim_ids":["C11"],"id":"S09-L06","scene_id":"S09","sfx_beat":"none"}
+    ]},
+    {"scene_id":"S10","title":"結論と今後のWatch Point","goal":"Resolve title promise and leave one clear watch point.","dialogue":[
+      {"speaker":"ずんだもん","voice_text":"まとめるのだ。アイオーエス・ニジュウナナは今日配信開始。でもシリ・エーアイ日本語は、今日の同時解禁じゃなく年内予定なのだ。","caption_text":"結論① iOS 27は今日\nSiri AI日本語は年内予定","emotion":"summary","visual_beat":"結論カード1","source_claim_ids":["C01","C03"],"id":"S10-L01","scene_id":"S10","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"そしてOS自体はiPhone 11やSE第2世代以降まで対応する一方、アップル・インテリジェンスとシリ・エーアイはiPhone 16以降と15 Pro系など、より新しい機種が必要。","caption_text":"結論② OS対応とAI対応は別","emotion":"summary","visual_beat":"結論カード2","source_claim_ids":["C04","C06"],"id":"S10-L02","scene_id":"S10","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"26.7も同時にあるから、重要アプリの対応待ちなら、いったん保守的に更新する道もあるのだ。","caption_text":"結論③ 26.7で様子を見る選択肢も","emotion":"summary","visual_beat":"結論カード3","source_claim_ids":["C07","C09"],"id":"S10-L03","scene_id":"S10","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"ただし27には27でより多くのセキュリティ修正が掲載されている。だから『ずっと26.7でいい』ではなく、自分の重要アプリの互換性が確認できたら改めて27を検討する、という考え方がバランスいいわ。","caption_text":"26.7固定ではなく\n互換性確認後に27を再検討","emotion":"balanced","visual_beat":"26.7→確認済み→27の最終矢印","source_claim_ids":["C07","C09"],"id":"S10-L04","scene_id":"S10","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"今日のXの盛り上がりだけで勢いで押すんじゃなく、公式情報を見て自分の使い方で決めるのだ！","caption_text":"トレンドより、自分の用途＋公式情報で判断","emotion":"confident","visual_beat":"Xトレンドカードを背景に下げ、公式・用途カードを前面へ","source_claim_ids":["C02","C09","C11"],"id":"S10-L05","scene_id":"S10","sfx_beat":"none"},
+      {"speaker":"四国めたん","voice_text":"今後の最大の注目点は、日本語のSiri AIが実際にいつ提供されるか。そして初日から数日で、主要アプリの対応状況や不具合情報がどう更新されるか。この二つです。","caption_text":"Watch：Siri AI日本語の提供時期\n＋主要アプリの対応状況","emotion":"conclusion","visual_beat":"2つのWatch Pointだけ残して静かに締める","source_claim_ids":["C03","C09"],"id":"S10-L06","scene_id":"S10","sfx_beat":"none"},
+      {"speaker":"ずんだもん","voice_text":"アップデートする人も待つ人も、まずバックアップなのだ。","caption_text":"まずバックアップ。","emotion":"smile","visual_beat":"バックアップ完了チェックで終了","source_claim_ids":["C11"],"id":"S10-L07","scene_id":"S10","sfx_beat":"none"}
+    ]}
+  ]
+}

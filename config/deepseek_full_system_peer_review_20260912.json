@@ -1,0 +1,170 @@
+{
+  "schema_version": "deepseek-full-system-peer-review-v1",
+  "mission_id": "peer-review-ai-army-media-commerce-20260912",
+  "effective_date_jst": "2026-09-12",
+  "decision_owner": "chatgpt-top-commander",
+  "goal": "Peer review the current AI Army, long-form/clipping/video editing, and TikTok Shop commerce standards. Identify what should be retained, tightened, simplified, removed, or added. Optimize for task success, low latency, low coordination overhead, rapid failure recovery, evidence quality, and sustainable monetization.",
+  "constraints": {
+    "paid_deepseek_explicitly_authorized_for_this_review": true,
+    "model": "deepseek-flash",
+    "max_calls": 8,
+    "max_parallel_calls": 2,
+    "max_total_conservative_peak_cost_usd": 0.10,
+    "repository_write_by_deepseek": false,
+    "main_push": false,
+    "merge": false,
+    "deploy": false,
+    "publish": false,
+    "secret_mutation_or_disclosure": false,
+    "auto_top_up": false,
+    "media_generation": false
+  },
+  "current_policy_files": [
+    "config/multi_agent_operating_policy.json",
+    "docs/MULTI_AGENT_OPERATING_STANDARD.md",
+    "config/longform_video_reliability_policy.json",
+    "docs/LONGFORM_VIDEO_RELIABILITY_PLAYBOOK.md",
+    "config/authorized_clipping_monetization_policy.json",
+    "docs/AUTHORIZED_CLIPPING_AND_MONETIZATION_PLAYBOOK.md",
+    "config/tiktok_shop_influence_policy.json",
+    "docs/TIKTOK_SHOP_INFLUENCE_PLAYBOOK.md",
+    "config/current_commander_handoff.json"
+  ],
+  "fresh_evidence": [
+    {
+      "source": "OpenAI Agents SDK - orchestration/guardrails/tracing",
+      "urls": [
+        "https://openai.github.io/openai-agents-python/multi_agent/",
+        "https://openai.github.io/openai-agents-python/guardrails/",
+        "https://openai.github.io/openai-agents-python/tracing/"
+      ],
+      "facts": [
+        "Manager-style agents-as-tools keeps one agent in control and is appropriate when one owner must synthesize specialist outputs.",
+        "Code orchestration is more deterministic for speed, cost and performance; parallel execution is useful only for independent work.",
+        "Blocking guardrails prevent expensive or side-effecting execution before it begins; tool guardrails apply per function-tool invocation.",
+        "Tracing covers generations, tools, handoffs and guardrails and should support end-to-end debugging."
+      ]
+    },
+    {
+      "source": "LangChain/LangGraph multi-agent and context engineering",
+      "urls": [
+        "https://docs.langchain.com/oss/python/langchain/multi-agent",
+        "https://docs.langchain.com/oss/python/langchain/multi-agent/subagents",
+        "https://docs.langchain.com/oss/python/langchain/multi-agent/router",
+        "https://docs.langchain.com/oss/python/langgraph/use-subgraphs",
+        "https://docs.langchain.com/oss/python/langgraph/interrupts"
+      ],
+      "facts": [
+        "Single agent plus tools is often enough; multi-agent is most useful for context management, distributed specialization and parallelization.",
+        "Subagents provide context isolation; concise distilled outputs reduce supervisor context bloat.",
+        "Router is appropriate for clear categories and parallel fan-out; supervisor is better for evolving multi-step context.",
+        "Per-invocation subgraph checkpointing is recommended for most independent subagent calls and preserves durable execution/interrupt support.",
+        "Side effects before an interrupt must be idempotent."
+      ]
+    },
+    {
+      "source": "Anthropic engineering",
+      "urls": [
+        "https://www.anthropic.com/engineering/multi-agent-research-system",
+        "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents",
+        "https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents",
+        "https://www.anthropic.com/engineering/harness-design-long-running-apps",
+        "https://www.anthropic.com/engineering/managed-agents"
+      ],
+      "facts": [
+        "Orchestrator-worker parallel subagents help breadth-first research where independent directions exist.",
+        "High-signal minimal context is preferred over context accumulation.",
+        "Long-running work benefits from incremental progress and structured artifacts between sessions.",
+        "Planner-generator-evaluator can improve quality but is expensive; harness components should be ablated one at a time and removed when no longer load-bearing.",
+        "Stable session/harness/sandbox interfaces let implementation details evolve without coupling the whole system."
+      ]
+    },
+    {
+      "source": "Why Do Multi-Agent LLM Systems Fail? (Cemri et al., 2025)",
+      "url": "https://arxiv.org/abs/2503.13657",
+      "facts": [
+        "Five MAS frameworks across 150+ tasks yielded 14 recurring failure modes in specification/system design, inter-agent misalignment, and task verification/termination.",
+        "Observed modes include task/role constraint violations, repetition, context loss/reset, task derailment, information withholding/ignored input, reasoning-action mismatch, premature termination and weak/incorrect verification."
+      ]
+    },
+    {
+      "source": "Towards a Science of Scaling Agent Systems (2025)",
+      "url": "https://arxiv.org/abs/2512.08296",
+      "facts": [
+        "Across 180 configurations, tool-heavy tasks suffered from coordination overhead under fixed budgets.",
+        "Coordination showed diminishing/negative returns as single-agent capability increased.",
+        "Centralized coordination contained error amplification better than independent agents and helped parallelizable tasks.",
+        "All tested multi-agent variants degraded sequential reasoning tasks by 39-70 percent in the reported experiments."
+      ]
+    },
+    {
+      "source": "MultiAgentBench",
+      "url": "https://arxiv.org/abs/2503.01935",
+      "facts": [
+        "Coordination quality should be measured using milestones, not merely final task completion.",
+        "Different topologies perform differently; cognitive planning improved milestone achievement in reported experiments."
+      ]
+    },
+    {
+      "source": "FFmpeg official documentation",
+      "urls": [
+        "https://ffmpeg.org/ffmpeg-formats.html",
+        "https://ffmpeg.org/ffmpeg-filters.html",
+        "https://ffmpeg.org/ffprobe.html"
+      ],
+      "facts": [
+        "Concat demuxer requires compatible streams/codecs/time bases; inaccurate durations can cause artifacts.",
+        "ffprobe provides machine-readable format/stream/error information for mechanical validation.",
+        "loudnorm implements EBU R128 normalization; double pass is available for files.",
+        "cropdetect can derive crop parameters from black borders or motion/edges."
+      ]
+    },
+    {
+      "source": "WhisperX / PySceneDetect / Auto-Editor",
+      "urls": [
+        "https://github.com/m-bain/whisperX",
+        "https://github.com/Breakthrough/PySceneDetect",
+        "https://github.com/WyattBlue/auto-editor"
+      ],
+      "facts": [
+        "WhisperX supports batched ASR, VAD, word-level forced alignment and optional speaker diarization.",
+        "PySceneDetect offers content/adaptive/threshold scene detection; adaptive detection can reduce false cuts under fast motion.",
+        "Auto-Editor can combine audio and motion signals and add margins around automatic cuts; it can export timelines to conventional editors."
+      ]
+    },
+    {
+      "source": "TikTok Shop Japan official guidance, July-August 2026",
+      "urls": [
+        "https://seller-jp.tiktok.com/university/essay?knowledge_id=1232479651153681&lang=ja-JP",
+        "https://seller-jp.tiktok.com/university/essay?knowledge_id=6860523157653265",
+        "https://seller-jp.tiktok.com/university/essay?knowledge_id=7981558599599888",
+        "https://seller-jp.tiktok.com/university/essay?knowledge_id=1086540470748945&lang=ja-JP"
+      ],
+      "facts": [
+        "Official shopping-video guidance prioritizes the opening 3 seconds, a clear product, core selling points, use scenes, subtitles and a natural CTA.",
+        "Current AIGC education permits AI-assisted content with disclosure and prohibits product misrepresentation, fake performance, impersonation and fabricated clickbait narratives.",
+        "Product-selection guidance emphasizes sample access, market potential, audience fit, earning potential, user benefit, quality and demonstrability."
+      ]
+    },
+    {
+      "source": "TikTok Shop Japan content policy",
+      "url": "https://seller-jp.tiktok.com/university/essay?identity=1&knowledge_id=2707587427927825&role=1",
+      "facts": [
+        "Promotional content must be accurate, useful and verifiable; misleading claims, expired price claims, artificial engagement and prohibited products are disallowed.",
+        "Published policy documents can conflict or be superseded by newer specialized AIGC education, so publish-time policy refresh is required."
+      ]
+    }
+  ],
+  "review_questions": [
+    "Which current AI Army rules are strongly supported and should remain?",
+    "Which rules are redundant, overengineered, stale or likely to reduce performance with stronger future models?",
+    "What measurable admission gate should decide single-agent vs multi-agent, topology, and parallelism?",
+    "How should the system detect/contain the 14 MAST-style failure modes and prevent error propagation?",
+    "How should task leases, idempotency, checkpoints, context isolation, verification and termination be simplified without weakening reliability?",
+    "What changes would reduce latency, tokens, calls and retries while preserving or improving success rate?",
+    "What should be added to clipping/highlight scoring, boundary selection, ASR alignment, reframing, subtitle editing, audio normalization and final QA?",
+    "What TikTok Shop creative/product research rules increase conversion without increasing misinformation, return, complaint or policy risk?",
+    "What should ChatGPT reject even if DeepSeek recommends it?",
+    "Return concrete policy deltas, tests, KPIs and migration order."
+  ]
+}

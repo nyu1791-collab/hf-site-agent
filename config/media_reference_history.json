@@ -1,0 +1,106 @@
+{
+  "status": "HISTORICAL_REFERENCE_ONLY_NOT_STARTUP_AUTHORITY",
+  "retained_reason": "音声・計測・公式資料・権利・失敗原因は再利用に重要。旧見た目と古い実行環境は現行指示にしない。",
+  "superseded_by": "config/approved_video_template.json",
+  "previous_longform": {
+    "mission_id": "devday-2026-explainer-v1",
+    "mission_file": "missions/media/20260930-devday-2026-explainer-v1.json",
+    "status": "RENDERED_INTERNAL_DRAFT",
+    "completed_on_jst": "2026-09-30",
+    "final_video": {
+      "name": "devday2026_explainer_final_internal.mp4",
+      "library_file_id": "file_00000000e91c820693744abff7792e89",
+      "sha256": "df204bbdb51c4dce965c29ea25bfcb3f1e2d795dd45cc938093e8c4541eac261",
+      "duration_seconds": 492.7,
+      "format": "H.264 1080x1920, AAC 48 kHz stereo"
+    },
+    "production": {
+      "engine": "VOICEVOX 0.25.2",
+      "voices": "ずんだもん／四国めたん",
+      "speed_scale": 1.2,
+      "measured_audio_duration_seconds": 492.661335,
+      "dialogue_lines": 37,
+      "burned_caption_coverage": 1,
+      "official_source_screenshots": 6,
+      "generated_images": 0,
+      "generated_video": 0,
+      "decode": "PASS"
+    },
+    "persistent_files": [
+      {
+        "name": "DevDay2026_explainer_sources.zip",
+        "library_file_id": "file_000000007ca88211af9dfaa040584b80"
+      },
+      {
+        "name": "DevDay2026_explainer_captions.srt",
+        "library_file_id": "file_000000009f5c8209bc64d542f572960f"
+      },
+      {
+        "name": "DevDay2026_explainer_preview.jpg",
+        "library_file_id": "file_0000000060788209ae79ff3bc7fcd7d1"
+      },
+      {
+        "name": "devday_2026_voice_checkpoint.zip"
+      },
+      {
+        "name": "devday_narration_preview.mp3"
+      }
+    ],
+    "rights_and_release": "Internal draft only. Review official screenshot reuse rights before publication; no upload or public release was done.",
+    "resume": "Reuse the finished Library artifacts first. Modify only requested chapters/lines and retain the voice checkpoint, source package, measured timings, captions, and assets. Do not restart from zero.",
+    "character_performance_status": "Delivered file uses static full-body portraits; user reported expressions did not change. Next requested video must use a verified motion-capable route."
+  },
+  "voice_checkpoint": {
+    "completed_at_jst": "2026-09-30",
+    "mission": "missions/media/20260930-devday-2026-explainer-v1.json",
+    "status": "VOICE_GENERATED_AND_MEASURED",
+    "engine_version": "0.25.2",
+    "engine_archive_sha256": "bab016a966131b89bad398e7b898f8c742617dc80a7da49bf494cd07133dbc7a",
+    "voices": "ずんだもん／四国めたん（ノーマル; runtime-discovered style IDs 3 and 2）",
+    "speed_scale": 1.2,
+    "dialogue_lines": 37,
+    "measured_duration_seconds": 492.661,
+    "wav_format": "48 kHz stereo PCM",
+    "caption_coverage_ratio": 1,
+    "cached_lines_reused": 29,
+    "newly_synthesized_lines": 8,
+    "qa": "Every line was converted to lossless FLAC and decode-checked; combined MP3 and WAV duration matched measured timeline.",
+    "library_checkpoint": "devday_2026_voice_checkpoint.zip",
+    "library_preview": "devday_narration_preview.mp3",
+    "render_status": "RENDERED_INTERNAL_DRAFT",
+    "remaining_render_blockers": [
+      "External reuse/license review before any public release; Windows YMM4 end-to-end behavior remains unverified."
+    ],
+    "final_video_library_file_id": "file_00000000e91c820693744abff7792e89",
+    "final_video_sha256": "df204bbdb51c4dce965c29ea25bfcb3f1e2d795dd45cc938093e8c4541eac261",
+    "final_video_duration_seconds": 492.7,
+    "final_caption_coverage_ratio": 1,
+    "final_caption_lines": 37,
+    "source_package_library_file_id": "file_000000007ca88211af9dfaa040584b80"
+  },
+  "previous_dynamic_short_reference": {
+    "status": "RENDERED_INTERNAL_VIDEO",
+    "completed_on_jst": "2026-09-30",
+    "final_video": {
+      "name": "DevDay2026_fresh_overview_41s.mp4",
+      "library_file_id": "libfile_c63e7ca082448191b57daee2db1484cb",
+      "sha256": "f4ed96629636c3b0cefe99dea2d5ef9eac91aecd5ed1e0d6b89c5c63cbcc6f73"
+    },
+    "duration_seconds": 41.324,
+    "actual_character_animation": true,
+    "new_script_and_voice": true,
+    "template_reused": "config/approved_video_template.json",
+    "mouth_method": "RMS_APPROXIMATION",
+    "official_images": 3,
+    "caption_coverage": 1.0,
+    "windows_ymm4_verified": false,
+    "production_package": {
+      "name": "DevDay2026_fresh_overview_sources.zip",
+      "library_file_id": "libfile_ffa4aca6b1a88191831b8f0694118bdb",
+      "sha256": "bfea4e13d5f37a0c7aedaaf26575f0aa73f881a5331400a72502cc5e3606b384"
+    },
+    "character_foundation_package": "libfile_427c2045dc548191a7ae9b094bcb4a0c",
+    "approval_status": "NEW_VIDEO_NOT_YET_USER_REVIEWED",
+    "public_publish": false
+  }
+}
