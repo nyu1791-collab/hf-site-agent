@@ -104,7 +104,7 @@ def install(services, restart_desktop):
     # Quotes protect paths if this user's home contains spaces.
     command = '"' + sys.executable + '" "' + str(target) + '" --monitor'
     write_file(units / 'hf-connectivity-watchdog.service', '[Unit]\nDescription=Recover existing VM control services\n\n[Service]\nType=oneshot\nExecStart=' + command + '\n')
-    write_file(units / 'hf-connectivity-watchdog.timer', '[Unit]\nDescription=Check VM control services every minute\n\n[Timer]\nOnBootSec=60\nOnUnitActiveSec=60\nUnit=hf-connectivity-watchdog.service\n\n[Install]\nWantedBy=timers.target\n')
+    write_file(units / 'hf-connectivity-watchdog.timer', '[Unit]\nDescription=Check VM control services every minute\n\n[Timer]\nOnBootSec=60\nOnUnitActiveSec=60\nAccuracySec=1s\nRandomizedDelaySec=0\nUnit=hf-connectivity-watchdog.service\n\n[Install]\nWantedBy=timers.target\n')
     for scope in {s['scope'] for s in services}:
         run((['sudo', '-n'] if scope == 'system' else []) + ctl(scope, 'daemon-reload'))
     run(ctl('user', 'daemon-reload'))
