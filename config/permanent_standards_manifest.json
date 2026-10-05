@@ -334,6 +334,19 @@
       "runtime": "scripts/media_news_pipeline.py",
       "priority": 0,
       "purpose": "OPENROUTER_FREE_ONLY_AND_DEEPSEEK_OFFICIAL_DIRECT_PAID_ROUTE"
+    },
+    {
+      "id": "vm-connectivity-recovery",
+      "human_doc": "docs/VM_CONNECTIVITY_RECOVERY.md",
+      "runtime": "scripts/repair_vm_connectivity.py",
+      "priority": 0,
+      "purpose": "PRESERVE_EXISTING_DESKTOP_COMMANDER_AND_PRIVATE_RUNNER_WITH_CLOUD_SHELL_SSH_AS_EXTERNAL_RECOVERY_ROUTE"
+    },
+    {
+      "id": "fresh-video-content",
+      "human_doc": "docs/VIDEO_FRESH_CONTENT_POLICY_20261005.md",
+      "priority": 0,
+      "purpose": "REUSE_INFRASTRUCTURE_ONLY_AND_GENERATE_NEW_RESEARCH_SCRIPT_AND_SPEECH_FOR_EACH_NEW_VIDEO"
     }
   ],
   "canonical_ai_army_execution": {
