@@ -85,3 +85,22 @@ Find remaining code paths that violate or bypass those invariants.
 
 ### Guardrails
 Do not add multi-agent review, additional runtime services, paid media generation, public publishing, merge, auto top-up, or frame-perfect rerender loops. Optimize the critical path, not worker count.
+
+
+## Gemini Video Director foundation
+
+The user has now authorized Gemini 3.8 Flash on Google Cloud as a permanent video-production AI. Codex must treat this as an active production dependency, not an optional review experiment.
+
+Audit and strengthen:
+1. `scripts/gemini_video_director.py`: ADC-only auth, one YouTube URL/request, structured output, cache reuse, bounded failures, zero secret logging.
+2. `config/gemini_video_director_policy.json`: preserve Gemini's Research & Editorial Director role for YouTube/current-video work.
+3. Ensure the Gemini research package invalidates only true downstream mission/script/visual dependencies; it must never force unrelated VOICEVOX/assets to rebuild when unchanged.
+4. Add/maintain tests for URL validation, cache identity, schema parsing, and deterministic merge of multiple one-URL analyses.
+5. Keep the fast path one-lane by default. Do not parallelize multiple YouTube calls unless measured savings exceed the existing >=10s admission rule and provider/resource contention is absent.
+6. Do not add API keys to the repo. Production auth is Google Cloud ADC/service-account identity.
+7. Do not add review loops. Gemini creates production inputs: takeaways, timestamps, visual beats, script notes, and material limits.
+8. Preserve one final H.264 encode and the existing VOICEVOX/renderer success path.
+9. If Gemini is unavailable, fail the Gemini stage cleanly and allow the official-web-source fallback when facts are otherwise verified.
+10. Never infer clip reuse rights from YouTube accessibility or timestamps.
+
+Acceptance target: Gemini materially improves source selection/script/visual mapping while the complete 8–12 minute video path remains targeted at <=5 minutes wall-clock with warm caches.
