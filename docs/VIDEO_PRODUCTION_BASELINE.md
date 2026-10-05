@@ -23,6 +23,16 @@ The user-provided reference video is a **mood, pacing and information-hierarchy 
 Longform characters stay visible without covering the evidence stage: Zundamon lower-left and Shikoku Metan lower-right by default, with native mouth movement, authored expressions and listener reactions. Visual-only redesigns must reuse unchanged measured narration/timing whenever possible to preserve the five-minute speed target.
 
 
+## 2026-10-05 Gemini 3.8 Flash video-director integration
+
+Gemini 3.8 Flash is a standard production participant for current/YouTube-relevant videos when Google Cloud ADC is available. Before VOICEVOX/rendering, use `scripts/gemini_video_director.py` to analyze relevant official/primary YouTube videos one URL per request and produce a structured research package.
+
+Gemini owns: important timestamps/demos, 3–5 takeaways, plain-language examples, material limits, Zundamon/Metan editorial beats, and source-video/screen suggestions. Feed that package into the mission/script and presentation plan. Cache successful analysis.
+
+Gemini does not replace source verification, rights clearance, VOICEVOX, FFmpeg, or publication approval. YouTube timestamps are editorial navigation only. If Gemini is unavailable and material facts are already verified elsewhere, continue the normal fast path rather than blocking the render.
+
+Machine authority: `config/gemini_video_director_policy.json`. Human guide: `docs/GEMINI_VIDEO_DIRECTOR.md`.
+
 ## 2026-10-05 Speed engineering + measured review fixes
 
 Read `docs/VIDEO_SPEED_ENGINEERING_RULES.md` before routine video execution. The fast path is **sequential by default**. Use at most two preparation lanes, and only for genuinely independent preparation or I/O. Shared VOICEVOX, FFmpeg encoding, shared cache writers and final artifact writers stay single-lane. More workers are not treated as faster by default.
