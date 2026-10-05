@@ -348,6 +348,30 @@
         "publish": false,
         "merge": false,
         "secret_mutation_or_disclosure": false
+      },
+      {
+        "provider": "google_vertex_gemini",
+        "model": "gemini-3.8-flash",
+        "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+        "policy_file": "config/gemini_video_director_policy.json",
+        "canonical_runtime": "scripts/gemini_video_director.py",
+        "repeat_per_call_approval_required": false,
+        "allowed_scope": [
+          "VIDEO_RESEARCH",
+          "YOUTUBE_VIDEO_UNDERSTANDING",
+          "EDITORIAL_PLANNING",
+          "SCRIPT_INPUT",
+          "VISUAL_BEAT_MAPPING"
+        ],
+        "auth": "APPLICATION_DEFAULT_CREDENTIALS",
+        "generic_paid_fallback": false,
+        "paid_sibling_substitution": false,
+        "auto_top_up": false,
+        "repository_write": false,
+        "deploy": false,
+        "publish": false,
+        "merge": false,
+        "secret_mutation_or_disclosure": false
       }
     ],
     "historical_deepseek_configs_do_not_authorize_paid_execution": true,
