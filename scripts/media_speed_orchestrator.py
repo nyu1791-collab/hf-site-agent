@@ -63,7 +63,6 @@ COMPONENT_TO_STAGES = {
         "machine_qa_and_visual_rereview",
     ],
     "gemini_research_package": [
-        "admission_and_script_lock",
         "rights_verified_visual_assets",
         "scene_composition",
         "risk_triggered_visual_preview",
@@ -217,7 +216,7 @@ def stage_fingerprints(manifest: Mapping[str, Any], policy: Mapping[str, Any]) -
     # sufficient: policy-content changes must invalidate existing cache rows.
     fps: dict[str, str] = {}
     fps["admission_and_script_lock"] = sha256_bytes(_canonical({
-        "policy": p, "mission": common["mission"], "source": common["source"], "gemini": common["gemini"],
+        "policy": p, "mission": common["mission"], "source": common["source"],
     }))
     fps["voice_and_measured_timing"] = sha256_bytes(_canonical({
         "policy": p, "admission": fps["admission_and_script_lock"],
