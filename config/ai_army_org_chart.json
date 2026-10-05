@@ -102,6 +102,26 @@
         "INDEPENDENT_PARALLEL_RESEARCH_WHEN_JUSTIFIED"
       ],
       "worker_to_worker_delegation": false
+    },
+    "video_research_director": {
+      "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+      "agent": "google-gemini-3.8-flash",
+      "policy": "config/gemini_video_director_policy.json",
+      "runtime": "scripts/gemini_video_director.py",
+      "activation": "CURRENT_OR_YOUTUBE_RELEVANT_VIDEO_WHEN_GOOGLE_CLOUD_ADC_IS_AVAILABLE",
+      "responsibilities": [
+        "NATIVE_YOUTUBE_VIDEO_UNDERSTANDING",
+        "TIMESTAMP_AND_DEMO_EXTRACTION",
+        "TAKEAWAY_SYNTHESIS",
+        "SCRIPT_INPUT",
+        "VISUAL_BEAT_MAPPING",
+        "ZUNDAMON_METAN_EDITORIAL_BEATS"
+      ],
+      "final_decision_authority": false,
+      "repository_write": false,
+      "public_publish": false,
+      "one_youtube_url_per_request": true,
+      "auto_top_up": false
     }
   },
   "direct_specialist_bypass": {
@@ -174,7 +194,8 @@
       "INDEPENDENT_PARALLEL_WORK",
       "DISTINCT_SPECIALIST_DOMAIN",
       "TARGETED_IMPLEMENTATION_BENEFITS_FROM_SPECIALIST",
-      "INDEPENDENT_VERIFICATION_MATERIALLY_REDUCES_HIGH_IMPACT_RISK"
+      "INDEPENDENT_VERIFICATION_MATERIALLY_REDUCES_HIGH_IMPACT_RISK",
+      "YOUTUBE_OR_MULTIMODAL_VIDEO_UNDERSTANDING_MATERIALLY_IMPROVES_VIDEO_PRODUCTION"
     ],
     "avoid_multi_agent_when": [
       "SEQUENTIAL_REASONING",
