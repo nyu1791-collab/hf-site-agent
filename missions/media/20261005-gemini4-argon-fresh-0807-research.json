@@ -1,0 +1,549 @@
+{
+  "schema_version": "gemini-video-research-package-v2",
+  "status": "READY",
+  "topic": "Gemini 4 Argon：何が変わったか、誰に向くか、価格と段階提供の注意点",
+  "provider": "google_vertex_gemini",
+  "model": "gemini-3.8-flash",
+  "location": "global",
+  "auth": "APPLICATION_DEFAULT_CREDENTIALS",
+  "prompt_version": "gemini-video-director-prompt-v2",
+  "youtube_one_url_per_request": true,
+  "per_major_item_source_target": 3,
+  "per_major_item_source_max": 5,
+  "item_count": 1,
+  "source_count": 3,
+  "cache_hits": 0,
+  "synthesis_cache_hits": 0,
+  "items": [
+    {
+      "item_id": "gemini4-argon",
+      "title": "Gemini 4 Argon の実力・限界・費用を比較し、日本語8〜12分の新規解説へ編集",
+      "source_count": 3,
+      "candidate_url_count": 3,
+      "source_limit_applied": false,
+      "coverage": "TARGET_MET",
+      "target_distinct_videos": 3,
+      "maximum_distinct_videos": 5,
+      "analyses": [
+        {
+          "summary": "Googleの「Gemini 4 Argon」の性能・コスト・3D/コード生成品質を、Arenaのランキングや他社モデル（Claude Sonnet 5.5、GPT-6.1 Sol等）との実機比較を通してレビューした解説動画。パレート最適フロンティア上には位置しコスト効率は良好だが、複雑な3D生成やゲーム制作では破綻が見られ、最上位モデルには及ばない中位クラスの実力であると結論付けている。",
+          "takeaways": [
+            {
+              "point": "Agent Arenaで8位にランクインし、パレートフロンティア上に位置する",
+              "why_it_matters": "コストに対して一定水準のタスク遂行能力を備えており、費用対効果の選択肢になり得る。",
+              "material_limit": "Arenaの特定ベンチマークおよび評価時点での指標に依存している。"
+            },
+            {
+              "point": "コストはGPT-6.1 Sol比で約1/3、Claude Opus 5.5比で約70%安価",
+              "why_it_matters": "大量実行や予算重視のエージェントタスクで強力な選択肢となる。",
+              "material_limit": "動画内で言及された概算比率であり、正式なトークン課金テーブル全体の詳細比較ではない。"
+            },
+            {
+              "point": "複雑な3D生成・ゲームロジック・一貫性（Coherence）で他社最上位に劣る",
+              "why_it_matters": "プロンプト通りの描画や操作性で破綻（浮遊オブジェクト、UI詰まり等）が目立ち、クリエイティブ用途では指示の工夫が必要。",
+              "material_limit": "数種類の固定プロンプト（バベルの塔、ホワイトハウス、飛行ゲーム等）による限定的なバイブチェック。"
+            }
+          ],
+          "timestamps": [
+            {
+              "time": "00:12",
+              "event": "Agent Arenaのランキング表の提示（Gemini 4 Argonが8位）",
+              "use": "CHART"
+            },
+            {
+              "time": "00:33",
+              "event": "コスト対性能のパレートフロンティア散布図解説",
+              "use": "CHART"
+            },
+            {
+              "time": "00:56",
+              "event": "ゴールデンゲートブリッジの3D描画比較（Gemini vs Claude Sonnet vs GPT-6.1）",
+              "use": "DEMO"
+            },
+            {
+              "time": "02:12",
+              "event": "空中浮遊島（Sanctuary of the Sky）の生成品質比較",
+              "use": "DEMO"
+            },
+            {
+              "time": "03:14",
+              "event": "パリ上空飛行ミニゲームの操作性・品質検証",
+              "use": "DEMO"
+            },
+            {
+              "time": "04:06",
+              "event": "バベルの塔生成の人物・構造破綻の比較",
+              "use": "DEMO"
+            },
+            {
+              "time": "05:16",
+              "event": "ホワイトハウス周辺景観の生成比較",
+              "use": "DEMO"
+            },
+            {
+              "time": "08:01",
+              "event": "コスト効率・パレートフロンティア位置への再言及と総括",
+              "use": "CHART"
+            }
+          ],
+          "visual_beats": [
+            {
+              "time": "00:33",
+              "description": "パレート最適フロンティア図上でGemini 4 Argonと他モデルの位置・コストを比較する画面。",
+              "suggested_use": "コストパフォーマンスの高さを視覚的に説明する解説インサート。"
+            },
+            {
+              "time": "02:26",
+              "description": "Gemini 4生成の3Dモデルでテクスチャ崩れや木が不自然に重なる箇所のクローズアップ。",
+              "suggested_use": "生成品質の限界や一貫性の甘さを示す証拠カット。"
+            },
+            {
+              "time": "04:28",
+              "description": "バベルの塔内部でブロック状の人間オブジェクトが空中に浮いて静止している画面。",
+              "suggested_use": "複雑なシーン構築における破綻例としての比較カット。"
+            },
+            {
+              "time": "05:51",
+              "description": "Claude Sonnet 5.5による整然としたホワイトハウス外観と敷地全体の美しいレンダリング。",
+              "suggested_use": "他社上位モデル（Claude）の完成度の高さを対比で見せるシーン。"
+            }
+          ],
+          "script_notes": [
+            {
+              "speaker_hint": "ZUNDAMON",
+              "purpose": "QUESTION",
+              "note": "新しいGemini 4 Argonって出たけど、結局どのくらい強いのだ？"
+            },
+            {
+              "speaker_hint": "METAN",
+              "purpose": "ANSWER",
+              "note": "Agent Arenaでは8位で、パレート最適線上には乗っているからコスパは優秀よ。GPT-6.1 Solより約3分の1、Claude Opusより7割ほど安いわね。"
+            },
+            {
+              "speaker_hint": "METAN",
+              "purpose": "LIMIT",
+              "note": "ただし複雑な3Dコード生成やゲーム制作では、操作性の破綻やオブジェクト浮遊など一貫性に課題があるわ。"
+            },
+            {
+              "speaker_hint": "ZUNDAMON",
+              "purpose": "REACTION",
+              "note": "安く大量に回すエージェント向けには良さそうだけど、クリエイティブ用途ではClaudeやGPT最上位に一歩譲る感じなのだ。"
+            }
+          ],
+          "material_limits": [
+            "動画内の架空・将来設定を含むモデル名（GPT-6.1 Sol, Claude Sonnet 5.5等）やArenaUIは演出・独自検証環境の可能性があるため、一般名称との混同に注意が必要。",
+            "検証はHTML/CSS/JSによる3Dグラフィックス生成プロンプトに偏っており、テキスト推論や一般的な業務API性能の包括評価ではない。",
+            "ゲーム操作性などは投稿者の主観的プレイ感覚が含まれる。"
+          ],
+          "source_url": "https://www.youtube.com/watch?v=h5EL5zThKaI",
+          "model": "gemini-3.8-flash"
+        },
+        {
+          "summary": "Googleの最新フラグシップモデル「Gemini 4 Argon」の性能・ベンチマーク・コスト・段階提供をClaude Opus 5.5やGPT-6系と比較検証した解説動画。",
+          "takeaways": [
+            {
+              "point": "法務・財務・長期ソフトウェアエンジニアリング（DeepSWE）でClaude Opus 5.5を上回る",
+              "why_it_matters": "特定のエージェント型業務や自律ワークフローで高い実用性を発揮する可能性がある",
+              "material_limit": "外部テスト3社の初期検証結果に基づき、実環境運用の検証は未完了"
+            },
+            {
+              "point": "知識テストでのハルシネーション率が極めて低く、不明な質問を「分からない」と答える傾向が強い",
+              "why_it_matters": "自信満々な誤答が致命傷となる法務・金融分野において高い安全性を持つ",
+              "material_limit": "AA-Omniscienceベンチマーク単独での評価"
+            },
+            {
+              "point": "初期価格（$2/$10）はOpusの半額だが、通常価格（$4/$20）移行時や出力トークン量増加でコスト差が縮小する",
+              "why_it_matters": "トークン単価だけでなくタスク単位の消費量や正規価格を見越した試算が必須",
+              "material_limit": "導入価格の適用期間はGoogleから明示されていない"
+            },
+            {
+              "point": "サイバー防御パートナー限定の先行提供であり、一般APIや一般ユーザーは即時利用不可",
+              "why_it_matters": "安全性評価（レッドチーミング・政府プロセス）を経て順次拡大されるため導入時期に制約がある",
+              "material_limit": "システムカードが未公開で公式発表文に基づく情報"
+            }
+          ],
+          "timestamps": [
+            {
+              "time": "00:23",
+              "event": "Google公式比較表（Argon vs Opus 5.5）の提示",
+              "use": "CHART"
+            },
+            {
+              "time": "01:21",
+              "event": "Gemini 4 Argonの基本スペックと価格設定の提示",
+              "use": "SCREEN"
+            },
+            {
+              "time": "02:07",
+              "event": "Artificial Analysis総合スコアとコスト対性能の比較",
+              "use": "CHART"
+            },
+            {
+              "time": "02:47",
+              "event": "分野別勝敗比較（Argon優勢分野：法務・財務・自動化・DeepSWE）",
+              "use": "CHART"
+            },
+            {
+              "time": "03:52",
+              "event": "分野別勝敗比較（Opus優勢分野：端末コーディング・スクラッチ開発・Webフロント）",
+              "use": "CHART"
+            },
+            {
+              "time": "06:06",
+              "event": "AA-Omniscienceによる知識精度と誤答率の検証",
+              "use": "CHART"
+            },
+            {
+              "time": "07:13",
+              "event": "タスク単位の実コスト比較（出力トークン消費量と通常価格の試算）",
+              "use": "CHART"
+            },
+            {
+              "time": "09:00",
+              "event": "段階的リリース（Fairwindプログラム・安全対策）の解説",
+              "use": "QUOTE_CONTEXT"
+            },
+            {
+              "time": "09:56",
+              "event": "乗り換え判断のまとめマトリクス",
+              "use": "CHART"
+            }
+          ],
+          "visual_beats": [
+            {
+              "time": "01:21",
+              "description": "API価格（導入時$2/$10、通常$4/$20）と最大100万出力トークンの仕様表示",
+              "suggested_use": "モデル概要とコスト解説画面のインサート"
+            },
+            {
+              "time": "04:46",
+              "description": "コーディング関連ベンチマークを一覧化した棒グラフ",
+              "suggested_use": "強みと弱みが混在するコーディング性能の比較解説"
+            },
+            {
+              "time": "06:17",
+              "description": "正答率・誤答率・無回答率を示した帯グラフ",
+              "suggested_use": "低ハルシネーション特性を解説するフック"
+            },
+            {
+              "time": "09:58",
+              "description": "タスク分野ごとの優劣チェックリスト",
+              "suggested_use": "動画終盤の「誰が使うべきか」の結論パート"
+            }
+          ],
+          "script_notes": [
+            {
+              "speaker_hint": "METAN",
+              "purpose": "QUESTION",
+              "note": "Googleが発表したGemini 4 ArgonがOpusを半額で超えたという話題を提示"
+            },
+            {
+              "speaker_hint": "ZUNDAMON",
+              "purpose": "REACTION",
+              "note": "本当に半額で全勝なのか、タスクごとの詳細や裏付けを問いただす"
+            },
+            {
+              "speaker_hint": "METAN",
+              "purpose": "ANSWER",
+              "note": "法務や財務、深い開発では強いが、端末操作やWeb開発ではOpus優勢と解説"
+            },
+            {
+              "speaker_hint": "ZUNDAMON",
+              "purpose": "LIMIT",
+              "note": "導入価格が終わればOpusと同額になり、出力トークン数次第では割高になる注意点を指摘"
+            },
+            {
+              "speaker_hint": "METAN",
+              "purpose": "EXAMPLE",
+              "note": "適当な嘘をつかずに『分からない』と認める低誤答率のメリットを強調"
+            },
+            {
+              "speaker_hint": "ZUNDAMON",
+              "purpose": "LIMIT",
+              "note": "そもそも一般開放されておらず、現状は限定提供である点に言及"
+            }
+          ],
+          "material_limits": [
+            "動画内のベンチマークは発表直後（10月1日時点）の初期データであり、設定値は主にhigh設定のみ",
+            "実際の業務環境での長期利用事例や客観的ユーザー検証は未反映",
+            "導入割引終了後の価格やAPI一般公開の正確なスケジュールは未定"
+          ],
+          "source_url": "https://www.youtube.com/watch?v=neHjkiXjkeM",
+          "model": "gemini-3.8-flash"
+        },
+        {
+          "summary": "Googleの新フラグシップ「Gemini 4 Argon」の性能、提供段階、価格を競合（GPT-6 Astra、Claude Opus 5.5等）と比較解説した動画。長文処理や法務・財務で優位に立つ一方、大型開発タスクやOS操作では競合に劣る点、初期はFairwind計画を通じた限定公開である点、導入価格終了後のコスト変化などの注意点を提示している。",
+          "takeaways": [
+            {
+              "point": "単一回答で最大100万トークンの出力に対応",
+              "why_it_matters": "コードベース全体の移行など超大規模処理が可能になる。",
+              "material_limit": "Google公式発表に基づく数値であり、実際のレイテンシ等は未検証。"
+            },
+            {
+              "point": "18個のベンチマーク中12勝1分5敗",
+              "why_it_matters": "契約書・財務・長文・動画に強いが、大規模開発やOS操作・科学ターミナルでは競合が勝る。",
+              "material_limit": "ベンダー公表スコアによる比較。"
+            },
+            {
+              "point": "3段階の段階的リリースとサイバー防護の制限",
+              "why_it_matters": "一般開発者やAPI利用者は即座に使えず、一般公開版には安全ガードレールが適用される。",
+              "material_limit": "一般提供開始の明確な日程は未定。"
+            },
+            {
+              "point": "初期価格は半額（入力$2/出力$10）、通常時はOpus 5.5と同等",
+              "why_it_matters": "導入初期のみ安価だが、通常価格（$4/$20）に戻るとコスト的優位は縮小する。",
+              "material_limit": "導入価格の適用期間は明記されていない。"
+            }
+          ],
+          "timestamps": [
+            {
+              "time": "00:16",
+              "event": "Gemini 4 Argon の発表紹介",
+              "use": "TRANSITION"
+            },
+            {
+              "time": "00:21",
+              "event": "スンダー・ピチャイCEOのLinkedIn投稿",
+              "use": "SCREEN"
+            },
+            {
+              "time": "00:57",
+              "event": "3段階のロールアウト工程（Fairwind、米政府、一般API）",
+              "use": "SCREEN"
+            },
+            {
+              "time": "01:35",
+              "event": "最大出力トークン数（100万トークン）の図解",
+              "use": "CHART"
+            },
+            {
+              "time": "01:53",
+              "event": "18種ベンチマーク比較一覧表",
+              "use": "CHART"
+            },
+            {
+              "time": "03:05",
+              "event": "Argonが競合に敗北した5つのテスト",
+              "use": "CHART"
+            },
+            {
+              "time": "03:42",
+              "event": "用途別モデル選定のチートシート",
+              "use": "SCREEN"
+            },
+            {
+              "time": "04:24",
+              "event": "トークン単価比較（初期価格 vs 通常価格）",
+              "use": "CHART"
+            },
+            {
+              "time": "05:15",
+              "event": "脆弱性発見能力・サイバーセキュリティ実績",
+              "use": "CHART"
+            },
+            {
+              "time": "06:16",
+              "event": "プロンプトインジェクション耐性比較",
+              "use": "CHART"
+            },
+            {
+              "time": "07:05",
+              "event": "自社タスクで検証するための事前準備ステップ",
+              "use": "SCREEN"
+            }
+          ],
+          "visual_beats": [
+            {
+              "time": "00:57",
+              "description": "提供フェーズ1〜3のフロー表示",
+              "suggested_use": "提供時期と対象者の限定性を説明するテロップ背景"
+            },
+            {
+              "time": "01:53",
+              "description": "4モデルのベンチマーク一覧表と勝敗サマリー",
+              "suggested_use": "全体勝率と強み・弱みの概括"
+            },
+            {
+              "time": "03:42",
+              "description": "モデルごとの適した作業（法務・財務・開発など）のマッピング",
+              "suggested_use": "モデル選びの指針解説シーン"
+            },
+            {
+              "time": "04:47",
+              "description": "特定コーディングタスクにおける実行コスト比較棒グラフ",
+              "suggested_use": "通常価格と導入価格のギャップを解説する場面"
+            },
+            {
+              "time": "06:16",
+              "description": "攻撃成功率（低いほど良い）の棒グラフ",
+              "suggested_use": "エージェント運用時の安全性解説"
+            }
+          ],
+          "script_notes": [
+            {
+              "speaker_hint": "ZUNDAMON",
+              "purpose": "QUESTION",
+              "note": "新しいGeminiが圧倒的と聞いたが、誰でもすぐ使えるのか尋ねる。"
+            },
+            {
+              "speaker_hint": "METAN",
+              "purpose": "ANSWER",
+              "note": "まずは特定機関向けで、一般APIは段階的開放かつ日程未定と説明。"
+            },
+            {
+              "speaker_hint": "METAN",
+              "purpose": "EXAMPLE",
+              "note": "法務や超長文処理に強い一方、OS操作や科学系タスクでは競合が優勢と解説。"
+            },
+            {
+              "speaker_hint": "ZUNDAMON",
+              "purpose": "REACTION",
+              "note": "初期価格の安さに驚くが、通常価格に戻ると競合と同等になる点に納得する。"
+            },
+            {
+              "speaker_hint": "METAN",
+              "purpose": "LIMIT",
+              "note": "ベンダー公表値のため、自社の実務タスクを用意して比較検証すべきと締める。"
+            }
+          ],
+          "material_limits": [
+            "動画内の数値はGoogle公式の発表資料に基づくもので第三者検証は含まれない。",
+            "一般公開の具体的スケジュールや無料版の有無は明記されていない。",
+            "競合モデル名やベンチマークは特定の仮想・将来設定（架空日付等）を含んでいる可能性がある。"
+          ],
+          "source_url": "https://www.youtube.com/watch?v=TYD71CSxWzQ",
+          "model": "gemini-3.8-flash"
+        }
+      ],
+      "synthesis": {
+        "editorial_summary": "Googleの最新フラグシップモデル「Gemini 4 Argon」について、3本の検証動画から実力・限界・コスト・提供形態を多角的に比較・統合した。公式ベンチマークでは法務・財務・長期ソフトウェアエンジニアリング（DeepSWE）や低ハルシネーション（分からないと答える安全性）、最大100万トークンの出力でClaude Opus 5.5やGPT-6系に対して優位を示す一方、OS/端末操作、Webフロント、複雑な3D/ゲーム生成における一貫性やオブジェクト配置では他社上位モデルに劣る。また、導入価格（$2/$10）は安価だが通常価格（$4/$20）では競合と同等になる点、そして即時一般開放ではなく「Fairwindプログラム」等のサイバー防護・政府パートナー向け先行提供という段階的リリースである点に強い注意が必要である。",
+        "selected_takeaways": [
+          {
+            "point": "法務・財務・長文出力・低ハルシネーションで高い実用性を誇るが、端末操作や複雑な3D生成では競合に劣る",
+            "why_it_matters": "万能の完全勝利ではなく、タスク適性（契約書精査や深層コード解析は得意、OS操作やクリエイティブ生成は不得意）を見極めた使い分けが必須となる。",
+            "plain_example": "契約書の法的リスク洗い出しや自律型デバッグには極めて強いが、ブラウザゲームや3D描画を作らせると空中浮遊などのオブジェクト破綻が起きやすい。",
+            "material_limit": "ベンチマーク結果はGoogle公式および特定Arena/初期サードパーティ評価に依存しており、実環境での長期運用データは未確立。"
+          },
+          {
+            "point": "初期導入価格は競合の半額だが、通常価格への移行や長文出力トークン増加でコスト優位は縮小する",
+            "why_it_matters": "「Opusの半額」という宣伝文句だけを見て乗り換えると、正規価格移行時や出力が膨らんだ際に想定外のAPIコストが発生する。",
+            "plain_example": "初期価格は入力$2/出力$10だが、通常価格は$4/$20となりOpusと同水準になるため、タスク単位のトークン消費量試算が不可欠。",
+            "material_limit": "導入割引価格の適用期間や通常価格への切り替えタイミングは公式から明確にアナウンスされていない。"
+          },
+          {
+            "point": "安全重視の3段階ロールアウトであり、一般開発者や一般ユーザーは即時利用できない",
+            "why_it_matters": "話題になっていても現場のワークフローに即日組み込めるわけではなく、一般API開放を待つ必要がある。",
+            "plain_example": "まずはFairwindプログラム等のサイバー防護パートナーや政府プロセスが優先され、一般向けには安全ガードレール適用後に順次開放される。",
+            "material_limit": "一般向けAPI提供開始の正確な日付スケジュールや個人向け無料枠の有無は未公表。"
+          }
+        ],
+        "best_source_moments": [
+          {
+            "source_url": "https://www.youtube.com/watch?v=neHjkiXjkeM",
+            "time": "02:47",
+            "reason": "法務・財務・自動化で勝ち、端末操作やWeb開発で負けるという分野別勝敗マトリクスが最も客観的に整理されている。",
+            "visual_use": "モデル適性を一覧で示すスプリットチャートとして参照"
+          },
+          {
+            "source_url": "https://www.youtube.com/watch?v=TYD71CSxWzQ",
+            "time": "00:57",
+            "reason": "一般利用できない理由となる「3段階の提供ロードマップ」が明確に図解されている。",
+            "visual_use": "提供ステータスと導入スケジュールの解説画面として参照"
+          },
+          {
+            "source_url": "https://www.youtube.com/watch?v=neHjkiXjkeM",
+            "time": "06:17",
+            "reason": "知ったかぶりをせず「分からない」と答える低ハルシネーション率（AA-Omniscience）の証拠データが明快。",
+            "visual_use": "正答率・誤答率・無回答率の帯グラフ解説"
+          },
+          {
+            "source_url": "https://www.youtube.com/watch?v=h5EL5zThKaI",
+            "time": "04:28",
+            "reason": "公式ベンチマークの数値だけでは見えない、3Dコード生成におけるオブジェクト浮遊・破綻の実機限界が直感的に伝わる。",
+            "visual_use": "3D/クリエイティブタスクでの破綻例を示す実機画面参照"
+          }
+        ],
+        "dialogue_plan": [
+          {
+            "speaker": "ZUNDAMON",
+            "purpose": "QUESTION",
+            "text_direction": "Googleの新しいGemini 4 Argonが話題だけど、Opus超えで半額って本当なのだ？最強モデルの誕生なのか気になるのだ！"
+          },
+          {
+            "speaker": "METAN",
+            "purpose": "ANSWER",
+            "text_direction": "結論から言うと『特定の業務タスクでは圧倒的だが、万能の完全勝利ではない』わ。18のベンチマーク中12勝と優秀だけど、負けている分野もはっきりしているの。"
+          },
+          {
+            "speaker": "METAN",
+            "purpose": "EXAMPLE",
+            "text_direction": "法務や財務、長大なコード修正、そして適当な嘘をつかず『分からない』と認める正確性はトップクラスよ。一方で、端末操作やWeb制作、3DグラフィックスではClaudeやGPT上位に破綻が目立つの。"
+          },
+          {
+            "speaker": "ZUNDAMON",
+            "purpose": "REACTION",
+            "text_direction": "なるほどなのだ！契約書チェックや安全重視のバックエンド処理には刺さるけど、何でも作れる魔法の杖ではないのだ。"
+          },
+          {
+            "speaker": "METAN",
+            "purpose": "LIMIT",
+            "text_direction": "さらに注意が必要なのはコストと提供時期よ。初期価格は半額（$2/$10）だけど通常価格は$4/$20で競合と同等になるわ。しかも今はサイバー防護等の限定提供で、一般APIはまだ使えないの。"
+          },
+          {
+            "speaker": "ZUNDAMON",
+            "purpose": "LIMIT",
+            "text_direction": "今すぐ飛びつくというより、自分の業務タスクで使えるかベンチマークを用意して、一般開放を待つのが賢い付き合い方なのだ。"
+          }
+        ],
+        "scene_plan": [
+          {
+            "beat": "導入：Gemini 4 Argonの概要と「Opus超え」の真偽提示",
+            "visual_source_url": "https://www.youtube.com/watch?v=neHjkiXjkeM",
+            "time": "00:23",
+            "screen_direction": "Google公式比較表を全画面表示し、モデル名と注目ポイントにハイライトテロップを重ねる。"
+          },
+          {
+            "beat": "強みの分析：法務・財務・DeepSWEと低ハルシネーション",
+            "visual_source_url": "https://www.youtube.com/watch?v=neHjkiXjkeM",
+            "time": "06:17",
+            "screen_direction": "AA-Omniscienceの正答・誤答・無回答グラフを映し、「適当な嘘をつかない安全性」をテロップで強調。"
+          },
+          {
+            "beat": "限界の分析：3D・UI生成の一貫性不足とOS操作の弱点",
+            "visual_source_url": "https://www.youtube.com/watch?v=h5EL5zThKaI",
+            "time": "04:28",
+            "screen_direction": "バベルの塔内部でブロック人間が浮遊・破綻している画面を提示し、実機検証で見えた弱点を視覚化。"
+          },
+          {
+            "beat": "コスト検証：初期導入割引と通常価格の落とし穴",
+            "visual_source_url": "https://www.youtube.com/watch?v=TYD71CSxWzQ",
+            "time": "04:24",
+            "screen_direction": "初期価格（$2/$10）と通常価格（$4/$20）の比較グラフを表示し、競合（Opus等）との差が縮まる点を示す。"
+          },
+          {
+            "beat": "提供形態と結論：Fairwind限定提供と段階的ロールアウトへの構え方",
+            "visual_source_url": "https://www.youtube.com/watch?v=TYD71CSxWzQ",
+            "time": "00:57",
+            "screen_direction": "フェーズ1（Fairwind）→フェーズ2（米政府）→フェーズ3（一般API）の工程図を提示し、現状は準備期間であると総括。"
+          }
+        ],
+        "conflicts_or_uncertainty": [
+          "動画間で比較対象として登場するモデル名（GPT-6.1 Sol、Claude Sonnet 5.5 / Opus 5.5、GPT-6 Astra等）に仮想的・将来設定の表記ブレや独自呼称が見られるため、本解説では特定ベンダーの最上位競合モデル群として抽象化して扱う必要がある。",
+          "導入割引価格（入力$2/出力$10）の終了時期や通常価格（$4/$20）への切り替え条件について、いずれの動画でもGoogleからの公式日程は特定できていない。",
+          "一般開発者向けAPI開放の具体的日程およびコンシューマー版（Gemini Advanced等）への搭載有無は未確定。"
+        ]
+      }
+    }
+  ],
+  "downstream": [
+    "SOURCE_MANIFEST",
+    "MISSION_SCRIPT",
+    "DIALOGUE_DRAFT",
+    "SCENE_PLAN",
+    "VISUAL_SOURCE_PLAN",
+    "PRESENTATION_MANIFEST"
+  ],
+  "public_publish": false,
+  "content_run_id": "gemini4-argon-fresh-20261005-0807",
+  "input_sha256": "3bdfcf192054722ce8a429cfc43a3b881bcb08513ce85859a46b56c1740f7a24"
+}
