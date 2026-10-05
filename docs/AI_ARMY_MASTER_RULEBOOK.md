@@ -80,7 +80,7 @@ provider health. Missing measurements keep the recommendation in shadow mode.
 Published research thresholds are hypotheses for local fixed-fixture calibration,
 not universal constants to copy into production policy.
 
-Paid DeepSeek calls stop when marginal information gain becomes low. Reuse successful lanes; do not rerun the same lane without new evidence. Other paid API models may be admitted only through the separate DeepSeek V4.1 Flash cost-and-capability evidence gate. No auto top-up, generic paid fallback, or paid sibling substitution.
+Paid DeepSeek calls stop when marginal information gain becomes low. Reuse successful lanes; do not rerun the same lane without new evidence. Other paid API models may be admitted only through the separate DeepSeek V4.1 Flash cost-and-capability evidence gate, **except the user-authorized Google Cloud Gemini 3.8 Flash video-director route defined in `config/gemini_video_director_policy.json`**. That exception is scoped only to video research/editorial work using the user's existing Google Cloud billing/credits and ADC; it does not authorize generic paid fallback, media generation purchases, or auto top-up. No auto top-up, generic paid fallback, or paid sibling substitution.
 
 ## 3. External information and evidence
 
