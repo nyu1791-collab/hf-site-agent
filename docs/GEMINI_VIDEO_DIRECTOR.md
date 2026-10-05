@@ -59,3 +59,50 @@ It creates/reuses `$HOME/.venvs/hf-site-agent-gemini-video` and installs the tes
 The VM service account needs `roles/aiplatform.user` on the Google Cloud project used for Gemini. Grant that role from an IAM-authorized user/admin context; the VM service account must not self-escalate. After IAM propagation, run the director with the venv Python.
 
 Provider/IAM failures are sanitized by the runtime and must not print credentials, access tokens, or provider response bodies.
+
+
+## Broad production authority
+
+Gemini has broad authority **inside the video-production workspace**. It is not restricted to summarization or review. For each major editorial item, when relevant sources exist, Gemini should inspect multiple distinct YouTube videos before that item is locked.
+
+Default breadth per major item:
+- minimum 2 distinct videos when at least 2 useful sources are available;
+- target 3 distinct videos;
+- maximum 5 distinct videos;
+- official vendor/developer/event channels first;
+- deduplicate mirrors/reuploads of the same event.
+
+Because the API accepts one YouTube URL per request, analyze each URL separately, cache the result, then have Gemini synthesize the item across those analyses. The synthesis must compare sources rather than concatenate them.
+
+Gemini may decide and produce:
+- source ranking and evidence notes;
+- important timestamps, demos, UI screens, charts and visual moments;
+- 3–5 takeaways;
+- plain-language examples and material limitations;
+- Zundamon/Metan question → answer → reaction structure;
+- dialogue-direction draft;
+- scene sequence;
+- source-to-scene visual assignment;
+- source manifest;
+- presentation-manifest draft;
+- pre-render editorial decisions that stay within approved video rules.
+
+This is **production work**, not an extra review pass.
+
+Gemini may write its structured artifacts into the video workspace/cache through the controlling runtime. It does not receive IAM administration, billing administration, secret-reading, repository merge/deploy, public-publish, VOICEVOX-synthesis, or FFmpeg-final-encode authority.
+
+## Source-plan mode
+
+For multi-item videos, prefer a source plan with major editorial items. Each item contains its own YouTube candidate URLs. The runtime analyzes up to 5 distinct videos for that item, then Gemini synthesizes them into one editorial package before mission/script lock.
+
+The preferred target is 3 useful videos per major item. If only one relevant primary video exists, continue with one and record limited coverage rather than inventing extra sources.
+
+The research package feeds:
+- SOURCE_MANIFEST
+- MISSION_SCRIPT
+- DIALOGUE_DRAFT
+- SCENE_PLAN
+- VISUAL_SOURCE_PLAN
+- PRESENTATION_MANIFEST
+
+Do not rerun unchanged source analyses after downstream VOICEVOX/render/upload failures.
