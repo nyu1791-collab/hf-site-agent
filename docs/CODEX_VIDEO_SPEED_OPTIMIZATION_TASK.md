@@ -37,6 +37,25 @@ Make routine video generation materially faster without changing the approved sc
 - two-lane execution requires measured/declared benefit;
 - PARALLEL_TRIPLE is rejected for routine video.
 
+## Gemini 3.8 Flash production integration
+
+Gemini is now a permanent Video Research & Editorial Director, not an optional reviewer. Codex must preserve and strengthen this route:
+
+- policy: `config/gemini_video_director_policy.json`
+- runtime: `scripts/gemini_video_director.py`
+- guide: `docs/GEMINI_VIDEO_DIRECTOR.md`
+- auth: Google Cloud ADC only; no repository API key
+- model: `gemini-3.8-flash`
+- native YouTube input: one YouTube URL per request
+- multiple videos: sequential analysis + deterministic structured merge
+- cache identity: model + URL + topic + prompt version
+- output feeds mission/script + visual-source/presentation planning
+- no second AI review pass
+- no automatic paid-provider fallback
+- no rerun of successful Gemini research after unrelated downstream failure
+
+Codex should treat YouTube understanding as a production advantage: extract timestamps, demos, UI/screens, claims, visual beats, and Zundamon/Metan editorial cues before VOICEVOX/rendering. Preserve the existing one-lane default, max-two-independent-lanes rule and one final H.264 encode.
+
 ## Required Codex audit
 
 Find remaining code paths that violate or bypass those invariants.
