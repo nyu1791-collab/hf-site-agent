@@ -31,3 +31,21 @@ scripts/repair_vm_connectivity.py は、既存のDesktop Commander systemdサー
 ## 現在の検証範囲
 
 ローカルでPython compilationと6つの対象チェック成功。VM適用・オンライン復帰・再起動後復旧・SSH第三経路は未検証。設定コードを保存しただけで稼働済みとは報告しない。
+
+
+## 2026-10-05 実操作状況と外部復帰コマンド
+
+復旧Run 37272663789 を実際にworkflow_dispatchした。GitHubは Waiting for a runner to pick up this job... と表示。VM適用未開始。Google Cloud Consoleはこの操作ブラウザでSite Unavailableとなり、外部SSH未実行。成功とは扱わない。
+
+既存Runnerを外部の認証済みCloud Shellから起動する:
+
+```bash
+task_zone="$(gcloud compute instances list --project=project-fdadb4dd-cb77-4270-9cd --filter='name=instance-20261001-071545' --format='value(zone.basename())')"
+if [ -n "$task_zone" ] && [ "$(printf '%s\n' "$task_zone" | wc -l)" -eq 1 ]; then
+  gcloud compute ssh n_yu1791@instance-20261001-071545 --project=project-fdadb4dd-cb77-4270-9cd --zone="$task_zone" --command='sudo -n systemctl start actions.runner.nyu1791-collab--hf-vm-control.hf-site-agent-vm.service'
+else
+  printf '%s\n' '対象VMのzoneを一意に取得できませんでした。'
+fi
+```
+
+停止した既存Runnerをstartするだけで、稼働中なら再起動しない。IAM/ADC・秘密情報・VM電源・main・制作データは変更しない。Runner復帰後は待機中のRunが実行される。Runが期限切れなら同じmaintenance branchのconnectivity_repairを再dispatchする。SSH失敗は権限・到達性・ホスト鍵を調べ、検証解除で回避しない。
