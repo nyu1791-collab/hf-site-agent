@@ -62,3 +62,10 @@ Measured review of `Gemini4_Argon_1min_landscape.mp4` produced permanent fixes:
 - the test measured about -24.47 LUFS, so fast VOICEVOX output should target approximately -18 to -16 LUFS using fixed gain + true-peak limiter **inside the single final encode**, not a second loudness render pass;
 - for current claim-bearing videos, include at least one official/primary-source screenshot when available and provenance/rights gates pass; original diagrams explain but do not impersonate evidence;
 - avoid holding identical composition as filler; change crop/zoom/evidence at semantic beats without adding review/rerender loops.
+
+
+### Multi-YouTube item rule
+
+Gemini 3.8 Flash participates in video **creation**, not only research or QA. For every major editorial item with useful YouTube material, inspect multiple distinct videos before the item is locked: target 3, minimum 2 when available, maximum 5. Analyze one YouTube URL per request, reuse cached analyses, then synthesize that item with Gemini.
+
+The synthesized item must directly influence the script, Zundamon/Metan dialogue, scene order, visual-source mapping, source manifest and presentation draft. Do not invoke a second AI merely to re-review the same Gemini result. VOICEVOX, rights checks, FFmpeg and final stream checks remain deterministic stages.
