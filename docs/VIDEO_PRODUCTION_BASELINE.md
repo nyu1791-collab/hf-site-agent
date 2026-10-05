@@ -1,5 +1,9 @@
 # Approved character video baseline
 
+## Fresh content rule — user instruction, 2026-10-05
+
+Reuse the approved foundation, renderer, layout and character assets. For every new `content_run_id`, collect information again, run fresh Gemini analysis and synthesis, write a new script, and synthesize new VOICEVOX audio. All narration/research cache reuse described below applies only to recovery of the same content run. See `docs/VIDEO_FRESH_CONTENT_POLICY_20261005.md`.
+
 Read this file and `config/approved_video_template.json` before video work on every new tab. The approved presentation is the default for continued video tasks, short and long alike.
 
 Preserve visible Zundamon and Shikoku Metan, native mouth and authored expression variants, bright background, pale speaker-specific subtitles and approved canvas. Speed 80% / quality 20% means skip optional polish, not remove the approved foundation. A static-card-only or different-canvas output requires an explicit user format request.
