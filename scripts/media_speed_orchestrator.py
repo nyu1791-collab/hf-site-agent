@@ -53,6 +53,7 @@ STAGES = (
 )
 
 COMPONENT_TO_STAGES = {
+    "gemini_video_research": list(STAGES),
     "mission_or_script": [
         "admission_and_script_lock",
         "voice_and_measured_timing",
@@ -194,6 +195,7 @@ def stage_fingerprints(manifest: Mapping[str, Any], policy: Mapping[str, Any]) -
     common = {
         "policy": p,
         "mission": _manifest_value(manifest, "mission_or_script"),
+        "gemini": _manifest_value(manifest, "gemini_video_research"),
         "source": _manifest_value(manifest, "source_claim_lock"),
         "voice": _manifest_value(manifest, "voice_and_pronunciation"),
         "timing": _manifest_value(manifest, "measured_audio_timing"),
@@ -206,7 +208,7 @@ def stage_fingerprints(manifest: Mapping[str, Any], policy: Mapping[str, Any]) -
     # sufficient: policy-content changes must invalidate existing cache rows.
     fps: dict[str, str] = {}
     fps["admission_and_script_lock"] = sha256_bytes(_canonical({
-        "policy": p, "mission": common["mission"], "source": common["source"],
+        "policy": p, "mission": common["mission"], "source": common["source"], "gemini": common["gemini"],
     }))
     fps["voice_and_measured_timing"] = sha256_bytes(_canonical({
         "policy": p, "admission": fps["admission_and_script_lock"],
@@ -214,7 +216,7 @@ def stage_fingerprints(manifest: Mapping[str, Any], policy: Mapping[str, Any]) -
     }))
     fps["rights_verified_visual_assets"] = sha256_bytes(_canonical({
         "policy": p, "admission": fps["admission_and_script_lock"],
-        "source": common["source"], "visual_request": common["visual"],
+        "source": common["source"], "visual_request": common["visual"], "gemini": common["gemini"],
     }))
     fps["character_shell_and_toolchain_prep"] = sha256_bytes(_canonical({
         "policy": p, "admission": fps["admission_and_script_lock"],
