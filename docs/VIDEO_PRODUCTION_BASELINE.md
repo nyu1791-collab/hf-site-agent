@@ -43,6 +43,12 @@ Guide: `docs/GEMINI_VIDEO_DIRECTOR.md`
 
 Gemini does **not** replace VOICEVOX, rights gates, the shared landscape renderer, FFmpeg, or final machine checks. YouTube analysis is not reuse permission. Cache successful research packages and do not rerun them without a source/topic/model/prompt-version change.
 
+## Gemini video director
+
+For current or YouTube-relevant explainers, Gemini 3.8 Flash is part of the production team as the Research & Editorial Director when Google Cloud ADC is available. Use it before mission/script lock to inspect useful official/primary YouTube videos, extract timestamps/demos/visual beats, produce 3–5 takeaways, propose plain examples/limits, and map Zundamon/Metan dialogue beats to visual evidence. Persist the result as a structured research package and feed it into the normal mission/presentation pipeline.
+
+Do not use Gemini as an extra review round. It is a production stage. One YouTube URL is analyzed per request; multiple URLs are handled sequentially and merged. VOICEVOX, captions, renderer, FFmpeg and artifact checks remain deterministic. Gemini failure is non-blocking when current material facts are already verified through other primary sources.
+
 ## 2026-10-05 Speed engineering + measured review fixes
 
 Read `docs/VIDEO_SPEED_ENGINEERING_RULES.md` before routine video execution. The fast path is **sequential by default**. Use at most two preparation lanes, and only for genuinely independent preparation or I/O. Shared VOICEVOX, FFmpeg encoding, shared cache writers and final artifact writers stay single-lane. More workers are not treated as faster by default.
