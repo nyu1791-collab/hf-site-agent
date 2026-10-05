@@ -68,6 +68,18 @@ Find remaining code paths that violate or bypass those invariants.
 5. Compile changed Python and validate JSON before provider/runtime setup in every expensive media workflow.
 6. Ensure failed upload/manifest/concat steps do not re-synthesize audio or reacquire assets.
 
+### Gemini / YouTube production foundation
+Codex 6.1 Sol must treat Gemini 3.8 Flash as a permanent production dependency for the research/editorial stage, not as an extra reviewer. Audit and harden:
+- `config/gemini_video_director_policy.json`;
+- `scripts/gemini_video_director.py`;
+- the one-YouTube-URL-per-request contract and deterministic multi-source merge;
+- ADC/service-account auth with no API key committed or logged;
+- cache identity by model + URL + topic + prompt version;
+- structured handoff into mission/script and presentation manifests;
+- graceful non-blocking fallback to verified primary web sources;
+- zero extra review loops, zero auto-publish, zero auto-top-up;
+- tests that prevent non-YouTube URLs, playlists/arbitrary pages, secret leakage, and accidental multi-lane fanout.
+
 ### P1
 7. Consolidate Gemini/topic-specific rendering into the shared mission -> voice/timing -> presentation -> `render_reusable_landscape.py` path.
 8. Make VOICEVOX WAV caching content-addressed by speaker/style/text/pronunciation/speed/intonation.
