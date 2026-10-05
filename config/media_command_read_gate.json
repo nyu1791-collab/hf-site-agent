@@ -396,7 +396,8 @@
       "DEFAULT_ONE_EXECUTION_LANE_MAX_TWO_ONLY_FOR_INDEPENDENT_PREPARATION",
       "STATIC_PREFLIGHT_BEFORE_APT_DOCKER_VOICEVOX_OR_RENDER",
       "ONE_FINAL_VIDEO_ENCODE_NO_PER_SCENE_H264_FAST_PATH",
-      "USE_GEMINI_3_8_FLASH_AS_VIDEO_RESEARCH_EDITORIAL_DIRECTOR_WHEN_YOUTUBE_OR_MULTIMODAL_SOURCE_UNDERSTANDING_MATERIALLY_HELPS"
+      "USE_GEMINI_3_8_FLASH_AS_VIDEO_RESEARCH_EDITORIAL_DIRECTOR_WHEN_YOUTUBE_OR_MULTIMODAL_SOURCE_UNDERSTANDING_MATERIALLY_HELPS",
+      "GEMINI_3_8_FLASH_PARTICIPATES_IN_YOUTUBE_OR_CURRENT_VIDEO_RESEARCH_AND_EDITORIAL_SYNTHESIS_WHEN_ADC_RUNTIME_IS_AVAILABLE"
     ],
     "editorial_authority": "config/media_speed_quality_policy.json#/script_clarity_contract",
     "visual_authority": "config/media_speed_quality_policy.json#/visual_density_contract",
@@ -424,5 +425,15 @@
     "unknown_result_retry": false,
     "scope": "OFFICIAL_RSS_NEWS_SCRIPT_DRAFTING_TEXT_ONLY"
   },
-  "deepseek_for_video": "The user authorizes paid text-only DeepSeek deepseek-flash for resident official RSS after an exact-free OpenRouter attempt. DeepSeek must be called directly at https://api.deepseek.com using DEEPSEEK_API_KEY; OpenRouter paid models and paid fallbacks are disabled. DeepSeek artificial per-call, daily, monthly, and request-count caps are removed; Auto Top-Up and retry after unknown outcome stay disabled."
+  "deepseek_for_video": "The user authorizes paid text-only DeepSeek deepseek-flash for resident official RSS after an exact-free OpenRouter attempt. DeepSeek must be called directly at https://api.deepseek.com using DEEPSEEK_API_KEY; OpenRouter paid models and paid fallbacks are disabled. DeepSeek artificial per-call, daily, monthly, and request-count caps are removed; Auto Top-Up and retry after unknown outcome stay disabled.",
+  "gemini_video_director": {
+    "policy": "config/gemini_video_director_policy.json",
+    "runtime": "scripts/gemini_video_director.py",
+    "human_doc": "docs/GEMINI_VIDEO_DIRECTOR.md",
+    "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+    "participates_in_video_creation": true,
+    "one_youtube_url_per_request": true,
+    "default_parallelism": "SEQUENTIAL; DO_NOT_SWARM_YOUTUBE_URLS",
+    "fallback": "OFFICIAL_WEB_SOURCES_AND_EXISTING_PIPELINE_WHEN_FACTS_ARE_VERIFIED"
+  }
 }
