@@ -8,6 +8,7 @@ import gzip
 import hashlib
 import json
 import subprocess
+import sys
 import time
 import urllib.request
 import wave
@@ -126,7 +127,7 @@ def _synthesize(mission: dict, out: Path, voicevox_url: str) -> tuple[Path, Path
     voice = out / "voice-parts"
     timing = out / "timing.json"
     subprocess.run([
-        "python", "scripts/synthesize_longform_voicevox.py",
+        sys.executable, "scripts/synthesize_longform_voicevox.py",
         "--mission-b64", str(packed),
         "--output-dir", str(voice),
         "--timing-out", str(timing),
@@ -269,7 +270,7 @@ def main() -> int:
     visual_seconds = time.monotonic() - visual_started
 
     subprocess.run([
-        "python", "scripts/validate_video_content_contract.py",
+        sys.executable, "scripts/validate_video_content_contract.py",
         "--policy", "config/media_speed_quality_policy.json",
         "--presentation", str(presentation),
         "--timing", str(args.output_dir / "timing.json"),
@@ -279,7 +280,7 @@ def main() -> int:
     output = args.output_dir / "Gemini4_Argon_10min_landscape.mp4"
     render_started = time.monotonic()
     subprocess.run([
-        "python", "scripts/render_reusable_landscape.py",
+        sys.executable, "scripts/render_reusable_landscape.py",
         "--audio", str(audio),
         "--timing", str(args.output_dir / "timing.json"),
         "--shell", str(args.shell_root),
