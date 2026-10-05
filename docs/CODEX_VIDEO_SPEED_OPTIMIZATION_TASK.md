@@ -69,6 +69,9 @@ Find remaining code paths that violate or bypass those invariants.
 6. Ensure failed upload/manifest/concat steps do not re-synthesize audio or reacquire assets.
 
 ### Gemini / YouTube production foundation
+Codex must also preserve the dedicated runtime bootstrap `scripts/install_gemini_video_director_runtime.sh`: use a reusable venv, never break PEP 668/system Python, avoid pip upgrades on the video critical path, and keep the VM service-account IAM requirement at `roles/aiplatform.user`. Provider errors must be sanitized and must not leak response bodies, credentials, tokens, or troubleshooting URLs.
+
+
 Codex 6.1 Sol must treat Gemini 3.8 Flash as a permanent production dependency for the research/editorial stage, not as an extra reviewer. Audit and harden:
 - `config/gemini_video_director_policy.json`;
 - `scripts/gemini_video_director.py`;
