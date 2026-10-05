@@ -4,7 +4,7 @@
 
 現行ルールは `config/media_speed_quality_policy.json#/speed_first_delivery`。動画タスクの別タブではREADME → commander handoff → standards manifest → 本書 → media read gate → speed policyの順に読み、他の古い動画ルールより本方針を適用する。
 
-品質20％・速度80％。承認済みの型・素材・キャッシュを使い、16分以内の長尺は5分を作業時間の計測目標にする。入力やローカル処理速度で超過した場合は実測時間を記録し、完成動画を任意の磨き込みなしで提出する。長尺も承認済みのずんだもん・四国めたん、口パク、背景、字幕色、画面形式を維持して一回書き出す。速度のために型を別形式へ置換しない。音声は文単位に細切れにせず、段落または話題ごとに合成する。準備だけ独立最大3レーンで並列化する。確認待ち、全編decode、追加Agent査読、微細な修正はしない。書き出し成功・非空・音声/映像streamを一度確認し提出する。直すのは出力失敗、stream欠落、利用不能、重大な誤情報または権利問題だけ。
+品質20％・速度80％。承認済みの型・素材・キャッシュを使い、16分以内の長尺は5分を作業時間の計測目標にする。入力やローカル処理速度で超過した場合は実測時間を記録し、完成動画を任意の磨き込みなしで提出する。長尺も承認済みのずんだもん・四国めたん、口パク、背景、字幕色、画面形式を維持して一回書き出す。速度のために型を別形式へ置換しない。音声は文単位に細切れにせず、段落または話題ごとに合成する。準備は通常1レーン、独立工程のみ最大2レーンで並列化する。2レーン目は10秒以上のwall-clock短縮見込みがある場合だけ使う。確認待ち、全編decode、追加Agent査読、微細な修正はしない。書き出し成功・非空・音声/映像streamを一度確認し提出する。直すのは出力失敗、stream欠落、利用不能、重大な誤情報または権利問題だけ。
 
 **台本の分かりやすさ:** 話題ごとに内容が分かる見出しを付け、各章は要点から説明する。平易な言葉を使い、必要な専門語だけ一度説明する。視聴者の理解や判断に不要な機能細部、長い前置き、同じ注意の反復を省く。詳しい条件が重要なときは、その箇所で短く示す。恒久ルールは `config/media_speed_quality_policy.json#/script_clarity_contract`。
 
@@ -93,6 +93,17 @@ Factual current-event, product, numeric, offer and policy claims use claim-level
 ## 4. Video delivery
 
 Use the speed-first policy at the beginning of this rulebook. For a current factual topic, use the minimum source check needed to avoid a material false statement.
+
+### Gemini 3.8 Flash is a permanent video-production member
+
+Gemini 3.8 Flash is the canonical **Video Research & Editorial Director** when Google Cloud ADC is available and the video topic benefits from YouTube or multimodal source understanding. Machine authority is `config/gemini_video_director_policy.json`; runtime is `scripts/gemini_video_director.py`; human playbook is `docs/GEMINI_VIDEO_DIRECTOR.md`.
+
+Gemini participates directly in production before VOICEVOX/rendering: it reads relevant official or primary YouTube videos, extracts demonstrations and important timestamps, compresses the topic into 3–5 takeaways, proposes plain examples/material limits, drafts Zundamon/Metan question → answer → reaction beats, and maps dialogue beats to useful source-video or screen visuals. Its structured research package feeds the mission/script and presentation plan.
+
+Use one YouTube URL per model request. For multiple videos, analyze one URL at a time and merge the structured outputs; do not create a swarm merely to fan out URLs. Cache successful analyses. If Gemini/YouTube analysis is unavailable but material facts are verified from primary web sources, continue the existing pipeline rather than blocking delivery.
+
+Gemini does **not** own publication rights, final factual authority when primary documentation contradicts a video, VOICEVOX synthesis, FFmpeg encoding, or public publishing. A YouTube timestamp is navigation/editorial evidence, not reuse permission. Never store Google access tokens or API keys in the repository; use ADC. No auto top-up.
+
 
 For **non-public drafting/rendering**, the fast visual path may use official article images, source-backed web images, user-provided screenshots, and screenshots of official social announcements including X posts. Do not force a per-image license lookup before this non-public render. The minimum intake contract is a traceable HTTPS source URL, a source/account credit, a regular supported raster file, bounded size, and SHA-256 integrity. An attributed official-post screenshot may preserve the full post frame when that frame is the useful evidence/context. Extra visual candidates are allowed so batch production does not stop on one bad image.
 
