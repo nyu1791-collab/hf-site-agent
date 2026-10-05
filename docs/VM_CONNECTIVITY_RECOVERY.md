@@ -1,51 +1,55 @@
-# VM接続復旧（2026-10-05）
+# VM常駐・接続復旧（2026-10-05）
 
-対象: 既存 instance-20261001-071545 のみ。Desktop CommanderのOfflineはVM停止や動画コード障害の証明ではない。
+対象は既存VM instance-20261001-071545、project-fdadb4dd-cb77-4270-9cd、us-central1-a。PC・iPad・Cloud Shell・チャットは操作画面で、常駐処理はVM上で動かす。端末を閉じてもsystemdサービスは継続する。VM自体の停止・ネットワーク障害・クラウド障害までオンラインを保証しない。
+
+## 実機適用済み
+
+2026-10-05 07:23 UTC以降、Desktop Commanderから実コマンド・ファイル作成・read-backが成功。接続端末はf9f63e6e-ba59-406b-a345-631d3fe19625、Linuxユーザーn_yu1791（uid1000）。
+
+- desktop-commander-remote.service：user unit、enabled / active、Restart=always、RestartSec=30。
+- actions.runner.nyu1791-collab--hf-vm-control.hf-site-agent-vm.service：system unit、enabled / active、Restart=always、RestartSec=30。
+- Linger=yes：ユーザーlogout後もuser managerを維持。
+- hf-connectivity-watchdog.timer：enabled / active、毎分inactiveサービス復旧。AccuracySec=1s、RandomizedDelaySec=0。
+- journalでSERVICES_ACTIVE / failed_units=[]の反復を確認。
+- ~/.local/state/hf-site-agent/connectivity/write-verification.jsonに直接write/read-back成功。
+
+実際に端末を閉じた前後の継続試験は未実施。ユーザーが実行したVM reset後にRunnerの起動・GitHub接続・Listening for JobsとDesktop Commander復帰を確認したが、今回追加した全drop-inの再起動後検証は別チェック。未検証を完了と報告しない。
 
 ## 独立した操作経路
 
-1. Desktop Commander：通常操作。
-2. private GitHub self-hosted Runner：Desktop Commanderに依存しない既存操作経路。nyu1791-collab/-hf-vm-control の VM control を使う。
-3. Google Cloud Console/Cloud Shell SSH：上記両方が停止した際の外部からの復旧経路。既存VMへgcloud compute sshで接続する。新VM、公開管理ポート、認証解除、Gemini IAM/ADCの変更は不要。
+1. Desktop Commander：通常のshell・ファイルwrite経路。
+2. private repository nyu1791-collab/-hf-vm-controlの既存self-hosted Runner：Desktop Commander非依存の操作経路。maintenance/connectivity-recovery-20261005のVM controlを使用。mainは変更しない。
+3. 認証済みGoogle Cloud ShellからIAP SSH：両サービスが使えない場合の外部復旧経路。
+4. SSH不通時はCompute APIで起動・serial log確認。serial consoleは対象VMで有効化済みだが、接続成功とOSログイン成功は別。login:にはgcloudコマンドを貼らない。
 
-VMそのものが停止・ネットワーク断の場合、VM内部のサービスだけでは復旧できない。Cloud Shell経路の認証と接続も実機確認が必要。
+2026-10-05 07:35 UTC時点：GitHub Runner画面はIdle、ラベルself-hosted/Linux/X64。旧修復Run37272663789はqueuedのまま。ローカルactive・GitHub Idleだけでは独立操作成功とは扱わない。外部IAP SSHは再起動前後にtimeout/4003があり、成功未確認。
 
-## 用意済みの復旧操作
-
-private control repository の maintenance/connectivity-recovery-20261005 ブランチ。既存 vm-control.yml をRun workflowし、同ブランチと connectivity_repair を選択する。mainは変更しない。
-
-この操作は正本修復スクリプトの固定コミット4791fabcf8d3c018b270f1eb5d5670b4e6cfef26を取得して実行する。VMのcheckoutはreset/switch/updateしない。Runnerの稼働中プロセスを再起動せず、Desktop Commanderだけ初回に1回再起動する。
-
-scripts/repair_vm_connectivity.py は、既存のDesktop Commander systemdサービスとprivate Runnerサービスがそれぞれ1個であること、対象VM、user systemd bus、必要なsudo権限を確認する。サービスが見つからない/曖昧な場合はBLOCKEDとし、認証情報やExecStartを出力しない。既存の起動コマンド・資格情報を変更しない。
-
-追加内容: サービスdrop-inのRestart=always / RestartSec=30 / StartLimitIntervalSec=0、linger、hf-connectivity-watchdog.timerによる毎分のinactiveサービス復旧。保守停止は ~/.config/hf-site-agent/connectivity.pause で明示する。activeのままネットワーク接続が固まった状態は自動判定しない。ローカルactiveとクラウド側onlineは区別する。
-
-## 完了条件
-
-復旧workflow成功だけでは完了にしない。Desktop Commander list_devicesでOnline、実コマンド成功、private Runnerによる別status操作成功、サービスenabled/active・timer enabled/active・linger=yesを確認する。Cloud Shell SSHは両サービス停止時にも使える第三経路として別途検証する。既存キュー・制作中ジョブ・MP4を保持する。
-
-## 制作開始の順序
-
-接続基盤を優先し、復旧確認前に新動画を開始しない。動画はチャットのforeground processではなく既存のdurable Job/systemd実行へ渡す。STATE/checkpointから復帰し、接続切断でJobを重複登録しない。新動画の解析・台本・音声は VIDEO_FRESH_CONTENT_POLICY_20261005.md に従って一から作成する。
-
-## 現在の検証範囲
-
-ローカルでPython compilationと6つの対象チェック成功。VM適用・オンライン復帰・再起動後復旧・SSH第三経路は未検証。設定コードを保存しただけで稼働済みとは報告しない。
-
-
-## 2026-10-05 実操作状況と外部復帰コマンド
-
-復旧Run 37272663789 を実際にworkflow_dispatchした。GitHubは Waiting for a runner to pick up this job... と表示。VM適用未開始。Google Cloud Consoleはこの操作ブラウザでSite Unavailableとなり、外部SSH未実行。成功とは扱わない。
-
-既存Runnerを外部の認証済みCloud Shellから起動する:
+Cloud Shellの新しいターミナル（名前@cloudshell:~$）で実行する接続確認は次の1行。末尾までコピーすると同じ行への二重貼付はコメント化される。別行でも接続確認は安全に再実行できる。
 
 ```bash
-task_zone="$(gcloud compute instances list --project=project-fdadb4dd-cb77-4270-9cd --filter='name=instance-20261001-071545' --format='value(zone.basename())')"
-if [ -n "$task_zone" ] && [ "$(printf '%s\n' "$task_zone" | wc -l)" -eq 1 ]; then
-  gcloud compute ssh n_yu1791@instance-20261001-071545 --project=project-fdadb4dd-cb77-4270-9cd --zone="$task_zone" --command='sudo -n systemctl start actions.runner.nyu1791-collab--hf-vm-control.hf-site-agent-vm.service'
-else
-  printf '%s\n' '対象VMのzoneを一意に取得できませんでした。'
-fi
+gcloud compute ssh n_yu1791@instance-20261001-071545 --project=project-fdadb4dd-cb77-4270-9cd --zone=us-central1-a --tunnel-through-iap --ssh-flag="-o ConnectTimeout=20" --command='id; echo SSH_OK'; # END
 ```
 
-停止した既存Runnerをstartするだけで、稼働中なら再起動しない。IAM/ADC・秘密情報・VM電源・main・制作データは変更しない。Runner復帰後は待機中のRunが実行される。Runが期限切れなら同じmaintenance branchのconnectivity_repairを再dispatchする。SSH失敗は権限・到達性・ホスト鍵を調べ、検証解除で回避しない。
+既存資格情報・SSHホスト検証を維持する。Gemini IAM/ADC再設定、認証解除、公開管理ポート追加、新VM作成は不要。接続不良だけでGemini/VOICEVOX/Rendererの故障と判断しない。
+
+## 修復と保守
+
+scripts/repair_vm_connectivity.pyは対象VM・既存unit各1個・user bus・必要なsudo権限を確認する。checkoutのreset/switch、制作ジョブ停止、秘密情報出力を行わない。healthyサービスは再起動しない。activeのままクラウド接続が固まる状態はこの新watchdogでは判定しないため、クラウド側Onlineと実コマンドも確認する。
+
+保守停止は~/.config/hf-site-agent/connectivity.pauseで明示する。これを設けた停止はwatchdogで復活させない。
+
+## メモリ・実行分離
+
+実機は約2GB RAM、swap 0。以前のserial logにUnder memory pressure反復がある。再起動後07:30 UTCのavailable約1.3GBは確認したが、長期安定や動画負荷中の余裕を証明しない。
+
+swap追加は未適用。Desktop CommanderのsudoコマンドがCommand not allowedで拒否されたため、コマンドを隠して回避しない。正規のCloud Shell SSHまたは検証済みprivate Runner経路で適用・再確認する。小型VMは接続・queue・監視を優先し、最終レンダーは既存GitHub-hosted fallbackを利用する。
+
+動画制作をチャットforegroundへ依存させない。固有job_idとSTATE/checkpointを持つ耐久実行に渡し、切断復帰でJobを二重登録しない。全工程のdurable接続が未実装なら実装済みとは報告しない。
+
+## 担当と制作ルール
+
+ユーザー指定によりコード周りはCodex 6.1 Solに担当させ、Commanderが運用・事実・設定・完了条件を統合確認する。コードの複数Writerや重複AI査読は増やさない。
+
+新動画はdocs/VIDEO_FRESH_CONTENT_POLICY_20261005.mdに従い、土台・型・Renderer・キャラ素材を再利用する。情報収集・Gemini解析・統合・台本・音声は動画ごとに新規作成。content_run_idごとに解析/WAV cacheを分離し、同じJobの復旧時のみ今回の成功checkpointを使用する。過去のMP4・研究Package・WAVは保持する。
+
+接続基盤の復旧を先に完了し、その後にGemini4の新動画を制作する。制作本体約5分は実測目標。main変更、PR #40 merge、公開投稿は禁止。
