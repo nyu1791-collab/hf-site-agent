@@ -688,6 +688,7 @@ def main() -> int:
     parser.add_argument("--asset-manifest")
     parser.add_argument("--static-inventory")
     parser.add_argument("--source-claim-lock")
+    parser.add_argument("--gemini-research", help="Gemini video research package JSON from scripts/gemini_video_director.py")
     parser.add_argument("--cache-root")
     parser.add_argument("--voice-contract")
     parser.add_argument("--asset-request")
@@ -702,6 +703,7 @@ def main() -> int:
 
     inputs = {
         "mission_or_script": args.mission,
+        "gemini_video_research": args.gemini_research or "MISSING",
         "source_claim_lock": args.source_claim_lock or "MISSING",
         "voice_and_pronunciation": args.voice_contract or {"mission": args.mission, "engine": "VOICEVOX_LOCAL", "speed_scale": "1.20"},
         "measured_audio_timing": {"producer": "VOICEVOX_FFPROBE", "contract": "MEASURED_AUDIO_TIMING_V1"},
