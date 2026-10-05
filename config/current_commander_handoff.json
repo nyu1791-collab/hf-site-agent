@@ -685,5 +685,25 @@
     "saved_remote_render_db_recovery_is_idempotent": true,
     "current_e2e_completion_requires_connected_worker_fingerprint_match": true,
     "authoritative_rss_must_be_observed_after_current_boot": true
+  },
+  "gemini_video_director_fixed_rules": {
+    "permanent_member": true,
+    "model": "gemini-3.8-flash",
+    "provider": "GOOGLE_CLOUD_VERTEX_AGENT_PLATFORM",
+    "auth": "APPLICATION_DEFAULT_CREDENTIALS",
+    "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+    "policy": "config/gemini_video_director_policy.json",
+    "runtime": "scripts/gemini_video_director.py",
+    "human_doc": "docs/GEMINI_VIDEO_DIRECTOR.md",
+    "video_creation_participant": true,
+    "youtube_native_understanding": true,
+    "one_youtube_url_per_request": true,
+    "multi_video_strategy": "SEQUENTIAL_ANALYZE_THEN_DETERMINISTIC_MERGE",
+    "no_swarm_fanout": true,
+    "cache_before_new_call": true,
+    "no_secret_logging": true,
+    "no_auto_top_up": true,
+    "fallback_when_unavailable": "VERIFIED_OFFICIAL_WEB_SOURCE_PATH",
+    "downstream": "MISSION_SCRIPT_AND_VISUAL_SOURCE_PLAN_THEN_EXISTING_VOICEVOX_RENDERER"
   }
 }
