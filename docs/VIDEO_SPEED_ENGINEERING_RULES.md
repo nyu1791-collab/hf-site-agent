@@ -71,6 +71,24 @@ Permanent fixes:
 
 If a late-stage manifest/concat/upload step fails, reuse completed voice, visuals, timing, and rendered checkpoints. Retry only the failed stage and true dependents. Never restart unrelated successful work.
 
+## Gemini research lane
+
+Gemini 3.8 Flash is part of the routine production pipeline when YouTube/multimodal source understanding materially helps. It is not an extra review pass. Treat its work as the combined **research + editorial/script input stage**.
+
+Speed rules:
+- default one Gemini research lane;
+- one YouTube URL per request;
+- multiple URLs run sequentially by default and merge deterministically;
+- reuse cached results keyed by model + URL + topic + prompt version;
+- never rerun a successfully cached YouTube analysis merely because a later render/upload stage failed;
+- do not add a second model solely to review Gemini output;
+- cross-check only material current claims against primary docs;
+- if Gemini is unavailable but verified source material exists, continue instead of blocking the video;
+- Gemini output must feed mission/script and visual-beat planning before VOICEVOX and the one-pass landscape render.
+
+Runtime: `scripts/gemini_video_director.py`.
+Policy: `config/gemini_video_director_policy.json`.
+
 ## Agent use
 
 Code agents/Codex are for static optimization, tests, profiling, and simplifying the critical path. They must not add:
