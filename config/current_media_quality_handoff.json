@@ -105,7 +105,8 @@
       "multiple_video_strategy": "SEQUENTIAL_THEN_DETERMINISTIC_MERGE",
       "cache_reuse_before_new_call": true,
       "optional_review_pass": false,
-      "non_blocking_when_primary_facts_are_verified_elsewhere": true
+      "non_blocking_when_primary_facts_are_verified_elsewhere": true,
+      "status": "FORMAL_PRODUCTION_MEMBER"
     },
     "gemini_video_research_stage": "USE_FOR_CURRENT_OR_YOUTUBE_RELEVANT_VIDEO_WHEN_ADC_RUNTIME_AVAILABLE; CACHE_RESULT; ONE_URL_PER_REQUEST; NO_EXTRA_REVIEW_PASS"
   },
