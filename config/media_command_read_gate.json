@@ -68,7 +68,10 @@
         "docs/VIDEO_PRODUCTION_BASELINE.md",
         "config/approved_landscape_video_template.json",
         "docs/VIDEO_SPEED_ENGINEERING_RULES.md",
-        "scripts/render_reusable_landscape.py"
+        "scripts/render_reusable_landscape.py",
+        "config/gemini_video_director_policy.json",
+        "docs/GEMINI_VIDEO_DIRECTOR.md",
+        "scripts/gemini_video_director.py"
       ],
       "conditional": {
         "if_user_explicitly_requests_longform": [
@@ -215,7 +218,8 @@
     "duplicate_agents_for_majority_vote_by_default": false,
     "parallelism_requires_expected_wall_clock_gain_above_coordination_overhead": true,
     "default_judgmental_media_pair": [
-      "ChatGPT"
+      "ChatGPT",
+      "Gemini 3.8 Flash when YouTube/multimodal research materially helps"
     ],
     "research_and_script_are_one_combined_judgment_stage_by_default": true,
     "avoid_small_agent_handoffs_for_routine_script_work": true,
@@ -362,7 +366,10 @@
       "config/approved_video_template.json",
       "docs/VIDEO_PRODUCTION_BASELINE.md",
       "scripts/validate_video_content_contract.py",
-      "config/approved_landscape_video_template.json"
+      "config/approved_landscape_video_template.json",
+      "config/gemini_video_director_policy.json",
+      "docs/GEMINI_VIDEO_DIRECTOR.md",
+      "scripts/gemini_video_director.py"
     ],
     "do_not_load_optional_video_QA_and_polish_guides_for_routine_delivery": true,
     "routine_delivery_uses_override_instead_of_legacy_media_read_sets": true,
@@ -382,7 +389,8 @@
       "PLAIN_LANGUAGE_TOPIC_HEADING_MAIN_POINT_AND_EXPLANATION",
       "DEFAULT_ONE_EXECUTION_LANE_MAX_TWO_ONLY_FOR_INDEPENDENT_PREPARATION",
       "STATIC_PREFLIGHT_BEFORE_APT_DOCKER_VOICEVOX_OR_RENDER",
-      "ONE_FINAL_VIDEO_ENCODE_NO_PER_SCENE_H264_FAST_PATH"
+      "ONE_FINAL_VIDEO_ENCODE_NO_PER_SCENE_H264_FAST_PATH",
+      "USE_GEMINI_3_8_FLASH_AS_VIDEO_RESEARCH_EDITORIAL_DIRECTOR_WHEN_YOUTUBE_OR_MULTIMODAL_SOURCE_UNDERSTANDING_MATERIALLY_HELPS"
     ],
     "editorial_authority": "config/media_speed_quality_policy.json#/script_clarity_contract",
     "visual_authority": "config/media_speed_quality_policy.json#/visual_density_contract",
