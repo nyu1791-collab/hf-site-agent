@@ -104,9 +104,10 @@ Rules:
 def create_client(project: str, location: str):
     try:
         from google import genai
+        from google.genai.types import HttpOptions
     except Exception as exc:
         raise GeminiVideoDirectorError("google_genai_not_installed") from exc
-    return genai.Client(enterprise=True, project=project, location=location)
+    return genai.Client(enterprise=True, project=project, location=location, http_options=HttpOptions(api_version="v1"))
 
 
 def analyze_one(*, client: Any, model: str, source_url: str, topic: str) -> dict[str, Any]:
