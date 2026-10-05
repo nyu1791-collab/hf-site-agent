@@ -1,0 +1,61 @@
+{
+  "content_run_id": "gemini4-argon-fresh-20261005-0807",
+  "verified_at": "2026-10-05T08:17:00Z",
+  "primary_source": "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/",
+  "fact_locked_claims": [
+    "Phased rollout to trusted cyber defenders; broad release timing unconfirmed",
+    "Output token limit 1M, previous 64K; not input-context specification",
+    "Intro price per 1M input/output $2/$10; post-intro $4/$20",
+    "Long-horizon software engineering, legal, finance and defensive cybersecurity are stated focus areas"
+  ],
+  "third_party_observations": [
+    {
+      "source_url": "https://www.youtube.com/watch?v=h5EL5zThKaI",
+      "claim": "Limited 3D/game prompts showed consistency failures",
+      "admission": "QUALIFIED_OBSERVATION_ONLY"
+    }
+  ],
+  "conflicts_or_uncertainty": [
+    "動画間で比較対象として登場するモデル名（GPT-6.1 Sol、Claude Sonnet 5.5 / Opus 5.5、GPT-6 Astra等）に仮想的・将来設定の表記ブレや独自呼称が見られるため、本解説では特定ベンダーの最上位競合モデル群として抽象化して扱う必要がある。",
+    "導入割引価格（入力$2/出力$10）の終了時期や通常価格（$4/$20）への切り替え条件について、いずれの動画でもGoogleからの公式日程は特定できていない。",
+    "一般開発者向けAPI開放の具体的日程およびコンシューマー版（Gemini Advanced等）への搭載有無は未確定。"
+  ],
+  "excluded_claims": [
+    "low hallucination universal safety",
+    "12 wins implies universal best",
+    "exact public availability date",
+    "competitor relative prices without current primary verification"
+  ],
+  "safe_script_claims": [
+    "Use task-level total consumption rather than price ratio",
+    "No general-availability claim",
+    "Illustrative cost arithmetic explicitly labeled"
+  ],
+  "visual_reference_only": [
+    {
+      "source_url": "https://www.youtube.com/watch?v=neHjkiXjkeM",
+      "time": "02:47",
+      "reason": "法務・財務・自動化で勝ち、端末操作やWeb開発で負けるという分野別勝敗マトリクスが最も客観的に整理されている。",
+      "visual_use": "モデル適性を一覧で示すスプリットチャートとして参照"
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=TYD71CSxWzQ",
+      "time": "00:57",
+      "reason": "一般利用できない理由となる「3段階の提供ロードマップ」が明確に図解されている。",
+      "visual_use": "提供ステータスと導入スケジュールの解説画面として参照"
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=neHjkiXjkeM",
+      "time": "06:17",
+      "reason": "知ったかぶりをせず「分からない」と答える低ハルシネーション率（AA-Omniscience）の証拠データが明快。",
+      "visual_use": "正答率・誤答率・無回答率の帯グラフ解説"
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=h5EL5zThKaI",
+      "time": "04:28",
+      "reason": "公式ベンチマークの数値だけでは見えない、3Dコード生成におけるオブジェクト浮遊・破綻の実機限界が直感的に伝わる。",
+      "visual_use": "3D/クリエイティブタスクでの破綻例を示す実機画面参照"
+    }
+  ],
+  "public_publish": false
+}
