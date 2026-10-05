@@ -137,8 +137,12 @@
       "cache_first": true,
       "do_not_rerun_unchanged_source_analysis": true,
       "preserve_one_execution_lane_default": true,
-      "second_lane_only_under_existing_10_second_gain_rule": true
-    }
+      "second_lane_only_under_existing_10_second_gain_rule": true,
+      "do_not_rerun_unchanged_source_analysis_scope": "SAME_JOB_CHECKPOINT_RESUME_ONLY"
+    },
+    "cache_scope": "SAME_CONTENT_RUN_ID_ONLY",
+    "cache_namespace": "content_run_id",
+    "new_video_requires_fresh_analysis": true
   },
   "handoff_contract": {
     "runtime": "scripts/gemini_video_director.py",
