@@ -15,3 +15,12 @@ For scripts, use a clear heading for each main topic; state the main point first
 
 
 関連画像を多く使う構成・実際の二人の会話・平易な解説を制作の必須入力とする。各主要章に関連写真、製品画面、スクリーンショット、説明に役立つ図解を2〜4場面使う。公式素材は優先候補であり必須の限定条件ではない。自作の説明図も使えるが、文字だけのカードや同じ画像の使い回しは画像数に含めない。生成画像は禁止。素材の出典と利用根拠を保持する。ずんだもんと四国めたんは双方が実際に発話し、説明と視聴者の質問・言い換えを分担する。キャラクター表示だけで二話者とは扱わない。見出し、要点、平易な説明、必要なら短い具体例の順で説明し、モデル名・数値・専門語の羅列を避ける。新タブでも速度ポリシーの dialogue_contract / visual_density_contract / script_clarity_contract を必読する。入力は `scripts/validate_video_content_contract.py` で書き出し前に一度確認し、任意の査読や磨き込みは増やさない。
+
+
+## VM常時接続と代替操作経路（2026-10-05）
+
+VM接続・24時間運用・障害復旧の依頼では `docs/VM_CONNECTIVITY_RECOVERY.md` を必読する。通常のDesktop CommanderがOfflineでも、private repository `nyu1791-collab/-hf-vm-control` の既存self-hosted RunnerからVMを操作できる。両方が停止した場合はGoogle Cloud Console/Cloud Shell SSHへ進む。Offline表示だけでVM停止・Gemini/VOICEVOX/Renderer故障と判断しない。
+
+既存接続サービスはsystemdのRestart=always / RestartSec=30と毎分watchdogで復帰させ、lingerとboot enableを維持する。既存資格情報・SSH検証・ネットワーク境界を変更しない。保守停止は明示pauseで尊重する。常時オンラインは運用目標であり、VM停止・ネットワーク障害・クラウド側障害まで保証したとは報告しない。ローカルactive、クラウド側Online、実コマンド成功、独立Runner操作成功を分けて確認する。
+
+動画は接続sessionに依存しないdurable Jobで実行し、STATEを保存する。新しい動画は `docs/VIDEO_FRESH_CONTENT_POLICY_20261005.md` に従い、土台・型・Renderer・キャラ素材のみ再利用し、情報収集・解析・台本・音声は毎回一から作る。同一ジョブの障害復帰時のみ今回のcheckpointを使う。
