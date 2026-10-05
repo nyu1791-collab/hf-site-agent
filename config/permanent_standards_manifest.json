@@ -483,7 +483,8 @@
     "gemini_video_director_runtime": "scripts/gemini_video_director.py",
     "gemini_video_director_doc": "docs/GEMINI_VIDEO_DIRECTOR.md",
     "gemini_video_director_guide": "docs/GEMINI_VIDEO_DIRECTOR.md",
-    "gemini_video_director_runtime_bootstrap": "scripts/install_gemini_video_director_runtime.sh"
+    "gemini_video_director_runtime_bootstrap": "scripts/install_gemini_video_director_runtime.sh",
+    "gemini_multi_youtube_per_major_item": "TARGET_3_MIN_2_WHEN_AVAILABLE_MAX_5"
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
@@ -725,7 +726,13 @@
     "gemini_youtube_understanding_is_video_production_capability": true,
     "gemini_youtube_understanding_is_video_creation_capability": true,
     "gemini_youtube_analysis_does_not_grant_reuse_rights": true,
-    "youtube_relevant_video_uses_gemini_when_runtime_available": true
+    "youtube_relevant_video_uses_gemini_when_runtime_available": true,
+    "gemini_is_formal_video_creation_member": true,
+    "gemini_multi_youtube_per_major_item_survives_tab_change": true,
+    "gemini_major_item_youtube_target": 3,
+    "gemini_major_item_youtube_max": 5,
+    "gemini_broad_video_workspace_authority_survives_tab_change": true,
+    "gemini_no_iam_billing_secret_publish_merge_authority": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",
