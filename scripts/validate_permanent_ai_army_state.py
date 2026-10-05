@@ -48,6 +48,8 @@ def main() -> int:
     automation = load_json("config/media_automation_fast_path.json")
     render_worker = load_json("config/media_render_worker_policy.json")
     media_news = load_json("config/media_news_pipeline_policy.json")
+    gemini_video = load_json("config/gemini_video_director_policy.json")
+    route_matrix = load_json("config/ai_army_provider_route_matrix.json")
 
     # Canonical authority and paid-scope boundaries.
     require(manifest.get("canonical_branch") == "ai-army/provider-v3", "wrong canonical branch")
@@ -69,9 +71,11 @@ def main() -> int:
     permissions = multi.get("security_and_permissions") or {}
     paid_exceptions = permissions.get("preauthorized_paid_execution_exceptions") or []
     require(not any(isinstance(item, dict) and "openrouter" in str(item.get("provider") or "").lower() for item in paid_exceptions), "OpenRouter remains preauthorized for paid execution")
+    require(any(isinstance(item, dict) and item.get("provider") == "google_vertex_gemini" and item.get("role") == "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR" and item.get("auto_top_up") is False for item in paid_exceptions), "Gemini video paid-scope exception missing from multi-agent permissions")
     require(any(isinstance(item, dict) and item.get("policy_file") == "config/paid_agent_route_eligibility_policy.json" for item in paid_exceptions), "paid API route preauthorization missing from multi-agent permissions")
     manifest_paid_routes = manifest.get("preauthorized_paid_exceptions") or []
     require(any(isinstance(item, dict) and item.get("policy") == "config/paid_agent_route_eligibility_policy.json" for item in manifest_paid_routes), "paid API route preauthorization missing from permanent manifest")
+    require(any(isinstance(item, dict) and item.get("provider") == "google_vertex_gemini" and item.get("policy") == "config/gemini_video_director_policy.json" and item.get("auto_top_up") is False for item in manifest_paid_routes), "Gemini video paid-scope exception missing from permanent manifest")
     require(paid_routing.get("automatic_paid_fallback") is False, "automatic paid fallback enabled")
     require(paid_routing.get("automatic_paid_sibling_substitution") is False, "paid sibling substitution enabled")
     require("openrouter" in set((paid_route.get("eligibility") or {}).get("excluded_provider_ids") or []), "OpenRouter is not excluded from general paid routes")
@@ -116,6 +120,17 @@ def main() -> int:
     require(int((media_speed.get("execution_graph") or {}).get("max_independent_preparation_lanes") or 0) == 2, "media lane ceiling drift")
     require(int((media_speed.get("execution_graph") or {}).get("default_parallel_lanes") or 0) == 1, "media default parallelism drift")
     require((media_speed.get("encode_contract") or {}).get("no_per_scene_video_encode_on_fast_path") is True, "fast-path per-scene encode regression")
+    gemini_speed = media_speed.get("gemini_video_director") or {}
+    require(gemini_speed.get("model") == "gemini-3.8-flash", "media speed policy lost Gemini 3.8 Flash")
+    require(gemini_speed.get("runtime") == "scripts/gemini_video_director.py", "media speed policy lost Gemini runtime")
+    require(gemini_speed.get("one_youtube_url_per_request") is True, "media speed policy lost Gemini YouTube one-URL contract")
+    require(gemini_speed.get("auto_top_up") is False, "Gemini media route enabled auto top-up")
+    require(gemini_video.get("status") == "ENFORCED_PERMANENT_STANDARD", "Gemini video director policy not enforced")
+    require((gemini_video.get("provider") or {}).get("model") == "gemini-3.8-flash", "Gemini video director model drift")
+    require((gemini_video.get("provider") or {}).get("auth") == "APPLICATION_DEFAULT_CREDENTIALS", "Gemini video director must use ADC")
+    require((gemini_video.get("production_role") or {}).get("participates_in_video_creation") is True, "Gemini video director no longer participates in production")
+    require((gemini_video.get("youtube_contract") or {}).get("one_youtube_url_per_request") is True, "Gemini video director YouTube contract drift")
+    require((gemini_video.get("boundaries") or {}).get("no_auto_top_up") is True, "Gemini video director auto top-up boundary weakened")
 
     # Minimum video admission remains intact even when speed is prioritized.
     require(video_admission.get("status") == "ENFORCED_PERMANENT_STANDARD", "video admission not enforced")
@@ -221,6 +236,7 @@ def main() -> int:
         "video-creation-admission",
         "media-command-read-gate",
         "media-speed-quality",
+        "gemini-video-director",
         "jev-fast-decision-plane",
         "final-execution-admission-guard",
         "permanent-ai-army-consistency-gate",
@@ -237,8 +253,20 @@ def main() -> int:
     require(cross_tab.get("chat_stream_disconnect_does_not_reset_verified_media_work") is True, "chat disconnect may reset verified work")
     require(cross_tab.get("reconfirm_current_branch_head_before_code_change") is True, "head recheck continuity lost")
     require(cross_tab.get("reconfirm_pr_state_before_code_change") is True, "PR recheck continuity lost")
+    require(cross_tab.get("gemini_video_director_survives_tab_change") is True, "Gemini video director continuity lost")
 
     # Routing invariants that must never be delegated to a worker.
+    video_director = ((org.get("hierarchy") or {}).get("video_research_director") or {})
+    require(video_director.get("agent") == "google-gemini-3.8-flash", "AI Army org chart lost Gemini video director")
+    require(video_director.get("runtime") == "scripts/gemini_video_director.py", "AI Army org chart Gemini runtime drift")
+    require(video_director.get("one_youtube_url_per_request") is True, "AI Army org chart Gemini YouTube contract drift")
+    routes = [row for row in (route_matrix.get("task_routes") or []) if isinstance(row, dict)]
+    gemini_routes = [row for row in routes if row.get("task_type") == "GEMINI_VIDEO_DIRECTOR"]
+    require(len(gemini_routes) == 1, "Gemini video director route missing or duplicated")
+    gemini_route = gemini_routes[0]
+    require(gemini_route.get("primary_provider") == "google_vertex_gemini" and gemini_route.get("primary_model") == "gemini-3.8-flash", "Gemini video director route drift")
+    require(gemini_route.get("auth") == "APPLICATION_DEFAULT_CREDENTIALS" and gemini_route.get("auto_top_up") is False, "Gemini video director route auth/cost boundary drift")
+
     routing = multi.get("routing") or {}
     require(routing.get("canonical_routing_facade") == "scripts/ai_army_routing_facade.py", "canonical routing facade drift")
     require(routing.get("final_execution_admission_guard") == "scripts/final_execution_admission_guard.py", "final admission guard drift")
@@ -271,6 +299,9 @@ def main() -> int:
         "scripts/jev_routing_coordinator.py",
         "scripts/final_execution_admission_guard.py",
         "scripts/media_speed_orchestrator.py",
+        "scripts/gemini_video_director.py",
+        "docs/GEMINI_VIDEO_DIRECTOR.md",
+        "config/gemini_video_director_policy.json",
         "scripts/validate_media_speed_quality.py",
         "scripts/validate_media_command_read_gate.py",
         "scripts/media_batch_command_center.py",
@@ -287,6 +318,7 @@ def main() -> int:
         "durable_media_runner": "ENFORCED",
         "media_speed_ratio": "20:80",
         "media_target_minutes": 5,
+        "gemini_video_director": "ENFORCED",
         "global_free_only_mode": False,
         "paid_api_route_requires_evidence_gate": True,
         "generic_paid_fallback": False,
