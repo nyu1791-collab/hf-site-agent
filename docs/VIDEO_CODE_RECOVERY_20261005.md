@@ -78,11 +78,11 @@ completed media were preserved. No render was started on the small VM.
 
 Shared cache: `/home/n_yu1791/.cache/hf-site-agent`.
 Runtime pointer: `~/.local/state/hf-site-agent/video-runtime.json`.
-Latest installed runtime (2026-10-05 11:04 UTC):
-`c6371581bbebc9ea0f908728aaa0e9a61bba175d`, at
-`/home/n_yu1791/hf-site-agent-runs/speed-runtime-c6371581bbebc9ea0f908728aaa0e9a61bba175d/code`.
-Independent VM [Run37300527910](https://github.com/nyu1791-collab/-hf-vm-control/actions/runs/37300527910)
-passed 27 relevant tests and confirmed resident VOICEVOX readiness. The pointer
+Latest installed runtime (2026-10-05 11:16 UTC):
+`3cca7d0b78c1f744cbadcf024dc4e7703ef0cba2`, at
+`/home/n_yu1791/hf-site-agent-runs/speed-runtime-3cca7d0b78c1f744cbadcf024dc4e7703ef0cba2/code`.
+Independent VM [Run37301819245](https://github.com/nyu1791-collab/-hf-vm-control/actions/runs/37301819245)
+passed 37 relevant tests and confirmed resident VOICEVOX readiness. The pointer
 now selects this revision; previous runtime worktrees were retained.
 For new production explicitly select that pinned code; installing a worktree
 does not change existing running processes or the canonical branch's workflow.
@@ -123,7 +123,7 @@ Related tests: 80 PASS, including actual small child-process lifecycle tests,
 cache replacement races and early-input rejection. No cloud calls, voice
 generation or real video rendering were required for these tests.
 
-Implementation references consulted:
+Implementation references:
 
 - [Python subprocess](https://docs.python.org/3/library/subprocess.html): explicit
   termination, timeout handling, closing pipes and reaping child processes.
