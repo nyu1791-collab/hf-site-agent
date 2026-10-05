@@ -616,5 +616,21 @@
       "current_claim_bearing_video": "USE_AT_LEAST_ONE_OFFICIAL_OR_PRIMARY_SOURCE_SCREENSHOT_IF_AVAILABLE_AND_RIGHTS/PROVENANCE_GATE_PASSES",
       "original_diagram_role": "EXPLANATION_ONLY_NOT_FAKE_EVIDENCE"
     }
+  },
+  "gemini_video_director": {
+    "policy": "config/gemini_video_director_policy.json",
+    "runtime": "scripts/gemini_video_director.py",
+    "model": "gemini-3.8-flash",
+    "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+    "auth": "ADC",
+    "participates_before_voicevox_and_render": true,
+    "youtube_native_understanding": true,
+    "one_youtube_url_per_request": true,
+    "cache_reuse_required": true,
+    "research_and_script_one_combined_judgment_stage": true,
+    "no_duplicate_ai_review": true,
+    "scoped_google_cloud_billing_authorized_by_user": true,
+    "auto_top_up": false,
+    "failure_action": "CONTINUE_IF_MATERIAL_FACTS_ARE_VERIFIED_ELSEWHERE"
   }
 }
