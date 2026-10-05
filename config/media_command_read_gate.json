@@ -238,7 +238,9 @@
       "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
       "mandatory_for_every_video": false,
       "extra_review_pass": false
-    }
+    },
+    "gemini_video_research_is_production_stage": true,
+    "gemini_youtube_default": "ONE_URL_PER_REQUEST_SEQUENTIAL_MERGE"
   },
   "know_how_that_must_be_recovered": {
     "common": [
