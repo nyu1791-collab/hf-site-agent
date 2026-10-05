@@ -108,7 +108,8 @@
       "non_blocking_when_primary_facts_are_verified_elsewhere": true,
       "status": "FORMAL_PRODUCTION_MEMBER"
     },
-    "gemini_video_research_stage": "USE_FOR_CURRENT_OR_YOUTUBE_RELEVANT_VIDEO_WHEN_ADC_RUNTIME_AVAILABLE; CACHE_RESULT; ONE_URL_PER_REQUEST; NO_EXTRA_REVIEW_PASS"
+    "gemini_video_research_stage": "USE_FOR_CURRENT_OR_YOUTUBE_RELEVANT_VIDEO_WHEN_ADC_RUNTIME_AVAILABLE; CACHE_RESULT; ONE_URL_PER_REQUEST; NO_EXTRA_REVIEW_PASS",
+    "gemini_multi_youtube_rule": "PER_MAJOR_ITEM_TARGET_3_MIN_2_WHEN_AVAILABLE_MAX_5; ONE_URL_PER_REQUEST; CACHE; ONE_ITEM_SYNTHESIS"
   },
   "approved_reference": {
     "output": "DevDay2026_corrected_47s.mp4",
@@ -248,7 +249,7 @@
     "batch_goal": "MANY_VIDEOS_WITH_VARIED_VISUALS_AND_MINIMAL_MANUAL_REVIEW"
   },
   "gemini_video_director": {
-    "status": "PERMANENT_VIDEO_PRODUCTION_MEMBER",
+    "status": "FORMAL_VIDEO_PRODUCTION_MEMBER",
     "model": "gemini-3.8-flash",
     "provider": "GOOGLE_CLOUD_VERTEX_AGENT_PLATFORM",
     "auth": "ADC",
@@ -267,6 +268,26 @@
     "one_youtube_url_per_request": true,
     "cache_reuse_required": true,
     "video_creation_participant": true,
-    "unavailable_behavior": "CONTINUE_WITH_VERIFIED_OFFICIAL_WEB_SOURCES; DO_NOT_BLOCK_RENDER"
+    "unavailable_behavior": "CONTINUE_WITH_VERIFIED_OFFICIAL_WEB_SOURCES; DO_NOT_BLOCK_RENDER",
+    "participates_in_video_creation": true,
+    "broad_video_workspace_authority": true,
+    "per_major_item_youtube": {
+      "minimum_when_available": 2,
+      "target": 3,
+      "maximum": 5,
+      "one_url_per_request": true,
+      "synthesize_after_all_item_sources": true
+    },
+    "production_outputs": [
+      "SOURCE_MANIFEST",
+      "MISSION_SCRIPT",
+      "DIALOGUE_DRAFT",
+      "SCENE_PLAN",
+      "VISUAL_SOURCE_PLAN",
+      "PRESENTATION_MANIFEST"
+    ],
+    "no_extra_review_round": true,
+    "cache_before_new_call": true,
+    "vm_iam_role": "roles/aiplatform.user"
   }
 }
