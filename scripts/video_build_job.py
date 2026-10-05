@@ -39,33 +39,50 @@ class BuildJob:
         }
         if self.state.get("job_id") != identity or self.state.get("mission_sha256") != mission_hash:
             raise RuntimeError("job directory belongs to another content run or mission")
+        if not isinstance(self.state.get("checkpoints"), dict):
+            raise RuntimeError("invalid checkpoint map; preserve STATE and recover")
+        self.state.setdefault("checkpoint_dependencies", {})
+        if not isinstance(self.state["checkpoint_dependencies"], dict):
+            raise RuntimeError("invalid checkpoint dependency map")
 
     def stage(self, name):
+        self.state.pop("error_type", None)
         self.state.update(state="RUNNING", current_stage=name, error_stage=None,
                           started_at=self.state.get("started_at") or now())
         save_json(self.path, self.state)
 
-    def checkpoint(self, name, paths):
+    def checkpoint(self, name, paths, *, dependency=None):
         self.state["checkpoints"][name] = {
             str(Path(path).resolve().relative_to(self.output)): file_hash(path) for path in paths
         }
+        if dependency is not None:
+            self.state["checkpoint_dependencies"][name] = dependency
         save_json(self.path, self.state)
 
-    def reusable(self, name):
+    def reusable(self, name, *, dependency=None):
         receipt = self.state.get("checkpoints", {}).get(name)
         if not receipt:
             return False
+        if dependency is not None and self.state["checkpoint_dependencies"].get(name) != dependency:
+            return False
+        if not isinstance(receipt, dict):
+            raise RuntimeError("invalid checkpoint receipt")
         for name, digest in receipt.items():
             path = (self.output / name).resolve()
             if not path.is_relative_to(self.output):
                 raise RuntimeError("checkpoint path escapes output directory")
-            if not path.is_file() or file_hash(path) != digest:
+            try:
+                valid = path.is_file() and file_hash(path) == digest
+            except OSError:
+                valid = False
+            if not valid:
                 return False
         return True
 
     def complete(self):
+        self.state.pop("error_type", None)
         self.state.update(state="READY_TO_PUBLISH_INTERNAL_ONLY", current_stage="COMPLETE",
-                          error_stage=None, completed_at=now())
+                          error_stage=None, completed_at=self.state.get("completed_at") or now())
         save_json(self.path, self.state)
 
 
@@ -87,5 +104,9 @@ def build_job(output, cache, identity, mission_hash):
         except BaseException as exc:
             job.state.update(state="FAILED", error_stage=job.state["current_stage"],
                              error_type=type(exc).__name__)
-            save_json(job.path, job.state)
+            try:
+                save_json(job.path, job.state)
+            except OSError as persistence_error:
+                if hasattr(exc, "add_note"):
+                    exc.add_note("STATE persistence failed: " + type(persistence_error).__name__)
             raise

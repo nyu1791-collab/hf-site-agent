@@ -42,6 +42,10 @@ class VideoBuildJobTests(unittest.TestCase):
         with build_job(self.output, self.cache, "one", "hash") as job:
             self.assertTrue(job.reusable("PREPARATION"))
             job.complete()
+            completed_at = job.state["completed_at"]
+            job.complete()
+            self.assertEqual(job.state["completed_at"], completed_at)
+            self.assertNotIn("error_type", job.state)
         self.assertEqual(json.loads((self.output / "STATE.json").read_text())["state"], "READY_TO_PUBLISH_INTERNAL_ONLY")
 
     def test_changed_input_is_rejected_before_work(self):
@@ -79,7 +83,7 @@ class VideoBuildJobTests(unittest.TestCase):
         args = SimpleNamespace(mission=mission, output_dir=self.output, cache_root=self.cache,
                                content_run_id="one", voicevox_url="http://127.0.0.1:50021")
         with build_job(self.output, self.cache, "one", digest) as job:
-            job.checkpoint("PREPARATION", [audio, timing, presentation, visual])
+            job.checkpoint("PREPARATION", [audio, timing, presentation, visual], dependency=builder._checkpoint_dependencies()["PREPARATION"])
             with mock.patch.object(builder, "_mission_for_voice", return_value={"content_run_id": "one"}), \
                  mock.patch.object(builder, "_synthesize", side_effect=AssertionError("no synthesis")), \
                  mock.patch.object(builder, "_prepare_visuals", side_effect=AssertionError("no download")), \
@@ -112,7 +116,7 @@ class VideoBuildJobTests(unittest.TestCase):
         args = SimpleNamespace(mission=mission, output_dir=self.output, cache_root=self.cache,
                                content_run_id="one", voicevox_url="http://127.0.0.1:50021")
         with build_job(self.output, self.cache, "one", digest) as job:
-            job.checkpoint("VOICE_AUDIO", [audio, timing])
+            job.checkpoint("VOICE_AUDIO", [audio, timing], dependency=builder._checkpoint_dependencies()["VOICE_AUDIO"])
             with mock.patch.object(builder, "_mission_for_voice", return_value={"content_run_id": "one"}), \
                  mock.patch.object(builder, "_synthesize", side_effect=AssertionError("no engine access")), \
                  mock.patch.object(builder, "_prepare_visuals", side_effect=RuntimeError("visual failure")):
@@ -159,6 +163,45 @@ class VideoBuildJobTests(unittest.TestCase):
             self.assertTrue(builder._download_official("https://example.com/official.png", second, self.cache))
             request.assert_called_once()
         self.assertEqual(first.read_bytes(), second.read_bytes())
+
+    def test_dependency_change_invalidates_only_affected_checkpoint(self):
+        with build_job(self.output, self.cache, "one", "hash") as job:
+            audio = self.output / "audio.wav"
+            audio.write_bytes(b"audio")
+            job.checkpoint("VOICE_AUDIO", [audio], dependency="voice-v1")
+            job.checkpoint("PREPARATION", [audio], dependency="visual-v1")
+            self.assertTrue(job.reusable("VOICE_AUDIO", dependency="voice-v1"))
+            self.assertFalse(job.reusable("PREPARATION", dependency="visual-v2"))
+            self.assertFalse(job.reusable("VOICE_AUDIO", dependency="voice-v2"))
+
+    def test_failed_state_write_does_not_mask_original_failure(self):
+        with self.assertRaisesRegex(ValueError, "original failure"):
+            with mock.patch("scripts.video_build_job.save_json", side_effect=OSError("disk full")):
+                with build_job(self.output, self.cache, "one", "hash"):
+                    raise ValueError("original failure")
+
+    def test_preflight_cli_does_not_register_a_job_or_call_builder(self):
+        import io
+        from contextlib import redirect_stdout
+        from scripts import build_gemini4_argon_cloud_video as builder
+        mission = self.root / "mission.json"
+        mission.write_text(json.dumps({"scenes": [{"dialogue": [{"text": "台詞"}]}]}))
+        args = ["builder", "--preflight-only", "--mission", str(mission), "--content-run-id", "one",
+                "--shell-root", str(self.root), "--output-dir", str(self.output), "--cache-root", str(self.cache)]
+        out = io.StringIO()
+        with mock.patch("sys.argv", args), redirect_stdout(out), \
+             mock.patch.object(builder, "_preflight_inputs") as preflight, \
+             mock.patch.object(builder, "_build", side_effect=AssertionError("no production")):
+            self.assertEqual(builder.main(), 0)
+        preflight.assert_called_once()
+        self.assertFalse(self.output.exists())
+        self.assertFalse(self.cache.exists())
+        self.assertEqual(json.loads(out.getvalue())["script_characters"], 2)
+
+    def test_unknown_visual_scene_is_rejected_before_asset_or_voice_work(self):
+        from scripts import build_gemini4_argon_cloud_video as builder
+        with self.assertRaisesRegex(ValueError, "unsupported scene"):
+            builder._preflight_inputs({"scenes": [{"scene_id": "unconfigured"}]}, SimpleNamespace())
 
 
 if __name__ == "__main__":

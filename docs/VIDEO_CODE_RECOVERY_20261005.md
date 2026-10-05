@@ -131,3 +131,30 @@ Implementation references:
   atomic replacement semantics.
 - [Python wave](https://docs.python.org/3/library/wave.html): PCM frame counts and
   file-like input for validating the exact byte snapshot.
+
+## Consistent cache improvements and experiment
+
+Native character variants now load all healthy cached PNGs without rebuilding
+the fixed-body composite. Missing, corrupt or wrong-sized variants are rebuilt
+individually and saved atomically. Source-layer hashes are streamed in bounded
+chunks while preserving the exact legacy key, so existing good caches survive.
+Character-layer filenames and dimensions are checked before narration starts.
+
+Voice and preparation checkpoints now record dependency fingerprints for voice
+helpers, pronunciation/conversion logic, visual construction, policy and fonts.
+Changed unfinished inputs invalidate only the affected stage; successful WAVs
+are still recovered from the same-job voice cache. Completed MP4/encode proof
+remains frozen and does not trigger a new encode after code changes. Historical
+unfinished checkpoints without dependency proof are rebuilt through cache-first
+preparation rather than silently assuming that old settings match.
+
+`--preflight-only` checks local builder inputs and reports script character count
+without registering a job, calling an API/engine, or starting Render. It is an
+optional code diagnostic; no extra mandatory check pass was added to production.
+Failed STATE persistence no longer hides the original failure. Successful recovery
+clears stale error type and preserves the original completion timestamp.
+
+One cold/warm experiment used synthetic 1024×1024 RGBA native layers, nine variants:
+cold 1.0592 seconds / 38 source-layer loads, warm 0.1582 seconds / zero source-layer
+loads; output pixels were identical. This is a cache-component experiment, not
+a real-video production-time claim. Related tests: 96 PASS.

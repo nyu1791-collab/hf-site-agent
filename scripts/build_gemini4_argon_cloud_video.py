@@ -6,6 +6,7 @@ import array
 import base64
 import gzip
 import hashlib
+import inspect
 import json
 import os
 import re
@@ -24,10 +25,12 @@ try:
     from .gemini_video_director import save_json
     from .video_build_job import build_job
     from .synthesize_longform_voicevox import preflight_caption_metadata
+    from .render_reusable_short import character_layers
 except ImportError:
     from gemini_video_director import save_json
     from video_build_job import build_job
     from synthesize_longform_voicevox import preflight_caption_metadata
+    from render_reusable_short import character_layers
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_URL = "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/"
@@ -359,17 +362,18 @@ def _build(args, job) -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     mission = _mission_for_voice(raw)
     save_json(args.output_dir / "mission.json", mission)
+    dependencies = _checkpoint_dependencies()
 
     audio = args.output_dir / "audio.wav"
     voice_seconds = visual_seconds = 0.0
-    if job.reusable("PREPARATION"):
+    if job.reusable("PREPARATION", dependency=dependencies["PREPARATION"]):
         timing = json.loads((args.output_dir / "timing.json").read_text())
         presentation = args.output_dir / "presentation.json"
         first_visual = Path(json.loads(presentation.read_text())["visuals"][0]["file"])
     else:
         voice_started = time.monotonic()
         voice_timing = args.output_dir / "voice-timing.json"
-        if job.reusable("VOICE_AUDIO"):
+        if job.reusable("VOICE_AUDIO", dependency=dependencies["VOICE_AUDIO"]):
             timing = json.loads(voice_timing.read_text())
             save_json(args.output_dir / "timing.json", timing)
         else:
@@ -377,7 +381,7 @@ def _build(args, job) -> int:
             voice, timing_path = _synthesize(mission, args.output_dir, args.voicevox_url, args.cache_root)
             timing = _assemble_audio(voice, timing_path, audio)
             save_json(voice_timing, timing)
-            job.checkpoint("VOICE_AUDIO", [audio, voice_timing])
+            job.checkpoint("VOICE_AUDIO", [audio, voice_timing], dependency=dependencies["VOICE_AUDIO"])
         voice_seconds = time.monotonic() - voice_started
 
         job.stage("VISUAL_PREPARATION")
@@ -385,7 +389,7 @@ def _build(args, job) -> int:
         presentation, first_visual = _prepare_visuals(raw, args.output_dir, timing, args.cache_root / "official-assets")
         visual_seconds = time.monotonic() - visual_started
         visual_files = [Path(row["file"]) for row in json.loads(presentation.read_text())["visuals"]]
-        job.checkpoint("PREPARATION", [audio, args.output_dir / "timing.json", presentation, *visual_files])
+        job.checkpoint("PREPARATION", [audio, args.output_dir / "timing.json", presentation, *visual_files], dependency=dependencies["PREPARATION"])
 
     job.stage("CONTENT_ADMISSION")
     subprocess.run([
@@ -473,6 +477,7 @@ def main() -> int:
     p.add_argument("--output-dir", type=Path, required=True)
     p.add_argument("--voicevox-url", default="http://127.0.0.1:50021")
     p.add_argument("--cache-root", type=Path, default=Path(os.environ.get("HF_VIDEO_CACHE_ROOT", str(Path.home() / ".cache/hf-site-agent"))))
+    p.add_argument("--preflight-only", action="store_true", help="Check local inputs without engine/API/render or job registration.")
     args = p.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", args.content_run_id):
         p.error("invalid content run ID")
@@ -483,6 +488,13 @@ def main() -> int:
     if raw.get("content_run_id", args.content_run_id) != args.content_run_id:
         p.error("mission content run ID does not match the job")
     mission_hash = hashlib.sha256(source_bytes).hexdigest()
+    if args.preflight_only:
+        _preflight_inputs(raw, args)
+        print(json.dumps({"status": "PREFLIGHT_READY", "content_run_id": args.content_run_id,
+                          "mission_sha256": mission_hash,
+                          "script_characters": sum(len(line["text"]) for scene in raw["scenes"] for line in scene["dialogue"]),
+                          "engine_called": False, "render_started": False}, ensure_ascii=False))
+        return 0
     with build_job(args.output_dir, args.cache_root, args.content_run_id, mission_hash) as job:
         # Finished/encoded checkpoints can be delivered without engine or shell setup.
         if not (args.output_dir / "completion.json").exists() and not job.reusable("FINAL_ENCODE"):
@@ -505,7 +517,34 @@ def _preflight_inputs(raw, args):
             raise RuntimeError("required media tool missing: " + tool)
     if any(not (args.shell_root / name).is_dir() for name in ("Zundamon", "Metan")):
         raise ValueError("approved Zundamon/Metan shell required before voice generation")
+    for character in ("Zundamon", "Metan"):
+        fixed, mouths, expressions = character_layers(character)
+        root = args.shell_root / character
+        expected = None
+        for name in dict.fromkeys(fixed + mouths + sum(expressions.values(), [])):
+            with Image.open(root / name) as image:
+                if expected is None:
+                    expected = image.size
+                if image.size != expected:
+                    raise ValueError("native character layer sizes differ: " + character)
     _font(30)
+
+
+_VOICE_SOURCE = "\n".join(inspect.getsource(function) for function in (_mission_for_voice, _synthesize, _assemble_audio))
+_VISUAL_SOURCE = "\n".join(inspect.getsource(function) for function in (_diagram, _prepare_visuals, _font))
+
+
+def _checkpoint_dependencies():
+    def digest(value):
+        return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    voice = digest({"code": _VOICE_SOURCE, "pronunciations": PRONUNCIATIONS,
+                    "helpers": {name: _file_sha256(ROOT / "scripts" / name) for name in (
+                        "synthesize_longform_voicevox.py", "media_voice_cache.py", "validate_video_caption_contract.py", "media_performance_plan.py")}})
+    preparation = digest({"voice": voice, "code": _VISUAL_SOURCE, "official": OFFICIAL_VISUALS,
+                          "diagrams": DIAGRAMS, "source": SOURCE_URL,
+                          "fonts": {str(_font(30, bold)[1]): _file_sha256(_font(30, bold)[1]) for bold in (False, True)},
+                          "policy": _file_sha256(ROOT / "config/media_speed_quality_policy.json")})
+    return {"VOICE_AUDIO": voice, "PREPARATION": preparation}
 
 
 if __name__ == "__main__":

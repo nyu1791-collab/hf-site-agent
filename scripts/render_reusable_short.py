@@ -3,44 +3,77 @@
 This adapter uses waveform energy, not phoneme inference, for mouth states.
 All character variants are precomposed once; narration is never synthesized.
 """
-import argparse, hashlib, json, math, re, subprocess, wave
+import argparse, hashlib, json, math, os, re, subprocess, tempfile, wave
 from pathlib import Path
 from array import array
 from PIL import Image, ImageDraw, ImageFont, ImageOps
-from validate_video_content_contract import validate_content_contract
+try:
+    from .validate_video_content_contract import validate_content_contract
+except ImportError:
+    from validate_video_content_contract import validate_content_contract
 
 
 def layer(root, name):
     with Image.open(root/name) as im:return im.convert('RGBA')
 
-def character_variants(root, character, output):
+def character_layers(character):
     if character=='Zundamon':
         fixed=['尻尾的なアレ.png','服装1/いつもの服.png','服装1/左腕/基本.png','服装1/右腕/基本.png','枝豆/枝豆通常.png']
         mouths=['口/むー.png','口/ほー.png','口/お.png']
         expressions={'NORMAL':['目/目セット/普通白目.png','目/目セット/黒目/普通目.png','眉/普通眉.png'],
                      'HAPPY':['目/にっこり.png','眉/上がり眉.png'],
                      'SERIOUS':['目/目セット/普通白目.png','目/目セット/黒目/普通目.png','眉/困り眉1.png']}
-    else:
+    elif character == 'Metan':
         fixed=['ツインドリル右.png','ツインドリル左.png','白ロリ服/体.png','白ロリ服/左腕/普通.png','白ロリ服/右腕/普通.png','前髪もみあげ.png','頭部アクセサリ/髪留めフリル.png']
         mouths=['口/んー.png','口/お.png','口/わあー.png']
         expressions={'NORMAL':['目/目セット/普通白目.png','目/目セット/黒目/普通目.png','眉/ごきげん.png'],
                      'HAPPY':['目/目閉じ.png','眉/ごきげん.png'],
                      'SERIOUS':['目/目セット/普通白目.png','目/目セット/黒目/普通目.png','眉/こまり.png']}
+    else:
+        raise ValueError('unsupported native character')
+    return fixed, mouths, expressions
+
+
+def _atomic_character_png(path, image):
+    fd, temporary = tempfile.mkstemp(prefix='.character-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as handle:
+            image.save(handle, format='PNG')
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+def character_variants(root, character, output):
+    fixed, mouths, expressions = character_layers(character)
     paths=sorted(set(fixed+mouths+sum(expressions.values(),[])))
-    key=hashlib.sha256(b'character-native-v1'+b''.join((p.encode()+ (root/p).read_bytes()) for p in paths)).hexdigest()
+    digest=hashlib.sha256(b'character-native-v1')
+    for name in paths:
+        digest.update(name.encode())
+        with (root/name).open('rb') as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                digest.update(chunk)
+    key=digest.hexdigest()
     cache=output/'character-cache'/key;cache.mkdir(parents=True,exist_ok=True)
-    base=Image.new('RGBA',layer(root,fixed[0]).size)
-    for p in fixed:base.alpha_composite(layer(root,p))
+    with Image.open(root/fixed[0]) as image: expected_size = image.size
+    base = None
     variants={}
     for expression,parts in expressions.items():
         for state,mouth in enumerate(mouths):
             dest=cache/f'{expression}-{state}.png'
-            if dest.exists():
+            try:
                 with Image.open(dest) as im:comp=im.convert('RGBA')
-            else:
+                if comp.size != expected_size:
+                    raise ValueError('cached character dimensions differ')
+            except (OSError, ValueError):
+                if base is None:
+                    base=Image.new('RGBA',expected_size)
+                    for p in fixed:base.alpha_composite(layer(root,p))
                 comp=base.copy()
                 for p in parts+[mouth]:comp.alpha_composite(layer(root,p))
-                comp.save(dest)
+                _atomic_character_png(dest, comp)
             variants[expression,state]=comp
     return variants,key
 
@@ -191,4 +224,3 @@ if __name__=='__main__':
     p.add_argument('--cache-root',type=Path,help='Restored reusable-assets directory; independent of output location')
     p.add_argument('--start',type=float,required=True);p.add_argument('--duration',type=float,required=True)
     render(p.parse_args())
-
