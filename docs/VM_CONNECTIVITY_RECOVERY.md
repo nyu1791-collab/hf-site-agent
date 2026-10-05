@@ -53,3 +53,12 @@ memory_guard Run37279409409は2026-10-05 07:44 UTCに成功。/hf-connectivity.s
 新動画はdocs/VIDEO_FRESH_CONTENT_POLICY_20261005.mdに従い、土台・型・Renderer・キャラ素材を再利用する。情報収集・Gemini解析・統合・台本・音声は動画ごとに新規作成。content_run_idごとに解析/WAV cacheを分離し、同じJobの復旧時のみ今回の成功checkpointを使用する。過去のMP4・研究Package・WAVは保持する。
 
 接続基盤の復旧を先に完了し、その後にGemini4の新動画を制作する。制作本体約5分は実測目標。main変更、PR #40 merge、公開投稿は禁止。
+
+
+## VOICEVOX常駐・コード反映
+
+2026-10-05 07:51 UTCにscripts/install_resident_voicevox.pyを別worktreeから実行し、VOICEVOX_RESIDENT_READYを確認。voicevox.serviceはenabled / active、Restart=always、RestartSec=3、CPU1スレッド、127.0.0.1:50021限定。/versionは0.25.2を返した。健康なサービスは再適用しても再起動せず、管理外の健康Engine/既存の異なるunitを勝手に停止しない。
+
+設定コードは7b3efb5ddbaa25355486dc89a33ca168c549b756、実機worktreeは/home/n_yu1791/hf-site-agent-runs/setup-20261005-fixed/code。既存/home/n_yu1791/hf-site-agentの未コミット変更・成果物は保持し、reset/checkoutで上書きしていない。
+
+動画ビルダーの子Python3箇所はsys.executableへ変更、content_run_id必須・同Job解析音声cache・480〜720秒のRender前尺検査・中立MP4名・入力SHA一致時だけ完成checkpoint再利用を実装した。Renderer本体は変更していない。これらはコード検証済みで、今回の新動画のMP4完成を意味しない。
