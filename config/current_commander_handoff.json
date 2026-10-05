@@ -308,7 +308,18 @@
     "gemini_video_director_runtime": "scripts/gemini_video_director.py",
     "gemini_3_8_flash_is_formal_video_production_member": true,
     "gemini_youtube_research_feeds_script_and_visual_plan": true,
-    "gemini_youtube_one_url_per_request": true
+    "gemini_youtube_one_url_per_request": true,
+    "gemini_video_director": {
+      "permanent_member": true,
+      "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
+      "model": "gemini-3.8-flash",
+      "policy": "config/gemini_video_director_policy.json",
+      "runtime": "scripts/gemini_video_director.py",
+      "youtube_video_understanding": true,
+      "one_url_per_request": true,
+      "participates_in_script_and_visual_planning": true,
+      "not_an_extra_review_pass": true
+    }
   },
   "legacy_cleanup_fixed_rules": {
     "legacy_registry": "config/legacy_deepseek_compatibility.json",
