@@ -1,12 +1,6 @@
-name: Durable Gemini 4 media job
+name: Legacy Gemini 4 recovery (manual only)
 
 on:
-  push:
-    branches:
-      - ai-army/provider-v3
-    paths:
-      - durable_jobs/gemini4_argon_offline.py
-      - .github/workflows/durable-gemini4-media.yml
   workflow_dispatch:
 
 permissions:

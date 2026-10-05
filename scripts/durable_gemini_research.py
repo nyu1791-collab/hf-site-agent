@@ -100,6 +100,8 @@ def run_job(job: Path):
         digest = hashlib.sha256(json.dumps(plan, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         if config["input_sha256"] != digest or state["input_sha256"] != digest or config["content_run_id"] != state["content_run_id"]:
             raise RuntimeError("IMMUTABLE_JOB_INPUT_MISMATCH")
+        if config["topic"] != str(plan.get("topic") or "").strip():
+            raise RuntimeError("IMMUTABLE_JOB_TOPIC_MISMATCH")
         if config["project"] != PROJECT or config["model"] != director.DEFAULT_MODEL or config["location"] != "global":
             raise RuntimeError("JOB_PROVIDER_CONFIGURATION_MISMATCH")
         output = job / "gemini_research_package.json"
@@ -115,7 +117,11 @@ def run_job(job: Path):
             pending_path = Path(pending)
             if not pending_path.resolve().is_relative_to((job / "cache/gemini-video-director").resolve()):
                 raise RuntimeError("REQUEST_CACHE_ESCAPES_JOB")
-            if pending_path.is_file() and isinstance(read(pending_path), dict):
+            try:
+                recovered = read(pending_path) if pending_path.is_file() else None
+            except (OSError, ValueError):
+                recovered = None
+            if isinstance(recovered, dict):
                 state["request_cache_path"] = None
                 state["successful_requests"] += 1
             else:

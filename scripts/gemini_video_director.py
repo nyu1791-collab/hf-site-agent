@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -219,13 +220,50 @@ def synthesize_item(*, client: Any, model: str, topic: str, item_title: str, ana
 def load_cached(path: Path) -> dict[str, Any] | None:
     if not path.is_file():
         return None
-    value = json.loads(path.read_text(encoding="utf-8"))
-    return value if isinstance(value, dict) else None
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise GeminiVideoDirectorError("cached_json_invalid_preserve_and_recover") from exc
+    if not isinstance(value, dict):
+        raise GeminiVideoDirectorError("cached_json_not_object_preserve_and_recover")
+    return value
+
+
+def validate_analysis(value, *, source_url, model):
+    if value.get("source_url") != source_url or value.get("model") != model:
+        raise GeminiVideoDirectorError("source_analysis_identity_mismatch")
+    if not isinstance(value.get("summary"), str) or not value["summary"].strip():
+        raise GeminiVideoDirectorError("source_analysis_summary_required")
+    for field in ("takeaways", "timestamps", "visual_beats", "script_notes", "material_limits"):
+        if not isinstance(value.get(field), list):
+            raise GeminiVideoDirectorError("source_analysis_list_required_" + field)
+
+
+def validate_synthesis(value):
+    if not isinstance(value.get("editorial_summary"), str) or not value["editorial_summary"].strip():
+        raise GeminiVideoDirectorError("synthesis_editorial_summary_required")
+    for field in ("selected_takeaways", "best_source_moments", "dialogue_plan", "scene_plan", "conflicts_or_uncertainty"):
+        if not isinstance(value.get(field), list):
+            raise GeminiVideoDirectorError("synthesis_list_required_" + field)
 
 
 def save_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    fd, temporary = tempfile.mkstemp(prefix=".checkpoint-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(value, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        descriptor = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 def _dedupe_urls(values: list[str]) -> list[str]:
@@ -313,6 +351,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             cache_path = cache_root / "sources" / f"{key}.json"
             cached = load_cached(cache_path) if not args.no_cache else None
             if cached is not None:
+                validate_analysis(cached, source_url=source_url, model=args.model)
                 analyses.append(cached)
                 cache_hits += 1
                 continue
@@ -325,12 +364,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 topic=topic,
                 item_title=item["title"],
             )
+            validate_analysis(row, source_url=source_url, model=args.model)
             analyses.append(row)
             if not args.no_cache:
                 save_json(cache_path, row)
 
-        if client is None:
-            client = create_client(project, location)
         synth_key = synthesis_cache_key(
             model=args.model,
             topic=topic,
@@ -340,8 +378,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         synth_path = cache_root / "synthesis" / f"{synth_key}.json"
         synthesis = load_cached(synth_path) if not args.no_cache else None
         if synthesis is not None:
+            validate_synthesis(synthesis)
             synthesis_cache_hits += 1
         else:
+            if client is None:
+                client = create_client(project, location)
             synthesis = synthesize_item(
                 client=client,
                 model=args.model,
@@ -349,6 +390,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 item_title=item["title"],
                 analyses=analyses,
             )
+            validate_synthesis(synthesis)
             if not args.no_cache:
                 save_json(synth_path, synthesis)
 

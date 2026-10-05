@@ -1,6 +1,7 @@
 """Content-addressed verified VOICEVOX WAV reuse; no network or synthesis."""
 from __future__ import annotations
 import hashlib
+import io
 import json
 import os
 import tempfile
@@ -23,8 +24,11 @@ def voice_cache_key(*, text, engine_version, style_id, speed_scale,
 
 
 def _wav_receipt(path):
-    data=Path(path).read_bytes()
-    with wave.open(str(path),'rb') as w:
+    return _wav_receipt_bytes(Path(path).read_bytes())
+
+
+def _wav_receipt_bytes(data):
+    with wave.open(io.BytesIO(data),'rb') as w:
         if (w.getcomptype()!='NONE' or w.getsampwidth()!=2 or w.getframerate()!=48000
                 or w.getnchannels()!=2 or w.getnframes()<=0):
             raise ValueError('nonempty 48kHz stereo PCM16 WAV required')
@@ -46,8 +50,14 @@ def _atomic_bytes(path,data):
     path.parent.mkdir(parents=True,exist_ok=True)
     fd,tmp=tempfile.mkstemp(prefix=path.name+'.partial-',dir=path.parent)
     try:
-        with os.fdopen(fd,'wb') as f:f.write(data)
+        with os.fdopen(fd,'wb') as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp,path)
+        directory=os.open(path.parent,os.O_RDONLY)
+        try:os.fsync(directory)
+        finally:os.close(directory)
     finally:
         if os.path.exists(tmp):os.unlink(tmp)
 
@@ -57,10 +67,11 @@ def restore_voice(cache_dir,key,destination):
     audio,receipt=_paths(cache_dir,key)
     try:
         stored=json.loads(receipt.read_text())
-        actual=_wav_receipt(audio)
+        data=audio.read_bytes()
+        actual=_wav_receipt_bytes(data)
         if stored!={'version':VERSION,'key':key,**actual}:return None
         # Copy verified bytes atomically; finished output is never replaced by a partial file.
-        _atomic_bytes(Path(destination),audio.read_bytes())
+        _atomic_bytes(Path(destination),data)
         return actual
     except (OSError,ValueError,EOFError,wave.Error):
         return None
@@ -68,7 +79,8 @@ def restore_voice(cache_dir,key,destination):
 
 def store_voice(cache_dir,key,source):
     audio,receipt=_paths(cache_dir,key)
-    actual=_wav_receipt(source)
-    _atomic_bytes(audio,Path(source).read_bytes())
+    data=Path(source).read_bytes()
+    actual=_wav_receipt_bytes(data)
+    _atomic_bytes(audio,data)
     _atomic_bytes(receipt,json.dumps({'version':VERSION,'key':key,**actual},sort_keys=True).encode())
     return actual

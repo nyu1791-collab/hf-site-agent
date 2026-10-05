@@ -6,16 +6,31 @@ import array
 import base64
 import gzip
 import hashlib
+import inspect
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 import time
+import tempfile
 import urllib.request
 import wave
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
+
+try:
+    from .gemini_video_director import save_json
+    from .video_build_job import build_job
+    from .synthesize_longform_voicevox import preflight_caption_metadata
+    from .render_reusable_short import character_layers
+except ImportError:
+    from gemini_video_director import save_json
+    from video_build_job import build_job
+    from synthesize_longform_voicevox import preflight_caption_metadata
+    from render_reusable_short import character_layers
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_URL = "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/"
@@ -77,20 +92,66 @@ def _diagram(path: Path, title: str, main: str, sub: str) -> None:
     im.save(path)
 
 
-def _download_official(url: str, destination: Path) -> bool:
+def _download_official(url: str, destination: Path, cache_root: Path | None = None) -> bool:
+    receipt_path = destination.with_suffix(".download.json")
+    def verified(path, receipt, *, fresh=False):
+        try:
+            data = json.loads(receipt.read_text())
+            return (data["source_url"] == url and path.is_file()
+                    and data["sha256"] == _file_sha256(path)
+                    and (not fresh or 0 <= time.time() - data["saved_at"] < 86400))
+        except (OSError, ValueError, KeyError, TypeError):
+            return False
+    if verified(destination, receipt_path):
+        return True
+    cache_path = cache_receipt = None
+    if cache_root is not None:
+        key = hashlib.sha256(url.encode()).hexdigest()
+        cache_path = cache_root / (key + ".png")
+        cache_receipt = cache_path.with_suffix(".json")
+        if verified(cache_path, cache_receipt, fresh=True):
+            _atomic_image_bytes(destination, cache_path.read_bytes())
+            save_json(receipt_path, json.loads(cache_receipt.read_text()))
+            return True
     raw = destination.with_suffix(".source")
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=30) as response:
-            raw.write_bytes(response.read(20_000_000))
+            data = response.read(20_000_001)
+            if len(data) > 20_000_000:
+                raise ValueError("official image exceeds download limit")
+            raw.write_bytes(data)
         with Image.open(raw) as im:
             im.seek(0)
-            im.convert("RGB").save(destination)
+            # Preserve a prior finished PNG if conversion is interrupted.
+            fd, temporary = tempfile.mkstemp(prefix=".official-", dir=destination.parent)
+            os.close(fd)
+            try:
+                im.convert("RGB").save(temporary, format="PNG")
+                os.replace(temporary, destination)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
+        receipt = {"source_url": url, "sha256": _file_sha256(destination), "saved_at": time.time()}
+        save_json(receipt_path, receipt)
+        if cache_path is not None:
+            _atomic_image_bytes(cache_path, destination.read_bytes())
+            save_json(cache_receipt, receipt)
         raw.unlink(missing_ok=True)
         return True
     except Exception:
         raw.unlink(missing_ok=True)
         return False
+
+
+def _atomic_image_bytes(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".official-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 def _mission_for_voice(raw: dict) -> dict:
@@ -122,7 +183,7 @@ def _mission_for_voice(raw: dict) -> dict:
     }
 
 
-def _synthesize(mission: dict, out: Path, voicevox_url: str) -> tuple[Path, Path]:
+def _synthesize(mission: dict, out: Path, voicevox_url: str, cache_root: Path) -> tuple[Path, Path]:
     packed = out / "mission.json.gz.b64"
     payload = base64.b64encode(gzip.compress(json.dumps(mission, ensure_ascii=False).encode("utf-8"), mtime=0)).decode("ascii")
     packed.write_text(payload + "\n", encoding="ascii")
@@ -134,7 +195,7 @@ def _synthesize(mission: dict, out: Path, voicevox_url: str) -> tuple[Path, Path
         "--output-dir", str(voice),
         "--timing-out", str(timing),
         "--engine", voicevox_url,
-        "--voice-cache-dir", str(out / "voice-cache" / mission["content_run_id"]),
+        "--voice-cache-dir", str(cache_root / "voicevox-wav" / mission["content_run_id"]),
         "--min-seconds", "480",
         "--max-seconds", "720",
         "--speed-scale", "1.20",
@@ -159,7 +220,7 @@ def _assemble_audio(voice: Path, timing_path: Path, destination: Path) -> dict:
     return timing
 
 
-def _prepare_visuals(raw: dict, out: Path, timing: dict) -> tuple[Path, Path]:
+def _prepare_visuals(raw: dict, out: Path, timing: dict, cache_root: Path | None = None) -> tuple[Path, Path]:
     images = out / "images"
     images.mkdir(parents=True, exist_ok=True)
     visuals = []
@@ -167,7 +228,7 @@ def _prepare_visuals(raw: dict, out: Path, timing: dict) -> tuple[Path, Path]:
     for scene in raw["scenes"]:
         sid = scene["scene_id"]
         official = images / f"{sid}-official.png"
-        downloaded = _download_official(OFFICIAL_VISUALS[sid], official)
+        downloaded = _download_official(OFFICIAL_VISUALS[sid], official, cache_root)
         if downloaded:
             visuals.append({
                 "id": f"{sid}-official",
@@ -242,16 +303,26 @@ def _prepare_visuals(raw: dict, out: Path, timing: dict) -> tuple[Path, Path]:
         "visuals": visuals,
     }
     presentation_path = out / "presentation.json"
-    presentation_path.write_text(json.dumps(presentation, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    save_json(presentation_path, presentation)
     timing_path = out / "timing.json"
-    timing_path.write_text(json.dumps(timing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    save_json(timing_path, timing)
     return presentation_path, Path(visuals[0]["file"])
 
 
 
-def _completed_job(out: Path, content_run_id: str, mission_sha256: str) -> dict | None:
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _completed_job(out: Path, content_run_id: str, mission_sha256: str, *, encoded_checkpoint: bool = False) -> dict | None:
     checkpoint = out / "completion.json"
     if not checkpoint.is_file():
+        if (out / "Gemini4_Argon_landscape.mp4").exists() and not encoded_checkpoint:
+            raise RuntimeError("MP4 exists without a completion checkpoint; preserve it and recover explicitly before encoding")
         existing = out / "mission.json"
         if existing.is_file() and json.loads(existing.read_text(encoding="utf-8")).get("content_run_id") != content_run_id:
             raise RuntimeError("output directory belongs to another content run; use a fresh directory")
@@ -264,45 +335,63 @@ def _completed_job(out: Path, content_run_id: str, mission_sha256: str) -> dict 
     output = out / "Gemini4_Argon_landscape.mp4"
     if not output.is_file() or output.stat().st_size <= 0:
         raise RuntimeError("completed-job artifact is missing; automatic re-encoding is disabled")
+    if completion.get("bytes") != output.stat().st_size or completion.get("sha256") != _file_sha256(output):
+        raise RuntimeError("completed-job artifact differs from its checkpoint; automatic re-encoding is disabled")
     return completion
 
 
-def main() -> int:
+def _build(args, job) -> int:
     total_started = time.monotonic()
-    p = argparse.ArgumentParser()
-    p.add_argument("--mission", type=Path, required=True)
-    p.add_argument("--content-run-id", required=True, help="Unique new-video ID; reuse only when resuming this job.")
-    p.add_argument("--shell-root", type=Path, required=True)
-    p.add_argument("--output-dir", type=Path, required=True)
-    p.add_argument("--voicevox-url", default="http://127.0.0.1:50021")
-    args = p.parse_args()
-
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", args.content_run_id):
-        raise RuntimeError("invalid content run ID")
     source_bytes = args.mission.read_bytes()
     mission_sha256 = hashlib.sha256(source_bytes).hexdigest()
+    if mission_sha256 != job.state["mission_sha256"]:
+        raise RuntimeError("mission changed after job registration")
     raw = json.loads(source_bytes)
     if raw.get("content_run_id", args.content_run_id) != args.content_run_id:
         raise RuntimeError("mission content run ID does not match the job")
     raw["content_run_id"] = args.content_run_id
-    completed = _completed_job(args.output_dir, args.content_run_id, mission_sha256)
+    encoded = job.reusable("FINAL_ENCODE")
+    completed = _completed_job(args.output_dir, args.content_run_id, mission_sha256, encoded_checkpoint=encoded)
     if completed is not None:
+        job.complete()
         print(json.dumps(completed, ensure_ascii=False))
         return 0
+    if encoded:
+        return _finalize(args, job, raw, mission_sha256, total_started,
+                         job.state.get("stage_seconds", {}), recovered=True)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     mission = _mission_for_voice(raw)
-    (args.output_dir / "mission.json").write_text(json.dumps(mission, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    save_json(args.output_dir / "mission.json", mission)
+    dependencies = _checkpoint_dependencies()
 
-    voice_started = time.monotonic()
-    voice, timing_path = _synthesize(mission, args.output_dir, args.voicevox_url)
     audio = args.output_dir / "audio.wav"
-    timing = _assemble_audio(voice, timing_path, audio)
-    voice_seconds = time.monotonic() - voice_started
+    voice_seconds = visual_seconds = 0.0
+    if job.reusable("PREPARATION", dependency=dependencies["PREPARATION"]):
+        timing = json.loads((args.output_dir / "timing.json").read_text())
+        presentation = args.output_dir / "presentation.json"
+        first_visual = Path(json.loads(presentation.read_text())["visuals"][0]["file"])
+    else:
+        voice_started = time.monotonic()
+        voice_timing = args.output_dir / "voice-timing.json"
+        if job.reusable("VOICE_AUDIO", dependency=dependencies["VOICE_AUDIO"]):
+            timing = json.loads(voice_timing.read_text())
+            save_json(args.output_dir / "timing.json", timing)
+        else:
+            job.stage("VOICEVOX")
+            voice, timing_path = _synthesize(mission, args.output_dir, args.voicevox_url, args.cache_root)
+            timing = _assemble_audio(voice, timing_path, audio)
+            save_json(voice_timing, timing)
+            job.checkpoint("VOICE_AUDIO", [audio, voice_timing], dependency=dependencies["VOICE_AUDIO"])
+        voice_seconds = time.monotonic() - voice_started
 
-    visual_started = time.monotonic()
-    presentation, first_visual = _prepare_visuals(raw, args.output_dir, timing)
-    visual_seconds = time.monotonic() - visual_started
+        job.stage("VISUAL_PREPARATION")
+        visual_started = time.monotonic()
+        presentation, first_visual = _prepare_visuals(raw, args.output_dir, timing, args.cache_root / "official-assets")
+        visual_seconds = time.monotonic() - visual_started
+        visual_files = [Path(row["file"]) for row in json.loads(presentation.read_text())["visuals"]]
+        job.checkpoint("PREPARATION", [audio, args.output_dir / "timing.json", presentation, *visual_files], dependency=dependencies["PREPARATION"])
 
+    job.stage("CONTENT_ADMISSION")
     subprocess.run([
         sys.executable, "scripts/validate_video_content_contract.py",
         "--policy", "config/media_speed_quality_policy.json",
@@ -313,6 +402,7 @@ def main() -> int:
     _, font_path = _font(30)
     output = args.output_dir / "Gemini4_Argon_landscape.mp4"
     render_started = time.monotonic()
+    job.stage("FINAL_ENCODE")
     subprocess.run([
         sys.executable, "scripts/render_reusable_landscape.py",
         "--audio", str(audio),
@@ -322,19 +412,32 @@ def main() -> int:
         "--visual", str(first_visual),
         "--presentation", str(presentation),
         "--output", str(output),
-        "--cache-root", str(args.output_dir / "reusable-assets"),
+        "--cache-root", str(args.cache_root / "characters"),
         "--profile", "config/approved_landscape_video_template.json",
         "--start", "0",
         "--duration", str(float(timing["total_duration"])),
     ], cwd=ROOT, check=True)
     render_seconds = time.monotonic() - render_started
+    stage_seconds = {"voice_and_audio": round(voice_seconds, 3),
+                     "visual_prep": round(visual_seconds, 3),
+                     "one_pass_render": round(render_seconds, 3)}
+    job.state["stage_seconds"] = stage_seconds
+    job.checkpoint("FINAL_ENCODE", [output])
+    return _finalize(args, job, raw, mission_sha256, total_started, stage_seconds)
 
+
+def _finalize(args, job, raw, mission_sha256, total_started, stage_seconds, *, recovered=False):
+    output = args.output_dir / "Gemini4_Argon_landscape.mp4"
+    job.stage("DELIVERY_GATE")
     probe = json.loads(subprocess.check_output([
         "ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(output)
     ], text=True))
     duration = float(probe["format"]["duration"])
     if not any(x["codec_type"] == "video" for x in probe["streams"]) or not any(x["codec_type"] == "audio" for x in probe["streams"]):
         raise RuntimeError("final MP4 lacks audio or video stream")
+    video = next(x for x in probe["streams"] if x["codec_type"] == "video")
+    if not duration > 0 or output.stat().st_size <= 0 or (video.get("width"), video.get("height")) != (1280, 720):
+        raise RuntimeError("final MP4 fails the minimum delivery gate")
     completion = {
         "status": "READY_TO_PUBLISH_INTERNAL_ONLY",
         "content_run_id": args.content_run_id,
@@ -352,18 +455,96 @@ def main() -> int:
         "fal_used": False,
         "nano_banana_required": False,
         "public_publish": False,
-        "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+        "sha256": job.state["checkpoints"]["FINAL_ENCODE"][output.name],
         "bytes": output.stat().st_size,
         "stage_seconds": {
-            "voice_and_audio": round(voice_seconds, 3),
-            "visual_prep": round(visual_seconds, 3),
-            "one_pass_render": round(render_seconds, 3),
+            **stage_seconds,
             "total": round(time.monotonic() - total_started, 3)
-        }
+        },
+        "recovered_after_encode": recovered,
     }
-    (args.output_dir / "completion.json").write_text(json.dumps(completion, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    save_json(args.output_dir / "completion.json", completion)
+    job.complete()
     print(json.dumps(completion, ensure_ascii=False))
     return 0
+
+
+def main() -> int:
+    p = argparse.ArgumentParser()
+    p.add_argument("--mission", type=Path, required=True)
+    p.add_argument("--content-run-id", required=True, help="Unique new-video ID; reuse only when resuming this job.")
+    p.add_argument("--shell-root", type=Path, required=True)
+    p.add_argument("--output-dir", type=Path, required=True)
+    p.add_argument("--voicevox-url", default="http://127.0.0.1:50021")
+    p.add_argument("--cache-root", type=Path, default=Path(os.environ.get("HF_VIDEO_CACHE_ROOT", str(Path.home() / ".cache/hf-site-agent"))))
+    p.add_argument("--preflight-only", action="store_true", help="Check local inputs without engine/API/render or job registration.")
+    args = p.parse_args()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", args.content_run_id):
+        p.error("invalid content run ID")
+    for name in ("mission", "output_dir", "shell_root", "cache_root"):
+        setattr(args, name, getattr(args, name).resolve())
+    source_bytes = args.mission.read_bytes()
+    raw = json.loads(source_bytes)
+    if raw.get("content_run_id", args.content_run_id) != args.content_run_id:
+        p.error("mission content run ID does not match the job")
+    mission_hash = hashlib.sha256(source_bytes).hexdigest()
+    if args.preflight_only:
+        _preflight_inputs(raw, args)
+        print(json.dumps({"status": "PREFLIGHT_READY", "content_run_id": args.content_run_id,
+                          "mission_sha256": mission_hash,
+                          "script_characters": sum(len(line["text"]) for scene in raw["scenes"] for line in scene["dialogue"]),
+                          "engine_called": False, "render_started": False}, ensure_ascii=False))
+        return 0
+    with build_job(args.output_dir, args.cache_root, args.content_run_id, mission_hash) as job:
+        # Finished/encoded checkpoints can be delivered without engine or shell setup.
+        if not (args.output_dir / "completion.json").exists() and not job.reusable("FINAL_ENCODE"):
+            _preflight_inputs(raw, args)
+        return _build(args, job)
+
+
+def _preflight_inputs(raw, args):
+    scenes = raw.get("scenes")
+    if not isinstance(scenes, list) or not scenes:
+        raise ValueError("source mission requires scenes")
+    ids = [scene.get("scene_id") for scene in scenes]
+    if any(not isinstance(sid, str) or sid not in OFFICIAL_VISUALS or sid not in DIAGRAMS for sid in ids):
+        raise ValueError("unsupported scene ID; configure visuals before voice generation")
+    if len(set(ids)) != len(ids):
+        raise ValueError("duplicate source scene ID")
+    preflight_caption_metadata(_mission_for_voice({**raw, "content_run_id": args.content_run_id}))
+    for tool in ("ffmpeg", "ffprobe"):
+        if shutil.which(tool) is None:
+            raise RuntimeError("required media tool missing: " + tool)
+    if any(not (args.shell_root / name).is_dir() for name in ("Zundamon", "Metan")):
+        raise ValueError("approved Zundamon/Metan shell required before voice generation")
+    for character in ("Zundamon", "Metan"):
+        fixed, mouths, expressions = character_layers(character)
+        root = args.shell_root / character
+        expected = None
+        for name in dict.fromkeys(fixed + mouths + sum(expressions.values(), [])):
+            with Image.open(root / name) as image:
+                if expected is None:
+                    expected = image.size
+                if image.size != expected:
+                    raise ValueError("native character layer sizes differ: " + character)
+    _font(30)
+
+
+_VOICE_SOURCE = "\n".join(inspect.getsource(function) for function in (_mission_for_voice, _synthesize, _assemble_audio))
+_VISUAL_SOURCE = "\n".join(inspect.getsource(function) for function in (_diagram, _prepare_visuals, _font))
+
+
+def _checkpoint_dependencies():
+    def digest(value):
+        return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    voice = digest({"code": _VOICE_SOURCE, "pronunciations": PRONUNCIATIONS,
+                    "helpers": {name: _file_sha256(ROOT / "scripts" / name) for name in (
+                        "synthesize_longform_voicevox.py", "media_voice_cache.py", "validate_video_caption_contract.py", "media_performance_plan.py")}})
+    preparation = digest({"voice": voice, "code": _VISUAL_SOURCE, "official": OFFICIAL_VISUALS,
+                          "diagrams": DIAGRAMS, "source": SOURCE_URL,
+                          "fonts": {str(_font(30, bold)[1]): _file_sha256(_font(30, bold)[1]) for bold in (False, True)},
+                          "policy": _file_sha256(ROOT / "config/media_speed_quality_policy.json")})
+    return {"VOICE_AUDIO": voice, "PREPARATION": preparation}
 
 
 if __name__ == "__main__":

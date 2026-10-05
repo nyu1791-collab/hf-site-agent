@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, base64, gzip, hashlib, json, os, re, subprocess, sys, urllib.parse, urllib.request
+import argparse, base64, gzip, hashlib, json, math, os, re, subprocess, sys, urllib.parse, urllib.request, wave
 from pathlib import Path
 
 try:
+    from .gemini_video_director import save_json
     from .media_performance_plan import validate_emphasis
     from .media_voice_cache import voice_cache_key, restore_voice, store_voice
 except ImportError:
+    from gemini_video_director import save_json
     from media_performance_plan import validate_emphasis
     from media_voice_cache import voice_cache_key, restore_voice, store_voice
 
@@ -56,8 +58,9 @@ def discover_cast(engine:str):
 
 
 def duration(path:Path):
-    out=subprocess.check_output(["ffprobe","-v","error","-show_entries","format=duration","-of","default=nw=1:nk=1",str(path)],text=True)
-    return float(out.strip())
+    # These outputs are PCM WAV; avoid one ffprobe process per spoken turn.
+    with wave.open(str(path), "rb") as audio:
+        return audio.getnframes() / audio.getframerate()
 
 
 def caption_text_for_line(mission: dict, line: dict) -> tuple[str, str]:
@@ -120,11 +123,26 @@ def preflight_caption_metadata(mission: dict) -> dict:
         from .validate_video_caption_contract import validate_shortform_emphasis
     except ImportError:
         from validate_video_caption_contract import validate_shortform_emphasis
+    if not isinstance(mission.get("mission_id"), str) or not mission["mission_id"].strip():
+        raise ValueError("mission_id required before voice generation")
+    if not isinstance(mission.get("scenes"), list) or not mission["scenes"]:
+        raise ValueError("nonempty scenes required before voice generation")
     metadata = {}
     lines = {}
     records = []
+    scene_ids = set()
     for scene in mission["scenes"]:
+        scene_id = scene.get("scene_id")
+        if not isinstance(scene_id, str) or not scene_id.strip() or scene_id in scene_ids:
+            raise ValueError("distinct nonempty scene IDs required")
+        scene_ids.add(scene_id)
+        if not isinstance(scene.get("dialogue"), list) or not scene["dialogue"]:
+            raise ValueError("nonempty scene dialogue required")
         for line in scene["dialogue"]:
+            if line.get("speaker") not in STANDARD_CAST:
+                raise ValueError("mission speaker is outside standard cast")
+            if not isinstance(line.get("voice_text"), str) or not line["voice_text"].strip():
+                raise ValueError("nonempty narration text required")
             line_id = str(line["id"])
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", line_id):
                 raise ValueError("dialogue id must be path-safe")
@@ -161,6 +179,9 @@ def main():
     ap.add_argument("--max-seconds",type=float,default=720)
     ap.add_argument("--speed-scale",type=float,default=DEFAULT_SPEED_SCALE)
     args=ap.parse_args()
+    if not (math.isfinite(args.min_seconds) and math.isfinite(args.max_seconds)
+            and 0 <= args.min_seconds <= args.max_seconds):
+        ap.error("duration bounds must be finite and satisfy 0 <= min <= max")
     if not (0.5 <= args.speed_scale <= 2.0):
         raise SystemExit(f"invalid VOICEVOX speed scale: {args.speed_scale}")
 
@@ -241,7 +262,7 @@ def main():
         "records":records,
         "total_duration":t,
         "line_count":len(records),
-        "audio_source":"VOICEVOX_LOCAL_AND_FFPROBE_ACTUAL_GENERATED_WAV",
+        "audio_source":"VOICEVOX_LOCAL_AND_PCM_WAV_HEADER_ACTUAL_GENERATED_WAV",
         "subtitle_narration_coverage_ratio":1.0,
         "caption_contract": "FULL_SPOKEN_TEXT",
         "caption_coverage_ratio": min((float(record["caption_coverage_ratio"]) for record in records), default=1.0),
@@ -253,7 +274,7 @@ def main():
         "voicevox_credit":["VOICEVOX:ずんだもん","VOICEVOX:四国めたん"],
     }
     args.timing_out.parent.mkdir(parents=True,exist_ok=True)
-    args.timing_out.write_text(json.dumps(timing,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    save_json(args.timing_out, timing)
     print(json.dumps({"line_count":len(records),"total_duration":t,"speed_scale":args.speed_scale,
         "voice_cache_hits":cache_hits,
         "voice_cache_misses":len(records)-cache_hits,
