@@ -14,6 +14,7 @@ def _inputs(root: Path) -> dict:
         "timing": "timing-v1",
         "assets": "visual-assets-v1",
         "portraits": "portrait-v1",
+        "gemini": "gemini-research-v1",
     }.items():
         path = root / f"{name}.txt"
         path.write_text(content, encoding="utf-8")
@@ -23,6 +24,7 @@ def _inputs(root: Path) -> dict:
     return {
         "mission_or_script": paths["mission"],
         "source_claim_lock": paths["sources"],
+        "gemini_research_package": paths["gemini"],
         "voice_and_pronunciation": {"script": paths["mission"].read_text(), "engine": "VOICEVOX_LOCAL"},
         "measured_audio_timing": paths["timing"],
         "caption_and_font": {"timing": paths["timing"].read_text(), "contract": "FULL_SPOKEN_TEXT"},
@@ -95,6 +97,20 @@ class MediaSpeedOrchestratorTests(unittest.TestCase):
         self.assertEqual(second["stages"]["voice_and_measured_timing"]["status"], "PENDING")
         self.assertEqual(second["stages"]["one_pass_final_encode"]["status"], "PENDING")
         self.assertTrue(second["cache"]["full_rerender_avoided"])
+
+    def test_gemini_research_change_reuses_unchanged_voice(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            inputs = _inputs(root)
+            first = _verified(plan_media_run(inputs, use_jev=False))
+            (root / "gemini.txt").write_text("gemini-research-v2", encoding="utf-8")
+            second = plan_media_run(inputs, previous_plan=first, use_jev=False)
+        self.assertIn("gemini_research_package", second["changed_components"])
+        self.assertEqual(second["stages"]["voice_and_measured_timing"]["status"], "REUSED")
+        self.assertEqual(second["stages"]["caption_overlay"]["status"], "REUSED")
+        self.assertEqual(second["stages"]["rights_verified_visual_assets"]["status"], "PENDING")
+        self.assertEqual(second["stages"]["scene_composition"]["status"], "PENDING")
+        self.assertEqual(second["stages"]["one_pass_final_encode"]["status"], "PENDING")
 
     def test_jev_typed_profile_is_admitted_but_python_keeps_final_plan(self):
         def fake_jev(**kwargs):
