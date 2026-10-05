@@ -14,7 +14,10 @@
     "default_location": "global",
     "sdk": "google-genai",
     "auto_top_up": false,
-    "public_api_key_required": false
+    "public_api_key_required": false,
+    "runtime_bootstrap": "scripts/install_gemini_video_director_runtime.sh",
+    "tested_sdk_version": "2.28.0",
+    "vm_required_iam_role": "roles/aiplatform.user"
   },
   "production_role": {
     "title": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
@@ -94,7 +97,8 @@
       "VISUAL_SOURCE_PLAN",
       "PRESENTATION_MANIFEST"
     ],
-    "renderer": "scripts/render_reusable_landscape.py"
+    "renderer": "scripts/render_reusable_landscape.py",
+    "runtime_bootstrap": "scripts/install_gemini_video_director_runtime.sh"
   },
   "boundaries": {
     "no_auto_publish": true,
