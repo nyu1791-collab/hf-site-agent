@@ -1,5 +1,9 @@
 # Video Speed Engineering Rules
 
+## Fresh content rule — user instruction, 2026-10-05
+
+Reuse the approved foundation, renderer, layout and character assets. For every new `content_run_id`, collect information again, run fresh Gemini analysis and synthesis, write a new script, and synthesize new VOICEVOX audio. All narration/research cache reuse described below applies only to recovery of the same content run. See `docs/VIDEO_FRESH_CONTENT_POLICY_20261005.md`.
+
 Effective: 2026-10-05  
 Authority: `config/media_speed_quality_policy.json`
 
