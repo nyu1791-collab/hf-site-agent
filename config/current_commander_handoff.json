@@ -95,7 +95,9 @@
     "media_small_host_policy": "config/media_small_host_policy.json",
     "media_small_host_activation": "scripts/install_gcp_small_host_services.py",
     "media_small_host_runbook": "docs/GCP_SMALL_HOST_DEPLOYMENT.md",
-    "video_speed_engineering_rules": "docs/VIDEO_SPEED_ENGINEERING_RULES.md"
+    "video_speed_engineering_rules": "docs/VIDEO_SPEED_ENGINEERING_RULES.md",
+    "vm_connectivity_recovery": "docs/VM_CONNECTIVITY_RECOVERY.md",
+    "fresh_video_content": "docs/VIDEO_FRESH_CONTENT_POLICY_20261005.md"
   },
   "peer_review_status": {
     "completed": true,
@@ -323,7 +325,16 @@
       "vm_required_iam_role": "roles/aiplatform.user"
     },
     "gemini_video_director_participates_in_creation": true,
-    "gemini_multi_youtube_per_major_item": "TARGET_3_MIN_2_WHEN_AVAILABLE_MAX_5"
+    "gemini_multi_youtube_per_major_item": "TARGET_3_MIN_2_WHEN_AVAILABLE_MAX_5",
+    "fresh_video_content": {
+      "policy": "docs/VIDEO_FRESH_CONTENT_POLICY_20261005.md",
+      "infrastructure_reuse": true,
+      "cross_video_analysis_reuse": false,
+      "cross_video_script_reuse": false,
+      "cross_video_voice_reuse": false,
+      "cache_namespace": "content_run_id",
+      "same_job_successful_checkpoint_resume": true
+    }
   },
   "legacy_cleanup_fixed_rules": {
     "legacy_registry": "config/legacy_deepseek_compatibility.json",
@@ -737,5 +748,17 @@
     "adc_only": true,
     "vm_required_iam_role": "roles/aiplatform.user",
     "no_iam_billing_secret_publish_or_merge_authority": true
+  },
+  "execution_owner_override": {
+    "effective_date_jst": "2026-10-05",
+    "user_directed": true,
+    "code_specialist": "Codex 6.1 Sol",
+    "commander_scope": [
+      "OPERATIONS",
+      "FACT_CHECK",
+      "CONFIGURATION_REVIEW",
+      "RESULT_INTEGRATION"
+    ],
+    "single_code_writer": true
   }
 }
