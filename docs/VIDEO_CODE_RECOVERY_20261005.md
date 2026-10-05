@@ -78,11 +78,11 @@ completed media were preserved. No render was started on the small VM.
 
 Shared cache: `/home/n_yu1791/.cache/hf-site-agent`.
 Runtime pointer: `~/.local/state/hf-site-agent/video-runtime.json`.
-Latest installed runtime (2026-10-05 11:16 UTC):
-`3cca7d0b78c1f744cbadcf024dc4e7703ef0cba2`, at
-`/home/n_yu1791/hf-site-agent-runs/speed-runtime-3cca7d0b78c1f744cbadcf024dc4e7703ef0cba2/code`.
-Independent VM [Run37301819245](https://github.com/nyu1791-collab/-hf-vm-control/actions/runs/37301819245)
-passed 37 relevant tests and confirmed resident VOICEVOX readiness. The pointer
+Latest installed runtime (2026-10-05 11:33 UTC):
+`ffa5041d9d2119d4e9316c3795c582886572c233`, at
+`/home/n_yu1791/hf-site-agent-runs/speed-runtime-ffa5041d9d2119d4e9316c3795c582886572c233/code`.
+Independent VM [Run37303617047](https://github.com/nyu1791-collab/-hf-vm-control/actions/runs/37303617047)
+passed 45 relevant tests and confirmed resident VOICEVOX readiness. The pointer
 now selects this revision; previous runtime worktrees were retained.
 For new production explicitly select that pinned code; installing a worktree
 does not change existing running processes or the canonical branch's workflow.
@@ -158,3 +158,9 @@ One cold/warm experiment used synthetic 1024×1024 RGBA native layers, nine vari
 cold 1.0592 seconds / 38 source-layer loads, warm 0.1582 seconds / zero source-layer
 loads; output pixels were identical. This is a cache-component experiment, not
 a real-video production-time claim. Related tests: 96 PASS.
+
+A separate one-run-each comparison used the previous implementation against the
+new implementation on the same warm cache: legacy 0.2497 seconds / six source-layer
+loads, current 0.1139 seconds / zero loads. Pixels and legacy cache keys matched.
+These component results support skipping the unnecessary fixed-body composite;
+they do not establish the end-to-end five-minute production target.
