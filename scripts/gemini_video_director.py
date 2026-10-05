@@ -115,13 +115,21 @@ def analyze_one(*, client: Any, model: str, source_url: str, topic: str) -> dict
         from google.genai.types import Part
     except Exception as exc:
         raise GeminiVideoDirectorError("google_genai_types_unavailable") from exc
-    response = client.models.generate_content(
-        model=model,
-        contents=[
-            Part.from_uri(file_uri=source_url, mime_type="video/mp4"),
-            build_prompt(topic),
-        ],
-    )
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=[
+                Part.from_uri(file_uri=source_url, mime_type="video/mp4"),
+                build_prompt(topic),
+            ],
+        )
+    except Exception as exc:
+        # Keep provider response bodies, credentials, and troubleshooting URLs
+        # out of routine logs. The caller only needs a stable failure class;
+        # verified web-source fallback remains available upstream.
+        raise GeminiVideoDirectorError(
+            "gemini_provider_request_failed_" + type(exc).__name__
+        ) from exc
     text = str(getattr(response, "text", "") or "")
     if not text:
         raise GeminiVideoDirectorError("gemini_empty_response")
