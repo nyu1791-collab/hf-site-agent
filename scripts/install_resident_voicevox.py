@@ -51,8 +51,10 @@ def install():
     instance = command(["curl", "--noproxy", "*", "-fsS", "--max-time", "3", "-H", "Metadata-Flavor: Google", "http://metadata.google.internal/computeMetadata/v1/instance/name"]).stdout.strip()
     if instance != "instance-20261001-071545":
         raise RuntimeError("TARGET_VM_MISMATCH")
-    swap = command(["swapon", "--show=NAME,SIZE", "--bytes", "--noheadings", "--raw"]).stdout
-    if not any(row.split()[0] == "/hf-connectivity.swap" and int(row.split()[1]) >= 2147483648 for row in swap.splitlines() if len(row.split()) >= 2):
+    swap = command(["/usr/sbin/swapon", "--show=NAME,SIZE", "--bytes", "--noheadings", "--raw"]).stdout
+    # The first page is the swap header and is excluded from reported usable size.
+    minimum_usable_swap = 2147483648 - os.sysconf("SC_PAGE_SIZE")
+    if not any(row.split()[0] == "/hf-connectivity.swap" and int(row.split()[1]) >= minimum_usable_swap for row in swap.splitlines() if len(row.split()) >= 2):
         raise RuntimeError("MEMORY_GUARD_REQUIRED_FIRST")
     if not os.access(ENGINE / "run", os.X_OK):
         raise RuntimeError("EXISTING_ENGINE_REQUIRED")
