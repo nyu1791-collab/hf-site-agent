@@ -17,6 +17,11 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+try:
+    from .gemini_video_director import save_json
+except ImportError:
+    from gemini_video_director import save_json
+
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_URL = "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/"
 OFFICIAL_VISUALS = {
@@ -249,9 +254,19 @@ def _prepare_visuals(raw: dict, out: Path, timing: dict) -> tuple[Path, Path]:
 
 
 
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _completed_job(out: Path, content_run_id: str, mission_sha256: str) -> dict | None:
     checkpoint = out / "completion.json"
     if not checkpoint.is_file():
+        if (out / "Gemini4_Argon_landscape.mp4").exists():
+            raise RuntimeError("MP4 exists without a completion checkpoint; preserve it and recover explicitly before encoding")
         existing = out / "mission.json"
         if existing.is_file() and json.loads(existing.read_text(encoding="utf-8")).get("content_run_id") != content_run_id:
             raise RuntimeError("output directory belongs to another content run; use a fresh directory")
@@ -264,6 +279,8 @@ def _completed_job(out: Path, content_run_id: str, mission_sha256: str) -> dict 
     output = out / "Gemini4_Argon_landscape.mp4"
     if not output.is_file() or output.stat().st_size <= 0:
         raise RuntimeError("completed-job artifact is missing; automatic re-encoding is disabled")
+    if completion.get("bytes") != output.stat().st_size or completion.get("sha256") != _file_sha256(output):
+        raise RuntimeError("completed-job artifact differs from its checkpoint; automatic re-encoding is disabled")
     return completion
 
 
@@ -276,6 +293,9 @@ def main() -> int:
     p.add_argument("--output-dir", type=Path, required=True)
     p.add_argument("--voicevox-url", default="http://127.0.0.1:50021")
     args = p.parse_args()
+    args.mission = args.mission.resolve()
+    args.output_dir = args.output_dir.resolve()
+    args.shell_root = args.shell_root.resolve()
 
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", args.content_run_id):
         raise RuntimeError("invalid content run ID")
@@ -291,7 +311,7 @@ def main() -> int:
         return 0
     args.output_dir.mkdir(parents=True, exist_ok=True)
     mission = _mission_for_voice(raw)
-    (args.output_dir / "mission.json").write_text(json.dumps(mission, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    save_json(args.output_dir / "mission.json", mission)
 
     voice_started = time.monotonic()
     voice, timing_path = _synthesize(mission, args.output_dir, args.voicevox_url)
@@ -335,6 +355,9 @@ def main() -> int:
     duration = float(probe["format"]["duration"])
     if not any(x["codec_type"] == "video" for x in probe["streams"]) or not any(x["codec_type"] == "audio" for x in probe["streams"]):
         raise RuntimeError("final MP4 lacks audio or video stream")
+    video = next(x for x in probe["streams"] if x["codec_type"] == "video")
+    if not duration > 0 or output.stat().st_size <= 0 or (video.get("width"), video.get("height")) != (1280, 720):
+        raise RuntimeError("final MP4 fails the minimum delivery gate")
     completion = {
         "status": "READY_TO_PUBLISH_INTERNAL_ONLY",
         "content_run_id": args.content_run_id,
@@ -352,7 +375,7 @@ def main() -> int:
         "fal_used": False,
         "nano_banana_required": False,
         "public_publish": False,
-        "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+        "sha256": _file_sha256(output),
         "bytes": output.stat().st_size,
         "stage_seconds": {
             "voice_and_audio": round(voice_seconds, 3),
@@ -361,7 +384,7 @@ def main() -> int:
             "total": round(time.monotonic() - total_started, 3)
         }
     }
-    (args.output_dir / "completion.json").write_text(json.dumps(completion, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    save_json(args.output_dir / "completion.json", completion)
     print(json.dumps(completion, ensure_ascii=False))
     return 0
 

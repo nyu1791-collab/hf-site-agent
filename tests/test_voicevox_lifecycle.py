@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class VoicevoxLifecycleTests(unittest.TestCase):
-    def run_wrapper(self, *, borrowed=False, failure=False):
+    def run_wrapper(self, *, borrowed=False, failure=False, missing_engine=False, automatic_threads=False):
         with tempfile.TemporaryDirectory() as directory:
             temp = Path(directory)
 
@@ -20,12 +20,16 @@ class VoicevoxLifecycleTests(unittest.TestCase):
 
             executable("curl", '#!/bin/bash\n[[ "$BORROWED" == 1 || -f "$PID_FILE" ]]\n')
             executable("python3", "#!/bin/bash\ncat >/dev/null\nexit 0\n")
+            executable("getconf", "#!/bin/bash\nprintf '32\\n'\n")
             executable("run", '#!/bin/bash\nprintf "%s" "$$" > "$PID_FILE"\nprintf "%s" "$VV_CPU_NUM_THREADS" > "$THREADS_FILE"\nwhile true; do sleep 0.1; done\n')
             env = dict(os.environ, PATH=str(temp) + ":" + os.environ["PATH"],
-                       VOICEVOX_ENGINE_DIR=str(temp), VOICEVOX_REMOTE_TUNNEL="0",
+                       VOICEVOX_ENGINE_DIR=str(temp / "missing" if missing_engine else temp), VOICEVOX_REMOTE_TUNNEL="0",
                        VOICEVOX_URL="http://127.0.0.1:50021",
                        PID_FILE=str(temp / "engine.pid"), THREADS_FILE=str(temp / "threads"),
                        BORROWED=str(int(borrowed)))
+            env.pop("VV_CPU_NUM_THREADS", None)
+            if not automatic_threads:
+                env["VV_CPU_NUM_THREADS"] = "1"
             result = subprocess.run(
                 ["bash", str(ROOT / "scripts/with_local_voicevox.sh"), "--", "/bin/bash", "-c",
                  "exit 7" if failure else "exit 0"],
@@ -36,7 +40,7 @@ class VoicevoxLifecycleTests(unittest.TestCase):
                 self.assertFalse(pidfile.exists(), "must not launch another engine")
             else:
                 self.assertTrue(pidfile.exists())
-                self.assertEqual((temp / "threads").read_text(), "1")
+                self.assertEqual((temp / "threads").read_text(), "4" if automatic_threads else "1")
                 with self.assertRaises(ProcessLookupError):
                     os.kill(int(pidfile.read_text()), 0)
 
@@ -48,6 +52,12 @@ class VoicevoxLifecycleTests(unittest.TestCase):
 
     def test_available_engine_is_reused(self):
         self.run_wrapper(borrowed=True)
+
+    def test_resident_engine_needs_no_local_engine_directory(self):
+        self.run_wrapper(borrowed=True, missing_engine=True)
+
+    def test_automatic_cpu_threads_are_capped_at_four(self):
+        self.run_wrapper(automatic_threads=True)
 
 
 if __name__ == "__main__":

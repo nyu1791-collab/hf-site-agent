@@ -51,15 +51,14 @@ elif [[ "$BASE_URL" != "http://127.0.0.1:50021" ]]; then
   exit 2
 fi
 
-if [[ "$REMOTE_TUNNEL" != "1" && ! -x "$ENGINE_DIR/run" ]]; then
-  echo "Local VOICEVOX Engine executable not found at $ENGINE_DIR/run" >&2
-  echo "Set VOICEVOX_ENGINE_DIR, or configure an SSH loopback tunnel." >&2
-  exit 2
-fi
-
 if ! curl --silent --show-error --fail --max-time 2 "$BASE_URL/version" >/dev/null 2>&1; then
   if [[ "$REMOTE_TUNNEL" == "1" ]]; then
     echo "Remote VOICEVOX tunnel is unavailable; leaving the job queued for retry." >&2
+    exit 2
+  fi
+  if [[ ! -x "$ENGINE_DIR/run" ]]; then
+    echo "Local VOICEVOX Engine executable not found at $ENGINE_DIR/run" >&2
+    echo "Set VOICEVOX_ENGINE_DIR, or configure an SSH loopback tunnel." >&2
     exit 2
   fi
   ENGINE_LOG="${TMPDIR:-/tmp}/voicevox-engine-$$.log"

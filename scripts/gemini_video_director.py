@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -225,7 +226,21 @@ def load_cached(path: Path) -> dict[str, Any] | None:
 
 def save_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    fd, temporary = tempfile.mkstemp(prefix=".checkpoint-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(value, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        descriptor = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 def _dedupe_urls(values: list[str]) -> list[str]:
@@ -329,8 +344,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             if not args.no_cache:
                 save_json(cache_path, row)
 
-        if client is None:
-            client = create_client(project, location)
         synth_key = synthesis_cache_key(
             model=args.model,
             topic=topic,
@@ -342,6 +355,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if synthesis is not None:
             synthesis_cache_hits += 1
         else:
+            if client is None:
+                client = create_client(project, location)
             synthesis = synthesize_item(
                 client=client,
                 model=args.model,
