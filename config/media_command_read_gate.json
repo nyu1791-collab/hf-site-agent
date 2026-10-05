@@ -399,7 +399,8 @@
       "STATIC_PREFLIGHT_BEFORE_APT_DOCKER_VOICEVOX_OR_RENDER",
       "ONE_FINAL_VIDEO_ENCODE_NO_PER_SCENE_H264_FAST_PATH",
       "USE_GEMINI_3_8_FLASH_AS_VIDEO_RESEARCH_EDITORIAL_DIRECTOR_WHEN_YOUTUBE_OR_MULTIMODAL_SOURCE_UNDERSTANDING_MATERIALLY_HELPS",
-      "GEMINI_3_8_FLASH_PARTICIPATES_IN_YOUTUBE_OR_CURRENT_VIDEO_RESEARCH_AND_EDITORIAL_SYNTHESIS_WHEN_ADC_RUNTIME_IS_AVAILABLE"
+      "GEMINI_3_8_FLASH_PARTICIPATES_IN_YOUTUBE_OR_CURRENT_VIDEO_RESEARCH_AND_EDITORIAL_SYNTHESIS_WHEN_ADC_RUNTIME_IS_AVAILABLE",
+      "GEMINI_MULTI_YOUTUBE_RESEARCH_AND_EDITORIAL_PRODUCTION_STAGE"
     ],
     "editorial_authority": "config/media_speed_quality_policy.json#/script_clarity_contract",
     "visual_authority": "config/media_speed_quality_policy.json#/visual_density_contract",
@@ -436,6 +437,23 @@
     "participates_in_video_creation": true,
     "one_youtube_url_per_request": true,
     "default_parallelism": "SEQUENTIAL; DO_NOT_SWARM_YOUTUBE_URLS",
-    "fallback": "OFFICIAL_WEB_SOURCES_AND_EXISTING_PIPELINE_WHEN_FACTS_ARE_VERIFIED"
+    "fallback": "OFFICIAL_WEB_SOURCES_AND_EXISTING_PIPELINE_WHEN_FACTS_ARE_VERIFIED",
+    "production_stage": true,
+    "broad_video_workspace_authority": true,
+    "per_major_item_youtube_min_when_available": 2,
+    "per_major_item_youtube_target": 3,
+    "per_major_item_youtube_max": 5,
+    "one_url_per_request": true,
+    "synthesis_after_item_sources": true,
+    "required_outputs": [
+      "SOURCE_MANIFEST",
+      "MISSION_SCRIPT",
+      "DIALOGUE_DRAFT",
+      "SCENE_PLAN",
+      "VISUAL_SOURCE_PLAN",
+      "PRESENTATION_MANIFEST"
+    ],
+    "not_a_review_pass": true,
+    "fallback_if_unavailable": "OFFICIAL_WEB_SOURCES_AND_EXISTING_PIPELINE_WHEN_MATERIAL_FACTS_VERIFIED"
   }
 }
