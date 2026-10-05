@@ -119,3 +119,21 @@ Audit and strengthen:
 10. Never infer clip reuse rights from YouTube accessibility or timestamps.
 
 Acceptance target: Gemini materially improves source selection/script/visual mapping while the complete 8–12 minute video path remains targeted at <=5 minutes wall-clock with warm caches.
+
+
+### Multi-YouTube Gemini foundation acceptance
+
+Codex 6.1 Sol must treat the following as required production architecture:
+
+1. Gemini 3.8 Flash is the Research & Editorial Director for YouTube/current-video work.
+2. Each major editorial item targets 3 distinct YouTube videos, minimum 2 when available, maximum 5.
+3. The provider contract remains one YouTube URL per request.
+4. Per-source analysis is content-addressed and cached.
+5. After the source analyses, one Gemini synthesis per item produces takeaways, dialogue direction, scene plan and visual assignment.
+6. The Gemini package must feed SOURCE_MANIFEST, MISSION_SCRIPT, DIALOGUE_DRAFT, SCENE_PLAN, VISUAL_SOURCE_PLAN and PRESENTATION_MANIFEST.
+7. Unchanged Gemini research must never be rerun because VOICEVOX, renderer, upload or final probe failed.
+8. Default execution remains one lane; no routine multi-URL swarm.
+9. Gemini gets broad video-workspace authority but no IAM/billing/secrets/publication/main-merge authority.
+10. Add regression coverage for source-plan grouping, 5-source cap, one-URL-per-request behavior, caching and clean fallback.
+
+Codex should optimize the handoff from Gemini research package into the existing mission/presentation builders rather than introducing a second parallel video pipeline.
