@@ -722,7 +722,8 @@
     "gemini_video_director_survives_tab_change": true,
     "gemini_youtube_understanding_is_video_production_capability": true,
     "gemini_youtube_understanding_is_video_creation_capability": true,
-    "gemini_youtube_analysis_does_not_grant_reuse_rights": true
+    "gemini_youtube_analysis_does_not_grant_reuse_rights": true,
+    "youtube_relevant_video_uses_gemini_when_runtime_available": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",
