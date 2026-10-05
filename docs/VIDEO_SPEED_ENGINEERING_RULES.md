@@ -89,6 +89,14 @@ Speed rules:
 Runtime: `scripts/gemini_video_director.py`.
 Policy: `config/gemini_video_director_policy.json`.
 
+## Gemini production lane
+
+Gemini 3.8 Flash is the default judgmental **research + editorial direction** stage for YouTube-relevant video tasks when its authorized Google Cloud runtime is available. Use its native video understanding to avoid manual transcript/screenshot inspection where possible. Ask it for timestamps, demos, visual beats, 3–5 takeaways, script notes and material limits in one compact structured output.
+
+This does not increase routine parallelism. Default remains one execution lane. Multiple YouTube videos are processed one URL per request and merged deterministically; only use a second independent preparation lane when the normal >=10 second expected wall-clock saving rule is met. Cache Gemini analysis by model + URL + topic + prompt version and reuse it before another paid/cloud call.
+
+Gemini is part of production, not an optional review pass. Do not invoke it again merely to critique a completed video.
+
 ## Agent use
 
 Code agents/Codex are for static optimization, tests, profiling, and simplifying the critical path. They must not add:
