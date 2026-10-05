@@ -107,3 +107,10 @@ Code agents/Codex are for static optimization, tests, profiling, and simplifying
 - frame-perfect polish loops.
 
 The success metric is **time to a correct, watchable MP4**, not worker count.
+
+
+### Multi-source Gemini budget
+
+Gemini's broader production role must not recreate the old over-parallelized pipeline. For each major item, target 3 distinct YouTube videos, cap at 5, send one URL per request, and reuse cached source analyses before any new cloud call. After the per-source analyses, perform one compact Gemini item synthesis that produces dialogue/scene/visual decisions.
+
+Default execution remains one lane. Do not fan out five Gemini calls concurrently merely because five URLs exist. The existing second-lane rule still applies: only use a second independent lane when measured/expected wall-clock gain is at least 10 seconds and there is no shared-state contention.
