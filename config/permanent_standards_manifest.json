@@ -172,7 +172,8 @@
       "runtime": "scripts/gemini_video_director.py",
       "validator": "tests/test_gemini_video_director.py",
       "priority": 0,
-      "purpose": "FORMAL_GEMINI_3_8_FLASH_YOUTUBE_VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR_FOR_VIDEO_PRODUCTION"
+      "purpose": "FORMAL_GEMINI_3_8_FLASH_YOUTUBE_VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR_FOR_VIDEO_PRODUCTION",
+      "runtime_bootstrap": "scripts/install_gemini_video_director_runtime.sh"
     },
     {
       "id": "media-speed-quality",
@@ -481,7 +482,8 @@
     "gemini_video_director_policy": "config/gemini_video_director_policy.json",
     "gemini_video_director_runtime": "scripts/gemini_video_director.py",
     "gemini_video_director_doc": "docs/GEMINI_VIDEO_DIRECTOR.md",
-    "gemini_video_director_guide": "docs/GEMINI_VIDEO_DIRECTOR.md"
+    "gemini_video_director_guide": "docs/GEMINI_VIDEO_DIRECTOR.md",
+    "gemini_video_director_runtime_bootstrap": "scripts/install_gemini_video_director_runtime.sh"
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
