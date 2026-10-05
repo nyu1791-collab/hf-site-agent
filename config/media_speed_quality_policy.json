@@ -554,7 +554,9 @@
       "do_not_redownload_verified_character_shell": true,
       "reuse_content_addressed_voicevox_wav": true,
       "reuse_verified_visual_assets": true,
-      "reuse_character_variant_cache": true
+      "reuse_character_variant_cache": true,
+      "voicevox_wav_cache_scope": "SAME_CONTENT_RUN_ID_ONLY",
+      "new_video_requires_fresh_voicevox_synthesis": true
     },
     "render_rules": {
       "one_final_video_encode": true,
@@ -575,7 +577,7 @@
     "agent_rules": {
       "no_multi_agent_review_on_critical_path": true,
       "no_parallel_agents_editing_same_video_files": true,
-      "codex_or_code_agent_scope": "STATIC_CODE_OPTIMIZATION_AND_TESTS_ONLY; DO_NOT ADD_REVIEW_PASSES_OR_EXTRA_RUNTIME_SERVICES"
+      "codex_or_code_agent_scope": "USER_AUTHORIZED_CODE_FIXES_AND_TESTS; SINGLE_WRITER; NO_DUPLICATE_MEDIA_REVIEW"
     }
   },
   "measured_video_review_findings_20261005": {
@@ -632,5 +634,6 @@
     "scoped_google_cloud_billing_authorized_by_user": true,
     "auto_top_up": false,
     "failure_action": "CONTINUE_IF_MATERIAL_FACTS_ARE_VERIFIED_ELSEWHERE"
-  }
+  },
+  "fresh_content_policy": "docs/VIDEO_FRESH_CONTENT_POLICY_20261005.md"
 }
