@@ -41,6 +41,29 @@
       "runtime": "scripts/media_news_pipeline.py"
     },
     {
+      "task_type": "GEMINI_VIDEO_DIRECTOR",
+      "primary_provider": "google_vertex_gemini",
+      "primary_model": "gemini-3.8-flash",
+      "primary_cost_class": "USER_AUTHORIZED_GOOGLE_CLOUD_VIDEO_RESEARCH_SCOPE",
+      "fallback_provider": "LOCAL_OR_CHATGPT_EXISTING_MEDIA_PIPELINE",
+      "fallback_model": null,
+      "fallback_cost_class": "NO_AUTOMATIC_PAID_FALLBACK",
+      "api_key_envs": [],
+      "auth": "APPLICATION_DEFAULT_CREDENTIALS",
+      "retry": "reuse cache first; bounded provider retry only; never repeat successful YouTube analysis after downstream failure",
+      "timeout_seconds": {
+        "per_youtube_analysis": 180
+      },
+      "max_concurrency": "default 1; max 2 only when independent and >=10s expected wall-clock savings",
+      "queue_behavior": "one YouTube URL per request; merge structured research packages deterministically before mission lock",
+      "unknown_result_behavior": "continue with verified official web sources when sufficient; otherwise keep research stage blocked without paid substitution",
+      "no_fallback_action": "CONTINUE_VERIFIED_EXISTING_MEDIA_PIPELINE_OR_BLOCK_RESEARCH",
+      "policy": "config/gemini_video_director_policy.json",
+      "runtime": "scripts/gemini_video_director.py",
+      "auto_top_up": false,
+      "public_publish": false
+    },
+    {
       "task_type": "OPENROUTER_WORKER",
       "primary_provider": "openrouter",
       "primary_model": "DYNAMIC_SAME_RUN_FREE_ACTIVE",
