@@ -480,7 +480,8 @@
     "approved_landscape_video_template": "config/approved_landscape_video_template.json",
     "gemini_video_director_policy": "config/gemini_video_director_policy.json",
     "gemini_video_director_runtime": "scripts/gemini_video_director.py",
-    "gemini_video_director_doc": "docs/GEMINI_VIDEO_DIRECTOR.md"
+    "gemini_video_director_doc": "docs/GEMINI_VIDEO_DIRECTOR.md",
+    "gemini_video_director_guide": "docs/GEMINI_VIDEO_DIRECTOR.md"
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
@@ -719,7 +720,9 @@
     "video_speed_engineering_rules_survive_tab_change": true,
     "video_parallelism_defaults_to_one_lane": true,
     "gemini_video_director_survives_tab_change": true,
-    "gemini_youtube_understanding_is_video_production_capability": true
+    "gemini_youtube_understanding_is_video_production_capability": true,
+    "gemini_youtube_understanding_is_video_creation_capability": true,
+    "gemini_youtube_analysis_does_not_grant_reuse_rights": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",
