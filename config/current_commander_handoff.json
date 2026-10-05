@@ -318,7 +318,9 @@
       "youtube_video_understanding": true,
       "one_url_per_request": true,
       "participates_in_script_and_visual_planning": true,
-      "not_an_extra_review_pass": true
+      "not_an_extra_review_pass": true,
+      "runtime_bootstrap": "scripts/install_gemini_video_director_runtime.sh",
+      "vm_required_iam_role": "roles/aiplatform.user"
     }
   },
   "legacy_cleanup_fixed_rules": {
