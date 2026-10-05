@@ -31,6 +31,19 @@ gate. Those implementations and the successful renderer are preserved.
 - A healthy VOICEVOX endpoint can be reused without a local Engine executable.
   Thread auto-selection remains capped at four; the resident small-VM service's
   existing explicit one-thread configuration is unchanged.
+- The builder persists `STATE.json` and hashes successful audio/timing/visual
+  preparation. Resume after downstream admission failure skips synthesis and
+  downloads when those hashes match. Different job/mission input is rejected.
+- Output and shared-worker flock locks prevent duplicate writers and competing
+  heavy jobs. Shared cache defaults to `~/.cache/hf-site-agent`, configurable with
+  `HF_VIDEO_CACHE_ROOT` or `--cache-root`; WAVs remain job-scoped and character
+  composition cache is shared across worktrees.
+- PCM WAV duration is measured from its header instead of launching ffprobe for
+  every spoken turn.
+- The cloud workflow now supplies the required job ID, rejects invalid mission
+  paths before runtime bootstrap, uses the neutral output name, has no external
+  `/usr/bin/time` dependency and never cancels an active build to start another.
+  Finished MP4 upload uses zero compression and 30-day retention.
 
 ## Deployment limits
 

@@ -7,6 +7,7 @@ import base64
 import gzip
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -19,8 +20,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 try:
     from .gemini_video_director import save_json
+    from .video_build_job import build_job
 except ImportError:
     from gemini_video_director import save_json
+    from video_build_job import build_job
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_URL = "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/"
@@ -127,7 +130,7 @@ def _mission_for_voice(raw: dict) -> dict:
     }
 
 
-def _synthesize(mission: dict, out: Path, voicevox_url: str) -> tuple[Path, Path]:
+def _synthesize(mission: dict, out: Path, voicevox_url: str, cache_root: Path) -> tuple[Path, Path]:
     packed = out / "mission.json.gz.b64"
     payload = base64.b64encode(gzip.compress(json.dumps(mission, ensure_ascii=False).encode("utf-8"), mtime=0)).decode("ascii")
     packed.write_text(payload + "\n", encoding="ascii")
@@ -139,7 +142,7 @@ def _synthesize(mission: dict, out: Path, voicevox_url: str) -> tuple[Path, Path
         "--output-dir", str(voice),
         "--timing-out", str(timing),
         "--engine", voicevox_url,
-        "--voice-cache-dir", str(out / "voice-cache" / mission["content_run_id"]),
+        "--voice-cache-dir", str(cache_root / "voicevox-wav" / mission["content_run_id"]),
         "--min-seconds", "480",
         "--max-seconds", "720",
         "--speed-scale", "1.20",
@@ -247,9 +250,9 @@ def _prepare_visuals(raw: dict, out: Path, timing: dict) -> tuple[Path, Path]:
         "visuals": visuals,
     }
     presentation_path = out / "presentation.json"
-    presentation_path.write_text(json.dumps(presentation, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    save_json(presentation_path, presentation)
     timing_path = out / "timing.json"
-    timing_path.write_text(json.dumps(timing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    save_json(timing_path, timing)
     return presentation_path, Path(visuals[0]["file"])
 
 
@@ -284,21 +287,8 @@ def _completed_job(out: Path, content_run_id: str, mission_sha256: str) -> dict 
     return completion
 
 
-def main() -> int:
+def _build(args, job) -> int:
     total_started = time.monotonic()
-    p = argparse.ArgumentParser()
-    p.add_argument("--mission", type=Path, required=True)
-    p.add_argument("--content-run-id", required=True, help="Unique new-video ID; reuse only when resuming this job.")
-    p.add_argument("--shell-root", type=Path, required=True)
-    p.add_argument("--output-dir", type=Path, required=True)
-    p.add_argument("--voicevox-url", default="http://127.0.0.1:50021")
-    args = p.parse_args()
-    args.mission = args.mission.resolve()
-    args.output_dir = args.output_dir.resolve()
-    args.shell_root = args.shell_root.resolve()
-
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", args.content_run_id):
-        raise RuntimeError("invalid content run ID")
     source_bytes = args.mission.read_bytes()
     mission_sha256 = hashlib.sha256(source_bytes).hexdigest()
     raw = json.loads(source_bytes)
@@ -307,22 +297,34 @@ def main() -> int:
     raw["content_run_id"] = args.content_run_id
     completed = _completed_job(args.output_dir, args.content_run_id, mission_sha256)
     if completed is not None:
+        job.complete()
         print(json.dumps(completed, ensure_ascii=False))
         return 0
     args.output_dir.mkdir(parents=True, exist_ok=True)
     mission = _mission_for_voice(raw)
     save_json(args.output_dir / "mission.json", mission)
 
-    voice_started = time.monotonic()
-    voice, timing_path = _synthesize(mission, args.output_dir, args.voicevox_url)
     audio = args.output_dir / "audio.wav"
-    timing = _assemble_audio(voice, timing_path, audio)
-    voice_seconds = time.monotonic() - voice_started
+    voice_seconds = visual_seconds = 0.0
+    if job.reusable("PREPARATION"):
+        timing = json.loads((args.output_dir / "timing.json").read_text())
+        presentation = args.output_dir / "presentation.json"
+        first_visual = Path(json.loads(presentation.read_text())["visuals"][0]["file"])
+    else:
+        job.stage("VOICEVOX")
+        voice_started = time.monotonic()
+        voice, timing_path = _synthesize(mission, args.output_dir, args.voicevox_url, args.cache_root)
+        timing = _assemble_audio(voice, timing_path, audio)
+        voice_seconds = time.monotonic() - voice_started
 
-    visual_started = time.monotonic()
-    presentation, first_visual = _prepare_visuals(raw, args.output_dir, timing)
-    visual_seconds = time.monotonic() - visual_started
+        job.stage("VISUAL_PREPARATION")
+        visual_started = time.monotonic()
+        presentation, first_visual = _prepare_visuals(raw, args.output_dir, timing)
+        visual_seconds = time.monotonic() - visual_started
+        visual_files = [Path(row["file"]) for row in json.loads(presentation.read_text())["visuals"]]
+        job.checkpoint("PREPARATION", [audio, args.output_dir / "timing.json", presentation, *visual_files])
 
+    job.stage("CONTENT_ADMISSION")
     subprocess.run([
         sys.executable, "scripts/validate_video_content_contract.py",
         "--policy", "config/media_speed_quality_policy.json",
@@ -333,6 +335,7 @@ def main() -> int:
     _, font_path = _font(30)
     output = args.output_dir / "Gemini4_Argon_landscape.mp4"
     render_started = time.monotonic()
+    job.stage("FINAL_ENCODE")
     subprocess.run([
         sys.executable, "scripts/render_reusable_landscape.py",
         "--audio", str(audio),
@@ -342,13 +345,14 @@ def main() -> int:
         "--visual", str(first_visual),
         "--presentation", str(presentation),
         "--output", str(output),
-        "--cache-root", str(args.output_dir / "reusable-assets"),
+        "--cache-root", str(args.cache_root / "characters"),
         "--profile", "config/approved_landscape_video_template.json",
         "--start", "0",
         "--duration", str(float(timing["total_duration"])),
     ], cwd=ROOT, check=True)
     render_seconds = time.monotonic() - render_started
 
+    job.stage("DELIVERY_GATE")
     probe = json.loads(subprocess.check_output([
         "ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(output)
     ], text=True))
@@ -385,8 +389,31 @@ def main() -> int:
         }
     }
     save_json(args.output_dir / "completion.json", completion)
+    job.complete()
     print(json.dumps(completion, ensure_ascii=False))
     return 0
+
+
+def main() -> int:
+    p = argparse.ArgumentParser()
+    p.add_argument("--mission", type=Path, required=True)
+    p.add_argument("--content-run-id", required=True, help="Unique new-video ID; reuse only when resuming this job.")
+    p.add_argument("--shell-root", type=Path, required=True)
+    p.add_argument("--output-dir", type=Path, required=True)
+    p.add_argument("--voicevox-url", default="http://127.0.0.1:50021")
+    p.add_argument("--cache-root", type=Path, default=Path(os.environ.get("HF_VIDEO_CACHE_ROOT", str(Path.home() / ".cache/hf-site-agent"))))
+    args = p.parse_args()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", args.content_run_id):
+        p.error("invalid content run ID")
+    for name in ("mission", "output_dir", "shell_root", "cache_root"):
+        setattr(args, name, getattr(args, name).resolve())
+    source_bytes = args.mission.read_bytes()
+    raw = json.loads(source_bytes)
+    if raw.get("content_run_id", args.content_run_id) != args.content_run_id:
+        p.error("mission content run ID does not match the job")
+    mission_hash = hashlib.sha256(source_bytes).hexdigest()
+    with build_job(args.output_dir, args.cache_root, args.content_run_id, mission_hash) as job:
+        return _build(args, job)
 
 
 if __name__ == "__main__":

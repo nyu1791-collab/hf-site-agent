@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, base64, gzip, hashlib, json, os, re, subprocess, sys, urllib.parse, urllib.request
+import argparse, base64, gzip, hashlib, json, os, re, subprocess, sys, urllib.parse, urllib.request, wave
 from pathlib import Path
 
 try:
@@ -56,8 +56,9 @@ def discover_cast(engine:str):
 
 
 def duration(path:Path):
-    out=subprocess.check_output(["ffprobe","-v","error","-show_entries","format=duration","-of","default=nw=1:nk=1",str(path)],text=True)
-    return float(out.strip())
+    # These outputs are PCM WAV; avoid one ffprobe process per spoken turn.
+    with wave.open(str(path), "rb") as audio:
+        return audio.getnframes() / audio.getframerate()
 
 
 def caption_text_for_line(mission: dict, line: dict) -> tuple[str, str]:

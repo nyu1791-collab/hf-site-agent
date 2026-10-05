@@ -2,6 +2,16 @@ name: Build Gemini 4 Argon cloud video without external device
 
 on:
   workflow_dispatch:
+    inputs:
+      content_run_id:
+        description: Unique video job ID (reuse only to recover this same job)
+        required: true
+        type: string
+      mission:
+        description: Path to the fresh source-backed mission in this checkout
+        required: true
+        type: string
+        default: missions/media/20261005-gemini4-argon-cloud-v1.json
 
 permissions:
   contents: read
@@ -9,7 +19,7 @@ permissions:
 
 concurrency:
   group: gemini4-argon-cloud-video
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -18,8 +28,9 @@ jobs:
     env:
       OUT: artifacts/gemini4-argon-cloud
       CACHE: .media-cache/assets
-      VOICE_CACHE: .media-cache/voicevox-wav
-      MISSION: missions/media/20261005-gemini4-argon-cloud-v1.json
+      HF_VIDEO_CACHE_ROOT: /home/runner/.cache/hf-site-agent
+      MISSION: ${{ inputs.mission }}
+      CONTENT_RUN_ID: ${{ inputs.content_run_id }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -29,6 +40,17 @@ jobs:
       - name: Fail-fast static preflight
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          import os, re, json
+          from pathlib import Path
+          identity = os.environ['CONTENT_RUN_ID']
+          assert re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}', identity), 'invalid content_run_id'
+          mission_path = Path(os.environ['MISSION']).resolve()
+          assert mission_path.is_relative_to(Path.cwd()), 'mission path escapes checkout'
+          mission = json.loads(mission_path.read_text())
+          assert mission.get('content_run_id', identity) == identity, 'mission/job identity mismatch'
+          assert mission.get('scenes'), 'mission scenes required'
+          PY
           python3 -m py_compile             scripts/build_gemini4_argon_cloud_video.py             scripts/synthesize_longform_voicevox.py             scripts/render_reusable_landscape.py             scripts/validate_video_content_contract.py
           python3 -m json.tool "$MISSION" >/dev/null
           python3 -m json.tool config/approved_landscape_video_template.json >/dev/null
@@ -51,7 +73,7 @@ jobs:
         with:
           path: |
             .media-cache/assets
-            .media-cache/voicevox-wav
+            /home/runner/.cache/hf-site-agent/characters
           key: gemini4-landscape-v3-${{ runner.os }}-zm-shell-20230806
           restore-keys: |
             gemini4-landscape-v3-${{ runner.os }}-
@@ -70,7 +92,7 @@ jobs:
           import PIL
           print(PIL.__version__)
           PY
-          mkdir -p "$OUT" "$CACHE" "$VOICE_CACHE"
+          mkdir -p "$OUT" "$CACHE" "$HF_VIDEO_CACHE_ROOT"
 
       - name: Resolve Zundamon and Metan shell cache-first
         run: |
@@ -96,7 +118,7 @@ jobs:
           fi
           IMAGE=voicevox/voicevox_engine:cpu-ubuntu20.04-latest
           docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE"
-          docker run -d --name voicevox -p 50021:50021 "$IMAGE"
+          docker run -d --name voicevox -p 127.0.0.1:50021:50021 "$IMAGE"
           for i in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:50021/version >/dev/null; then
               curl -fsS http://127.0.0.1:50021/version
@@ -108,17 +130,18 @@ jobs:
           exit 1
 
       - name: Build Gemini 4 Argon longform through canonical one-pass renderer
-        env:
-          VOICEVOX_CACHE_DIR: .media-cache/voicevox-wav
         run: |
           set -euo pipefail
           SHELL_ROOT="$(cat "$OUT/character-shell-root.txt")"
-          /usr/bin/time -f 'WALL_SECONDS=%e'             python3 scripts/build_gemini4_argon_cloud_video.py               --mission "$MISSION"               --shell-root "$SHELL_ROOT"               --output-dir "$OUT"               --voicevox-url http://127.0.0.1:50021
+          python3 scripts/build_gemini4_argon_cloud_video.py \
+            --mission "$MISSION" --content-run-id "$CONTENT_RUN_ID" \
+            --shell-root "$SHELL_ROOT" --output-dir "$OUT" \
+            --voicevox-url http://127.0.0.1:50021
 
       - name: Minimum mechanical delivery gate
         run: |
           set -euo pipefail
-          FINAL="$OUT/Gemini4_Argon_10min_landscape.mp4"
+          FINAL="$OUT/Gemini4_Argon_landscape.mp4"
           test -s "$FINAL"
           ffprobe -v error -show_streams -show_format -of json "$FINAL" > "$OUT/ffprobe.json"
           python3 - <<'PY'
@@ -129,22 +152,24 @@ jobs:
           a=[x for x in d['streams'] if x['codec_type']=='audio']
           assert v and a
           dur=float(d['format']['duration'])
-          assert 420 <= dur <= 720, dur
+          assert dur > 0, dur
           assert int(v[0].get('width',0)) == 1280 and int(v[0].get('height',0)) == 720
           print({'status':'PASS','duration_seconds':dur,'video':v[0]['codec_name'],'audio':a[0]['codec_name']})
           PY
 
       - name: Upload finished MP4 and build report
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: gemini4-argon-10min-landscape-${{ github.run_id }}
+          name: gemini4-argon-landscape-${{ inputs.content_run_id }}-${{ github.run_id }}
           path: |
-            artifacts/gemini4-argon-cloud/Gemini4_Argon_10min_landscape.mp4
-            artifacts/gemini4-argon-cloud/Gemini4_Argon_10min_landscape.report.json
+            artifacts/gemini4-argon-cloud/Gemini4_Argon_landscape.mp4
+            artifacts/gemini4-argon-cloud/Gemini4_Argon_landscape.report.json
+            artifacts/gemini4-argon-cloud/STATE.json
             artifacts/gemini4-argon-cloud/completion.json
             artifacts/gemini4-argon-cloud/ffprobe.json
             artifacts/gemini4-argon-cloud/presentation.json
             artifacts/gemini4-argon-cloud/timing.json
-          if-no-files-found: warn
-          retention-days: 1
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
