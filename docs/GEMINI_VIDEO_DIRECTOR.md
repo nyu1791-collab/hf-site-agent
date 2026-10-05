@@ -47,3 +47,15 @@ gemini-video-research-package-v1 contains per-source summary, 3–5 takeaways, i
 ## Cost and safety
 
 The route uses the user's authorized Google Cloud project and ADC. It never auto-tops-up, never prints credentials, never commits tokens/API keys, and never changes the PR/publication boundary.
+
+## VM bootstrap
+
+The persistent GCP VM must not install `google-genai` into the system Python. Use:
+
+`scripts/install_gemini_video_director_runtime.sh`
+
+It creates/reuses `$HOME/.venvs/hf-site-agent-gemini-video` and installs the tested SDK version without upgrading the system interpreter.
+
+The VM service account needs `roles/aiplatform.user` on the Google Cloud project used for Gemini. Grant that role from an IAM-authorized user/admin context; the VM service account must not self-escalate. After IAM propagation, run the director with the venv Python.
+
+Provider/IAM failures are sanitized by the runtime and must not print credentials, access tokens, or provider response bodies.
