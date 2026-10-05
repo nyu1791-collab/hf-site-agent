@@ -24,6 +24,6 @@ Gemini 4の動画を新規制作する。Gemini 3.8 FlashはResearch・YouTube�
 
 ## 保持する制約
 
-GeminiのIAM・ADC・接続試験をやり直さない。ずんだもん・四国めたん、淡いミント・淡いピンク字幕、公式画像優先を維持する。生成画像は説明補完のNano Banana/Nano Banana Proのみ。main変更・PR #40 merge・公開・YouTube自動投稿は禁止。完成状態はREADY_TO_PUBLISH_INTERNAL_ONLY。PR #40はOPEN/DRAFT/UNMERGEDを維持する。
+GeminiのIAM・ADC・接続試験をやり直さない。ずんだもん・四国めたん、淡いミント・淡いピンク字幕、公式画像優先を維持する。生成画像は禁止。説明図は既存のローカル作図で新規作成できる。main変更・PR #40 merge・公開・YouTube自動投稿は禁止。完成状態はREADY_TO_PUBLISH_INTERNAL_ONLY。PR #40はOPEN/DRAFT/UNMERGEDを維持する。
 
 本書は運用方針を明記するものであり、キャッシュ分離のコード実装・VM配置・動画ジョブ起動完了を意味しない。
