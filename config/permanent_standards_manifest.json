@@ -166,6 +166,15 @@
       "priority": 1
     },
     {
+      "id": "gemini-video-director",
+      "machine_policy": "config/gemini_video_director_policy.json",
+      "human_doc": "docs/GEMINI_VIDEO_DIRECTOR.md",
+      "runtime": "scripts/gemini_video_director.py",
+      "validator": "tests/test_gemini_video_director.py",
+      "priority": 0,
+      "purpose": "FORMAL_GEMINI_3_8_FLASH_YOUTUBE_VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR_FOR_VIDEO_PRODUCTION"
+    },
+    {
       "id": "media-speed-quality",
       "machine_policy": "config/media_speed_quality_policy.json",
       "runtime": "scripts/media_speed_orchestrator.py",
@@ -468,7 +477,10 @@
     "media_speed_defaults_to_one_execution_lane": true,
     "media_speed_uses_at_most_two_independent_preparation_lanes": true,
     "media_speed_parallel_requires_expected_savings_seconds_at_least": 10,
-    "approved_landscape_video_template": "config/approved_landscape_video_template.json"
+    "approved_landscape_video_template": "config/approved_landscape_video_template.json",
+    "gemini_video_director_policy": "config/gemini_video_director_policy.json",
+    "gemini_video_director_runtime": "scripts/gemini_video_director.py",
+    "gemini_video_director_doc": "docs/GEMINI_VIDEO_DIRECTOR.md"
   },
   "monetization_command_gate": {
     "policy": "config/monetization_command_read_gate.json",
@@ -679,7 +691,9 @@
     "resident_news_deepseek_route_survives_tab_change": true,
     "existing_gcp_coordinator_is_runtime_target": true,
     "video_speed_engineering_rules_survive_tab_change": true,
-    "video_parallelism_defaults_to_one_lane": true
+    "video_parallelism_defaults_to_one_lane": true,
+    "gemini_video_director_survives_tab_change": true,
+    "gemini_youtube_understanding_is_video_production_capability": true
   },
   "failure_contract": {
     "schema": "schemas/agent_failure_event.schema.json",
