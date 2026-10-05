@@ -62,3 +62,11 @@ memory_guard Run37279409409は2026-10-05 07:44 UTCに成功。/hf-connectivity.s
 設定コードは7b3efb5ddbaa25355486dc89a33ca168c549b756、実機worktreeは/home/n_yu1791/hf-site-agent-runs/setup-20261005-fixed/code。既存/home/n_yu1791/hf-site-agentの未コミット変更・成果物は保持し、reset/checkoutで上書きしていない。
 
 動画ビルダーの子Python3箇所はsys.executableへ変更、content_run_id必須・同Job解析音声cache・480〜720秒のRender前尺検査・中立MP4名・入力SHA一致時だけ完成checkpoint再利用を実装した。Renderer本体は変更していない。これらはコード検証済みで、今回の新動画のMP4完成を意味しない。
+
+## 耐久研究ジョブの実機確認
+
+2026-10-05 08:11 UTC、scripts/durable_gemini_research.py（16b8f29e）で新content_run_id gemini4-argon-fresh-20261005-0807を登録し、user systemdのhf-research-gemini4-argon-fresh-20261005-0807.serviceをenable/start。08:15 UTCにRESEARCH_READY、source_count=3、cache_hits=0、synthesis_cache_hits=0、successful_requests=4を確認した。解析3本と統合1回は今回新規実行で、Geminiの接続試験ではない。
+
+STATEと成功cacheは~/.local/state/hf-site-agent/video-jobs/<content_run_id>/に保存。flockと入力SHAで同Jobを識別し、応答結果不明はUNKNOWN_RESULTで止め、自動再送しない。研究workerはMP4完成扱いにせずRESEARCH_READYで停止する。新台本を別の外部Runnerに渡す後続工程はCommanderが行うため、現状は全工程の自動連結までは未完了。
+
+新制作の外部経路はtransient branch run/gemini4-argon-fresh-20261005-0807のGitHub-hosted Actions。既存Renderer・キャラ型だけ再利用し、WAVは新規合成。端末が閉じても登録済みVM研究とActionsの実行は端末のforeground接続を必要としない。一般的なクラウド障害やVM停止を含む常時オンライン保証ではない。
