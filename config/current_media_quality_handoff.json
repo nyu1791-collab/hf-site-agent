@@ -94,6 +94,21 @@
       "official_primary_visual_when_available": true,
       "one_final_encode": true,
       "per_scene_h264_fast_path": false
+    },
+    "gemini_video_director": {
+      "status": "FORMAL_PRODUCTION_MEMBER",
+      "model": "gemini-3.8-flash",
+      "runtime": "scripts/gemini_video_director.py",
+      "role": "YOUTUBE_VIDEO_UNDERSTANDING_PLUS_RESEARCH_EDITORIAL_DIRECTOR",
+      "use_when": "CURRENT_OR_YOUTUBE_RELEVANT_VIDEO_AND_ADC_AVAILABLE",
+      "one_youtube_url_per_request": true,
+      "output_feeds": [
+        "MISSION_SCRIPT",
+        "VISUAL_SOURCE_PLAN",
+        "PRESENTATION_MANIFEST"
+      ],
+      "fallback": "CONTINUE_EXISTING_PIPELINE_IF_MATERIAL_FACTS_VERIFIED_ELSEWHERE",
+      "no_extra_review_pass": true
     }
   },
   "approved_reference": {
@@ -193,7 +208,9 @@
     "longform_template": "config/approved_landscape_video_template.json",
     "shortform_portrait_template": "config/approved_video_template.json",
     "playbook": "docs/VIDEO_PRODUCTION_BASELINE.md",
-    "speed_rules": "docs/VIDEO_SPEED_ENGINEERING_RULES.md"
+    "speed_rules": "docs/VIDEO_SPEED_ENGINEERING_RULES.md",
+    "gemini_video_director_policy": "config/gemini_video_director_policy.json",
+    "gemini_video_director_doc": "docs/GEMINI_VIDEO_DIRECTOR.md"
   },
   "latest_content_feedback": {
     "required_on_every_new_video_tab": true,
