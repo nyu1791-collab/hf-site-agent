@@ -33,6 +33,16 @@ Gemini does not replace source verification, rights clearance, VOICEVOX, FFmpeg,
 
 Machine authority: `config/gemini_video_director_policy.json`. Human guide: `docs/GEMINI_VIDEO_DIRECTOR.md`.
 
+## Gemini Video Director
+
+Gemini 3.8 Flash is part of video **creation**, not merely review. When the subject is current, has relevant official YouTube material, or benefits from a keynote/demo, run the Gemini Video Research & Editorial Director stage before mission/script lock when runtime access is available. It analyzes one YouTube URL per request, extracts important timestamps/demos, proposes 3–5 takeaways and Zundamon/Metan dialogue beats, and maps lines to useful source visuals. The structured package then feeds the normal mission and presentation path.
+
+Authority: `config/gemini_video_director_policy.json`  
+Runtime: `scripts/gemini_video_director.py`  
+Guide: `docs/GEMINI_VIDEO_DIRECTOR.md`
+
+Gemini does **not** replace VOICEVOX, rights gates, the shared landscape renderer, FFmpeg, or final machine checks. YouTube analysis is not reuse permission. Cache successful research packages and do not rerun them without a source/topic/model/prompt-version change.
+
 ## 2026-10-05 Speed engineering + measured review fixes
 
 Read `docs/VIDEO_SPEED_ENGINEERING_RULES.md` before routine video execution. The fast path is **sequential by default**. Use at most two preparation lanes, and only for genuinely independent preparation or I/O. Shared VOICEVOX, FFmpeg encoding, shared cache writers and final artifact writers stay single-lane. More workers are not treated as faster by default.
