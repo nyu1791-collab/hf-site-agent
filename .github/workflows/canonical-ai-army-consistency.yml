@@ -44,6 +44,10 @@ on:
       - 'config/video_creation_admission_policy.json'
       - 'config/media_command_read_gate.json'
       - 'config/media_speed_quality_policy.json'
+      - 'config/gemini_video_director_policy.json'
+      - 'scripts/gemini_video_director.py'
+      - 'docs/GEMINI_VIDEO_DIRECTOR.md'
+      - 'tests/test_gemini_video_director.py'
       - 'config/session_stream_resilience_policy.json'
       - 'config/media_automation_fast_path.json'
       - 'config/media_source_ingress_policy.json'
@@ -305,6 +309,7 @@ jobs:
             scripts/validate_video_caption_contract.py \
             scripts/validate_media_command_read_gate.py \
             scripts/media_speed_orchestrator.py \
+            scripts/gemini_video_director.py \
             scripts/validate_media_speed_quality.py \
             scripts/validate_zundamon_news60_template.py \
             scripts/render_static_speaker_color_longform.py \
@@ -378,6 +383,7 @@ jobs:
           python -m json.tool config/approved_landscape_video_template.json >/dev/null
           python -m json.tool config/media_command_read_gate.json >/dev/null
           python -m json.tool config/media_speed_quality_policy.json >/dev/null
+          python -m json.tool config/gemini_video_director_policy.json >/dev/null
           python -m json.tool config/session_stream_resilience_policy.json >/dev/null
           python -m json.tool config/media_automation_fast_path.json >/dev/null
           python -m json.tool config/media_source_ingress_policy.json >/dev/null
@@ -590,7 +596,8 @@ jobs:
             tests.test_media_parallel_framework_mission \
             tests.test_media_asset_resolver \
             tests.test_video_caption_contract \
-            tests.test_second_pass_governance -v
+            tests.test_second_pass_governance \
+            tests.test_gemini_video_director -v
 
       - name: Prove no paid call occurs in consistency CI
         run: |
