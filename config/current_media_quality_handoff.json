@@ -96,19 +96,16 @@
       "per_scene_h264_fast_path": false
     },
     "gemini_video_director": {
-      "status": "FORMAL_PRODUCTION_MEMBER",
+      "role": "VIDEO_RESEARCH_AND_EDITORIAL_DIRECTOR",
       "model": "gemini-3.8-flash",
       "runtime": "scripts/gemini_video_director.py",
-      "role": "YOUTUBE_VIDEO_UNDERSTANDING_PLUS_RESEARCH_EDITORIAL_DIRECTOR",
-      "use_when": "CURRENT_OR_YOUTUBE_RELEVANT_VIDEO_AND_ADC_AVAILABLE",
+      "youtube_strength": "NATIVE_VIDEO_UNDERSTANDING_WITH_TIMESTAMPS_AND_VISUAL_BEATS",
+      "participates_in_video_creation": true,
       "one_youtube_url_per_request": true,
-      "output_feeds": [
-        "MISSION_SCRIPT",
-        "VISUAL_SOURCE_PLAN",
-        "PRESENTATION_MANIFEST"
-      ],
-      "fallback": "CONTINUE_EXISTING_PIPELINE_IF_MATERIAL_FACTS_VERIFIED_ELSEWHERE",
-      "no_extra_review_pass": true
+      "multiple_video_strategy": "SEQUENTIAL_THEN_DETERMINISTIC_MERGE",
+      "cache_reuse_before_new_call": true,
+      "optional_review_pass": false,
+      "non_blocking_when_primary_facts_are_verified_elsewhere": true
     },
     "gemini_video_research_stage": "USE_FOR_CURRENT_OR_YOUTUBE_RELEVANT_VIDEO_WHEN_ADC_RUNTIME_AVAILABLE; CACHE_RESULT; ONE_URL_PER_REQUEST; NO_EXTRA_REVIEW_PASS"
   },
